@@ -1,0 +1,40 @@
+# ogent
+
+ogent is an experimental Emacs extension for building technical knowledge bases inside Org-mode. Think of it as a Cursor clone for Emacs where the Org buffer is simultaneously the agent panel and the reified plan document. It borrows prompting ergonomics from `gptel` and structural ideas from `org-roam`, but keeps the mental model of Org subtrees front and center so contributors can curate hierarchical context before sending it to a model.
+
+## Mission
+- Treat every Org subtree as an addressable, shareable block of technical knowledge.
+- Allow writers to compose prompts by referencing those blocks with an `@handle`.
+- Organize prompt context explicitly as Org hierarchies so contributors can reason about scope before querying a model.
+- Expand context beyond the current document by referencing other buffers, files, or folders, while keeping the final payload grounded in the subtree you are editing.
+- Translate the curated hierarchy into the full context for completions and clearly summarize what will be sent to the model.
+
+## Key Concepts
+- **Atomic subtrees**: Any subtree can declare an `OGENT_ID` or use the headline title as its handle. Within sibling or descendant headings, reference another subtree by typing `@handle`. ogent resolves the reference, injects its content into the prompt, and keeps backlinks so you can audit provenance.
+- **Context scoping**: Invoking `M-x ogent-request` collects the current heading, all ancestor headings, and any `@handle` dependencies into a structured payload. Handles can point to other buffers or Org-roam files, so the request can include folders that “fill out” missing knowledge while still rooting the prompt in the active subtree.
+- **Context summary**: Before dispatching, ogent renders a collapsible Org summary (e.g., `ogent-context-preview`) showing the headings, referenced files, and character counts being sent. Contributors can expand subtrees to audit what the model will see without having to read the entire payload.
+- **Prompt templates**: Users can store reusable AI instructions inside dedicated “Prompt” subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
+- **Agent panel mode**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output.
+
+## Prompt Capture & Formatting
+- **Command palette**: `C-c o p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke.
+- **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
+- **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
+- **Multi-model fan-out**: Selecting multiple providers fires asynchronous requests; each response streams into its own src block with a header showing the model name and latency, so you can compare answers side-by-side without blocking.
+- **Ergonomic review**: `C-c o n` cycles focus across pending completions, while `C-c o a` accepts the highlighted block and automatically removes transient metadata drawers.
+- **Context hydration**: The dispatcher remembers which external documents, folders, or handles you attached to the current subtree and offers a `C-c o c` toggle to reuse or clear that context when issuing follow-up prompts.
+
+## Planned Workflow
+1. Author Org content as usual, tagging reusable sections with unique `OGENT_ID`s.
+2. Reference needed sections inline (`The overview lives in @overview-block`) to shape the context hierarchy.
+3. Run `M-x ogent-request` (or `C-c o p`) to send the current tree plus referenced blocks—and any attached external documents—to the selected model(s) via `gptel`, reviewing the context summary before dispatch.
+4. Evaluate each src block (`C-c C-c`) or archive it as a `Notes` child (`C-c C-d`), then promote accepted knowledge into the permanent subtree structure.
+
+## AI & Knowledge Sources
+- **LLM backend**: ogent leans on `gptel`’s transport layer for streaming completions, credentials, and model selection.
+- **Graph awareness**: Inspired by `org-roam`, ogent can query a local Org-roam database to resolve `@handle`s across files, making long-lived knowledge bases available to every buffer.
+
+## Roadmap
+- Define minor-mode commands (`ogent-ask`, `ogent-open-block`, `ogent-resolve-handle`).
+- Provide unit tests using `ert` to ensure subtree resolution is deterministic.
+- Document a default prompt schema so contributors can extend ogent with new AI workflows.
