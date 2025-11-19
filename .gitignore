@@ -1,0 +1,20 @@
+# Compiled elisp and backups
+*.elc
+*~
+\#*\#
+/auto-save-list/
+/.dir-locals.el
+
+# macOS artifacts
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# direnv
+.envrc
+.direnv/
+
+# Build/test outputs
+/test-results/
+/coverage/
+
