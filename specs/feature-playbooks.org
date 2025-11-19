@@ -1,0 +1,22 @@
+#+title: ogent Feature Playbooks
+
+* Using This File
+Always review the relevant playbook before starting a feature. Each section links back to =specs/architecture.org= for shared constraints.
+
+* Prompt Dispatcher Enhancements
+- Confirm whether the change belongs in =lisp/ui/ogent-ui.el= (transient layout) or the core context pipeline.
+- Update =ogent-prompt-dispatch= buttons via dedicated functions (never inline lambdas) so they remain autoloadable.
+- Tests: extend =test/ui/ogent-ui-tests.el= with scenario coverage. Use =ogent-test-with-fixture= and assert buffer mutations.
+
+* Context Resolution Changes
+- Work inside =lisp/ogent-context.el= and add mirrored tests in =test/ogent-context-tests.el=.
+- Maintain plist contracts: =:root=, =:ancestors=, =:handles=, =:dependencies=.
+- Handle new metadata via property drawers—never parse raw text beyond =org-element= APIs.
+
+* Codemap Updates
+- Changes live in =lisp/ogent-codemap.el=; keep output strictly Org headings with file links.
+- Tests must assert both definition discovery and buffer mode.
+
+* Documentation & Specs
+- Store human-facing guides in =docs/=; architectural decisions stay here under =specs/=.
+- When adding a new feature, drop a short playbook entry describing where code, tests, and docs belong.
