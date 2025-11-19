@@ -9,6 +9,8 @@
 (require 'subr-x)
 (require 'org)
 
+(setq load-prefer-newer t)
+
 (defconst ogent-test-root
   (file-name-directory (or load-file-name buffer-file-name))
   "Absolute path to the ogent/test directory.")
@@ -21,6 +23,18 @@
 (add-to-list 'load-path (expand-file-name "lisp/ui" ogent-project-root))
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
+
+(unless (featurep 'gptel)
+  (provide 'gptel))
+
+(unless (fboundp 'gptel-with-preset)
+  (defmacro gptel-with-preset (_preset &rest body)
+    "Fallback macro for tests when gptel isn't installed."
+    `(progn ,@body)))
+
+(unless (fboundp 'gptel-request)
+  (defun gptel-request (_prompt &rest _args)
+    (error "gptel-request stub not overridden in tests")))
 
 (defun ogent-test-with-org-file (file fn)
   "Open FILE contents in a temporary Org buffer and run FN."

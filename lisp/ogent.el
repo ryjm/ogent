@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'ogent-context)
+(require 'ogent-models)
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-ui)
