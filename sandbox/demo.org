@@ -1,0 +1,17 @@
+* Ogent Demo Notebook
+:PROPERTIES:
+:OGENT_ID: demo-root
+:END:
+Walk through the core workflow:
+1. Tag reusable sections with ids.
+2. Reference handles like @prompts-library.
+3. Hit C-c o p to launch the dispatcher.
+
+** Context Seed
+:PROPERTIES:
+:OGENT_ID: context-seed
+:END:
+Describe the current task and link any supporting material.
+
+** Notes
+Keep scratch outputs here, use C-c o c to preview payloads.

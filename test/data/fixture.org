@@ -1,0 +1,20 @@
+* Root Overview
+:PROPERTIES:
+:OGENT_ID: overview-root
+:END:
+Context mentions @details-block and @deep-note for clarity.
+
+** Details Block
+:PROPERTIES:
+:OGENT_ID: details-block
+:END:
+This paragraph cites @appendix-note and also @missing-note.
+
+*** Deep Note
+Some nested context without explicit ids.
+
+* Appendix Note
+:PROPERTIES:
+:OGENT_ID: appendix-note
+:END:
+Final supporting text.

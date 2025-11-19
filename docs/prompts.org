@@ -1,0 +1,17 @@
+* Prompt Templates
+:PROPERTIES:
+:OGENT_ID: prompts-library
+:END:
+Reusable instructions you can attach via @prompts-library.
+
+** @bug-diagnosis
+:PROPERTIES:
+:OGENT_ID: bug-diagnosis
+:END:
+Clarify repro steps and add hypothesis-driven fixes.
+
+** @architecture-digest
+:PROPERTIES:
+:OGENT_ID: architecture-digest
+:END:
+Summarize module responsibilities and data flow implications.
