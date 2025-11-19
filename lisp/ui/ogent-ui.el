@@ -19,6 +19,13 @@
   :type 'string
   :group 'ogent-mode)
 
+(defun ogent-ui--set-response-function (symbol value)
+  "Setter for `ogent-response-function' that migrates legacy values."
+  (set-default symbol
+               (if (eq value #'ogent-ui-insert-response-block)
+                   #'ogent-ui-prepare-response-block
+                 value)))
+
 (defcustom ogent-response-function #'ogent-ui-prepare-response-block
   "Function that prepares an `ogent-ui-request' for streaming responses.
 The function receives PROMPT text, a CONTEXT plist from
@@ -27,6 +34,7 @@ The function receives PROMPT text, a CONTEXT plist from
 object that points at the buffer location where streamed output
 should be inserted."
   :type 'function
+  :set #'ogent-ui--set-response-function
   :group 'ogent-mode)
 
 (cl-defstruct ogent-ui-request
@@ -210,6 +218,8 @@ should be inserted."
   (call-interactively ogent-ui--prompt-transient))
 
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
+(defvar gptel-backend nil)
+(defvar gptel-model nil)
 
 (defun ogent-ui--ensure-gptel ()
   "Signal a user error if gptel is unavailable."
@@ -257,6 +267,10 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :buffer (current-buffer)
                    :marker (plist-get block :marker))))
     (ogent-ui-register-request request)))
+
+(when (and (boundp 'ogent-response-function)
+           (eq ogent-response-function #'ogent-ui-insert-response-block))
+  (setq ogent-response-function #'ogent-ui-prepare-response-block))
 
 (defun ogent-ui--append-response (request chunk)
   "Append CHUNK to REQUEST's response block."
@@ -314,9 +328,22 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
 (defun ogent-ui--resolve-backend (model)
   "Return the backend object for MODEL plist."
   (let ((backend (plist-get model :backend)))
-    (cond
-     ((and (symbolp backend) (boundp backend)) (symbol-value backend))
-     (t backend))))
+    (setq backend
+          (cond
+           ((functionp backend) (funcall backend))
+           ((stringp backend)
+            (let ((sym (intern (format "gptel-%s" backend))))
+              (or (and (boundp sym) (symbol-value sym))
+                  (ignore-errors (require sym nil 'noerror))
+                  backend)))
+           ((symbolp backend)
+            (unless (boundp backend)
+              (ignore-errors (require backend nil 'noerror)))
+            (if (boundp backend)
+                (symbol-value backend)
+              backend))
+           (t backend)))
+    backend))
 
 (defun ogent-ui--render-prompt (prompt context)
   "Render PROMPT and CONTEXT into the final text sent to gptel."
@@ -338,13 +365,19 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                                                (ogent-ui-request-context request)))
          (callback (ogent-ui--make-callback (ogent-ui-request-id request)))
          (backend (ogent-ui--resolve-backend model))
+         (model-id (plist-get model :id))
          (args (list :buffer (ogent-ui-request-buffer request)
-                     :backend backend
-                     :model (plist-get model :id)
                      :stream (plist-get model :stream?)
                      :callback callback)))
+    (when (and (fboundp 'gptel-backend-p)
+               (not (gptel-backend-p backend)))
+      (user-error
+       "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
+       (plist-get model :backend) model-id))
     (condition-case err
-        (let ((sender (lambda () (apply #'gptel-request prompt-text args))))
+        (let ((sender (lambda () (apply #'gptel-request prompt-text args)))
+              (gptel-backend backend)
+              (gptel-model model-id))
           (if-let ((preset (plist-get model :preset)))
               (if (fboundp 'gptel-with-preset)
                   (gptel-with-preset preset

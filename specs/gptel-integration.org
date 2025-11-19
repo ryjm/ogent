@@ -54,7 +54,14 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 - Simulate streaming by calling the stored callback with chunked strings and ensure ogent appends to the same src block.
 - Add regression tests ensuring preset application and error quoting behave as specified.
 
-* Next Steps
-1. Author =lisp/ogent-models.el= plus `test/ogent-models-tests.el` to codify the registry.
-2. Extend =ogent-ui= so dispatcher buttons map to registry entries and =ogent-request= pipes through gptel as outlined above.
-3. Add docs under =docs/= describing how to configure gptel backends and presets in an ogent workspace.
+* Current Status
+- Registry + dispatcher plumbing is live (see =lisp/ogent-models.el= and =ogent-ui-refresh-dispatch=).
+- Requests stream inside placeholder Org blocks and convert failures into `#+begin_quote ogent-error` annotations.
+- Tests stub =gptel-request= to assert argument shapes and streaming behavior (`test/ui/ogent-ui-tests.el`).
+
+* Remaining Work
+1. **Preset UX**: expose preset selection in the dispatcher and document how @preset cookies flow through `gptel--transform-apply-preset`.
+2. **FSM + status UI**: bubble up `gptel-send--handlers` signals (WAIT/TYPE/DONE/ERRS) into header-line or block metadata so users can see progress and latency per model.
+3. **Cancellation / retries**: provide commands that look up request IDs in =ogent-ui--request-table= and call the appropriate gptel abort helper.
+4. **Tool + reasoning blocks**: reuse `gptel-highlight-mode` and block types (`#+begin_tool`, `#+begin_reasoning`) so tool calls and reasoning streams appear inline with folding support.
+5. **Docs**: add a user-facing guide under =docs/= covering API keys, backend customization via =ogent-models.el=, and how to define organization-specific presets.
