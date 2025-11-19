@@ -1,0 +1,393 @@
+#+TITLE: gptel.el notes
+
+* High-level role of =gptel.el=
+
+=gptel.el= is the front-end / UI layer of gptel:
+
+- It defines the chat minor mode =gptel-mode= that works in =org-mode=, =markdown-mode=, and =text-mode=.
+- It integrates with the request engine in =gptel-request.el= via a finite state machine (FSM).
+- It provides visual/UI features: header-line, streaming status, highlighting, tool-call UI, and reasoning blocks.
+- It implements presets (named bundles of settings) and in-buffer =@preset= support.
+- It adds Org-specific behavior for links, block structure, and state persistence.
+
+The backend/networking logic lives mainly in =gptel-request.el= and backend-specific files; =gptel.el= is primarily what you’d reuse when embedding gptel into other packages.
+
+* Core modes and entry points
+
+** =gptel-mode= (minor mode)
+
+- Enabled in Org/Markdown/Text buffers.
+- Keymap: binds =C-c RET= to =gptel-send=.
+- On enable:
+  - Verifies major mode is supported.
+  - Adds =before-save-hook= → =gptel--save-state= (buffer-local).
+  - Adds =after-change-functions= → =gptel--inherit-stickiness= (keeps response text marked as gptel content).
+  - Enables link annotations:
+    - Org: =gptel-org--annotate-links= (via =jit-lock-register=).
+    - Markdown: =gptel-markdown--annotate-links=.
+  - Restores saved per-buffer chat state (=gptel--restore-state=).
+  - Configures header line or mode line using =gptel--header-line-info=.
+
+** =gptel= (command)
+
+Entry point for dedicated chat buffers.
+
+- Chooses/creates a buffer, sets major mode to =gptel-default-mode=
+  (Markdown if available, otherwise Text).
+- Ensures backend/model are sane via =gptel--sanitize-model=.
+- Enables =gptel-mode=.
+- Inserts the initial prompt prefix (or the active region).
+- Handles API key prompting based on the selected backend.
+
+** =gptel-send= (command, autoloaded)
+
+- Sends either the active region or buffer contents up to point.
+- Integration with the request engine:
+  - Creates an FSM via =gptel-make-fsm=.
+  - Calls =gptel-request= with
+    - =:stream gptel-stream=
+    - =:transforms gptel-prompt-transform-functions=
+    - =:fsm= the FSM instance.
+- With prefix arg, runs the transient menu (=gptel-menu=) instead of sending.
+
+For library use in other packages you typically either:
+
+- Call =gptel-send= in a prepared buffer (using buffer-local settings), or
+- Call =gptel-request= yourself (from =gptel-request.el=) and reuse the UI helpers from this file.
+
+** =gptel-highlight-mode= (minor mode)
+
+- Independent of =gptel-mode=.
+- Visually marks any region with text property =gptel=:
+  - Face highlighting (=gptel-response-highlight=).
+  - Margin or fringe markers (=gptel-response-fringe-highlight=),
+    controlled by =gptel-highlight-methods=.
+- Useful if your package inserts responses with =gptel= text properties
+  but does not use the full =gptel-mode= chat buffer UI.
+
+* Buffer model, text properties, and state
+
+** Text properties
+
+Responses and related regions are identified via the =gptel= text property:
+
+- =gptel= = =response=
+  - Marks LLM responses.
+  - Helpers:
+    - =gptel--get-response-bounds= → (beg . end) around point.
+    - =gptel--in-response-p= → non-nil if point is inside a response.
+- =gptel-history= property
+  - Stores previous variants of a response.
+  - Used by =gptel--at-response-history-p=, =gptel--attach-response-history=,
+    =gptel--previous-variant=, =gptel--next-variant=, and =gptel--ediff=.
+- Other values:
+  - =gptel= = ignore= (e.g. reasoning or tool blocks the model should ignore).
+  - =gptel= = (tool . id)= for tool result blocks.
+
+If you insert text yourself and give it these properties, both
+=gptel-highlight-mode= and the response-manipulation commands will work.
+
+** Saving and restoring chat state
+
+- =gptel--save-state= (hooked to =before-save-hook= in =gptel-mode= buffers):
+  - Non-Org:
+    - Writes file-local variables such as
+      - =gptel-model=
+      - =gptel--backend-name= (name string, not the backend object)
+      - =gptel--system-message=
+      - =gptel--tool-names=
+      - =gptel-temperature=, =gptel-max-tokens=
+      - =gptel--num-messages-to-send=
+      - =gptel--bounds= (all response region boundaries).
+  - Org:
+    - Delegates to =gptel-org--save-state=.
+  - Runs =gptel-save-state-hook= first so you can stash extra info.
+
+- =gptel--restore-state= (called when enabling =gptel-mode=):
+  - Non-Org:
+    - Reapplies text properties from =gptel--bounds=.
+    - Restores backend (=gptel-backend=) from =gptel--backend-name=.
+    - Rebuilds =gptel-tools= from =gptel--tool-names=.
+  - Org:
+    - Delegates to =gptel-org--restore-state=.
+
+Integration point:
+
+- If your package defines custom per-buffer parameters relevant to gptel,
+  use =gptel-save-state-hook= to write them as file-local vars, and restore
+  them when enabling =gptel-mode=.
+
+* Request lifecycle and FSM integration
+
+=gptel= uses a finite state machine (=gptel-fsm=) to track request progress.
+This file wires UI concerns into that FSM.
+
+** =gptel-send--handlers=
+
+- Maps FSM states to handlers:
+  - WAIT → =gptel--handle-wait= (in the request layer)
+    and =gptel--update-wait= (here).
+  - TYPE → =gptel--handle-pre-insert= (status + hooks).
+  - ERRS → =gptel--handle-error= and =gptel--fsm-last=.
+  - TOOL → =gptel--update-tool-call=,
+    =gptel--handle-tool-use= (in the request layer),
+    and =gptel--update-tool-ask=.
+  - DONE → =gptel--handle-post-insert= and =gptel--fsm-last=.
+  - ABRT → =gptel--handle-abort=.
+
+** Status and introspection helpers
+
+- =gptel--update-status=
+  - Updates header-line/mode-line messages
+    ("Waiting...", "Typing...", errors, etc.).
+  - Attaches a clickable button to inspect the FSM.
+
+- =gptel--inspect-fsm= / =gptel--inspect-query=
+  - Provide introspection UIs for requests:
+    - Show FSM info in a =*gptel-diagnostic*= buffer.
+    - Show the full request payload (Lisp or JSON) in =*gptel-query*=
+      and optionally resume or export as curl.
+
+Integration point:
+
+- If you call =gptel-request= yourself and want the usual gptel UI
+  behavior, construct an FSM with =gptel-send--handlers= like =gptel-send=
+  does, and pass that FSM into =gptel-request=.
+
+* Tool use UI (including Org-specific rendering)
+
+Tool-use mechanics live in the request layer; here is the UI side.
+
+** Tool call confirmation: =gptel--display-tool-calls=
+
+- Called when a model requests tools.
+- Two UI flows:
+  - Minibuffer: uses =map-y-or-n-p= to confirm individual calls.
+  - In-buffer overlays: inserts a prompt and lists tool calls after the
+    last response, with =gptel-tool-call-actions-map=:
+    - =C-c C-c= or mouse-1 → accept and run (=gptel--accept-tool-calls=).
+    - =C-c C-k= → cancel (=gptel--reject-tool-calls=).
+    - =C-c C-i= → inspect in the FSM log (=gptel--inspect-tool-calls=).
+
+** Tool previews: =gptel--tool-preview-alist=
+
+- Alist: tool-name string → (preview-setup [preview-teardown]).
+- =preview-setup= receives (arg-values info) and returns a handle
+  (overlay, buffer, etc.).
+- =preview-teardown= is called with that handle when the prompt is
+  dismissed and should clear the preview.
+
+** Tool results: =gptel--display-tool-results=
+
+- Inserts tool results into the chat buffer, with Org-aware formatting.
+
+- In Org buffers:
+  - Uses
+    - =#+begin_tool ...= / =#+end_tool=
+  - Includes a truncated call summary and
+    an embedded Lisp structure =(:name ... :args ...)=.
+  - Escapes the result via =org-escape-code-in-string=.
+  - Folds blocks using =org-cycle=.
+
+- In non-Org buffers:
+  - Uses =``` tool ... ```= fenced blocks.
+  - These fences are marked with =gptel 'ignore= so the model can
+    skip them if needed.
+
+Integration point:
+
+- In Org buffers, tool results are regular Org blocks, so your
+  package can parse =#+begin_tool= blocks and post-process them as
+  structured data.
+
+* Reasoning content UI (Org vs Markdown)
+
+Models that emit "reasoning" content get special treatment.
+
+** Non-streaming: =gptel--insert-response=
+
+- For responses of the form =(reasoning . TEXT)= when
+  =:include-reasoning= is set:
+  - In Org:
+    - Wraps reasoning in
+      - =#+begin_reasoning= / =#+end_reasoning= blocks.
+    - Folds them via =org-cycle=.
+  - In Markdown/Text:
+    - Wraps in =``` reasoning= fenced blocks.
+    - Folds with =gptel-markdown-cycle-block=.
+  - Depending on =:include-reasoning=, either:
+    - Marks reasoning as =gptel 'ignore=, or
+    - Includes it inline in the response.
+
+** Streaming: =gptel--display-reasoning-stream=
+
+- Similar behavior, but incremental:
+  - Starts a reasoning block once streaming begins.
+  - Closes it when a sentinel (=text = t=) is received.
+  - Folds the completed block.
+
+Integration point:
+
+- In Org, look for =#+begin_reasoning= / =#+end_reasoning= blocks.
+- In Markdown, look for =``` reasoning= fenced blocks plus =gptel 'ignore=
+  properties.
+- You can post-process these blocks if your package wants to present
+  reasoning separately.
+
+* Presets: configuration as data
+
+Presets are a major library-facing feature.
+
+** Defining presets: =gptel-make-preset=
+
+- Registers a named preset (NAME is a symbol) with a plist of settings.
+- Important keys:
+  - =:description=  → human-readable description.
+  - =:parents=      → inherit from other presets.
+  - =:pre=, =:post=  → hooks (functions) run around application.
+  - =:backend=      → a =gptel-backend= or its name.
+  - =:model=        → =gptel-model= symbol.
+  - =:system=       → system message or directive symbol.
+  - =:tools=        → list of tools or tool names.
+  - Any =:FOO= maps to =gptel-foo= or =gptel--foo= when such a variable
+    exists.
+- Values can be:
+  - Direct values.
+  - Plists with
+    - =:append= or =:prepend= to modify existing values.
+    - =:eval= FORM or =:function= FN for dynamic computation.
+  - =gptel--modify-value= implements these combination rules.
+
+** Applying presets: =gptel--apply-preset= and =gptel-with-preset=
+
+- =gptel--apply-preset= applies a preset (by name or spec plist) using a
+  given setter (defaults to =set=); can also apply buffer-locally.
+- =gptel-with-preset= is a macro:
+
+  #+begin_src emacs-lisp
+  (gptel-with-preset 'my-preset
+    (gptel-request ...))
+  #+end_src
+
+  It:
+  - Computes the =gptel-*=/=gptel--*= variables affected by the preset.
+  - Temporarily binds them to their current values.
+  - Applies the preset.
+  - Executes BODY.
+
+** Inline presets via =@name= in prompts
+
+- =gptel--transform-apply-preset= scans the last user prompt for
+  =@foo= tokens.
+- If =foo= matches a preset name, it:
+  - Deletes =@foo= from the prompt.
+  - Applies that preset buffer-locally via =gptel--apply-preset=.
+- =gptel--prettify-preset= and =gptel-preset-capf=:
+  - Fontify preset names in chat buffers.
+  - Provide completion-at-point for presets in =gptel-mode=.
+
+Integration point (library usage):
+
+- Define presets in your package using =gptel-make-preset= (e.g. code
+  review, documentation writer, web searcher, etc.).
+- Wrap your own commands in =gptel-with-preset= to reuse configuration
+  without requiring a chat buffer.
+- In Org/Markdown chat buffers, users can type =@your-preset= in their
+  prompt to activate your presets.
+
+* Org-mode integration details
+
+From the perspective of =gptel.el=, Org integration has three main aspects.
+
+** Mode-specific setup in =gptel-mode=
+
+- When enabling =gptel-mode= in an Org buffer:
+  - =(require 'gptel-org)=.
+  - Register =gptel-org--annotate-links= with the JIT font-lock engine.
+  - Work around an =org-fontify-extend-region= bug by adding
+    =font-lock-flush= to =gptel-post-response-functions=.
+
+** State persistence
+
+- For Org buffers, =gptel--save-state= and =gptel--restore-state= delegate
+  to:
+  - =gptel-org--save-state=
+  - =gptel-org--restore-state=
+
+- Higher-level Org features (implemented in =gptel-org.el= and mentioned
+  in the commentary of =gptel.el=):
+  - Topics: =gptel-org-set-topic= (alias =gptel-set-topic=) to restrict
+    context to a heading.
+  - Branching context: =gptel-org-branching-context= for per-outline-path
+    conversations.
+  - Org properties: =gptel-org-set-properties= to set
+    backend/model/system/temperature per heading.
+
+** Org-native blocks and links
+
+- Reasoning blocks:
+  - =#+begin_reasoning= / =#+end_reasoning=, folded with =org-cycle=.
+- Tool blocks:
+  - =#+begin_tool= / =#+end_tool=, escaped with
+    =org-escape-code-in-string= and folded via =org-cycle=.
+- Link/media integration:
+  - Org buffers use =gptel-org--annotate-links= and
+    =gptel--annotate-link= to mark which links/files will be sent when
+    =gptel-track-media= is enabled.
+
+Practical takeaway for Org-centric packages:
+
+- Use =gptel-org-set-topic= and Org properties to define LLM notebooks
+  per heading.
+- Rely on =#+begin_reasoning= and =#+begin_tool= blocks to inspect and
+  post-process model behavior.
+- Let =gptel-mode= handle link/media annotations; customize behavior by
+  advising =gptel-org--annotate-links= or related validators if needed.
+
+* Using =gptel.el= as a library from other packages
+
+Main integration points you’d typically use:
+
+** Modes and buffer setup
+
+- Enable =gptel-mode= in your own Org/Markdown/Text buffers to turn them
+  into chat notebooks.
+- Or keep your own major mode but:
+  - Call =gptel-request= directly.
+  - Mark responses with =gptel= text properties and enable
+    =gptel-highlight-mode= for visualization.
+
+** Hooks and customization
+
+- =gptel-save-state-hook= to store extra metadata into the buffer before
+  save.
+- =gptel-refresh-buffer-hook= to refresh your own UI when
+  model/backend/tools/context change.
+- =gptel-post-response-functions= and =gptel-post-stream-hook= (see
+  request layer) to run code after responses or streaming chunks land.
+
+** Presets
+
+- =gptel-make-preset= to define global presets from your package.
+- =gptel-with-preset= to wrap your custom commands.
+- Optionally, encourage users to use =@preset= cookies in Org/Markdown
+  chat buffers.
+
+** Tool integration
+
+- Provide tools via =gptel-make-tool= (outside this file) and optionally:
+  - Add preview handlers in =gptel--tool-preview-alist=.
+- Post-process tool blocks in Org (=#+begin_tool=) or Markdown fenced
+  blocks.
+
+** Org-specific features
+
+- Call =gptel-org-set-topic= from your Org extension to bind chat context
+  to the current heading.
+- Use Org block types (reasoning, tool) as structured data for export or
+  analysis.
+
+This file serves as an overview of how =gptel.el= organizes its UI and how
+other Emacs packages can integrate with it, with a particular emphasis on
+Org-mode behavior and integration points.
+

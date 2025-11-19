@@ -15,6 +15,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Context summary**: Before dispatching, ogent renders a collapsible Org summary (e.g., `ogent-context-preview`) showing the headings, referenced files, and character counts being sent. Contributors can expand subtrees to audit what the model will see without having to read the entire payload.
 - **Prompt templates**: Users can store reusable AI instructions inside dedicated “Prompt” subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
 - **Agent panel mode**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output.
+- **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c o m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c o p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke.
@@ -23,6 +24,12 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Multi-model fan-out**: Selecting multiple providers fires asynchronous requests; each response streams into its own src block with a header showing the model name and latency, so you can compare answers side-by-side without blocking.
 - **Ergonomic review**: `C-c o n` cycles focus across pending completions, while `C-c o a` accepts the highlighted block and automatically removes transient metadata drawers.
 - **Context hydration**: The dispatcher remembers which external documents, folders, or handles you attached to the current subtree and offers a `C-c o c` toggle to reuse or clear that context when issuing follow-up prompts.
+
+## Codemap Overview
+- `M-x ogent-codemap-buffer` (bound to `C-c o m`) analyzes the repository or selected folders, extracts public definitions, and emits an Org subtree titled “Codemap”. Each entry includes inline links such as `[[file:lisp/ogent-context.el::ogent-context-build][Context Builder]]` so you can jump straight to the code.
+- Codemaps update incrementally: rerun the command to refresh sections impacted by recent changes while preserving manual annotations.
+- The codemap subtree doubles as a navigational aid and a prompt attachment—mark it with an `OGENT_ID` (`OGENT_ID: codemap-core`) and reference it via `@codemap-core` whenever you want the model to understand the project layout.
+- Inspired by Windsurf’s codemaps, ogent surfaces data-flow descriptions (“`ogent-prompt-dispatch -> ogent-context-build -> gptel-send`”) directly under each bullet, so the map reads like an architecture digest next to your agent transcript.
 
 ## Planned Workflow
 1. Author Org content as usual, tagging reusable sections with unique `OGENT_ID`s.

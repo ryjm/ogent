@@ -1,0 +1,60 @@
+#+title: ogent gptel Integration Plan
+
+* Purpose
+Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] whenever you touch transport code. It explains how ogent will sit on top of gptel’s UI/request stack.
+
+* Alignment with gptel Architecture
+- =gptel.el= supplies the chat UX (minor modes, presets, rendering). ogent reuses the request layer and selected UI helpers rather than reimplementing them.
+- Networking lives in =gptel-request.el=; we call =gptel-request= directly so we can run inside Org buffers we already control.
+- When we need full chat affordances (reasoning blocks, tool calls), toggle =gptel-highlight-mode= or import portions of =gptel-mode= behavior instead of duplicating text-property logic.
+- Presets and @handle cookies are managed through =gptel-make-preset= / =gptel-with-preset= so ogent users can reuse existing gptel workflows.
+
+* Core Responsibilities
+- gptel: authentication, backend adapters, streaming finite-state machine, presets.
+- ogent: Org subtree curation, explicit context previews, src block lifecycle, codemap and planning features.
+- Every =ogent-request= invocation must marshal context into one or more =gptel-request= calls; no direct HTTP clients inside ogent.
+
+* Model Abstraction
+- Define a registry in =lisp/ogent-models.el= with entries:
+  - =:id= → display/model string (="gpt-4o"=, ="claude-3.5"=, etc.).
+  - =:backend= → the =gptel-backend= symbol (e.g. =gptel-openai=, =gptel-anthropic=).
+  - =:preset= (optional) → symbol passed to =gptel-with-preset=.
+  - =:stream?= → non-nil if =gptel-stream= should be enabled.
+- UI code (`ogent-prompt-dispatch`) reads this registry to populate toggle buttons and surface backend metadata.
+
+* Request Flow
+1. User triggers =ogent-request= → gather subtree context via =ogent-context-build=.
+2. Build the final prompt (current subtree + attached handles + optional preset instructions).
+3. For each selected model:
+   - Bind backend defaults via =gptel-with-preset= if =:preset= exists.
+   - Call =gptel-request= with:
+     - =:prompt= → rendered prompt text.
+     - =:stream gptel-stream= when =:stream?= is true so we can accumulate chunks.
+     - =:callback= → ogent wrapper that forwards text through =ogent-response-function=.
+     - =:fsm= → optionally reuse =gptel-send--handlers= if we want stock status updates.
+   - Tag responses with `gptel` text properties so =gptel-highlight-mode= can decorate them if enabled.
+4. When a model finishes, finalize the src block header (model id, latency, backend) and run =ogent-after-request-hook=.
+
+* Error Handling
+- Wrap each =gptel-request= in =condition-case=; capture `gptel-error` and general network failures.
+- On failure, insert a =#+begin_quote ogent-error= block containing the message plus the serialized context excerpt.
+- Emit structured events to =ogent-after-request-hook= so callers can log or retry.
+
+* Async & Streaming
+- Maintain a request table keyed by (buffer-id . model-id) so streaming callbacks append to the correct block.
+- Use =gptel-post-stream-hook= to detect completion and close src blocks.
+- For multi-model fan-out, start all requests concurrently and annotate each block header with `[model | backend | status]` using timestamps from =gptel--update-status= when available.
+
+* Presets & @handles
+- Encourage users to reference gptel presets via @preset tokens; before dispatch, run =gptel--transform-apply-preset= on the prompt so gptel’s inline preset logic applies consistently.
+- For project-level defaults, ship ogent-flavored presets (e.g. `ogent-code-review`) registered via =gptel-make-preset= and expose them in the dispatcher.
+
+* Testing Strategy
+- Stub =gptel-request= inside tests using =cl-letf= to assert argument shape (prompt text, backend, stream flag).
+- Simulate streaming by calling the stored callback with chunked strings and ensure ogent appends to the same src block.
+- Add regression tests ensuring preset application and error quoting behave as specified.
+
+* Next Steps
+1. Author =lisp/ogent-models.el= plus `test/ogent-models-tests.el` to codify the registry.
+2. Extend =ogent-ui= so dispatcher buttons map to registry entries and =ogent-request= pipes through gptel as outlined above.
+3. Add docs under =docs/= describing how to configure gptel backends and presets in an ogent workspace.
