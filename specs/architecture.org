@@ -1,0 +1,29 @@
+#+title: ogent Architectural Constraints
+
+* Rule of Engagement
+- Treat this file as required context before building any feature.
+- Emacs Lisp modules must stay under =lisp/=, UI helpers under =lisp/ui/=, docs under =docs/=, specs here.
+- Every new command exported to users needs an =ogent-= prefix and an associated test in =test/= mirroring the namespace.
+
+* Minor Mode Contract
+- =ogent-mode= owns the =C-c o= prefix; do not bind global keys directly.
+- Autoload interactive entrypoints so Doom packaging can lazily load.
+- Keep state local to buffers: use buffer-local variables or plists on Org properties.
+
+* Context Pipeline
+1. Resolve the current subtree via =ogent-context-build=.
+2. Collect ancestor headings, handles, and dependency plists.
+3. Pass the plist unchanged into the UI layer; presentation code must not mutate nodes.
+4. All model dispatchers must call =ogent-response-function= exactly once per request so hooks fire reliably.
+
+* Codemap & Discovery
+- Codemap output => Org subtree under a dedicated buffer to keep navigation consistent.
+- When adding new namespaces, update =ogent-codemap-source-directories= and write tests proving definitions are discovered.
+
+* Testing Expectations
+- Use =ogent-test-with-fixture= when Org buffers are involved.
+- For UI commands, assert both structural changes (e.g., src block insertion) and guard-rail behavior (model toggles, preview buffer creation).
+- Always run =make test= and =make lint= before committing.
+
+* Extending Specs
+If a feature introduces new architectural rules, add a child heading here or create another file under =specs/= and cross-link it.

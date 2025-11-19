@@ -1,0 +1,51 @@
+#+title: ogent Installation Guide
+
+* Requirements
+- Emacs 29.1 or newer with Org-mode
+- [[https://github.com/karthink/gptel][gptel]] for transport and model selection
+- Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
+- A configured LLM API key exposed via =direnv= or environment variables
+
+* Install
+1. Clone the repository:
+   #+begin_src shell
+   git clone https://github.com/<you>/ogent.git
+   cd ogent
+   #+end_src
+2. Ensure dependencies compile cleanly:
+   #+begin_src shell
+   make lint
+   make test
+   #+end_src
+3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:  
+   #+begin_src emacs-lisp
+   (add-to-list 'load-path (expand-file-name "lisp" "/path/to/ogent"))
+   (add-to-list 'load-path (expand-file-name "lisp/ui" "/path/to/ogent"))
+   (require 'ogent)
+   #+end_src
+
+* Configuration
+** Vanilla Emacs
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'ogent-mode)
+(setq ogent-default-model "gpt-4o-mini")
+#+end_src
+
+** Doom Emacs
+#+begin_src emacs-lisp
+(package! ogent :recipe (:local-repo "/path/to/ogent"))
+(use-package! ogent
+  :after org
+  :config
+  (map! :leader :desc "Ogent Prompt" "o p" #'ogent-prompt-dispatch)
+  (ogent-global-mode 1))
+#+end_src
+
+* Usage
+- Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
+- Press =C-c o p= to open the dispatcher, pick models, and send the current subtree.
+- Use =C-c o c= for a context preview and =C-c o m= to inspect the codemap.
+- To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
+
+* Updating
+Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.
