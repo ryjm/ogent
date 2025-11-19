@@ -25,9 +25,12 @@
      (org-back-to-heading t)
      (let ((captured nil)
            (ogent-ui--selected-models '("gpt-4o-mini")))
-       (cl-letf (((symbol-function 'gptel-request)
-                  (lambda (prompt &rest args)
-                    (setq captured (list :prompt prompt :args args))
+        (cl-letf (((symbol-function 'gptel-request)
+                   (lambda (prompt &rest args)
+                     (setq captured (list :prompt prompt
+                                          :args args
+                                          :backend gptel-backend
+                                          :model gptel-model))
                     (when-let ((callback (plist-get args :callback)))
                       (funcall callback "Hello world" nil)
                       (funcall callback nil '(:done t)))
@@ -35,8 +38,8 @@
          (ogent-request "Test prompt" '("gpt-4o-mini"))
          (should (string-match-p "Test prompt"
                                  (plist-get captured :prompt)))
-         (should (equal (plist-get (plist-get captured :args) :model)
-                        "gpt-4o-mini"))
+         (should (eq (plist-get captured :backend) 'gptel-openai))
+         (should (equal (plist-get captured :model) "gpt-4o-mini"))
          (save-excursion
            (goto-char (point-min))
            (search-forward "#+begin_src text :model gpt-4o-mini")
