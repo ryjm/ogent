@@ -7,6 +7,7 @@
 
 (require 'ogent-context)
 (require 'ogent-models)
+(require 'ogent-companion)
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-ui)

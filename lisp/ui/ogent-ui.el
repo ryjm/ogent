@@ -13,10 +13,23 @@
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-models)
+(require 'ogent-companion)
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
 (declare-function ogent-preset-get "ogent-models")
+
+(defun ogent-ui--ensure-companion-context ()
+  "Ensure we're in an Org buffer, creating a companion if needed.
+When invoked from a non-Org buffer, get or create the companion Org buffer
+and display it.  Returns the companion (or current) Org buffer."
+  (if (derived-mode-p 'org-mode)
+      (current-buffer)
+    (let ((companion (ogent-companion-get-or-create)))
+      ;; Display the companion buffer so user can see the transcript
+      (unless (get-buffer-window companion)
+        (display-buffer companion))
+      companion)))
 
 (defcustom ogent-context-preview-buffer-name "*ogent-context*"
   "Buffer used to display the context summary."
@@ -157,15 +170,18 @@ Used for retry functionality.")
 
 ;;;###autoload
 (defun ogent-context-preview ()
-  "Render the current subtree context into a preview buffer."
+  "Render the current subtree context into a preview buffer.
+When invoked from a non-Org buffer, uses the companion Org buffer's context."
   (interactive)
-  (let* ((context (ogent-context-build))
-         (summary (ogent-ui--format-context context))
-         (buffer (ogent-ui--context-buffer)))
-    (with-current-buffer buffer
-      (insert summary)
-      (goto-char (point-min)))
-    (display-buffer buffer)))
+  (let ((companion (ogent-ui--ensure-companion-context)))
+    (with-current-buffer companion
+      (let* ((context (ogent-context-build))
+             (summary (ogent-ui--format-context context))
+             (buffer (ogent-ui--context-buffer)))
+        (with-current-buffer buffer
+          (insert summary)
+          (goto-char (point-min)))
+        (display-buffer buffer)))))
 
 (defun ogent-ui--backend-label (backend)
   "Return a string label describing BACKEND."
@@ -254,11 +270,14 @@ Used for retry functionality.")
 
 ;;;###autoload
 (defun ogent-prompt-dispatch ()
-  "Prompt dispatcher for ogent requests."
+  "Prompt dispatcher for ogent requests.
+When invoked from a non-Org buffer, creates and displays a companion Org buffer."
   (interactive)
-  (unless ogent-ui--prompt-transient
-    (ogent-ui-refresh-dispatch))
-  (call-interactively ogent-ui--prompt-transient))
+  (let ((companion (ogent-ui--ensure-companion-context)))
+    (with-current-buffer companion
+      (unless ogent-ui--prompt-transient
+        (ogent-ui-refresh-dispatch))
+      (call-interactively ogent-ui--prompt-transient))))
 
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
 (defvar gptel-backend nil)
@@ -536,24 +555,29 @@ Preset priority: request preset > model preset."
 When PROMPT or MODELS are nil, prompt the user and fall back to the
 selected models from the dispatcher.
 PRESET overrides any dispatcher or model preset.  If PROMPT contains
-@preset cookies, they are extracted and applied (first cookie wins)."
+@preset cookies, they are extracted and applied (first cookie wins).
+
+When invoked from a non-Org buffer, automatically creates and displays
+a companion Org buffer to hold the request/response transcript."
   (interactive)
-  (let* ((raw-prompt (or prompt (ogent-ui--read-prompt)))
+  (let* ((companion (ogent-ui--ensure-companion-context))
+         (raw-prompt (or prompt (ogent-ui--read-prompt)))
          (extracted (ogent-ui--extract-preset-cookies raw-prompt))
          (clean-prompt (car extracted))
          (cookie-presets (cdr extracted))
          (effective-preset (or preset
                                (car cookie-presets)
-                               ogent-ui--selected-preset))
-         (context (ogent-context-build))
-         (model-ids (or models (ogent-ui--current-models))))
-    (dolist (model-id model-ids)
-      (let* ((model (ogent-models-ensure model-id))
-             (request (funcall ogent-response-function clean-prompt context model)))
-        (unless (ogent-ui-request-p request)
-          (user-error "ogent-response-function must return an `ogent-ui-request'"))
-        (setf (ogent-ui-request-preset request) effective-preset)
-        (ogent-ui--send-request request)))))
+                               ogent-ui--selected-preset)))
+    (with-current-buffer companion
+      (let* ((context (ogent-context-build))
+             (model-ids (or models (ogent-ui--current-models))))
+        (dolist (model-id model-ids)
+          (let* ((model (ogent-models-ensure model-id))
+                 (request (funcall ogent-response-function clean-prompt context model)))
+            (unless (ogent-ui-request-p request)
+              (user-error "ogent-response-function must return an `ogent-ui-request'"))
+            (setf (ogent-ui-request-preset request) effective-preset)
+            (ogent-ui--send-request request)))))))
 
 ;;; Tool and Reasoning Block Support
 
