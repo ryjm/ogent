@@ -25,5 +25,23 @@
 - For UI commands, assert both structural changes (e.g., src block insertion) and guard-rail behavior (model toggles, preview buffer creation).
 - Always run =make test= and =make lint= before committing.
 
+* Model Registry & Transport
+- Declare every provider in =lisp/ogent-models.el=. Each entry must include =:id=, =:backend=, and =:stream?=. Optional keys (=:preset=, =:description=) feed the UI and docs.
+- `ogent-prompt-dispatch` is generated from the registry. Never hard-code model buttons; call =ogent-ui-refresh-dispatch= after changing the registry so tests see the new toggle set.
+- All transport code is expected to go through gptel (see [[file:gptel/overview.org][gptel overview]] and [[file:gptel-integration.org][integration plan]]). No direct HTTP clients inside ogent.
+- Keep =ogent-model-registry= and =ogent-gptel-required-features= in sync so `ogent-ui--ensure-gptel` can `require` the right backend feature before streaming.
+
+* Streaming & Error Handling
+- `ogent-response-function` must return an =ogent-ui-request= struct. The UI layer is responsible for inserting placeholder Org blocks before gptel fires.
+- Streaming callbacks append to the existing block and close it by writing =#+end_src= when gptel signals done/abort. Errors must produce a =#+begin_quote ogent-error= block without deleting prior context.
+- Maintain the request table (=ogent-ui--request-table=) so cancellation/resume features can target active streams.
+- Hooks (`ogent-after-request-hook`) are run exactly once per request—after blocks close successfully or with error annotations.
+
+* Buffer Linking Outside Org-mode
+- Invoking ogent from a non-Org major mode must establish (or reuse) a companion Org buffer that holds the request/response transcript. By default, create a temp Org buffer named after the source buffer (e.g., `*ogent:<file>*`) and store the link in buffer-local metadata so follow-up commands reuse the same companion.
+- Users can override the companion by selecting an existing Org buffer (prompt or config). Once linked, ogent commands route context reads to the originating buffer and writes/streamed responses to the Org companion.
+- All editing actions must respect the active context: code buffers receive inline diffs/patches when the user asks for edits, while the Org companion records prompts, context summaries, and streamed completions. Keep the two buffers synchronized via markers so navigation commands (e.g., jump to last response) work regardless of where ogent was invoked.
+- Ensure the linking metadata survives buffer reloads (e.g., via buffer-local vars saved in file-local settings) and expose a command to rebind the companion Org buffer when users switch workflows.
+
 * Extending Specs
 If a feature introduces new architectural rules, add a child heading here or create another file under =specs/= and cross-link it.

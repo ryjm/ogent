@@ -8,13 +8,14 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - Organize prompt context explicitly as Org hierarchies so contributors can reason about scope before querying a model.
 - Expand context beyond the current document by referencing other buffers, files, or folders, while keeping the final payload grounded in the subtree you are editing.
 - Translate the curated hierarchy into the full context for completions and clearly summarize what will be sent to the model.
+- Every buffer in which we invoke `ogent` should either be in `org-mode` or linked to a corresponding `org-mode` buffer. Again, think of the `org-mode` buffer `ogent` is operating in as both the agent panel and plan document ala Cursor. 
 
 ## Key Concepts
 - **Atomic subtrees**: Any subtree can declare an `OGENT_ID` or use the headline title as its handle. Within sibling or descendant headings, reference another subtree by typing `@handle`. ogent resolves the reference, injects its content into the prompt, and keeps backlinks so you can audit provenance.
 - **Context scoping**: Invoking `M-x ogent-request` collects the current heading, all ancestor headings, and any `@handle` dependencies into a structured payload. Handles can point to other buffers or Org-roam files, so the request can include folders that “fill out” missing knowledge while still rooting the prompt in the active subtree.
 - **Context summary**: Before dispatching, ogent renders a collapsible Org summary (e.g., `ogent-context-preview`) showing the headings, referenced files, and character counts being sent. Contributors can expand subtrees to audit what the model will see without having to read the entire payload.
 - **Prompt templates**: Users can store reusable AI instructions inside dedicated “Prompt” subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
-- **Agent panel mode**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output.
+- **Native Agent**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output. This is the most important concept of `ogent` - it should act as a homunculus that can be instantiated at any point in your Emacs workflow. 
 - **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c o m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
 - **Model registry**: `lisp/ogent-models.el` lists every supported gptel backend (id, preset, stream support). The dispatcher and transport stack look up this registry so adding a provider is a data change plus tests, not a UI surgery.
 
@@ -46,6 +47,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - Dynamic dispatcher buttons are generated from `ogent-models.el`, so contributors can define additional providers without editing UI code.
 - `ogent-request` now streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
 - Specs live under `specs/gptel/` (`overview.org`, `gptel-integration.org`) and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
+- `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
 - Remaining tasks (tracked in docs and roadmap):
   - Surface gptel’s FSM status/latency inside the Org buffer header line.
   - Wire gptel highlight + tool-call UI so reasoning/tool blocks render inline.

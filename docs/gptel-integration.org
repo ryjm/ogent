@@ -1,0 +1,243 @@
+#+title: gptel Integration Guide
+
+* Overview
+
+ogent uses gptel as its transport layer for communicating with LLM backends. This guide covers:
+
+- Setting up API keys for different providers
+- Configuring backends in the model registry
+- Defining and using presets
+- Using @preset cookies in prompts
+
+* API Key Setup
+
+ogent inherits authentication from gptel. Set up your API keys before using ogent:
+
+** OpenAI
+
+#+begin_src emacs-lisp
+;; Option 1: Environment variable (recommended)
+;; Set OPENAI_API_KEY in your shell environment
+
+;; Option 2: auth-source (~/.authinfo or ~/.authinfo.gpg)
+;; machine api.openai.com login apikey password sk-...
+
+;; Option 3: Direct configuration (not recommended for shared configs)
+(setq gptel-api-key "sk-...")
+#+end_src
+
+** Anthropic
+
+#+begin_src emacs-lisp
+;; Environment variable
+;; Set ANTHROPIC_API_KEY in your shell environment
+
+;; Or auth-source
+;; machine api.anthropic.com login apikey password sk-ant-...
+#+end_src
+
+** Other Providers
+
+gptel supports many backends. See [[https://github.com/karthink/gptel#backends][gptel documentation]] for provider-specific setup.
+
+* Model Registry
+
+ogent maintains a registry of available models in =ogent-model-registry=. Each entry is a plist:
+
+#+begin_src emacs-lisp
+(setq ogent-model-registry
+      '((:id "gpt-4o-mini"
+         :backend gptel-openai
+         :stream? t
+         :description "OpenAI GPT-4o mini - fast and cheap")
+        (:id "gpt-4o"
+         :backend gptel-openai
+         :stream? t
+         :description "OpenAI GPT-4o - best quality")
+        (:id "claude-3.5"
+         :backend gptel-anthropic
+         :stream? t
+         :preset code-expert
+         :description "Anthropic Claude 3.5")))
+#+end_src
+
+** Required Fields
+
+- =:id= - The model identifier string sent to the API
+- =:backend= - Symbol naming the gptel backend (e.g., =gptel-openai=, =gptel-anthropic=)
+- =:stream?= - Whether to use streaming responses
+
+** Optional Fields
+
+- =:preset= - Default preset to apply for this model
+- =:description= - Human-readable description shown in UI
+
+** Adding Custom Models
+
+Add entries to the registry for models not in the defaults:
+
+#+begin_src emacs-lisp
+(add-to-list 'ogent-model-registry
+             '(:id "llama-3.1-70b"
+               :backend gptel-ollama
+               :stream? t
+               :description "Local Llama 3.1 70B"))
+#+end_src
+
+After modifying the registry, refresh the dispatcher:
+
+#+begin_src emacs-lisp
+(ogent-ui-refresh-dispatch)
+#+end_src
+
+* Presets
+
+Presets bundle common settings (system messages, parameters, tools) into reusable configurations.
+
+** Defining ogent Presets
+
+Register presets in =ogent-preset-registry=:
+
+#+begin_src emacs-lisp
+(setq ogent-preset-registry
+      '((:name code-review
+         :spec (:description "Code review assistant"
+                :system "You are a code reviewer. Focus on bugs, security issues, and maintainability.")
+         :description "Code review mode")
+        (:name summarize
+         :spec (:description "Summarization mode"
+                :system "Summarize the provided content concisely.")
+         :description "Quick summarization")))
+#+end_src
+
+ogent registers these with gptel on first use via =ogent-register-presets=.
+
+** Using Presets
+
+*** From the Dispatcher
+
+1. Run =M-x ogent-prompt-dispatch= (or =C-c o p=)
+2. Select a preset from the Presets section
+3. Send your request with RET
+
+*** With @preset Cookies
+
+Include =@preset-name= anywhere in your prompt:
+
+#+begin_example
+Review this function @code-review and suggest improvements
+#+end_example
+
+The cookie is stripped from the final prompt, and the preset is applied automatically.
+
+*** Programmatic Use
+
+#+begin_src emacs-lisp
+(ogent-request "Review this code" '("gpt-4o") 'code-review)
+#+end_src
+
+** Preset Priority
+
+When multiple presets could apply, ogent uses this priority:
+
+1. Explicit preset argument to =ogent-request=
+2. First @preset cookie found in prompt
+3. Preset selected in dispatcher (=ogent-ui--selected-preset=)
+4. Model's =:preset= field from registry
+
+* Request Lifecycle
+
+** Dispatching Requests
+
+1. =ogent-prompt-dispatch= (=C-c o p=) - Opens the transient menu
+2. Select models (1-9 keys toggle models)
+3. Optionally select a preset
+4. Press RET to send the request
+
+** Monitoring Progress
+
+Response blocks show status in their header:
+
+#+begin_example
+#+begin_src text :model gpt-4o :backend gptel-openai :status typing
+#+end_example
+
+Status values:
+- =waiting= - Request sent, awaiting response
+- =typing= - Receiving streaming content
+- =done= - Request completed successfully
+- =error= - Request failed
+
+On completion, latency is added:
+
+#+begin_example
+#+begin_src text :model gpt-4o :status done :latency 2.3s
+#+end_example
+
+** Cancellation and Retry
+
+- =C-c o a= (=ogent-abort-request=) - Abort active request(s)
+- =C-u C-c o a= - Abort all active requests
+- =C-c o R= (=ogent-retry-request=) - Retry a completed/failed request
+
+* Tool and Reasoning Blocks
+
+ogent supports gptel's tool call and reasoning block formats:
+
+** Tool Blocks
+
+When models execute tools, results appear in folded blocks:
+
+#+begin_example
+#+begin_tool search
+Args: (:query "emacs lisp")
+Result:
+Found 42 matches...
+#+end_tool
+#+end_example
+
+** Reasoning Blocks
+
+For models that emit reasoning (e.g., Claude with extended thinking):
+
+#+begin_example
+#+begin_reasoning
+Let me analyze this step by step...
+First, I need to understand...
+#+end_reasoning
+#+end_example
+
+** Syntax Highlighting
+
+Enable =gptel-highlight-mode= for visual distinction of response blocks:
+
+#+begin_src emacs-lisp
+;; ogent enables this automatically when ogent-mode activates
+;; Disable if needed:
+(setq ogent-enable-highlight-mode nil)
+#+end_src
+
+* Troubleshooting
+
+** "Backend not loaded" Error
+
+Ensure the backend feature is in =ogent-gptel-required-features=:
+
+#+begin_src emacs-lisp
+(add-to-list 'ogent-gptel-required-features 'gptel-ollama)
+#+end_src
+
+** No Response / Silent Failure
+
+1. Check =*Messages*= buffer for errors
+2. Verify API key is set correctly
+3. Test gptel directly: =M-x gptel= and send a message
+
+** Streaming Issues
+
+If responses appear all at once instead of streaming:
+
+#+begin_src emacs-lisp
+;; Ensure streaming is enabled for the model
+(:id "gpt-4o" :backend gptel-openai :stream? t ...)
+#+end_src
