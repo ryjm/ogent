@@ -36,20 +36,21 @@ Each function receives the formatted context plist."
 
 (defvar ogent-mode-map
   (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c o p") #'ogent-prompt-dispatch)
-    (define-key map (kbd "C-c o r") #'ogent-request)
-    (define-key map (kbd "C-c o c") #'ogent-context-preview)
-    (define-key map (kbd "C-c o m") #'ogent-codemap-buffer)
-    (define-key map (kbd "C-c o a") #'ogent-abort-request)
-    (define-key map (kbd "C-c o R") #'ogent-retry-request)
-    (define-key map (kbd "C-c o e") #'ogent-edit-menu)
-    (define-key map (kbd "C-c o E") #'ogent-request-edit)
+    ;; Note: C-c followed by punctuation is reserved for minor modes
+    (define-key map (kbd "C-c . p") #'ogent-prompt-dispatch)
+    (define-key map (kbd "C-c . r") #'ogent-request)
+    (define-key map (kbd "C-c . c") #'ogent-context-preview)
+    (define-key map (kbd "C-c . m") #'ogent-codemap-buffer)
+    (define-key map (kbd "C-c . a") #'ogent-abort-request)
+    (define-key map (kbd "C-c . R") #'ogent-retry-request)
+    (define-key map (kbd "C-c . e") #'ogent-edit-menu)
+    (define-key map (kbd "C-c . E") #'ogent-request-edit)
     map)
   "Keymap for `ogent-mode'.")
 
 ;;;###autoload
 (define-minor-mode ogent-mode
-  "Minor mode providing ogent AI assistant commands via C-c o prefix.
+  "Minor mode providing ogent AI assistant commands via C-c . prefix.
 When enabled, provides access to ogent commands in any buffer.
 For non-Org buffers, companion Org buffers are automatically created
 to maintain conversation history."
