@@ -1,0 +1,43 @@
+# Ogent CI - Test Emacs package using makem.sh
+# Based on: https://github.com/alphapapa/makem.sh/blob/master/test.yml
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version:
+          - 27.2
+          - 28.2
+          - 29.1
+          - snapshot
+    steps:
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs_version }}
+
+      - uses: actions/checkout@v4
+
+      - name: Initialize sandbox
+        run: |
+          SANDBOX_DIR=$(mktemp -d) || exit 1
+          echo "SANDBOX_DIR=$SANDBOX_DIR" >> $GITHUB_ENV
+          ./makem.sh -vv --sandbox=$SANDBOX_DIR --install-deps --install-linters
+
+      - name: Lint
+        continue-on-error: true
+        run: ./makem.sh -vv --sandbox=$SANDBOX_DIR lint
+
+      - name: Test
+        if: always()
+        run: ./makem.sh -vv --sandbox=$SANDBOX_DIR test
