@@ -21,17 +21,22 @@
      :backend gptel-anthropic
      :feature gptel-anthropic
      :env-var "ANTHROPIC_API_KEY"
-     :models ((:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - balanced")
-              (:id "claude-3-5-sonnet-20241022" :description "Claude 3.5 Sonnet - fast")
-              (:id "claude-3-5-haiku-20241022" :description "Claude 3.5 Haiku - fastest")))
+     :backend-creator gptel-make-anthropic
+     :models ((:id "claude-sonnet-4-5-20250929" :description "Claude Sonnet 4.5 - best for coding/agents")
+              (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
+              (:id "claude-opus-4-5-20251101" :description "Claude Opus 4.5 - maximum intelligence")
+              (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
     (:id openai
      :name "OpenAI (GPT)"
      :host "api.openai.com"
      :backend gptel-openai
      :feature gptel-openai
      :env-var "OPENAI_API_KEY"
+     :backend-creator gptel-make-openai
      :models ((:id "gpt-4o" :description "GPT-4o - best quality")
-              (:id "gpt-4o-mini" :description "GPT-4o mini - fast and cheap"))))
+              (:id "gpt-4o-mini" :description "GPT-4o mini - fast and cheap")
+              (:id "o1" :description "o1 - reasoning model")
+              (:id "o1-mini" :description "o1-mini - fast reasoning"))))
   "Provider configurations for onboarding."
   :type '(repeat plist)
   :group 'ogent-onboard)
@@ -125,33 +130,55 @@
 ;;; Verification
 
 (declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-make-anthropic "ext:gptel-anthropic")
+(declare-function gptel-make-openai "ext:gptel-openai")
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-api-key)
 
-(defun ogent-onboard--verify-connection (provider api-key model-id)
+(defun ogent-onboard--create-backend (provider api-key)
+  "Create and return a gptel backend for PROVIDER using API-KEY."
+  (let* ((creator-sym (plist-get provider :backend-creator))
+         (name (plist-get provider :name))
+         (models (mapcar (lambda (m) (plist-get m :id))
+                         (plist-get provider :models))))
+    (cond
+     ((eq creator-sym 'gptel-make-anthropic)
+      (when (fboundp 'gptel-make-anthropic)
+        (gptel-make-anthropic name
+                              :key api-key
+                              :stream t
+                              :models models)))
+     ((eq creator-sym 'gptel-make-openai)
+      (when (fboundp 'gptel-make-openai)
+        (gptel-make-openai name
+                           :key api-key
+                           :stream t
+                           :models models)))
+     (t nil))))
+
+(defun ogent-onboard--verify-connection (provider api-key _model-id)
   "Verify connection to PROVIDER with API-KEY using MODEL-ID."
   (message "Verifying connection to %s..." (plist-get provider :name))
   (let* ((feature (plist-get provider :feature))
-         (backend-sym (plist-get provider :backend))
          (verified nil)
-         (error-msg nil))
-    ;; Load backend
+         (error-msg nil)
+         (backend nil))
+    ;; Load backend feature
     (unless (require feature nil 'noerror)
-      (setq error-msg (format "Could not load backend: %s" feature)))
+      (setq error-msg (format "Could not load backend feature: %s" feature)))
     (unless error-msg
-      ;; Try a simple request
+      ;; Create the backend
       (condition-case err
-          (let ((gptel-backend (and (boundp backend-sym) (symbol-value backend-sym)))
-                (gptel-model model-id)
-                (gptel-api-key api-key))
-            (if gptel-backend
+          (progn
+            (setq backend (ogent-onboard--create-backend provider api-key))
+            (if backend
                 (progn
-                  ;; Just check that we can construct a request - actual verification
-                  ;; would require async handling which complicates onboarding
+                  ;; Store for later use
+                  (set (plist-get provider :backend) backend)
                   (setq verified t)
                   (message "Backend configured successfully!"))
-              (setq error-msg "Backend not properly initialized")))
+              (setq error-msg "Failed to create backend")))
         (error
          (setq error-msg (error-message-string err)))))
     (if error-msg
@@ -220,6 +247,61 @@ Guides you through:
 Use this after initial setup to configure additional providers."
   (interactive)
   (ogent-onboard))
+
+;;; Recompile and reload
+
+(defvar ogent-onboard--project-root
+  (file-name-directory
+   (directory-file-name
+    (file-name-directory
+     (or load-file-name buffer-file-name))))
+  "Root directory of the ogent project.")
+
+;;;###autoload
+(defun ogent-recompile ()
+  "Recompile all ogent elisp files and reload them.
+Use this after pulling updates or making changes to ensure
+your Emacs is using the latest code."
+  (interactive)
+  (let* ((lisp-dir (expand-file-name "lisp" ogent-onboard--project-root))
+         (ui-dir (expand-file-name "ui" lisp-dir))
+         (files (append
+                 (directory-files lisp-dir t "\\.el$")
+                 (directory-files ui-dir t "\\.el$")))
+         (byte-compile-warnings '(not free-vars unresolved)))
+    (message "Recompiling ogent from %s..." lisp-dir)
+    ;; Delete old .elc files
+    (dolist (elc (append
+                  (directory-files lisp-dir t "\\.elc$")
+                  (directory-files ui-dir t "\\.elc$")))
+      (delete-file elc))
+    ;; Byte compile all files
+    (dolist (file files)
+      (byte-compile-file file))
+    ;; Unload all ogent features
+    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap
+                    ogent-core ogent-models ogent-context ogent))
+      (when (featurep feat)
+        (unload-feature feat t)))
+    ;; Reload
+    (load (expand-file-name "ogent" lisp-dir))
+    (message "ogent recompiled and reloaded successfully!")))
+
+;;;###autoload
+(defun ogent-reload ()
+  "Reload ogent without recompiling.
+Faster than `ogent-recompile' but won't pick up syntax errors."
+  (interactive)
+  (let ((lisp-dir (expand-file-name "lisp" ogent-onboard--project-root)))
+    (message "Reloading ogent...")
+    ;; Unload all ogent features
+    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap
+                    ogent-core ogent-models ogent-context ogent))
+      (when (featurep feat)
+        (unload-feature feat t)))
+    ;; Reload
+    (load (expand-file-name "ogent" lisp-dir))
+    (message "ogent reloaded!")))
 
 (provide 'ogent-onboard)
 
