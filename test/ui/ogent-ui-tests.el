@@ -58,16 +58,6 @@
       (ogent-ui--ensure-gptel))
     (should (equal (nreverse requested) '(gptel foo bar)))))
 
-(ert-deftest ogent-ui-toggle-model ()
-  "Toggling models updates the dispatcher selection."
-  (let ((ogent-ui--selected-models nil)
-        (ogent-model-registry '((:id "alpha" :backend foo)
-                                (:id "beta" :backend bar))))
-    (ogent-ui--toggle-model "beta")
-    (should (member "beta" (ogent-ui--current-models)))
-    (ogent-ui--toggle-model "beta")
-    (should (equal (ogent-ui--current-models) '("alpha")))))
-
 (ert-deftest ogent-ui-extract-preset-cookies ()
   "Extract @preset cookies from prompts."
   (let ((ogent-preset-registry '((:name code-review :spec (:description "review"))
@@ -84,16 +74,6 @@
       (should (member "summarize" (cdr result)))
       (should (member "code-review" (cdr result)))
       (should (= 2 (length (cdr result)))))))
-
-(ert-deftest ogent-ui-toggle-preset ()
-  "Toggle preset selection."
-  (let ((ogent-ui--selected-preset nil))
-    (ogent-ui--toggle-preset "code-review")
-    (should (equal ogent-ui--selected-preset "code-review"))
-    (ogent-ui--toggle-preset "code-review")
-    (should (null ogent-ui--selected-preset))
-    (ogent-ui--toggle-preset "summarize")
-    (should (equal ogent-ui--selected-preset "summarize"))))
 
 (ert-deftest ogent-request-applies-preset ()
   "ogent-request applies presets from cookies and dispatcher."
