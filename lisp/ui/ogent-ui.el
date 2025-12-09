@@ -14,6 +14,10 @@
 (require 'ogent-codemap)
 (require 'ogent-models)
 
+;; Silence byte-compiler for functions that may not be loaded at compile time
+(declare-function ogent-presets-available "ogent-models")
+(declare-function ogent-preset-get "ogent-models")
+
 (defcustom ogent-context-preview-buffer-name "*ogent-context*"
   "Buffer used to display the context summary."
   :type 'string
@@ -38,13 +42,21 @@ should be inserted."
   :group 'ogent-mode)
 
 (cl-defstruct ogent-ui-request
-  id model context prompt buffer marker closed)
+  id model context prompt buffer marker closed preset
+  status start-time end-time gptel-handle)
 
 (defvar ogent-ui--selected-models nil
   "Models toggled inside the dispatch transient.")
 
+(defvar ogent-ui--selected-preset nil
+  "The currently selected preset name (string), or nil for no preset.")
+
 (defvar ogent-ui--request-table (make-hash-table :test #'equal)
   "Active gptel requests keyed by their `ogent-ui-request-id'.")
+
+(defvar ogent-ui--request-history nil
+  "List of recently closed requests, most recent first.
+Used for retry functionality.")
 
 (defvar ogent-ui--request-seq 0
   "Incrementing counter for request identifiers.")
@@ -187,15 +199,46 @@ should be inserted."
                  suffixes))
     (nreverse suffixes)))
 
+(defun ogent-ui--toggle-preset (preset)
+  "Toggle PRESET as the active preset, or clear if already selected."
+  (if (equal preset ogent-ui--selected-preset)
+      (progn
+        (setq ogent-ui--selected-preset nil)
+        (message "Preset cleared"))
+    (setq ogent-ui--selected-preset preset)
+    (message "Preset: %s" preset)))
+
+(defun ogent-ui--build-preset-suffixes ()
+  "Return transient suffix specs for available presets."
+  (let ((presets (ogent-presets-available))
+        (suffixes nil)
+        (keys "abcdefghij"))
+    (cl-loop for preset in presets
+             for index from 0
+             for key = (if (< index (length keys))
+                           (char-to-string (aref keys index))
+                         (format "p%d" index))
+             do (push
+                 `(,key ,preset
+                        (lambda ()
+                          (interactive)
+                          (ogent-ui--toggle-preset ,preset))
+                        :transient t)
+                 suffixes))
+    (nreverse suffixes)))
+
 (defun ogent-ui--define-prompt-transient ()
   "Internal helper to (re)define the prompt dispatcher."
   (let* ((command (intern (format "ogent-ui--prompt-dispatch-%d"
                                   (cl-incf ogent-ui--prompt-transient-counter))))
-         (model-suffixes (ogent-ui--build-model-suffixes)))
+         (model-suffixes (ogent-ui--build-model-suffixes))
+         (preset-suffixes (ogent-ui--build-preset-suffixes)))
     (eval
      `(transient-define-prefix ,command ()
         "Prompt dispatcher for ogent requests."
         ["Models" ,@model-suffixes]
+        ,@(when preset-suffixes
+            `(["Presets" ,@preset-suffixes]))
         ["Actions"
          ("c" "Preview context" ogent-context-preview)
          ("m" "Codemap" ogent-codemap-buffer)
@@ -221,10 +264,29 @@ should be inserted."
 (defvar gptel-backend nil)
 (defvar gptel-model nil)
 
+(defcustom ogent-gptel-required-features '(gptel-openai gptel-anthropic)
+  "Features that must be loaded so gptel backends can service requests.
+Every symbol should name the feature provided by the corresponding
+`gptel-*' backend file (for example `gptel-openai').  Extend this list
+whenever `ogent-model-registry' gains a new provider so backend structs
+exist before `ogent-request' dispatches."
+  :type '(repeat symbol)
+  :group 'ogent-mode)
+
 (defun ogent-ui--ensure-gptel ()
   "Signal a user error if gptel is unavailable."
   (unless (require 'gptel nil 'noerror)
-    (user-error "gptel is required for ogent requests. Install gptel first")))
+    (user-error "gptel is required for ogent requests. Install gptel first"))
+  (dolist (feature ogent-gptel-required-features)
+    (unless (require feature nil 'noerror)
+      (display-warning
+       'ogent
+       (format
+        (concat "Could not load `%s'. Add the backend feature to your load path "
+                "or update `ogent-gptel-required-features'.")
+        feature)
+       :warning)))
+  t)
 
 (defun ogent-ui--next-request-id ()
   "Return a fresh request identifier."
@@ -252,6 +314,8 @@ Returns a plist containing a streaming marker."
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
+  (setf (ogent-ui-request-start-time request) (current-time))
+  (setf (ogent-ui-request-status request) 'wait)
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
   request)
 
@@ -293,11 +357,61 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
           (insert (format "\n#+begin_quote ogent-error\n%s\n#+end_quote\n" message))
           (set-marker marker (point)))))))
 
+(defun ogent-ui--update-status (request new-status)
+  "Update REQUEST status to NEW-STATUS and refresh block metadata."
+  (setf (ogent-ui-request-status request) new-status)
+  (when (eq new-status 'done)
+    (setf (ogent-ui-request-end-time request) (current-time)))
+  (ogent-ui--update-block-header request))
+
+(defun ogent-ui--format-latency (request)
+  "Return a formatted latency string for REQUEST, or nil if incomplete."
+  (when-let* ((start (ogent-ui-request-start-time request))
+              (end (ogent-ui-request-end-time request)))
+    (format "%.1fs" (float-time (time-subtract end start)))))
+
+(defun ogent-ui--update-block-header (request)
+  "Update the src block header with current status and timing for REQUEST."
+  (let ((marker (ogent-ui-request-marker request))
+        (model (ogent-ui-request-model request))
+        (status (ogent-ui-request-status request)))
+    (when (and marker (marker-buffer marker))
+      (with-current-buffer (ogent-ui-request-buffer request)
+        (save-excursion
+          (goto-char marker)
+          (when (re-search-backward "^#\\+begin_src text :model \\([^ \n]+\\)" nil t)
+            (let* ((model-id (plist-get model :id))
+                   (backend (plist-get model :backend))
+                   (latency (ogent-ui--format-latency request))
+                   (status-str (pcase status
+                                 ('wait "waiting")
+                                 ('type "typing")
+                                 ('done "done")
+                                 ('error "error")
+                                 (_ nil)))
+                   (new-header (concat "#+begin_src text :model " model-id
+                                       (when backend
+                                         (format " :backend %s"
+                                                 (ogent-ui--backend-label backend)))
+                                       (when status-str
+                                         (format " :status %s" status-str))
+                                       (when latency
+                                         (format " :latency %s" latency)))))
+              (replace-match new-header t t))))))))
+
+(defcustom ogent-ui-request-history-max 20
+  "Maximum number of closed requests to keep in history."
+  :type 'integer
+  :group 'ogent-mode)
+
 (defun ogent-ui--close-response (request &optional error-message)
   "Finalize REQUEST, optionally including ERROR-MESSAGE."
   (when error-message
-    (ogent-ui--insert-error-block request error-message))
+    (ogent-ui--insert-error-block request error-message)
+    (ogent-ui--update-status request 'error))
   (unless (ogent-ui-request-closed request)
+    (unless error-message
+      (ogent-ui--update-status request 'done))
     (let ((marker (ogent-ui-request-marker request)))
       (when (and marker (marker-buffer marker))
         (with-current-buffer (ogent-ui-request-buffer request)
@@ -306,7 +420,12 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
             (unless (bolp) (insert "\n"))
             (insert "#+end_src\n")
             (set-marker marker (point))))))
-    (setf (ogent-ui-request-closed request) t))
+    (setf (ogent-ui-request-closed request) t)
+    ;; Save to history for retry
+    (push request ogent-ui--request-history)
+    (when (> (length ogent-ui--request-history) ogent-ui-request-history-max)
+      (setq ogent-ui--request-history
+            (seq-take ogent-ui--request-history ogent-ui-request-history-max))))
   (remhash (ogent-ui-request-id request) ogent-ui--request-table)
   (run-hook-with-args 'ogent-after-request-hook (ogent-ui-request-context request)))
 
@@ -315,14 +434,19 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
   (lambda (text info)
     (let ((request (gethash request-id ogent-ui--request-table)))
       (when request
+        ;; Update status based on what we're receiving
+        (when (and text (> (length text) 0))
+          (unless (eq (ogent-ui-request-status request) 'type)
+            (ogent-ui--update-status request 'type)))
         (ogent-ui--append-response request text)
         (cond
          ((and (listp info) (plist-get info :error))
           (ogent-ui--close-response request (plist-get info :error)))
-         ((or (null info)
-              (and (listp info)
+         ;; Done when we get explicit :done/:final or nil info with no text
+         ((or (and (listp info)
                    (or (plist-get info :done)
-                       (plist-get info :final))))
+                       (plist-get info :final)))
+              (and (null info) (null text)))
           (ogent-ui--close-response request)))))))
 
 (defun ogent-ui--resolve-backend (model)
@@ -345,6 +469,21 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
            (t backend)))
     backend))
 
+(defun ogent-ui--extract-preset-cookies (prompt)
+  "Extract @preset tokens from PROMPT.
+Returns a cons (CLEANED-PROMPT . PRESETS) where PRESETS is a list of
+preset name strings found in the prompt."
+  (let ((presets nil)
+        (available (ogent-presets-available))
+        (cleaned prompt))
+    (when available
+      (dolist (name available)
+        (let ((pattern (concat "\\s-*@" (regexp-quote name) "\\b\\s-*")))
+          (when (string-match (concat "@" (regexp-quote name) "\\b") cleaned)
+            (push name presets)
+            (setq cleaned (replace-regexp-in-string pattern " " cleaned))))))
+    (cons (string-trim cleaned) (nreverse presets))))
+
 (defun ogent-ui--render-prompt (prompt context)
   "Render PROMPT and CONTEXT into the final text sent to gptel."
   (let* ((root (plist-get context :root))
@@ -358,7 +497,8 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
     (string-join segments "\n\n")))
 
 (defun ogent-ui--send-request (request)
-  "Dispatch REQUEST through gptel."
+  "Dispatch REQUEST through gptel.
+Preset priority: request preset > model preset."
   (ogent-ui--ensure-gptel)
   (let* ((model (ogent-ui-request-model request))
          (prompt-text (ogent-ui--render-prompt (ogent-ui-request-prompt request)
@@ -366,6 +506,8 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
          (callback (ogent-ui--make-callback (ogent-ui-request-id request)))
          (backend (ogent-ui--resolve-backend model))
          (model-id (plist-get model :id))
+         (preset (or (ogent-ui-request-preset request)
+                     (plist-get model :preset)))
          (args (list :buffer (ogent-ui-request-buffer request)
                      :stream (plist-get model :stream?)
                      :callback callback)))
@@ -375,33 +517,169 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
        "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
        (plist-get model :backend) model-id))
     (condition-case err
-        (let ((sender (lambda () (apply #'gptel-request prompt-text args)))
-              (gptel-backend backend)
-              (gptel-model model-id))
-          (if-let ((preset (plist-get model :preset)))
-              (if (fboundp 'gptel-with-preset)
-                  (gptel-with-preset preset
-                    (funcall sender))
-                (funcall sender))
-            (funcall sender)))
+        (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
+               (gptel-backend backend)
+               (gptel-model model-id)
+               (handle (if preset
+                           (if (fboundp 'gptel-with-preset)
+                               (gptel-with-preset (if (stringp preset) (intern preset) preset)
+                                 (funcall sender))
+                             (funcall sender))
+                         (funcall sender))))
+          (setf (ogent-ui-request-gptel-handle request) handle))
       (error
        (ogent-ui--close-response request (error-message-string err))))))
 
 ;;;###autoload
-(defun ogent-request (&optional prompt models)
+(defun ogent-request (&optional prompt models preset)
   "Dispatch PROMPT for the current subtree using MODELS via gptel.
 When PROMPT or MODELS are nil, prompt the user and fall back to the
-selected models from the dispatcher."
+selected models from the dispatcher.
+PRESET overrides any dispatcher or model preset.  If PROMPT contains
+@preset cookies, they are extracted and applied (first cookie wins)."
   (interactive)
-  (let* ((prompt (or prompt (ogent-ui--read-prompt)))
+  (let* ((raw-prompt (or prompt (ogent-ui--read-prompt)))
+         (extracted (ogent-ui--extract-preset-cookies raw-prompt))
+         (clean-prompt (car extracted))
+         (cookie-presets (cdr extracted))
+         (effective-preset (or preset
+                               (car cookie-presets)
+                               ogent-ui--selected-preset))
          (context (ogent-context-build))
          (model-ids (or models (ogent-ui--current-models))))
     (dolist (model-id model-ids)
       (let* ((model (ogent-models-ensure model-id))
-             (request (funcall ogent-response-function prompt context model)))
+             (request (funcall ogent-response-function clean-prompt context model)))
         (unless (ogent-ui-request-p request)
           (user-error "ogent-response-function must return an `ogent-ui-request'"))
+        (setf (ogent-ui-request-preset request) effective-preset)
         (ogent-ui--send-request request)))))
+
+;;; Tool and Reasoning Block Support
+
+(defcustom ogent-enable-highlight-mode t
+  "When non-nil, enable `gptel-highlight-mode' for response blocks.
+This provides visual highlighting for tool calls, reasoning blocks,
+and responses marked with gptel text properties."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defun ogent-ui--setup-highlight-mode ()
+  "Enable gptel-highlight-mode if available and configured."
+  (when (and ogent-enable-highlight-mode
+             (derived-mode-p 'org-mode)
+             (fboundp 'gptel-highlight-mode))
+    (gptel-highlight-mode 1)))
+
+(defun ogent-ui--fold-special-block ()
+  "Fold the current Org special block if at one."
+  (when (and (derived-mode-p 'org-mode)
+             (fboundp 'org-cycle))
+    (save-excursion
+      (when (looking-at "^#\\+begin_\\(tool\\|reasoning\\)")
+        (org-cycle)))))
+
+(defun ogent-ui--insert-tool-block (name args result)
+  "Insert a tool block with NAME, ARGS, and RESULT.
+The block follows gptel's format for Org tool results."
+  (let ((marker (point)))
+    (insert (format "#+begin_tool %s\n" name))
+    (insert (format "Args: %S\n" args))
+    (insert "Result:\n")
+    (insert (if (stringp result)
+                result
+              (pp-to-string result)))
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_tool\n")
+    (save-excursion
+      (goto-char marker)
+      (ogent-ui--fold-special-block))))
+
+(defun ogent-ui--insert-reasoning-block (content)
+  "Insert a reasoning block containing CONTENT.
+The block follows gptel's format for Org reasoning."
+  (let ((marker (point)))
+    (insert "#+begin_reasoning\n")
+    (insert content)
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_reasoning\n")
+    (save-excursion
+      (goto-char marker)
+      (ogent-ui--fold-special-block))))
+
+;;; Cancellation and Retry
+
+(defun ogent-ui-active-requests ()
+  "Return a list of all active (non-closed) requests."
+  (let (requests)
+    (maphash (lambda (_id request)
+               (unless (ogent-ui-request-closed request)
+                 (push request requests)))
+             ogent-ui--request-table)
+    (nreverse requests)))
+
+(declare-function gptel-abort "ext:gptel" (buffer))
+
+(defun ogent-ui--abort-request (request)
+  "Abort REQUEST if it's still active."
+  (unless (ogent-ui-request-closed request)
+    (let ((handle (ogent-ui-request-gptel-handle request)))
+      ;; gptel uses buffer-based abort; try if available
+      (when (and handle (fboundp 'gptel-abort))
+        (ignore-errors
+          (gptel-abort (ogent-ui-request-buffer request)))))
+    (ogent-ui--update-status request 'aborted)
+    (ogent-ui--close-response request "Request aborted by user")))
+
+;;;###autoload
+(defun ogent-abort-request (&optional request-id)
+  "Abort the request with REQUEST-ID, or prompt for one if interactive.
+When called interactively with a prefix arg, abort all active requests."
+  (interactive)
+  (if current-prefix-arg
+      ;; Abort all
+      (let ((requests (ogent-ui-active-requests)))
+        (if requests
+            (progn
+              (dolist (request requests)
+                (ogent-ui--abort-request request))
+              (message "Aborted %d request(s)" (length requests)))
+          (message "No active requests")))
+    ;; Abort single request
+    (let* ((requests (ogent-ui-active-requests))
+           (id (or request-id
+                   (when requests
+                     (completing-read
+                      "Abort request: "
+                      (mapcar #'ogent-ui-request-id requests)
+                      nil t))))
+           (request (and id (gethash id ogent-ui--request-table))))
+      (if request
+          (progn
+            (ogent-ui--abort-request request)
+            (message "Aborted request %s" id))
+        (message "No request to abort")))))
+
+;;;###autoload
+(defun ogent-retry-request (&optional request-id)
+  "Retry a failed or completed request with REQUEST-ID.
+Re-sends the original prompt with the same model and context."
+  (interactive)
+  (if ogent-ui--request-history
+      (let* ((id (or request-id
+                     (completing-read
+                      "Retry request: "
+                      (mapcar #'ogent-ui-request-id ogent-ui--request-history)
+                      nil t)))
+             (request (seq-find (lambda (r) (string= (ogent-ui-request-id r) id))
+                                ogent-ui--request-history)))
+        (when request
+          ;; Create a fresh request with the same params
+          (ogent-request (ogent-ui-request-prompt request)
+                         (list (plist-get (ogent-ui-request-model request) :id))
+                         (ogent-ui-request-preset request))
+          (message "Retrying request %s" id)))
+    (message "No requests in history to retry")))
 
 (provide 'ogent-ui)
 

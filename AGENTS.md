@@ -1,3 +1,5 @@
+BEFORE ANYTHING ELSE: run 'bd onboard' and follow the instructions
+
 # Repository Guidelines
 
 ## Project Structure & Module Organization

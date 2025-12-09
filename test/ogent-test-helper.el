@@ -27,6 +27,10 @@
 (unless (featurep 'gptel)
   (provide 'gptel))
 
+(dolist (feature '(gptel-openai gptel-anthropic))
+  (unless (featurep feature)
+    (provide feature)))
+
 (unless (fboundp 'gptel-with-preset)
   (defmacro gptel-with-preset (_preset &rest body)
     "Fallback macro for tests when gptel isn't installed."

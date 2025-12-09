@@ -58,10 +58,11 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 - Registry + dispatcher plumbing is live (see =lisp/ogent-models.el= and =ogent-ui-refresh-dispatch=).
 - Requests stream inside placeholder Org blocks and convert failures into `#+begin_quote ogent-error` annotations.
 - Tests stub =gptel-request= to assert argument shapes and streaming behavior (`test/ui/ogent-ui-tests.el`).
+- Backend feature loading is centralized via =ogent-gptel-required-features=; keep it aligned with the registry so `ogent-ui--ensure-gptel` can pull the proper backend structs before dispatch.
 
-* Remaining Work
-1. **Preset UX**: expose preset selection in the dispatcher and document how @preset cookies flow through `gptel--transform-apply-preset`.
-2. **FSM + status UI**: bubble up `gptel-send--handlers` signals (WAIT/TYPE/DONE/ERRS) into header-line or block metadata so users can see progress and latency per model.
-3. **Cancellation / retries**: provide commands that look up request IDs in =ogent-ui--request-table= and call the appropriate gptel abort helper.
-4. **Tool + reasoning blocks**: reuse `gptel-highlight-mode` and block types (`#+begin_tool`, `#+begin_reasoning`) so tool calls and reasoning streams appear inline with folding support.
-5. **Docs**: add a user-facing guide under =docs/= covering API keys, backend customization via =ogent-models.el=, and how to define organization-specific presets.
+* Completed Work
+1. **Preset UX**: Preset selection in dispatcher via =ogent-ui--build-preset-suffixes=, @preset cookie extraction in =ogent-ui--extract-preset-cookies=, and =ogent-preset-registry= for defining ogent-specific presets.
+2. **FSM + status UI**: Request status tracking (wait/type/done/error) via =ogent-ui-request-status=, timing info (=start-time=, =end-time=), and block header updates showing =:status= and =:latency= attributes.
+3. **Cancellation / retries**: =ogent-abort-request= and =ogent-retry-request= commands with request history tracking in =ogent-ui--request-history=. Keybindings: =C-c o a= (abort), =C-c o R= (retry).
+4. **Tool + reasoning blocks**: =ogent-ui--insert-tool-block= and =ogent-ui--insert-reasoning-block= functions, =gptel-highlight-mode= integration via =ogent-ui--setup-highlight-mode=, and =ogent-enable-highlight-mode= customization.
+5. **Docs**: User-facing guide at =docs/gptel-integration.org= covering API keys, model registry, presets, request lifecycle, and troubleshooting.

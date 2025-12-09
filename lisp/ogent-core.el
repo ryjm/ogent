@@ -12,6 +12,9 @@
 (declare-function ogent-request "ogent-ui")
 (declare-function ogent-context-preview "ogent-ui")
 (declare-function ogent-prompt-dispatch "ogent-ui")
+(declare-function ogent-abort-request "ogent-ui")
+(declare-function ogent-retry-request "ogent-ui")
+(declare-function ogent-ui--setup-highlight-mode "ogent-ui")
 (declare-function ogent-codemap-buffer "ogent-codemap")
 
 (defgroup ogent-mode nil
@@ -35,6 +38,8 @@ Each function receives the formatted context plist."
     (define-key map (kbd "C-c o r") #'ogent-request)
     (define-key map (kbd "C-c o c") #'ogent-context-preview)
     (define-key map (kbd "C-c o m") #'ogent-codemap-buffer)
+    (define-key map (kbd "C-c o a") #'ogent-abort-request)
+    (define-key map (kbd "C-c o R") #'ogent-retry-request)
     map)
   "Keymap for `ogent-mode'.")
 
@@ -42,7 +47,9 @@ Each function receives the formatted context plist."
 (define-minor-mode ogent-mode
   "Minor mode that turns an Org buffer into an ogent agent panel."
   :lighter " Ogent"
-  :keymap ogent-mode-map)
+  :keymap ogent-mode-map
+  (when ogent-mode
+    (ogent-ui--setup-highlight-mode)))
 
 (defun ogent--maybe-enable ()
   "Enable `ogent-mode' inside Org buffers."
