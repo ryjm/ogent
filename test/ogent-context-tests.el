@@ -55,5 +55,77 @@
        (should (string= (ogent-context-node-title (car ancestors))
                         "Root Overview"))))))
 
+;;; Source buffer context tests
+
+(ert-deftest ogent-context-source-context-builds ()
+  "Source context is built for non-Org buffers."
+  (let ((source-buffer (get-buffer-create "*test-source.el*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (emacs-lisp-mode)
+          (insert "(defun foo () \"test\")")
+          (let ((ctx (ogent-context-build-for-buffer)))
+            (should (plist-get ctx :source-context))
+            (should (ogent-source-context-p
+                     (plist-get ctx :source-context)))
+            (should (string= (ogent-source-context-mode
+                              (plist-get ctx :source-context))
+                             "emacs-lisp-mode"))
+            (should (string-match-p "defun foo"
+                                    (ogent-source-context-content
+                                     (plist-get ctx :source-context))))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-context-source-context-with-region ()
+  "Source context respects region selection."
+  (let ((source-buffer (get-buffer-create "*test-region.el*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (emacs-lisp-mode)
+          (insert "line1\nline2\nline3\nline4\n")
+          (goto-char (point-min))
+          (forward-line 1)
+          (let* ((start (point))
+                 (end (progn (forward-line 2) (point)))
+                 (ctx (ogent-context-build-for-buffer
+                       source-buffer start end))
+                 (source-ctx (plist-get ctx :source-context)))
+            (should source-ctx)
+            (should (equal (ogent-source-context-region-start source-ctx)
+                           start))
+            (should (equal (ogent-source-context-region-end source-ctx)
+                           end))
+            (should (string= (ogent-source-context-content source-ctx)
+                             "line2\nline3\n"))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-context-build-with-source-combines-contexts ()
+  "Combined context includes both source and Org context."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (let ((source-buffer (get-buffer-create "*test-combined.py*")))
+       (unwind-protect
+           (progn
+             (with-current-buffer source-buffer
+               (python-mode)
+               (insert "def hello(): pass"))
+             ;; In the Org buffer, build combined context
+             (goto-char (point-min))
+             (search-forward "Root Overview")
+             (org-back-to-heading t)
+             (let ((ctx (ogent-context-build-with-source source-buffer)))
+               ;; Should have source context
+               (should (plist-get ctx :source-context))
+               (should (string-match-p
+                        "def hello"
+                        (ogent-source-context-content
+                         (plist-get ctx :source-context))))
+               ;; Should also have Org context
+               (should (plist-get ctx :root))
+               (should (string= (ogent-context-node-title
+                                 (plist-get ctx :root))
+                                "Root Overview"))))
+         (kill-buffer source-buffer))))))
+
 (provide 'ogent-context-tests)
 ;;; ogent-context-tests.el ends here

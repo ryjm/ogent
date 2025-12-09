@@ -203,5 +203,61 @@
         (kill-buffer file-buffer)
         (delete-file file)))))
 
+(ert-deftest ogent-companion-rebind-changes-link ()
+  "Rebinding companion changes the linked buffer."
+  (let ((text-buffer (get-buffer-create "*test-rebind*"))
+        (org1 (get-buffer-create "*org1*"))
+        (org2 (get-buffer-create "*org2*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer org1 (org-mode))
+          (with-current-buffer org2 (org-mode))
+          (with-current-buffer text-buffer
+            (fundamental-mode)
+            ;; Get initial companion (auto-created)
+            (let ((initial (ogent-companion-get-or-create)))
+              ;; Rebind to org2
+              (ogent-companion-rebind text-buffer org2)
+              ;; Check new link
+              (should (eq (ogent-companion--get-linked-buffer text-buffer) org2))
+              (should (eq (ogent-companion--get-linked-buffer org2) text-buffer))
+              ;; Old link should be cleared
+              (should-not (ogent-companion--get-linked-buffer initial))
+              (kill-buffer initial))))
+      (kill-buffer text-buffer)
+      (kill-buffer org1)
+      (kill-buffer org2))))
+
+(ert-deftest ogent-companion-unlink-removes-link ()
+  "Unlinking companion removes all links."
+  (let ((text-buffer (get-buffer-create "*test-unlink*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            ;; Should have link
+            (should (ogent-companion--get-linked-buffer text-buffer))
+            ;; Unlink
+            (ogent-companion-unlink text-buffer)
+            ;; Should have no link
+            (should-not (ogent-companion--get-linked-buffer text-buffer))
+            (should-not (ogent-companion--get-linked-buffer companion))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-companion-list-org-buffers ()
+  "List org buffers returns only Org mode buffers."
+  (let ((org-buffer (get-buffer-create "*test-list-org*"))
+        (text-buffer (get-buffer-create "*test-list-text*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer org-buffer (org-mode))
+          (with-current-buffer text-buffer (fundamental-mode))
+          (let ((org-buffers (ogent-companion--list-org-buffers)))
+            (should (member org-buffer org-buffers))
+            (should-not (member text-buffer org-buffers))))
+      (kill-buffer org-buffer)
+      (kill-buffer text-buffer))))
+
 (provide 'ogent-companion-tests)
 ;;; ogent-companion-tests.el ends here
