@@ -236,6 +236,60 @@ BUFFER defaults to the current buffer.  Only works for file-backed buffers."
       (when (called-interactively-p 'any)
         (message "Companion link saved for %s" (buffer-name buf))))))
 
+(defun ogent-companion--list-org-buffers ()
+  "Return a list of Org buffers suitable for companion selection."
+  (cl-remove-if-not
+   (lambda (buf)
+     (with-current-buffer buf
+       (derived-mode-p 'org-mode)))
+   (buffer-list)))
+
+;;;###autoload
+(defun ogent-companion-rebind (&optional buffer new-companion)
+  "Rebind the companion buffer for BUFFER to NEW-COMPANION.
+BUFFER defaults to the current buffer.
+When called interactively, prompts for the new companion Org buffer."
+  (interactive
+   (let* ((org-buffers (ogent-companion--list-org-buffers))
+          (buffer-names (mapcar #'buffer-name org-buffers))
+          (current-companion (ogent-companion--get-linked-buffer))
+          (default (when current-companion (buffer-name current-companion)))
+          (selection (completing-read
+                      (format "Select companion Org buffer%s: "
+                              (if default
+                                  (format " (current: %s)" default)
+                                ""))
+                      buffer-names nil t nil nil default)))
+     (list (current-buffer) (get-buffer selection))))
+  (let ((buf (or buffer (current-buffer))))
+    (if (and new-companion (buffer-live-p new-companion))
+        (progn
+          ;; Clear old link if exists
+          (when-let ((old-companion (ogent-companion--get-linked-buffer buf)))
+            (with-current-buffer old-companion
+              (setq-local ogent-companion--linked-buffer nil)))
+          ;; Establish new link
+          (ogent-companion--link-buffers buf new-companion)
+          (when (called-interactively-p 'any)
+            (message "Companion buffer set to %s" (buffer-name new-companion))))
+      (user-error "No valid Org buffer selected"))))
+
+;;;###autoload
+(defun ogent-companion-unlink (&optional buffer)
+  "Remove the companion buffer link from BUFFER.
+BUFFER defaults to the current buffer."
+  (interactive)
+  (let* ((buf (or buffer (current-buffer)))
+         (companion (ogent-companion--get-linked-buffer buf)))
+    (when companion
+      (with-current-buffer companion
+        (setq-local ogent-companion--linked-buffer nil))
+      (with-current-buffer buf
+        (setq-local ogent-companion--linked-buffer nil)
+        (setq-local ogent-companion-file nil))
+      (when (called-interactively-p 'any)
+        (message "Companion buffer unlinked")))))
+
 (provide 'ogent-companion)
 
 ;;; ogent-companion.el ends here

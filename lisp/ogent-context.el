@@ -13,6 +13,9 @@
   "Org-first AI prompting inside Emacs."
   :group 'applications)
 
+;; Forward declaration for companion linking
+(declare-function ogent-companion-source-buffer "ogent-companion")
+
 (defcustom ogent-context-handle-regexp
   "@\\([A-Za-z0-9_-]+\\)"
   "Regexp that captures handle references inside Org text."
@@ -32,6 +35,46 @@ Each entry can be a live buffer or the name of one."
   "Ensure the current buffer is an Org buffer."
   (unless (derived-mode-p 'org-mode)
     (user-error "ogent commands operate inside Org buffers")))
+
+;;; Source Buffer Context (non-Org modes)
+
+(cl-defstruct ogent-source-context
+  "Context from a source code buffer."
+  buffer file mode content region-start region-end)
+
+(defun ogent-context--build-source-context (buffer &optional region-start region-end)
+  "Build a source context plist from BUFFER.
+If REGION-START and REGION-END are provided, include the selected region."
+  (with-current-buffer buffer
+    (let* ((file (buffer-file-name))
+           (mode (symbol-name major-mode))
+           (content (if (and region-start region-end)
+                        (buffer-substring-no-properties region-start region-end)
+                      (buffer-substring-no-properties (point-min) (point-max)))))
+      (make-ogent-source-context
+       :buffer buffer
+       :file file
+       :mode mode
+       :content content
+       :region-start region-start
+       :region-end region-end))))
+
+(defun ogent-context--format-source-context (source-ctx)
+  "Format SOURCE-CTX as a string for the prompt."
+  (let ((file (or (ogent-source-context-file source-ctx) "(unsaved)"))
+        (mode (ogent-source-context-mode source-ctx))
+        (content (ogent-source-context-content source-ctx))
+        (region-start (ogent-source-context-region-start source-ctx))
+        (region-end (ogent-source-context-region-end source-ctx)))
+    (format "Source File: %s\nMode: %s\n%s\n```\n%s\n```"
+            (file-name-nondirectory file)
+            mode
+            (if (and region-start region-end)
+                (format "Selected region (lines %d-%d):"
+                        (line-number-at-pos region-start)
+                        (line-number-at-pos region-end))
+              "Full buffer:")
+            content)))
 
 (defun ogent-context--slug (string)
   "Return a kebab-case slug for STRING."
@@ -167,6 +210,51 @@ Returns a plist containing :root, :ancestors, :handles, and :dependencies."
           :ancestors ancestors
           :handles handles
           :dependencies dependencies)))
+
+;;;###autoload
+(defun ogent-context-build-for-buffer (&optional buffer region-start region-end)
+  "Build context from BUFFER, handling both Org and non-Org modes.
+For Org buffers, builds standard Org context.
+For non-Org buffers, builds source context with optional region.
+Returns a plist with :source-context for non-Org or standard Org context keys."
+  (let ((buf (or buffer (current-buffer))))
+    (with-current-buffer buf
+      (if (derived-mode-p 'org-mode)
+          ;; Org buffer: use standard context building
+          (condition-case nil
+              (ogent-context-build)
+            ;; If no heading found, return minimal context
+            (error (list :root nil :ancestors nil :handles nil :dependencies nil)))
+        ;; Non-Org buffer: build source context
+        (let ((source-ctx (ogent-context--build-source-context
+                           buf region-start region-end)))
+          (list :source-context source-ctx
+                :root nil
+                :ancestors nil
+                :handles nil
+                :dependencies nil))))))
+
+;;;###autoload
+(defun ogent-context-build-with-source (source-buffer &optional region-start region-end)
+  "Build combined context from SOURCE-BUFFER and current Org buffer.
+The current buffer should be an Org companion buffer.
+SOURCE-BUFFER is the code buffer the user is editing.
+Returns context with both Org structure (if any) and source code."
+  (let ((source-ctx (when (and source-buffer
+                               (buffer-live-p source-buffer)
+                               (not (with-current-buffer source-buffer
+                                      (derived-mode-p 'org-mode))))
+                      (ogent-context--build-source-context
+                       source-buffer region-start region-end)))
+        (org-ctx (when (derived-mode-p 'org-mode)
+                   (condition-case nil
+                       (ogent-context-build)
+                     (error nil)))))
+    (list :source-context source-ctx
+          :root (plist-get org-ctx :root)
+          :ancestors (plist-get org-ctx :ancestors)
+          :handles (plist-get org-ctx :handles)
+          :dependencies (plist-get org-ctx :dependencies))))
 
 (provide 'ogent-context)
 
