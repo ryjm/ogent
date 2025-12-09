@@ -20,6 +20,15 @@ Called with the source buffer as argument, should return a string."
   :type 'function
   :group 'ogent-companion)
 
+(defcustom ogent-companion-display-action
+  '((ogent-companion--display-buffer-popup-or-side)
+    (side . right)
+    (window-width . 0.3))
+  "Display action for companion buffers.
+Uses Doom's popup system if available, otherwise a side window."
+  :type 'sexp
+  :group 'ogent-companion)
+
 (defvar-local ogent-companion--linked-buffer nil
   "Buffer-local variable pointing to the companion buffer.
 In source buffers: points to the Org companion buffer.
@@ -181,6 +190,38 @@ Handles both file-backed and temp companion buffers."
 
 ;; Set up persistence hooks when this module loads
 (ogent-companion--setup-persistence)
+
+;;; Display Functions
+
+(defun ogent-companion--display-buffer-popup-or-side (buffer alist)
+  "Display BUFFER as Doom popup or side window.
+ALIST contains display parameters.  Uses Doom's popup system when
+available, otherwise falls back to a standard side window."
+  (cond
+   ;; Doom Emacs +popup system
+   ((and (boundp '+popup-mode) +popup-mode
+         (fboundp '+popup-buffer))
+    (+popup-buffer buffer
+                   `((side . ,(or (alist-get 'side alist) 'right))
+                     (size . ,(or (alist-get 'window-width alist) 0.3))
+                     (slot . 1)
+                     (vslot . 1)
+                     (ttl . nil)
+                     (quit . current)
+                     (select . t))))
+   ;; Standard side window fallback
+   (t
+    (display-buffer-in-side-window
+     buffer
+     `((side . ,(or (alist-get 'side alist) 'right))
+       (slot . 1)
+       (window-width . ,(or (alist-get 'window-width alist) 0.3))
+       (preserve-size . (t . nil)))))))
+
+;;;###autoload
+(defun ogent-companion-display-buffer (buffer)
+  "Display BUFFER using `ogent-companion-display-action'."
+  (display-buffer buffer ogent-companion-display-action))
 
 ;;;###autoload
 (defun ogent-companion-save-link (&optional buffer)

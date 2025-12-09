@@ -19,16 +19,160 @@
 (declare-function ogent-presets-available "ogent-models")
 (declare-function ogent-preset-get "ogent-models")
 
+;; gptel integration
+(declare-function gptel-backend-name "ext:gptel")
+(declare-function gptel-backend-models "ext:gptel")
+(declare-function gptel--model-name "ext:gptel")
+(defvar gptel--known-backends)
+(defvar gptel-backend)
+(defvar gptel-model)
+(defvar gptel-stream)
+
+;;; gptel-style Variable Scope Management
+
+(defvar-local ogent--set-buffer-locally nil
+  "When non-nil, set model parameters buffer-locally.")
+
+(defun ogent--set-with-scope (sym value &optional scope)
+  "Set SYM to VALUE, buffer-locally if SCOPE is non-nil."
+  (if scope
+      (set (make-local-variable sym) value)
+    (kill-local-variable sym)
+    (set sym value)))
+
+;;; Provider/Model Selection Infix
+
+(defclass ogent-provider-variable (transient-lisp-variable)
+  ((model       :initarg :model)
+   (model-value :initarg :model-value)
+   (always-read :initform t)
+   (set-value   :initarg :set-value :initform #'set))
+  "Transient variable class for selecting gptel backend and model.")
+
+(cl-defmethod transient-init-value ((obj ogent-provider-variable))
+  "Initialize OBJ's value from gptel-backend."
+  (oset obj value gptel-backend)
+  (oset obj model-value gptel-model))
+
+(cl-defmethod transient-format-value ((obj ogent-provider-variable))
+  "Format the current backend:model selection for display."
+  (let ((backend (oref obj value))
+        (model (oref obj model-value)))
+    (if (and backend model)
+        (propertize (format "%s:%s"
+                            (if (fboundp 'gptel-backend-name)
+                                (gptel-backend-name backend)
+                              "backend")
+                            (if (fboundp 'gptel--model-name)
+                                (gptel--model-name model)
+                              model))
+                    'face 'transient-value)
+      (propertize "not configured" 'face 'transient-inactive-value))))
+
+(cl-defmethod transient-infix-set ((obj ogent-provider-variable) value)
+  "Set backend and model from VALUE, which should be (backend . model)."
+  (pcase-let ((`(,backend ,model) value))
+    (oset obj value backend)
+    (oset obj model-value model)
+    (funcall (oref obj set-value) 'gptel-backend backend ogent--set-buffer-locally)
+    (funcall (oref obj set-value) 'gptel-model model ogent--set-buffer-locally)))
+
+(defun ogent--read-provider (prompt &rest _)
+  "Read provider:model using completing-read.
+PROMPT is the completion prompt."
+  (unless (boundp 'gptel--known-backends)
+    (require 'gptel nil t))
+  (let ((models-alist
+         (cl-loop for (name . backend) in gptel--known-backends
+                  nconc (cl-loop for model in (gptel-backend-models backend)
+                                 for model-name = (gptel--model-name model)
+                                 collect (list (concat name ":" model-name)
+                                               backend model)))))
+    (if models-alist
+        (cdr (assoc (completing-read prompt models-alist nil t) models-alist))
+      (user-error "No gptel backends configured. Run gptel-make-* first"))))
+
+(transient-define-infix ogent--infix-provider ()
+  "Select LLM provider and model."
+  :description "Model"
+  :class 'ogent-provider-variable
+  :variable 'gptel-backend
+  :model 'gptel-model
+  :set-value #'ogent--set-with-scope
+  :key "m"
+  :reader #'ogent--read-provider)
+
+;;; Inline Prompt Infix
+
+(defvar ogent--transient-prompt nil
+  "Prompt text set via the transient infix.")
+
+(transient-define-infix ogent--infix-prompt ()
+  "Enter a prompt to send."
+  :description "Prompt"
+  :class 'transient-lisp-variable
+  :variable 'ogent--transient-prompt
+  :key "p"
+  :prompt "Prompt: "
+  :reader (lambda (prompt _initial _history)
+            (let ((text (read-string prompt)))
+              (unless (string-empty-p text) text))))
+
+;;; Direct Send Suffix
+
+(defun ogent--get-effective-prompt ()
+  "Get the prompt to send: transient input, region, or minibuffer."
+  (or ogent--transient-prompt
+      (when (use-region-p)
+        (buffer-substring-no-properties (region-beginning) (region-end)))
+      (read-string "Prompt: ")))
+
+(defun ogent--send-with-current-model (prompt)
+  "Send PROMPT using current gptel-backend and gptel-model."
+  (let* ((companion (ogent-ui--ensure-companion-context))
+         (extracted (ogent-ui--extract-preset-cookies prompt))
+         (clean-prompt (car extracted))
+         (cookie-presets (cdr extracted))
+         (effective-preset (or (car cookie-presets) ogent-ui--selected-preset)))
+    (with-current-buffer companion
+      (let* ((context (ogent-context-build))
+             (model (list :id (if (fboundp 'gptel--model-name)
+                                  (gptel--model-name gptel-model)
+                                gptel-model)
+                          :backend gptel-backend
+                          :stream? gptel-stream))
+             (request (funcall ogent-response-function clean-prompt context model)))
+        (unless (ogent-ui-request-p request)
+          (user-error "ogent-response-function must return an `ogent-ui-request'"))
+        (setf (ogent-ui-request-preset request) effective-preset)
+        (ogent-ui--send-request request)))))
+
+(transient-define-suffix ogent--suffix-send ()
+  "Send prompt to LLM."
+  :key "RET"
+  :description
+  (lambda ()
+    (concat "Send"
+            (cond
+             (ogent--transient-prompt
+              (format " \"%s\"" (truncate-string-to-width ogent--transient-prompt 20 nil nil "...")))
+             ((use-region-p) " (region)")
+             (t ""))))
+  (interactive)
+  (let ((prompt (ogent--get-effective-prompt)))
+    (setq ogent--transient-prompt nil)  ; Clear for next time
+    (ogent--send-with-current-model prompt)))
+
 (defun ogent-ui--ensure-companion-context ()
   "Ensure we're in an Org buffer, creating a companion if needed.
 When invoked from a non-Org buffer, get or create the companion Org buffer
-and display it.  Returns the companion (or current) Org buffer."
+and display it as a popup/side window.  Returns the companion (or current) Org buffer."
   (if (derived-mode-p 'org-mode)
       (current-buffer)
     (let ((companion (ogent-companion-get-or-create)))
-      ;; Display the companion buffer so user can see the transcript
+      ;; Display the companion buffer as a popup or side window
       (unless (get-buffer-window companion)
-        (display-buffer companion))
+        (ogent-companion-display-buffer companion))
       companion)))
 
 (defcustom ogent-context-preview-buffer-name "*ogent-context*"
@@ -58,9 +202,6 @@ should be inserted."
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle)
 
-(defvar ogent-ui--selected-models nil
-  "Models toggled inside the dispatch transient.")
-
 (defvar ogent-ui--selected-preset nil
   "The currently selected preset name (string), or nil for no preset.")
 
@@ -73,30 +214,6 @@ Used for retry functionality.")
 
 (defvar ogent-ui--request-seq 0
   "Incrementing counter for request identifiers.")
-
-(defvar ogent-ui--prompt-transient nil
-  "Symbol naming the dynamically generated prompt dispatcher command.")
-
-(defvar ogent-ui--prompt-transient-counter 0)
-
-(defun ogent-ui--current-models ()
-  "Return the list of currently selected models, falling back to defaults."
-  (or (cl-remove-duplicates ogent-ui--selected-models :test #'string=)
-        (let ((default (ogent-models-default)))
-          (when default
-            (let ((model-id (plist-get default :id)))
-              (setq ogent-ui--selected-models (list model-id))
-              ogent-ui--selected-models)))))
-
-(defun ogent-ui--toggle-model (model)
-  "Toggle MODEL membership in `ogent-ui--selected-models'."
-  (ogent-models-ensure model)
-  (if (member model ogent-ui--selected-models)
-      (setq ogent-ui--selected-models
-            (cl-remove model ogent-ui--selected-models :test #'string=))
-    (push model ogent-ui--selected-models))
-  (message "Active models: %s"
-           (string-join (ogent-ui--current-models) ", ")))
 
 (defun ogent-ui--format-node (node)
   "Return a human-readable summary line for NODE."
@@ -190,98 +307,38 @@ When invoked from a non-Org buffer, uses the companion Org buffer's context."
    ((and (consp backend) (symbolp (car backend))) (symbol-name (car backend)))
    (t "backend")))
 
-(defun ogent-ui--model-label (model)
-  "Return a formatted label for MODEL plist."
-  (let ((id (plist-get model :id))
-        (backend (plist-get model :backend)))
-    (if backend
-        (format "%s (%s)" id (ogent-ui--backend-label backend))
-      id)))
+(defun ogent--format-model-header ()
+  "Format the current model for display in transient header."
+  (if (and (boundp 'gptel-backend) gptel-backend
+           (boundp 'gptel-model) gptel-model)
+      (format "Model: %s:%s"
+              (if (fboundp 'gptel-backend-name)
+                  (gptel-backend-name gptel-backend)
+                "backend")
+              (if (fboundp 'gptel--model-name)
+                  (gptel--model-name gptel-model)
+                gptel-model))
+    "Model: not configured"))
 
-(defun ogent-ui--build-model-suffixes ()
-  "Return transient suffix specs for every registered model."
-  (let (suffixes)
-    (cl-loop for model in (ogent-models-all)
-             for index from 1
-             for key = (number-to-string index)
-             for id = (plist-get model :id)
-             for label = (ogent-ui--model-label model)
-             do (push
-                 `(,key ,label
-                        (lambda ()
-                          (interactive)
-                          (ogent-ui--toggle-model ,id))
-                        :transient t)
-                 suffixes))
-    (nreverse suffixes)))
-
-(defun ogent-ui--toggle-preset (preset)
-  "Toggle PRESET as the active preset, or clear if already selected."
-  (if (equal preset ogent-ui--selected-preset)
-      (progn
-        (setq ogent-ui--selected-preset nil)
-        (message "Preset cleared"))
-    (setq ogent-ui--selected-preset preset)
-    (message "Preset: %s" preset)))
-
-(defun ogent-ui--build-preset-suffixes ()
-  "Return transient suffix specs for available presets."
-  (let ((presets (ogent-presets-available))
-        (suffixes nil)
-        (keys "abcdefghij"))
-    (cl-loop for preset in presets
-             for index from 0
-             for key = (if (< index (length keys))
-                           (char-to-string (aref keys index))
-                         (format "p%d" index))
-             do (push
-                 `(,key ,preset
-                        (lambda ()
-                          (interactive)
-                          (ogent-ui--toggle-preset ,preset))
-                        :transient t)
-                 suffixes))
-    (nreverse suffixes)))
-
-(defun ogent-ui--define-prompt-transient ()
-  "Internal helper to (re)define the prompt dispatcher."
-  (let* ((command (intern (format "ogent-ui--prompt-dispatch-%d"
-                                  (cl-incf ogent-ui--prompt-transient-counter))))
-         (model-suffixes (ogent-ui--build-model-suffixes))
-         (preset-suffixes (ogent-ui--build-preset-suffixes)))
-    (eval
-     `(transient-define-prefix ,command ()
-        "Prompt dispatcher for ogent requests."
-        ["Models" ,@model-suffixes]
-        ,@(when preset-suffixes
-            `(["Presets" ,@preset-suffixes]))
-        ["Actions"
-         ("c" "Preview context" ogent-context-preview)
-         ("m" "Codemap" ogent-codemap-buffer)
-         ("RET" "Send request" ogent-request)]))
-    (setq ogent-ui--prompt-transient command)))
-
-(defun ogent-ui-refresh-dispatch ()
-  "Rebuild the prompt dispatcher after updating the model registry."
-  (interactive)
-  (ogent-ui--define-prompt-transient))
-
-(ogent-ui-refresh-dispatch)
-
-;;;###autoload
-(defun ogent-prompt-dispatch ()
+;;;###autoload (autoload 'ogent-prompt-dispatch "ogent-ui" nil t)
+(transient-define-prefix ogent-prompt-dispatch ()
   "Prompt dispatcher for ogent requests.
-When invoked from a non-Org buffer, creates and displays a companion Org buffer."
+Shows current model, allows changing it, and sends prompts to LLM."
+  [:description ogent--format-model-header
+   ["Options"
+    (ogent--infix-provider)
+    (ogent--infix-prompt)]
+   ["Context"
+    ("c" "Preview context" ogent-context-preview :transient t)
+    ("C" "Codemap" ogent-codemap-buffer :transient t)]]
+  [["Actions"
+    (ogent--suffix-send)
+    ("q" "Quit" transient-quit-one)]]
   (interactive)
-  (let ((companion (ogent-ui--ensure-companion-context)))
-    (with-current-buffer companion
-      (unless ogent-ui--prompt-transient
-        (ogent-ui-refresh-dispatch))
-      (call-interactively ogent-ui--prompt-transient))))
+  (ogent-ui--ensure-companion-context)
+  (transient-setup 'ogent-prompt-dispatch))
 
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
-(defvar gptel-backend nil)
-(defvar gptel-model nil)
 
 (defcustom ogent-gptel-required-features '(gptel-openai gptel-anthropic)
   "Features that must be loaded so gptel backends can service requests.
