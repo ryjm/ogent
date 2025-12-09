@@ -85,6 +85,14 @@ interactive:
 sandbox-test:
 	@./makem.sh -v --sandbox --install-deps test
 
+# Run interactive Emacs in a clean sandbox (for development/testing)
+sandbox:
+	@./makem.sh -v --sandbox --install-deps interactive
+
+# Run lint in a clean sandbox with all linters
+sandbox-lint:
+	@./makem.sh -v --sandbox --install-deps --install-linters lint
+
 # Launch demo sandbox for manual validation (legacy target)
 demo:
 	$(EMACS) -Q sandbox/demo.org
@@ -102,7 +110,9 @@ help:
 	@echo "  make compile      - Byte-compile source files"
 	@echo "  make batch        - Run Emacs in batch mode with project loaded"
 	@echo "  make interactive  - Run Emacs interactively with project loaded"
+	@echo "  make sandbox      - Run interactive Emacs in clean sandbox"
 	@echo "  make sandbox-test - Run tests in clean sandbox environment"
+	@echo "  make sandbox-lint - Run all linters in clean sandbox"
 	@echo "  make demo         - Launch demo.org in minimal Emacs"
 	@echo ""
 	@echo "Options (pass as var=val):"
