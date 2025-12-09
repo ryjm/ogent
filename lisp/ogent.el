@@ -10,6 +10,7 @@
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-ui)
+(require 'ogent-onboard)
 
 (provide 'ogent)
 
