@@ -6,9 +6,9 @@
 
 (ert-deftest ogent-mode-keymap-binds-dispatch ()
   "Ensure the primary keybindings are available."
-  (should (eq (lookup-key ogent-mode-map (kbd "C-c o p"))
+  (should (eq (lookup-key ogent-mode-map (kbd "C-c . p"))
               #'ogent-prompt-dispatch))
-  (should (eq (lookup-key ogent-mode-map (kbd "C-c o r"))
+  (should (eq (lookup-key ogent-mode-map (kbd "C-c . r"))
               #'ogent-request)))
 
 (ert-deftest ogent-global-mode-enables-in-all-buffers ()
@@ -43,29 +43,29 @@
           (ogent-mode 1)
           (should ogent-mode)
           (should (keymapp ogent-mode-map))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o p"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . p"))
                      #'ogent-prompt-dispatch)))
       (kill-buffer text-buffer))))
 
 (ert-deftest ogent-mode-keybindings-available-globally ()
-  "C-c o keybindings work when ogent-mode is enabled in any buffer."
+  "C-c . keybindings work when ogent-mode is enabled in any buffer."
   (let ((js-buffer (get-buffer-create "*test.js*")))
     (unwind-protect
         (with-current-buffer js-buffer
           (fundamental-mode)
           (ogent-mode 1)
           ;; Verify all main keybindings are available
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o p"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . p"))
                      #'ogent-prompt-dispatch))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o r"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . r"))
                      #'ogent-request))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o c"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . c"))
                      #'ogent-context-preview))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o m"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . m"))
                      #'ogent-codemap-buffer))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o a"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . a"))
                      #'ogent-abort-request))
-          (should (eq (lookup-key ogent-mode-map (kbd "C-c o R"))
+          (should (eq (lookup-key ogent-mode-map (kbd "C-c . R"))
                      #'ogent-retry-request)))
       (kill-buffer js-buffer))))
 

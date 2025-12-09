@@ -71,7 +71,7 @@ You may also include :description for UI display."
   "Non-nil once `ogent-register-presets' has been called.")
 
 (declare-function gptel-make-preset "ext:gptel" (name &rest spec))
-(defvar gptel-presets nil)
+(defvar gptel-presets)  ; Forward declaration for gptel variable
 
 (defun ogent-register-presets ()
   "Register all presets in `ogent-preset-registry' with gptel.

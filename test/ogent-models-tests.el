@@ -20,13 +20,15 @@
   "Available presets include both ogent and gptel presets."
   (let ((ogent-preset-registry '((:name code-review :spec (:description "cr"))
                                  (:name summarize :spec (:description "sum"))))
-        (ogent--presets-registered nil)
-        (gptel-presets '((external . (:description "ext")))))
-    (cl-letf (((symbol-function 'gptel-make-preset) (lambda (&rest _) nil)))
-      (let ((names (ogent-presets-available)))
-        (should (member "code-review" names))
-        (should (member "summarize" names))
-        (should (member "external" names))))))
+        (ogent--presets-registered nil))
+    ;; Bind gptel-presets explicitly to ensure boundp works
+    (defvar gptel-presets nil)
+    (let ((gptel-presets '((external . (:description "ext")))))
+      (cl-letf (((symbol-function 'gptel-make-preset) (lambda (&rest _) nil)))
+        (let ((names (ogent-presets-available)))
+          (should (member "code-review" names))
+          (should (member "summarize" names))
+          (should (member "external" names)))))))
 
 (ert-deftest ogent-preset-get-finds-entry ()
   "Preset get returns the plist for a named preset."
