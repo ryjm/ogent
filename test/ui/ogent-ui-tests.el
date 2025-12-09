@@ -202,5 +202,38 @@
     (should (search-forward "Thinking about this..." nil t))
     (should (search-forward "#+end_reasoning" nil t))))
 
+(ert-deftest ogent-request-writes-to-companion-buffer ()
+  "Verify ogent-request writes to companion buffer when invoked from non-Org buffer."
+  (let ((text-buffer (get-buffer-create "*test-source.txt*"))
+        (companion-buffer nil)
+        (request-buffer nil))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'gptel-request)
+                     (lambda (_prompt &rest _args)
+                       ;; Capture the buffer where the request is created
+                       (setq request-buffer (current-buffer))
+                       nil)))
+            (with-current-buffer text-buffer
+              (fundamental-mode)
+              ;; Set up companion with Org structure
+              (let ((companion (ogent-companion-get-or-create)))
+                (setq companion-buffer companion)
+                (with-current-buffer companion
+                  (erase-buffer)
+                  (insert "#+title: Test\n\n* Session\n")
+                  (goto-char (point-max)))
+                ;; Call ogent-request from the text buffer
+                (ogent-request "test prompt" '("gpt-4o-mini"))))
+            ;; Verify request was created in the companion, not the source
+            (should request-buffer)
+            (should-not (eq request-buffer text-buffer))
+            (should (eq request-buffer companion-buffer))
+            (with-current-buffer request-buffer
+              (should (derived-mode-p 'org-mode)))
+            (when companion-buffer
+              (kill-buffer companion-buffer))))
+      (kill-buffer text-buffer))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

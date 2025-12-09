@@ -45,16 +45,21 @@ Each function receives the formatted context plist."
 
 ;;;###autoload
 (define-minor-mode ogent-mode
-  "Minor mode that turns an Org buffer into an ogent agent panel."
+  "Minor mode providing ogent AI assistant commands via C-c o prefix.
+When enabled, provides access to ogent commands in any buffer.
+For non-Org buffers, companion Org buffers are automatically created
+to maintain conversation history."
   :lighter " Ogent"
   :keymap ogent-mode-map
   (when ogent-mode
-    (ogent-ui--setup-highlight-mode)))
+    (when (derived-mode-p 'org-mode)
+      (ogent-ui--setup-highlight-mode))))
 
 (defun ogent--maybe-enable ()
-  "Enable `ogent-mode' inside Org buffers."
-  (when (derived-mode-p 'org-mode)
-    (ogent-mode 1)))
+  "Enable `ogent-mode' in all buffers.
+This is the function used by `ogent-global-mode' to enable
+ogent-mode globally across all buffers."
+  (ogent-mode 1))
 
 ;;;###autoload
 (define-globalized-minor-mode ogent-global-mode
