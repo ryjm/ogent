@@ -29,7 +29,7 @@
     (cl-loop for dir in ogent-codemap-source-directories
              for abs = (expand-file-name dir root)
              when (file-directory-p abs)
-             append (directory-files-recursively abs "\\.el$"))))
+             append (directory-files-recursively abs "\\.el\\'"))))
 
 (defun ogent-codemap--definitions (file)
   "Return a list of public ogent definitions discovered in FILE."

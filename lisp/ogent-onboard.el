@@ -266,14 +266,14 @@ your Emacs is using the latest code."
   (let* ((lisp-dir (expand-file-name "lisp" ogent-onboard--project-root))
          (ui-dir (expand-file-name "ui" lisp-dir))
          (files (append
-                 (directory-files lisp-dir t "\\.el$")
-                 (directory-files ui-dir t "\\.el$")))
+                 (directory-files lisp-dir t "\\.el\\'")
+                 (directory-files ui-dir t "\\.el\\'")))
          (byte-compile-warnings '(not free-vars unresolved)))
     (message "Recompiling ogent from %s..." lisp-dir)
     ;; Delete old .elc files
     (dolist (elc (append
-                  (directory-files lisp-dir t "\\.elc$")
-                  (directory-files ui-dir t "\\.elc$")))
+                  (directory-files lisp-dir t "\\.elc\\'")
+                  (directory-files ui-dir t "\\.elc\\'")))
       (delete-file elc))
     ;; Byte compile all files
     (dolist (file files)
