@@ -16,6 +16,8 @@
 (declare-function ogent-retry-request "ogent-ui")
 (declare-function ogent-ui--setup-highlight-mode "ogent-ui")
 (declare-function ogent-codemap-buffer "ogent-codemap")
+(declare-function ogent-request-edit "ogent-edit")
+(declare-function ogent-edit-menu "ogent-edit")
 
 (defgroup ogent-mode nil
   "Customization entries for `ogent-mode'."
@@ -40,6 +42,8 @@ Each function receives the formatted context plist."
     (define-key map (kbd "C-c o m") #'ogent-codemap-buffer)
     (define-key map (kbd "C-c o a") #'ogent-abort-request)
     (define-key map (kbd "C-c o R") #'ogent-retry-request)
+    (define-key map (kbd "C-c o e") #'ogent-edit-menu)
+    (define-key map (kbd "C-c o E") #'ogent-request-edit)
     map)
   "Keymap for `ogent-mode'.")
 

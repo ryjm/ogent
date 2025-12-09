@@ -12,6 +12,7 @@
 (require 'ogent-codemap)
 (require 'ogent-ui)
 (require 'ogent-onboard)
+(require 'ogent-edit)
 
 (provide 'ogent)
 
