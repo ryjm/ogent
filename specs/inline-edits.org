@@ -1,0 +1,471 @@
+#+title: ogent Inline Edits Specification
+#+author: ogent
+#+date: 2025-12-09
+
+* Purpose
+This spec defines how ogent applies LLM-generated code changes to source buffers.
+When users request edits from code files (not Org buffers), ogent should:
+1. Send the code context to the LLM with edit-format instructions
+2. Parse the structured edit response
+3. Display proposed changes inline using smerge conflict markers
+4. Allow accept/reject workflow via standard Emacs tooling
+5. Log all operations to the companion Org buffer
+
+* Design Principles
+- *Leverage built-ins*: Use =smerge-mode= (ships with Emacs) as primary display
+- *Safe by default*: No auto-apply; user must explicitly accept changes
+- *Auditable*: Every edit proposal logged to companion with timestamps
+- *Reversible*: Rejected edits preserved in history for later reference
+- *Streaming-aware*: Handle partial responses during streaming
+
+* Edit Request Format
+
+** Search/Replace Blocks (Primary)
+The LLM returns edits as SEARCH/REPLACE blocks. This format is:
+- Unambiguous: exact text matching
+- Multi-hunk: supports multiple changes per response
+- Validated: OLD text must exist exactly in source
+
+#+begin_example
+To make the requested changes, I'll modify the following:
+
+<<<<<<< SEARCH
+(defun foo ()
+  "Old docstring."
+  (old-implementation))
+=======
+(defun foo ()
+  "New improved docstring."
+  (new-implementation))
+>>>>>>> REPLACE
+
+<<<<<<< SEARCH
+(setq bar 42)
+=======
+(setq bar 100)
+>>>>>>> REPLACE
+#+end_example
+
+** Format Rules
+1. Each edit block starts with =<<<<<<< SEARCH=
+2. Original code follows (must match source exactly)
+3. Separator is ========
+4. New code follows
+5. Block ends with =>>>>>>> REPLACE=
+6. Multiple blocks allowed per response
+7. Surrounding prose/explanation is allowed and ignored by parser
+
+** Why This Format?
+| Format | Pros | Cons |
+|--------+------+------|
+| Unified diff | Standard, line-based | Fragile with LLM, line numbers drift |
+| JSON | Structured, machine-friendly | Verbose, hard for LLM to format |
+| SEARCH/REPLACE | Simple, exact matching, Claude-native | Requires unique matches |
+
+SEARCH/REPLACE is chosen because:
+- Claude and other LLMs naturally produce this format
+- Exact text matching avoids line number issues
+- Simple regex parsing
+- Used successfully by Aider, Claude Code, gptel-aibo
+
+* Prompt Template
+
+** System Instructions
+Added to system prompt when edit mode is active:
+
+#+begin_example
+When making code changes, format each edit as a SEARCH/REPLACE block:
+
+<<<<<<< SEARCH
+[exact original code to find]
+=======
+[replacement code]
+>>>>>>> REPLACE
+
+Rules:
+- The SEARCH section must match the original code EXACTLY (whitespace matters)
+- Include enough context lines to make the match unique
+- You can have multiple SEARCH/REPLACE blocks in one response
+- Explain your changes before or after the blocks
+#+end_example
+
+** Edit Request Wrapper
+When =ogent-request-edit= is called, wrap the user prompt:
+
+#+begin_example
+The user wants to modify code in `{filename}` ({major-mode}).
+
+{user-prompt}
+
+Current code:
+```{language}
+{source-content}
+```
+
+Provide your changes using SEARCH/REPLACE blocks.
+#+end_example
+
+* Parser Implementation
+
+** Data Structure
+#+begin_src elisp
+(cl-defstruct ogent-edit
+  "A single code edit extracted from LLM response."
+  id              ; unique identifier (ogent-edit-001, etc.)
+  old-text        ; exact text to search for
+  new-text        ; replacement text
+  source-buffer   ; buffer containing source code
+  source-file     ; file path (if file-backed)
+  start-pos       ; position where old-text was found (after validation)
+  end-pos         ; end position of old-text
+  status          ; pending | applied | rejected | error
+  error-message   ; why validation/application failed
+  timestamp)      ; when edit was created
+#+end_src
+
+** Parsing Algorithm
+#+begin_src elisp
+(defun ogent-edit-parse-response (response source-buffer)
+  "Parse RESPONSE text for SEARCH/REPLACE blocks.
+Returns list of `ogent-edit' structs."
+  (let ((edits nil)
+        (counter 0))
+    (with-temp-buffer
+      (insert response)
+      (goto-char (point-min))
+      (while (re-search-forward "^<<<<<<< SEARCH\n" nil t)
+        (let* ((search-start (point))
+               (separator (save-excursion
+                           (re-search-forward "^=======\n" nil t)))
+               (replace-end (save-excursion
+                             (re-search-forward "^>>>>>>> REPLACE" nil t)))
+               (old-text (when (and separator replace-end)
+                          (buffer-substring-no-properties
+                           search-start (- separator 8))))
+               (new-text (when (and separator replace-end)
+                          (buffer-substring-no-properties
+                           separator (- replace-end 16)))))
+          (when (and old-text new-text)
+            (cl-incf counter)
+            (push (make-ogent-edit
+                   :id (format "ogent-edit-%03d" counter)
+                   :old-text old-text
+                   :new-text new-text
+                   :source-buffer source-buffer
+                   :source-file (buffer-file-name source-buffer)
+                   :status 'pending
+                   :timestamp (current-time))
+                  edits))
+          (goto-char (or replace-end (point-max))))))
+    (nreverse edits)))
+#+end_src
+
+** Validation
+Before displaying an edit, validate that =old-text= exists uniquely in source:
+
+#+begin_src elisp
+(defun ogent-edit-validate (edit)
+  "Validate EDIT against its source buffer.
+Sets start-pos/end-pos on success, or status='error on failure."
+  (let* ((buf (ogent-edit-source-buffer edit))
+         (old-text (ogent-edit-old-text edit))
+         (matches nil))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char (point-min))
+        (while (search-forward old-text nil t)
+          (push (cons (match-beginning 0) (match-end 0)) matches))))
+    (pcase (length matches)
+      (0 (setf (ogent-edit-status edit) 'error
+               (ogent-edit-error-message edit) "SEARCH text not found in source"))
+      (1 (setf (ogent-edit-start-pos edit) (caar matches)
+               (ogent-edit-end-pos edit) (cdar matches)))
+      (_ (setf (ogent-edit-status edit) 'error
+               (ogent-edit-error-message edit)
+               (format "SEARCH text matches %d locations (must be unique)"
+                       (length matches)))))
+    edit))
+#+end_src
+
+* Display with smerge-mode
+
+** Applying Edits as Conflicts
+Transform validated edits into smerge conflict markers:
+
+#+begin_src elisp
+(defun ogent-edit-apply-as-smerge (edit)
+  "Insert EDIT as smerge conflict markers in source buffer."
+  (unless (eq (ogent-edit-status edit) 'pending)
+    (user-error "Edit %s is not pending" (ogent-edit-id edit)))
+  (let ((buf (ogent-edit-source-buffer edit))
+        (start (ogent-edit-start-pos edit))
+        (end (ogent-edit-end-pos edit))
+        (old-text (ogent-edit-old-text edit))
+        (new-text (ogent-edit-new-text edit)))
+    (with-current-buffer buf
+      (save-excursion
+        (goto-char start)
+        (delete-region start end)
+        (insert "<<<<<<< original\n"
+                old-text
+                (unless (string-suffix-p "\n" old-text) "\n")
+                "=======\n"
+                new-text
+                (unless (string-suffix-p "\n" new-text) "\n")
+                ">>>>>>> ogent\n"))
+      ;; Enable smerge-mode if not already active
+      (unless (bound-and-true-p smerge-mode)
+        (smerge-mode 1))
+      ;; Move to the conflict
+      (goto-char start)
+      (smerge-next))))
+#+end_src
+
+** User Workflow
+Once edits are displayed as conflicts:
+
+| Action | Command | Keybinding |
+|--------+---------+------------|
+| Accept AI change | =smerge-keep-other= | =C-c ^ o= |
+| Reject (keep original) | =smerge-keep-mine= | =C-c ^ m= |
+| Next conflict | =smerge-next= | =C-c ^ n= |
+| Previous conflict | =smerge-prev= | =C-c ^ p= |
+| Accept all | =smerge-keep-all-other= | N/A (custom) |
+| Reject all | =smerge-keep-all-mine= | N/A (custom) |
+
+** Tracking Resolution
+Hook into smerge to track when user accepts/rejects:
+
+#+begin_src elisp
+(defun ogent-edit--smerge-resolved-hook ()
+  "Called when a smerge conflict is resolved."
+  ;; Find which edit this corresponds to and update status
+  ;; Log to companion buffer
+  )
+
+(add-hook 'smerge-resolve-hook #'ogent-edit--smerge-resolved-hook)
+#+end_src
+
+* Companion Buffer Logging
+
+** Log Entry Format
+Each edit operation creates an entry in the companion Org buffer:
+
+#+begin_example
+** Edit: ogent-edit-001 [2025-12-09 Mon 14:30]
+:PROPERTIES:
+:OGENT_EDIT_ID: ogent-edit-001
+:SOURCE_FILE: /path/to/file.el
+:STATUS: pending
+:END:
+
+*** Proposed Change
+#+begin_src diff
+- (defun foo ()
+-   "Old docstring."
+-   (old-implementation))
++ (defun foo ()
++   "New improved docstring."
++   (new-implementation))
+#+end_src
+
+*** Resolution [2025-12-09 Mon 14:32]
+Status: accepted
+#+end_example
+
+** Logging Functions
+#+begin_src elisp
+(defun ogent-edit-log-proposal (edit)
+  "Log EDIT proposal to companion buffer."
+  (let* ((source-buf (ogent-edit-source-buffer edit))
+         (companion (ogent-companion--get-linked-buffer source-buf)))
+    (when companion
+      (with-current-buffer companion
+        (goto-char (point-max))
+        (insert (format "\n** Edit: %s [%s]\n"
+                        (ogent-edit-id edit)
+                        (format-time-string "%Y-%m-%d %a %H:%M")))
+        ;; Insert properties drawer
+        ;; Insert diff block
+        ;; Store marker for later updates
+        ))))
+
+(defun ogent-edit-log-resolution (edit new-status)
+  "Log that EDIT was resolved with NEW-STATUS."
+  ;; Find the edit's log entry
+  ;; Update STATUS property
+  ;; Add resolution timestamp
+  )
+#+end_src
+
+* Marker Synchronization
+
+** Edit Markers Structure
+#+begin_src elisp
+(cl-defstruct ogent-edit-marker
+  "Links positions between source and companion buffers."
+  edit-id
+  source-marker    ; marker in source buffer (at conflict start)
+  companion-marker ; marker in companion buffer (at log entry)
+  status)
+
+(defvar-local ogent-edit--markers nil
+  "List of `ogent-edit-marker' for this buffer.")
+#+end_src
+
+** Navigation Commands
+#+begin_src elisp
+(defun ogent-edit-goto-source ()
+  "Jump from companion to source buffer at current edit."
+  (interactive)
+  ;; Find edit ID at point
+  ;; Look up marker
+  ;; Switch to source buffer and goto marker
+  )
+
+(defun ogent-edit-goto-companion ()
+  "Jump from source to companion buffer log entry."
+  (interactive)
+  ;; Find which edit we're in (if any)
+  ;; Look up marker
+  ;; Switch to companion and goto marker
+  )
+#+end_src
+
+* Request Flow
+
+** Entry Point
+#+begin_src elisp
+;;;###autoload
+(defun ogent-request-edit (&optional prompt)
+  "Request code edits for current buffer or region.
+PROMPT is the edit instruction. If region is active, only that
+region is sent for context."
+  (interactive)
+  (unless (buffer-file-name)
+    (user-error "Buffer must be visiting a file for edit requests"))
+  (let* ((source-buffer (current-buffer))
+         (region-start (when (use-region-p) (region-beginning)))
+         (region-end (when (use-region-p) (region-end)))
+         (user-prompt (or prompt (read-string "Edit instruction: ")))
+         (companion (ogent-companion-get-or-create)))
+    ;; Build full prompt with edit format instructions
+    ;; Send via ogent-request with edit callback
+    ;; Callback: parse response, validate edits, display as smerge
+    ))
+#+end_src
+
+** Callback Processing
+#+begin_src elisp
+(defun ogent-edit--process-response (response source-buffer)
+  "Process LLM RESPONSE and apply edits to SOURCE-BUFFER."
+  (let ((edits (ogent-edit-parse-response response source-buffer)))
+    (dolist (edit edits)
+      ;; Validate
+      (ogent-edit-validate edit)
+      ;; Log to companion
+      (ogent-edit-log-proposal edit)
+      ;; Display in source (if valid)
+      (if (eq (ogent-edit-status edit) 'error)
+          (message "Edit %s failed: %s"
+                   (ogent-edit-id edit)
+                   (ogent-edit-error-message edit))
+        (ogent-edit-apply-as-smerge edit)))
+    ;; Return to first conflict
+    (when edits
+      (with-current-buffer source-buffer
+        (goto-char (point-min))
+        (smerge-next)))))
+#+end_src
+
+* Transient Menu
+
+#+begin_src elisp
+(transient-define-prefix ogent-edit-menu ()
+  "Commands for managing ogent edits."
+  [:description
+   (lambda ()
+     (let ((pending (ogent-edit--count-pending)))
+       (if (> pending 0)
+           (format "Pending edits: %d" pending)
+         "No pending edits")))
+   ["Current Edit"
+    ("a" "Accept" ogent-edit-accept-current)
+    ("r" "Reject" ogent-edit-reject-current)
+    ("d" "Show diff" ogent-edit-show-diff)]
+   ["All Edits"
+    ("A" "Accept all" ogent-edit-accept-all)
+    ("R" "Reject all" ogent-edit-reject-all)]
+   ["Navigate"
+    ("n" "Next" smerge-next :transient t)
+    ("p" "Previous" smerge-prev :transient t)
+    ("g" "Goto companion" ogent-edit-goto-companion)]]
+  [["Request"
+    ("e" "Request edit" ogent-request-edit)
+    ("q" "Quit" transient-quit-one)]])
+#+end_src
+
+* Keybindings
+
+| Key | Command | Description |
+|-----+---------+-------------|
+| =C-c o e= | =ogent-edit-menu= | Open edit transient |
+| =C-c o r= | =ogent-request-edit= | Request code edit |
+| =C-c o g s= | =ogent-edit-goto-source= | Jump to source |
+| =C-c o g c= | =ogent-edit-goto-companion= | Jump to companion |
+
+* File Organization
+
+#+begin_example
+lisp/
+  ogent-edit.el          ; Main edit module
+  ogent-edit-format.el   ; Format constants, prompt templates
+  ogent-edit-parse.el    ; Parser for SEARCH/REPLACE blocks
+  ogent-edit-display.el  ; smerge integration, inline-diff adapter
+  ogent-edit-log.el      ; Companion logging
+
+test/
+  ogent-edit-tests.el    ; Parser tests, integration tests
+#+end_example
+
+* Testing Strategy
+
+** Parser Tests
+- Valid single edit block
+- Multiple edit blocks
+- Edit with surrounding prose
+- Malformed blocks (missing markers)
+- Empty SEARCH or REPLACE sections
+- Unicode content
+
+** Validation Tests
+- OLD text found once (success)
+- OLD text not found (error)
+- OLD text found multiple times (error)
+- Whitespace sensitivity
+
+** Integration Tests
+- Full request → parse → display flow
+- smerge accept/reject updates status
+- Companion logging records all actions
+- Marker navigation works both directions
+
+* Future Enhancements
+
+** inline-diff Integration (Optional)
+When =inline-diff= package is available, offer as alternative display:
+- More granular than smerge (word-level diffs)
+- M-a/M-k accept/reject
+- Configure via =ogent-edit-display-method=
+
+** Unified Diff Support
+For complex multi-file changes, support unified diff format:
+- Parse @@ hunk headers
+- Apply via =diff-apply-hunk=
+- Display in separate patch buffer (like Macher)
+
+** Auto-Apply Mode
+For trusted operations, optional auto-apply:
+- =ogent-edit-auto-apply= customization
+- Still logs to companion
+- Undo support via standard Emacs undo
