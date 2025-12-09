@@ -54,11 +54,19 @@
   "Save API KEY for HOST to auth-source (typically ~/.authinfo.gpg)."
   (let* ((gpg-file (expand-file-name "~/.authinfo.gpg"))
          (plain-file (expand-file-name "~/.authinfo"))
-         (target (if (file-writable-p gpg-file) gpg-file plain-file))
-         (entry (format "\nmachine %s login apikey password %s\n" host key)))
+         (target (cond
+                  ((file-exists-p gpg-file) gpg-file)
+                  ((file-exists-p plain-file) plain-file)
+                  (t plain-file)))
+         (entry (format "machine %s login apikey password %s" host key)))
+    ;; For encrypted files, we need to read, append, and rewrite
     (with-temp-buffer
-      (insert entry)
-      (append-to-file (point-min) (point-max) target))
+      (when (file-exists-p target)
+        (insert-file-contents target))
+      (goto-char (point-max))
+      (unless (bolp) (insert "\n"))
+      (insert entry "\n")
+      (write-region (point-min) (point-max) target))
     (message "Saved API key to %s" target)
     t))
 
