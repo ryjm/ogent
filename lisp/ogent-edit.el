@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'transient)
 (require 'ogent-edit-format)
 (require 'ogent-edit-parse)
 (require 'ogent-edit-display)
@@ -101,11 +102,6 @@ REQUEST-PLIST should contain :prompt, :system, and :callback."
   request-plist)
 
 ;;; Transient Menu
-
-(declare-function transient-define-prefix "transient")
-(declare-function transient-quit-one "transient")
-
-(defvar ogent-edit-menu)  ; Forward declaration
 
 ;;;###autoload (autoload 'ogent-edit-menu "ogent-edit" nil t)
 (transient-define-prefix ogent-edit-menu ()
