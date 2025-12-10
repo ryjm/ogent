@@ -55,7 +55,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox-test demo bench help
+.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help
 
 # Default: run all lints and tests
 all:
