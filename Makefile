@@ -55,7 +55,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox-test demo help
+.PHONY: all lint test compile batch interactive sandbox-test demo bench help
 
 # Default: run all lints and tests
 all:
@@ -85,6 +85,13 @@ interactive:
 sandbox-test:
 	@./makem.sh -v --sandbox --install-deps test
 
+# Run benchmarks
+bench:
+	@$(EMACS) -Q --batch \
+		-L lisp -L lisp/ui -L test -L test/ui \
+		-l test/ogent-bench.el \
+		-f ogent-run-benchmarks
+
 # Run interactive Emacs in a clean sandbox (for development/testing)
 sandbox:
 	@./makem.sh -v --sandbox --install-deps interactive
@@ -108,6 +115,7 @@ help:
 	@echo "  make lint         - Run all linters (checkdoc, compile, package-lint)"
 	@echo "  make test         - Run all tests"
 	@echo "  make compile      - Byte-compile source files"
+	@echo "  make bench        - Run performance benchmarks"
 	@echo "  make batch        - Run Emacs in batch mode with project loaded"
 	@echo "  make interactive  - Run Emacs interactively with project loaded"
 	@echo "  make sandbox      - Run interactive Emacs in clean sandbox"
