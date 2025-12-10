@@ -40,6 +40,76 @@
   (defun gptel-request (_prompt &rest _args)
     (error "gptel-request stub not overridden in tests")))
 
+;;; Mocking utilities
+;;
+;; These macros/functions make it easy to mock gptel and other external
+;; dependencies using cl-letf. See elisp-handbook.org for best practices.
+
+(defvar ogent-test--captured-requests nil
+  "Captures requests made during tests.")
+
+(defmacro ogent-test-with-mock-gptel (&rest body)
+  "Execute BODY with gptel-request mocked to capture and simulate responses.
+Access captured data via `ogent-test--captured-requests'.
+Automatically calls the callback with success if provided."
+  (declare (indent 0) (debug t))
+  `(let ((ogent-test--captured-requests nil))
+     (cl-letf (((symbol-function 'gptel-request)
+                (lambda (prompt &rest args)
+                  (push (list :prompt prompt :args args) ogent-test--captured-requests)
+                  (when-let ((callback (plist-get args :callback)))
+                    (funcall callback "Mock response" nil)
+                    (funcall callback nil '(:done t)))
+                  'mock-request)))
+       ,@body)))
+
+(defmacro ogent-test-with-streaming-mock (chunks &rest body)
+  "Execute BODY with gptel-request mocked to stream CHUNKS.
+CHUNKS is a list of strings to send via the callback."
+  (declare (indent 1) (debug t))
+  `(let ((ogent-test--captured-requests nil))
+     (cl-letf (((symbol-function 'gptel-request)
+                (lambda (prompt &rest args)
+                  (push (list :prompt prompt :args args) ogent-test--captured-requests)
+                  (when-let ((callback (plist-get args :callback)))
+                    (dolist (chunk ,chunks)
+                      (funcall callback chunk nil))
+                    (funcall callback nil '(:done t)))
+                  'mock-request)))
+       ,@body)))
+
+(defmacro ogent-test-with-error-mock (error-message &rest body)
+  "Execute BODY with gptel-request mocked to simulate an error.
+ERROR-MESSAGE is the error string returned via callback."
+  (declare (indent 1) (debug t))
+  `(let ((ogent-test--captured-requests nil))
+     (cl-letf (((symbol-function 'gptel-request)
+                (lambda (prompt &rest args)
+                  (push (list :prompt prompt :args args) ogent-test--captured-requests)
+                  (when-let ((callback (plist-get args :callback)))
+                    (funcall callback nil (list :error ,error-message)))
+                  'mock-request)))
+       ,@body)))
+
+(defmacro ogent-test-with-timeout-mock (&rest body)
+  "Execute BODY with gptel-request mocked to simulate a timeout (no callback)."
+  (declare (indent 0) (debug t))
+  `(let ((ogent-test--captured-requests nil))
+     (cl-letf (((symbol-function 'gptel-request)
+                (lambda (prompt &rest args)
+                  (push (list :prompt prompt :args args) ogent-test--captured-requests)
+                  ;; Don't call callback - simulates hung request
+                  'mock-request)))
+       ,@body)))
+
+(defun ogent-test-last-request ()
+  "Return the most recent captured request, or nil."
+  (car ogent-test--captured-requests))
+
+(defun ogent-test-request-count ()
+  "Return the number of captured requests."
+  (length ogent-test--captured-requests))
+
 (defun ogent-test-with-org-file (file fn)
   "Open FILE contents in a temporary Org buffer and run FN."
   (let ((buffer (generate-new-buffer " *ogent-test*")))

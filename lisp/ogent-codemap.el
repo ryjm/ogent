@@ -31,15 +31,21 @@
              when (file-directory-p abs)
              append (directory-files-recursively abs "\\.el\\'"))))
 
+(defconst ogent-codemap--definition-rx
+  (rx "(def" (or "un" "custom" "macro" "var")
+      (+ space)
+      (group "ogent-" (+ (not (any space "(" ")")))))
+  "Regexp matching elisp definitions with ogent- prefix.
+Captures the symbol name in group 1.")
+
 (defun ogent-codemap--definitions (file)
   "Return a list of public ogent definitions discovered in FILE."
   (with-temp-buffer
     (insert-file-contents file)
     (let (defs)
       (goto-char (point-min))
-      (while (re-search-forward
-              "(def\\(un\\|custom\\|macro\\|var\\)\\s-+\\(ogent-[^ ()]+\\)" nil t)
-        (push (match-string-no-properties 2) defs))
+      (while (re-search-forward ogent-codemap--definition-rx nil t)
+        (push (match-string-no-properties 1) defs))
       (nreverse (cl-remove-duplicates defs :test #'string=)))))
 
 (defun ogent-codemap--insert-file (buffer file)

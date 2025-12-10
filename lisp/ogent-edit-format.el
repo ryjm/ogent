@@ -24,15 +24,15 @@
   "Marker indicating the end of new code in an edit block.")
 
 (defconst ogent-edit-search-regex
-  "^<<<<<<< SEARCH\n"
+  (rx bol "<<<<<<< SEARCH" "\n")
   "Regex to match the start of an edit block.")
 
 (defconst ogent-edit-separator-regex
-  "^=======\n"
+  (rx bol "=======" "\n")
   "Regex to match the separator in an edit block.")
 
 (defconst ogent-edit-replace-regex
-  "^>>>>>>> REPLACE"
+  (rx bol ">>>>>>> REPLACE")
   "Regex to match the end of an edit block.")
 
 ;;; Data Structures
