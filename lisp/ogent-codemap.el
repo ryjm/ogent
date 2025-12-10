@@ -66,9 +66,13 @@ Captures the symbol name in group 1.")
     (let* ((root (ogent-codemap--project-root))
            (relative (file-relative-name file root))
            (defs (ogent-codemap--definitions file)))
-      (insert (format "** [[file:%s][%s]]\n" relative relative))
-      (dolist (def defs)
-        (insert (format "*** [[file:%s::%s][%s]]\n" relative def def))))))
+      ;; Use concat+insert pattern for 6x speedup (see elisp-handbook.org)
+      (insert
+       (apply #'concat
+              (format "** [[file:%s][%s]]\n" relative relative)
+              (mapcar (lambda (def)
+                        (format "*** [[file:%s::%s][%s]]\n" relative def def))
+                      defs))))))
 
 (defun ogent-codemap--render ()
   "Assemble the codemap buffer and return it."
