@@ -121,7 +121,8 @@ PROMPT is the completion prompt."
 ;; Request struct must be defined early for setf accessors
 (cl-defstruct ogent-ui-request
   id model context prompt buffer marker closed preset
-  status start-time end-time gptel-handle source-buffer)
+  status start-time end-time gptel-handle source-buffer
+  block-start)
 
 (transient-define-infix ogent--infix-prompt ()
   "Enter a prompt to send."
@@ -401,23 +402,31 @@ exist before `ogent-request' dispatches."
   (format "ogent-request-%d" ogent-ui--request-seq))
 
 (defun ogent-ui--create-response-block (prompt context model)
-  "Insert a placeholder src block for MODEL using PROMPT and CONTEXT.
-Returns a plist containing a streaming marker."
+  "Insert a prompt/context src block and response area for MODEL.
+The src block contains only prompt and context; the response streams
+outside the block to avoid nested code block issues.
+Returns a plist containing a streaming marker and block-start marker."
   (org-back-to-heading t)
   (org-end-of-subtree t t)
   (unless (bolp) (insert "\n"))
   (let* ((model-id (plist-get model :id))
          (backend (plist-get model :backend))
-         (summary (ogent-ui--format-context context)))
+         (summary (ogent-ui--format-context context))
+         block-start)
+    ;; Insert the prompt/context src block (closed immediately)
+    (setq block-start (point-marker))
     (insert (format "#+begin_src text :model %s%s\n"
                     model-id
                     (if backend
                         (format " :backend %s" (ogent-ui--backend-label backend))
                       "")))
-    (insert (format "Prompt:\n%s\n\nContext Summary:\n%s\n\nResponse:\n"
+    (insert (format "Prompt:\n%s\n\nContext Summary:\n%s\n"
                     prompt summary))
+    (insert "#+end_src\n\n")
+    ;; Response streams after the closed block
+    (insert "** Response\n")
     (let ((marker (copy-marker (point) t)))
-      (list :marker marker))))
+      (list :marker marker :block-start block-start))))
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
@@ -436,7 +445,8 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :context context
                    :prompt prompt
                    :buffer (current-buffer)
-                   :marker (plist-get block :marker))))
+                   :marker (plist-get block :marker)
+                   :block-start (plist-get block :block-start))))
     (ogent-ui-register-request request)))
 
 (when (and (boundp 'ogent-response-function)
@@ -479,14 +489,14 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
 
 (defun ogent-ui--update-block-header (request)
   "Update the src block header with current status and timing for REQUEST."
-  (let ((marker (ogent-ui-request-marker request))
+  (let ((block-start (ogent-ui-request-block-start request))
         (model (ogent-ui-request-model request))
         (status (ogent-ui-request-status request)))
-    (when (and marker (marker-buffer marker))
+    (when (and block-start (marker-buffer block-start))
       (with-current-buffer (ogent-ui-request-buffer request)
         (save-excursion
-          (goto-char marker)
-          (when (re-search-backward "^#\\+begin_src text :model \\([^ \n]+\\)" nil t)
+          (goto-char block-start)
+          (when (looking-at "^#\\+begin_src text :model \\([^ \n]+\\).*$")
             (let* ((model-id (plist-get model :id))
                    (backend (plist-get model :backend))
                    (latency (ogent-ui--format-latency request))
@@ -506,27 +516,35 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                                          (format " :latency %s" latency)))))
               (replace-match new-header t t))))))))
 
+(defun ogent-ui--fold-prompt-block (request)
+  "Fold the prompt/context src block for REQUEST after response completes."
+  (let ((block-start (ogent-ui-request-block-start request)))
+    (when (and block-start (marker-buffer block-start))
+      (with-current-buffer (ogent-ui-request-buffer request)
+        (save-excursion
+          (goto-char block-start)
+          (when (and (looking-at "^#\\+begin_src")
+                     (derived-mode-p 'org-mode)
+                     (fboundp 'org-fold-hide-block-toggle))
+            ;; Fold the src block
+            (org-fold-hide-block-toggle 'hide)))))))
+
 (defcustom ogent-ui-request-history-max 20
   "Maximum number of closed requests to keep in history."
   :type 'integer
   :group 'ogent-mode)
 
 (defun ogent-ui--close-response (request &optional error-message)
-  "Finalize REQUEST, optionally including ERROR-MESSAGE."
+  "Finalize REQUEST, optionally including ERROR-MESSAGE.
+The src block is already closed; this just updates status and folds."
   (when error-message
     (ogent-ui--insert-error-block request error-message)
     (ogent-ui--update-status request 'error))
   (unless (ogent-ui-request-closed request)
     (unless error-message
       (ogent-ui--update-status request 'done))
-    (let ((marker (ogent-ui-request-marker request)))
-      (when (and marker (marker-buffer marker))
-        (with-current-buffer (ogent-ui-request-buffer request)
-          (save-excursion
-            (goto-char marker)
-            (unless (bolp) (insert "\n"))
-            (insert "#+end_src\n")
-            (set-marker marker (point))))))
+    ;; Fold the prompt/context src block
+    (ogent-ui--fold-prompt-block request)
     (setf (ogent-ui-request-closed request) t)
     ;; Save to history for retry
     (push request ogent-ui--request-history)
