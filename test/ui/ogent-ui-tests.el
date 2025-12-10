@@ -17,7 +17,7 @@
        (should (string-match-p "missing-note (missing)" summary))))))
 
 (ert-deftest ogent-request-streams-via-gptel ()
-  "ogent-request uses gptel and streams into the Org block."
+  "ogent-request uses gptel and streams response outside the src block."
   (ogent-test-with-fixture "data/fixture.org"
    (lambda ()
      (goto-char (point-min))
@@ -42,9 +42,12 @@
          (should (equal (plist-get captured :model) "gpt-4o-mini"))
          (save-excursion
            (goto-char (point-min))
+           ;; The src block should be closed before the response
            (search-forward "#+begin_src text :model gpt-4o-mini")
-           (search-forward "Hello world")
-           (search-forward "#+end_src")))))))
+           (search-forward "#+end_src")
+           ;; Response streams after the src block under ** Response heading
+           (search-forward "** Response")
+           (search-forward "Hello world")))))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
   "ogent-ui--ensure-gptel requires gptel plus declared backend features."
