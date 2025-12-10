@@ -16,6 +16,13 @@
 ;; Forward declaration for companion linking
 (declare-function ogent-companion-source-buffer "ogent-companion")
 
+;; Forward declarations for org-roam integration (optional dependency)
+(declare-function org-roam-node-title "ext:org-roam-node")
+(declare-function org-roam-node-aliases "ext:org-roam-node")
+(declare-function org-roam-node-file "ext:org-roam-node")
+(declare-function org-roam-node-point "ext:org-roam-node")
+(declare-function org-roam-node-list "ext:org-roam")
+
 (defcustom ogent-context-handle-regexp
   (rx "@" (group (+ (any alnum "_-"))))
   "Regexp that captures handle references inside Org text.
@@ -178,13 +185,19 @@ If REGION-START and REGION-END are provided, include the selected region."
 (defun ogent-resolve-handle (handle &optional buffers)
   "Return an `ogent-context-node' for HANDLE.
 BUFFERS defaults to the current buffer plus `ogent-context-extra-buffers'.
+First searches open buffers, then org-roam database if available.
 Returns nil when the handle cannot be located."
   (cl-check-type handle string)
   (let ((search-buffers (or buffers (ogent-context--buffers-to-search))))
-    (cl-loop for buffer in search-buffers
-             for element = (ogent-context--find-in-buffer handle buffer)
-             when element
-             return (ogent-context--node-from-element element buffer))))
+    (or
+     ;; Try open buffers first
+     (cl-loop for buffer in search-buffers
+              for element = (ogent-context--find-in-buffer handle buffer)
+              when element
+              return (ogent-context--node-from-element element buffer))
+     ;; Fall back to org-roam if available
+     (when (fboundp 'ogent-context--resolve-via-roam)
+       (ogent-context--resolve-via-roam handle)))))
 
 (defun ogent-context--dependency (handle)
   "Return a plist describing HANDLE, resolved when possible."
@@ -259,6 +272,41 @@ Returns context with both Org structure (if any) and source code."
           :ancestors (plist-get org-ctx :ancestors)
           :handles (plist-get org-ctx :handles)
           :dependencies (plist-get org-ctx :dependencies))))
+
+;;; Optional org-roam Integration
+;;
+;; When org-roam is available, handles can be resolved from its database.
+;; This allows @handle references to find nodes even when they're not
+;; currently open in a buffer.
+
+(with-eval-after-load 'org-roam
+  (defun ogent-context--roam-node-matches (node handle)
+    "Return non-nil if org-roam NODE matches HANDLE."
+    (let ((title (org-roam-node-title node))
+          (aliases (org-roam-node-aliases node)))
+      (or (string= (ogent-context--slug title)
+                   (ogent-context--slug handle))
+          (cl-some (lambda (alias)
+                     (string= (ogent-context--slug alias)
+                              (ogent-context--slug handle)))
+                   aliases))))
+
+  (defun ogent-context--resolve-via-roam (handle)
+    "Resolve HANDLE using org-roam database.
+Returns an `ogent-context-node' if found, nil otherwise."
+    (when-let* ((nodes (org-roam-node-list))
+                (match (cl-find-if (lambda (node)
+                                     (ogent-context--roam-node-matches node handle))
+                                   nodes))
+                (file (org-roam-node-file match))
+                (point (org-roam-node-point match)))
+      ;; Open the file and build the node from the element
+      (let ((buffer (find-file-noselect file)))
+        (with-current-buffer buffer
+          (save-excursion
+            (goto-char point)
+            (when-let ((element (org-element-at-point)))
+              (ogent-context--node-from-element element buffer))))))))
 
 (provide 'ogent-context)
 

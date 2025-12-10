@@ -8,6 +8,10 @@
 (require 'cl-lib)
 (require 'org)
 
+;; Forward declarations for optional project.el integration
+(declare-function project-root "project")
+(declare-function project-current "project")
+
 (defcustom ogent-codemap-source-directories '("lisp")
   "Relative directories scanned when building the codemap."
   :type '(repeat directory)
@@ -19,9 +23,17 @@
   :group 'ogent)
 
 (defun ogent-codemap--project-root ()
-  "Return the ogent project root, best-effort."
-  (or (locate-dominating-file default-directory "README.md")
-      default-directory))
+  "Return the project root, using project.el when available.
+Falls back to locating README.md or the current directory."
+  (or
+   ;; Try project.el (built-in since Emacs 28)
+   (when (fboundp 'project-current)
+     (when-let ((proj (project-current)))
+       (project-root proj)))
+   ;; Fallback: locate README.md
+   (locate-dominating-file default-directory "README.md")
+   ;; Last resort: current directory
+   default-directory))
 
 (defun ogent-codemap--source-files ()
   "Return every Emacs Lisp file under the configured directories."
