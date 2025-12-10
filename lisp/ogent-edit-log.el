@@ -58,15 +58,14 @@ Creates an Org heading with properties and diff block."
 (defun ogent-edit--generate-diff-lines (old-text new-text)
   "Generate diff-style output for OLD-TEXT vs NEW-TEXT."
   (let ((old-lines (split-string old-text "\n"))
-        (new-lines (split-string new-text "\n"))
-        (result ""))
+        (new-lines (split-string new-text "\n")))
     ;; Simple diff: show all old as removed, all new as added
-    ;; A more sophisticated approach would use diff-mode
-    (dolist (line old-lines)
-      (setq result (concat result "- " line "\n")))
-    (dolist (line new-lines)
-      (setq result (concat result "+ " line "\n")))
-    result))
+    ;; Use mapconcat for efficiency (see elisp-handbook.org)
+    (concat
+     (mapconcat (lambda (line) (concat "- " line)) old-lines "\n")
+     (when old-lines "\n")
+     (mapconcat (lambda (line) (concat "+ " line)) new-lines "\n")
+     (when new-lines "\n"))))
 
 ;;; Log Marker Management
 
