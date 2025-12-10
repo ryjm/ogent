@@ -215,5 +215,53 @@
               (kill-buffer companion-buffer))))
       (kill-buffer text-buffer))))
 
+;;; Tests using new mocking utilities
+
+(ert-deftest ogent-ui-error-response-handling ()
+  "Test error handling when gptel returns an error."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-error-mock "API rate limit exceeded"
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         ;; Verify request was captured
+         (should (= 1 (ogent-test-request-count)))
+         (let ((req (ogent-test-last-request)))
+           (should (string-match-p "Test prompt" (plist-get req :prompt)))))))))
+
+(ert-deftest ogent-ui-streaming-chunks ()
+  "Test streaming response with multiple chunks."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-streaming-mock '("Hello " "world " "!")
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         ;; Verify the streaming content was inserted
+         (save-excursion
+           (goto-char (point-min))
+           (should (search-forward "Hello world !" nil t))))))))
+
+(ert-deftest ogent-ui-request-capture ()
+  "Test that requests are properly captured for inspection."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-mock-gptel
+         (ogent-request "First request" '("gpt-4o-mini"))
+         (ogent-request "Second request" '("gpt-4o-mini"))
+         ;; Two requests should be captured
+         (should (= 2 (ogent-test-request-count)))
+         ;; Most recent is first in list
+         (should (string-match-p "Second" (plist-get (ogent-test-last-request) :prompt))))))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

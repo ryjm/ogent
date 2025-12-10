@@ -49,10 +49,10 @@ Format: *ogent:<file>* or *ogent:<buffer-name>* for non-file buffers."
 (defun ogent-companion--get-linked-buffer (&optional buffer)
   "Return the linked companion buffer for BUFFER, or nil if none exists.
 BUFFER defaults to the current buffer."
-  (with-current-buffer (or buffer (current-buffer))
-    (when (and ogent-companion--linked-buffer
-               (buffer-live-p ogent-companion--linked-buffer))
-      ogent-companion--linked-buffer)))
+  (let* ((buf (or buffer (current-buffer)))
+         (linked (buffer-local-value 'ogent-companion--linked-buffer buf)))
+    (when (and linked (buffer-live-p linked))
+      linked)))
 
 (defun ogent-companion--link-buffers (source-buffer companion-buffer)
   "Establish bidirectional link between SOURCE-BUFFER and COMPANION-BUFFER.
@@ -240,8 +240,8 @@ BUFFER defaults to the current buffer.  Only works for file-backed buffers."
   "Return a list of Org buffers suitable for companion selection."
   (cl-remove-if-not
    (lambda (buf)
-     (with-current-buffer buf
-       (derived-mode-p 'org-mode)))
+     ;; Use buffer-local-value for 50x faster access (see elisp-handbook.org)
+     (eq (buffer-local-value 'major-mode buf) 'org-mode))
    (buffer-list)))
 
 ;;;###autoload
