@@ -250,58 +250,100 @@ Use this after initial setup to configure additional providers."
 
 ;;; Recompile and reload
 
-(defvar ogent-onboard--project-root
-  (file-name-directory
-   (directory-file-name
-    (file-name-directory
-     (or load-file-name buffer-file-name))))
-  "Root directory of the ogent project.")
+(defcustom ogent-source-directory nil
+  "Directory containing ogent source code for development.
+When nil, attempts to auto-detect from straight.el recipe or load path.
+Set this to your local checkout (e.g., \"~/projects/ogent\") for
+reliable reloading during development."
+  :type '(choice (const :tag "Auto-detect" nil)
+                 (directory :tag "Source directory"))
+  :group 'ogent)
+
+(defun ogent-onboard--find-source-root ()
+  "Find the ogent source root directory.
+Priority:
+1. `ogent-source-directory' if set
+2. straight.el local repo path
+3. Fall back to load-file-name parent"
+  (or ogent-source-directory
+      ;; Check straight.el for local repo path
+      (when (and (boundp 'straight--repos-dir)
+                 (file-directory-p (expand-file-name "ogent" straight--repos-dir)))
+        (expand-file-name "ogent" straight--repos-dir))
+      ;; Fall back to computed path from load location
+      (file-name-directory
+       (directory-file-name
+        (file-name-directory
+         (or load-file-name
+             (locate-library "ogent")
+             buffer-file-name))))))
 
 ;;;###autoload
 (defun ogent-recompile ()
   "Recompile all ogent elisp files and reload them.
 Use this after pulling updates or making changes to ensure
-your Emacs is using the latest code."
+your Emacs is using the latest code.
+
+If auto-detection fails, set `ogent-source-directory' to your
+local checkout path."
   (interactive)
-  (let* ((lisp-dir (expand-file-name "lisp" ogent-onboard--project-root))
-         (ui-dir (expand-file-name "ui" lisp-dir))
-         (files (append
-                 (directory-files lisp-dir t "\\.el\\'")
-                 (directory-files ui-dir t "\\.el\\'")))
-         (byte-compile-warnings '(not free-vars unresolved)))
-    (message "Recompiling ogent from %s..." lisp-dir)
-    ;; Delete old .elc files
-    (dolist (elc (append
-                  (directory-files lisp-dir t "\\.elc\\'")
-                  (directory-files ui-dir t "\\.elc\\'")))
-      (delete-file elc))
-    ;; Byte compile all files
-    (dolist (file files)
-      (byte-compile-file file))
-    ;; Unload all ogent features
-    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap
-                    ogent-core ogent-models ogent-context ogent))
-      (when (featurep feat)
-        (unload-feature feat t)))
-    ;; Reload
-    (load (expand-file-name "ogent" lisp-dir))
-    (message "ogent recompiled and reloaded successfully!")))
+  (let* ((project-root (ogent-onboard--find-source-root))
+         (lisp-dir (expand-file-name "lisp" project-root))
+         (ui-dir (expand-file-name "ui" lisp-dir)))
+    (unless (file-directory-p lisp-dir)
+      (user-error "Cannot find ogent source at %s. Set `ogent-source-directory'" project-root))
+    (let* ((files (append
+                   (directory-files lisp-dir t "\\.el\\'")
+                   (when (file-directory-p ui-dir)
+                     (directory-files ui-dir t "\\.el\\'"))))
+           (byte-compile-warnings '(not free-vars unresolved)))
+      (message "Recompiling ogent from %s..." lisp-dir)
+      ;; Delete old .elc files
+      (dolist (elc (append
+                    (directory-files lisp-dir t "\\.elc\\'")
+                    (when (file-directory-p ui-dir)
+                      (directory-files ui-dir t "\\.elc\\'"))))
+        (delete-file elc))
+      ;; Byte compile all files
+      (dolist (file files)
+        (byte-compile-file file))
+      ;; Unload all ogent features
+      (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
+                      ogent-core ogent-models ogent-context ogent-debug
+                      ogent-edit ogent-edit-format ogent-edit-log
+                      ogent-edit-parse ogent-edit-request ogent))
+        (when (featurep feat)
+          (unload-feature feat t)))
+      ;; Add source to load-path temporarily and reload
+      (let ((load-path (cons lisp-dir (cons ui-dir load-path))))
+        (load (expand-file-name "ogent" lisp-dir)))
+      (message "ogent recompiled and reloaded from %s!" project-root))))
 
 ;;;###autoload
 (defun ogent-reload ()
   "Reload ogent without recompiling.
-Faster than `ogent-recompile' but won't pick up syntax errors."
+Faster than `ogent-recompile' but won't pick up syntax errors.
+
+If auto-detection fails, set `ogent-source-directory' to your
+local checkout path."
   (interactive)
-  (let ((lisp-dir (expand-file-name "lisp" ogent-onboard--project-root)))
-    (message "Reloading ogent...")
+  (let* ((project-root (ogent-onboard--find-source-root))
+         (lisp-dir (expand-file-name "lisp" project-root))
+         (ui-dir (expand-file-name "ui" lisp-dir)))
+    (unless (file-directory-p lisp-dir)
+      (user-error "Cannot find ogent source at %s. Set `ogent-source-directory'" project-root))
+    (message "Reloading ogent from %s..." project-root)
     ;; Unload all ogent features
-    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap
-                    ogent-core ogent-models ogent-context ogent))
+    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
+                    ogent-core ogent-models ogent-context ogent-debug
+                    ogent-edit ogent-edit-format ogent-edit-log
+                    ogent-edit-parse ogent-edit-request ogent))
       (when (featurep feat)
         (unload-feature feat t)))
-    ;; Reload
-    (load (expand-file-name "ogent" lisp-dir))
-    (message "ogent reloaded!")))
+    ;; Add source to load-path temporarily and reload
+    (let ((load-path (cons lisp-dir (cons ui-dir load-path))))
+      (load (expand-file-name "ogent" lisp-dir)))
+    (message "ogent reloaded from %s!" project-root)))
 
 (provide 'ogent-onboard)
 
