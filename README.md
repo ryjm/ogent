@@ -39,8 +39,33 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 3. Run `M-x ogent-request` (or `C-c o p`) to send the current tree plus referenced blocks—and any attached external documents—to the selected model(s) via `gptel`, reviewing the context summary before dispatch.
 4. Evaluate each src block (`C-c C-c`) or archive it as a `Notes` child (`C-c C-d`), then promote accepted knowledge into the permanent subtree structure.
 
+## Doom Emacs
+
+For Doom Emacs users, ogent provides an idiomatic configuration with keybindings under `SPC e`. See the full guide at [docs/doom-emacs.md](docs/doom-emacs.md).
+
+**Quick start** - add to `~/.doom.d/packages.el`:
+
+```elisp
+(package! ogent :recipe (:local-repo "~/path/to/ogent/lisp"
+                         :files ("*.el" "ui/*.el")))
+```
+
+Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
+
+```elisp
+(use-package! ogent
+  :defer t
+  :commands (ogent-mode ogent-prompt-dispatch ogent-request)
+  :init
+  (map! :leader
+        (:prefix ("e" . "ogent")
+         :desc "Prompt dispatch" "e" #'ogent-prompt-dispatch
+         :desc "Send request"    "r" #'ogent-request
+         :desc "Toggle mode"     "t" #'ogent-mode)))
+```
+
 ## AI & Knowledge Sources
-- **LLM backend**: ogent leans on `gptel`’s transport layer for streaming completions, credentials, and model selection.
+- **LLM backend**: ogent leans on `gptel`'s transport layer for streaming completions, credentials, and model selection.
 - **Graph awareness**: Inspired by `org-roam`, ogent can query a local Org-roam database to resolve `@handle`s across files, making long-lived knowledge bases available to every buffer.
 
 ## gptel Integration Status
