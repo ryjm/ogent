@@ -352,7 +352,7 @@ When invoked from a non-Org buffer, includes source buffer context."
                 gptel-model))
     "Model: not configured"))
 
-;;;###autoload (autoload 'ogent-prompt-dispatch "ogent-ui" nil t)
+;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
   "Prompt dispatcher for ogent requests.
 Shows current model, allows changing it, and sends prompts to LLM."
@@ -655,7 +655,7 @@ Preset priority: request preset > model preset."
       (error
        (ogent-ui--close-response request (error-message-string err))))))
 
-;;;###autoload
+;;;###autoload (autoload 'ogent-request "ogent" nil t)
 (defun ogent-request (&optional prompt models preset)
   "Dispatch PROMPT for the current subtree using MODELS via gptel.
 When PROMPT or MODELS are nil, prompt the user and fall back to the

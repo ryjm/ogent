@@ -69,5 +69,20 @@
                      #'ogent-retry-request)))
       (kill-buffer js-buffer))))
 
+(ert-deftest ogent-global-mode-does-not-switch-buffer ()
+  "Enabling ogent-global-mode should not change current buffer or window."
+  (let ((test-buffer (get-buffer-create "*ogent-test-nosw*"))
+        (original-buffer nil))
+    (unwind-protect
+        (progn
+          (set-buffer test-buffer)
+          (setq original-buffer (current-buffer))
+          (ogent-global-mode 1)
+          ;; Buffer should not change
+          (should (eq (current-buffer) original-buffer)))
+      (ogent-global-mode -1)
+      (when (buffer-live-p test-buffer)
+        (kill-buffer test-buffer)))))
+
 (provide 'ogent-core-tests)
 ;;; ogent-core-tests.el ends here

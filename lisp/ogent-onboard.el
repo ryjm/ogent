@@ -211,7 +211,7 @@
 
 ;;; Main command
 
-;;;###autoload
+;;;###autoload (autoload 'ogent-onboard "ogent" nil t)
 (defun ogent-onboard ()
   "Interactive setup wizard for ogent model providers.
 Guides you through:

@@ -136,12 +136,24 @@ Each function receives the `ogent-edit' struct.")
 (defun ogent-edit-accept-current ()
   "Accept the AI-proposed change at point (keep lower/new)."
   (interactive)
-  (smerge-keep-lower))
+  (let ((edit (ogent-edit--find-edit-at-point)))
+    (smerge-keep-lower)
+    (when edit
+      (setf (ogent-edit-status edit) 'accepted)
+      (setq ogent-edit--pending-edits
+            (delq edit ogent-edit--pending-edits))
+      (run-hook-with-args 'ogent-edit-resolved-hook edit))))
 
 (defun ogent-edit-reject-current ()
   "Reject the AI-proposed change at point (keep upper/original)."
   (interactive)
-  (smerge-keep-upper))
+  (let ((edit (ogent-edit--find-edit-at-point)))
+    (smerge-keep-upper)
+    (when edit
+      (setf (ogent-edit-status edit) 'rejected)
+      (setq ogent-edit--pending-edits
+            (delq edit ogent-edit--pending-edits))
+      (run-hook-with-args 'ogent-edit-resolved-hook edit))))
 
 (defun ogent-edit-accept-all ()
   "Accept all AI-proposed changes in current buffer."
@@ -149,7 +161,7 @@ Each function receives the `ogent-edit' struct.")
   (save-excursion
     (goto-char (point-min))
     (while (ignore-errors (smerge-next) t)
-      (smerge-keep-lower))))
+      (ogent-edit-accept-current))))
 
 (defun ogent-edit-reject-all ()
   "Reject all AI-proposed changes in current buffer."
@@ -157,7 +169,7 @@ Each function receives the `ogent-edit' struct.")
   (save-excursion
     (goto-char (point-min))
     (while (ignore-errors (smerge-next) t)
-      (smerge-keep-upper))))
+      (ogent-edit-reject-current))))
 
 (provide 'ogent-edit-display)
 
