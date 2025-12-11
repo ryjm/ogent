@@ -275,8 +275,8 @@ missing separator and end marker")
               (should (string-match-p "Modified" (buffer-string))))))
       (kill-buffer source-buffer))))
 
-(ert-deftest ogent-edit-request-returns-prompt ()
-  "ogent-request-edit returns properly formatted prompt."
+(ert-deftest ogent-edit-request-sends-to-gptel ()
+  "ogent-request-edit sends request via gptel with proper prompt and system."
   (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
     (unwind-protect
         (progn
@@ -284,13 +284,17 @@ missing separator and end marker")
             (insert "(defun foo () nil)"))
           (with-current-buffer (find-file-noselect temp-file)
             (emacs-lisp-mode)
-            (let ((result (ogent-request-edit "Fix this")))
-              (should (plist-get result :prompt))
-              (should (plist-get result :system))
-              (should (plist-get result :callback))
-              (should (string-match-p "Fix this" (plist-get result :prompt)))
-              (should (string-match-p "SEARCH/REPLACE"
-                                      (plist-get result :system))))
+            (ogent-test-with-mock-gptel
+              (ogent-request-edit "Fix this")
+              (let* ((captured (ogent-test-last-request))
+                     (prompt (plist-get captured :prompt))
+                     (args (plist-get captured :args))
+                     (system (plist-get args :system)))
+                (should captured)
+                (should (string-match-p "Fix this" prompt))
+                (should (string-match-p "SEARCH/REPLACE" system))
+                (should (plist-get args :stream))
+                (should (plist-get args :callback))))
             (kill-buffer)))
       (delete-file temp-file))))
 

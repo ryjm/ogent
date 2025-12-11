@@ -48,7 +48,7 @@ Each function receives the formatted context plist."
     map)
   "Keymap for `ogent-mode'.")
 
-;;;###autoload
+;;;###autoload (autoload 'ogent-mode "ogent" nil t)
 (define-minor-mode ogent-mode
   "Minor mode providing ogent AI assistant commands via C-c . prefix.
 When enabled, provides access to ogent commands in any buffer.
@@ -58,17 +58,36 @@ to maintain conversation history."
   :keymap ogent-mode-map
   (when ogent-mode
     (when (derived-mode-p 'org-mode)
-      (ogent-ui--setup-highlight-mode))))
+      ;; Use save-selected-window to prevent buffer switching side effects
+      ;; from gptel-highlight-mode or other mode hooks
+      (save-selected-window
+        (when (fboundp 'ogent-ui--setup-highlight-mode)
+          (ogent-ui--setup-highlight-mode))))))
 
 (defun ogent--maybe-enable ()
-  "Enable `ogent-mode' in all buffers.
+  "Enable `ogent-mode' in current buffer.
 This is the function used by `ogent-global-mode' to enable
 ogent-mode globally across all buffers."
   (ogent-mode 1))
 
-;;;###autoload
-(define-globalized-minor-mode ogent-global-mode
+;; Use define-globalized-minor-mode for the hook infrastructure
+(define-globalized-minor-mode ogent-global-mode--internal
   ogent-mode ogent--maybe-enable)
+
+;;;###autoload (autoload 'ogent-global-mode "ogent" nil t)
+(defun ogent-global-mode (&optional arg)
+  "Toggle Ogent mode in all buffers.
+With prefix ARG, enable if positive, disable otherwise.
+This wrapper preserves the current buffer and window."
+  (interactive "P")
+  (let ((original-buffer (current-buffer))
+        (original-window (selected-window)))
+    (ogent-global-mode--internal arg)
+    ;; Restore original buffer/window if they still exist
+    (when (and (window-live-p original-window)
+               (buffer-live-p original-buffer))
+      (select-window original-window)
+      (set-buffer original-buffer))))
 
 (provide 'ogent-core)
 
