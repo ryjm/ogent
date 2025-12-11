@@ -110,6 +110,29 @@ ERROR-MESSAGE is the error string returned via callback."
   "Return the number of captured requests."
   (length ogent-test--captured-requests))
 
+;;; Simulated input for interactive function testing
+;;
+;; Uses `with-simulated-input` package when available.
+;; See: https://github.com/DarwinAwardWinner/with-simulated-input
+
+(defvar ogent-test--simulated-input-available nil
+  "Non-nil when `with-simulated-input' is available.")
+
+(condition-case nil
+    (progn
+      (require 'with-simulated-input)
+      (setq ogent-test--simulated-input-available t))
+  (error nil))
+
+(defmacro ogent-test-with-input (keys &rest body)
+  "Execute BODY with simulated keyboard input KEYS.
+If `with-simulated-input' is not available, skip the test.
+KEYS is a string like \"hello RET\" or a list of inputs."
+  (declare (indent 1) (debug t))
+  (if ogent-test--simulated-input-available
+      `(with-simulated-input ,keys ,@body)
+    `(ert-skip "with-simulated-input package not available")))
+
 (defun ogent-test-with-org-file (file fn)
   "Open FILE contents in a temporary Org buffer and run FN."
   (let ((buffer (generate-new-buffer " *ogent-test*")))
