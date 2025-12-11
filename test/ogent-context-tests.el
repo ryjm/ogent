@@ -127,5 +127,77 @@
                                 "Root Overview"))))
          (kill-buffer source-buffer))))))
 
+;;; Lazy context building tests
+
+(ert-deftest ogent-context-build-lazy-defers-evaluation ()
+  "Lazy context building defers evaluation until forced."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Root Overview")
+     (org-back-to-heading t)
+     (let* ((call-count 0)
+            (thunk (progn
+                     ;; Create thunk - should not call ogent-context-build yet
+                     (ogent-context-build-lazy))))
+       ;; Thunk should be a closure, not evaluated yet
+       (should (functionp thunk))
+       ;; Force the thunk - now it evaluates
+       (let ((ctx (thunk-force thunk)))
+         (should (plist-get ctx :root))
+         (should (string= (ogent-context-node-title (plist-get ctx :root))
+                          "Root Overview")))))))
+
+(ert-deftest ogent-context-build-lazy-caches-result ()
+  "Lazy context building caches result after first force."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Root Overview")
+     (org-back-to-heading t)
+     (let ((thunk (ogent-context-build-lazy)))
+       ;; Force multiple times - should return same result
+       (let ((ctx1 (thunk-force thunk))
+             (ctx2 (thunk-force thunk)))
+         ;; Results should be identical (same object due to caching)
+         (should (eq ctx1 ctx2)))))))
+
+(ert-deftest ogent-context-build-source-lazy-works ()
+  "Lazy source context building works correctly."
+  (let ((source-buffer (get-buffer-create "*test-lazy-source.el*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (emacs-lisp-mode)
+          (insert "(defun lazy-test () t)")
+          (let ((thunk (ogent-context-build-source-lazy source-buffer)))
+            (should (functionp thunk))
+            (let ((ctx (thunk-force thunk)))
+              (should (ogent-source-context-p ctx))
+              (should (string-match-p "lazy-test"
+                                      (ogent-source-context-content ctx))))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-context-with-lazy-binds-thunks ()
+  "ogent-context-with-lazy creates thunk bindings."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Root Overview")
+     (org-back-to-heading t)
+     (let ((forced-count 0))
+       (ogent-context-with-lazy
+           ((ctx (progn
+                   (cl-incf forced-count)
+                   (ogent-context-build))))
+         ;; Not forced yet
+         (should (= forced-count 0))
+         ;; Force once
+         (let ((result (thunk-force ctx)))
+           (should (= forced-count 1))
+           (should (plist-get result :root)))
+         ;; Force again - count shouldn't increase (cached)
+         (thunk-force ctx)
+         (should (= forced-count 1)))))))
+
 (provide 'ogent-context-tests)
 ;;; ogent-context-tests.el ends here
