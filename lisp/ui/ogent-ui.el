@@ -205,6 +205,9 @@ buffer and display it as a popup/side window.  Returns the companion
   :type 'string
   :group 'ogent-mode)
 
+(defvar ogent-ui--context-preview-window nil
+  "Window displaying the context preview, if any.")
+
 (defun ogent-ui--set-response-function (symbol value)
   "Setter for `ogent-response-function' that migrates legacy values."
   (set-default symbol
@@ -332,6 +335,55 @@ When invoked from a non-Org buffer, includes source buffer context."
           (goto-char (point-min)))
         (display-buffer buffer)))))
 
+(defun ogent-ui--context-preview-visible-p ()
+  "Return non-nil if the context preview buffer is currently visible."
+  (and ogent-ui--context-preview-window
+       (window-live-p ogent-ui--context-preview-window)
+       (eq (window-buffer ogent-ui--context-preview-window)
+           (get-buffer ogent-context-preview-buffer-name))))
+
+(defun ogent-ui--close-context-preview ()
+  "Close the context preview window if visible."
+  (when (ogent-ui--context-preview-visible-p)
+    (delete-window ogent-ui--context-preview-window)
+    (setq ogent-ui--context-preview-window nil)))
+
+;;;###autoload
+(defun ogent-context-preview-toggle ()
+  "Toggle the context preview popup.
+If visible, close it.  Otherwise, show it in a popup without switching focus."
+  (interactive)
+  (if (ogent-ui--context-preview-visible-p)
+      (ogent-ui--close-context-preview)
+    (let* ((source-buffer (current-buffer))
+           (region-start (when (use-region-p) (region-beginning)))
+           (region-end (when (use-region-p) (region-end)))
+           (companion (ogent-ui--ensure-companion-context)))
+      (with-current-buffer companion
+        (let* ((context (ogent-context-build-with-source
+                         source-buffer region-start region-end))
+               (summary (ogent-ui--format-context context))
+               (buffer (ogent-ui--context-buffer)))
+          (with-current-buffer buffer
+            (insert summary)
+            (goto-char (point-min)))
+          ;; Display below the source buffer window, above transient
+          ;; Find the window showing source-buffer and split below it
+          (let ((source-window (get-buffer-window source-buffer)))
+            (setq ogent-ui--context-preview-window
+                  (if source-window
+                      ;; Split source window and show context below it
+                      (with-selected-window source-window
+                        (let ((win (split-window-below -10)))
+                          (set-window-buffer win buffer)
+                          win))
+                    ;; Fallback: display in side window
+                    (display-buffer buffer
+                                    '((display-buffer-in-side-window)
+                                      (side . bottom)
+                                      (window-height . 10)
+                                      (preserve-size . (nil . t))))))))))))
+
 (defun ogent-ui--backend-label (backend)
   "Return a string label describing BACKEND."
   (cond
@@ -361,7 +413,7 @@ Shows current model, allows changing it, and sends prompts to LLM."
     (ogent--infix-provider)
     (ogent--infix-prompt)]
    ["Context"
-    ("c" "Preview context" ogent-context-preview :transient t)
+    ("c" "Preview context" ogent-context-preview-toggle :transient t)
     ("C" "Codemap" ogent-codemap-buffer :transient t)]]
   [["Actions"
     (ogent--suffix-send)
