@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'org)
 (require 'org-element)
+(require 'thunk)
 
 (defgroup ogent nil
   "Org-first AI prompting inside Emacs."
@@ -272,6 +273,44 @@ Returns context with both Org structure (if any) and source code."
           :ancestors (plist-get org-ctx :ancestors)
           :handles (plist-get org-ctx :handles)
           :dependencies (plist-get org-ctx :dependencies))))
+
+;;; Lazy Context Building
+;;
+;; Use thunks to defer expensive context operations until needed.
+;; This is useful when the context might not be used (e.g., cached
+;; prompts, conditional evaluation).
+
+(defun ogent-context-build-lazy (&optional point)
+  "Return a thunk that builds context when forced.
+POINT specifies where to build context from.
+Use `thunk-force' to get the actual context plist.
+Results are cached after first evaluation."
+  (thunk-delay (ogent-context-build point)))
+
+(defun ogent-context-build-source-lazy (buffer &optional region-start region-end)
+  "Return a thunk that builds source context when forced.
+BUFFER is the source buffer, with optional REGION-START and REGION-END.
+Use `thunk-force' to get the actual source-context struct."
+  (thunk-delay (ogent-context--build-source-context buffer region-start region-end)))
+
+(defmacro ogent-context-with-lazy (bindings &rest body)
+  "Evaluate BODY with lazy context BINDINGS.
+Each binding is (VAR FORM) where FORM produces context.
+VARs are bound to thunks; use `thunk-force' to evaluate.
+
+Example:
+  (ogent-context-with-lazy
+      ((org-ctx (ogent-context-build))
+       (src-ctx (ogent-context--build-source-context buf)))
+    (when need-org
+      (process (thunk-force org-ctx)))
+    (when need-source
+      (process (thunk-force src-ctx))))"
+  (declare (indent 1) (debug let))
+  `(let ,(mapcar (lambda (binding)
+                   `(,(car binding) (thunk-delay ,(cadr binding))))
+                 bindings)
+     ,@body))
 
 ;;; Optional org-roam Integration
 ;;
