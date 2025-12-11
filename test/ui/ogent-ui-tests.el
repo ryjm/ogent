@@ -266,5 +266,23 @@
          ;; Most recent is first in list
          (should (string-match-p "Second" (plist-get (ogent-test-last-request) :prompt))))))))
 
+;;; Interactive function tests (require with-simulated-input)
+
+(ert-deftest ogent-ui-read-prompt-interactive ()
+  "Test reading prompt with simulated input."
+  (ogent-test-with-input "Hello world RET"
+    (let ((prompt (ogent-ui--read-prompt)))
+      (should (equal prompt "Hello world")))))
+
+(ert-deftest ogent-ui-read-prompt-uses-region ()
+  "Test that read-prompt uses region when active."
+  (with-temp-buffer
+    (insert "This is selected text")
+    (set-mark (point-min))
+    (goto-char (point-max))
+    (activate-mark)
+    (let ((prompt (ogent-ui--read-prompt)))
+      (should (equal prompt "This is selected text")))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
