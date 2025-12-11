@@ -208,7 +208,7 @@ available, otherwise falls back to a standard side window."
                      (vslot . 1)
                      (ttl . nil)
                      (quit . current)
-                     (select . t))))
+                     (select . nil))))
    ;; Standard side window fallback
    (t
     (display-buffer-in-side-window

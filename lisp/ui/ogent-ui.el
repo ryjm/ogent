@@ -122,7 +122,7 @@ PROMPT is the completion prompt."
 (cl-defstruct ogent-ui-request
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle source-buffer
-  block-start)
+  block-start response-pos)
 
 (transient-define-infix ogent--infix-prompt ()
   "Enter a prompt to send."
@@ -412,10 +412,11 @@ Returns a plist containing a streaming marker and block-start marker."
   (let* ((model-id (plist-get model :id))
          (backend (plist-get model :backend))
          (summary (ogent-ui--format-context context))
-         block-start)
+         block-start
+         response-heading-pos)
     ;; Insert the prompt/context src block (closed immediately)
     (setq block-start (point-marker))
-    (insert (format "#+begin_src text :model %s%s\n"
+    (insert (format "#+begin_src text :model %s%s :status waiting\n"
                     model-id
                     (if backend
                         (format " :backend %s" (ogent-ui--backend-label backend))
@@ -423,10 +424,19 @@ Returns a plist containing a streaming marker and block-start marker."
     (insert (format "Prompt:\n%s\n\nContext Summary:\n%s\n"
                     prompt summary))
     (insert "#+end_src\n\n")
+    ;; Fold the context src block immediately
+    (save-excursion
+      (goto-char block-start)
+      (when (and (derived-mode-p 'org-mode)
+                 (fboundp 'org-fold-hide-block-toggle))
+        (org-fold-hide-block-toggle 'hide)))
     ;; Response streams after the closed block
+    (setq response-heading-pos (point))
     (insert "** Response\n")
     (let ((marker (copy-marker (point) t)))
-      (list :marker marker :block-start block-start))))
+      (list :marker marker
+            :block-start block-start
+            :response-pos response-heading-pos))))
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
@@ -446,7 +456,8 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :prompt prompt
                    :buffer (current-buffer)
                    :marker (plist-get block :marker)
-                   :block-start (plist-get block :block-start))))
+                   :block-start (plist-get block :block-start)
+                   :response-pos (plist-get block :response-pos))))
     (ogent-ui-register-request request)))
 
 (when (and (boundp 'ogent-response-function)
@@ -687,7 +698,8 @@ The source buffer content is captured for context."
                                       (if (fboundp 'gptel--model-name)
                                           (gptel--model-name gptel-model)
                                         gptel-model)
-                                    "gpt-4o-mini")))))
+                                    "gpt-4o-mini"))))
+             last-request)
         (dolist (model-id model-ids)
           (let* ((model (ogent-models-ensure model-id))
                  (request (funcall ogent-response-function clean-prompt context model)))
@@ -695,7 +707,14 @@ The source buffer content is captured for context."
               (user-error "ogent-response-function must return an `ogent-ui-request'"))
             (setf (ogent-ui-request-preset request) effective-preset)
             (setf (ogent-ui-request-source-buffer request) source-buffer)
-            (ogent-ui--send-request request)))))))
+            (ogent-ui--send-request request)
+            (setq last-request request)))
+        ;; Position cursor at response heading in companion window
+        (when-let* ((response-pos (and last-request
+                                       (ogent-ui-request-response-pos last-request)))
+                    (win (get-buffer-window companion)))
+          (with-selected-window win
+            (goto-char response-pos)))))))
 
 ;;; Tool and Reasoning Block Support
 
