@@ -799,6 +799,7 @@ Handles both regular text responses and tool call responses."
 (defun ogent-ui--handle-tool-calls (request tool-calls _info)
   "Handle TOOL-CALLS from gptel response for REQUEST.
 Each tool call is checked for approval, then executed if approved.
+Edit tools (write-file, edit-file) show a diff preview for accept/reject.
 Results are displayed in the buffer."
   (let ((buffer (ogent-ui-request-buffer request)))
     (with-current-buffer buffer
@@ -810,8 +811,17 @@ Results are displayed in the buffer."
                  (approval (ogent-ui--check-tool-approval tool-name tool-args)))
             (pcase approval
               ('approved
-               (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                 (ogent-ui--insert-tool-block tool-name tool-args result)))
+               ;; For edit tools, show diff preview instead of executing
+               (if (ogent-ui--is-edit-tool-p tool-name)
+                   (condition-case err
+                       (ogent-ui--show-diff-for-tool tool-name tool-args)
+                     (error
+                      (ogent-ui--insert-tool-block
+                       tool-name tool-args
+                       (format "[Diff preview error: %s]" (error-message-string err)))))
+                 ;; Non-edit tools execute immediately
+                 (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                   (ogent-ui--insert-tool-block tool-name tool-args result))))
               ('denied
                (ogent-ui--insert-tool-block tool-name tool-args
                                             "[Tool execution denied by user]")))))))))
@@ -862,9 +872,15 @@ Returns a list of values in the order defined in the spec's :args."
         (values nil))
     (dolist (arg-spec arg-specs)
       (let* ((arg-name (plist-get arg-spec :name))
-             (arg-sym (intern (replace-regexp-in-string "_" "-" arg-name)))
-             (value (or (plist-get args arg-sym)
-                        (plist-get args (intern arg-name)))))
+             ;; Try various forms: :file-path, :file_path, file-path, file_path
+             (arg-keyword-hyphen (intern (concat ":" (replace-regexp-in-string "_" "-" arg-name))))
+             (arg-keyword-underscore (intern (concat ":" arg-name)))
+             (arg-sym-hyphen (intern (replace-regexp-in-string "_" "-" arg-name)))
+             (arg-sym-underscore (intern arg-name))
+             (value (or (plist-get args arg-keyword-hyphen)
+                        (plist-get args arg-keyword-underscore)
+                        (plist-get args arg-sym-hyphen)
+                        (plist-get args arg-sym-underscore))))
         (push value values)))
     (nreverse values)))
 
@@ -1064,6 +1080,314 @@ The block follows gptel's format for Org reasoning."
     (save-excursion
       (goto-char marker)
       (ogent-ui--fold-special-block))))
+
+;;; Inline Diff Display for Edit Proposals
+
+(defvar ogent-ui--pending-diffs (make-hash-table :test 'equal)
+  "Hash table mapping diff-id to pending diff info plists.
+Each entry contains: :id, :file-path, :diff-text, :tool-name,
+:tool-args, :buffer, :marker, :status.")
+
+(defvar ogent-ui--diff-seq 0
+  "Sequence number for generating unique diff IDs.")
+
+(defface ogent-diff-header
+  '((t :inherit diff-header))
+  "Face for diff block headers."
+  :group 'ogent-mode)
+
+(defface ogent-diff-added
+  '((t :inherit diff-added))
+  "Face for added lines in diff blocks."
+  :group 'ogent-mode)
+
+(defface ogent-diff-removed
+  '((t :inherit diff-removed))
+  "Face for removed lines in diff blocks."
+  :group 'ogent-mode)
+
+(defface ogent-diff-pending
+  '((((class color) (background light)) :foreground "DarkOrange")
+    (((class color) (background dark)) :foreground "Orange"))
+  "Face for pending diff status."
+  :group 'ogent-mode)
+
+(defface ogent-diff-applied
+  '((((class color) (background light)) :foreground "DarkGreen")
+    (((class color) (background dark)) :foreground "LightGreen"))
+  "Face for applied diff status."
+  :group 'ogent-mode)
+
+(defface ogent-diff-rejected
+  '((((class color) (background light)) :foreground "DarkRed")
+    (((class color) (background dark)) :foreground "IndianRed"))
+  "Face for rejected diff status."
+  :group 'ogent-mode)
+
+(defun ogent-ui--next-diff-id ()
+  "Generate a unique diff ID."
+  (cl-incf ogent-ui--diff-seq)
+  (format "ogent-diff-%d" ogent-ui--diff-seq))
+
+(defun ogent-ui--generate-diff (file-path new-content &optional old-string new-string)
+  "Generate a unified diff for a file change.
+If OLD-STRING and NEW-STRING are provided, it's an edit operation.
+Otherwise, it's a write operation comparing FILE-PATH to NEW-CONTENT."
+  (let* ((file-exists (file-exists-p file-path))
+         (old-content (if old-string
+                          ;; For edit: get current file content
+                          (with-temp-buffer
+                            (when file-exists
+                              (insert-file-contents file-path))
+                            (buffer-string))
+                        ;; For write: compare against existing
+                        (if file-exists
+                            (with-temp-buffer
+                              (insert-file-contents file-path)
+                              (buffer-string))
+                          "")))
+         (computed-new (if old-string
+                           ;; For edit: apply the replacement
+                           (replace-regexp-in-string
+                            (regexp-quote old-string)
+                            new-string
+                            old-content t t)
+                         ;; For write: use new-content directly
+                         new-content)))
+    (with-temp-buffer
+      (let ((old-file (make-temp-file "ogent-diff-old"))
+            (new-file (make-temp-file "ogent-diff-new")))
+        (unwind-protect
+            (progn
+              (with-temp-file old-file
+                (insert old-content))
+              (with-temp-file new-file
+                (insert computed-new))
+              (let ((diff-output
+                     (shell-command-to-string
+                      (format "diff -u %s %s | tail -n +3"
+                              (shell-quote-argument old-file)
+                              (shell-quote-argument new-file)))))
+                (if (string-empty-p diff-output)
+                    "(no changes)"
+                  ;; Add file header
+                  (concat (format "--- %s\n+++ %s\n"
+                                  (if file-exists file-path "/dev/null")
+                                  file-path)
+                          diff-output))))
+          (delete-file old-file)
+          (delete-file new-file))))))
+
+(defun ogent-ui--fontify-diff (diff-text)
+  "Add faces to DIFF-TEXT for syntax highlighting."
+  (with-temp-buffer
+    (insert diff-text)
+    (goto-char (point-min))
+    (while (not (eobp))
+      (let ((line-start (point))
+            (line-end (line-end-position)))
+        (cond
+         ((looking-at "^@@")
+          (add-face-text-property line-start line-end 'ogent-diff-header))
+         ((looking-at "^\\+")
+          (add-face-text-property line-start line-end 'ogent-diff-added))
+         ((looking-at "^-")
+          (add-face-text-property line-start line-end 'ogent-diff-removed))
+         ((looking-at "^\\(---\\|+++\\)")
+          (add-face-text-property line-start line-end 'ogent-diff-header)))
+        (forward-line 1)))
+    (buffer-string)))
+
+(defun ogent-ui--insert-diff-block (diff-id file-path diff-text status)
+  "Insert a diff block with DIFF-ID for FILE-PATH.
+DIFF-TEXT is the unified diff content. STATUS is pending/applied/rejected."
+  (let ((marker (point))
+        (status-face (pcase status
+                       ('pending 'ogent-diff-pending)
+                       ('applied 'ogent-diff-applied)
+                       ('rejected 'ogent-diff-rejected)
+                       (_ 'default)))
+        (status-text (pcase status
+                       ('pending "[PENDING - Press 'a' to accept, 'r' to reject]")
+                       ('applied "[APPLIED]")
+                       ('rejected "[REJECTED]")
+                       (_ "[UNKNOWN]"))))
+    (insert (format "#+begin_diff %s\n" diff-id))
+    (insert (format "File: %s\n" file-path))
+    (insert "Status: ")
+    (let ((status-start (point)))
+      (insert status-text)
+      (add-face-text-property status-start (point) status-face))
+    (insert "\n")
+    (insert (ogent-ui--fontify-diff diff-text))
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_diff\n")
+    ;; Add text properties for navigation and keybindings
+    (save-excursion
+      (goto-char marker)
+      (let ((end (point)))
+        (search-forward "#+end_diff")
+        (setq end (point))
+        (put-text-property marker end 'ogent-diff-id diff-id)
+        (put-text-property marker end 'keymap ogent-diff-mode-map)))
+    marker))
+
+(defun ogent-ui--update-diff-status (diff-id new-status)
+  "Update the status of diff DIFF-ID to NEW-STATUS in the buffer."
+  (let ((diff-info (gethash diff-id ogent-ui--pending-diffs)))
+    (when diff-info
+      (let ((buffer (plist-get diff-info :buffer))
+            (marker (plist-get diff-info :marker)))
+        (when (and (buffer-live-p buffer) marker)
+          (with-current-buffer buffer
+            (save-excursion
+              (goto-char marker)
+              (when (re-search-forward "^Status: \\[.*\\]" nil t)
+                (let* ((start (match-beginning 0))
+                       (end (match-end 0))
+                       (status-face (pcase new-status
+                                      ('applied 'ogent-diff-applied)
+                                      ('rejected 'ogent-diff-rejected)
+                                      (_ 'ogent-diff-pending)))
+                       (status-text (pcase new-status
+                                      ('applied "Status: [APPLIED]")
+                                      ('rejected "Status: [REJECTED]")
+                                      (_ "Status: [PENDING]"))))
+                  (delete-region start end)
+                  (goto-char start)
+                  (insert status-text)
+                  (add-face-text-property start (point) status-face))))))))))
+
+(defun ogent-ui--diff-at-point ()
+  "Return the diff-id at point, or nil."
+  (get-text-property (point) 'ogent-diff-id))
+
+(defun ogent-diff-accept ()
+  "Accept and apply the diff at point."
+  (interactive)
+  (let ((diff-id (ogent-ui--diff-at-point)))
+    (if diff-id
+        (let ((diff-info (gethash diff-id ogent-ui--pending-diffs)))
+          (if (and diff-info (eq (plist-get diff-info :status) 'pending))
+              (progn
+                ;; Execute the actual tool
+                (let* ((tool-name (plist-get diff-info :tool-name))
+                       (tool-args (plist-get diff-info :tool-args))
+                       (result (ogent-ui--execute-tool tool-name tool-args)))
+                  ;; Update status
+                  (plist-put diff-info :status 'applied)
+                  (plist-put diff-info :result result)
+                  (puthash diff-id diff-info ogent-ui--pending-diffs)
+                  (ogent-ui--update-diff-status diff-id 'applied)
+                  (message "Applied: %s" (truncate-string-to-width
+                                          (format "%s" result) 60 nil nil "..."))))
+            (message "Diff already processed")))
+      (message "No diff at point"))))
+
+(defun ogent-diff-reject ()
+  "Reject the diff at point."
+  (interactive)
+  (let ((diff-id (ogent-ui--diff-at-point)))
+    (if diff-id
+        (let ((diff-info (gethash diff-id ogent-ui--pending-diffs)))
+          (if (and diff-info (eq (plist-get diff-info :status) 'pending))
+              (progn
+                (plist-put diff-info :status 'rejected)
+                (puthash diff-id diff-info ogent-ui--pending-diffs)
+                (ogent-ui--update-diff-status diff-id 'rejected)
+                (message "Rejected diff for %s" (plist-get diff-info :file-path)))
+            (message "Diff already processed")))
+      (message "No diff at point"))))
+
+(defvar ogent-diff-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'ogent-diff-accept)
+    (define-key map (kbd "r") #'ogent-diff-reject)
+    (define-key map (kbd "RET") #'ogent-diff-accept)
+    map)
+  "Keymap for ogent diff blocks.")
+
+(defun ogent-ui--is-edit-tool-p (tool-name)
+  "Return non-nil if TOOL-NAME is a file editing tool."
+  (member tool-name '("write-file" "edit-file")))
+
+(defun ogent-ui--show-diff-for-tool (tool-name tool-args)
+  "Show a diff preview for TOOL-NAME with TOOL-ARGS.
+Returns the diff-id if a diff was created, nil otherwise."
+  (let* ((diff-id (ogent-ui--next-diff-id))
+         (file-path (or (plist-get tool-args :file-path)
+                        (plist-get tool-args :file_path)))
+         diff-text)
+    (unless file-path
+      (error "No file path in tool args"))
+    ;; Generate diff based on tool type
+    (setq diff-text
+          (pcase tool-name
+            ("write-file"
+             (let ((content (or (plist-get tool-args :content)
+                               (plist-get tool-args :content))))
+               (ogent-ui--generate-diff file-path content)))
+            ("edit-file"
+             (let ((old-string (or (plist-get tool-args :old-string)
+                                   (plist-get tool-args :old_string)))
+                   (new-string (or (plist-get tool-args :new-string)
+                                   (plist-get tool-args :new_string))))
+               (ogent-ui--generate-diff file-path nil old-string new-string)))
+            (_ (error "Unknown edit tool: %s" tool-name))))
+    ;; Insert the diff block
+    (let ((marker (ogent-ui--insert-diff-block diff-id file-path diff-text 'pending)))
+      ;; Store pending diff info
+      (puthash diff-id
+               (list :id diff-id
+                     :file-path file-path
+                     :diff-text diff-text
+                     :tool-name tool-name
+                     :tool-args tool-args
+                     :buffer (current-buffer)
+                     :marker marker
+                     :status 'pending)
+               ogent-ui--pending-diffs)
+      diff-id)))
+
+(defun ogent-ui-pending-diffs ()
+  "Return a list of all pending diff info plists."
+  (let (diffs)
+    (maphash (lambda (_id info)
+               (when (eq (plist-get info :status) 'pending)
+                 (push info diffs)))
+             ogent-ui--pending-diffs)
+    (nreverse diffs)))
+
+(defun ogent-accept-all-diffs ()
+  "Accept all pending diffs in the current buffer."
+  (interactive)
+  (let ((count 0))
+    (maphash (lambda (diff-id info)
+               (when (and (eq (plist-get info :status) 'pending)
+                          (eq (plist-get info :buffer) (current-buffer)))
+                 (let ((tool-name (plist-get info :tool-name))
+                       (tool-args (plist-get info :tool-args)))
+                   (ogent-ui--execute-tool tool-name tool-args)
+                   (plist-put info :status 'applied)
+                   (puthash diff-id info ogent-ui--pending-diffs)
+                   (ogent-ui--update-diff-status diff-id 'applied)
+                   (cl-incf count))))
+             ogent-ui--pending-diffs)
+    (message "Applied %d diff(s)" count)))
+
+(defun ogent-reject-all-diffs ()
+  "Reject all pending diffs in the current buffer."
+  (interactive)
+  (let ((count 0))
+    (maphash (lambda (diff-id info)
+               (when (and (eq (plist-get info :status) 'pending)
+                          (eq (plist-get info :buffer) (current-buffer)))
+                 (plist-put info :status 'rejected)
+                 (puthash diff-id info ogent-ui--pending-diffs)
+                 (ogent-ui--update-diff-status diff-id 'rejected)
+                 (cl-incf count)))
+             ogent-ui--pending-diffs)
+    (message "Rejected %d diff(s)" count)))
 
 ;;; Cancellation and Retry
 
