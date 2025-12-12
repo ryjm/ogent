@@ -437,7 +437,7 @@ Shows current model, allows changing it, and sends prompts to LLM."
     (ogent--infix-prompt)]
    ["Context"
     ("c" "Preview context" ogent-context-preview-toggle :transient t)
-    ("C" "Codemap" ogent-codemap-buffer :transient t)]]
+    ("C" "Codemap" ogent-codemap-buffer)]]
   [["Actions"
     (ogent--suffix-send)
     ("q" "Quit" transient-quit-one)]]
