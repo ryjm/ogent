@@ -216,7 +216,8 @@ available, otherwise falls back to a standard side window."
      `((side . ,(or (alist-get 'side alist) 'right))
        (slot . 1)
        (window-width . ,(or (alist-get 'window-width alist) 0.3))
-       (preserve-size . (t . nil)))))))
+       (preserve-size . (t . nil))
+       (inhibit-same-window . t))))))
 
 ;;;###autoload
 (defun ogent-companion-display-buffer (buffer)

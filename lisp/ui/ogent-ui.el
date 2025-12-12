@@ -298,7 +298,7 @@ PROMPT is the completion prompt."
 
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
-Captures source buffer context before switching to companion."
+Captures source buffer context and sends to companion without switching focus."
   (let* ((source-buffer (current-buffer))
          (region-start (when (use-region-p) (region-beginning)))
          (region-end (when (use-region-p) (region-end)))
@@ -343,13 +343,18 @@ Captures source buffer context before switching to companion."
   "Ensure we're in an Org buffer, creating a companion if needed.
 When invoked from a non-Org buffer, get or create the companion Org
 buffer and display it as a popup/side window.  Returns the companion
-\(or current) Org buffer."
+\(or current) Org buffer.
+The original window remains selected - companion is shown but not focused."
   (if (derived-mode-p 'org-mode)
       (current-buffer)
-    (let ((companion (ogent-companion-get-or-create)))
+    (let ((original-window (selected-window))
+          (companion (ogent-companion-get-or-create)))
       ;; Display the companion buffer as a popup or side window
       (unless (get-buffer-window companion)
         (ogent-companion-display-buffer companion))
+      ;; Ensure we stay in the original window
+      (when (window-live-p original-window)
+        (select-window original-window))
       companion)))
 
 (defcustom ogent-context-preview-buffer-name "*ogent-context*"
