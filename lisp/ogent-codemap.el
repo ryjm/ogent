@@ -183,9 +183,12 @@ Group 1 is hashes, group 2 is heading text.")
 
 ;;;###autoload
 (defun ogent-codemap-buffer ()
-  "Display the latest codemap buffer."
+  "Display the latest codemap buffer in a side window."
   (interactive)
-  (display-buffer (ogent-codemap--render)))
+  (display-buffer (ogent-codemap--render)
+                  '((display-buffer-in-side-window)
+                    (side . right)
+                    (window-width . 0.4))))
 
 ;;;###autoload
 (defun ogent-codemap-refresh ()
