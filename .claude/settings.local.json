@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(make test:*)",
+      "Bash(bd close ogent-2iq --reason=\"Implemented preset UX: selection in dispatcher, @preset cookies in prompts, and preset registry in ogent-models.el\")",
+      "Bash(bd update:*)",
+      "Bash(bd close:*)",
+      "Bash(make lint:*)",
+      "Bash(bd create:*)",
+      "mcp__plugin_beads_beads__update",
+      "mcp__plugin_beads_beads__create",
+      "mcp__plugin_beads_beads__dep",
+      "mcp__plugin_beads_beads__show",
+      "mcp__plugin_beads_beads__ready",
+      "mcp__plugin_beads_beads__close",
+      "Bash(find:*)",
+      "mcp__plugin_beads_beads__set_context",
+      "Bash(wc:*)",
+      "Bash(grep:*)",
+      "mcp__plugin_beads_beads__stats",
+      "WebSearch",
+      "WebFetch(domain:github.com)",
+      "mcp__plugin_beads_beads__list",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(emacs:*)",
+      "Bash(lisp/*.el)",
+      "Bash(lisp/ui/*.el)",
+      "mcp__morph-mcp__edit_file",
+      "Bash(echo:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "mcp__plugin_beads_beads__reopen",
+      "Bash(bv:*)",
+      "Bash(bd list:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

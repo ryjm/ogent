@@ -43,10 +43,9 @@ Add to your `~/.doom.d/config.el`:
              ogent-context-preview
              ogent-companion-display
              ogent-edit-menu)
-  :custom
+  :init
   ;; Set ogent source directory for development/recompilation
   (setq ogent-source-directory "~/path/to/ogent")
-  :init
   ;; Keybindings under SPC e (see Keybindings section below)
   (map! :leader
         (:prefix ("e" . "ogent")
