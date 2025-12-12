@@ -10,17 +10,35 @@
 (require 'auth-source)
 (require 'ogent-models)
 
+;; Forward declarations for OAuth module
+(declare-function ogent-anthropic-oauth-authenticated-p "ogent-anthropic-oauth")
+(declare-function ogent-anthropic-oauth-mode "ogent-anthropic-oauth")
+(declare-function ogent-anthropic-login "ogent-anthropic-oauth")
+(declare-function ogent-anthropic-status "ogent-anthropic-oauth")
+
 (defgroup ogent-onboard nil
   "Interactive setup for ogent providers."
   :group 'ogent)
 
 (defcustom ogent-onboard-providers
-  '((:id anthropic
-     :name "Anthropic (Claude)"
+  '((:id anthropic-oauth
+     :name "Anthropic Claude Max/Pro (OAuth - Recommended)"
+     :host "api.anthropic.com"
+     :backend gptel-anthropic
+     :feature gptel-anthropic
+     :auth-type oauth
+     :backend-creator gptel-make-anthropic
+     :models ((:id "claude-sonnet-4-5-20250929" :description "Claude Sonnet 4.5 - best for coding/agents")
+              (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
+              (:id "claude-opus-4-5-20251101" :description "Claude Opus 4.5 - maximum intelligence")
+              (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
+    (:id anthropic
+     :name "Anthropic (API Key)"
      :host "api.anthropic.com"
      :backend gptel-anthropic
      :feature gptel-anthropic
      :env-var "ANTHROPIC_API_KEY"
+     :auth-type api-key
      :backend-creator gptel-make-anthropic
      :models ((:id "claude-sonnet-4-5-20250929" :description "Claude Sonnet 4.5 - best for coding/agents")
               (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
@@ -32,12 +50,14 @@
      :backend gptel-openai
      :feature gptel-openai
      :env-var "OPENAI_API_KEY"
+     :auth-type api-key
      :backend-creator gptel-make-openai
      :models ((:id "gpt-4o" :description "GPT-4o - best quality")
               (:id "gpt-4o-mini" :description "GPT-4o mini - fast and cheap")
               (:id "o1" :description "o1 - reasoning model")
               (:id "o1-mini" :description "o1-mini - fast reasoning"))))
-  "Provider configurations for onboarding."
+  "Provider configurations for onboarding.
+Each provider can have :auth-type of `oauth' or `api-key'."
   :type '(repeat plist)
   :group 'ogent-onboard)
 
@@ -109,7 +129,7 @@
          (env-var (plist-get provider :env-var))
          (name (plist-get provider :name))
          (existing-key (or (ogent-onboard--get-api-key host)
-                           (getenv env-var))))
+                           (when env-var (getenv env-var)))))
     (if existing-key
         (if (y-or-n-p (format "Found existing API key for %s. Use it? " name))
             existing-key
@@ -127,6 +147,27 @@
         (message "Saved API key to auth-source"))
       key)))
 
+;;; OAuth configuration
+
+(defun ogent-onboard--configure-oauth (provider)
+  "Configure OAuth for PROVIDER. Returns non-nil on success."
+  (let ((name (plist-get provider :name)))
+    ;; Check if already authenticated
+    (when (require 'ogent-anthropic-oauth nil t)
+      (if (ogent-anthropic-oauth-authenticated-p)
+          (if (y-or-n-p (format "Already logged in via OAuth (%s mode). Re-authenticate? "
+                                (ogent-anthropic-oauth-mode)))
+              (progn
+                (ogent-anthropic-login 'max)
+                (ogent-anthropic-oauth-authenticated-p))
+            t)
+        ;; Not authenticated, start OAuth flow
+        (message "Starting OAuth login for %s..." name)
+        (message "This will open your browser to authenticate with your Claude Max/Pro account.")
+        (when (y-or-n-p "Continue with OAuth login? ")
+          (ogent-anthropic-login 'max)
+          (ogent-anthropic-oauth-authenticated-p))))))
+
 ;;; Verification
 
 (declare-function gptel-request "ext:gptel-request")
@@ -137,7 +178,8 @@
 (defvar gptel-api-key)
 
 (defun ogent-onboard--create-backend (provider api-key)
-  "Create and return a gptel backend for PROVIDER using API-KEY."
+  "Create and return a gptel backend for PROVIDER using API-KEY.
+For OAuth providers, API-KEY may be nil; authentication is handled by advice."
   (let* ((creator-sym (plist-get provider :backend-creator))
          (name (plist-get provider :name))
          (models (mapcar (lambda (m) (plist-get m :id))
@@ -145,8 +187,9 @@
     (cond
      ((eq creator-sym 'gptel-make-anthropic)
       (when (fboundp 'gptel-make-anthropic)
+        ;; For OAuth, use a placeholder key; actual auth handled by advice
         (gptel-make-anthropic name
-                              :key api-key
+                              :key (or api-key "oauth-managed")
                               :stream t
                               :models models)))
      ((eq creator-sym 'gptel-make-openai)
@@ -216,14 +259,26 @@
   "Interactive setup wizard for ogent model providers.
 Guides you through:
 1. Selecting a provider (Anthropic, OpenAI, etc.)
-2. Configuring your API key
+2. Configuring authentication (OAuth or API key)
 3. Choosing a default model
 4. Verifying the connection works"
   (interactive)
   (let* ((provider (ogent-onboard--select-provider))
-         (api-key (ogent-onboard--configure-api-key provider)))
-    (unless api-key
-      (user-error "API key is required to continue"))
+         (auth-type (plist-get provider :auth-type))
+         (api-key nil)
+         (auth-success nil))
+    
+    ;; Configure authentication based on type
+    (cond
+     ((eq auth-type 'oauth)
+      (setq auth-success (ogent-onboard--configure-oauth provider)))
+     (t
+      (setq api-key (ogent-onboard--configure-api-key provider))
+      (setq auth-success api-key)))
+    
+    (unless auth-success
+      (user-error "Authentication is required to continue"))
+    
     (let* ((model (ogent-onboard--select-model provider))
            (model-id (plist-get model :id)))
       ;; Verify
@@ -239,7 +294,7 @@ Guides you through:
               (ogent-ui-refresh-dispatch))
             (message "Setup complete! You can now use ogent with %s."
                      (plist-get provider :name)))
-        (message "Setup incomplete - please check your API key and try again")))))
+        (message "Setup incomplete - please check your authentication and try again")))))
 
 ;;;###autoload
 (defun ogent-onboard-add-provider ()
@@ -311,7 +366,7 @@ local checkout path."
       (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
                       ogent-core ogent-models ogent-context ogent-debug
                       ogent-edit ogent-edit-format ogent-edit-log
-                      ogent-edit-parse ogent-edit-request ogent))
+                      ogent-edit-parse ogent-edit-request ogent-anthropic-oauth ogent))
         (when (featurep feat)
           (unload-feature feat t)))
       ;; Add source to load-path temporarily and reload
@@ -337,7 +392,7 @@ local checkout path."
     (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
                     ogent-core ogent-models ogent-context ogent-debug
                     ogent-edit ogent-edit-format ogent-edit-log
-                    ogent-edit-parse ogent-edit-request ogent))
+                    ogent-edit-parse ogent-edit-request ogent-anthropic-oauth ogent))
       (when (featurep feat)
         (unload-feature feat t)))
     ;; Add source to load-path temporarily and reload

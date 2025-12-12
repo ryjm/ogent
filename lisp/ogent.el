@@ -61,6 +61,7 @@
 (require 'ogent-ui)
 (require 'ogent-onboard)
 (require 'ogent-edit)
+(require 'ogent-anthropic-oauth)
 
 (provide 'ogent)
 
