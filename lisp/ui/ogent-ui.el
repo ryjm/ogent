@@ -18,7 +18,6 @@
 ;; Forward declarations for source context
 (declare-function ogent-context-build-with-source "ogent-context")
 (declare-function ogent-context--format-source-context "ogent-context")
-(declare-function ogent-source-context-p "ogent-context")
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
@@ -1178,6 +1177,14 @@ Otherwise, it's a write operation comparing FILE-PATH to NEW-CONTENT."
           (delete-file old-file)
           (delete-file new-file))))))
 
+(defvar ogent-diff-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "a") #'ogent-diff-accept)
+    (define-key map (kbd "r") #'ogent-diff-reject)
+    (define-key map (kbd "RET") #'ogent-diff-accept)
+    map)
+  "Keymap for ogent diff blocks.")
+
 (defun ogent-ui--fontify-diff (diff-text)
   "Add faces to DIFF-TEXT for syntax highlighting."
   (with-temp-buffer
@@ -1298,14 +1305,6 @@ DIFF-TEXT is the unified diff content. STATUS is pending/applied/rejected."
                 (message "Rejected diff for %s" (plist-get diff-info :file-path)))
             (message "Diff already processed")))
       (message "No diff at point"))))
-
-(defvar ogent-diff-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "a") #'ogent-diff-accept)
-    (define-key map (kbd "r") #'ogent-diff-reject)
-    (define-key map (kbd "RET") #'ogent-diff-accept)
-    map)
-  "Keymap for ogent diff blocks.")
 
 (defun ogent-ui--is-edit-tool-p (tool-name)
   "Return non-nil if TOOL-NAME is a file editing tool."

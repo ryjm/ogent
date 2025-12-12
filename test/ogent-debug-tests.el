@@ -6,6 +6,11 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ogent-tools)
+(require 'ogent-models)
+(require 'ogent-tool-render)
+(require 'ogent-tool-approval)
+(require 'ogent-tool-fsm)
 (require 'ogent-debug)
 
 ;;; Tool History Tests
@@ -34,9 +39,9 @@
   "Test logging a failed tool call."
   (let ((ogent-debug-tool-history nil))
     (let* ((tool-call '(:id "test-2"
-                        :name failing-tool
-                        :args (:arg1 "test")
-                        :error "Something went wrong"))
+                            :name failing-tool
+                            :args (:arg1 "test")
+                            :error "Something went wrong"))
            (result nil)
            (duration 0.050)
            (entry (ogent-debug-log-tool-call tool-call result duration)))
@@ -122,8 +127,8 @@
   "Test that complex arguments are preserved."
   (let ((ogent-debug-tool-history nil))
     (let* ((complex-args '(:file_path "/test/path.txt"
-                           :content "Multi\nline\ntext"
-                           :options (:recursive t :depth 3)))
+				      :content "Multi\nline\ntext"
+				      :options (:recursive t :depth 3)))
            (tool-call (list :id "test-args"
                             :name 'complex-tool
                             :args complex-args))
@@ -219,10 +224,10 @@
   (let ((ogent-debug-tool-history nil)
         (ogent-tool-registry
          (list '(:name test-integration-tool
-                 :function (lambda (arg) (format "Result: %s" arg))
-                 :description "Test tool"
-                 :args ((:name "arg" :type "string" :description "Test"))
-                 :confirm nil))))
+                       :function (lambda (arg) (format "Result: %s" arg))
+                       :description "Test tool"
+                       :args ((:name "arg" :type "string" :description "Test"))
+                       :confirm nil))))
     
     ;; Execute a tool via FSM
     (let ((callback-invoked nil))
@@ -257,10 +262,10 @@
   (let ((ogent-debug-tool-history nil)
         (ogent-tool-registry
          (list '(:name failing-integration-tool
-                 :function (lambda (_arg) (error "Boom!"))
-                 :description "Failing test tool"
-                 :args ((:name "arg" :type "string" :description "Test"))
-                 :confirm nil))))
+                       :function (lambda (_arg) (error "Boom!"))
+                       :description "Failing test tool"
+                       :args ((:name "arg" :type "string" :description "Test"))
+                       :confirm nil))))
     
     ;; Execute a failing tool
     (let ((callback-invoked nil))
