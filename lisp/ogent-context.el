@@ -17,6 +17,10 @@
 ;; Forward declaration for companion linking
 (declare-function ogent-companion-source-buffer "ogent-companion")
 
+;; Forward declarations for codemap handle resolution
+(declare-function ogent-codemap-handle-p "ogent-codemap")
+(declare-function ogent-codemap-resolve-handle "ogent-codemap")
+
 ;; Forward declarations for org-roam integration (optional dependency)
 (declare-function org-roam-node-title "ext:org-roam-node")
 (declare-function org-roam-node-aliases "ext:org-roam-node")
@@ -201,11 +205,25 @@ Returns nil when the handle cannot be located."
        (ogent-context--resolve-via-roam handle)))))
 
 (defun ogent-context--dependency (handle)
-  "Return a plist describing HANDLE, resolved when possible."
-  (let ((node (ogent-resolve-handle handle)))
-    (list :handle handle
-          :missing-p (null node)
-          :node node)))
+  "Return a plist describing HANDLE, resolved when possible.
+Handles special cases like @codemap handles."
+  ;; Check for codemap handles first
+  (if (and (fboundp 'ogent-codemap-handle-p)
+           (ogent-codemap-handle-p handle))
+      (let ((content (ogent-codemap-resolve-handle handle)))
+        (list :handle handle
+              :missing-p (null content)
+              :node (when content
+                      (make-ogent-context-node
+                       :title (format "Codemap: %s" handle)
+                       :id handle
+                       :content content
+                       :buffer nil))))
+    ;; Standard handle resolution
+    (let ((node (ogent-resolve-handle handle)))
+      (list :handle handle
+            :missing-p (null node)
+            :node node))))
 
 ;;;###autoload
 (defun ogent-context-build (&optional point)

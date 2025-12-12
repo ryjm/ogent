@@ -196,6 +196,63 @@ Group 1 is hashes, group 2 is heading text.")
   (interactive)
   (ogent-codemap--render))
 
+;;; Handle Integration
+;;
+;; Support @codemap handle in prompts to include the codemap content.
+
+(defun ogent-codemap--as-content ()
+  "Return the codemap content as a string.
+Generates the codemap if needed."
+  (with-current-buffer (ogent-codemap--render)
+    (buffer-substring-no-properties (point-min) (point-max))))
+
+(defun ogent-codemap-handle-p (handle)
+  "Return non-nil if HANDLE is a codemap handle."
+  (string-match-p "^codemap\\(-.*\\)?$" handle))
+
+(defun ogent-codemap-resolve-handle (handle)
+  "Resolve a codemap HANDLE, returning content for the prompt.
+Supports:
+  @codemap - full codemap
+  @codemap-lisp - only lisp/ section
+  @codemap-test - only test/ section
+  @codemap-specs - only specs/ section
+  @codemap-docs - only docs/ section"
+  (when (ogent-codemap-handle-p handle)
+    (let ((content (ogent-codemap--as-content))
+          (section (when (string-match "^codemap-\\(.+\\)$" handle)
+                     (match-string 1 handle))))
+      (if section
+          ;; Extract specific section
+          (ogent-codemap--extract-section content section)
+        ;; Full codemap
+        content))))
+
+(defun ogent-codemap--extract-section (content section)
+  "Extract SECTION from codemap CONTENT.
+SECTION should match a directory name (lisp, test, specs, docs)."
+  (let ((section-rx (format "^\\*\\* \\[\\[file:%s/.*" (regexp-quote section))))
+    (with-temp-buffer
+      (insert content)
+      (goto-char (point-min))
+      (let ((start nil)
+            (end nil))
+        ;; Find first file in section
+        (when (re-search-forward section-rx nil t)
+          (beginning-of-line)
+          (setq start (point))
+          ;; Find next top-level file heading from different section or end
+          (forward-line 1)
+          (if (re-search-forward "^\\*\\* \\[\\[file:\\([^/]+\\)/" nil t)
+              (let ((next-dir (match-string 1)))
+                (unless (string= next-dir section)
+                  (beginning-of-line)
+                  (setq end (point))))
+            (setq end (point-max))))
+        (if (and start end)
+            (buffer-substring-no-properties start end)
+          (format "No %s/ section found in codemap" section))))))
+
 (provide 'ogent-codemap)
 
 ;;; ogent-codemap.el ends here
