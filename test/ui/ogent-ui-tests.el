@@ -185,6 +185,68 @@
     (should (search-forward "Thinking about this..." nil t))
     (should (search-forward "#+end_reasoning" nil t))))
 
+;;; Tool Approval Tests
+
+(ert-deftest ogent-tool-pattern-match-basic ()
+  "Tool pattern matching for simple patterns."
+  ;; Tool name only
+  (should (ogent-tool--pattern-match-p "read-file" "read-file" nil))
+  (should-not (ogent-tool--pattern-match-p "read-file" "write-file" nil))
+  ;; Wildcard args
+  (should (ogent-tool--pattern-match-p "bash(*)" "bash" '(:command "git status")))
+  ;; No args required
+  (should (ogent-tool--pattern-match-p "glob" "glob" '(:pattern "*.el"))))
+
+(ert-deftest ogent-tool-pattern-match-with-args ()
+  "Tool pattern matching with specific argument patterns."
+  ;; Match specific arg value
+  (should (ogent-tool--pattern-match-p
+           "bash(command:git *)"
+           "bash"
+           '(:command "git status")))
+  ;; Doesn't match different command
+  (should-not (ogent-tool--pattern-match-p
+               "bash(command:git *)"
+               "bash"
+               '(:command "rm -rf /"))))
+
+(ert-deftest ogent-tool-glob-match ()
+  "Glob pattern matching works correctly."
+  (should (ogent-tool--glob-match-p "git *" "git status"))
+  (should (ogent-tool--glob-match-p "git *" "git log"))
+  (should-not (ogent-tool--glob-match-p "git *" "make test"))
+  (should (ogent-tool--glob-match-p "*" "anything"))
+  (should (ogent-tool--glob-match-p "make test:*" "make test:all")))
+
+(ert-deftest ogent-tool-allow-list-check ()
+  "Allow-list checking works correctly."
+  (let ((ogent-tool-allow-list '("read-file" "bash(command:git *)")))
+    (should (ogent-tool--allowed-p "read-file" nil))
+    (should (ogent-tool--allowed-p "bash" '(:command "git status")))
+    (should-not (ogent-tool--allowed-p "write-file" nil))
+    (should-not (ogent-tool--allowed-p "bash" '(:command "rm -rf /")))))
+
+(ert-deftest ogent-tool-approval-disabled ()
+  "When approval is disabled, all tools are approved."
+  (let ((ogent-tool-require-approval nil)
+        (ogent-tool-allow-list nil))
+    (should (eq (ogent-ui--check-tool-approval "bash" '(:command "rm -rf /"))
+                'approved))))
+
+(ert-deftest ogent-tool-approval-allow-listed ()
+  "Allow-listed tools are auto-approved."
+  (let ((ogent-tool-require-approval t)
+        (ogent-tool-allow-list '("read-file")))
+    (should (eq (ogent-ui--check-tool-approval "read-file" nil)
+                'approved))))
+
+(ert-deftest ogent-tool-format-preview ()
+  "Tool preview formatting is human-readable."
+  (let ((preview (ogent-tool--format-preview "bash" '(:command "git status"))))
+    (should (string-match-p "Tool: bash" preview))
+    (should (string-match-p "command" preview))
+    (should (string-match-p "git status" preview))))
+
 (ert-deftest ogent-request-writes-to-companion-buffer ()
   "Verify ogent-request writes to companion buffer when invoked from non-Org buffer."
   (let ((text-buffer (get-buffer-create "*test-source.txt*"))
