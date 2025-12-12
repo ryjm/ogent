@@ -28,10 +28,17 @@
 (declare-function gptel-backend-name "ext:gptel")
 (declare-function gptel-backend-models "ext:gptel")
 (declare-function gptel--model-name "ext:gptel")
+(declare-function gptel-backend-p "ext:gptel")
 (defvar gptel--known-backends)
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel-stream)
+(defvar gptel-tools)
+(defvar gptel-use-tools)
+
+;; ogent-tools integration
+(declare-function ogent-tools-for-model "ogent-models")
+(declare-function ogent-tool-spec-get "ogent-models")
 
 ;;; Org-mode Output Formatting
 
@@ -55,6 +62,129 @@ headings use * instead of #, etc."
 
 Do NOT use markdown syntax. Use Org-mode syntax exclusively."
   "System directive instructing the LLM to format output as Org-mode.")
+
+;;; Tool Approval System
+
+(defcustom ogent-tool-allow-list nil
+  "List of patterns for auto-approved tool calls.
+Each pattern is a string like \"ToolName(arg:pattern)\" where:
+- ToolName matches the tool name exactly
+- arg:pattern matches an argument (supports glob wildcards)
+- * inside parens matches any arguments
+- No parens means any invocation of that tool is allowed
+
+Examples:
+  \"read-file\" - allow all read-file calls
+  \"bash(command:git *)\" - allow bash with git commands
+  \"bash(command:make test:*)\" - allow make test and variations
+  \"glob(*)\" - allow all glob calls
+
+Patterns are case-sensitive and checked in order."
+  :type '(repeat string)
+  :group 'ogent-mode)
+
+(defcustom ogent-tool-require-approval t
+  "When non-nil, prompt for approval before executing tools.
+Tools matching `ogent-tool-allow-list' are auto-approved.
+When nil, all tools execute without prompting."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defun ogent-tool--pattern-match-p (pattern tool-name args)
+  "Return non-nil if TOOL-NAME with ARGS matches PATTERN.
+PATTERN format: \"tool-name\" or \"tool-name(arg:glob)\"."
+  (if (string-match "^\\([^(]+\\)\\(?:(\\(.*\\))\\)?$" pattern)
+      (let ((pat-name (match-string 1 pattern))
+            (pat-args (match-string 2 pattern)))
+        (and (string= pat-name tool-name)
+             (or (null pat-args)
+                 (string= pat-args "*")
+                 (ogent-tool--args-match-p pat-args args))))
+    nil))
+
+(defun ogent-tool--args-match-p (arg-pattern args)
+  "Return non-nil if ARG-PATTERN matches ARGS plist.
+ARG-PATTERN format: \"argname:glob\" or \"argname:glob,other:glob\"."
+  (let ((patterns (split-string arg-pattern ",")))
+    (cl-every
+     (lambda (pat)
+       (if (string-match "^\\([^:]+\\):\\(.*\\)$" pat)
+           (let* ((arg-name (match-string 1 pat))
+                  (glob (match-string 2 pat))
+                  ;; Try both :keyword and plain symbol forms
+                  (arg-keyword (intern (concat ":" arg-name)))
+                  (arg-val (plist-get args arg-keyword)))
+             (if arg-val
+                 (ogent-tool--glob-match-p glob (format "%s" arg-val))
+               ;; Arg not present, pattern fails unless glob is *
+               (string= glob "*")))
+         t))
+     patterns)))
+
+(defun ogent-tool--glob-match-p (pattern string)
+  "Return non-nil if PATTERN (glob-style) matches STRING.
+Supports * as wildcard."
+  ;; Split pattern on *, quote each part, join with .*
+  (let* ((parts (split-string pattern "\\*"))
+         (quoted-parts (mapcar #'regexp-quote parts))
+         (regexp (concat "^" (string-join quoted-parts ".*") "$")))
+    (string-match-p regexp string)))
+
+(defun ogent-tool--allowed-p (tool-name args)
+  "Return non-nil if TOOL-NAME with ARGS is in the allow-list."
+  (cl-some (lambda (pattern)
+             (ogent-tool--pattern-match-p pattern tool-name args))
+           ogent-tool-allow-list))
+
+(defun ogent-tool--format-preview (tool-name args)
+  "Format a preview string for TOOL-NAME with ARGS."
+  (let ((preview (format "Tool: %s\n" tool-name)))
+    (when args
+      (setq preview (concat preview "Arguments:\n"))
+      (let ((pairs nil))
+        (while args
+          (push (format "  %s: %s" (car args) (cadr args)) pairs)
+          (setq args (cddr args)))
+        (setq preview (concat preview (string-join (nreverse pairs) "\n")))))
+    preview))
+
+(defun ogent-tool--prompt-approval (tool-name args)
+  "Prompt user to approve TOOL-NAME with ARGS.
+Returns symbol: `approve', `deny', `always', or `never'."
+  (let* ((preview (ogent-tool--format-preview tool-name args))
+         (prompt (format "%s\n\nAllow? (y)es, (n)o, (a)lways, n(e)ver: " preview))
+         (response (read-char-choice prompt '(?y ?n ?a ?e))))
+    (pcase response
+      (?y 'approve)
+      (?n 'deny)
+      (?a 'always)
+      (?e 'never))))
+
+(defun ogent-tool--add-to-allow-list (tool-name args)
+  "Add TOOL-NAME to `ogent-tool-allow-list'.
+If ARGS is non-nil, creates a pattern matching those specific args."
+  (let ((pattern (if (and args (plist-get args :command))
+                     ;; For bash, include the command prefix
+                     (let ((cmd (plist-get args :command)))
+                       (if (string-match "^\\([^ ]+\\)" cmd)
+                           (format "%s(command:%s *)" tool-name (match-string 1 cmd))
+                         tool-name))
+                   tool-name)))
+    (unless (member pattern ogent-tool-allow-list)
+      (customize-save-variable 'ogent-tool-allow-list
+                               (cons pattern ogent-tool-allow-list)))))
+
+(defvar ogent-tool--denied-tools nil
+  "List of tool patterns permanently denied in this session.")
+
+(defun ogent-tool--add-to-deny-list (tool-name)
+  "Add TOOL-NAME to the session deny list."
+  (unless (member tool-name ogent-tool--denied-tools)
+    (push tool-name ogent-tool--denied-tools)))
+
+(defun ogent-tool--denied-p (tool-name)
+  "Return non-nil if TOOL-NAME is in the session deny list."
+  (member tool-name ogent-tool--denied-tools))
 
 ;;; gptel-style Variable Scope Management
 
@@ -641,10 +771,14 @@ The src block is already closed; this just updates status and folds."
   (run-hook-with-args 'ogent-after-request-hook (ogent-ui-request-context request)))
 
 (defun ogent-ui--make-callback (request-id)
-  "Return a gptel callback that streams into REQUEST-ID."
+  "Return a gptel callback that streams into REQUEST-ID.
+Handles both regular text responses and tool call responses."
   (lambda (text info)
     (let ((request (gethash request-id ogent-ui--request-table)))
       (when request
+        ;; Check for tool calls in info plist
+        (when (and (listp info) (plist-get info :tool-use))
+          (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
         ;; Update status based on what we're receiving
         (when (and text (> (length text) 0))
           (unless (eq (ogent-ui-request-status request) 'type)
@@ -654,11 +788,85 @@ The src block is already closed; this just updates status and folds."
          ((and (listp info) (plist-get info :error))
           (ogent-ui--close-response request (plist-get info :error)))
          ;; Done when we get explicit :done/:final or nil info with no text
-         ((or (and (listp info)
-                   (or (plist-get info :done)
-                       (plist-get info :final)))
-              (and (null info) (null text)))
+         ;; But NOT when there are pending tool calls
+         ((and (or (and (listp info)
+                        (or (plist-get info :done)
+                            (plist-get info :final)))
+                   (and (null info) (null text)))
+               (not (and (listp info) (plist-get info :tool-pending))))
           (ogent-ui--close-response request)))))))
+
+(defun ogent-ui--handle-tool-calls (request tool-calls _info)
+  "Handle TOOL-CALLS from gptel response for REQUEST.
+Each tool call is checked for approval, then executed if approved.
+Results are displayed in the buffer."
+  (let ((buffer (ogent-ui-request-buffer request)))
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char (or (ogent-ui-request-response-pos request) (point-max)))
+        (dolist (tool-call tool-calls)
+          (let* ((tool-name (plist-get tool-call :name))
+                 (tool-args (plist-get tool-call :input))
+                 (approval (ogent-ui--check-tool-approval tool-name tool-args)))
+            (pcase approval
+              ('approved
+               (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                 (ogent-ui--insert-tool-block tool-name tool-args result)))
+              ('denied
+               (ogent-ui--insert-tool-block tool-name tool-args
+                                            "[Tool execution denied by user]")))))))))
+
+(defun ogent-ui--check-tool-approval (tool-name tool-args)
+  "Check if TOOL-NAME with TOOL-ARGS should be executed.
+Returns `approved' or `denied'."
+  (cond
+   ;; Approval disabled - always approve
+   ((not ogent-tool-require-approval) 'approved)
+   ;; Already denied this session
+   ((ogent-tool--denied-p tool-name) 'denied)
+   ;; In allow-list - auto-approve
+   ((ogent-tool--allowed-p tool-name tool-args) 'approved)
+   ;; Check tool spec for :confirm flag (if false, auto-approve)
+   ((let ((spec (and (fboundp 'ogent-tool-spec-get)
+                     (ogent-tool-spec-get (intern tool-name)))))
+      (and spec (not (plist-get spec :confirm))))
+    'approved)
+   ;; Prompt user
+   (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
+        (pcase response
+          ('approve 'approved)
+          ('deny 'denied)
+          ('always
+           (ogent-tool--add-to-allow-list tool-name tool-args)
+           'approved)
+          ('never
+           (ogent-tool--add-to-deny-list tool-name)
+           'denied))))))
+
+(defun ogent-ui--execute-tool (name args)
+  "Execute tool NAME with ARGS and return result string.
+Looks up tool in `ogent-tool-registry' and calls its function."
+  (if-let* ((spec (and (fboundp 'ogent-tool-spec-get)
+                       (ogent-tool-spec-get (intern name))))
+            (func (plist-get spec :function)))
+      (condition-case err
+          (let ((arg-values (ogent-ui--extract-tool-args spec args)))
+            (apply func arg-values))
+        (error (format "Tool error: %s" (error-message-string err))))
+    (format "Unknown tool: %s" name)))
+
+(defun ogent-ui--extract-tool-args (spec args)
+  "Extract argument values from ARGS plist based on SPEC.
+Returns a list of values in the order defined in the spec's :args."
+  (let ((arg-specs (plist-get spec :args))
+        (values nil))
+    (dolist (arg-spec arg-specs)
+      (let* ((arg-name (plist-get arg-spec :name))
+             (arg-sym (intern (replace-regexp-in-string "_" "-" arg-name)))
+             (value (or (plist-get args arg-sym)
+                        (plist-get args (intern arg-name)))))
+        (push value values)))
+    (nreverse values)))
 
 (defun ogent-ui--resolve-backend (model)
   "Return the backend object for MODEL plist."
@@ -710,7 +918,8 @@ preset name strings found in the prompt."
 (defun ogent-ui--send-request (request)
   "Dispatch REQUEST through gptel.
 Preset priority: request preset > model preset.
-When target buffer is Org-mode, includes org-format directive."
+When target buffer is Org-mode, includes org-format directive.
+When model has :tools, enables gptel tool calling."
   (ogent-ui--ensure-gptel)
   (let* ((model (ogent-ui-request-model request))
          (prompt-text (ogent-ui--render-prompt (ogent-ui-request-prompt request)
@@ -723,6 +932,9 @@ When target buffer is Org-mode, includes org-format directive."
          (target-buffer (ogent-ui-request-buffer request))
          (use-org-format (with-current-buffer target-buffer
                            (derived-mode-p 'org-mode)))
+         ;; Get tools for this model
+         (tools (when (fboundp 'ogent-tools-for-model)
+                  (ogent-tools-for-model model-id)))
          (args (list :buffer target-buffer
                      :stream (plist-get model :stream?)
                      :callback callback)))
@@ -738,6 +950,9 @@ When target buffer is Org-mode, includes org-format directive."
         (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
                (gptel-backend backend)
                (gptel-model model-id)
+               ;; Bind tools if model has them configured
+               (gptel-tools (or tools gptel-tools))
+               (gptel-use-tools (or tools gptel-use-tools))
                (handle (if preset
                            (if (fboundp 'gptel-with-preset)
                                (gptel-with-preset (if (stringp preset) (intern preset) preset)

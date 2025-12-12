@@ -40,6 +40,12 @@
   (defun gptel-request (_prompt &rest _args)
     (error "gptel-request stub not overridden in tests")))
 
+;; Define gptel variables that ogent-ui references
+(defvar gptel-tools nil
+  "Test stub for gptel-tools.")
+(defvar gptel-use-tools nil
+  "Test stub for gptel-use-tools.")
+
 ;;; Mocking utilities
 ;;
 ;; These macros/functions make it easy to mock gptel and other external

@@ -47,7 +47,7 @@
                                 (ogent-codemap--source-files)))
          (tests (ogent-codemap--test-definitions test-file)))
     (should test-file)
-    (should (cl-some (lambda (t) (string-match-p "^ogent-" t)) tests))))
+    (should (cl-some (lambda (name) (string-match-p "^ogent-" name)) tests))))
 
 (ert-deftest ogent-codemap-extracts-org-headings ()
   "Org headings are extracted from .org files."
