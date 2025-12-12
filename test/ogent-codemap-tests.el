@@ -70,5 +70,30 @@
     (should (cl-some (lambda (f) (string-match-p "/specs/" f)) files))
     (should (cl-some (lambda (f) (string-match-p "/docs/" f)) files))))
 
+(ert-deftest ogent-codemap-handle-detection ()
+  "Codemap handles are correctly identified."
+  (should (ogent-codemap-handle-p "codemap"))
+  (should (ogent-codemap-handle-p "codemap-lisp"))
+  (should (ogent-codemap-handle-p "codemap-test"))
+  (should-not (ogent-codemap-handle-p "codemaps"))
+  (should-not (ogent-codemap-handle-p "my-codemap"))
+  (should-not (ogent-codemap-handle-p "foo")))
+
+(ert-deftest ogent-codemap-handle-resolves ()
+  "Codemap handle returns content."
+  (let ((content (ogent-codemap-resolve-handle "codemap")))
+    (should content)
+    (should (stringp content))
+    (should (string-match-p "\\* Codemap" content))))
+
+(ert-deftest ogent-codemap-section-handle-resolves ()
+  "Codemap section handle returns filtered content."
+  (let ((content (ogent-codemap-resolve-handle "codemap-lisp")))
+    (should content)
+    (should (stringp content))
+    (should (string-match-p "lisp/" content))
+    ;; Should not contain test/ files
+    (should-not (string-match-p "^\\*\\* .*test/" content))))
+
 (provide 'ogent-codemap-tests)
 ;;; ogent-codemap-tests.el ends here
