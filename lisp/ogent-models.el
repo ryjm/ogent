@@ -209,6 +209,21 @@ Returns nil if the model has no :tools specified."
   (seq-find (lambda (spec) (eq (plist-get spec :name) name))
             ogent-tool-registry))
 
+;;; Request Setup
+
+(defun ogent-models-setup-tools-for-request (model-id)
+  "Return plist with :tools and :use-tools keys for gptel-request.
+MODEL-ID specifies which model's tools to enable.
+Returns nil if model has no tools configured.
+
+Use this to configure tools before calling gptel-request:
+  (let* ((tool-config (ogent-models-setup-tools-for-request \"claude-3.5\"))
+         (gptel-tools (plist-get tool-config :tools))
+         (gptel-use-tools (plist-get tool-config :use-tools)))
+    (gptel-request ...))"
+  (when-let ((tools (ogent-tools-for-model model-id)))
+    (list :tools tools :use-tools t)))
+
 (provide 'ogent-models)
 
 ;;; ogent-models.el ends here

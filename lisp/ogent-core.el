@@ -18,6 +18,7 @@
 (declare-function ogent-codemap-buffer "ogent-codemap")
 (declare-function ogent-request-edit "ogent-edit")
 (declare-function ogent-edit-menu "ogent-edit")
+(declare-function ogent-debug-tools-menu "ogent-debug")
 
 (defgroup ogent-mode nil
   "Customization entries for `ogent-mode'."
@@ -45,6 +46,7 @@ Each function receives the formatted context plist."
     (define-key map (kbd "C-c . R") #'ogent-retry-request)
     (define-key map (kbd "C-c . e") #'ogent-edit-menu)
     (define-key map (kbd "C-c . E") #'ogent-request-edit)
+    (define-key map (kbd "C-c . t") #'ogent-debug-tools-menu)
     map)
   "Keymap for `ogent-mode'.")
 
