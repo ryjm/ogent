@@ -16,10 +16,10 @@
 
 (defvar ogent-tool-fsm-test--sample-tool-spec
   '(:name test-tool
-    :function ogent-tool-fsm-test--dummy-func
-    :description "Test tool"
-    :args ((:name "arg1" :type "string" :description "Test arg"))
-    :confirm nil)
+	  :function ogent-tool-fsm-test--dummy-func
+	  :description "Test tool"
+	  :args ((:name "arg1" :type "string" :description "Test arg"))
+	  :confirm nil)
   "Sample tool spec for testing.")
 
 (defun ogent-tool-fsm-test--dummy-func (arg1)
@@ -35,11 +35,11 @@
 (ert-deftest ogent-tool-fsm-test-parse-plist-format ()
   "Test parsing tool calls from gptel plist format."
   (let* ((response-info '(:tool-use ((:id "call-123"
-                                       :name test-tool
-                                       :input (:arg1 "value1"))
-                                      (:id "call-456"
-                                       :name another-tool
-                                       :input (:arg1 "value2")))))
+					  :name test-tool
+					  :input (:arg1 "value1"))
+                                     (:id "call-456"
+					  :name another-tool
+					  :input (:arg1 "value2")))))
          (calls (ogent-tool-fsm-parse-tool-calls response-info)))
     (should (= (length calls) 2))
     (should (equal (plist-get (car calls) :id) "call-123"))
@@ -101,10 +101,10 @@
   "Test tool execution failure handling."
   (let* ((ogent-tool-registry
           (list '(:name failing-tool
-                  :function ogent-tool-fsm-test--failing-func
-                  :description "Failing tool"
-                  :args ((:name "arg1" :type "string" :description "Test"))
-                  :confirm nil)))
+			:function ogent-tool-fsm-test--failing-func
+			:description "Failing tool"
+			:args ((:name "arg1" :type "string" :description "Test"))
+			:confirm nil)))
          (tool-call '(:id "test-2" :name failing-tool :args (:arg1 "test")))
          (callback-result nil)
          (callback-error nil)
@@ -185,8 +185,8 @@
            ;; Disable approval for this test
            (ogent-tool-approval--session-approved (make-hash-table :test 'equal))
            (info '(:tool-use ((:id "render-1"
-                               :name test-tool
-                               :input (:arg1 "test"))))))
+				   :name test-tool
+				   :input (:arg1 "test"))))))
       ;; Pre-approve the tool
       (puthash 'test-tool t ogent-tool-approval--session-approved)
       

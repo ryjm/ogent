@@ -7,53 +7,53 @@
 (ert-deftest ogent-context-resolve-by-ogent-id ()
   "Handles using explicit OGENT_ID are resolved."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (let ((node (ogent-resolve-handle "details-block")))
-       (should (ogent-context-node-p node))
-       (should (string= (ogent-context-node-title node)
-                        "Details Block"))))))
+			   (lambda ()
+			     (let ((node (ogent-resolve-handle "details-block")))
+			       (should (ogent-context-node-p node))
+			       (should (string= (ogent-context-node-title node)
+						"Details Block"))))))
 
 (ert-deftest ogent-context-resolve-by-slug ()
   "Handles derived from title slugs resolve when OGENT_ID is absent."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (let ((node (ogent-resolve-handle "deep-note")))
-       (should (ogent-context-node-p node))
-       (should (string= (ogent-context-node-title node)
-                        "Deep Note"))))))
+			   (lambda ()
+			     (let ((node (ogent-resolve-handle "deep-note")))
+			       (should (ogent-context-node-p node))
+			       (should (string= (ogent-context-node-title node)
+						"Deep Note"))))))
 
 (ert-deftest ogent-context-build-collects-dependencies ()
   "Context builder tracks handles, ancestors, and missing nodes."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (goto-char (point-min))
-     (search-forward "Root Overview")
-     (org-back-to-heading t)
-     (let* ((ctx (ogent-context-build))
-            (handles (plist-get ctx :handles))
-            (deps (plist-get ctx :dependencies)))
-       (should (equal handles
-                      '("details-block" "deep-note" "appendix-note"
-                        "missing-note")))
-       (should (= (length deps) 4))
-       (should-not (plist-get (nth 0 deps) :missing-p))
-       (should (ogent-context-node-p
-                (plist-get (nth 1 deps) :node)))
-       (should-not (plist-get (nth 2 deps) :missing-p))
-       (should (plist-get (nth 3 deps) :missing-p))))))
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let* ((ctx (ogent-context-build))
+				    (handles (plist-get ctx :handles))
+				    (deps (plist-get ctx :dependencies)))
+			       (should (equal handles
+					      '("details-block" "deep-note" "appendix-note"
+						"missing-note")))
+			       (should (= (length deps) 4))
+			       (should-not (plist-get (nth 0 deps) :missing-p))
+			       (should (ogent-context-node-p
+					(plist-get (nth 1 deps) :node)))
+			       (should-not (plist-get (nth 2 deps) :missing-p))
+			       (should (plist-get (nth 3 deps) :missing-p))))))
 
 (ert-deftest ogent-context-build-provides-ancestors ()
   "Ancestors are ordered from top-level down to the immediate parent."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (goto-char (point-min))
-     (search-forward "Details Block")
-     (org-back-to-heading t)
-     (let* ((ctx (ogent-context-build))
-            (ancestors (plist-get ctx :ancestors)))
-       (should (= (length ancestors) 1))
-       (should (string= (ogent-context-node-title (car ancestors))
-                        "Root Overview"))))))
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Details Block")
+			     (org-back-to-heading t)
+			     (let* ((ctx (ogent-context-build))
+				    (ancestors (plist-get ctx :ancestors)))
+			       (should (= (length ancestors) 1))
+			       (should (string= (ogent-context-node-title (car ancestors))
+						"Root Overview"))))))
 
 ;;; Source buffer context tests
 
@@ -102,65 +102,65 @@
 (ert-deftest ogent-context-build-with-source-combines-contexts ()
   "Combined context includes both source and Org context."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (let ((source-buffer (get-buffer-create "*test-combined.py*")))
-       (unwind-protect
-           (progn
-             (with-current-buffer source-buffer
-               (python-mode)
-               (insert "def hello(): pass"))
-             ;; In the Org buffer, build combined context
-             (goto-char (point-min))
-             (search-forward "Root Overview")
-             (org-back-to-heading t)
-             (let ((ctx (ogent-context-build-with-source source-buffer)))
-               ;; Should have source context
-               (should (plist-get ctx :source-context))
-               (should (string-match-p
-                        "def hello"
-                        (ogent-source-context-content
-                         (plist-get ctx :source-context))))
-               ;; Should also have Org context
-               (should (plist-get ctx :root))
-               (should (string= (ogent-context-node-title
-                                 (plist-get ctx :root))
-                                "Root Overview"))))
-         (kill-buffer source-buffer))))))
+			   (lambda ()
+			     (let ((source-buffer (get-buffer-create "*test-combined.py*")))
+			       (unwind-protect
+				   (progn
+				     (with-current-buffer source-buffer
+				       (python-mode)
+				       (insert "def hello(): pass"))
+				     ;; In the Org buffer, build combined context
+				     (goto-char (point-min))
+				     (search-forward "Root Overview")
+				     (org-back-to-heading t)
+				     (let ((ctx (ogent-context-build-with-source source-buffer)))
+				       ;; Should have source context
+				       (should (plist-get ctx :source-context))
+				       (should (string-match-p
+						"def hello"
+						(ogent-source-context-content
+						 (plist-get ctx :source-context))))
+				       ;; Should also have Org context
+				       (should (plist-get ctx :root))
+				       (should (string= (ogent-context-node-title
+							 (plist-get ctx :root))
+							"Root Overview"))))
+				 (kill-buffer source-buffer))))))
 
 ;;; Lazy context building tests
 
 (ert-deftest ogent-context-build-lazy-defers-evaluation ()
   "Lazy context building defers evaluation until forced."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (goto-char (point-min))
-     (search-forward "Root Overview")
-     (org-back-to-heading t)
-     (let* ((call-count 0)
-            (thunk (progn
-                     ;; Create thunk - should not call ogent-context-build yet
-                     (ogent-context-build-lazy))))
-       ;; Thunk should be a closure, not evaluated yet
-       (should (functionp thunk))
-       ;; Force the thunk - now it evaluates
-       (let ((ctx (thunk-force thunk)))
-         (should (plist-get ctx :root))
-         (should (string= (ogent-context-node-title (plist-get ctx :root))
-                          "Root Overview")))))))
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let* ((call-count 0)
+				    (thunk (progn
+					     ;; Create thunk - should not call ogent-context-build yet
+					     (ogent-context-build-lazy))))
+			       ;; Thunk should be a closure, not evaluated yet
+			       (should (functionp thunk))
+			       ;; Force the thunk - now it evaluates
+			       (let ((ctx (thunk-force thunk)))
+				 (should (plist-get ctx :root))
+				 (should (string= (ogent-context-node-title (plist-get ctx :root))
+						  "Root Overview")))))))
 
 (ert-deftest ogent-context-build-lazy-caches-result ()
   "Lazy context building caches result after first force."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (goto-char (point-min))
-     (search-forward "Root Overview")
-     (org-back-to-heading t)
-     (let ((thunk (ogent-context-build-lazy)))
-       ;; Force multiple times - should return same result
-       (let ((ctx1 (thunk-force thunk))
-             (ctx2 (thunk-force thunk)))
-         ;; Results should be identical (same object due to caching)
-         (should (eq ctx1 ctx2)))))))
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let ((thunk (ogent-context-build-lazy)))
+			       ;; Force multiple times - should return same result
+			       (let ((ctx1 (thunk-force thunk))
+				     (ctx2 (thunk-force thunk)))
+				 ;; Results should be identical (same object due to caching)
+				 (should (eq ctx1 ctx2)))))))
 
 (ert-deftest ogent-context-build-source-lazy-works ()
   "Lazy source context building works correctly."
@@ -180,24 +180,24 @@
 (ert-deftest ogent-context-with-lazy-binds-thunks ()
   "ogent-context-with-lazy creates thunk bindings."
   (ogent-test-with-fixture "data/fixture.org"
-   (lambda ()
-     (goto-char (point-min))
-     (search-forward "Root Overview")
-     (org-back-to-heading t)
-     (let ((forced-count 0))
-       (ogent-context-with-lazy
-           ((ctx (progn
-                   (cl-incf forced-count)
-                   (ogent-context-build))))
-         ;; Not forced yet
-         (should (= forced-count 0))
-         ;; Force once
-         (let ((result (thunk-force ctx)))
-           (should (= forced-count 1))
-           (should (plist-get result :root)))
-         ;; Force again - count shouldn't increase (cached)
-         (thunk-force ctx)
-         (should (= forced-count 1)))))))
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let ((forced-count 0))
+			       (ogent-context-with-lazy
+				((ctx (progn
+					(cl-incf forced-count)
+					(ogent-context-build))))
+				;; Not forced yet
+				(should (= forced-count 0))
+				;; Force once
+				(let ((result (thunk-force ctx)))
+				  (should (= forced-count 1))
+				  (should (plist-get result :root)))
+				;; Force again - count shouldn't increase (cached)
+				(thunk-force ctx)
+				(should (= forced-count 1)))))))
 
 (provide 'ogent-context-tests)
 ;;; ogent-context-tests.el ends here

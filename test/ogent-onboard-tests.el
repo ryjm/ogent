@@ -42,24 +42,24 @@
 (ert-deftest ogent-onboard-select-provider-interactive ()
   "Test provider selection with simulated input."
   (ogent-test-with-input "Anthropic RET"
-    (let ((provider (ogent-onboard--select-provider)))
-      (should provider)
-      (should (eq (plist-get provider :id) 'anthropic)))))
+			 (let ((provider (ogent-onboard--select-provider)))
+			   (should provider)
+			   (should (eq (plist-get provider :id) 'anthropic)))))
 
 (ert-deftest ogent-onboard-select-provider-openai ()
   "Test selecting OpenAI provider."
   (ogent-test-with-input "OpenAI RET"
-    (let ((provider (ogent-onboard--select-provider)))
-      (should provider)
-      (should (eq (plist-get provider :id) 'openai)))))
+			 (let ((provider (ogent-onboard--select-provider)))
+			   (should provider)
+			   (should (eq (plist-get provider :id) 'openai)))))
 
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
   (let ((provider (car ogent-onboard-providers)))  ; Anthropic
     (ogent-test-with-input "claude-sonnet-4-5 RET"
-      (let ((model (ogent-onboard--select-model provider)))
-        (should model)
-        (should (string-prefix-p "claude-sonnet-4-5" (plist-get model :id)))))))
+			   (let ((model (ogent-onboard--select-model provider)))
+			     (should model)
+			     (should (string-prefix-p "claude-sonnet-4-5" (plist-get model :id)))))))
 
 (provide 'ogent-onboard-tests)
 ;;; ogent-onboard-tests.el ends here

@@ -59,9 +59,9 @@
                  :id "test-789"
                  :name "grep"
                  :args '(:pattern "defun"
-                         :path "/tmp"
-                         :glob_filter "*.el"
-                         :context_lines 2))))
+				  :path "/tmp"
+				  :glob_filter "*.el"
+				  :context_lines 2))))
       (ogent-tool-render-call call t)
       
       (goto-char (point-min))

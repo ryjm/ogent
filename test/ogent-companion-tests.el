@@ -119,7 +119,7 @@
             (should (local-variable-p 'ogent-companion-file))
             (should ogent-companion-file)
             (should (or (string-prefix-p "*ogent:" ogent-companion-file)
-                       (file-name-absolute-p ogent-companion-file)))
+			(file-name-absolute-p ogent-companion-file)))
             (kill-buffer companion)))
       (let ((file (buffer-file-name file-buffer)))
         (kill-buffer file-buffer)
@@ -130,7 +130,7 @@
   (let ((temp-buffer (get-buffer-create "*test-temp*")))
     (unwind-protect
         (should (string= (ogent-companion--get-companion-identifier temp-buffer)
-                        "*test-temp*"))
+                         "*test-temp*"))
       (kill-buffer temp-buffer))))
 
 (ert-deftest ogent-companion-identifier-for-file-buffer ()
@@ -184,7 +184,7 @@
           ;; Should have created and linked the companion
           (should (buffer-live-p ogent-companion--linked-buffer))
           (should (string= (buffer-name ogent-companion--linked-buffer)
-                          "*ogent:test-restore*"))
+                           "*ogent:test-restore*"))
           (kill-buffer ogent-companion--linked-buffer))
       (kill-buffer text-buffer))))
 
