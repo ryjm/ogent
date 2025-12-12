@@ -33,6 +33,29 @@
 (defvar gptel-model)
 (defvar gptel-stream)
 
+;;; Org-mode Output Formatting
+
+(defcustom ogent-org-format-responses t
+  "When non-nil, instruct LLM to format responses as Org-mode.
+This adds a system directive to requests when the target buffer
+is in Org-mode, ensuring code blocks use #+begin_src syntax,
+headings use * instead of #, etc."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defconst ogent-org-format-directive
+  "Format your response using Org-mode syntax:
+- Use * for headings (not # markdown headings)
+- Use #+begin_src LANG / #+end_src for code blocks (not ``` fences)
+- Use - or + for unordered lists
+- Use 1. for ordered lists
+- Use [[url][description]] for links
+- Use *bold*, /italic/, =code=, ~verbatim~ for inline formatting
+- Use | for tables with |---| separator rows
+
+Do NOT use markdown syntax. Use Org-mode syntax exclusively."
+  "System directive instructing the LLM to format output as Org-mode.")
+
 ;;; gptel-style Variable Scope Management
 
 (defvar-local ogent--set-buffer-locally nil
@@ -686,7 +709,8 @@ preset name strings found in the prompt."
 
 (defun ogent-ui--send-request (request)
   "Dispatch REQUEST through gptel.
-Preset priority: request preset > model preset."
+Preset priority: request preset > model preset.
+When target buffer is Org-mode, includes org-format directive."
   (ogent-ui--ensure-gptel)
   (let* ((model (ogent-ui-request-model request))
          (prompt-text (ogent-ui--render-prompt (ogent-ui-request-prompt request)
@@ -696,9 +720,15 @@ Preset priority: request preset > model preset."
          (model-id (plist-get model :id))
          (preset (or (ogent-ui-request-preset request)
                      (plist-get model :preset)))
-         (args (list :buffer (ogent-ui-request-buffer request)
+         (target-buffer (ogent-ui-request-buffer request))
+         (use-org-format (with-current-buffer target-buffer
+                           (derived-mode-p 'org-mode)))
+         (args (list :buffer target-buffer
                      :stream (plist-get model :stream?)
                      :callback callback)))
+    ;; Add org-format directive when target is org-mode and enabled
+    (when (and ogent-org-format-responses use-org-format)
+      (setq args (plist-put args :system ogent-org-format-directive)))
     (when (and (fboundp 'gptel-backend-p)
                (not (gptel-backend-p backend)))
       (user-error
