@@ -553,8 +553,8 @@ BACKEND and PROMPTS are passed through."
   ;; Ensure tokens are loaded before checking
   (ogent-anthropic-oauth--ensure-tokens-loaded)
   (if (ogent-anthropic-oauth--using-oauth-for-gptel-p)
-      ;; Replace system message with Claude Code identification ONLY
-      ;; Anthropic may be checking for exact match
+      ;; Use exact Claude Code system message - Anthropic requires exact match
+      ;; for OAuth tokens to work. Additional instructions must go in user prompt.
       (let ((gptel--system-message ogent-anthropic-oauth--system-prefix))
         (when ogent-anthropic-oauth-debug
           (message "OAuth debug: using system message: %s" gptel--system-message))

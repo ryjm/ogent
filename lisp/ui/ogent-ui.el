@@ -35,6 +35,9 @@
 (defvar gptel-tools)
 (defvar gptel-use-tools)
 
+;; OAuth integration - for detecting when system message is locked
+(declare-function ogent-anthropic-oauth-using-bearer-p "ogent-anthropic-oauth")
+
 ;; ogent-tools integration
 (declare-function ogent-tools-for-model "ogent-models")
 (declare-function ogent-tool-spec-get "ogent-models")
@@ -936,8 +939,7 @@ preset name strings found in the prompt."
     (string-join segments "\n\n")))
 
 (defun ogent-ui--send-request (request)
-  "Dispatch REQUEST through gptel.
-Preset priority: request preset > model preset.
+  "Send REQUEST to the LLM via gptel.
 When target buffer is Org-mode, includes org-format directive.
 When model has :tools, enables gptel tool calling."
   (ogent-ui--ensure-gptel)
@@ -952,6 +954,9 @@ When model has :tools, enables gptel tool calling."
          (target-buffer (ogent-ui-request-buffer request))
          (use-org-format (with-current-buffer target-buffer
                            (derived-mode-p 'org-mode)))
+         ;; Check if OAuth is active (system message is locked)
+         (oauth-active (and (fboundp 'ogent-anthropic-oauth-using-bearer-p)
+                            (ogent-anthropic-oauth-using-bearer-p)))
          ;; Get tools for this model
          (tools (when (fboundp 'ogent-tools-for-model)
                   (ogent-tools-for-model model-id)))
@@ -960,7 +965,11 @@ When model has :tools, enables gptel tool calling."
                      :callback callback)))
     ;; Add org-format directive when target is org-mode and enabled
     (when (and ogent-org-format-responses use-org-format)
-      (setq args (plist-put args :system ogent-org-format-directive)))
+      (if oauth-active
+          ;; OAuth locks the system message, so prepend directive to user prompt
+          (setq prompt-text (concat ogent-org-format-directive "\n\n" prompt-text))
+        ;; Normal mode: use system message
+        (setq args (plist-put args :system ogent-org-format-directive))))
     (when (and (fboundp 'gptel-backend-p)
                (not (gptel-backend-p backend)))
       (user-error
