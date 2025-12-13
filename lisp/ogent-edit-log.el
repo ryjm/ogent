@@ -73,13 +73,16 @@ Creates an Org heading with properties and diff block."
   "Alist of (edit-id . marker) for log entries in companion buffer.")
 
 (defun ogent-edit--store-log-marker (edit marker)
-  "Store MARKER for EDIT's log entry."
+  "Store MARKER for EDIT's log entry.
+Also stores the marker in the edit struct for navigation."
   (let ((id (ogent-edit-id edit))
         (companion (ogent-companion--get-linked-buffer
                     (ogent-edit-source-buffer edit))))
     (when companion
       (with-current-buffer companion
-        (push (cons id marker) ogent-edit--log-markers)))))
+        (push (cons id marker) ogent-edit--log-markers)))
+    ;; Store in edit struct for navigation
+    (setf (ogent-edit-companion-marker edit) marker)))
 
 (defun ogent-edit--find-log-marker (edit)
   "Find the log marker for EDIT."

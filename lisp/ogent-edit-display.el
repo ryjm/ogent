@@ -34,7 +34,9 @@ as other (lower), matching smerge conventions."
       (save-excursion
         (goto-char start)
         (delete-region start (ogent-edit-end-pos edit))
-        (insert (ogent-edit--format-conflict old-text new-text)))
+        (insert (ogent-edit--format-conflict old-text new-text))
+        ;; Store source marker for navigation
+        (setf (ogent-edit-source-marker edit) (copy-marker start)))
       ;; Enable smerge-mode if not already active
       (unless (bound-and-true-p smerge-mode)
         (smerge-mode 1))
@@ -175,6 +177,66 @@ Each function receives the `ogent-edit' struct.")
     (goto-char (point-min))
     (while (ignore-errors (smerge-next) t)
       (ogent-edit-reject-current))))
+
+;;; Marker Navigation
+
+(defun ogent-edit-goto-source ()
+  "Jump from companion buffer to corresponding source location.
+When in a companion buffer, find the edit at point and jump to
+its location in the source buffer."
+  (interactive)
+  (let ((edit (ogent-edit--find-edit-in-companion)))
+    (if edit
+        (let ((marker (ogent-edit-source-marker edit)))
+          (if (and marker (marker-buffer marker))
+              (progn
+                (pop-to-buffer (marker-buffer marker))
+                (goto-char marker)
+                (message "Jumped to edit %s in source" (ogent-edit-id edit)))
+            (user-error "Source marker not available for edit %s"
+                        (ogent-edit-id edit))))
+      (user-error "No edit found at point"))))
+
+(defun ogent-edit-goto-companion ()
+  "Jump from source buffer to corresponding companion log entry.
+When in a source buffer with pending edits, find the edit at point
+and jump to its log entry in the companion buffer."
+  (interactive)
+  (let ((edit (ogent-edit--find-edit-at-point)))
+    (if edit
+        (let ((marker (ogent-edit-companion-marker edit)))
+          (if (and marker (marker-buffer marker))
+              (progn
+                (pop-to-buffer (marker-buffer marker))
+                (goto-char marker)
+                (org-back-to-heading t)
+                (org-show-subtree)
+                (message "Jumped to edit %s in companion" (ogent-edit-id edit)))
+            (user-error "Companion marker not available for edit %s"
+                        (ogent-edit-id edit))))
+      (user-error "No edit found at point"))))
+
+(defun ogent-edit--find-edit-in-companion ()
+  "Find the edit struct for the log entry at point in companion buffer.
+Returns the edit struct or nil if not found."
+  (when (derived-mode-p 'org-mode)
+    (save-excursion
+      (org-back-to-heading t)
+      (let ((edit-id (org-entry-get nil "OGENT_EDIT_ID")))
+        (when edit-id
+          ;; Search through all tracked edits to find matching ID
+          (ogent-edit--find-edit-by-id edit-id))))))
+
+(defun ogent-edit--find-edit-by-id (id)
+  "Find an edit struct by its ID across all buffers."
+  (catch 'found
+    (dolist (buf (buffer-list))
+      (with-current-buffer buf
+        (when (bound-and-true-p ogent-edit--pending-edits)
+          (dolist (edit ogent-edit--pending-edits)
+            (when (equal (ogent-edit-id edit) id)
+              (throw 'found edit))))))
+    nil))
 
 ;;; Diff Preview
 

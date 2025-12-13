@@ -46,6 +46,8 @@
   source-file     ; file path (if file-backed)
   start-pos       ; position where old-text was found (after validation)
   end-pos         ; end position of old-text
+  source-marker   ; marker in source buffer for navigation
+  companion-marker ; marker in companion buffer for navigation
   status          ; pending | applied | rejected | error
   error-message   ; why validation/application failed
   timestamp)      ; when edit was created
