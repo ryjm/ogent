@@ -23,6 +23,12 @@
 (require 'cl-lib)
 
 (declare-function ogent-tool-fsm-execute "ogent-tool-fsm")
+(declare-function gptel-backend-name "gptel")
+
+(defgroup ogent-debug nil
+  "Debugging utilities for ogent."
+  :group 'ogent-mode
+  :prefix "ogent-debug-")
 
 ;;; Configuration
 
@@ -34,6 +40,181 @@ Changes take effect at compile time for byte-compiled code.")
 (defvar ogent-debug-buffer "*ogent-debug*"
   "Buffer name for debug output.
 Set to nil to use *Messages* instead.")
+
+(defcustom ogent-debug-log-level nil
+  "Logging level for ogent debug mode.
+This controls what gets logged to the debug buffer:
+
+nil: No logging (default)
+info: Log requests, responses, edit parsing, validation
+debug: Log everything including raw API data, context building
+
+When non-nil, also enables gptel's logging at the same level."
+  :type '(choice
+          (const :tag "Off" nil)
+          (const :tag "Info" info)
+          (const :tag "Debug" debug))
+  :group 'ogent-debug)
+
+(defcustom ogent-debug-mirror-gptel t
+  "When non-nil, mirror gptel log entries to ogent debug buffer.
+This provides a unified view of all LLM interactions."
+  :type 'boolean
+  :group 'ogent-debug)
+
+(defcustom ogent-debug-log-context nil
+  "When non-nil, log context building details.
+This can produce verbose output for large contexts."
+  :type 'boolean
+  :group 'ogent-debug)
+
+(defvar ogent-debug--request-start-time nil
+  "Start time of current request for duration tracking.")
+
+;;; Debug Mode
+
+(defvar ogent-debug-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c d c") #'ogent-debug-clear)
+    (define-key map (kbd "C-c d s") #'ogent-debug-show)
+    (define-key map (kbd "C-c d h") #'ogent-debug-tool-history-buffer)
+    map)
+  "Keymap for `ogent-debug-mode'.")
+
+;;;###autoload
+(define-minor-mode ogent-debug-mode
+  "Minor mode for debugging ogent LLM interactions.
+When enabled, logs requests, responses, edit parsing, and validation
+to the *ogent-debug* buffer. Also enables gptel's logging.
+
+Key bindings:
+\\{ogent-debug-mode-map}"
+  :lighter " OgDbg"
+  :keymap ogent-debug-mode-map
+  :global t
+  (if ogent-debug-mode
+      (progn
+        ;; Enable logging
+        (setq ogent-debug-log-level (or ogent-debug-log-level 'info))
+        (setq ogent-debug-enabled t)
+        ;; Enable gptel logging at same level
+        (when (boundp 'gptel-log-level)
+          (setq gptel-log-level ogent-debug-log-level))
+        ;; Set up hooks
+        (ogent-debug--setup-hooks)
+        (message "ogent-debug-mode enabled (level: %s)" ogent-debug-log-level))
+    ;; Disable logging
+    (setq ogent-debug-enabled nil)
+    (when (boundp 'gptel-log-level)
+      (setq gptel-log-level nil))
+    (ogent-debug--teardown-hooks)
+    (message "ogent-debug-mode disabled")))
+
+(defun ogent-debug--setup-hooks ()
+  "Set up hooks for debug logging."
+  ;; Hook into gptel's request/response cycle if available
+  (when (boundp 'gptel-pre-request-hook)
+    (add-hook 'gptel-pre-request-hook #'ogent-debug--log-pre-request))
+  (when (boundp 'gptel-post-response-hook)
+    (add-hook 'gptel-post-response-hook #'ogent-debug--log-post-response)))
+
+(defun ogent-debug--teardown-hooks ()
+  "Remove debug logging hooks."
+  (when (boundp 'gptel-pre-request-hook)
+    (remove-hook 'gptel-pre-request-hook #'ogent-debug--log-pre-request))
+  (when (boundp 'gptel-post-response-hook)
+    (remove-hook 'gptel-post-response-hook #'ogent-debug--log-post-response)))
+
+;;; Request/Response Logging
+
+(defun ogent-debug--log-pre-request ()
+  "Log before sending a request."
+  (setq ogent-debug--request-start-time (current-time))
+  (ogent-debug-log 'request ">>> REQUEST STARTED"
+                   :model (when (boundp 'gptel-model) gptel-model)
+                   :backend (when (boundp 'gptel-backend)
+                              (and gptel-backend
+                                   (gptel-backend-name gptel-backend)))))
+
+(defun ogent-debug--log-post-response (beg end)
+  "Log after receiving a response between BEG and END."
+  (let* ((elapsed (when ogent-debug--request-start-time
+                    (float-time (time-subtract (current-time)
+                                               ogent-debug--request-start-time))))
+         (response-length (- end beg)))
+    (ogent-debug-log 'response "<<< RESPONSE RECEIVED"
+                     :elapsed (when elapsed (format "%.2fs" elapsed))
+                     :length response-length)
+    (setq ogent-debug--request-start-time nil)))
+
+(defun ogent-debug-log (type message &rest props)
+  "Log MESSAGE of TYPE with optional PROPS to debug buffer.
+TYPE is a symbol like `request', `response', `edit', `validation'.
+PROPS is a plist of additional properties to log."
+  (when ogent-debug-log-level
+    (let ((timestamp (format-time-string "%H:%M:%S"))
+          (type-str (upcase (symbol-name type)))
+          (props-str (if props
+                         (mapconcat (lambda (pair)
+                                      (format "%s=%S" (car pair) (cadr pair)))
+                                    (seq-partition props 2)
+                                    " ")
+                       "")))
+      (ogent-debug--insert-log
+       (format "%s [%s] %s%s"
+               timestamp
+               type-str
+               message
+               (if (string-empty-p props-str) "" (concat " | " props-str)))))))
+
+(defun ogent-debug--insert-log (text)
+  "Insert TEXT into the debug buffer."
+  (when ogent-debug-buffer
+    (with-current-buffer (get-buffer-create ogent-debug-buffer)
+      (goto-char (point-max))
+      (insert text "\n"))))
+
+;;; Edit Parsing Logging
+
+(defun ogent-debug-log-edit-parse (source result)
+  "Log edit parsing from SOURCE with RESULT.
+SOURCE is the raw response text, RESULT is the parsed edit structure."
+  (when (and ogent-debug-log-level
+             (memq ogent-debug-log-level '(info debug)))
+    (ogent-debug-log 'edit "Edit parsed"
+                     :edits (if (listp result) (length result) 0)
+                     :source-length (length source))
+    (when (eq ogent-debug-log-level 'debug)
+      (ogent-debug--insert-log
+       (format "  Source preview: %s..."
+               (substring source 0 (min 200 (length source)))))
+      (ogent-debug--insert-log
+       (format "  Parsed: %S" result)))))
+
+(defun ogent-debug-log-edit-apply (edit status &optional error)
+  "Log edit application with EDIT, STATUS, and optional ERROR."
+  (when ogent-debug-log-level
+    (let ((file (plist-get edit :file))
+          (type (plist-get edit :type)))
+      (ogent-debug-log 'edit (format "Edit %s" status)
+                       :file file
+                       :type type
+                       :error error))))
+
+;;; Validation Logging
+
+(defun ogent-debug-log-validation (type result &optional details)
+  "Log validation of TYPE with RESULT and optional DETAILS."
+  (when ogent-debug-log-level
+    (ogent-debug-log 'validation (format "%s validation: %s" type result)
+                     :details details)))
+
+;;; Context Logging
+
+(defun ogent-debug-log-context (action &rest props)
+  "Log context ACTION with PROPS."
+  (when (and ogent-debug-log-level ogent-debug-log-context)
+    (apply #'ogent-debug-log 'context action props)))
 
 ;;; Debug Macro
 

@@ -290,6 +290,116 @@
         (should (string-match-p "Boom!" (plist-get entry :error)))
         (should (numberp (plist-get entry :duration)))))))
 
+;;; Debug Mode Tests
+
+(ert-deftest ogent-debug-mode-enables-logging ()
+  "Test that ogent-debug-mode enables logging."
+  (let ((ogent-debug-mode nil)
+        (ogent-debug-log-level nil)
+        (ogent-debug-enabled nil))
+    ;; Enable mode
+    (ogent-debug-mode 1)
+    (should ogent-debug-mode)
+    (should ogent-debug-log-level)
+    (should ogent-debug-enabled)
+    ;; Disable mode
+    (ogent-debug-mode -1)
+    (should-not ogent-debug-mode)
+    (should-not ogent-debug-enabled)))
+
+(ert-deftest ogent-debug-log-creates-buffer ()
+  "Test that ogent-debug-log creates the debug buffer."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log 'test "Test message" :key "value")
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "TEST" (buffer-string)))
+      (should (string-match-p "Test message" (buffer-string)))
+      (should (string-match-p "key=" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-log-respects-level ()
+  "Test that logging respects the log level."
+  (let ((ogent-debug-log-level nil)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    ;; Should not log when level is nil
+    (ogent-debug-log 'test "Should not appear")
+    (should-not (get-buffer ogent-debug-buffer))))
+
+(ert-deftest ogent-debug-log-edit-parse-logs-info ()
+  "Test edit parsing logging at info level."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-edit-parse
+     "<<<<<<< SEARCH\nold\n=======\nnew\n>>>>>>> REPLACE"
+     '((:file "test.el" :search "old" :replace "new")))
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "EDIT" (buffer-string)))
+      (should (string-match-p "Edit parsed" (buffer-string)))
+      (should (string-match-p "edits=1" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-log-edit-apply-logs-status ()
+  "Test edit application logging."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-edit-apply
+     '(:file "test.el" :type replace)
+     "applied")
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "Edit applied" (buffer-string)))
+      (should (string-match-p "file=\"test.el\"" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-log-validation-logs-result ()
+  "Test validation logging."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-validation "handle" "passed" "all handles resolved")
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "VALIDATION" (buffer-string)))
+      (should (string-match-p "handle validation: passed" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-log-context-respects-flag ()
+  "Test that context logging respects ogent-debug-log-context."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-log-context nil)
+        (ogent-debug-buffer "*ogent-debug-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    ;; Should not log when flag is nil
+    (ogent-debug-log-context "building" :handles 5)
+    (should-not (get-buffer ogent-debug-buffer))
+    ;; Should log when flag is t
+    (setq ogent-debug-log-context t)
+    (ogent-debug-log-context "building" :handles 5)
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "CONTEXT" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-mode-keymap ()
+  "Test that debug mode keymap is set up."
+  (should (keymapp ogent-debug-mode-map))
+  (should (lookup-key ogent-debug-mode-map (kbd "C-c d c")))
+  (should (lookup-key ogent-debug-mode-map (kbd "C-c d s")))
+  (should (lookup-key ogent-debug-mode-map (kbd "C-c d h"))))
+
 (provide 'ogent-debug-tests)
 
 ;;; ogent-debug-tests.el ends here
