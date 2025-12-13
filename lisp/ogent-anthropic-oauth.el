@@ -2,7 +2,7 @@
 
 ;; Copyright (C) 2025
 
-;; Author: ogent contributors
+;; Author: Jake Miller
 ;; Keywords: convenience, anthropic, oauth
 ;; Package-Requires: ((emacs "27.1") (gptel "0.9.0"))
 

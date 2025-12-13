@@ -1,5 +1,5 @@
 #+title: ogent Inline Edits Specification
-#+author: ogent
+#+author: Jake Miller
 #+date: 2025-12-09
 
 * Purpose
