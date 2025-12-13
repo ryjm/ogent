@@ -131,6 +131,8 @@ Adds :validation-warnings to context as a side effect."
     ;; Navigation between source and companion
     (define-key map (kbd "C-c . s") #'ogent-edit-goto-source)
     (define-key map (kbd "C-c . C") #'ogent-edit-goto-companion)
+    ;; Quick ask
+    (define-key map (kbd "C-c . ?") #'ogent-ask)
     map)
   "Keymap for `ogent-mode'.")
 
@@ -256,6 +258,102 @@ Runs `ogent-after-completion-hook' with REQUEST as argument."
        (ogent--flash-modeline))
       
       (_ nil))))
+
+;;; Quick Ask Command
+
+(declare-function gptel-request "ext:gptel" (prompt &rest args))
+(defvar gptel-model)
+
+(defcustom ogent-ask-display-function #'ogent-ask--display-popup
+  "Function to display ogent-ask responses.
+Called with the response text as argument.
+Built-in options:
+  `ogent-ask--display-popup' - Show in a popup buffer (default)
+  `ogent-ask--display-message' - Show in echo area (truncated)"
+  :type 'function
+  :group 'ogent-mode)
+
+(defvar ogent-ask--buffer-name "*ogent-ask*"
+  "Buffer name for ogent-ask responses.")
+
+(defvar ogent-ask--streaming-response ""
+  "Accumulated response text during streaming.")
+
+(defvar ogent-ask--is-streaming nil
+  "Non-nil when ogent-ask is using streaming mode.")
+
+(defun ogent-ask--display-popup (response)
+  "Display RESPONSE in a popup buffer."
+  (let ((buf (get-buffer-create ogent-ask--buffer-name)))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert response)
+        (goto-char (point-min))
+        (when (fboundp 'org-mode)
+          (org-mode))
+        (setq buffer-read-only t)))
+    (display-buffer buf '((display-buffer-reuse-window
+                           display-buffer-pop-up-window)
+                          (window-height . 0.4)))))
+
+(defun ogent-ask--display-message (response)
+  "Display RESPONSE in the echo area (truncated if long)."
+  (let ((one-line (replace-regexp-in-string "[\n\r]+" " " response)))
+    (message "%s" (truncate-string-to-width one-line 200 nil nil "..."))))
+
+(defun ogent-ask--make-callback ()
+  "Return a gptel callback for ogent-ask."
+  (lambda (text info)
+    ;; Accumulate string content
+    (when (stringp text)
+      (setq ogent-ask--streaming-response
+            (concat ogent-ask--streaming-response text)))
+    ;; Check for completion or error
+    (cond
+     ;; Error case
+     ((and (listp info) (plist-get info :error))
+      (message "ogent-ask failed: %s" (plist-get info :error))
+      (setq ogent-ask--streaming-response ""))
+     ;; Done - various completion markers
+     ((or (and (listp info)
+               (or (plist-get info :done)
+                   (plist-get info :final)
+                   (equal (plist-get info :status) "success")))
+          ;; Non-streaming: text is final response, info is nil
+          ;; Only trigger if we're NOT in streaming mode
+          (and (not ogent-ask--is-streaming)
+               (null info) (stringp text) (> (length text) 0))
+          ;; Streaming complete: text is nil/t, info indicates done
+          (and (not (stringp text)) (listp info) info))
+      (when (> (length ogent-ask--streaming-response) 0)
+        (funcall ogent-ask-display-function ogent-ask--streaming-response)
+        (setq ogent-ask--streaming-response ""))))))
+
+;;;###autoload
+(defun ogent-ask (question)
+  "Ask QUESTION and display the response.
+This is a quick Q&A command without the full context machinery.
+Interactively, prompts for the question.
+Response is displayed according to `ogent-ask-display-function'."
+  (interactive "sAsk: ")
+  (unless (require 'gptel nil 'noerror)
+    (user-error "gptel is required for ogent-ask. Install gptel first"))
+  (when (string-empty-p (string-trim question))
+    (user-error "Question cannot be empty"))
+  ;; Reset streaming accumulator and set streaming flag
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  ;; Send request
+  (message "Asking %s..."
+           (if (and (boundp 'gptel-model) gptel-model)
+               (if (fboundp 'gptel--model-name)
+                   (gptel--model-name gptel-model)
+                 gptel-model)
+             "LLM"))
+  (gptel-request question
+                 :stream t
+                 :callback (ogent-ask--make-callback)))
 
 (provide 'ogent-core)
 
