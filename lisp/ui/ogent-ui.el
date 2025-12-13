@@ -365,6 +365,11 @@ The original window remains selected - companion is shown but not focused."
   :type 'string
   :group 'ogent-mode)
 
+(defcustom ogent-errors-buffer-name "*ogent-errors*"
+  "Buffer used to display ogent request errors."
+  :type 'string
+  :group 'ogent-mode)
+
 (defface ogent-context-diff-added
   '((((class color) (background light)) :background "#d0ffd0")
     (((class color) (background dark)) :background "#004400"))
@@ -388,6 +393,13 @@ The original window remains selected - companion is shown but not focused."
 
 (defvar ogent-ui--diff-clear-timer nil
   "Timer for clearing diff overlays.")
+
+(defvar ogent-ui--error-history nil
+  "List of error records, most recent first.
+Each record is a plist with :timestamp, :model, :error, :request-id, :context.")
+
+(defvar ogent-ui--error-window nil
+  "Window displaying the error buffer, if any.")
 
 (defun ogent-ui--set-response-function (symbol value)
   "Setter for `ogent-response-function' that migrates legacy values."
@@ -847,7 +859,9 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
         (save-excursion
           (goto-char marker)
           (insert (format "\n#+begin_quote ogent-error\n%s\n#+end_quote\n" message))
-          (set-marker marker (point)))))))
+          (set-marker marker (point))))))
+  ;; Surface error prominently
+  (ogent-ui--surface-error request message))
 
 (defun ogent-ui--update-status (request new-status)
   "Update REQUEST status to NEW-STATUS and refresh block metadata."
@@ -1553,6 +1567,102 @@ Returns the diff-id if a diff was created, nil otherwise."
                  (cl-incf count)))
              ogent-ui--pending-diffs)
     (message "Rejected %d diff(s)" count)))
+
+;;; Error Collection and Display
+
+(defun ogent-ui--record-error (request error-message)
+  "Record an error for REQUEST with ERROR-MESSAGE."
+  (let* ((model (ogent-ui-request-model request))
+         (model-id (plist-get model :id))
+         (context (ogent-ui-request-context request))
+         (context-summary (ogent-ui--format-context context))
+         (record (list :timestamp (current-time)
+                       :model model-id
+                       :error error-message
+                       :request-id (ogent-ui-request-id request)
+                       :prompt (ogent-ui-request-prompt request)
+                       :context context-summary)))
+    (push record ogent-ui--error-history)
+    ;; Limit history size
+    (when (> (length ogent-ui--error-history) 50)
+      (setq ogent-ui--error-history (seq-take ogent-ui--error-history 50)))
+    record))
+
+(defun ogent-ui--format-error-for-display (error-record)
+  "Format ERROR-RECORD as an Org-mode heading with buttons."
+  (let* ((timestamp (plist-get error-record :timestamp))
+         (model (plist-get error-record :model))
+         (error-msg (plist-get error-record :error))
+         (request-id (plist-get error-record :request-id))
+         (prompt (plist-get error-record :prompt)))
+    (format "** [%s] %s\nError: %s\nRequest ID: %s\nPrompt: %s\n\n"
+            (format-time-string "%Y-%m-%d %H:%M:%S" timestamp)
+            (or model "unknown")
+            (or error-msg "unknown error")
+            (or request-id "unknown")
+            (if prompt
+                (truncate-string-to-width prompt 100 nil nil "...")
+              "(no prompt)"))))
+
+(defun ogent-ui--surface-error (request error-message)
+  "Display error prominently for REQUEST with ERROR-MESSAGE.
+Records the error and displays it in the *ogent-errors* buffer."
+  (let ((record (ogent-ui--record-error request error-message)))
+    (ogent-ui--update-error-buffer)))
+
+(defun ogent-ui--update-error-buffer ()
+  "Update the *ogent-errors* buffer with current error history."
+  (let ((buffer (get-buffer-create ogent-errors-buffer-name)))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (org-mode)
+        (insert "#+title: ogent Errors\n\n")
+        (insert "* Error History\n\n")
+        (if ogent-ui--error-history
+            (dolist (error-record ogent-ui--error-history)
+              (insert (ogent-ui--format-error-for-display error-record)))
+          (insert "No errors recorded.\n"))
+        (goto-char (point-min))
+        (view-mode 1)))
+    ;; Display buffer if not visible
+    (unless (and ogent-ui--error-window
+                 (window-live-p ogent-ui--error-window)
+                 (eq (window-buffer ogent-ui--error-window) buffer))
+      (setq ogent-ui--error-window
+            (display-buffer buffer
+                            '((display-buffer-in-side-window)
+                              (side . bottom)
+                              (window-height . 8)
+                              (preserve-size . (nil . t))))))))
+
+;;;###autoload
+(defun ogent-show-errors ()
+  "Display the ogent errors buffer."
+  (interactive)
+  (ogent-ui--update-error-buffer)
+  (select-window ogent-ui--error-window))
+
+;;;###autoload
+(defun ogent-clear-errors ()
+  "Clear the ogent error history."
+  (interactive)
+  (when (yes-or-no-p "Clear all error history? ")
+    (setq ogent-ui--error-history nil)
+    (let ((buffer (get-buffer ogent-errors-buffer-name)))
+      (when buffer
+        (with-current-buffer buffer
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (org-mode)
+            (insert "#+title: ogent Errors\n\n")
+            (insert "* Error History\n\nNo errors recorded.\n")
+            (goto-char (point-min))))))
+    (when (and ogent-ui--error-window
+               (window-live-p ogent-ui--error-window))
+      (delete-window ogent-ui--error-window)
+      (setq ogent-ui--error-window nil))
+    (message "Error history cleared")))
 
 ;;; Cancellation and Retry
 

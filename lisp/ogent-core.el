@@ -54,6 +54,23 @@ nil - Don't validate (default)
                  (const :tag "Confirm before sending" confirm))
   :group 'ogent-mode)
 
+(defcustom ogent-notify-on-completion nil
+  "Control how to notify when requests complete.
+nil - No notification (default)
+`message' - Display completion message in echo area
+`modeline-flash' - Briefly flash the mode-line"
+  :type '(choice (const :tag "No notification" nil)
+                 (const :tag "Message in echo area" message)
+                 (const :tag "Flash mode-line" modeline-flash))
+  :group 'ogent-mode)
+
+(defcustom ogent-after-completion-hook nil
+  "Hook run after a request completes (success or error).
+Each function receives the request plist as argument.
+Request plist should contain :model, :status, :start-time, :end-time."
+  :type 'hook
+  :group 'ogent-mode)
+
 (defun ogent-context-validate (context)
   "Validate CONTEXT and return list of missing handle names.
 CONTEXT is a plist as returned by `ogent-context-build'.
@@ -160,6 +177,72 @@ This wrapper preserves the current buffer and window."
                (buffer-live-p original-buffer))
       (select-window original-window)
       (set-buffer original-buffer))))
+
+;;; Completion Notification
+
+(defface ogent-modeline-flash
+  '((t :inherit mode-line-highlight))
+  "Face used for mode-line flash notification."
+  :group 'ogent-mode)
+
+(defvar ogent--modeline-flash-timer nil
+  "Timer used to restore mode-line after flash.")
+
+(defun ogent--flash-modeline ()
+  "Flash the mode-line briefly to indicate completion."
+  ;; Cancel any existing timer
+  (when (timerp ogent--modeline-flash-timer)
+    (cancel-timer ogent--modeline-flash-timer))
+  
+  ;; Store original face
+  (let ((original-bg (face-attribute 'mode-line :background nil 'default))
+        (original-fg (face-attribute 'mode-line :foreground nil 'default))
+        (flash-bg (face-attribute 'ogent-modeline-flash :background nil 'default))
+        (flash-fg (face-attribute 'ogent-modeline-flash :foreground nil 'default)))
+    
+    ;; Apply flash
+    (set-face-attribute 'mode-line nil
+                        :background flash-bg
+                        :foreground flash-fg)
+    (force-mode-line-update t)
+    
+    ;; Restore after 0.3s
+    (setq ogent--modeline-flash-timer
+          (run-with-timer 0.3 nil
+                          (lambda ()
+                            (set-face-attribute 'mode-line nil
+                                                :background original-bg
+                                                :foreground original-fg)
+                            (force-mode-line-update t))))))
+
+(defun ogent-notify-completion (request)
+  "Trigger completion notification based on `ogent-notify-on-completion'.
+REQUEST is a plist containing :model, :status, :start-time, :end-time.
+Runs `ogent-after-completion-hook' with REQUEST as argument."
+  (when request
+    ;; Run hook first
+    (run-hook-with-args 'ogent-after-completion-hook request)
+    
+    ;; Trigger notification based on setting
+    (pcase ogent-notify-on-completion
+      ('message
+       (let* ((model (plist-get request :model))
+              (status (plist-get request :status))
+              (start-time (plist-get request :start-time))
+              (end-time (plist-get request :end-time))
+              (latency (when (and start-time end-time)
+                         (float-time (time-subtract end-time start-time)))))
+         (message "ogent: %s completed (%s%s)"
+                  (or model "request")
+                  (or status "unknown")
+                  (if latency
+                      (format ", %.1fs" latency)
+                    ""))))
+      
+      ('modeline-flash
+       (ogent--flash-modeline))
+      
+      (_ nil))))
 
 (provide 'ogent-core)
 

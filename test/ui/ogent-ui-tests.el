@@ -640,5 +640,171 @@
                 (setq ogent-ui--previous-context "Root: modified"))))
         (kill-buffer buffer)))))
 
+;;; Error Collection and Display Tests
+
+(ert-deftest ogent-ui-record-error ()
+  "Test error recording."
+  (let ((ogent-ui--error-history nil))
+    (with-temp-buffer
+      (org-mode)
+      (let* ((request (make-ogent-ui-request
+                       :id "test-error-req"
+                       :model '(:id "gpt-4o-mini")
+                       :context '(:root nil)
+                       :prompt "Test prompt"
+                       :buffer (current-buffer)
+                       :marker (point-marker)))
+             (record (ogent-ui--record-error request "API rate limit exceeded")))
+        (should record)
+        (should (= 1 (length ogent-ui--error-history)))
+        (should (equal (plist-get record :error) "API rate limit exceeded"))
+        (should (equal (plist-get record :model) "gpt-4o-mini"))
+        (should (equal (plist-get record :request-id) "test-error-req"))
+        (should (equal (plist-get record :prompt) "Test prompt"))
+        (should (plist-get record :timestamp))))))
+
+(ert-deftest ogent-ui-error-history-limit ()
+  "Test error history is limited to 50 entries."
+  (let ((ogent-ui--error-history nil))
+    (with-temp-buffer
+      (org-mode)
+      (dotimes (i 60)
+        (let ((request (make-ogent-ui-request
+                        :id (format "req-%d" i)
+                        :model '(:id "test-model")
+                        :context '(:root nil)
+                        :prompt "test"
+                        :buffer (current-buffer)
+                        :marker (point-marker))))
+          (ogent-ui--record-error request (format "Error %d" i))))
+      ;; Should be capped at 50
+      (should (= 50 (length ogent-ui--error-history)))
+      ;; Most recent error should be first
+      (should (string-match-p "Error 59" (plist-get (car ogent-ui--error-history) :error))))))
+
+(ert-deftest ogent-ui-format-error-for-display ()
+  "Test error formatting for display."
+  (let* ((timestamp (encode-time 0 30 12 13 12 2025))
+         (record (list :timestamp timestamp
+                       :model "claude-3.5-sonnet"
+                       :error "Connection timeout"
+                       :request-id "req-123"
+                       :prompt "This is a test prompt that is quite long and should be truncated"))
+         (formatted (ogent-ui--format-error-for-display record)))
+    (should (stringp formatted))
+    (should (string-match-p "\\*\\* \\[2025-12-13 12:30:00\\]" formatted))
+    (should (string-match-p "claude-3.5-sonnet" formatted))
+    (should (string-match-p "Connection timeout" formatted))
+    (should (string-match-p "req-123" formatted))))
+
+(ert-deftest ogent-ui-surface-error-creates-buffer ()
+  "Test that surfacing error creates and displays buffer."
+  (let ((ogent-ui--error-history nil)
+        (ogent-errors-buffer-name "*test-ogent-errors*"))
+    (unwind-protect
+        (with-temp-buffer
+          (org-mode)
+          (let ((request (make-ogent-ui-request
+                          :id "surface-test"
+                          :model '(:id "test-model")
+                          :context '(:root nil)
+                          :prompt "test"
+                          :buffer (current-buffer)
+                          :marker (point-marker))))
+            (ogent-ui--surface-error request "Test error message")
+            ;; Error should be recorded
+            (should (= 1 (length ogent-ui--error-history)))
+            ;; Buffer should exist
+            (let ((error-buffer (get-buffer ogent-errors-buffer-name)))
+              (should error-buffer)
+              (with-current-buffer error-buffer
+                (goto-char (point-min))
+                (should (search-forward "* Error History" nil t))
+                (should (search-forward "Test error message" nil t))))))
+      ;; Cleanup
+      (when-let ((buf (get-buffer ogent-errors-buffer-name)))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-ui-clear-errors ()
+  "Test clearing error history."
+  (let ((ogent-ui--error-history '((:error "test")))
+        (ogent-errors-buffer-name "*test-ogent-errors*"))
+    (unwind-protect
+        (progn
+          (ogent-ui--update-error-buffer)
+          ;; Simulate yes-or-no-p returning t
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_) t)))
+            (ogent-clear-errors))
+          ;; History should be cleared
+          (should (null ogent-ui--error-history))
+          ;; Buffer should show no errors
+          (let ((buffer (get-buffer ogent-errors-buffer-name)))
+            (when buffer
+              (with-current-buffer buffer
+                (goto-char (point-min))
+                (should (search-forward "No errors recorded" nil t))))))
+      ;; Cleanup
+      (when-let ((buf (get-buffer ogent-errors-buffer-name)))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-ui-show-errors ()
+  "Test show-errors command."
+  (let ((ogent-ui--error-history nil)
+        (ogent-errors-buffer-name "*test-ogent-errors*"))
+    (unwind-protect
+        (with-temp-buffer
+          (org-mode)
+          (let ((request (make-ogent-ui-request
+                          :id "show-test"
+                          :model '(:id "test-model")
+                          :context '(:root nil)
+                          :prompt "test"
+                          :buffer (current-buffer)
+                          :marker (point-marker))))
+            (ogent-ui--record-error request "Error to show")
+            ;; Show errors should display buffer and select window
+            (ogent-show-errors)
+            ;; Window should be selected
+            (should ogent-ui--error-window)
+            (should (window-live-p ogent-ui--error-window))
+            (should (equal (buffer-name (window-buffer ogent-ui--error-window))
+                          ogent-errors-buffer-name))))
+      ;; Cleanup
+      (when (and ogent-ui--error-window (window-live-p ogent-ui--error-window))
+        (delete-window ogent-ui--error-window))
+      (when-let ((buf (get-buffer ogent-errors-buffer-name)))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-ui-insert-error-block-surfaces-error ()
+  "Test that inserting error block also surfaces it."
+  (let ((ogent-ui--error-history nil)
+        (ogent-errors-buffer-name "*test-ogent-errors*"))
+    (unwind-protect
+        (with-temp-buffer
+          (org-mode)
+          (insert "* Test\n\n")
+          (let ((request (make-ogent-ui-request
+                          :id "insert-test"
+                          :model '(:id "test-model")
+                          :context '(:root nil)
+                          :prompt "test"
+                          :buffer (current-buffer)
+                          :marker (copy-marker (point) t))))
+            (ogent-ui--insert-error-block request "Insertion test error")
+            ;; Error block should be inserted
+            (goto-char (point-min))
+            (should (search-forward "#+begin_quote ogent-error" nil t))
+            (should (search-forward "Insertion test error" nil t))
+            ;; Error should also be surfaced
+            (should (= 1 (length ogent-ui--error-history)))
+            (let ((error-buffer (get-buffer ogent-errors-buffer-name)))
+              (should error-buffer)
+              (with-current-buffer error-buffer
+                (goto-char (point-min))
+                (should (search-forward "Insertion test error" nil t))))))
+      ;; Cleanup
+      (when-let ((buf (get-buffer ogent-errors-buffer-name)))
+        (kill-buffer buf)))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
