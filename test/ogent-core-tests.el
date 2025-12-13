@@ -422,5 +422,37 @@
     (should-error (ogent-ask "   ")
                   :type 'user-error)))
 
+;;; ogent-open-block Tests
+
+(ert-deftest ogent-open-block-keybinding-exists ()
+  "ogent-open-block should be bound to C-c . o."
+  (should (eq (lookup-key ogent-mode-map (kbd "C-c . o"))
+              #'ogent-open-block)))
+
+(ert-deftest ogent-open-block-requires-org-mode ()
+  "ogent-open-block should error in non-Org buffers."
+  (with-temp-buffer
+    (fundamental-mode)
+    (should-error (ogent-open-block)
+                  :type 'user-error)))
+
+(ert-deftest ogent-open-block-requires-source-block ()
+  "ogent-open-block should error when not in a source block."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Heading\nSome text")
+    (goto-char (point-min))
+    (should-error (ogent-open-block)
+                  :type 'user-error)))
+
+(ert-deftest ogent-open-block-setup-function-enables-ogent-mode ()
+  "ogent-open-block--setup-edit-buffer should enable ogent-mode."
+  (with-temp-buffer
+    ;; Simulate org-src-mode environment
+    (let ((org-src-mode t)
+          (org-src--beg-marker (point-min-marker)))
+      (ogent-open-block--setup-edit-buffer)
+      (should ogent-mode))))
+
 (provide 'ogent-core-tests)
 ;;; ogent-core-tests.el ends here

@@ -133,6 +133,8 @@ Adds :validation-warnings to context as a side effect."
     (define-key map (kbd "C-c . C") #'ogent-edit-goto-companion)
     ;; Quick ask
     (define-key map (kbd "C-c . ?") #'ogent-ask)
+    ;; Open block
+    (define-key map (kbd "C-c . o") #'ogent-open-block)
     map)
   "Keymap for `ogent-mode'.")
 
@@ -354,6 +356,46 @@ Response is displayed according to `ogent-ask-display-function'."
   (gptel-request question
                  :stream t
                  :callback (ogent-ask--make-callback)))
+
+;;; Open Block Command
+
+(defvar ogent-open-block--source-buffer nil
+  "Buffer from which ogent-open-block was invoked.")
+
+(defvar ogent-open-block--source-marker nil
+  "Marker to the source block in the original buffer.")
+
+(defun ogent-open-block--setup-edit-buffer ()
+  "Set up the org-src edit buffer with ogent-mode."
+  (when (and (boundp 'org-src-mode) org-src-mode)
+    (ogent-mode 1)
+    ;; Store reference to source for context
+    (setq-local ogent-open-block--source-buffer
+                (marker-buffer org-src--beg-marker))
+    (setq-local ogent-open-block--source-marker
+                (copy-marker org-src--beg-marker))))
+
+;;;###autoload
+(defun ogent-open-block (&optional arg)
+  "Open the source block at point with ogent-mode enabled.
+This wraps `org-edit-special' but ensures ogent-mode is active
+in the edit buffer, allowing you to use ogent commands while
+editing code.
+
+With prefix ARG, passed to `org-edit-special' (e.g., for session buffers)."
+  (interactive "P")
+  (unless (derived-mode-p 'org-mode)
+    (user-error "ogent-open-block only works in Org buffers"))
+  ;; Check if we're in a source block
+  (let ((element (org-element-at-point)))
+    (unless (memq (org-element-type element) '(src-block example-block))
+      (user-error "Point is not in a source block")))
+  ;; Add hook to enable ogent-mode in the edit buffer
+  (add-hook 'org-src-mode-hook #'ogent-open-block--setup-edit-buffer)
+  (unwind-protect
+      (org-edit-special arg)
+    ;; Remove hook after use to avoid affecting other org-edit-special calls
+    (remove-hook 'org-src-mode-hook #'ogent-open-block--setup-edit-buffer)))
 
 (provide 'ogent-core)
 
