@@ -1,0 +1,370 @@
+#+title: Ogent Tool System
+#+author: Jake Miller
+#+options: toc:2
+
+* Overview
+
+Ogent provides a Claude Code-like tool system that allows LLMs to execute actions
+in your Emacs environment. Tools can read files, search code, execute shell
+commands, and modify files - all with user approval for dangerous operations.
+
+The tool system integrates with gptel's FSM (Finite State Machine) for handling
+tool_use responses from Claude and function_call responses from OpenAI.
+
+* Quick Start
+
+** Enable Tools
+
+Tools are registered automatically when you load ogent. To verify:
+
+#+begin_src emacs-lisp
+;; Check registered tools
+(require 'ogent-tools)
+(ogent-tools-install-defaults)  ; Ensure defaults are loaded
+
+;; List available tools
+(mapcar (lambda (spec) (plist-get spec :name)) ogent-tool-registry)
+;; => (read-file glob grep bash write-file edit-file)
+#+end_src
+
+** Using Tools in Requests
+
+When you send a request via =ogent-prompt-dispatch= (=C-c . p=), tools are
+automatically available to the LLM. The model can choose to call tools when
+appropriate.
+
+Example prompt: "Read the file lisp/ogent-core.el and summarize its purpose"
+
+The LLM will:
+1. Call the =read-file= tool with the path
+2. Receive the file contents
+3. Generate a summary based on the contents
+
+* Built-in Tools
+
+** read-file
+Read the contents of a file with line numbers.
+
+| Argument  | Type    | Required | Description                          |
+|-----------+---------+----------+--------------------------------------|
+| file_path | string  | yes      | Absolute path to the file            |
+| offset    | integer | no       | Line number to start from (1-indexed)|
+| limit     | integer | no       | Maximum lines to read (default 2000) |
+
+#+begin_example
+Tool: read-file
+Args: file_path="/path/to/file.el"
+Result:
+     1	;;; file.el --- Description
+     2	
+     3	(defun example ()
+     4	  ...)
+#+end_example
+
+** glob
+Find files matching a glob pattern, sorted by modification time.
+
+| Argument | Type   | Required | Description                           |
+|----------+--------+----------+---------------------------------------|
+| pattern  | string | yes      | Glob pattern (e.g., **/*.el, src/*.py)|
+| path     | string | no       | Directory to search (default: project)|
+
+#+begin_example
+Tool: glob
+Args: pattern="**/*.el"
+Result:
+/project/lisp/ogent-core.el
+/project/lisp/ogent-tools.el
+...
+#+end_example
+
+** grep
+Search file contents using regex, with optional context lines.
+
+| Argument      | Type    | Required | Description                        |
+|---------------+---------+----------+------------------------------------|
+| pattern       | string  | yes      | Regular expression to search       |
+| path          | string  | no       | File or directory to search        |
+| glob_filter   | string  | no       | Limit to files matching pattern    |
+| context_lines | integer | no       | Lines of context around matches    |
+
+Uses ripgrep (=rg=) if available, falls back to grep.
+
+#+begin_example
+Tool: grep
+Args: pattern="defun ogent-" glob_filter="*.el"
+Result:
+lisp/ogent-core.el:45:(defun ogent-mode ...)
+lisp/ogent-tools.el:68:(defun ogent-tool--read-file ...)
+#+end_example
+
+** bash
+Execute a shell command and return output. *Requires approval.*
+
+| Argument          | Type    | Required | Description                    |
+|-------------------+---------+----------+--------------------------------|
+| command           | string  | yes      | Shell command to execute       |
+| working_directory | string  | no       | Directory to run in            |
+| timeout           | integer | no       | Timeout in seconds (default 120)|
+
+#+begin_example
+Tool: bash
+Args: command="git status"
+Result:
+On branch main
+nothing to commit, working tree clean
+
+Exit code: 0
+#+end_example
+
+** write-file
+Write content to a file, creating directories as needed. *Requires approval.*
+
+| Argument  | Type   | Required | Description              |
+|-----------+--------+----------+--------------------------|
+| file_path | string | yes      | Absolute path to write   |
+| content   | string | yes      | Content to write         |
+
+#+begin_example
+Tool: write-file
+Args: file_path="/path/to/new-file.el" content=";;; new-file.el\n..."
+Result: Wrote 156 characters to /path/to/new-file.el
+#+end_example
+
+** edit-file
+Replace a string in a file. The old string must be unique. *Requires approval.*
+
+| Argument    | Type    | Required | Description                          |
+|-------------+---------+----------+--------------------------------------|
+| file_path   | string  | yes      | Absolute path to the file            |
+| old_string  | string  | yes      | Exact string to replace (must be unique)|
+| new_string  | string  | yes      | Replacement string                   |
+| replace_all | boolean | no       | If true, replace all occurrences     |
+
+#+begin_example
+Tool: edit-file
+Args: file_path="/path/to/file.el" old_string="(defun old" new_string="(defun new"
+Result: Replaced 1 occurrence(s) in /path/to/file.el
+#+end_example
+
+* Tool Approval System
+
+Tools with side effects (bash, write-file, edit-file) require user approval
+before execution. This prevents accidental or malicious modifications.
+
+** Approval Workflow
+
+When a tool requiring approval is called:
+
+1. A transient menu appears showing:
+   - Tool name
+   - Arguments being passed
+   
+2. You can choose:
+   - =a= - Approve (once) - execute this call only
+   - =r= - Reject (once) - deny this call only
+   - =A= - Approve all this session - auto-approve future calls to this tool
+   - =R= - Reject all this session - auto-reject future calls to this tool
+
+** Customization
+
+#+begin_src emacs-lisp
+;; Reset session approvals (force re-prompting)
+(ogent-tool-approval-reset)
+
+;; Check current approval status
+(ogent-debug-show-approval-status)  ; or C-c . t a
+#+end_src
+
+* Tool History & Debugging
+
+All tool executions are logged for debugging and replay.
+
+** View Tool History
+
+#+begin_src emacs-lisp
+;; Open tool history buffer
+(ogent-debug-tool-history-buffer)  ; or C-c . t h
+
+;; Clear history
+(ogent-debug-clear-tool-history)   ; or C-c . t c
+#+end_src
+
+The history buffer shows:
+- Timestamp
+- Tool name
+- Status (SUCCESS/FAILED)
+- Duration
+- Arguments
+- Result or error message
+
+** Replay Tools
+
+#+begin_src emacs-lisp
+;; Replay the last tool call
+(ogent-debug-replay-last-tool)  ; or C-c . t r
+
+;; Replay a specific tool from history
+(ogent-debug-replay-tool entry)
+#+end_src
+
+** Debug Mode
+
+Enable comprehensive logging with =ogent-debug-mode=:
+
+#+begin_src emacs-lisp
+;; Enable debug mode
+(ogent-debug-mode 1)
+
+;; View debug buffer
+(ogent-debug-show)  ; or C-c d s
+
+;; Clear debug buffer
+(ogent-debug-clear)  ; or C-c d c
+#+end_src
+
+Debug mode logs:
+- All LLM requests and responses (via gptel)
+- Tool executions with timing
+- Edit parsing and validation
+- Context building
+
+* Defining Custom Tools
+
+You can extend ogent with custom tools by adding to =ogent-tool-registry=.
+
+** Tool Specification Format
+
+#+begin_src emacs-lisp
+(:name tool-name              ; Symbol, will be snake_cased for API
+ :function my-tool-function   ; Elisp function to execute
+ :description "What it does"  ; For LLM context
+ :args ((:name "arg1"         ; Argument specifications
+         :type "string"
+         :description "First argument")
+        (:name "arg2"
+         :type "integer"
+         :optional t
+         :description "Optional second argument"))
+ :category "custom"           ; Grouping for UI
+ :confirm t)                  ; Require user approval
+#+end_src
+
+** Argument Types
+
+| Type    | Description                    |
+|---------+--------------------------------|
+| string  | Text value                     |
+| integer | Whole number                   |
+| number  | Any numeric value              |
+| boolean | true/false                     |
+| array   | List of values                 |
+| object  | Nested structure               |
+
+** Example: Custom Tool
+
+#+begin_src emacs-lisp
+;; Define the function
+(defun my-tool--count-lines (file-path)
+  "Count lines in FILE-PATH."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name file-path))
+    (count-lines (point-min) (point-max))))
+
+;; Register the tool
+(add-to-list 'ogent-tool-registry
+  '(:name count-lines
+    :function my-tool--count-lines
+    :description "Count the number of lines in a file"
+    :args ((:name "file_path"
+            :type "string"
+            :description "Path to the file"))
+    :category "analysis"))
+
+;; Re-register with gptel
+(ogent-register-tools)
+#+end_src
+
+* Keybindings
+
+| Key       | Command                          | Description                    |
+|-----------+----------------------------------+--------------------------------|
+| C-c . t   | ogent-debug-tools-menu           | Tool debugging transient menu  |
+| C-c . t h | ogent-debug-tool-history-buffer  | View tool call history         |
+| C-c . t r | ogent-debug-replay-last-tool     | Replay most recent tool call   |
+| C-c . t c | ogent-debug-clear-tool-history   | Clear tool history             |
+| C-c . t a | ogent-debug-show-approval-status | Show session approval status   |
+
+* Configuration Variables
+
+| Variable                       | Default | Description                          |
+|--------------------------------+---------+--------------------------------------|
+| ogent-tools-max-file-lines     | 2000    | Max lines from file read             |
+| ogent-tools-max-output-chars   | 30000   | Max chars in tool output             |
+| ogent-tools-shell-timeout      | 120     | Shell command timeout (seconds)      |
+| ogent-tools-project-root       | nil     | Override project root detection      |
+| ogent-tool-fsm-debug           | nil     | Enable FSM debug logging             |
+
+* Architecture
+
+#+begin_example
+┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   gptel FSM     │────▶│  ogent-tool-fsm  │────▶│  ogent-tools    │
+│  (tool_use)     │     │  (orchestration) │     │ (implementation)│
+└─────────────────┘     └──────────────────┘     └─────────────────┘
+                               │
+                               ▼
+                        ┌──────────────────┐
+                        │ogent-tool-approval│
+                        │  (user consent)   │
+                        └──────────────────┘
+                               │
+                               ▼
+                        ┌──────────────────┐
+                        │ogent-tool-render │
+                        │  (org display)   │
+                        └──────────────────┘
+#+end_example
+
+** Components
+
+- *ogent-tools.el* - Tool implementations (read-file, grep, bash, etc.)
+- *ogent-tool-fsm.el* - State machine for tool execution flow
+- *ogent-tool-approval.el* - User consent workflow with transient menu
+- *ogent-tool-render.el* - Org-mode rendering of tool calls and results
+- *ogent-models.el* - Tool registry and gptel integration
+
+* Troubleshooting
+
+** Tools not being called
+
+1. Ensure tools are registered:
+   #+begin_src emacs-lisp
+   (ogent-tools-install-defaults)
+   (ogent-register-tools)
+   #+end_src
+
+2. Check that gptel has tool support enabled:
+   #+begin_src emacs-lisp
+   (setq gptel-use-tools t)
+   #+end_src
+
+3. Verify your model supports tools (Claude 3+, GPT-4+)
+
+** Tool execution fails
+
+1. Enable debug mode:
+   #+begin_src emacs-lisp
+   (ogent-debug-mode 1)
+   (setq ogent-tool-fsm-debug t)
+   #+end_src
+
+2. Check the debug buffer: =C-c d s=
+
+3. Review tool history: =C-c . t h=
+
+** Approval prompts not appearing
+
+1. Check if tool has =:confirm t= in its spec
+2. Reset session approvals: =(ogent-tool-approval-reset)=
+3. Verify transient is loaded: =(require 'transient)=
