@@ -328,5 +328,99 @@
     ;; Should not error
     (should-not (ogent-notify-completion nil))))
 
+;;; ogent-ask Tests
+
+(ert-deftest ogent-ask-keybinding-exists ()
+  "ogent-ask should be bound to C-c . ?."
+  (should (eq (lookup-key ogent-mode-map (kbd "C-c . ?"))
+              #'ogent-ask)))
+
+(ert-deftest ogent-ask-display-popup-creates-buffer ()
+  "ogent-ask--display-popup should create and populate buffer."
+  (let ((ogent-ask--buffer-name "*ogent-ask-test*"))
+    (unwind-protect
+        (progn
+          (ogent-ask--display-popup "Test response content")
+          (let ((buf (get-buffer ogent-ask--buffer-name)))
+            (should buf)
+            (with-current-buffer buf
+              (should (string-match-p "Test response content"
+                                      (buffer-string)))
+              (should buffer-read-only))))
+      (when-let ((buf (get-buffer ogent-ask--buffer-name)))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-ask-display-message-truncates ()
+  "ogent-ask--display-message should truncate long responses."
+  (let ((message-log nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq message-log (apply #'format fmt args)))))
+      (ogent-ask--display-message (make-string 300 ?x))
+      ;; Should be truncated to ~200 chars + ellipsis
+      (should (< (length message-log) 210)))))
+
+(ert-deftest ogent-ask-display-message-collapses-newlines ()
+  "ogent-ask--display-message should collapse newlines to spaces."
+  (let ((message-log nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq message-log (apply #'format fmt args)))))
+      (ogent-ask--display-message "line1\nline2\nline3")
+      (should (string-match-p "line1 line2 line3" message-log)))))
+
+(ert-deftest ogent-ask-callback-accumulates-text ()
+  "ogent-ask callback should accumulate streaming text."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)  ; Simulate streaming mode
+  (let ((callback (ogent-ask--make-callback))
+        (ogent-ask-display-function #'ignore))
+    ;; First chunk - text is string, info is nil (streaming in progress)
+    (funcall callback "Hello " nil)
+    ;; Second chunk - still streaming
+    (funcall callback "world" nil)
+    ;; At this point, text is accumulated but not displayed yet
+    ;; because nil info doesn't trigger completion in streaming mode
+    (should (equal ogent-ask--streaming-response "Hello world"))))
+
+(ert-deftest ogent-ask-callback-displays-on-completion ()
+  "ogent-ask callback should display response when done."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)  ; Simulate streaming mode
+  (let ((displayed nil))
+    ;; Use cl-letf to properly override the defcustom
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        ;; Accumulate some text first
+        (funcall callback "Complete " nil)
+        (funcall callback "response" nil)
+        ;; Now signal completion with :done t
+        (funcall callback nil '(:done t))
+        (should (equal displayed "Complete response"))))))
+
+(ert-deftest ogent-ask-callback-handles-error ()
+  "ogent-ask callback should handle error gracefully."
+  (setq ogent-ask--streaming-response "partial")
+  (let ((message-log nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq message-log (apply #'format fmt args)))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback nil '(:error "API error"))
+        ;; Should show error message
+        (should (string-match-p "failed" message-log))
+        ;; Should reset accumulator
+        (should (equal ogent-ask--streaming-response ""))))))
+
+(ert-deftest ogent-ask-rejects-empty-question ()
+  "ogent-ask should reject empty questions."
+  (cl-letf (((symbol-function 'require)
+             (lambda (_feature &rest _) t)))
+    (should-error (ogent-ask "")
+                  :type 'user-error)
+    (should-error (ogent-ask "   ")
+                  :type 'user-error)))
+
 (provide 'ogent-core-tests)
 ;;; ogent-core-tests.el ends here
