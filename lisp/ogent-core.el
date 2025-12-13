@@ -27,6 +27,8 @@
 (declare-function ogent-codemap-buffer "ogent-codemap")
 (declare-function ogent-request-edit "ogent-edit")
 (declare-function ogent-edit-menu "ogent-edit")
+(declare-function ogent-edit-goto-source "ogent-edit-display")
+(declare-function ogent-edit-goto-companion "ogent-edit-display")
 (declare-function ogent-debug-tools-menu "ogent-debug")
 
 (defgroup ogent-mode nil
@@ -126,6 +128,9 @@ Adds :validation-warnings to context as a side effect."
     (define-key map (kbd "C-c . e") #'ogent-edit-menu)
     (define-key map (kbd "C-c . E") #'ogent-request-edit)
     (define-key map (kbd "C-c . t") #'ogent-debug-tools-menu)
+    ;; Navigation between source and companion
+    (define-key map (kbd "C-c . s") #'ogent-edit-goto-source)
+    (define-key map (kbd "C-c . C") #'ogent-edit-goto-companion)
     map)
   "Keymap for `ogent-mode'.")
 

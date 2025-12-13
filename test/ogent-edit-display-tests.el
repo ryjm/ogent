@@ -182,6 +182,72 @@
             (should (string-match-p "modified" content)))))
     (ogent-edit-display-test--cleanup-buffers)))
 
+;;; Marker Synchronization Tests
+
+(ert-deftest ogent-edit-display-test-source-marker-created ()
+  "Test that source marker is created when edit is applied."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text)))
+        ;; Before applying, no source marker
+        (should-not (ogent-edit-source-marker edit))
+        ;; Apply the edit
+        (ogent-edit-apply-as-smerge edit)
+        ;; Now source marker should exist
+        (should (ogent-edit-source-marker edit))
+        (should (markerp (ogent-edit-source-marker edit)))
+        (should (marker-buffer (ogent-edit-source-marker edit))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-find-edit-by-id ()
+  "Test finding edit by ID across buffers."
+  (unwind-protect
+      (let* ((edit (ogent-edit-display-test--make-edit "old" "new"))
+             (source-buf (ogent-edit-source-buffer edit)))
+        ;; Track the edit
+        (with-current-buffer source-buf
+          (ogent-edit--track-edits (list edit)))
+        ;; Should find it by ID
+        (let ((found (ogent-edit--find-edit-by-id "test-edit-001")))
+          (should found)
+          (should (equal (ogent-edit-id found) "test-edit-001")))
+        ;; Should not find non-existent ID
+        (should-not (ogent-edit--find-edit-by-id "non-existent")))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-find-edit-at-point ()
+  "Test finding edit at point in source buffer."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        ;; Apply and track
+        (ogent-edit-apply-as-smerge edit)
+        (with-current-buffer source-buf
+          (ogent-edit--track-edits (list edit))
+          ;; Move to start of conflict
+          (goto-char (point-min))
+          ;; Should find the edit
+          (let ((found (ogent-edit--find-edit-at-point)))
+            (should found)
+            (should (equal (ogent-edit-id found) "test-edit-001")))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-goto-source-errors-without-edit ()
+  "Test goto-source errors when no edit at point."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Some heading\nNo edit here")
+    (should-error (ogent-edit-goto-source) :type 'user-error)))
+
+(ert-deftest ogent-edit-display-test-goto-companion-errors-without-edit ()
+  "Test goto-companion errors when no edit at point."
+  (with-temp-buffer
+    (insert "No edit here")
+    (should-error (ogent-edit-goto-companion) :type 'user-error)))
+
 (provide 'ogent-edit-display-tests)
 
 ;;; ogent-edit-display-tests.el ends here
