@@ -365,8 +365,29 @@ The original window remains selected - companion is shown but not focused."
   :type 'string
   :group 'ogent-mode)
 
+(defface ogent-context-diff-added
+  '((((class color) (background light)) :background "#d0ffd0")
+    (((class color) (background dark)) :background "#004400"))
+  "Face for lines added to context."
+  :group 'ogent-mode)
+
+(defface ogent-context-diff-removed
+  '((((class color) (background light)) :background "#ffd0d0")
+    (((class color) (background dark)) :background "#440000"))
+  "Face for lines removed from context."
+  :group 'ogent-mode)
+
 (defvar ogent-ui--context-preview-window nil
   "Window displaying the context preview, if any.")
+
+(defvar-local ogent-ui--previous-context nil
+  "Previous context string for diff comparison.")
+
+(defvar-local ogent-ui--diff-overlays nil
+  "List of overlays used for highlighting context changes.")
+
+(defvar ogent-ui--diff-clear-timer nil
+  "Timer for clearing diff overlays.")
 
 (defun ogent-ui--set-response-function (symbol value)
   "Setter for `ogent-response-function' that migrates legacy values."
@@ -456,6 +477,121 @@ Used for retry functionality.")
                                                    (region-end)))
     (read-string "Prompt: ")))
 
+(defun ogent-ui--diff-strings (old new)
+  "Compare OLD and NEW strings line by line.
+Return list of plists with :type (:added or :removed), :lines (list of strings),
+and :line-number (first line number where changes start)."
+  (let ((old-lines (and old (split-string old "\n" nil)))
+        (new-lines (and new (split-string new "\n" nil)))
+        (result nil)
+        (line-num 1)
+        (i 0)
+        (j 0))
+    ;; Simple line-by-line diff
+    (while (or (< i (length old-lines)) (< j (length new-lines)))
+      (let ((old-line (and (< i (length old-lines)) (nth i old-lines)))
+            (new-line (and (< j (length new-lines)) (nth j new-lines))))
+        (cond
+         ;; Lines match - advance both
+         ((and old-line new-line (string= old-line new-line))
+          (setq i (1+ i)
+                j (1+ j)
+                line-num (1+ line-num)))
+         ;; New line added
+         ((and (not old-line) new-line)
+          (let ((added-lines (list new-line))
+                (start-line line-num))
+            (setq j (1+ j)
+                  line-num (1+ line-num))
+            ;; Collect consecutive added lines
+            (while (and (< j (length new-lines))
+                       (or (>= i (length old-lines))
+                           (not (string= (nth i old-lines) (nth j new-lines)))))
+              (push (nth j new-lines) added-lines)
+              (setq j (1+ j)
+                    line-num (1+ line-num)))
+            (push (list :type :added
+                       :lines (nreverse added-lines)
+                       :line-number start-line)
+                  result)))
+         ;; Old line removed
+         ((and old-line (not new-line))
+          (let ((removed-lines (list old-line))
+                (start-line line-num))
+            (setq i (1+ i))
+            ;; Collect consecutive removed lines
+            (while (and (< i (length old-lines))
+                       (or (>= j (length new-lines))
+                           (not (string= (nth i old-lines) (nth j new-lines)))))
+              (push (nth i old-lines) removed-lines)
+              (setq i (1+ i)))
+            (push (list :type :removed
+                       :lines (nreverse removed-lines)
+                       :line-number start-line)
+                  result)))
+         ;; Lines differ - mark as replacement (removed + added)
+         (t
+          (let ((removed-lines (list old-line))
+                (added-lines (list new-line))
+                (start-line line-num))
+            (setq i (1+ i)
+                  j (1+ j)
+                  line-num (1+ line-num))
+            ;; Look ahead for more changes
+            (while (and (< i (length old-lines))
+                       (< j (length new-lines))
+                       (not (string= (nth i old-lines) (nth j new-lines))))
+              (push (nth i old-lines) removed-lines)
+              (push (nth j new-lines) added-lines)
+              (setq i (1+ i)
+                    j (1+ j)
+                    line-num (1+ line-num)))
+            (push (list :type :removed
+                       :lines (nreverse removed-lines)
+                       :line-number start-line)
+                  result)
+            (push (list :type :added
+                       :lines (nreverse added-lines)
+                       :line-number start-line)
+                  result))))))
+    (nreverse result)))
+
+(defun ogent-ui--apply-diff-overlays (diff-result)
+  "Create overlays for DIFF-RESULT in current buffer.
+DIFF-RESULT is a list of plists from `ogent-ui--diff-strings'."
+  (ogent-ui--clear-diff-overlays)
+  (save-excursion
+    (goto-char (point-min))
+    (dolist (change diff-result)
+      (let* ((type (plist-get change :type))
+             (lines (plist-get change :lines))
+             (line-num (plist-get change :line-number))
+             (face (if (eq type :added)
+                      'ogent-context-diff-added
+                    'ogent-context-diff-removed)))
+        ;; Move to the target line
+        (goto-char (point-min))
+        (forward-line (1- line-num))
+        ;; Create overlay for each line
+        (dolist (_line lines)
+          (let ((start (line-beginning-position))
+                (end (min (1+ (line-end-position)) (point-max))))
+            (when (< start end)
+              (let ((ov (make-overlay start end)))
+                (overlay-put ov 'face face)
+                (overlay-put ov 'ogent-diff t)
+                (push ov ogent-ui--diff-overlays)))
+            (forward-line 1)))))))
+
+(defun ogent-ui--clear-diff-overlays ()
+  "Remove all diff overlays from current buffer."
+  (when ogent-ui--diff-overlays
+    (mapc #'delete-overlay ogent-ui--diff-overlays)
+    (setq ogent-ui--diff-overlays nil))
+  (when ogent-ui--diff-clear-timer
+    (cancel-timer ogent-ui--diff-clear-timer)
+    (setq ogent-ui--diff-clear-timer nil)))
+
 (defun ogent-ui--insert-src-block (content models)
   "Insert a src block containing CONTENT annotated with MODELS."
   (org-back-to-heading t)
@@ -490,9 +626,25 @@ When invoked from a non-Org buffer, includes source buffer context."
                        source-buffer region-start region-end))
              (summary (ogent-ui--format-context context))
              (buffer (ogent-ui--context-buffer)))
-        (with-current-buffer buffer
-          (insert summary)
-          (goto-char (point-min)))
+           (with-current-buffer buffer
+            (let ((previous ogent-ui--previous-context))
+              (insert summary)
+              (goto-char (point-min))
+              ;; Apply diff highlighting if we have previous context
+              (when previous
+                (let ((diff (ogent-ui--diff-strings previous summary)))
+                  (when diff
+                    (ogent-ui--apply-diff-overlays diff)
+                    ;; Clear overlays after 3 seconds
+                    (setq ogent-ui--diff-clear-timer
+                          (run-with-timer 3 nil
+                                        (lambda (buf)
+                                          (when (buffer-live-p buf)
+                                            (with-current-buffer buf
+                                              (ogent-ui--clear-diff-overlays))))
+                                        buffer)))))
+              ;; Update previous context for next comparison
+              (setq ogent-ui--previous-context summary)))
         (display-buffer buffer)))))
 
 (defun ogent-ui--context-preview-visible-p ()

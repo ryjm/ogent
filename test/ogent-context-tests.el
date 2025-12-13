@@ -266,5 +266,109 @@
 				 (should (member "overview-root" handle-names))
 				 (should (member "appendix-note" handle-names)))))))
 
+;;; Handle exclusion tests
+
+(ert-deftest ogent-context-exclude-handle-adds-to-list ()
+  "ogent-context-exclude-handle adds handle to exclusion list."
+  (let ((ogent-context-excluded-handles nil))
+    (ogent-context-exclude-handle "test-handle")
+    (should (member "test-handle" ogent-context-excluded-handles))
+    ;; Adding same handle twice should not duplicate
+    (ogent-context-exclude-handle "test-handle")
+    (should (= 1 (cl-count "test-handle" ogent-context-excluded-handles
+                           :test #'string=)))))
+
+(ert-deftest ogent-context-include-handle-removes-from-list ()
+  "ogent-context-include-handle removes handle from exclusion list."
+  (let ((ogent-context-excluded-handles '("handle1" "handle2" "handle3")))
+    (ogent-context-include-handle "handle2")
+    (should-not (member "handle2" ogent-context-excluded-handles))
+    (should (member "handle1" ogent-context-excluded-handles))
+    (should (member "handle3" ogent-context-excluded-handles))))
+
+(ert-deftest ogent-context-toggle-exclusion-works ()
+  "ogent-context-toggle-exclusion adds and removes handles."
+  (let ((ogent-context-excluded-handles nil))
+    ;; Toggle to exclude
+    (ogent-context-toggle-exclusion "toggle-handle")
+    (should (member "toggle-handle" ogent-context-excluded-handles))
+    ;; Toggle to include
+    (ogent-context-toggle-exclusion "toggle-handle")
+    (should-not (member "toggle-handle" ogent-context-excluded-handles))))
+
+(ert-deftest ogent-context-clear-exclusions-empties-list ()
+  "ogent-context-clear-exclusions clears all exclusions."
+  (let ((ogent-context-excluded-handles '("a" "b" "c")))
+    (ogent-context-clear-exclusions)
+    (should (null ogent-context-excluded-handles))))
+
+(ert-deftest ogent-context-get-exclusions-returns-copy ()
+  "ogent-context-get-exclusions returns a copy of exclusion list."
+  (let ((ogent-context-excluded-handles '("handle1" "handle2")))
+    (let ((exclusions (ogent-context-get-exclusions)))
+      (should (equal exclusions '("handle1" "handle2")))
+      ;; Modifying returned list should not affect original
+      (setcar exclusions "modified")
+      (should (equal ogent-context-excluded-handles '("handle1" "handle2"))))))
+
+(ert-deftest ogent-context-build-filtered-excludes-handles ()
+  "ogent-context-build-filtered filters out excluded handles."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let ((ogent-context-excluded-handles '("details-block" "missing-note")))
+			       (let* ((ctx (ogent-context-build-filtered))
+				      (deps (plist-get ctx :dependencies))
+				      (excluded (plist-get ctx :excluded-handles))
+				      (dep-handles (mapcar (lambda (dep)
+							     (plist-get dep :handle))
+							   deps)))
+				 ;; Excluded handles should not be in dependencies
+				 (should-not (member "details-block" dep-handles))
+				 (should-not (member "missing-note" dep-handles))
+				 ;; Non-excluded handles should be present
+				 (should (member "deep-note" dep-handles))
+				 (should (member "appendix-note" dep-handles))
+				 ;; :excluded-handles should contain the exclusion list
+				 (should (equal excluded '("details-block" "missing-note"))))))))
+
+(ert-deftest ogent-context-build-filtered-with-no-exclusions ()
+  "ogent-context-build-filtered works with empty exclusion list."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let ((ogent-context-excluded-handles nil))
+			       (let* ((ctx (ogent-context-build-filtered))
+				      (deps (plist-get ctx :dependencies))
+				      (excluded (plist-get ctx :excluded-handles)))
+				 ;; All dependencies should be present
+				 (should (= (length deps) 4))
+				 ;; Excluded list should be empty
+				 (should (null excluded)))))))
+
+(ert-deftest ogent-context-build-filtered-preserves-other-fields ()
+  "ogent-context-build-filtered preserves :root and :ancestors."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Details Block")
+			     (org-back-to-heading t)
+			     (let ((ogent-context-excluded-handles '("details-block")))
+			       (let* ((ctx (ogent-context-build-filtered))
+				      (root (plist-get ctx :root))
+				      (ancestors (plist-get ctx :ancestors)))
+				 ;; Root should be present
+				 (should (ogent-context-node-p root))
+				 (should (string= (ogent-context-node-title root)
+						  "Details Block"))
+				 ;; Ancestors should be present
+				 (should (= (length ancestors) 1))
+				 (should (string= (ogent-context-node-title (car ancestors))
+						  "Root Overview")))))))
+
 (provide 'ogent-context-tests)
 ;;; ogent-context-tests.el ends here
