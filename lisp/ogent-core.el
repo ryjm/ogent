@@ -140,9 +140,11 @@ to maintain conversation history."
   (if ogent-mode
       (progn
         (when (derived-mode-p 'org-mode)
-          ;; Use save-selected-window to prevent buffer switching side effects
-          ;; from gptel-highlight-mode or other mode hooks
-          (save-selected-window
+          ;; Use save-window-excursion to prevent buffer/window switching
+          ;; side effects from gptel-highlight-mode or other mode hooks.
+          ;; This is stronger than save-selected-window as it also restores
+          ;; window-buffer associations.
+          (save-window-excursion
             (when (fboundp 'ogent-ui--setup-highlight-mode)
               (ogent-ui--setup-highlight-mode)))
           ;; Add completion-at-point function for @handles
@@ -167,15 +169,21 @@ ogent-mode globally across all buffers."
 (defun ogent-global-mode (&optional arg)
   "Toggle Ogent mode in all buffers.
 With prefix ARG, enable if positive, disable otherwise.
-This wrapper preserves the current buffer and window."
+This wrapper preserves the current buffer and window configuration."
   (interactive "P")
   (let ((original-buffer (current-buffer))
-        (original-window (selected-window)))
+        (original-window (selected-window))
+        (original-window-buffer (window-buffer (selected-window))))
     (ogent-global-mode--internal arg)
-    ;; Restore original buffer/window if they still exist
-    (when (and (window-live-p original-window)
-               (buffer-live-p original-buffer))
-      (select-window original-window)
+    ;; Restore original window and buffer if they still exist
+    ;; We must use set-window-buffer to restore what's displayed,
+    ;; as set-buffer only changes the current buffer for Lisp code
+    (when (window-live-p original-window)
+      (select-window original-window 'norecord)
+      (when (buffer-live-p original-window-buffer)
+        (set-window-buffer original-window original-window-buffer)))
+    ;; Also restore current-buffer for any subsequent Lisp code
+    (when (buffer-live-p original-buffer)
       (set-buffer original-buffer))))
 
 ;;; Completion Notification
