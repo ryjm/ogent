@@ -1,0 +1,289 @@
+#+title: Ogent Roadmap
+#+author: Jake Miller
+#+startup: overview
+
+* Vision Alignment Analysis
+
+This roadmap tracks ogent's progress toward the vision outlined in README.md.
+Each section maps vision statements to implementation status.
+
+** Core Mission Alignment
+
+| Vision Statement | Status | Implementation |
+|------------------+--------+----------------|
+| Org subtree as addressable knowledge block | Done | =ogent-context.el= with OGENT_ID support |
+| @handle references for composition | Done | =ogent-context-completion-at-point=, resolution |
+| Explicit Org hierarchy for context | Done | =ogent-context-build= collects ancestors |
+| Cross-buffer/file context expansion | Done | org-roam integration, file handles |
+| Context summary before dispatch | Done | =ogent-ui-context.el= with token counts |
+| Org buffer as agent panel + plan | Partial | Companion buffer exists, inline responses work |
+
+** Identified Gaps (Vision vs Code)
+
+*** Critical Gaps
+1. *Notes Capture (C-c C-d)*: README promises "shunt completion to Notes child" - NOT IMPLEMENTED
+2. *Multi-model Fan-out*: README promises concurrent requests to multiple models - NOT IMPLEMENTED
+3. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
+4. *ogent-ask*: README mentions this command - NOT IMPLEMENTED
+5. *ogent-open-block*: README mentions this command - NOT IMPLEMENTED
+
+*** Partial Implementations
+1. *Codemap*: Static regex-based, not LLM-powered as envisioned (ogent-32t tracks this)
+2. *Incremental codemap refresh*: Mentioned in README, not implemented (ogent-tro tracks this)
+3. *Tool result streaming*: Tools execute but don't stream incrementally (ogent-24x tracks this)
+
+*** Documentation Gaps
+1. *Prompt templates*: No default templates shipped (ogent-60u tracks this)
+2. *Backend/preset configuration docs*: Mentioned in README roadmap, not written
+
+* Completed Work
+
+** Phase 1: Foundation (Complete)
+- [X] Core minor mode scaffold (=ogent-core.el=)
+- [X] Context building with @handle resolution (=ogent-context.el=)
+- [X] Model registry and gptel integration (=ogent-models.el=)
+- [X] Companion buffer for non-Org files (=ogent-companion.el=)
+- [X] Basic codemap generation (=ogent-codemap.el=)
+- [X] Onboarding wizard (=ogent-onboard.el=)
+- [X] Anthropic OAuth support (=ogent-anthropic-oauth.el=)
+
+** Phase 2: Handle System (Complete)
+- [X] @handle completion with annotations (=ogent-context.el=)
+- [X] Backlink tracking and UI (=ogent-ui-backlinks.el=)
+- [X] Handle validation before sending (=ogent-core.el=)
+- [X] Dependency graph visualization (=ogent-ui-graph.el=)
+- [X] org-roam integration for cross-file handles
+
+** Phase 3: Context Preview (Complete)
+- [X] Interactive context preview buffer (=ogent-ui-context.el=)
+- [X] Token/character count estimates
+- [X] Section exclusion with checkboxes
+- [X] Visual diff for context changes
+
+** Phase 4: Tool System (Complete)
+- [X] Tool definition schema and registry (=ogent-models.el=)
+- [X] Tool implementations: read-file, glob, grep, bash, write-file, edit-file (=ogent-tools.el=)
+- [X] Tool approval workflow with transient (=ogent-tool-approval.el=)
+- [X] Tool call rendering in org-mode (=ogent-tool-render.el=)
+- [X] Tool execution FSM (=ogent-tool-fsm.el=)
+- [X] Tool call history and debugging (=ogent-debug.el=)
+
+** Phase 5: Inline Edits (Complete)
+- [X] SEARCH/REPLACE block format (=ogent-edit-format.el=)
+- [X] Edit block parser (=ogent-edit-parse.el=)
+- [X] smerge-based edit display (=ogent-edit-display.el=)
+- [X] Edit logging to companion (=ogent-edit-log.el=)
+- [X] Marker synchronization for navigation (=ogent-edit-display.el=)
+- [X] Diff preview buffer
+
+** Phase 6: UI Polish (Complete)
+- [X] gptel-style transient dispatcher (=ogent-ui.el=)
+- [X] Header-line status indicator (=ogent-ui-status.el=)
+- [X] Completion notifications (=ogent-core.el=)
+- [X] Error buffer and display (=ogent-ui.el=)
+- [X] Doom Emacs documentation and popup support
+
+** Phase 7: Debug Infrastructure (Complete)
+- [X] Debug mode with gptel logging integration (=ogent-debug.el=)
+- [X] Structured logging (request/response/edit/validation)
+- [X] Tool call history with replay
+
+* Current Sprint
+
+** P2 - In Progress
+- [ ] Tool result streaming (ogent-24x)
+  - Stream stdout/stderr incrementally
+  - Progress indicators for long-running tools
+  - Pagination for large results
+
+** P2 - Ready
+- [ ] LLM-powered codemap generation (ogent-32t)
+  - Replace regex-based extraction with LLM analysis
+  - Semantic relationship understanding
+  - Architectural pattern identification
+
+- [ ] Incremental codemap refresh (ogent-tro)
+  - Detect changed files
+  - Update only affected sections
+  - Preserve manual annotations
+
+* Backlog
+
+** P3 - Features
+- [ ] MCP server support (ogent-c8l)
+  - Model Context Protocol integration
+  - External tool providers
+
+- [ ] Magit-style diff UX (ogent-wxc)
+  - Hunk-by-hunk navigation
+  - Partial accept/reject
+
+- [ ] Inline-diff alternative display (ogent-npb)
+  - Use inline-diff package instead of smerge
+
+** P3 - Content
+- [ ] Default Prompts & Workflow Templates (ogent-60u)
+  - Code review template
+  - Refactoring template
+  - Documentation template
+  - Bug fix template
+
+- [ ] Test Coverage Expansion (ogent-80q)
+  - Streaming edge cases
+  - Error injection tests
+  - Multi-model fan-out tests
+
+** P3 - Bugs
+- [ ] Context preview popup positioning (ogent-ey3)
+
+** P4 - Research
+- [ ] plz.el for HTTP (ogent-v21)
+- [ ] Buttercup BDD tests (ogent-sq0)
+
+* Untracked Work (New Beads Needed)
+
+These items from README.md are not yet tracked as beads:
+
+** Critical (P1)
+#+begin_src elisp
+;; Notes Capture - C-c C-d to shunt completion to Notes child
+(bd-quick_create :title "Implement Notes capture (C-c C-d)" :type "feature" :priority 1)
+
+;; Multi-model fan-out - concurrent requests to multiple models
+(bd-quick_create :title "Multi-model fan-out with concurrent requests" :type "feature" :priority 1)
+
+;; Ergonomic review commands
+(bd-quick_create :title "Implement C-c o n (cycle completions) and C-c o a (accept)" :type "feature" :priority 1)
+#+end_src
+
+** High (P2)
+#+begin_src elisp
+;; ogent-ask command mentioned in README
+(bd-quick_create :title "Implement ogent-ask command" :type "feature" :priority 2)
+
+;; ogent-open-block command mentioned in README
+(bd-quick_create :title "Implement ogent-open-block command" :type "feature" :priority 2)
+
+;; Backend/preset configuration docs
+(bd-quick_create :title "Document backend/preset configuration and gptel-make-preset" :type "task" :priority 2)
+
+;; Cancellation/resume controls
+(bd-quick_create :title "Request cancellation and resume controls" :type "feature" :priority 2)
+#+end_src
+
+* Architecture Overview
+
+#+begin_example
+                              ┌─────────────────────────────────────┐
+                              │           User Interface            │
+                              ├─────────────────────────────────────┤
+                              │  ogent-ui.el (transient dispatcher) │
+                              │  ogent-ui-context.el (preview)      │
+                              │  ogent-ui-status.el (header-line)   │
+                              │  ogent-ui-backlinks.el              │
+                              │  ogent-ui-graph.el                  │
+                              └──────────────────┬──────────────────┘
+                                                 │
+                    ┌────────────────────────────┼────────────────────────────┐
+                    │                            │                            │
+                    ▼                            ▼                            ▼
+         ┌──────────────────┐         ┌──────────────────┐         ┌──────────────────┐
+         │   Context Layer  │         │   Request Layer  │         │    Edit Layer    │
+         ├──────────────────┤         ├──────────────────┤         ├──────────────────┤
+         │ ogent-context.el │         │ ogent-core.el    │         │ ogent-edit.el    │
+         │ (handle resolve) │         │ (mode, keymap)   │         │ ogent-edit-*.el  │
+         │ ogent-companion  │         │ ogent-models.el  │         │ (parse, display) │
+         │ ogent-codemap.el │         │ (registry)       │         │ (log, format)    │
+         └──────────────────┘         └────────┬─────────┘         └──────────────────┘
+                                               │
+                              ┌────────────────┴────────────────┐
+                              │          Tool System            │
+                              ├─────────────────────────────────┤
+                              │ ogent-tools.el (implementations)│
+                              │ ogent-tool-fsm.el (execution)   │
+                              │ ogent-tool-approval.el (consent)│
+                              │ ogent-tool-render.el (display)  │
+                              └────────────────┬────────────────┘
+                                               │
+                              ┌────────────────┴────────────────┐
+                              │        External Services        │
+                              ├─────────────────────────────────┤
+                              │ gptel (LLM transport)           │
+                              │ org-roam (cross-file handles)   │
+                              │ ogent-anthropic-oauth.el        │
+                              └─────────────────────────────────┘
+#+end_example
+
+* Keybinding Map
+
+| Key       | Command                        | Status      |
+|-----------+--------------------------------+-------------|
+| C-c . p   | ogent-prompt-dispatch          | Implemented |
+| C-c . r   | ogent-request                  | Implemented |
+| C-c . c   | ogent-context-preview          | Implemented |
+| C-c . b   | ogent-show-backlinks           | Implemented |
+| C-c . g   | ogent-show-dependency-graph    | Implemented |
+| C-c . m   | ogent-codemap-buffer           | Implemented |
+| C-c . a   | ogent-abort-request            | Implemented |
+| C-c . R   | ogent-retry-request            | Implemented |
+| C-c . e   | ogent-edit-menu                | Implemented |
+| C-c . E   | ogent-request-edit             | Implemented |
+| C-c . t   | ogent-debug-tools-menu         | Implemented |
+| C-c . s   | ogent-edit-goto-source         | Implemented |
+| C-c . C   | ogent-edit-goto-companion      | Implemented |
+| C-c o n   | (cycle completions)            | NOT IMPLEMENTED |
+| C-c o a   | (accept completion)            | NOT IMPLEMENTED |
+| C-c C-d   | (notes capture)                | NOT IMPLEMENTED |
+
+* Test Coverage
+
+| Module                | Tests | Coverage |
+|-----------------------+-------+----------|
+| ogent-core            |    24 | Good     |
+| ogent-context         |    35 | Good     |
+| ogent-models          |    12 | Good     |
+| ogent-companion       |    15 | Good     |
+| ogent-codemap         |    18 | Good     |
+| ogent-edit            |    22 | Good     |
+| ogent-edit-display    |    14 | Good     |
+| ogent-debug           |    21 | Good     |
+| ogent-tools           |    18 | Good     |
+| ogent-tool-fsm        |    12 | Good     |
+| ogent-tool-render     |    15 | Good     |
+| ogent-tool-approval   |    10 | Good     |
+| ogent-onboard         |     8 | Partial  |
+| ogent-anthropic-oauth |     6 | Partial  |
+| ogent-ui              |    45 | Good     |
+| ogent-ui-backlinks    |     8 | Good     |
+| ogent-ui-context      |    12 | Good     |
+| ogent-ui-graph        |    10 | Good     |
+| ogent-ui-status       |     8 | Good     |
+|-----------------------+-------+----------|
+| TOTAL                 |   309 |          |
+
+* Release Milestones
+
+** v0.1.0 - Foundation (Current)
+- Core handle system
+- Context preview
+- Tool system
+- Inline edits
+- Doom Emacs support
+
+** v0.2.0 - Workflow Polish
+- Notes capture (C-c C-d)
+- Ergonomic review (C-c o n/a)
+- Multi-model fan-out
+- Default prompt templates
+
+** v0.3.0 - Intelligence
+- LLM-powered codemap
+- Incremental refresh
+- Tool result streaming
+- MCP support
+
+** v1.0.0 - Production Ready
+- Full README feature parity
+- Comprehensive documentation
+- 95%+ test coverage
+- Performance optimization
