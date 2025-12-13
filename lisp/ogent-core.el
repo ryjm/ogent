@@ -2,6 +2,13 @@
 
 ;;; Commentary:
 ;; Defines the ogent minor mode, keymap, and user-facing hooks.
+;; Also provides context validation utilities for checking handle resolution.
+;;
+;; Integration with request flow (for ogent-ui.el):
+;;   After calling `ogent-context-build-with-source' and before
+;;   `ogent-ui--send-request', call `ogent-validate-and-prompt' to check
+;;   for missing handles and prompt user if needed.  This function respects
+;;   the `ogent-validate-before-send' customization setting.
 
 ;;; Code:
 
@@ -15,6 +22,8 @@
 (declare-function ogent-abort-request "ui/ogent-ui")
 (declare-function ogent-retry-request "ui/ogent-ui")
 (declare-function ogent-ui--setup-highlight-mode "ui/ogent-ui")
+(declare-function ogent-show-backlinks "ui/ogent-ui-backlinks")
+(declare-function ogent-show-dependency-graph "ui/ogent-ui-graph")
 (declare-function ogent-codemap-buffer "ogent-codemap")
 (declare-function ogent-request-edit "ogent-edit")
 (declare-function ogent-edit-menu "ogent-edit")
@@ -35,12 +44,65 @@ Each function receives the formatted context plist."
   :type 'hook
   :group 'ogent-mode)
 
+(defcustom ogent-validate-before-send nil
+  "Control validation of @handles before sending to LLM.
+nil - Don't validate (default)
+`warn' - Show warning message if missing handles detected
+`confirm' - Prompt user to confirm or abort if missing handles found"
+  :type '(choice (const :tag "No validation" nil)
+                 (const :tag "Warn about missing handles" warn)
+                 (const :tag "Confirm before sending" confirm))
+  :group 'ogent-mode)
+
+(defun ogent-context-validate (context)
+  "Validate CONTEXT and return list of missing handle names.
+CONTEXT is a plist as returned by `ogent-context-build'.
+Extracts :dependencies and filters for entries where :missing-p is t.
+Returns a list of handle names (strings) that could not be resolved."
+  (let ((dependencies (plist-get context :dependencies))
+        (missing nil))
+    (dolist (dep dependencies)
+      (when (plist-get dep :missing-p)
+        (push (plist-get dep :handle) missing)))
+    (nreverse missing)))
+
+(defun ogent-context-add-validation-warnings (context)
+  "Add :validation-warnings key to CONTEXT plist.
+Returns the updated context plist with warnings about missing handles."
+  (let* ((missing-handles (ogent-context-validate context))
+         (warnings (when missing-handles
+                     (list (format "Missing handles: %s"
+                                   (string-join missing-handles ", "))))))
+    (plist-put context :validation-warnings warnings)))
+
+(defun ogent-validate-and-prompt (context)
+  "Validate CONTEXT according to `ogent-validate-before-send'.
+Returns non-nil if the request should proceed, nil to abort.
+Adds :validation-warnings to context as a side effect."
+  (let ((missing-handles (ogent-context-validate context)))
+    (ogent-context-add-validation-warnings context)
+    (if (null missing-handles)
+        t  ; No missing handles, proceed
+      (pcase ogent-validate-before-send
+        ('nil t)  ; No validation, proceed anyway
+        ('warn
+         (message "Warning: Missing handles: %s"
+                  (string-join missing-handles ", "))
+         t)  ; Show warning but proceed
+        ('confirm
+         (y-or-n-p
+          (format "Missing handles: %s. Continue anyway? "
+                  (string-join missing-handles ", "))))
+        (_ t)))))  ; Unknown setting, proceed
+
 (defvar ogent-mode-map
   (let ((map (make-sparse-keymap)))
     ;; Note: C-c followed by punctuation is reserved for minor modes
     (define-key map (kbd "C-c . p") #'ogent-prompt-dispatch)
     (define-key map (kbd "C-c . r") #'ogent-request)
     (define-key map (kbd "C-c . c") #'ogent-context-preview)
+    (define-key map (kbd "C-c . b") #'ogent-show-backlinks)
+    (define-key map (kbd "C-c . g") #'ogent-show-dependency-graph)
     (define-key map (kbd "C-c . m") #'ogent-codemap-buffer)
     (define-key map (kbd "C-c . a") #'ogent-abort-request)
     (define-key map (kbd "C-c . R") #'ogent-retry-request)
@@ -58,13 +120,21 @@ For non-Org buffers, companion Org buffers are automatically created
 to maintain conversation history."
   :lighter " Ogent"
   :keymap ogent-mode-map
-  (when ogent-mode
+  (if ogent-mode
+      (progn
+        (when (derived-mode-p 'org-mode)
+          ;; Use save-selected-window to prevent buffer switching side effects
+          ;; from gptel-highlight-mode or other mode hooks
+          (save-selected-window
+            (when (fboundp 'ogent-ui--setup-highlight-mode)
+              (ogent-ui--setup-highlight-mode)))
+          ;; Add completion-at-point function for @handles
+          (add-hook 'completion-at-point-functions
+                    #'ogent-context-completion-at-point nil t)))
+    ;; Remove on disable
     (when (derived-mode-p 'org-mode)
-      ;; Use save-selected-window to prevent buffer switching side effects
-      ;; from gptel-highlight-mode or other mode hooks
-      (save-selected-window
-        (when (fboundp 'ogent-ui--setup-highlight-mode)
-          (ogent-ui--setup-highlight-mode))))))
+      (remove-hook 'completion-at-point-functions
+                   #'ogent-context-completion-at-point t))))
 
 (defun ogent--maybe-enable ()
   "Enable `ogent-mode' in current buffer.

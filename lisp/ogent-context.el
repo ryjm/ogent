@@ -365,6 +365,161 @@ Returns an `ogent-context-node' if found, nil otherwise."
             (when-let ((element (org-element-at-point)))
               (ogent-context--node-from-element element buffer))))))))
 
+;;; Completion-at-point for handles
+
+;; Cache for handle collection - keyed by buffer modification tick
+(defvar-local ogent-context--handle-cache nil
+  "Cache of handles for current buffer.
+A plist with :tick and :handles keys.")
+
+(defvar ogent-context--global-handle-cache nil
+  "Global cache for all handles across buffers.
+A plist with :tick-alist and :handles keys.")
+
+(defun ogent-context--cache-valid-p (buffer cache)
+  "Return non-nil if CACHE is valid for BUFFER."
+  (and cache
+       (buffer-live-p buffer)
+       (equal (plist-get cache :tick)
+              (buffer-chars-modified-tick buffer))))
+
+(defun ogent-context--extract-annotation (node)
+  "Extract annotation string from NODE.
+Returns first ~50 chars of content, skipping property drawers."
+  (when-let ((content (ogent-context-node-content node)))
+    (let ((lines (split-string content "\n")))
+      (catch 'found
+        (let ((in-drawer nil))
+          (dolist (line lines)
+            (cond
+             ((string-match-p "^[ \t]*:PROPERTIES:" line)
+              (setq in-drawer t))
+             ((string-match-p "^[ \t]*:END:" line)
+              (setq in-drawer nil))
+             ((and (not in-drawer)
+                   (not (string-match-p "^[ \t]*$" line)))
+              (let ((trimmed (string-trim line)))
+                (when (> (length trimmed) 0)
+                  (throw 'found
+                         (concat " — "
+                                 (if (> (length trimmed) 50)
+                                     (concat (substring trimmed 0 50) "…")
+                                   trimmed)))))))))
+        nil))))
+
+(defun ogent-context--collect-handles-from-buffer (buffer)
+  "Collect all handles from BUFFER with caching.
+Returns a list of plists with :handle, :node, and :annotation keys."
+  (with-current-buffer buffer
+    (when (derived-mode-p 'org-mode)
+      ;; Check cache first
+      (if (ogent-context--cache-valid-p buffer ogent-context--handle-cache)
+          (plist-get ogent-context--handle-cache :handles)
+        ;; Rebuild cache
+        (save-excursion
+          (save-restriction
+            (widen)
+            (goto-char (point-min))
+            (let (handles)
+              (org-element-map (org-element-parse-buffer 'headline) 'headline
+                (lambda (el)
+                  (let* ((node (ogent-context--node-from-element el buffer))
+                         (id (ogent-context-node-id node))
+                         (annotation (ogent-context--extract-annotation node)))
+                    (when id
+                      (push (list :handle id
+                                  :node node
+                                  :annotation annotation)
+                            handles)))))
+              (setq handles (nreverse handles))
+              ;; Update cache
+              (setq ogent-context--handle-cache
+                    (list :tick (buffer-chars-modified-tick buffer)
+                          :handles handles))
+              handles)))))))
+
+(defun ogent-context--collect-all-handles ()
+  "Collect all available handles from current buffer, extra buffers, and org-roam.
+Returns a list of plists with :handle, :node, and :annotation keys.
+Uses caching to avoid re-parsing unchanged buffers."
+  (let ((handles nil)
+        (seen (make-hash-table :test 'equal)))
+    ;; Collect from current buffer and extra buffers
+    (dolist (buf (ogent-context--buffers-to-search))
+      (when (buffer-live-p buf)
+        (dolist (entry (ogent-context--collect-handles-from-buffer buf))
+          (let ((handle (plist-get entry :handle)))
+            (unless (gethash handle seen)
+              (puthash handle t seen)
+              (push entry handles))))))
+    ;; Collect from org-roam if available (with limit for performance)
+    (when (fboundp 'org-roam-node-list)
+      (let ((count 0)
+            (max-roam-nodes 100))  ; Limit org-roam nodes for performance
+        (dolist (node (org-roam-node-list))
+          (when (< count max-roam-nodes)
+            (let* ((title (org-roam-node-title node))
+                   (handle (ogent-context--slug title)))
+              (unless (gethash handle seen)
+                (puthash handle t seen)
+                (cl-incf count)
+                ;; For org-roam nodes, annotation is title itself
+                (push (list :handle handle
+                            :node nil
+                            :roam-node node
+                            :annotation (concat " — " (truncate-string-to-width title 50)))
+                      handles)))))))
+    (nreverse handles)))
+
+(defun ogent-context--completion-annotation (handle)
+  "Return cached annotation string for HANDLE."
+  ;; Look up in the cached handles - this is O(n) but handles list is small
+  ;; and we avoid re-parsing buffers
+  (catch 'found
+    (dolist (buf (ogent-context--buffers-to-search))
+      (when (buffer-live-p buf)
+        (dolist (entry (ogent-context--collect-handles-from-buffer buf))
+          (when (string= (plist-get entry :handle) handle)
+            (throw 'found (or (plist-get entry :annotation) ""))))))
+    ""))
+
+(defun ogent-context-completion-at-point ()
+  "Provide completion for @handle references.
+Returns (start end collection . props) when point is after @,
+nil otherwise.  Collection includes handles from current buffer,
+`ogent-context-extra-buffers', and org-roam nodes if available."
+  (when (derived-mode-p 'org-mode)
+    (let ((bounds (bounds-of-thing-at-point 'symbol)))
+      (when bounds
+        (save-excursion
+          (goto-char (car bounds))
+          (when (and (> (point) (point-min))
+                     (eq (char-before) ?@))
+            (let* ((start (point))
+                   (end (cdr bounds))
+                   (all-handles (ogent-context--collect-all-handles))
+                   (handles (mapcar (lambda (entry)
+                                      (plist-get entry :handle))
+                                    all-handles))
+                   ;; Pre-build annotation table for O(1) lookup
+                   (annotation-table (make-hash-table :test 'equal)))
+              ;; Populate annotation table
+              (dolist (entry all-handles)
+                (puthash (plist-get entry :handle)
+                         (or (plist-get entry :annotation) "")
+                         annotation-table))
+              (list start end handles
+                    :annotation-function
+                    (lambda (handle)
+                      (gethash handle annotation-table ""))
+                    :company-docsig
+                    (lambda (handle)
+                      (gethash handle annotation-table ""))
+                    :exit-function
+                    (lambda (_string _status)
+                      (when (looking-at " ")
+                        (delete-char 1)))))))))))
+
 (provide 'ogent-context)
 
 ;;; ogent-context.el ends here

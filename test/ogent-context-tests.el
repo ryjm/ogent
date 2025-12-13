@@ -199,5 +199,72 @@
 				(thunk-force ctx)
 				(should (= forced-count 1)))))))
 
+;;; Completion-at-point tests
+
+(ert-deftest ogent-context-completion-triggers-after-at ()
+  "Completion triggers when point is after @ character."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-max))
+			     (insert "\n* Test\nHere is @")
+			     ;; Should return nil when no text after @
+			     (should-not (ogent-context-completion-at-point))
+			     ;; Type partial text
+			     (insert "det")
+			     (let ((result (ogent-context-completion-at-point)))
+			       (should result)
+			       (should (= (nth 0 result)
+					  (- (point) 3)))  ; start of "det"
+			       (should (= (nth 1 result)
+					  (point)))))))      ; end of "det"
+
+(ert-deftest ogent-context-completion-includes-buffer-handles ()
+  "Completion includes handles from current buffer."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-max))
+			     (insert "\n* Test\nHere is @d")
+			     (let* ((result (ogent-context-completion-at-point))
+				    (collection (nth 2 result)))
+			       (should (member "details-block" collection))
+			       (should (member "deep-note" collection))
+			       (should (member "appendix-note" collection))))))
+
+(ert-deftest ogent-context-completion-annotation-works ()
+  "Completion annotation shows content preview."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-max))
+			     (insert "\n* Test\nHere is @d")
+			     (let* ((result (ogent-context-completion-at-point))
+				    (annot-fn (plist-get (nthcdr 3 result) :annotation-function)))
+			       (should (functionp annot-fn))
+			       (let ((annotation (funcall annot-fn "details-block")))
+				 (should (stringp annotation))
+				 (should (string-match-p "This paragraph" annotation)))))))
+
+(ert-deftest ogent-context-completion-not-in-non-org-buffer ()
+  "Completion does not activate in non-Org buffers."
+  (let ((buf (get-buffer-create "*test-non-org*")))
+    (unwind-protect
+	(with-current-buffer buf
+	  (emacs-lisp-mode)
+	  (insert "@handle")
+	  (should-not (ogent-context-completion-at-point)))
+      (kill-buffer buf))))
+
+(ert-deftest ogent-context-collect-all-handles-from-current ()
+  "ogent-context--collect-all-handles gathers from current buffer."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (let ((handles (ogent-context--collect-all-handles)))
+			       (should (> (length handles) 0))
+			       (let ((handle-names (mapcar (lambda (entry)
+							     (plist-get entry :handle))
+							   handles)))
+				 (should (member "details-block" handle-names))
+				 (should (member "overview-root" handle-names))
+				 (should (member "appendix-note" handle-names)))))))
+
 (provide 'ogent-context-tests)
 ;;; ogent-context-tests.el ends here
