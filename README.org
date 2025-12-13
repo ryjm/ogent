@@ -4,7 +4,9 @@
 - Emacs 29.1 or newer with Org-mode
 - [[https://github.com/karthink/gptel][gptel]] for transport and model selection
 - Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
-- A configured LLM API key exposed via =direnv= or environment variables
+- An LLM provider:
+  - **Claude Max/Pro**: Use OAuth authentication (recommended, no API key needed)
+  - **API Key**: Traditional API key for Anthropic or OpenAI
 
 * Install
 1. Clone the repository:
@@ -25,7 +27,27 @@
    #+end_src
 
 * Configuration
-** Vanilla Emacs
+** Quick Setup (Recommended)
+Run =M-x ogent-onboard= to interactively configure your LLM provider. This wizard:
+1. Lets you choose between Claude Max/Pro (OAuth) or API key authentication
+2. Guides you through the login process
+3. Configures gptel backends automatically
+
+** Claude Max/Pro OAuth (No API Key Required!)
+If you have a Claude Pro or Claude Max subscription, you can authenticate via OAuth:
+
+#+begin_src emacs-lisp
+(require 'ogent)
+(ogent-anthropic-login)  ; Opens browser, paste the code
+#+end_src
+
+This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
+refreshes them as needed. No API key management required!
+
+To check status: =M-x ogent-anthropic-status=
+To logout: =M-x ogent-anthropic-logout=
+
+** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
 (add-hook 'org-mode-hook #'ogent-mode)
 (setq ogent-default-model "gpt-4o-mini")
