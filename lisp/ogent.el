@@ -1,7 +1,7 @@
 ;;; ogent.el --- AI assistant with Org-mode integration -*- lexical-binding: t; -*-
 
-;; Author: Jake Chvatal
-;; Maintainer: Jake Chvatal
+;; Author: Jake Miller
+;; Maintainer: Jake Miller
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (gptel "0.9") (transient "0.6") (org "9.6"))
 ;; Homepage: https://github.com/jake-87/ogent
