@@ -533,5 +533,112 @@
             (should (= 2 (length (ogent-ui-pending-diffs))))))
       (delete-file test-file))))
 
+;;; Context Diff Tests
+
+(ert-deftest ogent-ui-diff-strings-added ()
+  "Detect added lines in context diff."
+  (let* ((old "line 1\nline 2\nline 3")
+         (new "line 1\nline 2\nline 2.5\nline 3")
+         (diff (ogent-ui--diff-strings old new)))
+    (should diff)
+    (let ((added (seq-find (lambda (d) (eq (plist-get d :type) :added)) diff)))
+      (should added)
+      (should (equal (plist-get added :lines) '("line 2.5")))
+      (should (= (plist-get added :line-number) 3)))))
+
+(ert-deftest ogent-ui-diff-strings-removed ()
+  "Detect removed lines in context diff."
+  (let* ((old "line 1\nline 2\nline 3")
+         (new "line 1\nline 3")
+         (diff (ogent-ui--diff-strings old new)))
+    (should diff)
+    (let ((removed (seq-find (lambda (d) (eq (plist-get d :type) :removed)) diff)))
+      (should removed)
+      (should (equal (plist-get removed :lines) '("line 2")))
+      (should (= (plist-get removed :line-number) 2)))))
+
+(ert-deftest ogent-ui-diff-strings-no-change ()
+  "No diff when strings are identical."
+  (let* ((text "line 1\nline 2\nline 3")
+         (diff (ogent-ui--diff-strings text text)))
+    (should-not diff)))
+
+(ert-deftest ogent-ui-diff-strings-multiple-changes ()
+  "Detect multiple changes in one diff."
+  (let* ((old "line 1\nline 2\nline 3\nline 4")
+         (new "line 1\nline 2 modified\nline 3\nline 5")
+         (diff (ogent-ui--diff-strings old new)))
+    (should diff)
+    ;; Should have both removed and added entries
+    (should (seq-find (lambda (d) (eq (plist-get d :type) :removed)) diff))
+    (should (seq-find (lambda (d) (eq (plist-get d :type) :added)) diff))))
+
+(ert-deftest ogent-ui-apply-diff-overlays ()
+  "Apply diff overlays to buffer."
+  (with-temp-buffer
+    (org-mode)
+    (insert "line 1\nline 2\nline 3\n")
+    (let ((diff '((:type :added :lines ("line 2") :line-number 2))))
+      (ogent-ui--apply-diff-overlays diff)
+      (should ogent-ui--diff-overlays)
+      (should (= 1 (length ogent-ui--diff-overlays)))
+      (let ((ov (car ogent-ui--diff-overlays)))
+        (should (overlay-get ov 'ogent-diff))
+        (should (eq (overlay-get ov 'face) 'ogent-context-diff-added))))))
+
+(ert-deftest ogent-ui-clear-diff-overlays ()
+  "Clear all diff overlays."
+  (with-temp-buffer
+    (org-mode)
+    (insert "line 1\nline 2\nline 3\n")
+    (let ((diff '((:type :added :lines ("line 2") :line-number 2))))
+      (ogent-ui--apply-diff-overlays diff)
+      (should ogent-ui--diff-overlays)
+      (ogent-ui--clear-diff-overlays)
+      (should-not ogent-ui--diff-overlays)
+      ;; Overlays should be deleted from buffer
+      (should-not (seq-find (lambda (ov) (overlay-get ov 'ogent-diff))
+                           (overlays-in (point-min) (point-max)))))))
+
+(ert-deftest ogent-ui-diff-overlays-multiple-lines ()
+  "Apply overlays for multiple consecutive lines."
+  (with-temp-buffer
+    (org-mode)
+    (insert "line 1\nline 2\nline 3\nline 4\n")
+    (let ((diff '((:type :removed :lines ("line 2" "line 3") :line-number 2))))
+      (ogent-ui--apply-diff-overlays diff)
+      (should (= 2 (length ogent-ui--diff-overlays)))
+      (dolist (ov ogent-ui--diff-overlays)
+        (should (eq (overlay-get ov 'face) 'ogent-context-diff-removed))))))
+
+(ert-deftest ogent-ui-context-preview-tracks-previous ()
+  "Context preview stores previous context."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Test\n")
+    (let* ((ogent-context-preview-buffer-name "*test-context*")
+           (buffer (get-buffer-create ogent-context-preview-buffer-name)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (org-mode)
+              (setq ogent-ui--previous-context nil)
+              ;; First update
+              (erase-buffer)
+              (setq ogent-ui--previous-context nil)
+              (insert "Root: test")
+              (setq ogent-ui--previous-context "Root: test")
+              (should (equal ogent-ui--previous-context "Root: test"))
+              ;; Second update with diff
+              (erase-buffer)
+              (let ((previous ogent-ui--previous-context))
+                (insert "Root: modified")
+                (let ((diff (ogent-ui--diff-strings previous "Root: modified")))
+                  (should diff)
+                  (should (seq-find (lambda (d) (eq (plist-get d :type) :removed)) diff))
+                  (should (seq-find (lambda (d) (eq (plist-get d :type) :added)) diff)))
+                (setq ogent-ui--previous-context "Root: modified"))))
+        (kill-buffer buffer)))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

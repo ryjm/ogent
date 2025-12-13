@@ -41,6 +41,11 @@ Each entry can be a live buffer or the name of one."
   :type '(repeat (choice buffer string))
   :group 'ogent)
 
+(defvar ogent-context-excluded-handles nil
+  "List of handle strings to exclude from context building.
+Handles in this list will be filtered out from the :dependencies
+list when building context payloads.")
+
 (cl-defstruct ogent-context-node
   title id level begin end content properties buffer)
 
@@ -226,6 +231,41 @@ Handles special cases like @codemap handles."
             :node node))))
 
 ;;;###autoload
+(defun ogent-context-exclude-handle (handle)
+  "Add HANDLE to the exclusion list.
+Excluded handles will be filtered from context dependencies."
+  (cl-check-type handle string)
+  (cl-pushnew handle ogent-context-excluded-handles :test #'string=))
+
+;;;###autoload
+(defun ogent-context-include-handle (handle)
+  "Remove HANDLE from the exclusion list.
+The handle will be included in future context builds."
+  (cl-check-type handle string)
+  (setq ogent-context-excluded-handles
+        (cl-remove handle ogent-context-excluded-handles :test #'string=)))
+
+;;;###autoload
+(defun ogent-context-toggle-exclusion (handle)
+  "Toggle exclusion status of HANDLE.
+If HANDLE is excluded, include it; if included, exclude it."
+  (cl-check-type handle string)
+  (if (member handle ogent-context-excluded-handles)
+      (ogent-context-include-handle handle)
+    (ogent-context-exclude-handle handle)))
+
+;;;###autoload
+(defun ogent-context-clear-exclusions ()
+  "Clear all handle exclusions.
+All handles will be included in future context builds."
+  (setq ogent-context-excluded-handles nil))
+
+;;;###autoload
+(defun ogent-context-get-exclusions ()
+  "Return the current list of excluded handles."
+  (copy-sequence ogent-context-excluded-handles))
+
+;;;###autoload
 (defun ogent-context-build (&optional point)
   "Build a structured context payload for the subtree at POINT.
 Returns a plist containing :root, :ancestors, :handles, and :dependencies."
@@ -245,6 +285,27 @@ Returns a plist containing :root, :ancestors, :handles, and :dependencies."
           :ancestors ancestors
           :handles handles
           :dependencies dependencies)))
+
+;;;###autoload
+(defun ogent-context-build-filtered (&optional point)
+  "Build context payload with excluded handles filtered out.
+Like `ogent-context-build', but filters dependencies where :handle
+is in `ogent-context-excluded-handles'.
+Returns a plist with :root, :ancestors, :handles, :dependencies,
+and :excluded-handles keys."
+  (let* ((ctx (ogent-context-build point))
+         (all-dependencies (plist-get ctx :dependencies))
+         (filtered-dependencies
+          (cl-remove-if (lambda (dep)
+                          (member (plist-get dep :handle)
+                                  ogent-context-excluded-handles))
+                        all-dependencies))
+         (excluded-handles (copy-sequence ogent-context-excluded-handles)))
+    (list :root (plist-get ctx :root)
+          :ancestors (plist-get ctx :ancestors)
+          :handles (plist-get ctx :handles)
+          :dependencies filtered-dependencies
+          :excluded-handles excluded-handles)))
 
 ;;;###autoload
 (defun ogent-context-build-for-buffer (&optional buffer region-start region-end)
