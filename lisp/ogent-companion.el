@@ -34,6 +34,11 @@ Uses Doom's popup system if available, otherwise a side window."
 In source buffers: points to the Org companion buffer.
 In companion Org buffers: points back to the source buffer.")
 
+(defvar-local ogent-session-buffer-p nil
+  "Non-nil if this buffer is an ogent session buffer.
+Session buffers always append new content at `point-max',
+ignoring the current cursor position.")
+
 (defun ogent-companion--default-buffer-name (source-buffer)
   "Generate default companion buffer name for SOURCE-BUFFER.
 Format: *ogent:<file>* or *ogent:<buffer-name>* for non-file buffers."
@@ -72,6 +77,8 @@ The buffer is created but not displayed.  Returns the companion buffer."
     (with-current-buffer companion
       (unless (derived-mode-p 'org-mode)
         (org-mode))
+      ;; Mark as session buffer for append-at-end behavior
+      (setq-local ogent-session-buffer-p t)
       ;; Initialize with a basic header
       (when (zerop (buffer-size))
         (insert (format "#+title: Ogent Session for %s\n\n"

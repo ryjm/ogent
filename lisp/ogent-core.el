@@ -32,6 +32,11 @@
 (declare-function ogent-debug-tools-menu "ogent-debug")
 (declare-function ogent-notes-capture "ogent-notes")
 
+;; gptel integration
+(declare-function gptel-request "ext:gptel" (prompt &rest args))
+(defvar gptel-model)
+(defvar gptel-stream)
+
 (defgroup ogent-mode nil
   "Customization entries for `ogent-mode'."
   :group 'ogent)
@@ -161,11 +166,16 @@ to maintain conversation history."
               (ogent-ui--setup-highlight-mode)))
           ;; Add completion-at-point function for @handles
           (add-hook 'completion-at-point-functions
-                    #'ogent-context-completion-at-point nil t)))
+                    #'ogent-context-completion-at-point nil t)
+          ;; Add C-c C-c handler for Question headlines
+          (add-hook 'org-ctrl-c-ctrl-c-hook
+                    #'ogent-session--ctrl-c-ctrl-c-handler nil t)))
     ;; Remove on disable
     (when (derived-mode-p 'org-mode)
       (remove-hook 'completion-at-point-functions
-                   #'ogent-context-completion-at-point t))))
+                   #'ogent-context-completion-at-point t)
+      (remove-hook 'org-ctrl-c-ctrl-c-hook
+                   #'ogent-session--ctrl-c-ctrl-c-handler t))))
 
 (defun ogent--maybe-enable ()
   "Enable `ogent-mode' in current buffer.
@@ -399,6 +409,188 @@ With prefix ARG, passed to `org-edit-special' (e.g., for session buffers)."
       (org-edit-special arg)
     ;; Remove hook after use to avoid affecting other org-edit-special calls
     (remove-hook 'org-src-mode-hook #'ogent-open-block--setup-edit-buffer)))
+
+;;; Inline Prompting from Session Buffer
+
+(defun ogent-session--in-question-headline-p ()
+  "Return non-nil if point is at or under a headline titled \"Question\".
+Case-insensitive match."
+  (when (derived-mode-p 'org-mode)
+    (save-excursion
+      ;; Move to the headline containing point
+      (condition-case nil
+          (progn
+            (org-back-to-heading t)
+            (let ((heading-text (org-get-heading t t t t)))
+              (and heading-text
+                   (string-match-p "\\`[Qq]uestion\\'" heading-text))))
+        (error nil)))))
+
+(defun ogent-session--extract-question-content ()
+  "Extract content under the current Question headline.
+Returns the text content as a string, excluding the headline itself."
+  (save-excursion
+    (org-back-to-heading t)
+    (let ((element (org-element-at-point)))
+      (when (eq (org-element-type element) 'headline)
+        (let* ((contents-begin (org-element-property :contents-begin element))
+               (contents-end (org-element-property :contents-end element)))
+          (when (and contents-begin contents-end)
+            (string-trim
+             (buffer-substring-no-properties contents-begin contents-end))))))))
+
+(defun ogent-session--count-response-siblings ()
+  "Count existing Response headlines that are siblings of current headline.
+Returns the number of Response headlines found."
+  (save-excursion
+    (org-back-to-heading t)
+    (let ((level (org-current-level))
+          (count 0))
+      ;; Find the end of the parent subtree (or buffer if at top level)
+      (let ((limit (save-excursion
+                     (if (org-up-heading-safe)
+                         (progn
+                           (org-end-of-subtree t t)
+                           (point))
+                       (point-max)))))
+        ;; Move past the current headline
+        (forward-line 1)
+        ;; Scan forward for siblings at the same level
+        (while (< (point) limit)
+          (when (and (org-at-heading-p)
+                     (= (org-current-level) level))
+            (let ((heading-text (org-get-heading t t t t)))
+              (when (and heading-text
+                         (string-match-p "\\`[Rr]esponse" heading-text))
+                (setq count (1+ count)))))
+          ;; Move to next line
+          (forward-line 1))
+        count))))
+
+(defun ogent-session--has-response-sibling-p ()
+  "Return non-nil if current Question headline has a Response sibling."
+  (> (ogent-session--count-response-siblings) 0))
+
+(defun ogent-session--create-response-headline ()
+  "Create a sibling Response headline after the current Question headline.
+If Response siblings already exist, creates \"Response 2\", \"Response 3\", etc.
+Adds a PROPERTIES drawer with :RESPONSE-INDEX: for tracking.
+Returns the marker pointing to the response location."
+  (save-excursion
+    (org-back-to-heading t)
+    (let ((level (org-current-level))
+          (response-count (ogent-session--count-response-siblings)))
+      ;; Move to end of the Question subtree (and any existing Response siblings)
+      (org-end-of-subtree t t)
+      ;; Skip any existing Response siblings by moving forward while we find them
+      (while (and (not (eobp))
+                  (progn
+                    (forward-line 0)  ; Move to beginning of line
+                    (looking-at org-heading-regexp))
+                  (= (org-current-level) level)
+                  (let ((heading-text (org-get-heading t t t t)))
+                    (and heading-text
+                         (string-match-p "\\`[Rr]esponse" heading-text))))
+        (org-end-of-subtree t t))
+      ;; Now insert the new Response headline
+      (unless (bolp) (insert "\n"))
+      (let ((response-title (if (> response-count 0)
+                                (format "Response %d" (1+ response-count))
+                              "Response"))
+            (response-index (1+ response-count)))
+        (insert (make-string level ?*) " " response-title "\n")
+        ;; Add timestamp and response index property
+        (let ((timestamp (format-time-string "[%Y-%m-%d %a %H:%M]")))
+          (insert ":PROPERTIES:\n")
+          (insert (format ":RESPONSE-INDEX: %d\n" response-index))
+          (insert (format ":CREATED: %s\n" timestamp))
+          (insert ":END:\n"))
+        (copy-marker (point) t)))))
+
+;;;###autoload
+(defun ogent-session-prompt-from-question ()
+  "Prompt from a Question headline in the session buffer.
+Extracts the content under the Question headline as the prompt,
+creates a sibling Response headline, and streams the response there.
+
+If a Response sibling already exists, this creates a new fork of the
+conversation (Response 2, Response 3, etc.), allowing you to edit
+the Question and re-send it to explore different paths.
+
+Each Response headline includes a PROPERTIES drawer with:
+  :RESPONSE-INDEX: - The sequential number of this response
+  :CREATED: - Timestamp when the response was generated
+
+This function is designed to be called via C-c C-c when point is
+in or under a Question headline."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "ogent-session-prompt-from-question only works in Org buffers"))
+  (unless (ogent-session--in-question-headline-p)
+    (user-error "Point is not in a Question headline"))
+  
+  (let ((question-content (ogent-session--extract-question-content)))
+    (when (or (null question-content) (string-empty-p question-content))
+      (user-error "Question headline has no content"))
+    
+    ;; Create Response headline and get marker
+    (let ((response-marker (ogent-session--create-response-headline)))
+      ;; Send the request using gptel
+      (unless (require 'gptel nil 'noerror)
+        (user-error "gptel is required for ogent session prompting. Install gptel first"))
+      
+      (message "Sending question to %s..."
+               (if (and (boundp 'gptel-model) gptel-model)
+                   (if (fboundp 'gptel--model-name)
+                       (gptel--model-name gptel-model)
+                     gptel-model)
+                 "LLM"))
+      
+      ;; Use gptel-request with streaming to the Response headline
+      (gptel-request question-content
+                     :stream (if (boundp 'gptel-stream) gptel-stream t)
+                     :callback (lambda (text info)
+                                 (ogent-session--stream-callback
+                                  text info response-marker))))))
+
+(defun ogent-session--stream-callback (text info marker)
+  "Callback for streaming responses to MARKER.
+TEXT is the chunk of response, INFO contains metadata."
+  (cond
+   ;; Error case
+   ((and (listp info) (plist-get info :error))
+    (when (marker-buffer marker)
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (insert (format "\n#+begin_quote\nError: %s\n#+end_quote\n"
+                          (plist-get info :error))))))
+    (message "Request failed: %s" (plist-get info :error)))
+   
+   ;; Streaming text
+   ((stringp text)
+    (when (and text (> (length text) 0) (marker-buffer marker))
+      (with-current-buffer (marker-buffer marker)
+        (save-excursion
+          (goto-char marker)
+          (insert text)
+          (set-marker marker (point))))))
+   
+   ;; Completion
+   ((or (and (listp info)
+             (or (plist-get info :done)
+                 (plist-get info :final)
+                 (equal (plist-get info :status) "success")))
+        (and (not (stringp text)) (listp info) info))
+    (message "Response complete"))))
+
+(defun ogent-session--ctrl-c-ctrl-c-handler ()
+  "Handler for C-c C-c in ogent session buffers.
+Returns non-nil if we handled the key, nil to fall through to other handlers."
+  (when (and (derived-mode-p 'org-mode)
+             (ogent-session--in-question-headline-p))
+    (ogent-session-prompt-from-question)
+    t))  ; Signal that we handled it
 
 (provide 'ogent-core)
 

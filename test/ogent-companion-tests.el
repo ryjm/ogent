@@ -259,5 +259,49 @@
       (kill-buffer org-buffer)
       (kill-buffer text-buffer))))
 
+(ert-deftest ogent-companion-marks-session-buffer ()
+  "Companion buffers are marked as session buffers."
+  (let ((text-buffer (get-buffer-create "*test-session*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            (with-current-buffer companion
+              (should ogent-session-buffer-p))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-companion-session-buffer-append-behavior ()
+  "Session buffers should support append-at-end insertion.
+This test verifies the buffer-local variable is set correctly,
+but doesn't test actual insertion behavior (that's in UI tests)."
+  (let ((text-buffer (get-buffer-create "*test-append*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            (with-current-buffer companion
+              ;; Verify it's marked as a session buffer
+              (should ogent-session-buffer-p)
+              ;; Move to beginning
+              (goto-char (point-min))
+              ;; Position should be ignored by UI code when inserting
+              ;; (actual insertion tested in ogent-ui-tests.el)
+              (should (= (point) (point-min))))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-companion-regular-org-not-session ()
+  "Regular Org buffers should not be marked as session buffers."
+  (let ((org-buffer (get-buffer-create "*test-regular-org*")))
+    (unwind-protect
+        (with-current-buffer org-buffer
+          (org-mode)
+          ;; Regular org buffers shouldn't have the flag
+          (should-not ogent-session-buffer-p)
+          ;; Getting companion for an org buffer returns itself
+          (should (eq (ogent-companion-get-or-create org-buffer) org-buffer)))
+      (kill-buffer org-buffer))))
+
 (provide 'ogent-companion-tests)
 ;;; ogent-companion-tests.el ends here
