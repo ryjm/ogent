@@ -913,7 +913,7 @@ WINDOW defaults to the selected window."
   "Append CHUNK to REQUEST's response block.
 If `ogent-auto-scroll' is enabled and the user hasn't scrolled away,
 automatically scroll the window to show new content."
-  (when (and chunk (> (length chunk) 0))
+  (when (and (stringp chunk) (> (length chunk) 0))
     (let ((marker (ogent-ui-request-marker request)))
       (when (and marker (marker-buffer marker))
         (with-current-buffer (ogent-ui-request-buffer request)
@@ -1048,10 +1048,11 @@ Handles both regular text responses and tool call responses."
         (when (and (listp info) (plist-get info :tool-use))
           (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
         ;; Update status based on what we're receiving
-        (when (and text (> (length text) 0))
+        ;; Note: gptel may pass t instead of a string in some cases
+        (when (and (stringp text) (> (length text) 0))
           (unless (eq (ogent-ui-request-status request) 'type)
-            (ogent-ui--update-status request 'type)))
-        (ogent-ui--append-response request text)
+            (ogent-ui--update-status request 'type))
+          (ogent-ui--append-response request text))
         (cond
          ((and (listp info) (plist-get info :error))
           (ogent-ui--close-response request (plist-get info :error)))
