@@ -30,6 +30,7 @@
 (declare-function ogent-edit-goto-source "ogent-edit-display")
 (declare-function ogent-edit-goto-companion "ogent-edit-display")
 (declare-function ogent-debug-tools-menu "ogent-debug")
+(declare-function ogent-notes-capture "ogent-notes")
 
 (defgroup ogent-mode nil
   "Customization entries for `ogent-mode'."
@@ -135,6 +136,8 @@ Adds :validation-warnings to context as a side effect."
     (define-key map (kbd "C-c . ?") #'ogent-ask)
     ;; Open block
     (define-key map (kbd "C-c . o") #'ogent-open-block)
+    ;; Notes capture
+    (define-key map (kbd "C-c . d") #'ogent-notes-capture)
     map)
   "Keymap for `ogent-mode'.")
 
