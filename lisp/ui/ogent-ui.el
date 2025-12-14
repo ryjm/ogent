@@ -14,6 +14,7 @@
 (require 'ogent-codemap)
 (require 'ogent-models)
 (require 'ogent-companion)
+(require 'ogent-ui-status)
 
 ;; Forward declarations for source context
 (declare-function ogent-context-build-with-source "ogent-context")
@@ -49,6 +50,15 @@
 This adds a system directive to requests when the target buffer
 is in Org-mode, ensuring code blocks use #+begin_src syntax,
 headings use * instead of #, etc."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defcustom ogent-auto-scroll t
+  "When non-nil, auto-scroll window to follow streaming responses.
+During a streaming response, the window will scroll to show new content
+as it arrives. Auto-scroll stops if the user manually scrolls away from
+the bottom, and resumes when they scroll back to the bottom or when a
+new request starts."
   :type 'boolean
   :group 'ogent-mode)
 
@@ -192,6 +202,23 @@ If ARGS is non-nil, creates a pattern matching those specific args."
 
 (defvar-local ogent--set-buffer-locally nil
   "When non-nil, set model parameters buffer-locally.")
+
+(defvar-local ogent--auto-scroll-enabled nil
+  "Buffer-local flag tracking if auto-scroll is active for current request.
+Set to t when a new request starts (if `ogent-auto-scroll' is enabled).
+Set to nil when user scrolls away from bottom.
+Re-enabled when user scrolls back to bottom.")
+
+(defun ogent-ui--auto-scroll-post-command ()
+  "Post-command hook to re-enable auto-scroll when user scrolls to bottom.
+Only runs when auto-scroll is globally enabled but locally disabled,
+and there's an active request."
+  (when (and ogent-auto-scroll
+             (not ogent--auto-scroll-enabled)
+             (ogent-ui-active-requests))
+    ;; User might have scrolled back to bottom - check and re-enable
+    (when (ogent-ui--at-window-bottom-p)
+      (setq ogent--auto-scroll-enabled t))))
 
 (defun ogent--set-with-scope (sym value &optional scope)
   "Set SYM to VALUE, buffer-locally if SCOPE is non-nil."
@@ -778,19 +805,32 @@ exist before `ogent-request' dispatches."
   (format "ogent-request-%d" ogent-ui--request-seq))
 
 (defun ogent-ui--create-response-block (prompt context model)
-  "Insert a prompt/context src block and response area for MODEL.
-The src block contains only prompt and context; the response streams
-outside the block to avoid nested code block issues.
+  "Insert a nested headline structure for a request with MODEL.
+Creates a top-level '* Request: <truncated prompt>' headline containing
+the prompt/context src block and a nested '** Response' sub-headline
+where streamed content goes. This mimics Claude Code's conversation
+structure using org-mode idioms.
 Returns a plist containing a streaming marker and block-start marker."
-  (org-back-to-heading t)
-  (org-end-of-subtree t t)
-  (unless (bolp) (insert "\n"))
+  ;; Always append at end for session buffers, otherwise use current position
+  (if ogent-session-buffer-p
+      (progn
+        (goto-char (point-max))
+        (unless (bolp) (insert "\n")))
+    (org-back-to-heading t)
+    (org-end-of-subtree t t)
+    (unless (bolp) (insert "\n")))
   (let* ((model-id (plist-get model :id))
          (backend (plist-get model :backend))
          (summary (ogent-ui--format-context context))
+         ;; Truncate prompt for headline (max 60 chars)
+         (prompt-summary (truncate-string-to-width prompt 60 nil nil "..."))
+         request-heading-pos
          block-start
          response-heading-pos)
-    ;; Insert the prompt/context src block (closed immediately)
+    ;; Insert top-level request headline
+    (setq request-heading-pos (point-marker))
+    (insert (format "* Request: %s\n" prompt-summary))
+    ;; Insert the prompt/context src block under the request headline
     (setq block-start (point-marker))
     (insert (format "#+begin_src text :model %s%s :status waiting\n"
                     model-id
@@ -806,19 +846,28 @@ Returns a plist containing a streaming marker and block-start marker."
       (when (and (derived-mode-p 'org-mode)
                  (fboundp 'org-fold-hide-block-toggle))
         (org-fold-hide-block-toggle 'hide)))
-    ;; Response streams after the closed block
+    ;; Insert nested Response sub-headline where streaming happens
     (setq response-heading-pos (point))
     (insert "** Response\n")
     (let ((marker (copy-marker (point) t)))
       (list :marker marker
             :block-start block-start
-            :response-pos response-heading-pos))))
+            :response-pos response-heading-pos
+            :request-heading-pos request-heading-pos))))
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
   (setf (ogent-ui-request-start-time request) (current-time))
   (setf (ogent-ui-request-status request) 'wait)
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
+  ;; Create margin indicator
+  (when (fboundp 'ogent-status-set-request)
+    (ogent-status-set-request request))
+  ;; Enable auto-scroll for new requests if configured
+  (with-current-buffer (ogent-ui-request-buffer request)
+    (setq ogent--auto-scroll-enabled ogent-auto-scroll)
+    ;; Add post-command hook to detect when user scrolls back to bottom
+    (add-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command nil t))
   request)
 
 (defun ogent-ui-prepare-response-block (prompt context model)
@@ -834,14 +883,36 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :marker (plist-get block :marker)
                    :block-start (plist-get block :block-start)
                    :response-pos (plist-get block :response-pos))))
+    ;; Note: :request-heading-pos is available in block but not stored in struct
+    ;; as it's not needed for current functionality
     (ogent-ui-register-request request)))
 
 (when (and (boundp 'ogent-response-function)
            (eq ogent-response-function #'ogent-ui-insert-response-block))
   (setq ogent-response-function #'ogent-ui-prepare-response-block))
 
+(defun ogent-ui--at-window-bottom-p (&optional window)
+  "Return non-nil if WINDOW is scrolled to show the bottom.
+WINDOW defaults to the selected window. This checks if `window-end'
+is at or near `point-max', allowing for a small margin."
+  (let ((win (or window (selected-window))))
+    (when (window-live-p win)
+      (with-selected-window win
+        (>= (window-end win t) (- (point-max) 10))))))
+
+(defun ogent-ui--scroll-to-bottom (&optional window)
+  "Scroll WINDOW to show the bottom of the buffer.
+WINDOW defaults to the selected window."
+  (let ((win (or window (selected-window))))
+    (when (window-live-p win)
+      (with-selected-window win
+        (goto-char (point-max))
+        (recenter -1)))))
+
 (defun ogent-ui--append-response (request chunk)
-  "Append CHUNK to REQUEST's response block."
+  "Append CHUNK to REQUEST's response block.
+If `ogent-auto-scroll' is enabled and the user hasn't scrolled away,
+automatically scroll the window to show new content."
   (when (and chunk (> (length chunk) 0))
     (let ((marker (ogent-ui-request-marker request)))
       (when (and marker (marker-buffer marker))
@@ -849,7 +920,18 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
           (save-excursion
             (goto-char marker)
             (insert chunk)
-            (set-marker marker (point))))))))
+            (set-marker marker (point)))
+          ;; Auto-scroll if enabled and we're tracking this request
+          (when (and ogent-auto-scroll
+                     ogent--auto-scroll-enabled)
+            (let ((window (get-buffer-window (current-buffer))))
+              (when window
+                ;; Check if user scrolled away - if so, disable auto-scroll
+                (if (ogent-ui--at-window-bottom-p window)
+                    (ogent-ui--scroll-to-bottom window)
+                  ;; User scrolled away, disable auto-scroll for this request
+                  (setq ogent--auto-scroll-enabled nil))))))))))
+
 
 (defun ogent-ui--insert-error-block (request message)
   "Insert an error block for REQUEST containing MESSAGE."
@@ -868,7 +950,10 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
   (setf (ogent-ui-request-status request) new-status)
   (when (eq new-status 'done)
     (setf (ogent-ui-request-end-time request) (current-time)))
-  (ogent-ui--update-block-header request))
+  (ogent-ui--update-block-header request)
+  ;; Update margin indicator
+  (when (fboundp 'ogent-status-update-indicator)
+    (ogent-status-update-indicator request new-status)))
 
 (defun ogent-ui--format-latency (request)
   "Return a formatted latency string for REQUEST, or nil if incomplete."
@@ -941,6 +1026,16 @@ The src block is already closed; this just updates status and folds."
       (setq ogent-ui--request-history
             (seq-take ogent-ui--request-history ogent-ui-request-history-max))))
   (remhash (ogent-ui-request-id request) ogent-ui--request-table)
+  ;; Clean up auto-scroll hook if no more active requests in buffer
+  (with-current-buffer (ogent-ui-request-buffer request)
+    (unless (cl-some (lambda (r)
+                       (eq (ogent-ui-request-buffer r)
+                           (current-buffer)))
+                     (ogent-ui-active-requests))
+      (remove-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command t)))
+  ;; Clean up margin indicator (after a delay to keep it visible briefly)
+  (when (fboundp 'ogent-status-clear-request)
+    (run-with-timer 2.0 nil #'ogent-status-clear-request request))
   (run-hook-with-args 'ogent-after-request-hook (ogent-ui-request-context request)))
 
 (defun ogent-ui--make-callback (request-id)

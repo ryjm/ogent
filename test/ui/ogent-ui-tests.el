@@ -4,6 +4,7 @@
 (require 'ogent-ui)
 (require 'ogent-context)
 (require 'ogent-tools)
+(require 'cl-lib)
 
 (ert-deftest ogent-ui-format-context-includes-missing ()
   "Format string contains handles and missing metadata."
@@ -18,7 +19,7 @@
        (should (string-match-p "missing-note (missing)" summary))))))
 
 (ert-deftest ogent-request-streams-via-gptel ()
-  "ogent-request uses gptel and streams response outside the src block."
+  "ogent-request uses gptel and streams response with nested headline structure."
   (ogent-test-with-fixture "data/fixture.org"
    (lambda ()
      (goto-char (point-min))
@@ -43,12 +44,43 @@
          (should (equal (plist-get captured :model) "gpt-4o-mini"))
          (save-excursion
            (goto-char (point-min))
-           ;; The src block should be closed before the response
+           ;; Should have top-level Request headline with truncated prompt
+           (search-forward "* Request: Test prompt")
+           ;; The src block should be under the Request headline
            (search-forward "#+begin_src text :model gpt-4o-mini")
            (search-forward "#+end_src")
-           ;; Response streams after the src block under ** Response heading
+           ;; Response streams under nested ** Response sub-headline
            (search-forward "** Response")
            (search-forward "Hello world")))))))
+
+(ert-deftest ogent-ui-nested-headline-structure ()
+  "Verify nested headline structure: * Request -> src block -> ** Response."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    (when-let ((callback (plist-get args :callback)))
+                      (funcall callback "Response text" nil)
+                      (funcall callback nil '(:done t)))
+                    'mock-request)))
+         (ogent-request "This is a longer test prompt that should be truncated in the headline" 
+                        '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; Top-level Request headline with truncated prompt (max 60 chars)
+           (should (search-forward "* Request: This is a longer test prompt that should be truncated in ..." nil t))
+           ;; Src block should be directly under Request headline (level 1)
+           (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
+           (should (search-forward "Prompt:" nil t))
+           (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
+           (should (search-forward "#+end_src" nil t))
+           ;; Response should be a level 2 heading (nested under Request)
+           (should (search-forward "** Response" nil t))
+           (should (search-forward "Response text" nil t))))))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
   "ogent-ui--ensure-gptel requires gptel plus declared backend features."
@@ -805,6 +837,170 @@
       ;; Cleanup
       (when-let ((buf (get-buffer ogent-errors-buffer-name)))
         (kill-buffer buf)))))
+
+(ert-deftest ogent-ui-session-buffer-appends-at-end ()
+  "Session buffers always append new requests at point-max."
+  (let ((text-buffer (get-buffer-create "*test-append-end*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            (with-current-buffer companion
+              ;; Verify it's marked as session buffer
+              (should ogent-session-buffer-p)
+              ;; Add initial content
+              (goto-char (point-max))
+              (insert "* First Request\n** Response\nFirst response here\n\n")
+              (let ((first-request-pos (save-excursion
+                                         (goto-char (point-min))
+                                         (search-forward "* First Request")
+                                         (line-beginning-position))))
+                ;; Move point to beginning (simulating user scrolling up)
+                (goto-char (point-min))
+                (should (= (point) (point-min)))
+                ;; Create a new response block
+                (let* ((model '(:id "test-model" :backend gptel-openai))
+                       (block (ogent-ui--create-response-block
+                               "Second request" '() model)))
+                  ;; New content should be at end, after First Request
+                  (goto-char (point-min))
+                  (search-forward "* First Request")
+                  (should (search-forward "* Request: Second request"))
+                  ;; Verify First Request position hasn't changed
+                  (goto-char (point-min))
+                  (search-forward "* First Request")
+                  (should (= (line-beginning-position) first-request-pos)))))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-ui-session-buffer-appends-regardless-of-point ()
+  "New requests append at end even when point is in middle of buffer."
+  (let ((text-buffer (get-buffer-create "*test-append-middle*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            (with-current-buffer companion
+              (should ogent-session-buffer-p)
+              ;; Add multiple requests
+              (goto-char (point-max))
+              (insert "* Request 1\n** Response\nResponse 1\n\n")
+              (insert "* Request 2\n** Response\nResponse 2\n\n")
+              ;; Position in the middle
+              (goto-char (point-min))
+              (search-forward "Request 1")
+              (let ((middle-point (point)))
+                ;; Create new request (point is in middle)
+                (let* ((model '(:id "test-model"))
+                       (block (ogent-ui--create-response-block
+                               "Request 3" '() model)))
+                  ;; Should be at end, after Request 2
+                  (goto-char (point-min))
+                  (search-forward "* Request 1")
+                  (search-forward "* Request 2")
+                  (should (search-forward "* Request: Request 3"))
+                  ;; Middle content position should be unchanged
+                  (goto-char (point-min))
+                  (search-forward "Request 1")
+                  (should (= (point) middle-point)))))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-ui-regular-org-respects-current-position ()
+  "Regular Org buffers (non-session) use current heading position."
+  (ogent-test-with-fixture "data/fixture.org"
+    (lambda ()
+      ;; Regular org file should not be marked as session buffer
+      (should-not ogent-session-buffer-p)
+      ;; Find a specific heading
+      (goto-char (point-min))
+      (search-forward "Root Overview")
+      (org-back-to-heading t)
+      (let ((start-pos (point)))
+        ;; Create response block
+        (let* ((model '(:id "test-model"))
+               (block (ogent-ui--create-response-block
+                       "Test at heading" '() model)))
+          ;; Should insert after current subtree (Root Overview + children)
+          ;; Verify it comes after Deep Note (end of subtree)
+          (goto-char start-pos)
+          (should (search-forward "Deep Note"))
+          (should (search-forward "* Request: Test at heading"))
+          ;; But before Appendix Note (next top-level heading)
+          (should (search-forward "* Appendix Note")))))))
+
+(ert-deftest ogent-ui-session-buffer-multiple-requests ()
+  "Session buffer correctly handles multiple sequential requests."
+  (let ((text-buffer (get-buffer-create "*test-multi-append*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            (with-current-buffer companion
+              (should ogent-session-buffer-p)
+              ;; Create multiple requests from different cursor positions
+              (goto-char (point-min))
+              (let* ((model '(:id "test-model"))
+                     (block1 (ogent-ui--create-response-block "First" '() model)))
+                (goto-char (point-min))  ; Reset to top
+                (let ((block2 (ogent-ui--create-response-block "Second" '() model)))
+                  (goto-char (1+ (point-min)))  ; Some random position
+                  (let ((block3 (ogent-ui--create-response-block "Third" '() model)))
+                    ;; All should be in order at end (after * Session heading)
+                    (goto-char (point-min))
+                    (search-forward "* Session")
+                    (should (search-forward "* Request: First"))
+                    (should (search-forward "* Request: Second"))
+                    (should (search-forward "* Request: Third"))
+                    ;; No more requests after Third
+                    (should-not (search-forward "* Request:" nil t))))))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-ui-auto-scroll-enabled-on-request ()
+  "Auto-scroll is enabled when a new request starts."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-auto-scroll t)
+           (ogent-ui--selected-models '("gpt-4o-mini")))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    ;; Verify auto-scroll was enabled when request registered
+                    (should ogent--auto-scroll-enabled)
+                    (when-let ((callback (plist-get args :callback)))
+                      (funcall callback "Test" nil)
+                      (funcall callback nil '(:done t)))
+                    'mock-request)))
+         (ogent-request "Test prompt" '("gpt-4o-mini")))))))
+
+(ert-deftest ogent-ui-auto-scroll-respects-global-disable ()
+  "Auto-scroll is not enabled when globally disabled."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-auto-scroll nil)
+           (ogent-ui--selected-models '("gpt-4o-mini")))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    ;; Verify auto-scroll was NOT enabled
+                    (should-not ogent--auto-scroll-enabled)
+                    (when-let ((callback (plist-get args :callback)))
+                      (funcall callback "Test" nil)
+                      (funcall callback nil '(:done t)))
+                    'mock-request)))
+         (ogent-request "Test prompt" '("gpt-4o-mini")))))))
+
+(ert-deftest ogent-ui-at-window-bottom-p-detects-position ()
+  "ogent-ui--at-window-bottom-p correctly detects if at bottom."
+  (with-temp-buffer
+    (insert "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
+    (goto-char (point-max))
+    (should (ogent-ui--at-window-bottom-p))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

@@ -454,5 +454,359 @@
       (ogent-open-block--setup-edit-buffer)
       (should ogent-mode))))
 
+;;; Inline Prompting Tests
+
+(ert-deftest ogent-session--in-question-headline-p-detects-question ()
+  "ogent-session--in-question-headline-p should detect Question headlines."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nSome content here")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should (ogent-session--in-question-headline-p))))
+
+(ert-deftest ogent-session--in-question-headline-p-case-insensitive ()
+  "ogent-session--in-question-headline-p should be case-insensitive."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* question\nContent")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should (ogent-session--in-question-headline-p))
+    (erase-buffer)
+    (insert "* QUESTION\nContent")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should (ogent-session--in-question-headline-p))))
+
+(ert-deftest ogent-session--in-question-headline-p-exact-match ()
+  "ogent-session--in-question-headline-p should require exact match."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question Mark\nContent")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-not (ogent-session--in-question-headline-p))
+    (erase-buffer)
+    (insert "* A Question\nContent")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-not (ogent-session--in-question-headline-p))))
+
+(ert-deftest ogent-session--in-question-headline-p-in-subtree ()
+  "ogent-session--in-question-headline-p should work from within subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nSome content\n** Subheading\nMore content")
+    (goto-char (point-min))
+    (search-forward "Some content")
+    (should (ogent-session--in-question-headline-p))
+    ;; But not from a different headline
+    (goto-char (point-min))
+    (search-forward "Subheading")
+    (should-not (ogent-session--in-question-headline-p))))
+
+(ert-deftest ogent-session--extract-question-content-returns-text ()
+  "ogent-session--extract-question-content should extract headline content."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat is the meaning of life?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (let ((content (ogent-session--extract-question-content)))
+      (should (stringp content))
+      (should (string-match-p "meaning of life" content)))))
+
+(ert-deftest ogent-session--extract-question-content-trims-whitespace ()
+  "ogent-session--extract-question-content should trim whitespace."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\n\n  What is this?  \n\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (let ((content (ogent-session--extract-question-content)))
+      (should (equal content "What is this?")))))
+
+(ert-deftest ogent-session--extract-question-content-handles-multiline ()
+  "ogent-session--extract-question-content should handle multiline content."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nLine 1\nLine 2\nLine 3\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (let ((content (ogent-session--extract-question-content)))
+      (should (string-match-p "Line 1" content))
+      (should (string-match-p "Line 2" content))
+      (should (string-match-p "Line 3" content)))))
+
+(ert-deftest ogent-session--create-response-headline-creates-sibling ()
+  "ogent-session--create-response-headline should create sibling headline."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nContent\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward "* Response" nil t))))
+
+(ert-deftest ogent-session--create-response-headline-matches-level ()
+  "ogent-session--create-response-headline should match Question level."
+  (with-temp-buffer
+    (org-mode)
+    (insert "** Question\nContent\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward "** Response" nil t))))
+
+(ert-deftest ogent-session--create-response-headline-returns-marker ()
+  "ogent-session--create-response-headline should return a marker."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nContent\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (let ((marker (ogent-session--create-response-headline)))
+      (should (markerp marker))
+      (should (marker-buffer marker)))))
+
+(ert-deftest ogent-session-prompt-from-question-requires-org-mode ()
+  "ogent-session-prompt-from-question should require Org mode."
+  (with-temp-buffer
+    (fundamental-mode)
+    (should-error (ogent-session-prompt-from-question)
+                  :type 'user-error)))
+
+(ert-deftest ogent-session-prompt-from-question-requires-question-headline ()
+  "ogent-session-prompt-from-question should require Question headline."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Not a Question\nContent\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-error (ogent-session-prompt-from-question)
+                  :type 'user-error)))
+
+(ert-deftest ogent-session-prompt-from-question-requires-content ()
+  "ogent-session-prompt-from-question should require non-empty content."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\n\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-error (ogent-session-prompt-from-question)
+                  :type 'user-error)))
+
+(ert-deftest ogent-session--ctrl-c-ctrl-c-handler-returns-t-in-question ()
+  "ogent-session--ctrl-c-ctrl-c-handler should return t in Question headline."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat is this?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    ;; Mock the actual prompt function to avoid gptel dependency
+    (cl-letf (((symbol-function 'ogent-session-prompt-from-question)
+               (lambda () t)))
+      (should (ogent-session--ctrl-c-ctrl-c-handler)))))
+
+(ert-deftest ogent-session--ctrl-c-ctrl-c-handler-returns-nil-elsewhere ()
+  "ogent-session--ctrl-c-ctrl-c-handler should return nil outside Question."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Other Headline\nContent\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-not (ogent-session--ctrl-c-ctrl-c-handler))))
+
+(ert-deftest ogent-mode-adds-ctrl-c-ctrl-c-hook-in-org ()
+  "ogent-mode should add org-ctrl-c-ctrl-c-hook in Org buffers."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-mode 1)
+    (should (memq 'ogent-session--ctrl-c-ctrl-c-handler
+                  org-ctrl-c-ctrl-c-hook))
+    (ogent-mode -1)
+    (should-not (memq 'ogent-session--ctrl-c-ctrl-c-handler
+                      org-ctrl-c-ctrl-c-hook))))
+
+;;; Edit and Re-send Tests
+
+(ert-deftest ogent-session--count-response-siblings-returns-zero-initially ()
+  "ogent-session--count-response-siblings should return 0 with no Response."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat is this?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should (= 0 (ogent-session--count-response-siblings)))))
+
+(ert-deftest ogent-session--count-response-siblings-counts-one ()
+  "ogent-session--count-response-siblings should count single Response."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat is this?\n* Response\nIt is a thing.\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (should (= 1 (ogent-session--count-response-siblings)))))
+
+(ert-deftest ogent-session--count-response-siblings-counts-multiple ()
+  "ogent-session--count-response-siblings should count multiple Responses."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n* Response\nAnswer 1\n* Response 2\nAnswer 2\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (should (= 2 (ogent-session--count-response-siblings)))))
+
+(ert-deftest ogent-session--count-response-siblings-ignores-nested ()
+  "ogent-session--count-response-siblings should ignore nested headlines."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n** Nested Response\nShould not count\n* Response\nShould count\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (should (= 1 (ogent-session--count-response-siblings)))))
+
+(ert-deftest ogent-session--has-response-sibling-p-detects-existing ()
+  "ogent-session--has-response-sibling-p should detect existing Response."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n* Response\nAnswer\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (should (ogent-session--has-response-sibling-p))))
+
+(ert-deftest ogent-session--has-response-sibling-p-returns-nil-initially ()
+  "ogent-session--has-response-sibling-p should return nil with no Response."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat is this?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (should-not (ogent-session--has-response-sibling-p))))
+
+(ert-deftest ogent-session--create-response-headline-creates-response-2 ()
+  "ogent-session--create-response-headline should create Response 2 when one exists."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n* Response\nFirst answer\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward "* Response 2" nil t))))
+
+(ert-deftest ogent-session--create-response-headline-creates-response-3 ()
+  "ogent-session--create-response-headline should create Response 3 when two exist."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n* Response\nFirst\n* Response 2\nSecond\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward "* Response 3" nil t))))
+
+(ert-deftest ogent-session--create-response-headline-adds-properties ()
+  "ogent-session--create-response-headline should add PROPERTIES drawer."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward ":PROPERTIES:" nil t))
+    (should (search-forward ":RESPONSE-INDEX:" nil t))
+    (should (search-forward ":CREATED:" nil t))
+    (should (search-forward ":END:" nil t))))
+
+(ert-deftest ogent-session--create-response-headline-sets-correct-index ()
+  "ogent-session--create-response-headline should set correct RESPONSE-INDEX."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n* Response\nFirst\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (search-forward "* Response 2")
+    (should (string= "2" (org-entry-get (point) "RESPONSE-INDEX")))))
+
+(ert-deftest ogent-session--create-response-headline-index-1-for-first ()
+  "ogent-session--create-response-headline should set index 1 for first Response."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (search-forward "* Response")
+    (should (string= "1" (org-entry-get (point) "RESPONSE-INDEX")))))
+
+(ert-deftest ogent-session--create-response-headline-adds-timestamp ()
+  "ogent-session--create-response-headline should add CREATED timestamp."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nWhat?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (search-forward "* Response")
+    (let ((timestamp (org-entry-get (point) "CREATED")))
+      (should timestamp)
+      (should (string-match-p "\\[20[0-9][0-9]-[0-9][0-9]-[0-9][0-9]" timestamp)))))
+
+(ert-deftest ogent-session--create-response-headline-at-different-levels ()
+  "ogent-session--create-response-headline should work at different levels."
+  (with-temp-buffer
+    (org-mode)
+    (insert "*** Question\nWhat?\n")
+    (goto-char (point-min))
+    (org-next-visible-heading 1)
+    (ogent-session--create-response-headline)
+    (goto-char (point-min))
+    (should (search-forward "*** Response" nil t))))
+
+(ert-deftest ogent-session-edit-workflow-integration ()
+  "Integration test: edit Question and create fork."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Question\nOriginal question\n")
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    
+    ;; First response
+    (let ((marker1 (ogent-session--create-response-headline)))
+      (should (markerp marker1))
+      (goto-char marker1)
+      (insert "First answer\n"))
+    
+    ;; User edits the Question
+    (goto-char (point-min))
+    (search-forward "Original")
+    (replace-match "Edited")
+    
+    ;; Second response (fork)
+    (goto-char (point-min))
+    (forward-line 1)  ; Move into Question content
+    (let ((marker2 (ogent-session--create-response-headline)))
+      (should (markerp marker2))
+      (goto-char marker2)
+      (insert "Second answer\n"))
+    
+    ;; Verify structure
+    (goto-char (point-min))
+    (should (search-forward "* Question" nil t))
+    (should (search-forward "Edited question" nil t))
+    (should (search-forward "* Response" nil t))
+    (should (search-forward "First answer" nil t))
+    (should (search-forward "* Response 2" nil t))
+    (should (search-forward "Second answer" nil t))))
+
 (provide 'ogent-core-tests)
 ;;; ogent-core-tests.el ends here

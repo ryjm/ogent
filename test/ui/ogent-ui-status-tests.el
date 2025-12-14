@@ -1,8 +1,9 @@
-;;; ogent-ui-status-tests.el --- Tests for header-line status indicator -*- lexical-binding: t; -*-
+;;; ogent-ui-status-tests.el --- Tests for status indicators (header-line + margin) -*- lexical-binding: t; -*-
 
 (require 'ogent-test-helper)
 (require 'ogent-ui)
 (require 'ogent-ui-status)
+(require 'org)
 
 (ert-deftest ogent-status-icons-mapping ()
   "Status symbols map to correct icons."
@@ -159,6 +160,162 @@
       ;; Clean up
       (ogent-status-clear-request)
       (ogent-status-mode -1))))
+
+;;; Margin Indicator Tests
+
+(ert-deftest ogent-status-margin-icon-static ()
+  "Static margin icons return correct strings."
+  (should (equal (ogent-status--get-margin-icon 'waiting) "○"))
+  (should (equal (ogent-status--get-margin-icon 'done) "✓"))
+  (should (equal (ogent-status--get-margin-icon 'error) "✗")))
+
+(ert-deftest ogent-status-margin-icon-animated ()
+  "Animated streaming icon cycles through frames."
+  (should (equal (ogent-status--get-margin-icon 'streaming 0) "◐"))
+  (should (equal (ogent-status--get-margin-icon 'streaming 1) "◑"))
+  (should (equal (ogent-status--get-margin-icon 'streaming 2) "◒"))
+  (should (equal (ogent-status--get-margin-icon 'streaming 3) "◓"))
+  ;; Should wrap around
+  (should (equal (ogent-status--get-margin-icon 'streaming 4) "◐")))
+
+(ert-deftest ogent-status-find-request-headline ()
+  "Finding request headline from response marker."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: test prompt\n")
+    (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
+    (insert "** Response\n")
+    (let ((response-marker (point-marker)))
+      (insert "Response content here\n")
+      (should (equal (ogent-status--find-request-headline response-marker)
+                     (save-excursion
+                       (goto-char (point-min))
+                       (point)))))))
+
+(ert-deftest ogent-status-create-margin-overlay ()
+  "Creating margin overlay for a request."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-status-mode 1)
+    (insert "* Request: test prompt\n")
+    (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
+    (insert "** Response\n")
+    (let* ((response-marker (point-marker))
+           (model (list :id "test-model"))
+           (request (make-ogent-ui-request
+                     :id "test-margin-1"
+                     :model model
+                     :buffer (current-buffer)
+                     :marker response-marker
+                     :status 'wait
+                     :start-time (current-time)))
+           (overlay-info (ogent-status--create-margin-overlay request)))
+      (should overlay-info)
+      (should (plist-get overlay-info :overlay))
+      (should (overlayp (plist-get overlay-info :overlay)))
+      (should (equal (plist-get overlay-info :animation-frame) 0))
+      ;; Clean up
+      (ogent-status--remove-margin-overlay overlay-info)
+      (ogent-status-mode -1))))
+
+(ert-deftest ogent-status-update-margin-overlay ()
+  "Updating margin overlay changes the icon."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-status-mode 1)
+    (insert "* Request: test prompt\n")
+    (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
+    (insert "** Response\n")
+    (let* ((response-marker (point-marker))
+           (model (list :id "test-model"))
+           (request (make-ogent-ui-request
+                     :id "test-margin-2"
+                     :model model
+                     :buffer (current-buffer)
+                     :marker response-marker
+                     :status 'wait
+                     :start-time (current-time)))
+           (overlay-info (ogent-status--create-margin-overlay request)))
+      ;; Update to streaming
+      (ogent-status--update-margin-overlay overlay-info 'type)
+      (should (plist-get overlay-info :overlay))
+      ;; Update to done
+      (ogent-status--update-margin-overlay overlay-info 'done)
+      (should (plist-get overlay-info :overlay))
+      ;; Clean up
+      (ogent-status--remove-margin-overlay overlay-info)
+      (ogent-status-mode -1))))
+
+(ert-deftest ogent-status-animation-lifecycle ()
+  "Animation starts and stops correctly."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-status-mode 1)
+    (insert "* Request: test prompt\n")
+    (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
+    (insert "** Response\n")
+    (let* ((response-marker (point-marker))
+           (model (list :id "test-model"))
+           (request (make-ogent-ui-request
+                     :id "test-margin-3"
+                     :model model
+                     :buffer (current-buffer)
+                     :marker response-marker
+                     :status 'wait
+                     :start-time (current-time)))
+           (overlay-info (ogent-status--create-margin-overlay request)))
+      ;; Start animation
+      (ogent-status--start-animation overlay-info)
+      (should (plist-get overlay-info :animation-timer))
+      ;; Stop animation
+      (ogent-status--stop-animation overlay-info)
+      (should-not (plist-get overlay-info :animation-timer))
+      ;; Clean up
+      (ogent-status--remove-margin-overlay overlay-info)
+      (ogent-status-mode -1))))
+
+(ert-deftest ogent-status-indicator-integration ()
+  "Full integration: set, update, clear."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-status-mode 1)
+    (insert "* Request: test prompt\n")
+    (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
+    (insert "** Response\n")
+    (let* ((response-marker (point-marker))
+           (model (list :id "test-model"))
+           (request (make-ogent-ui-request
+                     :id "test-integration-1"
+                     :model model
+                     :buffer (current-buffer)
+                     :marker response-marker
+                     :status 'wait
+                     :start-time (current-time))))
+      ;; Set request (creates indicator)
+      (ogent-status-set-request request)
+      (should ogent-status--margin-overlays)
+      (should (gethash "test-integration-1" ogent-status--margin-overlays))
+      ;; Update to streaming
+      (ogent-status-update-indicator request 'type)
+      (let ((overlay-info (gethash "test-integration-1" ogent-status--margin-overlays)))
+        (should (plist-get overlay-info :animation-timer)))
+      ;; Update to done
+      (ogent-status-update-indicator request 'done)
+      (let ((overlay-info (gethash "test-integration-1" ogent-status--margin-overlays)))
+        (should-not (plist-get overlay-info :animation-timer)))
+      ;; Clear request
+      (ogent-status-clear-request request)
+      (should-not (gethash "test-integration-1" ogent-status--margin-overlays))
+      ;; Clean up
+      (ogent-status-mode -1))))
+
+(ert-deftest ogent-status-mode-sets-margin-width ()
+  "Enabling ogent-status-mode sets left-margin-width in Org buffers."
+  (with-temp-buffer
+    (org-mode)
+    (ogent-status-mode 1)
+    (should (equal left-margin-width 2))
+    (ogent-status-mode -1)))
 
 (provide 'ogent-ui-status-tests)
 
