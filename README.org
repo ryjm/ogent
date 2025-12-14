@@ -65,9 +65,28 @@ To logout: =M-x ogent-anthropic-logout=
 
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
-- Press =C-c o p= to open the dispatcher, pick models, and send the current subtree.
-- Use =C-c o c= for a context preview and =C-c o m= to inspect the codemap.
+- Press =C-c . p= to open the dispatcher, pick models, and send the current subtree.
+- Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
+- Press =C-c . d= to capture the last AI response to a Notes child heading.
+- Use =C-c . ?= for quick Q&A without full context machinery.
 - To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
+
+** Keybindings
+| Key       | Command                  | Description                              |
+|-----------+--------------------------+------------------------------------------|
+| =C-c . p= | =ogent-prompt-dispatch=  | Open dispatcher to select models/presets |
+| =C-c . r= | =ogent-request=          | Send request with current context        |
+| =C-c . c= | =ogent-context-preview=  | Preview context before sending           |
+| =C-c . d= | =ogent-notes-capture=    | Capture last response to Notes heading   |
+| =C-c . ?= | =ogent-ask=              | Quick Q&A (no context)                   |
+| =C-c . e= | =ogent-edit-menu=        | Edit menu for inline code changes        |
+| =C-c . E= | =ogent-request-edit=     | Request code edits for buffer            |
+| =C-c . o= | =ogent-open-block=       | Open source block with ogent-mode        |
+| =C-c . m= | =ogent-codemap-buffer=   | Generate codemap for current buffer      |
+| =C-c . b= | =ogent-show-backlinks=   | Show backlinks to current heading        |
+| =C-c . g= | =ogent-show-dependency-graph= | Show dependency graph              |
+| =C-c . a= | =ogent-abort-request=    | Abort current request                    |
+| =C-c . R= | =ogent-retry-request=    | Retry last request                       |
 
 * Updating
 Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.

@@ -21,11 +21,13 @@ Each section maps vision statements to implementation status.
 ** Identified Gaps (Vision vs Code)
 
 *** Critical Gaps
-1. *Notes Capture (C-c C-d)*: README promises "shunt completion to Notes child" - NOT IMPLEMENTED
-2. *Multi-model Fan-out*: README promises concurrent requests to multiple models - NOT IMPLEMENTED
-3. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
-4. *ogent-ask*: README mentions this command - NOT IMPLEMENTED
-5. *ogent-open-block*: README mentions this command - NOT IMPLEMENTED
+1. *Multi-model Fan-out*: README promises concurrent requests to multiple models - NOT IMPLEMENTED
+2. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
+
+*** Recently Completed
+1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
+2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
+3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
 
 *** Partial Implementations
 1. *Codemap*: Static regex-based, not LLM-powered as envisioned (ogent-32t tracks this)
