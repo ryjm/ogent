@@ -115,12 +115,14 @@ Returns the process object."
                                   ogent-issues-bd-timeout)))))))
     
     ;; Start the process
+    (let ((full-command (cons ogent-issues-bd-executable args)))
+      (message "ogent-bd: running %S" full-command)
     (setq proc
           (make-process
            :name "ogent-bd"
            :buffer buffer
            :stderr stderr-buffer
-           :command (cons ogent-issues-bd-executable args)
+           :command full-command
            :sentinel
            (lambda (process event)
              ;; Cancel timeout timer
@@ -185,7 +187,7 @@ Returns the process object."
                (when (buffer-live-p (process-buffer process))
                  (kill-buffer (process-buffer process)))
                (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer)))))))
+                 (kill-buffer stderr-buffer))))))))
     
     ;; Track process for cleanup
     (push proc ogent-issues-bd--processes)
@@ -237,16 +239,14 @@ ERROR-CALLBACK is called on error with an error message."
         (user-error "%s" err))
       (cl-return-from ogent-issues-bd-list nil)))
   
-  (let ((args '("list" "--json")))
-    ;; Add filters
+  (let ((args (list "list" "--json")))
+    ;; Add filters (append to end, not push to front)
     (when-let ((status (plist-get filters :status)))
-      (push (format "--status=%s" status) args))
+      (setq args (append args (list (format "--status=%s" status)))))
     (when-let ((type (plist-get filters :type)))
-      (push (format "--type=%s" type) args))
+      (setq args (append args (list (format "--type=%s" type)))))
     (when-let ((priority (plist-get filters :priority)))
-      (push (format "--priority=%d" priority) args))
-    
-    (setq args (nreverse args))
+      (setq args (append args (list (format "--priority=%d" priority)))))
     
     ;; Check cache first
     (let ((cached (ogent-issues-bd--cache-get args)))
