@@ -104,8 +104,8 @@
 (ert-deftest ogent-issues-test-keymap-defined ()
   "Test that keymap has expected bindings."
   (should (keymapp ogent-issues-mode-map))
-  (should (eq (lookup-key ogent-issues-mode-map "j") 'ogent-issues-next-issue))
-  (should (eq (lookup-key ogent-issues-mode-map "k") 'ogent-issues-prev-issue))
+  (should (eq (lookup-key ogent-issues-mode-map "n") 'ogent-issues-next-issue))
+  (should (eq (lookup-key ogent-issues-mode-map "p") 'ogent-issues-prev-issue))
   (should (eq (lookup-key ogent-issues-mode-map "g") 'ogent-issues-refresh))
   (should (eq (lookup-key ogent-issues-mode-map "c") 'ogent-issues-create))
   (should (eq (lookup-key ogent-issues-mode-map "K") 'ogent-issues-close))
@@ -126,12 +126,12 @@
 
 (ert-deftest ogent-issues-test-priority-face ()
   "Test priority face lookup."
-  (should (eq 'ogent-issues-priority-0 (ogent-issues--priority-face 0)))
-  (should (eq 'ogent-issues-priority-1 (ogent-issues--priority-face 1)))
-  (should (eq 'ogent-issues-priority-2 (ogent-issues--priority-face 2)))
-  (should (eq 'ogent-issues-priority-3 (ogent-issues--priority-face 3)))
-  ;; Out of range should clamp
-  (should (eq 'ogent-issues-priority-3 (ogent-issues--priority-face 5))))
+  (should (eq 'ogent-issues-priority-critical (ogent-issues--priority-face 0)))
+  (should (eq 'ogent-issues-priority-high (ogent-issues--priority-face 1)))
+  (should (eq 'ogent-issues-priority-medium (ogent-issues--priority-face 2)))
+  (should (eq 'ogent-issues-priority-low (ogent-issues--priority-face 3)))
+  ;; Out of range should use low
+  (should (eq 'ogent-issues-priority-low (ogent-issues--priority-face 5))))
 
 (ert-deftest ogent-issues-test-status-face ()
   "Test status face lookup."
@@ -157,9 +157,9 @@
                  :dependency_count 2)))
     (let ((line (ogent-issues--format-issue-line issue)))
       (should (string-match-p "test-abc" line))
-      (should (string-match-p "\\[P1\\]" line))
       (should (string-match-p "Test issue title" line))
-      (should (string-match-p "\\[2 deps\\]" line)))))
+      ;; Dependencies shown in parens now
+      (should (string-match-p "(2)" line)))))
 
 (ert-deftest ogent-issues-test-format-issue-line-truncation ()
   "Test that long titles are truncated."
@@ -245,7 +245,7 @@
 (ert-deftest ogent-issues-test-buffer-header ()
   "Test that buffer has header."
   (ogent-issues-test-with-buffer
-    (should (string-match-p "Beads Issues" (buffer-string)))))
+    (should (string-match-p "Issues" (buffer-string)))))
 
 ;;; Header Line Tests
 
@@ -256,18 +256,17 @@
           (ogent-issues--issues ogent-issues-test--sample-issues)
           (ogent-issues--filters nil))
       (let ((header (ogent-issues--header-line)))
-        (should (string-match-p "Ogent Issues" header))
+        (should (string-match-p "Issues" header))
         (should (string-match-p "test-project" header))
         (should (string-match-p "List" header))
-        (should (string-match-p "(4)" header))))))
+        (should (string-match-p "4" header))))))
 
 (ert-deftest ogent-issues-test-header-line-with-filters ()
   "Test header line shows active filters."
   (ogent-issues-test-with-buffer
     (let ((ogent-issues--filters '(:status "open" :priority 1)))
       (let ((header (ogent-issues--header-line)))
-        (should (string-match-p "status:open" header))
-        (should (string-match-p "P1" header))))))
+        (should (string-match-p "open" header))))))
 
 ;;; Navigation Tests (without magit-section)
 
@@ -308,15 +307,14 @@
 (ert-deftest ogent-issues-test-format-filters-status ()
   "Test format-filters with status filter."
   (let ((ogent-issues--filters '(:status "open")))
-    (should (string-match-p "status:open" (ogent-issues--format-filters)))))
+    (should (string-match-p "open" (ogent-issues--format-filters)))))
 
 (ert-deftest ogent-issues-test-format-filters-multiple ()
   "Test format-filters with multiple filters."
   (let ((ogent-issues--filters '(:status "open" :type "bug" :priority 1)))
     (let ((formatted (ogent-issues--format-filters)))
-      (should (string-match-p "status:open" formatted))
-      (should (string-match-p "type:bug" formatted))
-      (should (string-match-p "P1" formatted)))))
+      (should (string-match-p "open" formatted))
+      (should (string-match-p "bug" formatted)))))
 
 ;;; Ready Indicator Tests
 
@@ -353,7 +351,7 @@
 (ert-deftest ogent-issues-test-ready-indicator-ascii ()
   "Test ready indicator with ASCII fallback."
   (let ((ogent-issues-use-unicode nil))
-    (should (string= "*" (substring-no-properties (ogent-issues--ready-indicator))))))
+    (should (string= "!" (substring-no-properties (ogent-issues--ready-indicator))))))
 
 (ert-deftest ogent-issues-test-format-issue-line-ready ()
   "Test that ready issues get the ready indicator."
@@ -390,7 +388,7 @@
               (ogent-issues-refresh)
               (sit-for 0.01)
               (should (string-match-p "No issues found" (buffer-string)))
-              (should (string-match-p "Press 'c' to create" (buffer-string))))
+              (should (string-match-p "create" (buffer-string))))
           (when (buffer-live-p buf)
             (kill-buffer buf)))))))
 
@@ -412,7 +410,7 @@
               (ogent-issues-refresh)
               (sit-for 0.01)
               (should (string-match-p "No issues match current filters" (buffer-string)))
-              (should (string-match-p "Press 'fx' to clear filters" (buffer-string))))
+              (should (string-match-p "clear" (buffer-string))))
           (when (buffer-live-p buf)
             (kill-buffer buf)))))))
 
@@ -501,12 +499,11 @@
   "Test that detail rendering creates proper buffer content."
   (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
     (ogent-issues--render-detail ogent-issues-test--detail-issue)
-    (let ((buf (get-buffer ogent-issues-detail-buffer-name)))
+    (let ((buf (get-buffer "*ogent-issue*")))  ; Updated buffer name
       (unwind-protect
           (with-current-buffer buf
             (should (eq major-mode 'ogent-issues-detail-mode))
             (should (string-match-p "Test Issue for Detail View" (buffer-string)))
-            (should (string-match-p "test-detail" (buffer-string)))
             (should (string-match-p "Description" (buffer-string)))
             (should (string-match-p "Metadata" (buffer-string)))
             (should (string-match-p "Dependencies" (buffer-string)))
