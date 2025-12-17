@@ -108,15 +108,16 @@ OUTPUT should be a plist or list that will be JSON-encoded."
     (should-not (ogent-issues-bd-available-p))))
 
 (ert-deftest ogent-issues-bd-test-initialized-p ()
-  "Test beads initialization check."
-  (cl-letf (((symbol-function 'file-directory-p)
-             (lambda (path)
-               (string-suffix-p ".beads" path))))
-    (should (ogent-issues-bd-initialized-p "/some/project")))
+  "Test beads initialization check walks up directory tree."
+  ;; When locate-dominating-file finds .beads, initialized-p returns t
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _name) "/some/project/")))
+    (should (ogent-issues-bd-initialized-p "/some/project/deep/subdir")))
   
-  (cl-letf (((symbol-function 'file-directory-p)
-             (lambda (_) nil)))
-    (should-not (ogent-issues-bd-initialized-p "/some/project"))))
+  ;; When locate-dominating-file returns nil, initialized-p returns nil
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _name) nil)))
+    (should-not (ogent-issues-bd-initialized-p "/some/other/path"))))
 
 (ert-deftest ogent-issues-bd-test-check-requirements-no-bd ()
   "Test requirements check when bd is not installed."
@@ -128,17 +129,16 @@ OUTPUT should be a plist or list that will be JSON-encoded."
   "Test requirements check when beads is not initialized."
   (cl-letf (((symbol-function 'executable-find)
              (lambda (_) t))
-            ((symbol-function 'file-directory-p)
-             (lambda (_) nil)))
-    (should (string-match-p "not initialized" (ogent-issues-bd-check-requirements)))))
+            ((symbol-function 'locate-dominating-file)
+             (lambda (_dir _name) nil)))
+    (should (string-match-p "No beads project found" (ogent-issues-bd-check-requirements)))))
 
 (ert-deftest ogent-issues-bd-test-check-requirements-ok ()
   "Test requirements check when everything is OK."
   (cl-letf (((symbol-function 'executable-find)
              (lambda (_) t))
-            ((symbol-function 'file-directory-p)
-             (lambda (path)
-               (string-suffix-p ".beads" path))))
+            ((symbol-function 'locate-dominating-file)
+             (lambda (_dir _name) "/some/project/")))
     (should-not (ogent-issues-bd-check-requirements))))
 
 ;;; Caching Tests
@@ -332,6 +332,63 @@ OUTPUT should be a plist or list that will be JSON-encoded."
                "/home/user/my-project")))
     (should (equal "my-project"
                    (ogent-issues-bd-project-name "/home/user/my-project/src")))))
+
+;;; Integration Tests for Project Detection (Real Filesystem)
+
+(defmacro ogent-issues-bd-test-with-temp-project (&rest body)
+  "Execute BODY with a temporary beads project structure.
+Binds `project-root` to the temp project path and `sub-dir` to a nested path."
+  (declare (indent 0))
+  `(let* ((project-root (make-temp-file "ogent-test-" t))
+          (beads-dir (expand-file-name ".beads" project-root))
+          (sub-dir (expand-file-name "src/deep/nested" project-root)))
+     (unwind-protect
+         (progn
+           (make-directory beads-dir)
+           (make-directory sub-dir t)
+           ,@body)
+       ;; Cleanup
+       (delete-directory project-root t))))
+
+(ert-deftest ogent-issues-bd-test-integration-initialized-p-from-root ()
+  "Integration test: initialized-p returns t when in project root."
+  (ogent-issues-bd-test-with-temp-project
+    (let ((default-directory project-root))
+      (should (ogent-issues-bd-initialized-p)))))
+
+(ert-deftest ogent-issues-bd-test-integration-initialized-p-from-subdir ()
+  "Integration test: initialized-p returns t when in subdirectory."
+  (ogent-issues-bd-test-with-temp-project
+    (let ((default-directory sub-dir))
+      (should (ogent-issues-bd-initialized-p)))))
+
+(ert-deftest ogent-issues-bd-test-integration-initialized-p-outside-project ()
+  "Integration test: initialized-p returns nil outside any project."
+  (let ((default-directory temporary-file-directory))
+    ;; Ensure we're not accidentally in a beads project
+    (unless (locate-dominating-file default-directory ".beads")
+      (should-not (ogent-issues-bd-initialized-p)))))
+
+(ert-deftest ogent-issues-bd-test-integration-project-root-from-subdir ()
+  "Integration test: project-root returns correct path from subdirectory."
+  (ogent-issues-bd-test-with-temp-project
+    (let ((default-directory sub-dir))
+      (should (equal (file-name-as-directory project-root)
+                     (ogent-issues-bd-project-root))))))
+
+(ert-deftest ogent-issues-bd-test-integration-project-root-outside-project ()
+  "Integration test: project-root returns nil outside any project."
+  (let ((default-directory temporary-file-directory))
+    ;; Ensure we're not accidentally in a beads project
+    (unless (locate-dominating-file default-directory ".beads")
+      (should-not (ogent-issues-bd-project-root)))))
+
+(ert-deftest ogent-issues-bd-test-integration-project-name-from-subdir ()
+  "Integration test: project-name returns correct name from subdirectory."
+  (ogent-issues-bd-test-with-temp-project
+    (let ((default-directory sub-dir)
+          (expected-name (file-name-nondirectory (directory-file-name project-root))))
+      (should (equal expected-name (ogent-issues-bd-project-name))))))
 
 (provide 'ogent-issues-bd-tests)
 

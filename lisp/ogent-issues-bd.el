@@ -51,11 +51,10 @@ Keys are command argument lists, values are (timestamp . result) cons cells.")
   (executable-find ogent-issues-bd-executable))
 
 (defun ogent-issues-bd-initialized-p (&optional directory)
-  "Return non-nil if beads is initialized in DIRECTORY.
+  "Return non-nil if beads is initialized in DIRECTORY or any parent.
 DIRECTORY defaults to `default-directory'.
-Checks for existence of .beads directory."
-  (let ((dir (or directory default-directory)))
-    (file-directory-p (expand-file-name ".beads" dir))))
+Walks up the directory tree looking for .beads directory."
+  (not (null (ogent-issues-bd-project-root directory))))
 
 (defun ogent-issues-bd-version (&optional callback)
   "Get the bd CLI version.
@@ -84,7 +83,8 @@ Return nil if OK, or an error message string if not."
    ((not (ogent-issues-bd-available-p))
     "bd CLI not found. Install beads: https://github.com/jmillerv/beads")
    ((not (ogent-issues-bd-initialized-p))
-    "Beads not initialized in this directory. Run: bd init")
+    (format "No beads project found (searched up from %s). Run: bd init"
+            (abbreviate-file-name default-directory)))
    (t nil)))
 
 ;;; Core Async Execution
@@ -96,34 +96,38 @@ CALLBACK receives the parsed JSON result (as plist) on success.
 ERROR-CALLBACK receives an error message string on failure.
 If RAW-OUTPUT is non-nil, pass raw string output instead of parsing JSON.
 
-Returns the process object."
-  (let* ((buffer (generate-new-buffer " *ogent-bd*"))
-         (stderr-buffer (generate-new-buffer " *ogent-bd-stderr*"))
-         (proc nil)
-         (timer nil))
-    
-    ;; Set up timeout timer
-    (setq timer
-          (run-with-timer
-           ogent-issues-bd-timeout nil
-           (lambda ()
-             (when (and proc (process-live-p proc))
-               (kill-process proc)
-               (when error-callback
-                 (funcall error-callback
-                          (format "bd command timed out after %ds"
-                                  ogent-issues-bd-timeout)))))))
-    
-    ;; Start the process
-    (let ((full-command (cons ogent-issues-bd-executable args)))
-      (message "ogent-bd: running %S" full-command)
-    (setq proc
-          (make-process
-           :name "ogent-bd"
-           :buffer buffer
-           :stderr stderr-buffer
-           :command full-command
-           :sentinel
+The process runs from the beads project root directory.
+Returns the process object, or nil if no project root found."
+  (let ((project-root (ogent-issues-bd-project-root)))
+    ;; Run from project root if found, otherwise current directory
+    (let* ((default-directory (or project-root default-directory))
+           (buffer (generate-new-buffer " *ogent-bd*"))
+           (stderr-buffer (generate-new-buffer " *ogent-bd-stderr*"))
+           (proc nil)
+           (timer nil))
+      
+      ;; Set up timeout timer
+      (setq timer
+            (run-with-timer
+             ogent-issues-bd-timeout nil
+             (lambda ()
+               (when (and proc (process-live-p proc))
+                 (kill-process proc)
+                 (when error-callback
+                   (funcall error-callback
+                            (format "bd command timed out after %ds"
+                                    ogent-issues-bd-timeout)))))))
+      
+      ;; Start the process from project root
+      (let ((full-command (cons ogent-issues-bd-executable args)))
+        (message "ogent-bd: running %S in %s" full-command default-directory)
+        (setq proc
+              (make-process
+               :name "ogent-bd"
+               :buffer buffer
+               :stderr stderr-buffer
+               :command full-command
+               :sentinel
            (lambda (process event)
              ;; Cancel timeout timer
              (when timer (cancel-timer timer))
@@ -188,10 +192,10 @@ Returns the process object."
                  (kill-buffer (process-buffer process)))
                (when (buffer-live-p stderr-buffer)
                  (kill-buffer stderr-buffer))))))))
-    
-    ;; Track process for cleanup
-    (push proc ogent-issues-bd--processes)
-    proc))
+      
+      ;; Track process for cleanup
+      (push proc ogent-issues-bd--processes)
+      proc)))
 
 ;;; Caching
 
@@ -231,229 +235,225 @@ Call this after any mutation (create, close, update, etc.)."
   "List all issues, calling CALLBACK with the result.
 FILTERS is an optional plist with :status, :type, :priority keys.
 ERROR-CALLBACK is called on error with an error message."
-  ;; Check requirements first
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-list nil)))
-  
-  (let ((args (list "list" "--json")))
-    ;; Add filters (append to end, not push to front)
-    (when-let ((status (plist-get filters :status)))
-      (setq args (append args (list (format "--status=%s" status)))))
-    (when-let ((type (plist-get filters :type)))
-      (setq args (append args (list (format "--type=%s" type)))))
-    (when-let ((priority (plist-get filters :priority)))
-      (setq args (append args (list (format "--priority=%d" priority)))))
-    
-    ;; Check cache first
-    (let ((cached (ogent-issues-bd--cache-get args)))
-      (if cached
-          (funcall callback cached)
-        ;; Fetch from bd
-        (ogent-issues-bd--run-async
-         args
-         (lambda (result)
-           (ogent-issues-bd--cache-set args result)
-           (funcall callback result))
-         error-callback)))))
+    (if err
+        ;; Requirements not met - report error and return nil
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      ;; Requirements met - proceed with list
+      (let ((args (list "list" "--json")))
+        ;; Add filters (append to end, not push to front)
+        (when-let ((status (plist-get filters :status)))
+          (setq args (append args (list (format "--status=%s" status)))))
+        (when-let ((type (plist-get filters :type)))
+          (setq args (append args (list (format "--type=%s" type)))))
+        (when-let ((priority (plist-get filters :priority)))
+          (setq args (append args (list (format "--priority=%d" priority)))))
+        ;; Check cache first
+        (let ((cached (ogent-issues-bd--cache-get args)))
+          (if cached
+              (funcall callback cached)
+            ;; Fetch from bd
+            (ogent-issues-bd--run-async
+             args
+             (lambda (result)
+               (ogent-issues-bd--cache-set args result)
+               (funcall callback result))
+             error-callback)))))))
 
 (defun ogent-issues-bd-get (id callback &optional error-callback)
   "Get issue with ID, calling CALLBACK with the result.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-get nil)))
-  
-  (let ((args (list "show" id "--json")))
-    ;; Check cache
-    (let ((cached (ogent-issues-bd--cache-get args)))
-      (if cached
-          (funcall callback cached)
-        (ogent-issues-bd--run-async
-         args
-         (lambda (result)
-           (ogent-issues-bd--cache-set args result)
-           (funcall callback result))
-         error-callback)))))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (let ((args (list "show" id "--json")))
+        ;; Check cache
+        (let ((cached (ogent-issues-bd--cache-get args)))
+          (if cached
+              (funcall callback cached)
+            (ogent-issues-bd--run-async
+             args
+             (lambda (result)
+               (ogent-issues-bd--cache-set args result)
+               (funcall callback result))
+             error-callback)))))))
 
 (defun ogent-issues-bd-ready (callback &optional error-callback)
   "Get ready (unblocked) issues, calling CALLBACK with the result.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-ready nil)))
-  
-  (let ((args '("ready" "--json")))
-    (let ((cached (ogent-issues-bd--cache-get args)))
-      (if cached
-          (funcall callback cached)
-        (ogent-issues-bd--run-async
-         args
-         (lambda (result)
-           (ogent-issues-bd--cache-set args result)
-           (funcall callback result))
-         error-callback)))))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (let ((args '("ready" "--json")))
+        (let ((cached (ogent-issues-bd--cache-get args)))
+          (if cached
+              (funcall callback cached)
+            (ogent-issues-bd--run-async
+             args
+             (lambda (result)
+               (ogent-issues-bd--cache-set args result)
+               (funcall callback result))
+             error-callback)))))))
 
 (defun ogent-issues-bd-create (title callback &rest props)
   "Create a new issue with TITLE, calling CALLBACK with the result.
 PROPS is a plist with optional :type, :priority, :description, :parent.
 The last element of PROPS can be :error-callback followed by a function."
-  (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (let ((error-cb (plist-get props :error-callback)))
-        (if error-cb
-            (funcall error-cb err)
-          (user-error "%s" err)))
-      (cl-return-from ogent-issues-bd-create nil)))
-  
-  (let ((args (list "create" "--title" title "--json"))
+  (let ((err (ogent-issues-bd-check-requirements))
         (error-callback (plist-get props :error-callback)))
-    ;; Add optional properties
-    (when-let ((type (plist-get props :type)))
-      (setq args (append args (list "--type" type))))
-    (when-let ((priority (plist-get props :priority)))
-      (setq args (append args (list "--priority" (number-to-string priority)))))
-    (when-let ((description (plist-get props :description)))
-      (setq args (append args (list "--description" description))))
-    (when-let ((parent (plist-get props :parent)))
-      (setq args (append args (list "--parent" parent))))
-    
-    (ogent-issues-bd--run-async
-     args
-     (lambda (result)
-       ;; Invalidate cache after mutation
-       (ogent-issues-bd-cache-invalidate)
-       (funcall callback result))
-     error-callback)))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (let ((args (list "create" "--title" title "--json")))
+        ;; Add optional properties
+        (when-let ((type (plist-get props :type)))
+          (setq args (append args (list "--type" type))))
+        (when-let ((priority (plist-get props :priority)))
+          (setq args (append args (list "--priority" (number-to-string priority)))))
+        (when-let ((description (plist-get props :description)))
+          (setq args (append args (list "--description" description))))
+        (when-let ((parent (plist-get props :parent)))
+          (setq args (append args (list "--parent" parent))))
+        (ogent-issues-bd--run-async
+         args
+         (lambda (result)
+           ;; Invalidate cache after mutation
+           (ogent-issues-bd-cache-invalidate)
+           (funcall callback result))
+         error-callback)))))
 
 (defun ogent-issues-bd-close (id reason callback &optional error-callback)
   "Close issue ID with REASON, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-close nil)))
-  
-  (ogent-issues-bd--run-async
-   (list "close" id "--reason" reason)
-   (lambda (_result)
-     (ogent-issues-bd-cache-invalidate)
-     (funcall callback))
-   error-callback
-   t))  ; raw output - close doesn't return JSON
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       (list "close" id "--reason" reason)
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))  ; raw output - close doesn't return JSON
 
 (defun ogent-issues-bd-reopen (id callback &optional error-callback)
   "Reopen issue ID, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-reopen nil)))
-  
-  (ogent-issues-bd--run-async
-   (list "reopen" id)
-   (lambda (_result)
-     (ogent-issues-bd-cache-invalidate)
-     (funcall callback))
-   error-callback
-   t))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       (list "reopen" id)
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))
 
 (defun ogent-issues-bd-start (id callback &optional error-callback)
   "Mark issue ID as in-progress, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-start nil)))
-  
-  (ogent-issues-bd--run-async
-   (list "start" id)
-   (lambda (_result)
-     (ogent-issues-bd-cache-invalidate)
-     (funcall callback))
-   error-callback
-   t))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       (list "start" id)
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))
 
 (defun ogent-issues-bd-comment (id text callback &optional error-callback)
   "Add comment TEXT to issue ID, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-comment nil)))
-  
-  (ogent-issues-bd--run-async
-   (list "comment" id text)
-   (lambda (_result)
-     (ogent-issues-bd-cache-invalidate)
-     (funcall callback))
-   error-callback
-   t))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       (list "comment" id text)
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))
 
 (defun ogent-issues-bd-sync (callback &optional error-callback)
   "Sync beads to git, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (if error-callback
-          (funcall error-callback err)
-        (user-error "%s" err))
-      (cl-return-from ogent-issues-bd-sync nil)))
-  
-  (ogent-issues-bd--run-async
-   '("sync")
-   (lambda (_result)
-     (ogent-issues-bd-cache-invalidate)
-     (funcall callback))
-   error-callback
-   t))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       '("sync")
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))
 
 (defun ogent-issues-bd-update (id callback &rest props)
   "Update issue ID with PROPS, calling CALLBACK on success.
 PROPS is a plist with optional :status, :priority, :description.
 The last element of PROPS can be :error-callback followed by a function."
-  (let ((err (ogent-issues-bd-check-requirements)))
-    (when err
-      (let ((error-cb (plist-get props :error-callback)))
-        (if error-cb
-            (funcall error-cb err)
-          (user-error "%s" err)))
-      (cl-return-from ogent-issues-bd-update nil)))
-  
-  (let ((args (list "update" id))
+  (let ((err (ogent-issues-bd-check-requirements))
         (error-callback (plist-get props :error-callback)))
-    ;; Add optional properties
-    (when-let ((status (plist-get props :status)))
-      (setq args (append args (list "--status" status))))
-    (when-let ((priority (plist-get props :priority)))
-      (setq args (append args (list "--priority" (number-to-string priority)))))
-    (when-let ((description (plist-get props :description)))
-      (setq args (append args (list "--description" description))))
-    
-    (ogent-issues-bd--run-async
-     args
-     (lambda (_result)
-       (ogent-issues-bd-cache-invalidate)
-       (funcall callback))
-     error-callback
-     t)))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (let ((args (list "update" id)))
+        ;; Add optional properties
+        (when-let ((status (plist-get props :status)))
+          (setq args (append args (list "--status" status))))
+        (when-let ((priority (plist-get props :priority)))
+          (setq args (append args (list "--priority" (number-to-string priority)))))
+        (when-let ((description (plist-get props :description)))
+          (setq args (append args (list "--description" description))))
+        (ogent-issues-bd--run-async
+         args
+         (lambda (_result)
+           (ogent-issues-bd-cache-invalidate)
+           (funcall callback))
+         error-callback
+         t)))))
 
 ;;; Cleanup
 
