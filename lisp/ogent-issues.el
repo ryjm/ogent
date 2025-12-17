@@ -198,13 +198,13 @@ Each entry is (TYPE . (UNICODE . ASCII))."
   (defclass ogent-issues-root-section (magit-section) ()
     "Root section for ogent-issues buffer.")
 
-  (defclass ogent-issues-status-section (magit-section)
-    ((status :initarg :status))
-    "Section for a status group (open, in_progress, etc.).")
+  (defclass ogent-issues-status-section (magit-section) ()
+    "Section for a status group (open, in_progress, etc.).
+The inherited `value' slot holds the status string.")
 
-  (defclass ogent-issues-issue-section (magit-section)
-    ((issue :initarg :issue))
-    "Section for a single issue."))
+  (defclass ogent-issues-issue-section (magit-section) ()
+    "Section for a single issue.
+The inherited `value' slot holds the issue plist."))
 
 ;;; Keymap - Following magit conventions
 
@@ -583,7 +583,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (if ogent-issues--magit-section-available
       (when-let ((section (magit-current-section)))
         (when (cl-typep section 'ogent-issues-issue-section)
-          (oref section issue)))
+          (oref section value)))
     (get-text-property (point) 'ogent-issue)))
 
 (defun ogent-issues--current-issue-id ()
@@ -1006,8 +1006,16 @@ An issue is ready if it's open, not blocked, and has no blockers."
            (setq ogent-issues--issues (ogent-issues--apply-filters issues))
            (let ((inhibit-read-only t))
              (erase-buffer)
-             (ogent-issues--insert-buffer-contents ogent-issues--issues)
-             (ogent-issues--restore-position)))))
+             (condition-case err
+                 (progn
+                   (ogent-issues--insert-buffer-contents ogent-issues--issues)
+                   (ogent-issues--restore-position))
+               (error
+                (insert (propertize
+                         (format "\n  Error rendering issues: %s\n\n"
+                                 (error-message-string err))
+                         'face 'error))
+                (insert "  Press 'g' to retry refresh.\n")))))))
      ogent-issues--filters
      (lambda (err)
        (message "Failed to refresh: %s" err)))))
