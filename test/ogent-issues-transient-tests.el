@@ -110,6 +110,66 @@
   "Test that filter apply function is defined."
   (should (fboundp 'ogent-issues-filter-apply)))
 
+;;; Context Capture Tests
+
+(ert-deftest ogent-issues-transient-test-capture-context-nil-no-file ()
+  "Test that context capture returns nil when not visiting a file."
+  (with-temp-buffer
+    (should-not (ogent-issues--capture-context))))
+
+(ert-deftest ogent-issues-transient-test-capture-context-with-file ()
+  "Test that context capture works with a file buffer."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (with-current-buffer (find-file-noselect temp-file)
+          (insert "(defun test-func ()\n  \"Test.\")\n")
+          (goto-char (point-min))
+          (forward-line 1)
+          (let ((context (ogent-issues--capture-context)))
+            (should context)
+            (should (plist-get context :file))
+            (should (= (plist-get context :line) 2))
+            (should (plist-get context :formatted))
+            (should (string-match-p ":2" (plist-get context :formatted)))))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-issues-transient-test-format-context-nil ()
+  "Test that format context handles nil gracefully."
+  (should-not (ogent-issues--format-context-for-description nil)))
+
+(ert-deftest ogent-issues-transient-test-format-context-basic ()
+  "Test context formatting produces markdown."
+  (let ((context '(:file "src/foo.el" :line 42 :function nil :formatted "src/foo.el:42")))
+    (let ((formatted (ogent-issues--format-context-for-description context)))
+      (should (string-match-p "\\*\\*Context:\\*\\*" formatted))
+      (should (string-match-p "src/foo.el:42" formatted)))))
+
+(ert-deftest ogent-issues-transient-test-format-context-with-function ()
+  "Test context formatting includes function name."
+  (let ((context '(:file "src/foo.el" :line 42 :function "my-func" :formatted "src/foo.el:42 (my-func)")))
+    (let ((formatted (ogent-issues--format-context-for-description context)))
+      (should (string-match-p "my-func" formatted)))))
+
+(ert-deftest ogent-issues-transient-test-create-full-sets-context ()
+  "Test that create-full sets the context local variable."
+  ;; Mock transient-args to avoid transient dependency in test
+  (cl-letf (((symbol-function 'transient-args) (lambda (_) nil))
+            ((symbol-function 'transient-arg-value) (lambda (_ _) nil)))
+    (with-temp-buffer
+      (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+        (unwind-protect
+            (progn
+              (find-file temp-file)
+              (insert "test content")
+              (ogent-issues-create-full)
+              (with-current-buffer "*ogent-issue-create*"
+                ;; Context should be set
+                (should (boundp 'ogent-issues-create--context))
+                ;; Buffer should contain context section
+                (should (string-match-p "Context" (buffer-string)))
+                (kill-buffer)))
+          (delete-file temp-file))))))
+
 (provide 'ogent-issues-transient-tests)
 
 ;;; ogent-issues-transient-tests.el ends here
