@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; Provides a magit-section based buffer for viewing and managing beads issues.
-;; This is the main entry point for the ogent-issues module.
+;; Designed to feel native to magit users with familiar keybindings and visual style.
 
 ;;; Code:
 
@@ -19,6 +19,11 @@
   (require 'magit-section))
 
 (require 'ogent-issues-bd)
+
+;; Load transient menu if available
+(declare-function ogent-issues-dispatch "ogent-issues-transient" nil t)
+(autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
+(autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
 
 ;;; Customization
 
@@ -51,49 +56,69 @@ Set to nil for ASCII-only terminals."
   :type 'boolean
   :group 'ogent-issues)
 
-;;; Faces
+(defcustom ogent-issues-show-counts t
+  "Whether to show issue counts in section headings."
+  :type 'boolean
+  :group 'ogent-issues)
+
+;;; Faces - Following magit conventions
 
 (defgroup ogent-issues-faces nil
   "Faces for ogent-issues."
-  :group 'ogent-issues)
+  :group 'ogent-issues
+  :group 'faces)
 
+;; Section headings - like magit-section-heading
+(defface ogent-issues-section-heading
+  '((((class color) (background light)) :foreground "DarkGoldenrod4" :weight bold)
+    (((class color) (background dark)) :foreground "LightGoldenrod2" :weight bold))
+  "Face for section headings."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-section-heading-selection
+  '((((class color) (background light)) :foreground "salmon4" :weight bold)
+    (((class color) (background dark)) :foreground "LightSalmon3" :weight bold))
+  "Face for selected section headings."
+  :group 'ogent-issues-faces)
+
+;; Issue ID - like magit-hash
 (defface ogent-issues-id
-  '((t :inherit font-lock-constant-face))
+  '((((class color) (background light)) :foreground "grey40")
+    (((class color) (background dark)) :foreground "grey60"))
   "Face for issue IDs."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-title
-  '((t :inherit default))
-  "Face for issue titles."
-  :group 'ogent-issues-faces)
-
-(defface ogent-issues-priority-0
+;; Priority faces - traffic light colors
+(defface ogent-issues-priority-critical
   '((t :foreground "#ff5555" :weight bold))
   "Face for P0 (critical) issues."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-priority-1
+(defface ogent-issues-priority-high
   '((t :foreground "#ffb86c" :weight bold))
   "Face for P1 (high) issues."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-priority-2
+(defface ogent-issues-priority-medium
   '((t :foreground "#f1fa8c"))
   "Face for P2 (medium) issues."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-priority-3
+(defface ogent-issues-priority-low
   '((t :foreground "#50fa7b"))
   "Face for P3 (low) issues."
   :group 'ogent-issues-faces)
 
+;; Status faces
 (defface ogent-issues-status-open
-  '((t :foreground "#8be9fd"))
+  '((((class color) (background light)) :foreground "ForestGreen")
+    (((class color) (background dark)) :foreground "#8be9fd"))
   "Face for open issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-in-progress
-  '((t :foreground "#bd93f9"))
+  '((((class color) (background light)) :foreground "DarkOrange")
+    (((class color) (background dark)) :foreground "#bd93f9"))
   "Face for in-progress issues."
   :group 'ogent-issues-faces)
 
@@ -103,23 +128,40 @@ Set to nil for ASCII-only terminals."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-closed
-  '((t :foreground "#6272a4" :strike-through t))
+  '((((class color) (background light)) :foreground "grey50")
+    (((class color) (background dark)) :foreground "#6272a4"))
   "Face for closed issues."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-section-heading
-  '((t :inherit magit-section-heading :weight bold))
-  "Face for section headings."
+;; Ready indicator
+(defface ogent-issues-ready
+  '((t :foreground "#f1fa8c" :weight bold))
+  "Face for ready issue indicator."
   :group 'ogent-issues-faces)
 
+;; Dimmed text - like magit-dimmed
+(defface ogent-issues-dimmed
+  '((((class color) (background light)) :foreground "grey50")
+    (((class color) (background dark)) :foreground "grey50"))
+  "Face for less important text."
+  :group 'ogent-issues-faces)
+
+;; Type badge
+(defface ogent-issues-type
+  '((((class color) (background light)) :foreground "grey30" :box (:line-width -1 :color "grey70"))
+    (((class color) (background dark)) :foreground "grey70" :box (:line-width -1 :color "grey40")))
+  "Face for issue type badges."
+  :group 'ogent-issues-faces)
+
+;; Header line
 (defface ogent-issues-header-line
-  '((t :inherit header-line))
+  '((t :inherit header-line :weight bold))
   "Face for the header line."
   :group 'ogent-issues-faces)
 
-(defface ogent-issues-ready-indicator
-  '((t :foreground "#f1fa8c" :weight bold))
-  "Face for ready issue indicator (⚡)."
+(defface ogent-issues-header-line-key
+  '((t :inherit font-lock-builtin-face :weight bold))
+  "Face for keybindings in header line."
   :group 'ogent-issues-faces)
 
 ;;; Type Icons
@@ -164,7 +206,7 @@ Each entry is (TYPE . (UNICODE . ASCII))."
     ((issue :initarg :issue))
     "Section for a single issue."))
 
-;;; Keymap
+;;; Keymap - Following magit conventions
 
 (defvar ogent-issues-mode-map
   (let ((map (make-sparse-keymap)))
@@ -172,35 +214,54 @@ Each entry is (TYPE . (UNICODE . ASCII))."
     (when (and ogent-issues--magit-section-available
                (boundp 'magit-section-mode-map))
       (set-keymap-parent map magit-section-mode-map))
-    ;; Navigation
-    (define-key map "j" #'ogent-issues-next-issue)
-    (define-key map "k" #'ogent-issues-prev-issue)
+    
+    ;; Navigation (magit-style)
     (define-key map "n" #'ogent-issues-next-issue)
     (define-key map "p" #'ogent-issues-prev-issue)
+    (define-key map "j" #'ogent-issues-next-issue)
+    (define-key map "k" #'ogent-issues-prev-issue)
+    (define-key map (kbd "M-n") #'ogent-issues-next-section)
+    (define-key map (kbd "M-p") #'ogent-issues-prev-section)
     (define-key map (kbd "RET") #'ogent-issues-visit)
     (define-key map (kbd "TAB") #'ogent-issues-toggle-section)
     (define-key map (kbd "<backtab>") #'ogent-issues-cycle-sections)
-    ;; Actions
-    (define-key map "c" #'ogent-issues-create)
-    (define-key map "K" #'ogent-issues-close)
-    (define-key map "R" #'ogent-issues-reopen)
-    (define-key map "s" #'ogent-issues-start)
-    (define-key map "C" #'ogent-issues-comment)
+    (define-key map (kbd "^") #'ogent-issues-up-section)
+    
+    ;; Refresh (magit-style: g)
     (define-key map "g" #'ogent-issues-refresh)
     (define-key map "G" #'ogent-issues-refresh-force)
+    
+    ;; Actions - single keys for common ops
+    (define-key map "c" #'ogent-issues-create)
+    (define-key map "s" #'ogent-issues-start)
+    (define-key map "k" #'ogent-issues-close)  ; like magit kill
+    (define-key map "K" #'ogent-issues-close)
+    (define-key map "x" #'ogent-issues-close)  ; alternative
+    (define-key map "r" #'ogent-issues-reopen)
+    (define-key map "C" #'ogent-issues-comment)
+    
+    ;; Help/dispatch (magit-style: ?)
     (define-key map "?" #'ogent-issues-dispatch)
-    ;; Filters
+    (define-key map "h" #'ogent-issues-dispatch)
+    
+    ;; Filters (f prefix like magit fetch)
+    (define-key map "f" nil)  ; prefix
     (define-key map "fs" #'ogent-issues-filter-status)
     (define-key map "ft" #'ogent-issues-filter-type)
     (define-key map "fp" #'ogent-issues-filter-priority)
-    (define-key map "fx" #'ogent-issues-clear-filters)
-    ;; Views
+    (define-key map "ff" #'ogent-issues-filter-dispatch)
+    (define-key map "fc" #'ogent-issues-clear-filters)
+    
+    ;; Views (v prefix)
+    (define-key map "v" nil)  ; prefix
     (define-key map "vl" #'ogent-issues-view-list)
     (define-key map "vr" #'ogent-issues-view-ready)
     (define-key map "vk" #'ogent-issues-view-kanban)
     (define-key map "vd" #'ogent-issues-view-deps)
-    ;; Sync
+    
+    ;; Sync (like magit push/pull)
     (define-key map "S" #'ogent-issues-sync)
+    
     ;; Quit
     (define-key map "q" #'quit-window)
     map)
@@ -208,19 +269,64 @@ Each entry is (TYPE . (UNICODE . ASCII))."
 
 ;;; Mode Definition
 
-(define-derived-mode ogent-issues-mode special-mode "Ogent-Issues"
+(define-derived-mode ogent-issues-mode special-mode "Issues"
   "Major mode for viewing and managing beads issues.
+
+Like magit-status but for your issue tracker.
+
+\\<ogent-issues-mode-map>
+Navigation:
+  \\[ogent-issues-next-issue]     Move to next issue
+  \\[ogent-issues-prev-issue]     Move to previous issue
+  \\[ogent-issues-visit]   Visit issue details
+  \\[ogent-issues-toggle-section]   Toggle section visibility
+
+Actions:
+  \\[ogent-issues-create]     Create new issue
+  \\[ogent-issues-start]     Start working on issue
+  \\[ogent-issues-close]     Close issue
+  \\[ogent-issues-comment]     Add comment
+
+Filters:
+  \\[ogent-issues-filter-status]    Filter by status
+  \\[ogent-issues-filter-type]    Filter by type
+  \\[ogent-issues-filter-priority]    Filter by priority
+  \\[ogent-issues-clear-filters]    Clear all filters
+
+Views:
+  \\[ogent-issues-view-list]    List view
+  \\[ogent-issues-view-ready]    Ready work
+  \\[ogent-issues-view-kanban]    Kanban board
+
+Other:
+  \\[ogent-issues-refresh]     Refresh
+  \\[ogent-issues-sync]     Sync to git
+  \\[ogent-issues-dispatch]     Show all commands
 
 \\{ogent-issues-mode-map}"
   :group 'ogent-issues
   (setq-local revert-buffer-function #'ogent-issues-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
-  (setq header-line-format
-        '(:eval (ogent-issues--header-line)))
+  (setq header-line-format '(:eval (ogent-issues--header-line)))
   ;; Enable magit-section features if available
   (when ogent-issues--magit-section-available
+    (setq-local magit-section-visibility-indicator
+                (if ogent-issues-use-unicode '("…" . t) '("..." . t)))
     (magit-section-mode)))
+
+;;; Entry Point
+
+;;;###autoload
+(defun ogent-issues ()
+  "Open the ogent-issues buffer."
+  (interactive)
+  (let ((buf (get-buffer-create ogent-issues-buffer-name)))
+    (with-current-buffer buf
+      (unless (eq major-mode 'ogent-issues-mode)
+        (ogent-issues-mode))
+      (ogent-issues-refresh))
+    (pop-to-buffer buf)))
 
 ;;; Header Line
 
@@ -231,27 +337,30 @@ Each entry is (TYPE . (UNICODE . ASCII))."
          (count (length ogent-issues--issues))
          (filters (ogent-issues--format-filters)))
     (concat
-     (propertize " Ogent Issues" 'face 'ogent-issues-header-line)
-     " | "
+     " "
+     (propertize "Issues" 'face 'ogent-issues-header-line)
+     "  "
      (propertize project 'face 'font-lock-constant-face)
-     " | "
-     (propertize (capitalize view) 'face 'font-lock-keyword-face)
-     (format " (%d)" count)
+     "  "
+     (propertize (format "[%s]" (capitalize view)) 'face 'font-lock-type-face)
+     (propertize (format " %d" count) 'face 'ogent-issues-dimmed)
      (when filters
-       (concat " | " filters)))))
+       (concat "  " (propertize "filtered:" 'face 'ogent-issues-dimmed) " " filters))
+     "  "
+     (propertize "?" 'face 'ogent-issues-header-line-key)
+     (propertize ":help" 'face 'ogent-issues-dimmed))))
 
 (defun ogent-issues--format-filters ()
   "Format current filters for display."
   (let ((parts nil))
     (when-let ((status (plist-get ogent-issues--filters :status)))
-      (push (format "status:%s" status) parts))
+      (push (propertize status 'face 'font-lock-keyword-face) parts))
     (when-let ((type (plist-get ogent-issues--filters :type)))
-      (push (format "type:%s" type) parts))
+      (push (propertize type 'face 'font-lock-type-face) parts))
     (when-let ((priority (plist-get ogent-issues--filters :priority)))
-      (push (format "P%d" priority) parts))
+      (push (propertize (format "P%d" priority) 'face (ogent-issues--priority-face priority)) parts))
     (when parts
-      (propertize (string-join (nreverse parts) " ")
-                  'face 'font-lock-comment-face))))
+      (string-join (nreverse parts) " "))))
 
 ;;; Formatting Utilities
 
@@ -259,17 +368,29 @@ Each entry is (TYPE . (UNICODE . ASCII))."
   "Return icon for issue TYPE."
   (let ((entry (cdr (assoc type ogent-issues-type-icons))))
     (if ogent-issues-use-unicode
-        (or (car entry) "📌")
+        (or (car entry) "•")
       (or (cdr entry) "?"))))
 
 (defun ogent-issues--priority-face (priority)
   "Return face for PRIORITY level."
-  (intern (format "ogent-issues-priority-%d" (min (or priority 2) 3))))
+  (pcase (or priority 2)
+    (0 'ogent-issues-priority-critical)
+    (1 'ogent-issues-priority-high)
+    (2 'ogent-issues-priority-medium)
+    (_ 'ogent-issues-priority-low)))
 
-(defun ogent-issues--priority-badge (priority)
-  "Return formatted priority badge for PRIORITY."
-  (propertize (format "[P%d]" (or priority 2))
-              'face (ogent-issues--priority-face priority)))
+(defun ogent-issues--priority-indicator (priority)
+  "Return formatted priority indicator for PRIORITY."
+  (let ((p (or priority 2)))
+    (propertize
+     (if ogent-issues-use-unicode
+         (pcase p
+           (0 "●")
+           (1 "◐")
+           (2 "○")
+           (_ "◌"))
+       (format "P%d" p))
+     'face (ogent-issues--priority-face p))))
 
 (defun ogent-issues--status-face (status)
   "Return face for STATUS."
@@ -287,12 +408,28 @@ Each entry is (TYPE . (UNICODE . ASCII))."
     ("in_progress" "In Progress")
     ("blocked" "Blocked")
     ("closed" "Closed")
-    (_ (capitalize status))))
+    (_ (capitalize (or status "unknown")))))
+
+(defun ogent-issues--status-icon (status)
+  "Return icon for STATUS."
+  (if ogent-issues-use-unicode
+      (pcase status
+        ("open" "○")
+        ("in_progress" "◐")
+        ("blocked" "✗")
+        ("closed" "●")
+        (_ "?"))
+    (pcase status
+      ("open" "o")
+      ("in_progress" ">")
+      ("blocked" "x")
+      ("closed" "*")
+      (_ "?"))))
 
 (defun ogent-issues--ready-indicator ()
   "Return the ready indicator string."
-  (propertize (if ogent-issues-use-unicode "⚡" "*")
-              'face 'ogent-issues-ready-indicator))
+  (propertize (if ogent-issues-use-unicode "⚡" "!")
+              'face 'ogent-issues-ready))
 
 (defun ogent-issues--issue-ready-p (issue)
   "Return non-nil if ISSUE is ready (unblocked and actionable).
@@ -312,18 +449,30 @@ An issue is ready if it's open, not blocked, and has no blockers."
          (status (plist-get issue :status))
          (deps (or (plist-get issue :dependency_count) 0))
          (ready (ogent-issues--issue-ready-p issue))
-         (truncated-title (truncate-string-to-width (or title "") 55 nil nil "…")))
+         ;; Calculate available width for title
+         (id-width 12)
+         (meta-width 15)
+         (available-width (max 20 (- (window-width) id-width meta-width 10)))
+         (truncated-title (truncate-string-to-width (or title "") available-width nil nil "…")))
     (concat
-     (if ready (concat (ogent-issues--ready-indicator) " ") "  ")
-     (propertize (or id "???") 'face 'ogent-issues-id)
-     "  "
-     (ogent-issues--priority-badge priority)
+     ;; Ready indicator or space
+     (if ready (ogent-issues--ready-indicator) " ")
      " "
+     ;; Issue ID (fixed width, dimmed)
+     (propertize (truncate-string-to-width (or id "???") id-width nil ?\s)
+                 'face 'ogent-issues-id)
+     " "
+     ;; Priority indicator
+     (ogent-issues--priority-indicator priority)
+     " "
+     ;; Type icon
      (ogent-issues--type-icon type)
      " "
+     ;; Title with status-based face
      (propertize truncated-title 'face (ogent-issues--status-face status))
+     ;; Dependencies count (if any)
      (when (and deps (> deps 0))
-       (propertize (format " [%d deps]" deps) 'face 'font-lock-comment-face)))))
+       (propertize (format " (%d)" deps) 'face 'ogent-issues-dimmed)))))
 
 ;;; Section Insertion
 
@@ -337,70 +486,84 @@ An issue is ready if it's open, not blocked, and has no blockers."
 
 (defun ogent-issues--insert-empty-state ()
   "Insert empty state message when no issues match."
-  (ogent-issues--insert-header)
   (insert "\n")
   (if ogent-issues--filters
       (progn
         (insert (propertize "  No issues match current filters\n\n"
                             'face 'font-lock-warning-face))
         (insert "  Active filters: " (or (ogent-issues--format-filters) "none") "\n\n")
-        (insert (propertize "  Press 'fx' to clear filters, or adjust with 'fs', 'ft', 'fp'\n"
-                            'face 'font-lock-comment-face)))
-    (insert (propertize "  No issues found\n\n" 'face 'font-lock-comment-face))
-    (insert (propertize "  Press 'c' to create a new issue\n"
-                        'face 'font-lock-comment-face))))
+        (insert (propertize "  fc " 'face 'ogent-issues-header-line-key))
+        (insert (propertize "clear filters  " 'face 'ogent-issues-dimmed))
+        (insert (propertize "ff " 'face 'ogent-issues-header-line-key))
+        (insert (propertize "change filters\n" 'face 'ogent-issues-dimmed)))
+    (insert (propertize "  No issues found\n\n" 'face 'ogent-issues-dimmed))
+    (insert (propertize "  c " 'face 'ogent-issues-header-line-key))
+    (insert (propertize "create new issue\n" 'face 'ogent-issues-dimmed))))
 
 (defun ogent-issues--insert-with-magit-section (issues)
   "Insert ISSUES using magit-section."
   (magit-insert-section (ogent-issues-root-section)
-    (ogent-issues--insert-header)
+    (ogent-issues--insert-header-section)
+    (insert "\n")
     (let ((grouped (ogent-issues--group-by-status issues)))
-      (dolist (status '("open" "in_progress" "blocked" "closed"))
+      (dolist (status '("in_progress" "open" "blocked" "closed"))
         (when-let ((group (alist-get status grouped nil nil #'string=)))
           (ogent-issues--insert-status-section status group))))))
 
 (defun ogent-issues--insert-plain (issues)
   "Insert ISSUES without magit-section (fallback)."
-  (ogent-issues--insert-header)
+  (ogent-issues--insert-header-section)
+  (insert "\n")
   (let ((grouped (ogent-issues--group-by-status issues)))
-    (dolist (status '("open" "in_progress" "blocked" "closed"))
+    (dolist (status '("in_progress" "open" "blocked" "closed"))
       (when-let ((group (alist-get status grouped nil nil #'string=)))
         (insert (propertize
-                 (format "\n%s (%d)\n"
+                 (format "%s %s (%d)\n"
+                         (ogent-issues--status-icon status)
                          (ogent-issues--status-label status)
                          (length group))
                  'face 'ogent-issues-section-heading))
         (dolist (issue group)
-          (insert "  " (ogent-issues--format-issue-line issue) "\n")
+          (insert (ogent-issues--format-issue-line issue) "\n")
           (put-text-property (line-beginning-position 0)
                              (line-end-position 0)
-                             'ogent-issue issue))))))
+                             'ogent-issue issue))
+        (insert "\n")))))
 
-(defun ogent-issues--insert-header ()
-  "Insert buffer header."
-  (insert (propertize "Beads Issues" 'face 'ogent-issues-section-heading))
-  (insert "\n")
-  (insert (propertize "Press ? for help, g to refresh\n\n"
-                      'face 'font-lock-comment-face)))
+(defun ogent-issues--insert-header-section ()
+  "Insert buffer header with quick help."
+  (let ((view-name (pcase ogent-issues--current-view
+                     ('list "Issues")
+                     ('ready "Ready Work")
+                     ('kanban "Kanban")
+                     (_ "Issues"))))
+    (insert (propertize view-name 'face 'ogent-issues-section-heading))
+    (insert "\n")))
 
 (defun ogent-issues--insert-status-section (status issues)
   "Insert a section for STATUS containing ISSUES."
-  (let ((collapsed (member status ogent-issues-collapsed-statuses)))
+  (let ((collapsed (member status ogent-issues-collapsed-statuses))
+        (icon (ogent-issues--status-icon status))
+        (label (ogent-issues--status-label status))
+        (count (length issues)))
     (magit-insert-section (ogent-issues-status-section status collapsed)
       (magit-insert-heading
-        (propertize (format "%s (%d)"
-                            (ogent-issues--status-label status)
-                            (length issues))
-                    'face 'ogent-issues-section-heading))
+        (concat
+         (propertize icon 'face (ogent-issues--status-face status))
+         " "
+         (propertize label 'face 'ogent-issues-section-heading)
+         (when ogent-issues-show-counts
+           (propertize (format " (%d)" count) 'face 'ogent-issues-dimmed))))
       (dolist (issue issues)
-        (ogent-issues--insert-issue issue)))))
+        (ogent-issues--insert-issue issue))
+      (insert "\n"))))
 
 (defun ogent-issues--insert-issue (issue)
   "Insert a single ISSUE as a section."
   (if ogent-issues--magit-section-available
       (magit-insert-section (ogent-issues-issue-section issue)
-        (insert "  " (ogent-issues--format-issue-line issue) "\n"))
-    (insert "  " (ogent-issues--format-issue-line issue) "\n")
+        (insert (ogent-issues--format-issue-line issue) "\n"))
+    (insert (ogent-issues--format-issue-line issue) "\n")
     (put-text-property (line-beginning-position 0)
                        (line-end-position 0)
                        'ogent-issue issue)))
@@ -454,6 +617,24 @@ An issue is ready if it's open, not blocked, and has no blockers."
       (when pos
         (goto-char pos)))))
 
+(defun ogent-issues-next-section ()
+  "Move to the next status section."
+  (interactive)
+  (when ogent-issues--magit-section-available
+    (magit-section-forward-sibling)))
+
+(defun ogent-issues-prev-section ()
+  "Move to the previous status section."
+  (interactive)
+  (when ogent-issues--magit-section-available
+    (magit-section-backward-sibling)))
+
+(defun ogent-issues-up-section ()
+  "Move to the parent section."
+  (interactive)
+  (when ogent-issues--magit-section-available
+    (magit-section-up)))
+
 (defun ogent-issues-toggle-section ()
   "Toggle the current section."
   (interactive)
@@ -477,7 +658,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
 
 ;;; Detail View
 
-(defvar ogent-issues-detail-buffer-name "*ogent-issue-detail*"
+(defvar ogent-issues-detail-buffer-name "*ogent-issue*"
   "Name of the issue detail buffer.")
 
 (defvar ogent-issues-detail-mode-map
@@ -485,14 +666,17 @@ An issue is ready if it's open, not blocked, and has no blockers."
     (define-key map "q" #'quit-window)
     (define-key map "g" #'ogent-issues-detail-refresh)
     (define-key map "K" #'ogent-issues-detail-close)
+    (define-key map "k" #'ogent-issues-detail-close)
     (define-key map "R" #'ogent-issues-detail-reopen)
+    (define-key map "r" #'ogent-issues-detail-reopen)
     (define-key map "s" #'ogent-issues-detail-start)
     (define-key map "C" #'ogent-issues-detail-comment)
     (define-key map (kbd "RET") #'ogent-issues-detail-follow-link)
+    (define-key map "?" #'ogent-issues-detail-help)
     map)
   "Keymap for `ogent-issues-detail-mode'.")
 
-(define-derived-mode ogent-issues-detail-mode special-mode "Issue-Detail"
+(define-derived-mode ogent-issues-detail-mode special-mode "Issue"
   "Major mode for viewing issue details."
   :group 'ogent-issues
   (setq-local truncate-lines nil)
@@ -528,8 +712,18 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (ogent-issues--insert-detail-comments issue)
         (goto-char (point-min))
         (setq header-line-format
-              (format " Issue: %s | q=quit g=refresh K=close s=start C=comment"
-                      (plist-get issue :id)))))
+              (concat
+               " "
+               (propertize (plist-get issue :id) 'face 'ogent-issues-id)
+               "  "
+               (propertize "q" 'face 'ogent-issues-header-line-key)
+               (propertize ":quit " 'face 'ogent-issues-dimmed)
+               (propertize "g" 'face 'ogent-issues-header-line-key)
+               (propertize ":refresh " 'face 'ogent-issues-dimmed)
+               (propertize "s" 'face 'ogent-issues-header-line-key)
+               (propertize ":start " 'face 'ogent-issues-dimmed)
+               (propertize "k" 'face 'ogent-issues-header-line-key)
+               (propertize ":close" 'face 'ogent-issues-dimmed)))))
     (pop-to-buffer buf)))
 
 (defun ogent-issues--insert-detail-header (issue)
@@ -541,21 +735,20 @@ An issue is ready if it's open, not blocked, and has no blockers."
          (type (plist-get issue :issue_type))
          (ready (ogent-issues--issue-ready-p issue)))
     ;; Title line
-    (insert (propertize (or title "Untitled") 'face '(:weight bold :height 1.2)))
+    (insert (propertize (or title "Untitled") 'face '(:weight bold :height 1.1)))
     (insert "\n\n")
     ;; Status line with badges
-    (insert (propertize id 'face 'ogent-issues-id))
-    (insert "  ")
-    (insert (ogent-issues--priority-badge priority))
+    (insert (ogent-issues--priority-indicator priority))
     (insert " ")
-    (insert (ogent-issues--type-icon type))
+    (insert (propertize (format "[%s]" (upcase (or type "task")))
+                        'face 'ogent-issues-type))
     (insert " ")
-    (insert (propertize (format "[%s]" (ogent-issues--status-label status))
+    (insert (propertize (ogent-issues--status-label status)
                         'face (ogent-issues--status-face status)))
     (when ready
       (insert " ")
       (insert (ogent-issues--ready-indicator))
-      (insert (propertize " Ready" 'face 'ogent-issues-ready-indicator)))
+      (insert (propertize " ready" 'face 'ogent-issues-ready)))
     (insert "\n\n")))
 
 (defun ogent-issues--insert-detail-description (issue)
@@ -563,11 +756,9 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (let ((desc (plist-get issue :description)))
     (insert (propertize "Description" 'face 'ogent-issues-section-heading))
     (insert "\n")
-    (insert (make-string 40 ?─))
-    (insert "\n")
     (if (and desc (not (string-empty-p desc)))
         (insert (ogent-issues--render-markdown desc))
-      (insert (propertize "(No description)" 'face 'font-lock-comment-face)))
+      (insert (propertize "(No description)" 'face 'ogent-issues-dimmed)))
     (insert "\n\n")))
 
 (defun ogent-issues--insert-detail-metadata (issue)
@@ -578,17 +769,22 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (labels (plist-get issue :labels)))
     (insert (propertize "Metadata" 'face 'ogent-issues-section-heading))
     (insert "\n")
-    (insert (make-string 40 ?─))
+    (insert (propertize "Created  " 'face 'ogent-issues-dimmed))
+    (insert (ogent-issues--format-time created))
     (insert "\n")
-    (insert (format "  Created:  %s\n" (ogent-issues--format-time created)))
-    (insert (format "  Updated:  %s\n" (ogent-issues--format-time updated)))
+    (insert (propertize "Updated  " 'face 'ogent-issues-dimmed))
+    (insert (ogent-issues--format-time updated))
+    (insert "\n")
     (when parent
-      (insert (format "  Parent:   %s\n" (ogent-issues--format-dep-link parent))))
+      (insert (propertize "Parent   " 'face 'ogent-issues-dimmed))
+      (insert (ogent-issues--format-dep-link parent))
+      (insert "\n"))
     (when labels
-      (insert (format "  Labels:   %s\n"
-                      (if (listp labels)
-                          (string-join labels ", ")
-                        labels))))
+      (insert (propertize "Labels   " 'face 'ogent-issues-dimmed))
+      (insert (if (listp labels)
+                  (string-join labels ", ")
+                labels))
+      (insert "\n"))
     (insert "\n")))
 
 (defun ogent-issues--insert-detail-dependencies (issue)
@@ -598,19 +794,20 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (children (plist-get issue :children)))
     (insert (propertize "Dependencies" 'face 'ogent-issues-section-heading))
     (insert "\n")
-    (insert (make-string 40 ?─))
+    (insert (propertize "Blocks     " 'face 'ogent-issues-dimmed))
+    (if (and blocks (> (length blocks) 0))
+        (insert (mapconcat #'ogent-issues--format-dep-link blocks ", "))
+      (insert (propertize "none" 'face 'ogent-issues-dimmed)))
     (insert "\n")
-    (insert (format "  Blocks:     %s\n"
-                    (if (and blocks (> (length blocks) 0))
-                        (mapconcat #'ogent-issues--format-dep-link blocks ", ")
-                      (propertize "(none)" 'face 'font-lock-comment-face))))
-    (insert (format "  Blocked by: %s\n"
-                    (if (and blocked-by (> (length blocked-by) 0))
-                        (mapconcat #'ogent-issues--format-dep-link blocked-by ", ")
-                      (propertize "(none)" 'face 'font-lock-comment-face))))
+    (insert (propertize "Blocked by " 'face 'ogent-issues-dimmed))
+    (if (and blocked-by (> (length blocked-by) 0))
+        (insert (mapconcat #'ogent-issues--format-dep-link blocked-by ", "))
+      (insert (propertize "none" 'face 'ogent-issues-dimmed)))
+    (insert "\n")
     (when (and children (> (length children) 0))
-      (insert (format "  Children:   %s\n"
-                      (mapconcat #'ogent-issues--format-dep-link children ", "))))
+      (insert (propertize "Children   " 'face 'ogent-issues-dimmed))
+      (insert (mapconcat #'ogent-issues--format-dep-link children ", "))
+      (insert "\n"))
     (insert "\n")))
 
 (defun ogent-issues--insert-detail-comments (issue)
@@ -619,12 +816,10 @@ An issue is ready if it's open, not blocked, and has no blockers."
     (insert (propertize (format "Comments (%d)" (length (or comments '())))
                         'face 'ogent-issues-section-heading))
     (insert "\n")
-    (insert (make-string 40 ?─))
-    (insert "\n")
     (if (and comments (> (length comments) 0))
         (dolist (comment comments)
           (ogent-issues--insert-comment comment))
-      (insert (propertize "  (No comments)\n" 'face 'font-lock-comment-face)))
+      (insert (propertize "(No comments)" 'face 'ogent-issues-dimmed)))
     (insert "\n")))
 
 (defun ogent-issues--insert-comment (comment)
@@ -634,13 +829,12 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (text (or (plist-get comment :text)
                   (plist-get comment :body)
                   "")))
-    (insert "\n  ")
+    (insert "\n")
     (insert (propertize (format "@%s" author) 'face 'font-lock-keyword-face))
     (insert " ")
-    (insert (propertize (format "[%s]" (ogent-issues--format-time time))
-                        'face 'font-lock-comment-face))
+    (insert (propertize (ogent-issues--format-time time) 'face 'ogent-issues-dimmed))
     (insert "\n")
-    (insert (ogent-issues--indent-text text 4))
+    (insert (ogent-issues--indent-text text 2))
     (insert "\n")))
 
 ;;; Detail View Utilities
@@ -667,10 +861,6 @@ An issue is ready if it's open, not blocked, and has no blockers."
       (goto-char (point-min))
       (while (re-search-forward "__\\(.+?\\)__" nil t)
         (replace-match (propertize (match-string 1) 'face 'bold) t t))
-      ;; Italic: *text* or _text_ (but not inside **)
-      (goto-char (point-min))
-      (while (re-search-forward "\\(?:^\\|[^*_]\\)\\([*_]\\)\\([^*_\n]+?\\)\\1\\(?:[^*_]\\|$\\)" nil t)
-        (replace-match (propertize (match-string 2) 'face 'italic) t t nil 0))
       ;; Code: `text`
       (goto-char (point-min))
       (while (re-search-forward "`\\([^`\n]+?\\)`" nil t)
@@ -678,18 +868,18 @@ An issue is ready if it's open, not blocked, and has no blockers."
       ;; Headers: ## text
       (goto-char (point-min))
       (while (re-search-forward "^##+ \\(.+\\)$" nil t)
-        (replace-match (propertize (match-string 1) 'face '(:weight bold :underline t)) t t))
+        (replace-match (propertize (match-string 1) 'face 'ogent-issues-section-heading) t t))
       ;; List items: - or *
       (goto-char (point-min))
       (while (re-search-forward "^\\([ \t]*\\)[-*] " nil t)
-        (replace-match (concat (match-string 1) "• ")))
+        (replace-match (concat (match-string 1) (if ogent-issues-use-unicode "• " "- "))))
       ;; Checkbox: - [ ] or - [x]
       (goto-char (point-min))
       (while (re-search-forward "^\\([ \t]*\\)• \\[ \\]" nil t)
-        (replace-match (concat (match-string 1) "☐ ")))
+        (replace-match (concat (match-string 1) (if ogent-issues-use-unicode "☐ " "[ ] "))))
       (goto-char (point-min))
       (while (re-search-forward "^\\([ \t]*\\)• \\[x\\]" nil t)
-        (replace-match (concat (match-string 1) "☑ ")))
+        (replace-match (concat (match-string 1) (if ogent-issues-use-unicode "☑ " "[x] "))))
       (buffer-string))))
 
 (defun ogent-issues--indent-text (text indent)
@@ -788,6 +978,11 @@ An issue is ready if it's open, not blocked, and has no blockers."
                              (message "Could not fetch issue %s: %s" id err)))
     (user-error "No issue link at point")))
 
+(defun ogent-issues-detail-help ()
+  "Show help for detail view."
+  (interactive)
+  (message "q:quit g:refresh s:start k:close r:reopen C:comment RET:follow-link"))
+
 ;;; Refresh
 
 (defun ogent-issues-refresh (&optional _ignore-auto _noconfirm)
@@ -816,69 +1011,64 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (ogent-issues-refresh))
 
 (defun ogent-issues--restore-position ()
-  "Restore cursor position after refresh."
+  "Restore cursor to last known position."
   (goto-char (point-min))
   (when ogent-issues--last-position
-    ;; Try to find the issue we were on
     (let ((found nil))
-      (save-excursion
-        (while (and (not found) (not (eobp)))
-          (when-let ((issue (ogent-issues--current-issue)))
-            (when (string= (plist-get issue :id) ogent-issues--last-position)
-              (setq found (point))))
-          (forward-line 1)))
-      (when found
-        (goto-char found)))))
+      (while (and (not found) (not (eobp)))
+        (if (equal (ogent-issues--current-issue-id) ogent-issues--last-position)
+            (setq found t)
+          (ogent-issues-next-issue)))
+      (unless found
+        (goto-char (point-min))
+        (ogent-issues-next-issue)))))
 
 ;;; Filtering
 
 (defun ogent-issues--apply-filters (issues)
   "Apply current filters to ISSUES."
-  (let ((status (plist-get ogent-issues--filters :status))
-        (type (plist-get ogent-issues--filters :type))
-        (priority (plist-get ogent-issues--filters :priority)))
+  (if (null ogent-issues--filters)
+      issues
     (seq-filter
      (lambda (issue)
-       (and (or (null status)
-                (string= (plist-get issue :status) status))
-            (or (null type)
-                (string= (plist-get issue :issue_type) type))
-            (or (null priority)
-                (= (plist-get issue :priority) priority))))
+       (and (or (null (plist-get ogent-issues--filters :status))
+                (string= (plist-get issue :status)
+                         (plist-get ogent-issues--filters :status)))
+            (or (null (plist-get ogent-issues--filters :type))
+                (string= (plist-get issue :issue_type)
+                         (plist-get ogent-issues--filters :type)))
+            (or (null (plist-get ogent-issues--filters :priority))
+                (= (or (plist-get issue :priority) 2)
+                   (plist-get ogent-issues--filters :priority)))))
      issues)))
 
 (defun ogent-issues-filter-status (status)
   "Filter issues by STATUS."
   (interactive
    (list (completing-read "Status: "
-                          '("all" "open" "in_progress" "blocked" "closed")
+                          '("open" "in_progress" "blocked" "closed")
                           nil t)))
   (setq ogent-issues--filters
-        (plist-put ogent-issues--filters :status
-                   (unless (string= status "all") status)))
+        (plist-put ogent-issues--filters :status status))
   (ogent-issues-refresh))
 
 (defun ogent-issues-filter-type (type)
   "Filter issues by TYPE."
   (interactive
    (list (completing-read "Type: "
-                          '("all" "bug" "feature" "task" "epic" "chore")
+                          '("bug" "feature" "task" "epic" "chore")
                           nil t)))
   (setq ogent-issues--filters
-        (plist-put ogent-issues--filters :type
-                   (unless (string= type "all") type)))
+        (plist-put ogent-issues--filters :type type))
   (ogent-issues-refresh))
 
 (defun ogent-issues-filter-priority (priority)
   "Filter issues by PRIORITY."
   (interactive
-   (list (completing-read "Priority: "
-                          '("all" "0" "1" "2" "3")
-                          nil t)))
+   (list (string-to-number
+          (completing-read "Priority: " '("0" "1" "2" "3") nil t))))
   (setq ogent-issues--filters
-        (plist-put ogent-issues--filters :priority
-                   (unless (string= priority "all")
-                     (string-to-number priority))))
+        (plist-put ogent-issues--filters :priority priority))
   (ogent-issues-refresh))
 
 (defun ogent-issues-clear-filters ()
@@ -887,22 +1077,25 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (setq ogent-issues--filters nil)
   (ogent-issues-refresh))
 
+(defun ogent-issues-filter-dispatch ()
+  "Open filter transient menu."
+  (interactive)
+  (if (fboundp 'ogent-issues-filter-dispatch)
+      (call-interactively 'ogent-issues-filter-dispatch)
+    (message "ff:filter fc:clear fs:status ft:type fp:priority")))
+
 ;;; Actions
 
 (defun ogent-issues-create ()
-  "Create a new issue.
-This is a placeholder - full implementation in ogent-01g.6."
+  "Create a new issue."
   (interactive)
-  (let ((title (read-string "Issue title: ")))
-    (when (string-empty-p title)
-      (user-error "Title cannot be empty"))
-    (let ((type (completing-read "Type: "
-                                 '("task" "bug" "feature" "chore" "epic")
-                                 nil t "task"))
-          (priority (string-to-number
-                     (completing-read "Priority: "
-                                      '("0" "1" "2" "3")
-                                      nil t "2"))))
+  (if (fboundp 'ogent-issues-create-dispatch)
+      (call-interactively 'ogent-issues-create-dispatch)
+    (let* ((title (read-string "Issue title: "))
+           (type (completing-read "Type: " '("task" "bug" "feature" "chore" "epic") nil t "task"))
+           (priority (string-to-number (completing-read "Priority: " '("0" "1" "2" "3") nil t "2"))))
+      (when (string-empty-p title)
+        (user-error "Title cannot be empty"))
       (ogent-issues-bd-create title
                               (lambda (result)
                                 (message "Created: %s" (plist-get result :id))
@@ -968,16 +1161,16 @@ This is a placeholder - full implementation in ogent-01g.6."
     (user-error "No issue at point")))
 
 (defun ogent-issues-sync ()
-  "Sync beads to git."
+  "Sync issues to git."
   (interactive)
   (ogent-issues-bd-sync
    (lambda ()
-     (message "Beads synced to git")
+     (message "Synced to git")
      (ogent-issues-refresh))
    (lambda (err)
-     (message "Sync failed: %s" err))))
+     (message "Failed to sync: %s" err))))
 
-;;; Views (placeholders for future implementation)
+;;; Views
 
 (defun ogent-issues-view-list ()
   "Switch to list view."
@@ -986,8 +1179,7 @@ This is a placeholder - full implementation in ogent-01g.6."
   (ogent-issues-refresh))
 
 (defun ogent-issues-view-ready ()
-  "Switch to ready work view.
-This is a placeholder - full implementation in ogent-01g.7."
+  "Switch to ready work view."
   (interactive)
   (setq ogent-issues--current-view 'ready)
   (ogent-issues-bd-ready
@@ -995,48 +1187,38 @@ This is a placeholder - full implementation in ogent-01g.7."
      (setq ogent-issues--issues issues)
      (let ((inhibit-read-only t))
        (erase-buffer)
-       (insert (propertize "Ready Work\n" 'face 'ogent-issues-section-heading))
-       (insert (propertize "Issues with no blockers\n\n" 'face 'font-lock-comment-face))
        (if issues
-           (dolist (issue issues)
-             (insert "  " (ogent-issues--format-issue-line issue) "\n"))
-         (insert "  No ready work! 🎉\n"))))
+           (progn
+             (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
+             (insert "\n")
+             (insert (propertize "Issues with no blockers, sorted by priority\n\n"
+                                 'face 'ogent-issues-dimmed))
+             (if ogent-issues--magit-section-available
+                 (magit-insert-section (ogent-issues-root-section)
+                   (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+                     (ogent-issues--insert-issue issue)))
+               (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+                 (insert (ogent-issues--format-issue-line issue) "\n"))))
+         (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
+         (insert "\n\n")
+         (insert (propertize "  No ready work! 🎉\n\n" 'face 'ogent-issues-dimmed))
+         (insert (propertize "  All issues are either blocked, closed, or in progress.\n"
+                             'face 'ogent-issues-dimmed)))
+       (goto-char (point-min))))
    (lambda (err)
-     (message "Failed to fetch ready issues: %s" err))))
+     (message "Failed to fetch ready work: %s" err))))
 
 (defun ogent-issues-view-kanban ()
-  "Switch to Kanban board view.
-This is a placeholder - full implementation in ogent-01g.8."
+  "Switch to Kanban board view."
   (interactive)
   (setq ogent-issues--current-view 'kanban)
   (message "Kanban view not yet implemented"))
 
 (defun ogent-issues-view-deps ()
-  "Switch to dependency graph view.
-This is a placeholder - full implementation in ogent-01g.9."
+  "Switch to dependency graph view."
   (interactive)
+  (setq ogent-issues--current-view 'deps)
   (message "Dependency view not yet implemented"))
-
-;; Load transient menu if available
-(declare-function ogent-issues-dispatch "ogent-issues-transient" nil t)
-(autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
-
-;;; Entry Point
-
-;;;###autoload
-(defun ogent-issues ()
-  "Open the ogent-issues buffer."
-  (interactive)
-  ;; Check requirements
-  (when-let ((err (ogent-issues-bd-check-requirements)))
-    (user-error "%s" err))
-  ;; Get or create buffer
-  (let ((buf (get-buffer-create ogent-issues-buffer-name)))
-    (with-current-buffer buf
-      (unless (eq major-mode 'ogent-issues-mode)
-        (ogent-issues-mode))
-      (ogent-issues-refresh))
-    (pop-to-buffer buf)))
 
 (provide 'ogent-issues)
 
