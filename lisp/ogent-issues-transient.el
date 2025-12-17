@@ -1,0 +1,267 @@
+;;; ogent-issues-transient.el --- Transient menus for ogent-issues -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Provides transient command menus for ogent-issues, following magit patterns.
+;; Main entry point is `ogent-issues-dispatch' bound to ? in ogent-issues-mode.
+
+;;; Code:
+
+(require 'transient)
+(require 'ogent-issues-bd)
+
+;; Forward declarations
+(declare-function ogent-issues-refresh "ogent-issues")
+(declare-function ogent-issues-refresh-force "ogent-issues")
+(declare-function ogent-issues--current-issue "ogent-issues")
+(declare-function ogent-issues--current-issue-id "ogent-issues")
+(declare-function ogent-issues-next-issue "ogent-issues")
+(declare-function ogent-issues-prev-issue "ogent-issues")
+(declare-function ogent-issues-visit "ogent-issues")
+(declare-function ogent-issues-toggle-section "ogent-issues")
+(declare-function ogent-issues-create "ogent-issues")
+(declare-function ogent-issues-close "ogent-issues")
+(declare-function ogent-issues-reopen "ogent-issues")
+(declare-function ogent-issues-start "ogent-issues")
+(declare-function ogent-issues-comment "ogent-issues")
+(declare-function ogent-issues-sync "ogent-issues")
+(declare-function ogent-issues-filter-status "ogent-issues")
+(declare-function ogent-issues-filter-type "ogent-issues")
+(declare-function ogent-issues-filter-priority "ogent-issues")
+(declare-function ogent-issues-clear-filters "ogent-issues")
+(declare-function ogent-issues-view-list "ogent-issues")
+(declare-function ogent-issues-view-ready "ogent-issues")
+(declare-function ogent-issues-view-kanban "ogent-issues")
+(declare-function ogent-issues-view-deps "ogent-issues")
+
+(defvar ogent-issues--current-view)
+(defvar ogent-issues--filters)
+
+;;; Header Formatting
+
+(defun ogent-issues-transient--format-header ()
+  "Format header showing current issue context."
+  (let* ((issue (ignore-errors (ogent-issues--current-issue)))
+         (id (when issue (plist-get issue :id)))
+         (title (when issue (plist-get issue :title)))
+         (status (when issue (plist-get issue :status)))
+         (view (symbol-name (or ogent-issues--current-view 'list))))
+    (concat
+     (propertize "Ogent Issues" 'face 'transient-heading)
+     " | "
+     (propertize (capitalize view) 'face 'transient-value)
+     (when id
+       (concat "\n"
+               (propertize "Current: " 'face 'transient-inactive-argument)
+               (propertize id 'face 'transient-argument)
+               " "
+               (propertize (or status "") 'face 'transient-inactive-value)
+               " "
+               (truncate-string-to-width (or title "") 40 nil nil "…"))))))
+
+;;; Main Dispatch Menu
+
+;;;###autoload (autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
+(transient-define-prefix ogent-issues-dispatch ()
+  "Dispatch menu for ogent-issues."
+  [:description ogent-issues-transient--format-header
+   ["Navigation"
+    ("j" "Next issue" ogent-issues-next-issue :transient t)
+    ("k" "Previous issue" ogent-issues-prev-issue :transient t)
+    ("RET" "View details" ogent-issues-visit)
+    ("TAB" "Toggle section" ogent-issues-toggle-section :transient t)]
+   ["Actions"
+    ("c" "Create issue" ogent-issues-create-dispatch)
+    ("s" "Start working" ogent-issues-start)
+    ("K" "Close issue" ogent-issues-close)
+    ("R" "Reopen issue" ogent-issues-reopen)
+    ("C" "Add comment" ogent-issues-comment)]]
+  [["Filters"
+    ("fs" "By status" ogent-issues-filter-status)
+    ("ft" "By type" ogent-issues-filter-type)
+    ("fp" "By priority" ogent-issues-filter-priority)
+    ("fx" "Clear filters" ogent-issues-clear-filters)]
+   ["Views"
+    ("vl" "List view" ogent-issues-view-list)
+    ("vr" "Ready work" ogent-issues-view-ready)
+    ("vk" "Kanban board" ogent-issues-view-kanban)
+    ("vd" "Dependencies" ogent-issues-view-deps)]]
+  [["Sync"
+    ("g" "Refresh" ogent-issues-refresh :transient t)
+    ("G" "Force refresh" ogent-issues-refresh-force :transient t)
+    ("S" "Sync to git" ogent-issues-sync)]
+   ["Quit"
+    ("q" "Quit menu" transient-quit-one)
+    ("Q" "Quit buffer" quit-window)]])
+
+;;; Create Issue Transient
+
+(transient-define-prefix ogent-issues-create-dispatch ()
+  "Create a new issue."
+  ["Options"
+   ("-t" "Type" "--type="
+    :choices ("task" "bug" "feature" "chore" "epic")
+    :init-value (lambda (obj) (oset obj value "task")))
+   ("-p" "Priority" "--priority="
+    :choices ("0" "1" "2" "3")
+    :init-value (lambda (obj) (oset obj value "2")))]
+  ["Create"
+   ("c" "Quick create (title only)" ogent-issues-create-quick)
+   ("C" "Full create (with description)" ogent-issues-create-full)
+   ("e" "Create epic with subtasks" ogent-issues-create-epic)]
+  ["Cancel"
+   ("q" "Cancel" transient-quit-one)])
+
+(defun ogent-issues-create-quick ()
+  "Create issue with just a title, using transient options."
+  (interactive)
+  (let* ((args (transient-args 'ogent-issues-create-dispatch))
+         (type (or (transient-arg-value "--type=" args) "task"))
+         (priority (string-to-number (or (transient-arg-value "--priority=" args) "2")))
+         (title (read-string "Issue title: ")))
+    (when (string-empty-p title)
+      (user-error "Title cannot be empty"))
+    (ogent-issues-bd-create title
+                            (lambda (result)
+                              (message "Created: %s" (plist-get result :id))
+                              (ogent-issues-refresh))
+                            :type type
+                            :priority priority)))
+
+(defun ogent-issues-create-full ()
+  "Create issue with full description in a buffer."
+  (interactive)
+  (let* ((args (transient-args 'ogent-issues-create-dispatch))
+         (type (or (transient-arg-value "--type=" args) "task"))
+         (priority (or (transient-arg-value "--priority=" args) "2"))
+         (buf (get-buffer-create "*ogent-issue-create*")))
+    (with-current-buffer buf
+      (erase-buffer)
+      (ogent-issues-create-mode)
+      (insert "# New Issue\n\n")
+      (insert (format "Title: \n"))
+      (insert (format "Type: %s\n" type))
+      (insert (format "Priority: %s\n" priority))
+      (insert "Labels: \n")
+      (insert "Parent: \n")
+      (insert "\n## Description\n\n")
+      (insert "\n\n")
+      (insert "<!-- C-c C-c to create, C-c C-k to cancel -->\n")
+      (goto-char (point-min))
+      (search-forward "Title: "))
+    (pop-to-buffer buf)))
+
+(defun ogent-issues-create-epic ()
+  "Create an epic with subtasks."
+  (interactive)
+  (let* ((title (read-string "Epic title: "))
+         (description (read-string "Description: "))
+         (subtasks-input (read-string "Subtasks (comma-separated): "))
+         (subtasks (mapcar #'string-trim (split-string subtasks-input ","))))
+    (when (string-empty-p title)
+      (user-error "Title cannot be empty"))
+    ;; For now, create epic as a regular issue with subtasks in description
+    ;; Full epic support requires bd CLI epic creation
+    (let ((full-desc (concat description "\n\n## Subtasks\n"
+                             (mapconcat (lambda (s) (format "- [ ] %s" s))
+                                        subtasks "\n"))))
+      (ogent-issues-bd-create title
+                              (lambda (result)
+                                (message "Created epic: %s with %d subtasks"
+                                         (plist-get result :id)
+                                         (length subtasks))
+                                (ogent-issues-refresh))
+                              :type "epic"
+                              :priority 1
+                              :description full-desc))))
+
+;;; Create Mode for Full Issue Creation
+
+(defvar ogent-issues-create-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "C-c C-c") #'ogent-issues-create-submit)
+    (define-key map (kbd "C-c C-k") #'ogent-issues-create-cancel)
+    map)
+  "Keymap for `ogent-issues-create-mode'.")
+
+(define-derived-mode ogent-issues-create-mode text-mode "Issue-Create"
+  "Mode for creating issues with full description."
+  (setq-local header-line-format
+              '(" Create Issue | C-c C-c: submit | C-c C-k: cancel")))
+
+(defun ogent-issues-create-submit ()
+  "Submit the issue from the create buffer."
+  (interactive)
+  (let ((content (buffer-string)))
+    ;; Parse the buffer content
+    (let ((title nil)
+          (type "task")
+          (priority 2)
+          (description nil))
+      ;; Extract title
+      (when (string-match "^Title: \\(.+\\)$" content)
+        (setq title (string-trim (match-string 1 content))))
+      ;; Extract type
+      (when (string-match "^Type: \\(.+\\)$" content)
+        (setq type (string-trim (match-string 1 content))))
+      ;; Extract priority
+      (when (string-match "^Priority: \\([0-3]\\)" content)
+        (setq priority (string-to-number (match-string 1 content))))
+      ;; Extract description (everything after ## Description)
+      (when (string-match "## Description\n\n\\(\\(?:.\\|\n\\)*?\\)\n\n<!--" content)
+        (setq description (string-trim (match-string 1 content))))
+      ;; Validate
+      (unless (and title (not (string-empty-p title)))
+        (user-error "Title is required"))
+      ;; Create the issue
+      (ogent-issues-bd-create title
+                              (lambda (result)
+                                (message "Created: %s" (plist-get result :id))
+                                (kill-buffer)
+                                (when-let ((buf (get-buffer "*ogent-issues*")))
+                                  (with-current-buffer buf
+                                    (ogent-issues-refresh))))
+                              :type type
+                              :priority priority
+                              :description description))))
+
+(defun ogent-issues-create-cancel ()
+  "Cancel issue creation."
+  (interactive)
+  (when (yes-or-no-p "Cancel issue creation? ")
+    (kill-buffer)))
+
+;;; Filter Transient
+
+(transient-define-prefix ogent-issues-filter-dispatch ()
+  "Filter issues."
+  :value '("--status=open")
+  ["Filters"
+   ("-s" "Status" "--status="
+    :choices ("all" "open" "in_progress" "blocked" "closed"))
+   ("-t" "Type" "--type="
+    :choices ("all" "bug" "feature" "task" "epic" "chore"))
+   ("-p" "Priority" "--priority="
+    :choices ("all" "0" "1" "2" "3"))]
+  ["Actions"
+   ("RET" "Apply filters" ogent-issues-filter-apply)
+   ("x" "Clear all" ogent-issues-clear-filters)
+   ("q" "Cancel" transient-quit-one)])
+
+(defun ogent-issues-filter-apply ()
+  "Apply filters from transient arguments."
+  (interactive)
+  (let* ((args (transient-args 'ogent-issues-filter-dispatch))
+         (status (transient-arg-value "--status=" args))
+         (type (transient-arg-value "--type=" args))
+         (priority (transient-arg-value "--priority=" args)))
+    ;; Apply each filter if not "all"
+    (when (and status (not (string= status "all")))
+      (ogent-issues-filter-status status))
+    (when (and type (not (string= type "all")))
+      (ogent-issues-filter-type type))
+    (when (and priority (not (string= priority "all")))
+      (ogent-issues-filter-priority priority))))
+
+(provide 'ogent-issues-transient)
+
+;;; ogent-issues-transient.el ends here
