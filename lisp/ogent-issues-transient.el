@@ -36,6 +36,42 @@
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)
 
+;;; Context Capture
+
+(defvar-local ogent-issues-create--context nil
+  "Captured context from the buffer where issue creation was initiated.")
+
+(defun ogent-issues--capture-context ()
+  "Capture context from current buffer for issue creation.
+Returns a plist with :file, :line, :function, and :formatted keys."
+  (let* ((file (buffer-file-name))
+         (line (line-number-at-pos))
+         (func (ignore-errors (which-function)))
+         (project-root (ignore-errors
+                         (when-let ((proj (project-current)))
+                           (project-root proj))))
+         (relative-file (when (and file project-root)
+                          (file-relative-name file project-root)))
+         (formatted (when file
+                      (concat (or relative-file (file-name-nondirectory file))
+                              ":" (number-to-string line)
+                              (when func (format " (%s)" func))))))
+    (when file
+      (list :file (or relative-file file)
+            :line line
+            :function func
+            :formatted formatted))))
+
+(defun ogent-issues--format-context-for-description (context)
+  "Format CONTEXT plist as markdown for issue description."
+  (when context
+    (let ((file (plist-get context :file))
+          (line (plist-get context :line))
+          (func (plist-get context :function)))
+      (concat "**Context:** `" file ":" (number-to-string line) "`"
+              (when func (format " in `%s`" func))
+              "\n\n"))))
+
 ;;; Header Formatting
 
 (defun ogent-issues-transient--format-header ()
@@ -112,38 +148,50 @@
    ("q" "Cancel" transient-quit-one)])
 
 (defun ogent-issues-create-quick ()
-  "Create issue with just a title, using transient options."
+  "Create issue with just a title, using transient options.
+Automatically captures context (file, line) if invoked from a file buffer."
   (interactive)
   (let* ((args (transient-args 'ogent-issues-create-dispatch))
          (type (or (transient-arg-value "--type=" args) "task"))
          (priority (string-to-number (or (transient-arg-value "--priority=" args) "2")))
+         (context (ogent-issues--capture-context))
          (title (read-string "Issue title: ")))
     (when (string-empty-p title)
       (user-error "Title cannot be empty"))
     (ogent-issues-bd-create title
                             (lambda (result)
-                              (message "Created: %s" (plist-get result :id))
+                              (message "Created: %s%s"
+                                       (plist-get result :id)
+                                       (if context " (with context)" ""))
                               (ogent-issues-refresh))
                             :type type
-                            :priority priority)))
+                            :priority priority
+                            :description (when context
+                                           (ogent-issues--format-context-for-description context)))))
 
 (defun ogent-issues-create-full ()
-  "Create issue with full description in a buffer."
+  "Create issue with full description in a buffer.
+Captures context (file, line, function) from the current buffer."
   (interactive)
   (let* ((args (transient-args 'ogent-issues-create-dispatch))
          (type (or (transient-arg-value "--type=" args) "task"))
          (priority (or (transient-arg-value "--priority=" args) "2"))
+         (context (ogent-issues--capture-context))
          (buf (get-buffer-create "*ogent-issue-create*")))
     (with-current-buffer buf
       (erase-buffer)
       (ogent-issues-create-mode)
+      (setq-local ogent-issues-create--context context)
       (insert "# New Issue\n\n")
-      (insert (format "Title: \n"))
+      (insert "Title: \n")
       (insert (format "Type: %s\n" type))
       (insert (format "Priority: %s\n" priority))
       (insert "Labels: \n")
       (insert "Parent: \n")
       (insert "\n## Description\n\n")
+      ;; Insert context if captured
+      (when context
+        (insert (ogent-issues--format-context-for-description context)))
       (insert "\n\n")
       (insert "<!-- C-c C-c to create, C-c C-k to cancel -->\n")
       (goto-char (point-min))
