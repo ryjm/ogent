@@ -323,14 +323,14 @@ Other:
 
 ;;;###autoload
 (defun ogent-issues ()
-  "Open the ogent-issues buffer."
+  "Open the ogent-issues buffer in a split window."
   (interactive)
   (let ((buf (get-buffer-create ogent-issues-buffer-name)))
     (with-current-buffer buf
       (unless (eq major-mode 'ogent-issues-mode)
         (ogent-issues-mode))
       (ogent-issues-refresh))
-    (pop-to-buffer buf)))
+    (switch-to-buffer-other-window buf)))
 
 ;;; Header Line
 
@@ -996,17 +996,21 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (setq ogent-issues--last-position
         (when-let ((issue (ogent-issues--current-issue)))
           (plist-get issue :id)))
-  ;; Fetch and render
-  (ogent-issues-bd-list
-   (lambda (issues)
-     (setq ogent-issues--issues (ogent-issues--apply-filters issues))
-     (let ((inhibit-read-only t))
-       (erase-buffer)
-       (ogent-issues--insert-buffer-contents ogent-issues--issues)
-       (ogent-issues--restore-position)))
-   ogent-issues--filters
-   (lambda (err)
-     (message "Failed to refresh: %s" err))))
+  ;; Capture buffer for async callback
+  (let ((buf (current-buffer)))
+    ;; Fetch and render
+    (ogent-issues-bd-list
+     (lambda (issues)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (setq ogent-issues--issues (ogent-issues--apply-filters issues))
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (ogent-issues--insert-buffer-contents ogent-issues--issues)
+             (ogent-issues--restore-position)))))
+     ogent-issues--filters
+     (lambda (err)
+       (message "Failed to refresh: %s" err)))))
 
 (defun ogent-issues-refresh-force ()
   "Force refresh, clearing cache."
@@ -1186,31 +1190,34 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Switch to ready work view."
   (interactive)
   (setq ogent-issues--current-view 'ready)
-  (ogent-issues-bd-ready
-   (lambda (issues)
-     (setq ogent-issues--issues issues)
-     (let ((inhibit-read-only t))
-       (erase-buffer)
-       (if issues
-           (progn
-             (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
-             (insert "\n")
-             (insert (propertize "Issues with no blockers, sorted by priority\n\n"
-                                 'face 'ogent-issues-dimmed))
-             (if ogent-issues--magit-section-available
-                 (magit-insert-section (ogent-issues-root-section)
-                   (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
-                     (ogent-issues--insert-issue issue)))
-               (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
-                 (insert (ogent-issues--format-issue-line issue) "\n"))))
-         (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
-         (insert "\n\n")
-         (insert (propertize "  No ready work! 🎉\n\n" 'face 'ogent-issues-dimmed))
-         (insert (propertize "  All issues are either blocked, closed, or in progress.\n"
-                             'face 'ogent-issues-dimmed)))
-       (goto-char (point-min))))
-   (lambda (err)
-     (message "Failed to fetch ready work: %s" err))))
+  (let ((buf (current-buffer)))
+    (ogent-issues-bd-ready
+     (lambda (issues)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (setq ogent-issues--issues issues)
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (if issues
+                 (progn
+                   (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
+                   (insert "\n")
+                   (insert (propertize "Issues with no blockers, sorted by priority\n\n"
+                                       'face 'ogent-issues-dimmed))
+                   (if ogent-issues--magit-section-available
+                       (magit-insert-section (ogent-issues-root-section)
+                         (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+                           (ogent-issues--insert-issue issue)))
+                     (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+                       (insert (ogent-issues--format-issue-line issue) "\n"))))
+               (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
+               (insert "\n\n")
+               (insert (propertize "  No ready work! 🎉\n\n" 'face 'ogent-issues-dimmed))
+               (insert (propertize "  All issues are either blocked, closed, or in progress.\n"
+                                   'face 'ogent-issues-dimmed)))
+             (goto-char (point-min))))))
+     (lambda (err)
+       (message "Failed to fetch ready work: %s" err)))))
 
 ;;; Kanban View
 
@@ -1228,16 +1235,19 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Switch to Kanban board view."
   (interactive)
   (setq ogent-issues--current-view 'kanban)
-  (ogent-issues-bd-list
-   (lambda (issues)
-     (setq ogent-issues--issues issues)
-     (let ((inhibit-read-only t))
-       (erase-buffer)
-       (ogent-issues--insert-kanban-board issues)
-       (goto-char (point-min))))
-   nil  ; no filters
-   (lambda (err)
-     (message "Failed to fetch issues for Kanban: %s" err))))
+  (let ((buf (current-buffer)))
+    (ogent-issues-bd-list
+     (lambda (issues)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (setq ogent-issues--issues issues)
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (ogent-issues--insert-kanban-board issues)
+             (goto-char (point-min))))))
+     nil  ; no filters
+     (lambda (err)
+       (message "Failed to fetch issues for Kanban: %s" err)))))
 
 (defun ogent-issues--kanban-column-width ()
   "Calculate column width based on window width."
