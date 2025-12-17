@@ -297,6 +297,19 @@
     (should (string-match-p "Ready Work" (buffer-string)))
     (should-not (string-match-p "test-003" (buffer-string)))))
 
+(ert-deftest ogent-issues-test-view-kanban ()
+  "Test switching to Kanban view."
+  (ogent-issues-test-with-buffer
+    (ogent-issues-view-kanban)
+    (sit-for 0.01)
+    (should (eq ogent-issues--current-view 'kanban))
+    (should (string-match-p "Kanban Board" (buffer-string)))
+    ;; Should have column headers
+    (should (string-match-p "In Progress" (buffer-string)))
+    (should (string-match-p "Open" (buffer-string)))
+    (should (string-match-p "Blocked" (buffer-string)))
+    (should (string-match-p "Closed" (buffer-string)))))
+
 ;;; Format Filters Tests
 
 (ert-deftest ogent-issues-test-format-filters-nil ()
@@ -514,6 +527,63 @@
             (should (string-match-p "test-003" (buffer-string))))
         (when (buffer-live-p buf)
           (kill-buffer buf))))))
+
+;;; Kanban View Tests
+
+(ert-deftest ogent-issues-test-kanban-columns-defined ()
+  "Test that Kanban columns are defined."
+  (should (boundp 'ogent-issues-kanban-columns))
+  (should (= 4 (length ogent-issues-kanban-columns)))
+  (should (assoc "in_progress" ogent-issues-kanban-columns))
+  (should (assoc "open" ogent-issues-kanban-columns))
+  (should (assoc "blocked" ogent-issues-kanban-columns))
+  (should (assoc "closed" ogent-issues-kanban-columns)))
+
+(ert-deftest ogent-issues-test-kanban-pad-short ()
+  "Test padding short strings."
+  (let ((result (ogent-issues--kanban-pad "Hi" 10)))
+    (should (= 10 (length result)))
+    (should (string-match-p "Hi" result))))
+
+(ert-deftest ogent-issues-test-kanban-pad-exact ()
+  "Test padding exact-length strings."
+  (let ((result (ogent-issues--kanban-pad "1234567890" 10)))
+    (should (= 10 (length result)))
+    (should (string= "1234567890" result))))
+
+(ert-deftest ogent-issues-test-kanban-pad-long ()
+  "Test padding long strings (truncation)."
+  (let ((result (ogent-issues--kanban-pad "This is a very long string" 10)))
+    (should (= 10 (length result)))
+    (should (string-match-p "…" result))))
+
+(ert-deftest ogent-issues-test-kanban-max-rows ()
+  "Test calculating max rows from grouped issues."
+  (let ((grouped '(("open" . (1 2 3))
+                   ("in_progress" . (4))
+                   ("blocked" . nil)
+                   ("closed" . (5 6)))))
+    (should (= 3 (ogent-issues--kanban-max-rows grouped)))))
+
+(ert-deftest ogent-issues-test-kanban-max-rows-empty ()
+  "Test max rows with no issues."
+  (let ((grouped '(("open" . nil)
+                   ("in_progress" . nil)
+                   ("blocked" . nil)
+                   ("closed" . nil))))
+    (should (= 0 (ogent-issues--kanban-max-rows grouped)))))
+
+(ert-deftest ogent-issues-test-kanban-move-functions-defined ()
+  "Test that Kanban move functions are defined."
+  (should (fboundp 'ogent-issues-kanban-move-left))
+  (should (fboundp 'ogent-issues-kanban-move-right)))
+
+(ert-deftest ogent-issues-test-kanban-keybindings ()
+  "Test that Kanban keybindings are set."
+  (should (eq 'ogent-issues-kanban-move-left
+              (lookup-key ogent-issues-mode-map "H")))
+  (should (eq 'ogent-issues-kanban-move-right
+              (lookup-key ogent-issues-mode-map "L"))))
 
 (provide 'ogent-issues-tests)
 
