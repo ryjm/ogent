@@ -182,9 +182,9 @@
   "Finding request headline from response marker."
   (with-temp-buffer
     (org-mode)
-    (insert "* Request: test prompt\n")
+    (insert "** Request: test prompt\n")
     (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let ((response-marker (point-marker)))
       (insert "Response content here\n")
       (should (equal (ogent-status--find-request-headline response-marker)
@@ -197,9 +197,9 @@
   (with-temp-buffer
     (org-mode)
     (ogent-status-mode 1)
-    (insert "* Request: test prompt\n")
+    (insert "** Request: test prompt\n")
     (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let* ((response-marker (point-marker))
            (model (list :id "test-model"))
            (request (make-ogent-ui-request
@@ -223,9 +223,9 @@
   (with-temp-buffer
     (org-mode)
     (ogent-status-mode 1)
-    (insert "* Request: test prompt\n")
+    (insert "** Request: test prompt\n")
     (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let* ((response-marker (point-marker))
            (model (list :id "test-model"))
            (request (make-ogent-ui-request
@@ -251,9 +251,9 @@
   (with-temp-buffer
     (org-mode)
     (ogent-status-mode 1)
-    (insert "* Request: test prompt\n")
+    (insert "** Request: test prompt\n")
     (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let* ((response-marker (point-marker))
            (model (list :id "test-model"))
            (request (make-ogent-ui-request
@@ -279,9 +279,9 @@
   (with-temp-buffer
     (org-mode)
     (ogent-status-mode 1)
-    (insert "* Request: test prompt\n")
+    (insert "** Request: test prompt\n")
     (insert "#+begin_src text\nPrompt: test\n#+end_src\n\n")
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let* ((response-marker (point-marker))
            (model (list :id "test-model"))
            (request (make-ogent-ui-request

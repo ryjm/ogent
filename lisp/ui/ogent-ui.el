@@ -544,14 +544,14 @@ and :line-number (first line number where changes start)."
                   line-num (1+ line-num))
             ;; Collect consecutive added lines
             (while (and (< j (length new-lines))
-                       (or (>= i (length old-lines))
-                           (not (string= (nth i old-lines) (nth j new-lines)))))
+                        (or (>= i (length old-lines))
+                            (not (string= (nth i old-lines) (nth j new-lines)))))
               (push (nth j new-lines) added-lines)
               (setq j (1+ j)
                     line-num (1+ line-num)))
             (push (list :type :added
-                       :lines (nreverse added-lines)
-                       :line-number start-line)
+                        :lines (nreverse added-lines)
+                        :line-number start-line)
                   result)))
          ;; Old line removed
          ((and old-line (not new-line))
@@ -560,13 +560,13 @@ and :line-number (first line number where changes start)."
             (setq i (1+ i))
             ;; Collect consecutive removed lines
             (while (and (< i (length old-lines))
-                       (or (>= j (length new-lines))
-                           (not (string= (nth i old-lines) (nth j new-lines)))))
+                        (or (>= j (length new-lines))
+                            (not (string= (nth i old-lines) (nth j new-lines)))))
               (push (nth i old-lines) removed-lines)
               (setq i (1+ i)))
             (push (list :type :removed
-                       :lines (nreverse removed-lines)
-                       :line-number start-line)
+                        :lines (nreverse removed-lines)
+                        :line-number start-line)
                   result)))
          ;; Lines differ - mark as replacement (removed + added)
          (t
@@ -578,20 +578,20 @@ and :line-number (first line number where changes start)."
                   line-num (1+ line-num))
             ;; Look ahead for more changes
             (while (and (< i (length old-lines))
-                       (< j (length new-lines))
-                       (not (string= (nth i old-lines) (nth j new-lines))))
+                        (< j (length new-lines))
+                        (not (string= (nth i old-lines) (nth j new-lines))))
               (push (nth i old-lines) removed-lines)
               (push (nth j new-lines) added-lines)
               (setq i (1+ i)
                     j (1+ j)
                     line-num (1+ line-num)))
             (push (list :type :removed
-                       :lines (nreverse removed-lines)
-                       :line-number start-line)
+                        :lines (nreverse removed-lines)
+                        :line-number start-line)
                   result)
             (push (list :type :added
-                       :lines (nreverse added-lines)
-                       :line-number start-line)
+                        :lines (nreverse added-lines)
+                        :line-number start-line)
                   result))))))
     (nreverse result)))
 
@@ -606,8 +606,8 @@ DIFF-RESULT is a list of plists from `ogent-ui--diff-strings'."
              (lines (plist-get change :lines))
              (line-num (plist-get change :line-number))
              (face (if (eq type :added)
-                      'ogent-context-diff-added
-                    'ogent-context-diff-removed)))
+                       'ogent-context-diff-added
+                     'ogent-context-diff-removed)))
         ;; Move to the target line
         (goto-char (point-min))
         (forward-line (1- line-num))
@@ -665,25 +665,25 @@ When invoked from a non-Org buffer, includes source buffer context."
                        source-buffer region-start region-end))
              (summary (ogent-ui--format-context context))
              (buffer (ogent-ui--context-buffer)))
-           (with-current-buffer buffer
-            (let ((previous ogent-ui--previous-context))
-              (insert summary)
-              (goto-char (point-min))
-              ;; Apply diff highlighting if we have previous context
-              (when previous
-                (let ((diff (ogent-ui--diff-strings previous summary)))
-                  (when diff
-                    (ogent-ui--apply-diff-overlays diff)
-                    ;; Clear overlays after 3 seconds
-                    (setq ogent-ui--diff-clear-timer
-                          (run-with-timer 3 nil
+        (with-current-buffer buffer
+          (let ((previous ogent-ui--previous-context))
+            (insert summary)
+            (goto-char (point-min))
+            ;; Apply diff highlighting if we have previous context
+            (when previous
+              (let ((diff (ogent-ui--diff-strings previous summary)))
+                (when diff
+                  (ogent-ui--apply-diff-overlays diff)
+                  ;; Clear overlays after 3 seconds
+                  (setq ogent-ui--diff-clear-timer
+                        (run-with-timer 3 nil
                                         (lambda (buf)
                                           (when (buffer-live-p buf)
                                             (with-current-buffer buf
                                               (ogent-ui--clear-diff-overlays))))
                                         buffer)))))
-              ;; Update previous context for next comparison
-              (setq ogent-ui--previous-context summary)))
+            ;; Update previous context for next comparison
+            (setq ogent-ui--previous-context summary)))
         (display-buffer buffer)))))
 
 (defun ogent-ui--context-preview-visible-p ()
@@ -760,12 +760,12 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
   "Prompt dispatcher for ogent requests.
 Shows current model, allows changing it, and sends prompts to LLM."
   [:description ogent--format-model-header
-   ["Options"
-    (ogent--infix-provider)
-    (ogent--infix-prompt)]
-   ["Context"
-    ("c" "Preview context" ogent-context-preview-toggle :transient t)
-    ("C" "Codemap" ogent-codemap-buffer)]]
+                ["Options"
+                 (ogent--infix-provider)
+                 (ogent--infix-prompt)]
+                ["Context"
+                 ("c" "Preview context" ogent-context-preview-toggle :transient t)
+                 ("C" "Codemap" ogent-codemap-buffer)]]
   [["Actions"
     (ogent--suffix-send)
     ("q" "Quit" transient-quit-one)]]
@@ -827,9 +827,9 @@ Returns a plist containing a streaming marker and block-start marker."
          request-heading-pos
          block-start
          response-heading-pos)
-    ;; Insert top-level request headline
+    ;; Insert request headline as child of Session (level 2)
     (setq request-heading-pos (point-marker))
-    (insert (format "* Request: %s\n" prompt-summary))
+    (insert (format "** Request: %s\n" prompt-summary))
     ;; Insert the prompt/context src block under the request headline
     (setq block-start (point-marker))
     (insert (format "#+begin_src text :model %s%s :status waiting\n"
@@ -846,9 +846,9 @@ Returns a plist containing a streaming marker and block-start marker."
       (when (and (derived-mode-p 'org-mode)
                  (fboundp 'org-fold-hide-block-toggle))
         (org-fold-hide-block-toggle 'hide)))
-    ;; Insert nested Response sub-headline where streaming happens
+    ;; Insert Response sub-headline as child of Request (level 3)
     (setq response-heading-pos (point))
-    (insert "** Response\n")
+    (insert "*** Response\n")
     (let ((marker (copy-marker (point) t)))
       (list :marker marker
             :block-start block-start
@@ -909,17 +909,58 @@ WINDOW defaults to the selected window."
         (goto-char (point-max))
         (recenter -1)))))
 
+(defcustom ogent-shift-response-headings t
+  "When non-nil, shift org headings in LLM responses to nest under Response.
+LLM responses appear under a `*** Response' heading (level 3).
+When this is enabled, any org headings in the response are shifted
+by 3 levels so they remain nested under Response.
+
+For example, `* Heading' becomes `**** Heading' (level 4)."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defconst ogent-ui--response-heading-level 3
+  "The org heading level of the Response headline.
+Used to calculate how much to shift headings in LLM responses.")
+
+(defun ogent-ui--shift-org-headings (text)
+  "Shift org headings in TEXT to nest under the Response heading.
+Headings are shifted by `ogent-ui--response-heading-level' levels.
+For example, `* Heading' becomes `**** Heading'.
+
+This prevents LLM-generated headings from breaking the session
+buffer's org hierarchy."
+  (if (not ogent-shift-response-headings)
+      text
+    (with-temp-buffer
+      (insert text)
+      (goto-char (point-min))
+      ;; Match org headings: line start, one or more *, then space or EOL
+      ;; We need to be careful not to match emphasis like *bold*
+      (while (re-search-forward "^\\(\\*+\\)\\([ \t]\\|$\\)" nil t)
+        (let* ((stars (match-string 1))
+               (suffix (match-string 2))
+               (new-stars (make-string
+                           (+ (length stars) ogent-ui--response-heading-level)
+                           ?*)))
+          (replace-match (concat new-stars suffix) t t)))
+      (buffer-string))))
+
 (defun ogent-ui--append-response (request chunk)
   "Append CHUNK to REQUEST's response block.
 If `ogent-auto-scroll' is enabled and the user hasn't scrolled away,
-automatically scroll the window to show new content."
+automatically scroll the window to show new content.
+
+Org headings in the response are shifted to nest under the Response
+heading (see `ogent-shift-response-headings')."
   (when (and (stringp chunk) (> (length chunk) 0))
-    (let ((marker (ogent-ui-request-marker request)))
+    (let ((marker (ogent-ui-request-marker request))
+          (processed-chunk (ogent-ui--shift-org-headings chunk)))
       (when (and marker (marker-buffer marker))
         (with-current-buffer (ogent-ui-request-buffer request)
           (save-excursion
             (goto-char marker)
-            (insert chunk)
+            (insert processed-chunk)
             (set-marker marker (point)))
           ;; Auto-scroll if enabled and we're tracking this request
           (when (and ogent-auto-scroll
@@ -1600,7 +1641,7 @@ Returns the diff-id if a diff was created, nil otherwise."
           (pcase tool-name
             ("write-file"
              (let ((content (or (plist-get tool-args :content)
-                               (plist-get tool-args :content))))
+                                (plist-get tool-args :content))))
                (ogent-ui--generate-diff file-path content)))
             ("edit-file"
              (let ((old-string (or (plist-get tool-args :old-string)

@@ -42,19 +42,19 @@
                                  (plist-get captured :prompt)))
          (should (eq (plist-get captured :backend) 'gptel-openai))
          (should (equal (plist-get captured :model) "gpt-4o-mini"))
-         (save-excursion
+                   (save-excursion
            (goto-char (point-min))
-           ;; Should have top-level Request headline with truncated prompt
-           (search-forward "* Request: Test prompt")
+           ;; Should have Request headline as child of Session (level 2)
+           (search-forward "** Request: Test prompt")
            ;; The src block should be under the Request headline
            (search-forward "#+begin_src text :model gpt-4o-mini")
            (search-forward "#+end_src")
-           ;; Response streams under nested ** Response sub-headline
-           (search-forward "** Response")
+           ;; Response streams under nested *** Response sub-headline
+           (search-forward "*** Response")
            (search-forward "Hello world")))))))
 
 (ert-deftest ogent-ui-nested-headline-structure ()
-  "Verify nested headline structure: * Request -> src block -> ** Response."
+  "Verify nested headline structure: * Session -> ** Request -> *** Response."
   (ogent-test-with-fixture "data/fixture.org"
    (lambda ()
      (goto-char (point-min))
@@ -71,15 +71,15 @@
                         '("gpt-4o-mini"))
          (save-excursion
            (goto-char (point-min))
-           ;; Top-level Request headline with truncated prompt (max 60 chars)
-           (should (search-forward "* Request: This is a longer test prompt that should be truncated in ..." nil t))
-           ;; Src block should be directly under Request headline (level 1)
+           ;; Request headline as child of Session (level 2) with truncated prompt (max 60 chars)
+           (should (search-forward "** Request: This is a longer test prompt that should be truncated in ..." nil t))
+           ;; Src block should be directly under Request headline
            (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
            (should (search-forward "Prompt:" nil t))
            (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
            (should (search-forward "#+end_src" nil t))
-           ;; Response should be a level 2 heading (nested under Request)
-           (should (search-forward "** Response" nil t))
+           ;; Response should be a level 3 heading (nested under Request)
+           (should (search-forward "*** Response" nil t))
            (should (search-forward "Response text" nil t))))))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
@@ -865,7 +865,7 @@
                   ;; New content should be at end, after First Request
                   (goto-char (point-min))
                   (search-forward "* First Request")
-                  (should (search-forward "* Request: Second request"))
+                  (should (search-forward "** Request: Second request"))
                   ;; Verify First Request position hasn't changed
                   (goto-char (point-min))
                   (search-forward "* First Request")
@@ -884,8 +884,8 @@
               (should ogent-session-buffer-p)
               ;; Add multiple requests
               (goto-char (point-max))
-              (insert "* Request 1\n** Response\nResponse 1\n\n")
-              (insert "* Request 2\n** Response\nResponse 2\n\n")
+              (insert "** Request 1\n*** Response\nResponse 1\n\n")
+              (insert "** Request 2\n*** Response\nResponse 2\n\n")
               ;; Position in the middle
               (goto-char (point-min))
               (search-forward "Request 1")
@@ -896,9 +896,9 @@
                                "Request 3" '() model)))
                   ;; Should be at end, after Request 2
                   (goto-char (point-min))
-                  (search-forward "* Request 1")
-                  (search-forward "* Request 2")
-                  (should (search-forward "* Request: Request 3"))
+                  (search-forward "** Request 1")
+                  (search-forward "** Request 2")
+                  (should (search-forward "** Request: Request 3"))
                   ;; Middle content position should be unchanged
                   (goto-char (point-min))
                   (search-forward "Request 1")
@@ -925,7 +925,7 @@
           ;; Verify it comes after Deep Note (end of subtree)
           (goto-char start-pos)
           (should (search-forward "Deep Note"))
-          (should (search-forward "* Request: Test at heading"))
+          (should (search-forward "** Request: Test at heading"))
           ;; But before Appendix Note (next top-level heading)
           (should (search-forward "* Appendix Note")))))))
 
@@ -949,11 +949,11 @@
                     ;; All should be in order at end (after * Session heading)
                     (goto-char (point-min))
                     (search-forward "* Session")
-                    (should (search-forward "* Request: First"))
-                    (should (search-forward "* Request: Second"))
-                    (should (search-forward "* Request: Third"))
+                    (should (search-forward "** Request: First"))
+                    (should (search-forward "** Request: Second"))
+                    (should (search-forward "** Request: Third"))
                     ;; No more requests after Third
-                    (should-not (search-forward "* Request:" nil t))))))
+                    (should-not (search-forward "** Request:" nil t))))))
             (kill-buffer companion)))
       (kill-buffer text-buffer))))
 
@@ -1001,6 +1001,78 @@
     (insert "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n")
     (goto-char (point-max))
     (should (ogent-ui--at-window-bottom-p))))
+
+;;; Heading Shift Tests
+
+(ert-deftest ogent-ui-shift-org-headings-basic ()
+  "Shift single-level org headings by response heading level."
+  (let ((ogent-shift-response-headings t))
+    ;; Level 1 heading becomes level 4 (1 + 3)
+    (should (equal (ogent-ui--shift-org-headings "* Heading\n")
+                   "**** Heading\n"))
+    ;; Level 2 heading becomes level 5 (2 + 3)
+    (should (equal (ogent-ui--shift-org-headings "** Subheading\n")
+                   "***** Subheading\n"))
+    ;; Level 3 heading becomes level 6 (3 + 3)
+    (should (equal (ogent-ui--shift-org-headings "*** Deep\n")
+                   "****** Deep\n"))))
+
+(ert-deftest ogent-ui-shift-org-headings-mixed-content ()
+  "Shift headings in mixed content without affecting other text."
+  (let ((ogent-shift-response-headings t))
+    (should (equal (ogent-ui--shift-org-headings
+                    "Some text\n* Heading\nMore text\n** Another\n")
+                   "Some text\n**** Heading\nMore text\n***** Another\n"))))
+
+(ert-deftest ogent-ui-shift-org-headings-preserves-emphasis ()
+  "Don't shift emphasis markers like *bold* or **strong**."
+  (let ((ogent-shift-response-headings t))
+    ;; Inline emphasis should not be affected
+    (should (equal (ogent-ui--shift-org-headings "This is *bold* text\n")
+                   "This is *bold* text\n"))
+    ;; Emphasis at start of line but not a heading (no space after)
+    (should (equal (ogent-ui--shift-org-headings "*bold* at start\n")
+                   "*bold* at start\n"))))
+
+(ert-deftest ogent-ui-shift-org-headings-disabled ()
+  "When disabled, headings are not shifted."
+  (let ((ogent-shift-response-headings nil))
+    (should (equal (ogent-ui--shift-org-headings "* Heading\n")
+                   "* Heading\n"))))
+
+(ert-deftest ogent-ui-shift-org-headings-empty-heading ()
+  "Handle headings with no title (just stars and newline)."
+  (let ((ogent-shift-response-headings t))
+    ;; Heading with just stars and newline
+    (should (equal (ogent-ui--shift-org-headings "*\n")
+                   "****\n"))
+    (should (equal (ogent-ui--shift-org-headings "**\n")
+                   "*****\n"))))
+
+(ert-deftest ogent-ui-streaming-shifts-headings ()
+  "Streaming response chunks have headings shifted."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-shift-response-headings t)
+           (ogent-ui--selected-models '("gpt-4o-mini")))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    (when-let ((callback (plist-get args :callback)))
+                      ;; Simulate LLM returning an org heading
+                      (funcall callback "Here's a heading:\n* My Heading\nContent\n" nil)
+                      (funcall callback nil '(:done t)))
+                    'mock-request)))
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; The heading should be shifted to level 4
+           (should (search-forward "**** My Heading" nil t))
+           ;; Original level 1 heading should NOT exist
+           (goto-char (point-min))
+           (should-not (search-forward "\n* My Heading" nil t))))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
