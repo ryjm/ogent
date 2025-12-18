@@ -9,14 +9,16 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(require 'eieio)
 
-;; Soft dependency on magit-section - provide fallback if not available
-(defvar ogent-issues--magit-section-available
-  (require 'magit-section nil t)
-  "Non-nil if magit-section is available.")
-
-(when ogent-issues--magit-section-available
-  (require 'magit-section))
+;; Soft dependency on magit-section - check at both compile and load time
+;; to ensure classes are properly defined for macro expansion
+(eval-and-compile
+  (defvar ogent-issues--magit-section-available
+    (require 'magit-section nil t)
+    "Non-nil if magit-section is available.")
+  (when ogent-issues--magit-section-available
+    (require 'magit-section)))
 
 (require 'ogent-issues-bd)
 
@@ -193,18 +195,21 @@ Each entry is (TYPE . (UNICODE . ASCII))."
   "Last cursor position for restoration after refresh.")
 
 ;;; Section Classes (when magit-section available)
+;; Use eval-and-compile to ensure classes exist at macro-expansion time
+;; (needed for magit-insert-section macro)
 
-(when ogent-issues--magit-section-available
-  (defclass ogent-issues-root-section (magit-section) ()
-    "Root section for ogent-issues buffer.")
+(eval-and-compile
+  (when (bound-and-true-p ogent-issues--magit-section-available)
+    (defclass ogent-issues-root-section (magit-section) ()
+      "Root section for ogent-issues buffer.")
 
-  (defclass ogent-issues-status-section (magit-section) ()
-    "Section for a status group (open, in_progress, etc.).
+    (defclass ogent-issues-status-section (magit-section) ()
+      "Section for a status group (open, in_progress, etc.).
 The inherited `value' slot holds the status string.")
 
-  (defclass ogent-issues-issue-section (magit-section) ()
-    "Section for a single issue.
-The inherited `value' slot holds the issue plist."))
+    (defclass ogent-issues-issue-section (magit-section) ()
+      "Section for a single issue.
+The inherited `value' slot holds the issue plist.")))
 
 ;;; Keymap - Following magit conventions
 
