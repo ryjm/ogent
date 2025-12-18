@@ -239,9 +239,8 @@ The inherited `value' slot holds the issue plist.")))
     ;; Actions - single keys for common ops
     (define-key map "c" #'ogent-issues-create)
     (define-key map "s" #'ogent-issues-start)
-    (define-key map "k" #'ogent-issues-close)  ; like magit kill
     (define-key map "K" #'ogent-issues-close)
-    (define-key map "x" #'ogent-issues-close)  ; alternative
+    (define-key map "x" #'ogent-issues-close)
     (define-key map "r" #'ogent-issues-reopen)
     (define-key map "C" #'ogent-issues-comment)
     
@@ -275,6 +274,98 @@ The inherited `value' slot holds the issue plist.")))
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-issues-mode'.")
+
+;;; Evil Integration
+;; When evil is loaded, set up proper evil keybindings so j/k/etc work as expected.
+;; This follows the pattern used by evil-collection-magit.
+
+(defun ogent-issues--setup-evil ()
+  "Set up evil keybindings for ogent-issues modes."
+  (when (bound-and-true-p evil-mode)
+    ;; Set initial state to normal for ogent-issues modes
+    (evil-set-initial-state 'ogent-issues-mode 'normal)
+    (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
+    
+    ;; Define evil keybindings for normal state
+    ;; These override evil's defaults (like j/k for movement) with our commands
+    (evil-define-key 'normal ogent-issues-mode-map
+      ;; Navigation - vim style
+      "j" #'ogent-issues-next-issue
+      "k" #'ogent-issues-prev-issue
+      (kbd "C-j") #'ogent-issues-next-section
+      (kbd "C-k") #'ogent-issues-prev-section
+      "gj" #'ogent-issues-next-section
+      "gk" #'ogent-issues-prev-section
+      (kbd "RET") #'ogent-issues-visit
+      (kbd "TAB") #'ogent-issues-toggle-section
+      (kbd "<backtab>") #'ogent-issues-cycle-sections
+      "^" #'ogent-issues-up-section
+      "gg" #'evil-goto-first-line
+      "G" #'evil-goto-line
+      
+      ;; Refresh
+      "gr" #'ogent-issues-refresh
+      "gR" #'ogent-issues-refresh-force
+      
+      ;; Actions
+      "c" #'ogent-issues-create
+      "s" #'ogent-issues-start
+      "K" #'ogent-issues-close
+      "x" #'ogent-issues-close
+      "r" #'ogent-issues-reopen
+      "C" #'ogent-issues-comment
+      
+      ;; Help
+      "?" #'ogent-issues-dispatch
+      
+      ;; Filters
+      "fs" #'ogent-issues-filter-status
+      "ft" #'ogent-issues-filter-type
+      "fp" #'ogent-issues-filter-priority
+      "ff" #'ogent-issues-filter-dispatch
+      "fc" #'ogent-issues-clear-filters
+      
+      ;; Views
+      "vl" #'ogent-issues-view-list
+      "vr" #'ogent-issues-view-ready
+      "vk" #'ogent-issues-view-kanban
+      "vd" #'ogent-issues-view-deps
+      
+      ;; Kanban movement
+      "H" #'ogent-issues-kanban-move-left
+      "L" #'ogent-issues-kanban-move-right
+      
+      ;; Sync
+      "S" #'ogent-issues-sync
+      
+      ;; Quit
+      "q" #'quit-window
+      "ZZ" #'quit-window
+      "ZQ" #'quit-window)
+    
+    ;; Detail mode keybindings
+    (evil-define-key 'normal ogent-issues-detail-mode-map
+      "j" #'evil-next-line
+      "k" #'evil-previous-line
+      "gg" #'evil-goto-first-line
+      "G" #'evil-goto-line
+      "gr" #'ogent-issues-detail-refresh
+      "K" #'ogent-issues-detail-close
+      "x" #'ogent-issues-detail-close
+      "R" #'ogent-issues-detail-reopen
+      "s" #'ogent-issues-detail-start
+      "C" #'ogent-issues-detail-comment
+      (kbd "RET") #'ogent-issues-detail-follow-link
+      "?" #'ogent-issues-detail-help
+      "q" #'quit-window
+      "ZZ" #'quit-window
+      "ZQ" #'quit-window)))
+
+;; Set up evil bindings when evil loads, or immediately if already loaded
+(if (bound-and-true-p evil-mode)
+    (ogent-issues--setup-evil)
+  (with-eval-after-load 'evil
+    (ogent-issues--setup-evil)))
 
 ;;; Mode Definition
 ;; Derive from magit-section-mode when available for proper section support,
