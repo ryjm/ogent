@@ -277,9 +277,17 @@ The inherited `value' slot holds the issue plist.")))
   "Keymap for `ogent-issues-mode'.")
 
 ;;; Mode Definition
+;; Derive from magit-section-mode when available for proper section support,
+;; otherwise fall back to special-mode. We use a macro to determine the parent
+;; at compile/load time since define-derived-mode needs a literal symbol.
 
-(define-derived-mode ogent-issues-mode special-mode "Issues"
-  "Major mode for viewing and managing beads issues.
+(defmacro ogent-issues--define-mode ()
+  "Define `ogent-issues-mode' with appropriate parent mode."
+  (let ((parent (if (bound-and-true-p ogent-issues--magit-section-available)
+                    'magit-section-mode
+                  'special-mode)))
+    `(define-derived-mode ogent-issues-mode ,parent "Issues"
+       "Major mode for viewing and managing beads issues.
 
 Like magit-status but for your issue tracker.
 
@@ -313,16 +321,17 @@ Other:
   \\[ogent-issues-dispatch]     Show all commands
 
 \\{ogent-issues-mode-map}"
-  :group 'ogent-issues
-  (setq-local revert-buffer-function #'ogent-issues-refresh)
-  (setq-local truncate-lines t)
-  (setq-local buffer-read-only t)
-  (setq header-line-format '(:eval (ogent-issues--header-line)))
-  ;; Enable magit-section features if available
-  (when ogent-issues--magit-section-available
-    (setq-local magit-section-visibility-indicator
-                (if ogent-issues-use-unicode '("…" . t) '("..." . t)))
-    (magit-section-mode)))
+       :group 'ogent-issues
+       (setq-local revert-buffer-function #'ogent-issues-refresh)
+       (setq-local truncate-lines t)
+       (setq-local buffer-read-only t)
+       (setq header-line-format '(:eval (ogent-issues--header-line)))
+       ;; Configure magit-section if we're derived from it
+       (when (bound-and-true-p ogent-issues--magit-section-available)
+         (setq-local magit-section-visibility-indicator
+                     (if ogent-issues-use-unicode '("…" . t) '("..." . t)))))))
+
+(ogent-issues--define-mode)
 
 ;;; Entry Point
 
@@ -587,7 +596,8 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Return the issue at point, or nil."
   (if ogent-issues--magit-section-available
       (when-let ((section (magit-current-section)))
-        (when (cl-typep section 'ogent-issues-issue-section)
+        ;; Use eq on class name to avoid cl-typep compile-time type resolution
+        (when (eq (eieio-object-class-name section) 'ogent-issues-issue-section)
           (oref section value)))
     (get-text-property (point) 'ogent-issue)))
 
