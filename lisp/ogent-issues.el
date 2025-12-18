@@ -278,6 +278,7 @@ The inherited `value' slot holds the issue plist.")))
 ;;; Evil Integration
 ;; When evil is loaded, set up proper evil keybindings so j/k/etc work as expected.
 ;; This follows the pattern used by evil-collection-magit.
+;; We use evil-define-key* (the function, not macro) so it works at runtime.
 
 (with-eval-after-load 'evil
   ;; Set initial state to normal for ogent-issues modes
@@ -286,7 +287,8 @@ The inherited `value' slot holds the issue plist.")))
   
   ;; Define evil keybindings for normal state
   ;; These override evil's defaults (like j/k for movement) with our commands
-  (evil-define-key 'normal ogent-issues-mode-map
+  ;; Using evil-define-key* (function) instead of evil-define-key (macro)
+  (evil-define-key* 'normal ogent-issues-mode-map
     ;; Navigation - vim style
     "j" #'ogent-issues-next-issue
     "k" #'ogent-issues-prev-issue
@@ -342,7 +344,7 @@ The inherited `value' slot holds the issue plist.")))
     "ZQ" #'quit-window)
   
   ;; Detail mode keybindings
-  (evil-define-key 'normal ogent-issues-detail-mode-map
+  (evil-define-key* 'normal ogent-issues-detail-mode-map
     "j" #'evil-next-line
     "k" #'evil-previous-line
     "gg" #'evil-goto-first-line
