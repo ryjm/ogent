@@ -55,7 +55,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help
+.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile
 
 # Default: run all lints and tests
 all:
@@ -69,9 +69,21 @@ lint:
 test:
 	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) test
 
-# Byte-compile source files
+# Byte-compile source files (via makem.sh)
 compile:
 	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) compile
+
+# Remove all byte-compiled files
+clean:
+	@find lisp/ -name "*.elc" -delete
+	@echo "Removed all .elc files"
+
+# Clean and recompile all elisp files (use after code changes)
+recompile: clean
+	@$(EMACS) --batch -L lisp -L lisp/ui \
+		--eval "(setq byte-compile-error-on-warn nil)" \
+		-f batch-byte-compile lisp/*.el lisp/ui/*.el 2>/dev/null || true
+	@echo "Recompiled all .el files"
 
 # Run Emacs in batch mode with project loaded
 batch:
