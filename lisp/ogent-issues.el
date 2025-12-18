@@ -1478,8 +1478,10 @@ An issue is ready if it's open, not blocked, and has no blockers."
 
 ;;; Evil Integration
 ;; When evil is loaded, set up proper evil keybindings so j/k/etc work as expected.
-;; This follows the pattern used by evil-collection-magit.
-;; We use evil-define-key* (the function, not macro) so it works at runtime.
+;; This follows the pattern used by evil-collection-magit:
+;; 1. Set initial state to 'normal'
+;; 2. Make the mode maps "overriding" so they shadow evil's global maps
+;; 3. Only add evil-specific bindings for things like gg/G that aren't in the mode map
 ;; This section must be at the end of the file, after all keymaps are defined.
 
 (with-eval-after-load 'evil
@@ -1487,80 +1489,39 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (evil-set-initial-state 'ogent-issues-mode 'normal)
   (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
   
-  ;; Define evil keybindings for normal state
-  ;; These override evil's defaults (like j/k for movement) with our commands
+  ;; Make our keymaps override evil's state maps.
+  ;; This means our mode's bindings (like j/k, TAB, RET) take priority.
+  ;; 'all means override in all states, not just normal.
+  (evil-make-overriding-map ogent-issues-mode-map 'all)
+  (evil-make-overriding-map ogent-issues-detail-mode-map 'all)
+  
+  ;; Add evil-specific navigation that isn't in the base keymap
+  ;; These supplement rather than replace the mode bindings
   (evil-define-key* 'normal ogent-issues-mode-map
-    ;; Navigation - vim style
-    "j" #'ogent-issues-next-issue
-    "k" #'ogent-issues-prev-issue
-    (kbd "C-j") #'ogent-issues-next-section
-    (kbd "C-k") #'ogent-issues-prev-section
-    "gj" #'ogent-issues-next-section
-    "gk" #'ogent-issues-prev-section
-    (kbd "RET") #'ogent-issues-visit
-    (kbd "TAB") #'ogent-issues-toggle-section
-    (kbd "<backtab>") #'ogent-issues-cycle-sections
-    "^" #'ogent-issues-up-section
+    ;; Vim-style go to top/bottom
     "gg" #'evil-goto-first-line
     "G" #'evil-goto-line
-    
-    ;; Refresh
+    ;; Vim-style refresh (gr is more vim-like than g)
     "gr" #'ogent-issues-refresh
     "gR" #'ogent-issues-refresh-force
-    
-    ;; Actions
-    "c" #'ogent-issues-create
-    "s" #'ogent-issues-start
-    "K" #'ogent-issues-close
-    "x" #'ogent-issues-close
-    "r" #'ogent-issues-reopen
-    "C" #'ogent-issues-comment
-    
-    ;; Help
-    "?" #'ogent-issues-dispatch
-    
-    ;; Filters
-    "fs" #'ogent-issues-filter-status
-    "ft" #'ogent-issues-filter-type
-    "fp" #'ogent-issues-filter-priority
-    "ff" #'ogent-issues-filter-dispatch
-    "fc" #'ogent-issues-clear-filters
-    
-    ;; Views
-    "vl" #'ogent-issues-view-list
-    "vr" #'ogent-issues-view-ready
-    "vk" #'ogent-issues-view-kanban
-    "vd" #'ogent-issues-view-deps
-    
-    ;; Kanban movement
-    "H" #'ogent-issues-kanban-move-left
-    "L" #'ogent-issues-kanban-move-right
-    
-    ;; Sync
-    "S" #'ogent-issues-sync
-    
-    ;; Quit
-    "q" #'quit-window
+    ;; Section navigation with g prefix
+    "gj" #'ogent-issues-next-section
+    "gk" #'ogent-issues-prev-section
+    ;; Vim quit
     "ZZ" #'quit-window
     "ZQ" #'quit-window)
   
-  ;; Detail mode keybindings
+  ;; Detail mode - just add vim navigation, let mode map handle the rest
   (evil-define-key* 'normal ogent-issues-detail-mode-map
-    "j" #'evil-next-line
-    "k" #'evil-previous-line
     "gg" #'evil-goto-first-line
     "G" #'evil-goto-line
     "gr" #'ogent-issues-detail-refresh
-    "K" #'ogent-issues-detail-close
-    "x" #'ogent-issues-detail-close
-    "R" #'ogent-issues-detail-reopen
-    "s" #'ogent-issues-detail-start
-    "C" #'ogent-issues-detail-comment
-    (kbd "RET") #'ogent-issues-detail-follow-link
-    "?" #'ogent-issues-detail-help
-    "q" #'quit-window
     "ZZ" #'quit-window
-    "ZQ" #'quit-window))
+    "ZQ" #'quit-window)
+  
+  ;; Normalize keymaps when entering these modes
+  (add-hook 'ogent-issues-mode-hook #'evil-normalize-keymaps)
+  (add-hook 'ogent-issues-detail-mode-hook #'evil-normalize-keymaps))
 
 (provide 'ogent-issues)
 
