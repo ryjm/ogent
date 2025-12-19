@@ -718,22 +718,14 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
           (with-current-buffer buffer
             (insert summary)
             (goto-char (point-min)))
-          ;; Display below the source buffer window, above transient
-          ;; Find the window showing source-buffer and split below it
-          (let ((source-window (get-buffer-window source-buffer)))
-            (setq ogent-ui--context-preview-window
-                  (if source-window
-                      ;; Split source window and show context below it
-                      (with-selected-window source-window
-                        (let ((win (split-window-below -10)))
-                          (set-window-buffer win buffer)
-                          win))
-                    ;; Fallback: display in side window
-                    (display-buffer buffer
-                                    '((display-buffer-in-side-window)
-                                      (side . bottom)
-                                      (window-height . 10)
-                                      (preserve-size . (nil . t))))))))))))
+          ;; Use side-window with slot -1 to appear above transient (slot 0)
+          (setq ogent-ui--context-preview-window
+                (display-buffer buffer
+                                '((display-buffer-in-side-window)
+                                  (side . bottom)
+                                  (slot . -1)
+                                  (window-height . 10)
+                                  (preserve-size . (nil . t))))))))))
 
 (defun ogent-ui--backend-label (backend)
   "Return a string label describing BACKEND."
@@ -866,7 +858,7 @@ Returns a plist containing a streaming marker and block-start marker."
   ;; Enable auto-scroll for new requests if configured
   (with-current-buffer (ogent-ui-request-buffer request)
     (setq ogent--auto-scroll-enabled ogent-auto-scroll)
-    ;; Add post-command hook to detect when user scrolls back to bottom
+    ;; Add post-command hook to detect when user scrolls to bottom
     (add-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command nil t))
   request)
 
