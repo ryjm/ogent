@@ -1102,6 +1102,12 @@ The src block is already closed; this just updates status and folds."
       (setq ogent-ui--request-history
             (seq-take ogent-ui--request-history ogent-ui-request-history-max))))
   (remhash (ogent-ui-request-id request) ogent-ui--request-table)
+  ;; Fontify the response region for syntax highlighting (src blocks, etc.)
+  (with-current-buffer (ogent-ui-request-buffer request)
+    (let ((start (ogent-ui-request-response-pos request))
+          (end (ogent-ui-request-marker request)))
+      (when (and start end (markerp end) (marker-position end))
+        (font-lock-flush start (marker-position end)))))
   ;; Clean up auto-scroll hook if no more active requests in buffer
   (with-current-buffer (ogent-ui-request-buffer request)
     (unless (cl-some (lambda (r)
