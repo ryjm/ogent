@@ -359,7 +359,7 @@
 (ert-deftest ogent-issues-test-ready-indicator-unicode ()
   "Test ready indicator with Unicode enabled."
   (let ((ogent-issues-use-unicode t))
-    (should (string-match-p "⚡" (ogent-issues--ready-indicator)))))
+    (should (string-match-p "»" (ogent-issues--ready-indicator)))))
 
 (ert-deftest ogent-issues-test-ready-indicator-ascii ()
   "Test ready indicator with ASCII fallback."
@@ -372,7 +372,7 @@
         (issue '(:id "test-001" :title "Ready issue" :status "open"
                  :priority 1 :issue_type "task" :blocked_by nil)))
     (let ((line (ogent-issues--format-issue-line issue)))
-      (should (string-match-p "⚡" line)))))
+      (should (string-match-p "»" line)))))
 
 (ert-deftest ogent-issues-test-format-issue-line-not-ready ()
   "Test that non-ready issues don't get the ready indicator."
@@ -380,7 +380,7 @@
         (issue '(:id "test-001" :title "In progress issue" :status "in_progress"
                  :priority 1 :issue_type "task" :blocked_by nil)))
     (let ((line (ogent-issues--format-issue-line issue)))
-      (should-not (string-match-p "⚡" line)))))
+      (should-not (string-match-p "»" line)))))
 
 ;;; Empty State Tests
 

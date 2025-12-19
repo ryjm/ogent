@@ -234,11 +234,10 @@ The inherited `value' slot holds the issue plist.")))
                (boundp 'magit-section-mode-map))
       (set-keymap-parent map magit-section-mode-map))
     
-    ;; Navigation (magit-style)
+    ;; Navigation - n/p for issue navigation
+    ;; j/k are intentionally NOT bound here so evil users get normal line movement
     (define-key map "n" #'ogent-issues-next-issue)
     (define-key map "p" #'ogent-issues-prev-issue)
-    (define-key map "j" #'ogent-issues-next-issue)
-    (define-key map "k" #'ogent-issues-prev-issue)
     (define-key map (kbd "M-n") #'ogent-issues-next-section)
     (define-key map (kbd "M-p") #'ogent-issues-prev-section)
     (define-key map (kbd "RET") #'ogent-issues-visit)
@@ -480,7 +479,7 @@ Otherwise returns `ogent-issues-buffer-name'."
 
 (defun ogent-issues--ready-indicator ()
   "Return the ready indicator string."
-  (propertize (if ogent-issues-use-unicode "⚡" "!")
+  (propertize (if ogent-issues-use-unicode "»" "!")
               'face 'ogent-issues-ready))
 
 (defun ogent-issues--issue-ready-p (issue)
@@ -719,7 +718,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
     (define-key map "q" #'quit-window)
     (define-key map "g" #'ogent-issues-detail-refresh)
     (define-key map "K" #'ogent-issues-detail-close)
-    (define-key map "k" #'ogent-issues-detail-close)
+    ;; k is NOT bound here so evil users get normal up movement
     (define-key map "R" #'ogent-issues-detail-reopen)
     (define-key map "r" #'ogent-issues-detail-reopen)
     (define-key map "s" #'ogent-issues-detail-start)
@@ -776,7 +775,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
                (propertize ":refresh " 'face 'ogent-issues-dimmed)
                (propertize "s" 'face 'ogent-issues-header-line-key)
                (propertize ":start " 'face 'ogent-issues-dimmed)
-               (propertize "k" 'face 'ogent-issues-header-line-key)
+               (propertize "K" 'face 'ogent-issues-header-line-key)
                (propertize ":close" 'face 'ogent-issues-dimmed)))))
     (pop-to-buffer buf)))
 
@@ -1081,7 +1080,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
 (defun ogent-issues-detail-help ()
   "Show help for detail view."
   (interactive)
-  (message "q:quit g:refresh s:start k:close r:reopen C:comment RET:follow-link"))
+  (message "q:quit g:refresh s:start K:close r:reopen C:comment RET:follow-link"))
 
 ;;; Refresh
 
@@ -1510,11 +1509,9 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (message "Dependency view not yet implemented"))
 
 ;;; Evil Integration
-;; When evil is loaded, set up proper evil keybindings so j/k/etc work as expected.
-;; This follows the pattern used by evil-collection-magit:
-;; 1. Set initial state to 'normal'
-;; 2. Make the mode maps "overriding" so they shadow evil's global maps
-;; 3. Only add evil-specific bindings for things like gg/G that aren't in the mode map
+;; When evil is loaded, set up proper evil keybindings.
+;; j/k are NOT bound in the mode map so evil users get normal line movement.
+;; Use n/p for issue-to-issue navigation, gj/gk for section navigation.
 ;; This section must be at the end of the file, after all keymaps are defined.
 
 (with-eval-after-load 'evil
@@ -1522,9 +1519,8 @@ An issue is ready if it's open, not blocked, and has no blockers."
   (evil-set-initial-state 'ogent-issues-mode 'normal)
   (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
   
-  ;; Make our keymaps override evil's state maps.
-  ;; This means our mode's bindings (like j/k, TAB, RET) take priority.
-  ;; 'all means override in all states, not just normal.
+  ;; Make our keymaps override evil's state maps for non-movement keys.
+  ;; j/k are intentionally NOT in the mode map so evil handles them.
   (evil-make-overriding-map ogent-issues-mode-map 'all)
   (evil-make-overriding-map ogent-issues-detail-mode-map 'all)
   
