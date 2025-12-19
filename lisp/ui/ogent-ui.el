@@ -1004,11 +1004,9 @@ heading (see `ogent-shift-response-headings')."
                      ogent--auto-scroll-enabled)
             (let ((window (get-buffer-window (current-buffer))))
               (when window
-                ;; Check if user scrolled away - if so, disable auto-scroll
-                (if (ogent-ui--at-window-bottom-p window)
-                    (ogent-ui--scroll-to-bottom window)
-                  ;; User scrolled away, disable auto-scroll for this request
-                  (setq ogent--auto-scroll-enabled nil))))))))))
+                ;; Always scroll to bottom during streaming - don't disable
+                ;; based on window position since insertion moves point
+                (ogent-ui--scroll-to-bottom window)))))))))
 
 
 (defun ogent-ui--insert-error-block (request message)
