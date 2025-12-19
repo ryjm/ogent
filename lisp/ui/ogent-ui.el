@@ -40,7 +40,7 @@
 (declare-function ogent-anthropic-oauth-using-bearer-p "ogent-anthropic-oauth")
 
 ;; ogent-tools integration
-(declare-function ogent-tools-for-model "ogent-models")
+(declare-function ogent-tools-all "ogent-models")
 (declare-function ogent-tool-spec-get "ogent-models")
 
 ;;; Org-mode Output Formatting
@@ -1252,9 +1252,9 @@ When model has :tools, enables gptel tool calling."
          ;; Check if OAuth is active (system message is locked)
          (oauth-active (and (fboundp 'ogent-anthropic-oauth-using-bearer-p)
                             (ogent-anthropic-oauth-using-bearer-p)))
-         ;; Get tools for this model
-         (tools (when (fboundp 'ogent-tools-for-model)
-                  (ogent-tools-for-model model-id)))
+         ;; Get all registered tools
+         (tools (when (fboundp 'ogent-tools-all)
+                  (ogent-tools-all)))
          (args (list :buffer target-buffer
                      :stream (plist-get model :stream?)
                      :callback callback)))
@@ -1274,9 +1274,9 @@ When model has :tools, enables gptel tool calling."
         (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
                (gptel-backend backend)
                (gptel-model model-id)
-               ;; Bind tools if model has them configured
+               ;; Bind all registered tools
                (gptel-tools (or tools gptel-tools))
-               (gptel-use-tools (or tools gptel-use-tools))
+               (gptel-use-tools (when tools t))
                (handle (if preset
                            (if (fboundp 'gptel-with-preset)
                                (gptel-with-preset (if (stringp preset) (intern preset) preset)
