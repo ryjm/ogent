@@ -390,6 +390,56 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
           (expected-name (file-name-nondirectory (directory-file-name project-root))))
       (should (equal expected-name (ogent-issues-bd-project-name))))))
 
+;;; Multi-Project Cache Tests
+;; These tests verify that cache entries are isolated by project root,
+;; preventing the bug where switching projects shows stale issues.
+
+(ert-deftest ogent-issues-bd-test-cache-key-includes-project ()
+  "Test that cache key includes project root."
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+             (lambda () "/project-a/")))
+    (let ((key1 (ogent-issues-bd--cache-key '("list" "--json"))))
+      (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+                 (lambda () "/project-b/")))
+        (let ((key2 (ogent-issues-bd--cache-key '("list" "--json"))))
+          (should-not (equal key1 key2)))))))
+
+(ert-deftest ogent-issues-bd-test-cache-isolated-by-project ()
+  "Test that cache entries are isolated by project root."
+  (ogent-issues-bd-cache-invalidate)
+  (let ((project-a-issues '((:id "a-001" :title "Project A issue")))
+        (project-b-issues '((:id "b-001" :title "Project B issue"))))
+    ;; Cache result for project A
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+               (lambda () "/path/to/project-a")))
+      (ogent-issues-bd--cache-set '("list" "--json") project-a-issues))
+    ;; Cache result for project B
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+               (lambda () "/path/to/project-b")))
+      (ogent-issues-bd--cache-set '("list" "--json") project-b-issues))
+    ;; Verify project A returns its own issues
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+               (lambda () "/path/to/project-a")))
+      (should (equal project-a-issues
+                     (ogent-issues-bd--cache-get '("list" "--json")))))
+    ;; Verify project B returns its own issues
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+               (lambda () "/path/to/project-b")))
+      (should (equal project-b-issues
+                     (ogent-issues-bd--cache-get '("list" "--json")))))))
+
+(ert-deftest ogent-issues-bd-test-cache-nil-project-isolated ()
+  "Test that nil project root has its own cache namespace."
+  (ogent-issues-bd-cache-invalidate)
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+             (lambda () nil)))
+    (ogent-issues-bd--cache-set '("list" "--json") '((:id "orphan")))
+    (should (ogent-issues-bd--cache-get '("list" "--json"))))
+  ;; Different project should not see nil project's cache
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+             (lambda () "/some/project")))
+    (should-not (ogent-issues-bd--cache-get '("list" "--json")))))
+
 (provide 'ogent-issues-bd-tests)
 
 ;;; ogent-issues-bd-tests.el ends here

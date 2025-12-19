@@ -194,6 +194,10 @@ Each entry is (TYPE . (UNICODE . ASCII))."
 (defvar-local ogent-issues--last-position nil
   "Last cursor position for restoration after refresh.")
 
+(defvar-local ogent-issues--project-root nil
+  "Project root for the issues displayed in this buffer.
+Used to detect project switches and clear stale state.")
+
 ;;; Section Classes (when magit-section available)
 ;; Use eval-and-compile to ensure classes exist at macro-expansion time
 ;; (needed for magit-insert-section macro)
@@ -340,10 +344,19 @@ Other:
 (defun ogent-issues ()
   "Open the ogent-issues buffer in a split window."
   (interactive)
-  (let ((buf (get-buffer-create ogent-issues-buffer-name)))
+  (let* ((current-project (ogent-issues-bd-project-root))
+         (buf (get-buffer-create ogent-issues-buffer-name)))
     (with-current-buffer buf
       (unless (eq major-mode 'ogent-issues-mode)
         (ogent-issues-mode))
+      ;; Detect project change and clear stale state
+      (when (and ogent-issues--project-root
+                 (not (equal ogent-issues--project-root current-project)))
+        (setq ogent-issues--issues nil)
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert "Loading issues...\n")))
+      (setq ogent-issues--project-root current-project)
       (ogent-issues-refresh))
     (switch-to-buffer-other-window buf)))
 

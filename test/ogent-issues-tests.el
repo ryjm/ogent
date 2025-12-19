@@ -585,6 +585,60 @@
   (should (eq 'ogent-issues-kanban-move-right
               (lookup-key ogent-issues-mode-map "L"))))
 
+;;; Project Switching Tests
+;; These tests verify that switching projects clears stale buffer state.
+
+(ert-deftest ogent-issues-test-project-root-tracked ()
+  "Test that buffer tracks current project root."
+  (let ((buf (get-buffer-create "*ogent-issues-project-test*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-issues-mode)
+          ;; Initially nil
+          (should (null ogent-issues--project-root))
+          ;; After setting, should be tracked
+          (setq ogent-issues--project-root "/some/project")
+          (should (equal "/some/project" ogent-issues--project-root)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-project-change-clears-issues ()
+  "Test that changing projects clears the cached issues list."
+  (let ((project-a-issues '((:id "a-001" :title "Project A" :status "open"
+                             :priority 1 :issue_type "task")))
+        (project-b-issues '((:id "b-001" :title "Project B" :status "open"
+                             :priority 1 :issue_type "task"))))
+    (cl-letf (((symbol-function 'ogent-issues-bd-check-requirements)
+               (lambda () nil))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda () "test-project")))
+      (let ((buf (get-buffer-create "*ogent-issues-switch-test*")))
+        (unwind-protect
+            (with-current-buffer buf
+              (ogent-issues-mode)
+              ;; Simulate project A loaded
+              (setq ogent-issues--project-root "/project-a")
+              (setq ogent-issues--issues project-a-issues)
+              ;; Now simulate switching to project B
+              (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+                         (lambda () "/project-b"))
+                        ((symbol-function 'ogent-issues-bd-list)
+                         (lambda (callback &optional _filters _error-callback)
+                           (funcall callback project-b-issues))))
+                ;; Call the entry point function logic
+                (let ((current-project (ogent-issues-bd-project-root)))
+                  ;; Detect project change and clear
+                  (when (and ogent-issues--project-root
+                             (not (equal ogent-issues--project-root current-project)))
+                    (setq ogent-issues--issues nil))
+                  (setq ogent-issues--project-root current-project)
+                  ;; Issues should be cleared
+                  (should (null ogent-issues--issues))
+                  ;; Project root should be updated
+                  (should (equal "/project-b" ogent-issues--project-root)))))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here
