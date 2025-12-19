@@ -1137,6 +1137,11 @@ Handles both regular text responses and tool call responses."
           (unless (eq (ogent-ui-request-status request) 'type)
             (ogent-ui--update-status request 'type))
           (ogent-ui--append-response request text))
+        ;; Debug: log state before cond
+        (when (and (bound-and-true-p ogent-ui-debug-stream-completion) (null text))
+          (message "[ogent-debug] PRE-COND: text=%s null-text=%s error=%s request-closed=%s"
+                   text (null text) (plist-get info :error)
+                   (ogent-ui-request-closed request)))
         (cond
          ((and (listp info) (plist-get info :error))
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
@@ -1219,12 +1224,12 @@ Results are displayed in the buffer."
                       (ogent-ui--insert-tool-block
                        tool-name tool-args
                        (format "[Diff preview error: %s]" (error-message-string err))))))
-                 ;; Non-edit tools execute immediately
-                 (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                   (ogent-ui--insert-tool-block tool-name tool-args result))))
-              ('denied
-               (ogent-ui--insert-tool-block tool-name tool-args
-                                            "[Tool execution denied by user]"))))))))
+               ;; Non-edit tools execute immediately
+               (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                 (ogent-ui--insert-tool-block tool-name tool-args result))))
+            ('denied
+             (ogent-ui--insert-tool-block tool-name tool-args
+                                          "[Tool execution denied by user]"))))))))
 
 (defun ogent-ui--check-tool-approval (tool-name tool-args)
   "Check if TOOL-NAME with TOOL-ARGS should be executed.
