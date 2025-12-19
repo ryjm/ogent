@@ -1142,20 +1142,15 @@ Handles both regular text responses and tool call responses."
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
             (message "[ogent-debug] closing due to error: %s" (plist-get info :error)))
           (ogent-ui--close-response request (plist-get info :error)))
-         ;; Done when:
-         ;; - explicit :done/:final in info, OR
-         ;; - nil text with info (streaming complete - gptel sends nil text at end), OR
-         ;; - nil info and nil text (legacy/fallback)
+         ;; Done when text is nil (streaming complete - gptel sends nil text at end)
          ;; But NOT when there are pending tool calls
-         ((and (or (and (listp info)
-                        (or (plist-get info :done)
-                            (plist-get info :final)))
-                   (null text))  ; nil text signals stream complete
-               (not (and (listp info) (plist-get info :tool-pending))))
-          (when (bound-and-true-p ogent-ui-debug-stream-completion)
-            (message "[ogent-debug] closing due to done/final/nil-text: done=%s final=%s null-text=%s"
-                     (plist-get info :done) (plist-get info :final) (null text)))
-          (ogent-ui--close-response request)))))))
+         ((null text)
+          (let ((tool-pending (and (listp info) (plist-get info :tool-pending))))
+            (when (bound-and-true-p ogent-ui-debug-stream-completion)
+              (message "[ogent-debug] text is nil, tool-pending=%s, closing=%s"
+                       tool-pending (not tool-pending)))
+            (unless tool-pending
+              (ogent-ui--close-response request)))))))))
 
 (defvar ogent-ui-debug-stream-completion nil
   "When non-nil, log debug info about stream completion detection.")
