@@ -1143,6 +1143,26 @@ Handles both regular text responses and tool call responses."
                (not (and (listp info) (plist-get info :tool-pending))))
           (ogent-ui--close-response request)))))))
 
+(defun ogent-ui--gptel-post-response-handler (start _end)
+  "Handle gptel stream completion for ogent requests.
+START is the response start position.  This function is added to
+`gptel-post-response-functions' to detect when streaming completes,
+since gptel doesn't call the callback with a done signal for streams."
+  ;; Find any unclosed request in the current buffer whose marker matches START
+  (maphash (lambda (_id request)
+             (when (and (not (ogent-ui-request-closed request))
+                        (eq (ogent-ui-request-buffer request) (current-buffer))
+                        ;; Match by gptel-handle (marker position)
+                        (let ((handle (ogent-ui-request-gptel-handle request)))
+                          (and (markerp handle)
+                               (= (marker-position handle) start))))
+               (ogent-ui--close-response request)))
+           ogent-ui--request-table))
+
+;; Register the post-response handler with gptel
+(with-eval-after-load 'gptel
+  (add-hook 'gptel-post-response-functions #'ogent-ui--gptel-post-response-handler))
+
 (defun ogent-ui--handle-tool-calls (request tool-calls _info)
   "Handle TOOL-CALLS from gptel response for REQUEST.
 Each tool call is checked for approval, then executed if approved.
