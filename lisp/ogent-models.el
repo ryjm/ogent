@@ -4,9 +4,8 @@
 ;; Centralizes metadata about supported LLM backends so UI and request
 ;; code have a single source of truth.
 ;;
-;; Tool support: Models can specify :tools to enable function calling.
 ;; Tools are defined in `ogent-tool-registry' and registered with gptel
-;; via `gptel-make-tool'.
+;; via `gptel-make-tool'. All tools are available for all models.
 
 ;;; Code:
 
@@ -31,15 +30,9 @@
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 
 Optional keys:
-  :preset     - gptel preset name to apply
-  :tools      - list of tool names (symbols) to enable for this model
-  :description - human-readable description
-
-Example with tools:
-  (:id \"claude-sonnet\" :backend gptel-anthropic :stream? t
-   :tools (read-file write-file bash glob grep)
-   :description \"Claude with coding tools\")"
-  :type '(repeat (plist :options (:id :backend :preset :stream? :description :tools)))
+  :preset      - gptel preset name to apply
+  :description - human-readable description"
+  :type '(repeat (plist :options (:id :backend :preset :stream? :description)))
   :group 'ogent-models)
 
 (defun ogent-models-all ()
@@ -190,15 +183,6 @@ Returns the list of registered tool objects."
   (ogent-register-tools)
   (cdr (assq name ogent--tools-registered)))
 
-(defun ogent-tools-for-model (model-id)
-  "Return list of gptel tool objects enabled for MODEL-ID.
-Returns nil if the model has no :tools specified."
-  (ogent-register-tools)
-  (let* ((model (ogent-models-get model-id))
-         (tool-names (plist-get model :tools)))
-    (when tool-names
-      (delq nil (mapcar #'ogent-tool-get tool-names)))))
-
 (defun ogent-tools-all ()
   "Return all registered tool objects as a list."
   (ogent-register-tools)
@@ -208,21 +192,6 @@ Returns nil if the model has no :tools specified."
   "Return the tool spec plist for NAME (symbol) from the registry."
   (seq-find (lambda (spec) (eq (plist-get spec :name) name))
             ogent-tool-registry))
-
-;;; Request Setup
-
-(defun ogent-models-setup-tools-for-request (model-id)
-  "Return plist with :tools and :use-tools keys for gptel-request.
-MODEL-ID specifies which model's tools to enable.
-Returns nil if model has no tools configured.
-
-Use this to configure tools before calling gptel-request:
-  (let* ((tool-config (ogent-models-setup-tools-for-request \"claude-3.5\"))
-         (gptel-tools (plist-get tool-config :tools))
-         (gptel-use-tools (plist-get tool-config :use-tools)))
-    (gptel-request ...))"
-  (when-let ((tools (ogent-tools-for-model model-id)))
-    (list :tools tools :use-tools t)))
 
 (provide 'ogent-models)
 
