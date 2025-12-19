@@ -1120,6 +1120,12 @@ The src block is already closed; this just updates status and folds."
   "Return a gptel callback that streams into REQUEST-ID.
 Handles both regular text responses and tool call responses."
   (lambda (text info)
+    (when ogent-ui-debug-stream-completion
+      (message "[ogent-debug] callback: request-id=%s text-len=%s info-keys=%s"
+               request-id
+               (when (stringp text) (length text))
+               (when (listp info)
+                 (cl-loop for (k _v) on info by #'cddr collect k))))
     (let ((request (gethash request-id ogent-ui--request-table)))
       (when request
         ;; Check for tool calls in info plist
@@ -1133,6 +1139,8 @@ Handles both regular text responses and tool call responses."
           (ogent-ui--append-response request text))
         (cond
          ((and (listp info) (plist-get info :error))
+          (when ogent-ui-debug-stream-completion
+            (message "[ogent-debug] closing due to error: %s" (plist-get info :error)))
           (ogent-ui--close-response request (plist-get info :error)))
          ;; Done when we get explicit :done/:final or nil info with no text
          ;; But NOT when there are pending tool calls
@@ -1141,23 +1149,44 @@ Handles both regular text responses and tool call responses."
                             (plist-get info :final)))
                    (and (null info) (null text)))
                (not (and (listp info) (plist-get info :tool-pending))))
+          (when ogent-ui-debug-stream-completion
+            (message "[ogent-debug] closing due to done/final/nil: done=%s final=%s null-info=%s null-text=%s"
+                     (plist-get info :done) (plist-get info :final) (null info) (null text)))
           (ogent-ui--close-response request)))))))
+
+(defvar ogent-ui-debug-stream-completion nil
+  "When non-nil, log debug info about stream completion detection.")
 
 (defun ogent-ui--gptel-post-response-handler (start _end)
   "Handle gptel stream completion for ogent requests.
 START is the response start position.  This function is added to
 `gptel-post-response-functions' to detect when streaming completes,
 since gptel doesn't call the callback with a done signal for streams."
+  (when ogent-ui-debug-stream-completion
+    (message "[ogent-debug] post-response-handler called: start=%s buffer=%s"
+             start (current-buffer)))
   ;; Find any unclosed request in the current buffer whose marker matches START
-  (maphash (lambda (_id request)
-             (when (and (not (ogent-ui-request-closed request))
-                        (eq (ogent-ui-request-buffer request) (current-buffer))
-                        ;; Match by gptel-handle (marker position)
-                        (let ((handle (ogent-ui-request-gptel-handle request)))
-                          (and (markerp handle)
-                               (= (marker-position handle) start))))
-               (ogent-ui--close-response request)))
-           ogent-ui--request-table))
+  (let ((found-match nil))
+    (maphash (lambda (id request)
+               (let* ((closed (ogent-ui-request-closed request))
+                      (req-buffer (ogent-ui-request-buffer request))
+                      (handle (ogent-ui-request-gptel-handle request))
+                      (handle-pos (when (markerp handle) (marker-position handle))))
+                 (when ogent-ui-debug-stream-completion
+                   (message "[ogent-debug] checking request %s: closed=%s buffer-match=%s handle=%s handle-pos=%s start=%s"
+                            id closed (eq req-buffer (current-buffer)) handle handle-pos start))
+                 (when (and (not closed)
+                            (eq req-buffer (current-buffer))
+                            handle-pos
+                            (= handle-pos start))
+                   (setq found-match t)
+                   (when ogent-ui-debug-stream-completion
+                     (message "[ogent-debug] MATCH! closing request %s" id))
+                   (ogent-ui--close-response request))))
+             ogent-ui--request-table)
+    (when (and ogent-ui-debug-stream-completion (not found-match))
+      (message "[ogent-debug] NO MATCH found for start=%s in buffer %s"
+               start (current-buffer)))))
 
 ;; Register the post-response handler with gptel
 (with-eval-after-load 'gptel
