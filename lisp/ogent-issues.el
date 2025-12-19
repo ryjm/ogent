@@ -169,11 +169,11 @@ Set to nil for ASCII-only terminals."
 ;;; Type Icons
 
 (defcustom ogent-issues-type-icons
-  '(("bug" . ("🐛" . "B"))
-    ("feature" . ("✨" . "F"))
-    ("task" . ("📋" . "T"))
-    ("epic" . ("🎯" . "E"))
-    ("chore" . ("🔧" . "C")))
+  '(("bug" . ("[bug]" . "B"))
+    ("feature" . ("[feat]" . "F"))
+    ("task" . ("[task]" . "T"))
+    ("epic" . ("[epic]" . "E"))
+    ("chore" . ("[chore]" . "C")))
   "Icons for issue types.
 Each entry is (TYPE . (UNICODE . ASCII))."
   :type '(alist :key-type string
@@ -1296,7 +1296,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
                        (insert (ogent-issues--format-issue-line issue) "\n"))))
                (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
                (insert "\n\n")
-               (insert (propertize "  No ready work! 🎉\n\n" 'face 'ogent-issues-dimmed))
+               (insert (propertize "  No ready work!\n\n" 'face 'ogent-issues-dimmed))
                (insert (propertize "  All issues are either blocked, closed, or in progress.\n"
                                    'face 'ogent-issues-dimmed)))
              (goto-char (point-min))))))

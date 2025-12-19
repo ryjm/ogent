@@ -116,9 +116,9 @@
 (ert-deftest ogent-issues-test-type-icon ()
   "Test type icon lookup."
   (let ((ogent-issues-use-unicode t))
-    (should (string= "🐛" (ogent-issues--type-icon "bug")))
-    (should (string= "✨" (ogent-issues--type-icon "feature")))
-    (should (string= "📋" (ogent-issues--type-icon "task"))))
+    (should (string= "[bug]" (ogent-issues--type-icon "bug")))
+    (should (string= "[feat]" (ogent-issues--type-icon "feature")))
+    (should (string= "[task]" (ogent-issues--type-icon "task"))))
   (let ((ogent-issues-use-unicode nil))
     (should (string= "B" (ogent-issues--type-icon "bug")))
     (should (string= "F" (ogent-issues--type-icon "feature")))
