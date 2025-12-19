@@ -200,8 +200,14 @@ Returns the process object, or nil if no project root found."
 ;;; Caching
 
 (defun ogent-issues-bd--cache-key (args)
-  "Generate cache key from ARGS."
-  (format "%S" args))
+  "Generate cache key from ARGS including project context.
+The key includes the project root to ensure cache isolation between projects."
+  (let ((project-root (ogent-issues-bd-project-root)))
+    (format "%S:%S"
+            (if project-root
+                (directory-file-name (expand-file-name project-root))
+              "nil")
+            args)))
 
 (defun ogent-issues-bd--cache-get (args)
   "Get cached result for ARGS if valid, otherwise nil."
