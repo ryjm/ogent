@@ -189,15 +189,15 @@ For OAuth providers, API-KEY may be nil; authentication is handled by advice."
       (when (fboundp 'gptel-make-anthropic)
         ;; For OAuth, use a placeholder key; actual auth handled by advice
         (gptel-make-anthropic name
-                              :key (or api-key "oauth-managed")
-                              :stream t
-                              :models models)))
+          :key (or api-key "oauth-managed")
+          :stream t
+          :models models)))
      ((eq creator-sym 'gptel-make-openai)
       (when (fboundp 'gptel-make-openai)
         (gptel-make-openai name
-                           :key api-key
-                           :stream t
-                           :models models)))
+          :key api-key
+          :stream t
+          :models models)))
      (t nil))))
 
 (defun ogent-onboard--verify-connection (provider api-key _model-id)
@@ -311,7 +311,7 @@ When nil, attempts to auto-detect from straight.el recipe or load path.
 Set this to your local checkout (e.g., \"~/projects/ogent\") for
 reliable reloading during development."
   :type '(choice (const :tag "Auto-detect" nil)
-                 (directory :tag "Source directory"))
+          (directory :tag "Source directory"))
   :group 'ogent)
 
 (defun ogent-onboard--find-source-root ()
@@ -389,7 +389,7 @@ local checkout path."
       (user-error "Cannot find ogent source at %s. Set `ogent-source-directory'" project-root))
     (message "Reloading ogent from %s..." project-root)
     ;; Unload all ogent features
-    (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
+    (dolist (feat '(ogent-onboard ogent-issues ogent-ui ogent-codemap ogent-companion
                     ogent-core ogent-models ogent-context ogent-debug
                     ogent-edit ogent-edit-format ogent-edit-log
                     ogent-edit-parse ogent-edit-request ogent-anthropic-oauth ogent))
