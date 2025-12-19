@@ -1148,8 +1148,27 @@ Handles both regular text responses and tool call responses."
                  request-id (if request t nil) (hash-table-count ogent-ui--request-table)
                  (plist-get info :status)))
       (when request
-        ;; Check for tool calls in info plist
-        (when (and (listp info) (plist-get info :tool-use))
+        ;; Handle gptel tool-call/tool-result responses
+        ;; gptel sends (tool-call . pending-calls) when waiting for confirmation
+        ;; or (tool-result . results) after execution
+        (when (and (consp text) (memq (car text) '(tool-call tool-result)))
+          (when (bound-and-true-p ogent-ui-debug-stream-completion)
+            (message "[ogent-debug] tool response: type=%s data=%S" (car text) (cdr text)))
+          (pcase (car text)
+            ('tool-result
+             ;; Tools were executed by gptel, display results
+             (dolist (result (cdr text))
+               (let ((tool-name (plist-get result :name))
+                     (tool-args (plist-get result :args))
+                     (tool-result (plist-get result :result)))
+                 (ogent-ui--insert-tool-block tool-name tool-args
+                                              (or tool-result "[No result]")))))
+            ('tool-call
+             ;; Tools pending confirmation - gptel handles this
+             (ogent-ui--update-status request 'tool))))
+        ;; Check for tool calls in info plist (legacy/fallback)
+        (when (and (listp info) (plist-get info :tool-use)
+                   (not (and (consp text) (memq (car text) '(tool-call tool-result)))))
           (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
         ;; Update status based on what we're receiving
         ;; Note: gptel may pass t instead of a string in some cases
@@ -1226,8 +1245,14 @@ Results are displayed in the buffer."
       (save-excursion
         (goto-char (or (ogent-ui-request-response-pos request) (point-max)))
         (dolist (tool-call tool-calls)
+          ;; Debug: log the raw tool-call structure
+          (when (bound-and-true-p ogent-ui-debug-stream-completion)
+            (message "[ogent-debug] tool-call raw: %S" tool-call))
           (let* ((tool-name (plist-get tool-call :name))
-                 (tool-args (plist-get tool-call :input))
+                 ;; gptel normalizes to :args, but check :input/:arguments as fallback
+                 (tool-args (or (plist-get tool-call :args)
+                                (plist-get tool-call :input)
+                                (plist-get tool-call :arguments)))
                  (approval (ogent-ui--check-tool-approval tool-name tool-args)))
             (pcase approval
               ('approved
@@ -1288,6 +1313,8 @@ Looks up tool in `ogent-tool-registry' and calls its function."
 (defun ogent-ui--extract-tool-args (spec args)
   "Extract argument values from ARGS plist based on SPEC.
 Returns a list of values in the order defined in the spec's :args."
+  (when (bound-and-true-p ogent-ui-debug-stream-completion)
+    (message "[ogent-debug] extract-tool-args: spec=%S args=%S" spec args))
   (let ((arg-specs (plist-get spec :args))
         (values nil))
     (dolist (arg-spec arg-specs)
@@ -1301,6 +1328,10 @@ Returns a list of values in the order defined in the spec's :args."
                         (plist-get args arg-keyword-underscore)
                         (plist-get args arg-sym-hyphen)
                         (plist-get args arg-sym-underscore))))
+        (when (bound-and-true-p ogent-ui-debug-stream-completion)
+          (message "[ogent-debug] arg %s: tried %S %S %S %S -> %S"
+                   arg-name arg-keyword-hyphen arg-keyword-underscore
+                   arg-sym-hyphen arg-sym-underscore value))
         (push value values)))
     (nreverse values)))
 
@@ -1493,6 +1524,9 @@ and responses marked with gptel text properties."
 
 (defun ogent-ui--tool-context-summary (name args)
   "Generate a brief context summary for tool NAME with ARGS."
+  (when (bound-and-true-p ogent-ui-debug-stream-completion)
+    (message "[ogent-debug] tool-context-summary: name=%S args=%S args-type=%s"
+             name args (type-of args)))
   (let ((name-str (if (stringp name) name (symbol-name name))))
     (pcase name-str
       ((or "read-file" "Read")
