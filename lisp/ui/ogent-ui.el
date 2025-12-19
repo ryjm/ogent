@@ -1129,7 +1129,7 @@ Handles both regular text responses and tool call responses."
                (when (listp info)
                  (cl-loop for (k _v) on info by #'cddr collect k))))
     (let ((request (gethash request-id ogent-ui--request-table)))
-      (when (and (bound-and-true-p ogent-ui-debug-stream-completion) (null text))
+      (when (bound-and-true-p ogent-ui-debug-stream-completion)
         (message "[ogent-debug] LOOKUP: request-id=%s found=%s table-size=%s info-status=%s"
                  request-id (if request t nil) (hash-table-count ogent-ui--request-table)
                  (plist-get info :status)))
@@ -1143,23 +1143,18 @@ Handles both regular text responses and tool call responses."
           (unless (eq (ogent-ui-request-status request) 'type)
             (ogent-ui--update-status request 'type))
           (ogent-ui--append-response request text))
-        ;; Debug: log state before cond
-        (when (and (bound-and-true-p ogent-ui-debug-stream-completion) (null text))
-          (message "[ogent-debug] PRE-COND: text=%s null-text=%s error=%s request-closed=%s"
-                   text (null text) (plist-get info :error)
-                   (ogent-ui-request-closed request)))
         (cond
          ((and (listp info) (plist-get info :error))
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
             (message "[ogent-debug] closing due to error: %s" (plist-get info :error)))
           (ogent-ui--close-response request (plist-get info :error)))
-         ;; Done when text is nil (streaming complete - gptel sends nil text at end)
+         ;; Done when text is not a string (gptel sends t or nil to signal completion)
          ;; But NOT when there are pending tool calls
-         ((null text)
+         ((not (stringp text))
           (let ((tool-pending (and (listp info) (plist-get info :tool-pending))))
             (when (bound-and-true-p ogent-ui-debug-stream-completion)
-              (message "[ogent-debug] text is nil, tool-pending=%s, closing=%s"
-                       tool-pending (not tool-pending)))
+              (message "[ogent-debug] stream complete (text=%s), tool-pending=%s, closing=%s"
+                       text tool-pending (not tool-pending)))
             (unless tool-pending
               (ogent-ui--close-response request)))))))))
 
