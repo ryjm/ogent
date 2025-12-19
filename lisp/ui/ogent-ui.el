@@ -1008,7 +1008,7 @@ heading (see `ogent-shift-response-headings')."
                 (if (ogent-ui--at-window-bottom-p window)
                     (ogent-ui--scroll-to-bottom window)
                   ;; User scrolled away, disable auto-scroll for this request
-                  (setq ogent--auto-scroll-enabled nil)))))))))
+                  (setq ogent--auto-scroll-enabled nil))))))))))
 
 
 (defun ogent-ui--insert-error-block (request message)
@@ -1171,7 +1171,7 @@ Results are displayed in the buffer."
                    (ogent-ui--insert-tool-block tool-name tool-args result))))
               ('denied
                (ogent-ui--insert-tool-block tool-name tool-args
-                                            "[Tool execution denied by user]")))))))))
+                                            "[Tool execution denied by user]"))))))))
 
 (defun ogent-ui--check-tool-approval (tool-name tool-args)
   "Check if TOOL-NAME with TOOL-ARGS should be executed.

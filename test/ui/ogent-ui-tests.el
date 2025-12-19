@@ -198,15 +198,19 @@
       (should (equal "active" (ogent-ui-request-id (car result)))))))
 
 (ert-deftest ogent-ui-insert-tool-block ()
-  "Tool blocks follow gptel format."
+  "Tool blocks use Org drawer format with args and result blocks."
   (with-temp-buffer
     (org-mode)
     (ogent-ui--insert-tool-block "search" '(:query "test") "Result text")
     (goto-char (point-min))
-    (should (search-forward "#+begin_tool search" nil t))
-    (should (search-forward "Args:" nil t))
-    (should (search-forward "Result:" nil t))
-    (should (search-forward "#+end_tool" nil t))))
+    (should (search-forward ":TOOL:" nil t))
+    (should (search-forward "search:" nil t))
+    (should (search-forward "#+begin_src elisp :args" nil t))
+    (should (search-forward ":query" nil t))
+    (should (search-forward "#+end_src" nil t))
+    (should (search-forward ":result" nil t))
+    (should (search-forward "Result text" nil t))
+    (should (search-forward ":END:" nil t))))
 
 (ert-deftest ogent-ui-insert-reasoning-block ()
   "Reasoning blocks follow gptel format."
