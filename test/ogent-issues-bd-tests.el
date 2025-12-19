@@ -63,6 +63,11 @@ OUTPUT should be a plist or list that will be JSON-encoded."
                ((symbol-function 'file-directory-p)
                 (lambda (path)
                   (string-suffix-p ".beads" path)))
+               ;; Mock locate-dominating-file to find .beads
+               ((symbol-function 'locate-dominating-file)
+                (lambda (file name)
+                  (when (equal name ".beads")
+                    (file-name-directory (or file default-directory)))))
                ((symbol-function 'ogent-issues-bd--run-async)
                 (lambda (args callback &optional error-callback _raw)
                   (push args ogent-issues-bd-test--captured-args)
@@ -85,6 +90,11 @@ OUTPUT should be a plist or list that will be JSON-encoded."
                ((symbol-function 'file-directory-p)
                 (lambda (path)
                   (string-suffix-p ".beads" path)))
+               ;; Mock locate-dominating-file to find .beads
+               ((symbol-function 'locate-dominating-file)
+                (lambda (file name)
+                  (when (equal name ".beads")
+                    (file-name-directory (or file default-directory)))))
                ((symbol-function 'ogent-issues-bd--run-async)
                 (lambda (args callback &optional error-callback _raw)
                   (push args ogent-issues-bd-test--captured-args)
