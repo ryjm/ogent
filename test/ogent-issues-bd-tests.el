@@ -383,8 +383,9 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
   "Integration test: project-root returns correct path from subdirectory."
   (ogent-issues-bd-test-with-temp-project
     (let ((default-directory sub-dir))
-      (should (equal (file-name-as-directory project-root)
-                     (ogent-issues-bd-project-root))))))
+      ;; Use expand-file-name on both sides to normalize tilde expansion
+      (should (equal (expand-file-name (file-name-as-directory project-root))
+                     (expand-file-name (ogent-issues-bd-project-root)))))))
 
 (ert-deftest ogent-issues-bd-test-integration-project-root-outside-project ()
   "Integration test: project-root returns nil outside any project."
