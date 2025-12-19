@@ -146,6 +146,18 @@ Example:
   :type '(repeat plist)
   :group 'ogent-models)
 
+(defcustom ogent-tools-enabled t
+  "Whether to enable tool use in ogent sessions.
+When t, all registered tools are available.
+When nil, no tools are passed to the LLM.
+Can also be a list of tool name symbols to enable specific tools.
+
+This variable can be made buffer-local for per-session control."
+  :type '(choice (const :tag "All tools" t)
+                 (const :tag "No tools" nil)
+                 (repeat :tag "Specific tools" symbol))
+  :group 'ogent-models)
+
 (declare-function gptel-make-tool "ext:gptel"
                   (&rest args &key name function description args
                          category async include &allow-other-keys))
@@ -187,6 +199,17 @@ Returns the list of registered tool objects."
   "Return all registered tool objects as a list."
   (ogent-register-tools)
   (mapcar #'cdr ogent--tools-registered))
+
+(defun ogent-tools-enabled-list ()
+  "Return list of enabled tool objects based on `ogent-tools-enabled'.
+Returns nil if tools are disabled, all tools if t, or filtered list
+if `ogent-tools-enabled' is a list of tool name symbols."
+  (cond
+   ((null ogent-tools-enabled) nil)
+   ((eq ogent-tools-enabled t) (ogent-tools-all))
+   ((listp ogent-tools-enabled)
+    (delq nil (mapcar #'ogent-tool-get ogent-tools-enabled)))
+   (t nil)))
 
 (defun ogent-tool-spec-get (name)
   "Return the tool spec plist for NAME (symbol) from the registry."
