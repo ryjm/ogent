@@ -317,6 +317,50 @@ PROMPT is the completion prompt."
             (let ((text (read-string prompt)))
               (unless (string-empty-p text) text))))
 
+;;; Tools Toggle Infix
+
+(defun ogent--tools-description ()
+  "Return description string for tools infix showing current state."
+  (let* ((all-tools (when (fboundp 'ogent-tools-all)
+                      (ogent-tools-all)))
+         (total (length all-tools))
+         (enabled (when (fboundp 'ogent-tools-enabled-list)
+                    (ogent-tools-enabled-list)))
+         (enabled-count (length enabled)))
+    (concat "Tools: "
+            (cond
+             ((null ogent-tools-enabled)
+              (propertize "[disabled]" 'face 'font-lock-comment-face))
+             ((eq ogent-tools-enabled t)
+              (if (zerop total)
+                  (propertize "[none registered]" 'face 'font-lock-comment-face)
+                (propertize (format "[all %d]" total) 'face 'success)))
+             ((listp ogent-tools-enabled)
+              (propertize (format "[%d of %d]" enabled-count total)
+                          'face 'font-lock-keyword-face))
+             (t "[?]")))))
+
+(defun ogent--toggle-tools ()
+  "Toggle `ogent-tools-enabled' for current buffer.
+Cycles: t -> nil -> t (simple toggle).
+Makes the variable buffer-local for session-level control."
+  (interactive)
+  (make-local-variable 'ogent-tools-enabled)
+  (setq ogent-tools-enabled (not ogent-tools-enabled))
+  (message "Tools %s for this session"
+           (if ogent-tools-enabled "enabled" "disabled")))
+
+(transient-define-infix ogent--infix-tools ()
+  "Toggle tool availability."
+  :description #'ogent--tools-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-tools-enabled
+  :key "t"
+  :reader (lambda (_prompt _initial _history)
+            (ogent--toggle-tools)
+            ;; Return current value to satisfy the reader contract
+            ogent-tools-enabled))
+
 ;;; Direct Send Suffix
 
 (defun ogent--get-effective-prompt ()
@@ -754,7 +798,8 @@ Shows current model, allows changing it, and sends prompts to LLM."
   [:description ogent--format-model-header
                 ["Options"
                  (ogent--infix-provider)
-                 (ogent--infix-prompt)]
+                 (ogent--infix-prompt)
+                 (ogent--infix-tools)]
                 ["Context"
                  ("c" "Preview context" ogent-context-preview-toggle :transient t)
                  ("C" "Codemap" ogent-codemap-buffer)]]
@@ -963,7 +1008,7 @@ heading (see `ogent-shift-response-headings')."
                 (if (ogent-ui--at-window-bottom-p window)
                     (ogent-ui--scroll-to-bottom window)
                   ;; User scrolled away, disable auto-scroll for this request
-                  (setq ogent--auto-scroll-enabled nil))))))))))
+                  (setq ogent--auto-scroll-enabled nil)))))))))
 
 
 (defun ogent-ui--insert-error-block (request message)
@@ -1120,7 +1165,7 @@ Results are displayed in the buffer."
                      (error
                       (ogent-ui--insert-tool-block
                        tool-name tool-args
-                       (format "[Diff preview error: %s]" (error-message-string err)))))
+                       (format "[Diff preview error: %s]" (error-message-string err))))))
                  ;; Non-edit tools execute immediately
                  (let ((result (ogent-ui--execute-tool tool-name tool-args)))
                    (ogent-ui--insert-tool-block tool-name tool-args result))))
