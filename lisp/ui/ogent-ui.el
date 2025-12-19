@@ -40,7 +40,7 @@
 (declare-function ogent-anthropic-oauth-using-bearer-p "ogent-anthropic-oauth")
 
 ;; ogent-tools integration
-(declare-function ogent-tools-all "ogent-models")
+(declare-function ogent-tools-enabled-list "ogent-models")
 (declare-function ogent-tool-spec-get "ogent-models")
 
 ;;; Org-mode Output Formatting
@@ -1252,9 +1252,9 @@ When model has :tools, enables gptel tool calling."
          ;; Check if OAuth is active (system message is locked)
          (oauth-active (and (fboundp 'ogent-anthropic-oauth-using-bearer-p)
                             (ogent-anthropic-oauth-using-bearer-p)))
-         ;; Get all registered tools
-         (tools (when (fboundp 'ogent-tools-all)
-                  (ogent-tools-all)))
+         ;; Get enabled tools based on ogent-tools-enabled
+         (tools (when (fboundp 'ogent-tools-enabled-list)
+                  (ogent-tools-enabled-list)))
          (args (list :buffer target-buffer
                      :stream (plist-get model :stream?)
                      :callback callback)))
