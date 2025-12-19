@@ -1121,9 +1121,11 @@ The src block is already closed; this just updates status and folds."
 Handles both regular text responses and tool call responses."
   (lambda (text info)
     (when (bound-and-true-p ogent-ui-debug-stream-completion)
-      (message "[ogent-debug] callback: request-id=%s text-len=%s info-keys=%s"
+      (message "[ogent-debug] callback: request-id=%s text=%S text-type=%s null-text=%s info-keys=%s"
                request-id
-               (when (stringp text) (length text))
+               (if (stringp text) (truncate-string-to-width text 20 nil nil "...") text)
+               (type-of text)
+               (null text)
                (when (listp info)
                  (cl-loop for (k _v) on info by #'cddr collect k))))
     (let ((request (gethash request-id ogent-ui--request-table)))
