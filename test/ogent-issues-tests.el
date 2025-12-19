@@ -639,6 +639,29 @@
           (when (buffer-live-p buf)
             (kill-buffer buf)))))))
 
+;;; Buffer Name Tests
+
+(ert-deftest ogent-issues-test-buffer-name-shared ()
+  "Test shared buffer name (default)."
+  (let ((ogent-issues-per-project-buffers nil))
+    (should (string= "*ogent-issues*" (ogent-issues--buffer-name)))))
+
+(ert-deftest ogent-issues-test-buffer-name-per-project ()
+  "Test per-project buffer names."
+  (let ((ogent-issues-per-project-buffers t))
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-name)
+               (lambda () "my-project")))
+      (should (string= "*ogent-issues: my-project*"
+                       (ogent-issues--buffer-name))))))
+
+(ert-deftest ogent-issues-test-buffer-name-per-project-nil-name ()
+  "Test per-project buffer name when project name is nil."
+  (let ((ogent-issues-per-project-buffers t))
+    (cl-letf (((symbol-function 'ogent-issues-bd-project-name)
+               (lambda () nil)))
+      (should (string= "*ogent-issues: unknown*"
+                       (ogent-issues--buffer-name))))))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here

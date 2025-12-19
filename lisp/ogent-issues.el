@@ -35,8 +35,18 @@
   :prefix "ogent-issues-")
 
 (defcustom ogent-issues-buffer-name "*ogent-issues*"
-  "Name of the ogent-issues buffer."
+  "Name of the ogent-issues buffer.
+When `ogent-issues-per-project-buffers' is nil (the default), this
+is used as the buffer name.  When per-project buffers are enabled,
+the project name is appended."
   :type 'string
+  :group 'ogent-issues)
+
+(defcustom ogent-issues-per-project-buffers nil
+  "When non-nil, create separate buffer for each project.
+Buffer names will be `*ogent-issues: <project>*'.
+When nil (default), use single shared buffer."
+  :type 'boolean
   :group 'ogent-issues)
 
 (defcustom ogent-issues-default-view 'list
@@ -340,12 +350,22 @@ Other:
 
 ;;; Entry Point
 
+(defun ogent-issues--buffer-name ()
+  "Return buffer name for current project.
+When `ogent-issues-per-project-buffers' is non-nil, returns a
+project-specific name like `*ogent-issues: <project>*'.
+Otherwise returns `ogent-issues-buffer-name'."
+  (if ogent-issues-per-project-buffers
+      (let ((project (ogent-issues-bd-project-name)))
+        (format "*ogent-issues: %s*" (or project "unknown")))
+    ogent-issues-buffer-name))
+
 ;;;###autoload
 (defun ogent-issues ()
   "Open the ogent-issues buffer in a split window."
   (interactive)
   (let* ((current-project (ogent-issues-bd-project-root))
-         (buf (get-buffer-create ogent-issues-buffer-name)))
+         (buf (get-buffer-create (ogent-issues--buffer-name))))
     (with-current-buffer buf
       (unless (eq major-mode 'ogent-issues-mode)
         (ogent-issues-mode))
