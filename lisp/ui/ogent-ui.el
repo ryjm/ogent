@@ -1406,21 +1406,167 @@ and responses marked with gptel text properties."
       (when (looking-at "^#\\+begin_\\(tool\\|reasoning\\)")
         (org-cycle)))))
 
+;;; Tool Drawer Display
+
+(defvar ogent-ui--tool-seq 0
+  "Sequence number for generating unique tool IDs.")
+
+(defconst ogent-tool-status-icons
+  '((pending . "○")
+    (running . "◐")
+    (success . "✓")
+    (error . "✗"))
+  "Status icons for tool calls.")
+
+(defun ogent-ui--tool-context-summary (name args)
+  "Generate a brief context summary for tool NAME with ARGS."
+  (let ((name-str (if (stringp name) name (symbol-name name))))
+    (pcase name-str
+      ((or "read-file" "Read")
+       (or (plist-get args :file_path)
+           (plist-get args :path)
+           "file"))
+      ((or "bash" "Bash")
+       (let ((cmd (or (plist-get args :command) "")))
+         (truncate-string-to-width cmd 30 nil nil "...")))
+      ((or "glob" "Glob")
+       (or (plist-get args :pattern) "pattern"))
+      ((or "grep" "Grep")
+       (or (plist-get args :pattern) "search"))
+      ((or "edit" "Edit")
+       (or (plist-get args :file_path) "file"))
+      ((or "write" "Write")
+       (or (plist-get args :file_path) "file"))
+      (_ (let ((first-val (cadr args)))
+           (if (stringp first-val)
+               (truncate-string-to-width first-val 25 nil nil "...")
+             ""))))))
+
+(defun ogent-ui--tool-status-icon (status)
+  "Return the icon string for STATUS with appropriate face."
+  (let ((icon (alist-get status ogent-tool-status-icons "?")))
+    (pcase status
+      ('success (propertize icon 'face 'success))
+      ('error (propertize icon 'face 'error))
+      ('running (propertize icon 'face 'warning))
+      (_ icon))))
+
+(defun ogent-ui--insert-tool-drawer (name args result &optional status)
+  "Insert a tool drawer with NAME, ARGS, RESULT, and STATUS.
+Uses Org drawer format for collapsible display with summary line."
+  (let* ((tool-id (format "tool-%d" (cl-incf ogent-ui--tool-seq)))
+         (status (or status (if (and (stringp result)
+                                     (string-match-p "\\[.*error\\|denied\\]" result))
+                                'error 'success)))
+         (context (ogent-ui--tool-context-summary name args))
+         (icon (ogent-ui--tool-status-icon status))
+         (name-str (if (stringp name) name (symbol-name name)))
+         (drawer-start (point))
+         drawer-end)
+    ;; Insert drawer - summary on first line inside drawer
+    (insert ":TOOL:\n")
+    (insert (format "▶ %s: %s %s\n" name-str context icon))
+    ;; Args block
+    (insert "#+begin_src elisp :args\n")
+    (insert (pp-to-string args))
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_src\n")
+    ;; Result block
+    (insert (format "#+begin_src %s :result\n"
+                    (if (eq status 'error) "text" "text")))
+    (insert (if (stringp result) result (pp-to-string result)))
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_src\n")
+    (insert ":END:\n")
+    (setq drawer-end (point))
+    ;; Add text properties for tool metadata
+    (add-text-properties drawer-start drawer-end
+                         (list 'ogent-tool-id tool-id
+                               'ogent-tool-name (intern name-str)
+                               'ogent-tool-status status
+                               'ogent-tool-args args
+                               'ogent-tool-result result))
+    ;; Fold the drawer - use condition-case to handle edge cases
+    (save-excursion
+      (goto-char drawer-start)
+      (when (derived-mode-p 'org-mode)
+        (condition-case nil
+            (when (fboundp 'org-hide-drawer-toggle)
+              (org-hide-drawer-toggle t))
+          (error nil))))  ; Silently ignore folding errors
+    tool-id))
+
 (defun ogent-ui--insert-tool-block (name args result)
   "Insert a tool block with NAME, ARGS, and RESULT.
-The block follows gptel's format for Org tool results."
-  (let ((marker (point)))
-    (insert (format "#+begin_tool %s\n" name))
-    (insert (format "Args: %S\n" args))
-    (insert "Result:\n")
-    (insert (if (stringp result)
-                result
-              (pp-to-string result)))
-    (unless (bolp) (insert "\n"))
-    (insert "#+end_tool\n")
-    (save-excursion
-      (goto-char marker)
-      (ogent-ui--fold-special-block))))
+Uses drawer format for collapsible display."
+  (ogent-ui--insert-tool-drawer name args result))
+
+(defun ogent-tool-at-point ()
+  "Return tool info plist if point is within a tool drawer, nil otherwise.
+The plist contains :id, :name, :status, :args, and :result."
+  (let ((tool-id (get-text-property (point) 'ogent-tool-id)))
+    (when tool-id
+      (list :id tool-id
+            :name (get-text-property (point) 'ogent-tool-name)
+            :status (get-text-property (point) 'ogent-tool-status)
+            :args (get-text-property (point) 'ogent-tool-args)
+            :result (get-text-property (point) 'ogent-tool-result)))))
+
+(defun ogent-tool-rerun ()
+  "Re-execute the tool at point with its current arguments.
+If the args have been edited in the drawer, uses the edited values."
+  (interactive)
+  (let ((tool-info (ogent-tool-at-point)))
+    (unless tool-info
+      (user-error "No tool at point"))
+    (let* ((name (plist-get tool-info :name))
+           (args (ogent-tool--parse-args-at-point))
+           (args (or args (plist-get tool-info :args))))
+      (message "Re-running %s..." name)
+      (let ((result (ogent-ui--execute-tool (symbol-name name) args)))
+        ;; Find drawer boundaries and replace
+        (ogent-tool--replace-result-at-point result)
+        (message "Re-ran %s" name)))))
+
+(defun ogent-tool--parse-args-at-point ()
+  "Parse the args src block in the current tool drawer.
+Returns the parsed plist, or nil if parsing fails."
+  (save-excursion
+    (let ((start (point)))
+      ;; Find the drawer start
+      (when (re-search-backward "^:TOOL:$" nil t)
+        ;; Find args block
+        (when (re-search-forward "#\\+begin_src.*:args" nil t)
+          (forward-line 1)
+          (let ((args-start (point)))
+            (when (re-search-forward "#\\+end_src" nil t)
+              (forward-line 0)
+              (condition-case nil
+                  (read (buffer-substring-no-properties args-start (point)))
+                (error nil)))))))))
+
+(defun ogent-tool--replace-result-at-point (new-result)
+  "Replace the result in the current tool drawer with NEW-RESULT."
+  (save-excursion
+    ;; Find drawer boundaries
+    (let ((start (point)))
+      (when (re-search-backward "^:TOOL:$" nil t)
+        (let ((drawer-start (point)))
+          ;; Find and replace result block content
+          (when (re-search-forward "#\\+begin_src.*:result" nil t)
+            (forward-line 1)
+            (let ((result-start (point)))
+              (when (re-search-forward "#\\+end_src" nil t)
+                (forward-line 0)
+                (delete-region result-start (point))
+                (goto-char result-start)
+                (insert (if (stringp new-result) new-result (pp-to-string new-result)))
+                (unless (bolp) (insert "\n")))))
+          ;; Update status icon in header (now on second line)
+          (goto-char drawer-start)
+          (forward-line 1)
+          (when (re-search-forward "\\([○◐✓✗]\\)" (line-end-position) t)
+            (replace-match (ogent-ui--tool-status-icon 'success))))))))
 
 (defun ogent-ui--insert-reasoning-block (content)
   "Insert a reasoning block containing CONTENT.
