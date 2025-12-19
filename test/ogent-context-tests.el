@@ -44,6 +44,8 @@
 
 (ert-deftest ogent-context-build-provides-ancestors ()
   "Ancestors are ordered from top-level down to the immediate parent."
+  ;; Skip on Emacs 28.x due to org-element :parent behavior differences
+  (skip-unless (>= emacs-major-version 29))
   (ogent-test-with-fixture "data/fixture.org"
 			   (lambda ()
 			     (goto-char (point-min))
@@ -352,6 +354,8 @@
 
 (ert-deftest ogent-context-build-filtered-preserves-other-fields ()
   "ogent-context-build-filtered preserves :root and :ancestors."
+  ;; Skip on Emacs 28.x due to org-element :parent behavior differences
+  (skip-unless (>= emacs-major-version 29))
   (ogent-test-with-fixture "data/fixture.org"
 			   (lambda ()
 			     (goto-char (point-min))
