@@ -1103,11 +1103,21 @@ The src block is already closed; this just updates status and folds."
             (seq-take ogent-ui--request-history ogent-ui-request-history-max))))
   (remhash (ogent-ui-request-id request) ogent-ui--request-table)
   ;; Fontify the response region for syntax highlighting (src blocks, etc.)
+  ;; and align any Org tables that were streamed in
   (with-current-buffer (ogent-ui-request-buffer request)
     (let ((start (ogent-ui-request-response-pos request))
           (end (ogent-ui-request-marker request)))
       (when (and start end (markerp end) (marker-position end))
-        (font-lock-flush start (marker-position end)))))
+        (let ((end-pos (marker-position end)))
+          (font-lock-flush start end-pos)
+          ;; Align Org tables in the response region
+          (when (derived-mode-p 'org-mode)
+            (save-excursion
+              (goto-char start)
+              (while (re-search-forward "^[ \t]*|" end-pos t)
+                (org-table-align)
+                ;; Move past this table to avoid re-aligning
+                (goto-char (org-table-end)))))))))
   ;; Clean up auto-scroll hook if no more active requests in buffer
   (with-current-buffer (ogent-ui-request-buffer request)
     (unless (cl-some (lambda (r)
