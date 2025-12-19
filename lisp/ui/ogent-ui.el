@@ -1128,8 +1128,9 @@ Handles both regular text responses and tool call responses."
                  (cl-loop for (k _v) on info by #'cddr collect k))))
     (let ((request (gethash request-id ogent-ui--request-table)))
       (when (and (bound-and-true-p ogent-ui-debug-stream-completion) (null text))
-        (message "[ogent-debug] LOOKUP: request-id=%s found=%s table-size=%s"
-                 request-id (if request t nil) (hash-table-count ogent-ui--request-table)))
+        (message "[ogent-debug] LOOKUP: request-id=%s found=%s table-size=%s info-status=%s"
+                 request-id (if request t nil) (hash-table-count ogent-ui--request-table)
+                 (plist-get info :status)))
       (when request
         ;; Check for tool calls in info plist
         (when (and (listp info) (plist-get info :tool-use))
