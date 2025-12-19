@@ -30,6 +30,7 @@
 (declare-function ogent-edit-goto-source "ogent-edit-display")
 (declare-function ogent-edit-goto-companion "ogent-edit-display")
 (declare-function ogent-debug-tools-menu "ogent-debug")
+(declare-function ogent-tool-rerun "ui/ogent-ui")
 (declare-function ogent-notes-capture "ogent-notes")
 
 ;; gptel integration
@@ -134,6 +135,7 @@ Adds :validation-warnings to context as a side effect."
     (define-key map (kbd "C-c . e") #'ogent-edit-menu)
     (define-key map (kbd "C-c . E") #'ogent-request-edit)
     (define-key map (kbd "C-c . t") #'ogent-debug-tools-menu)
+    (define-key map (kbd "C-c . T") #'ogent-tool-rerun)
     ;; Navigation between source and companion
     (define-key map (kbd "C-c . s") #'ogent-edit-goto-source)
     (define-key map (kbd "C-c . C") #'ogent-edit-goto-companion)
