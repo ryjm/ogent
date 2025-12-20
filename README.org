@@ -72,21 +72,33 @@ To logout: =M-x ogent-anthropic-logout=
 - To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
 
 ** Keybindings
-| Key       | Command                  | Description                              |
-|-----------+--------------------------+------------------------------------------|
-| =C-c . p= | =ogent-prompt-dispatch=  | Open dispatcher to select models/presets |
-| =C-c . r= | =ogent-request=          | Send request with current context        |
-| =C-c . c= | =ogent-context-preview=  | Preview context before sending           |
-| =C-c . d= | =ogent-notes-capture=    | Capture last response to Notes heading   |
-| =C-c . ?= | =ogent-ask=              | Quick Q&A (no context)                   |
-| =C-c . e= | =ogent-edit-menu=        | Edit menu for inline code changes        |
-| =C-c . E= | =ogent-request-edit=     | Request code edits for buffer            |
-| =C-c . o= | =ogent-open-block=       | Open source block with ogent-mode        |
-| =C-c . m= | =ogent-codemap-buffer=   | Generate codemap for current buffer      |
-| =C-c . b= | =ogent-show-backlinks=   | Show backlinks to current heading        |
-| =C-c . g= | =ogent-show-dependency-graph= | Show dependency graph              |
-| =C-c . a= | =ogent-abort-request=    | Abort current request                    |
-| =C-c . R= | =ogent-retry-request=    | Retry last request                       |
+| Key       | Command                       | Description                              |
+|-----------+-------------------------------+------------------------------------------|
+| =C-c . p= | =ogent-prompt-dispatch=       | Open dispatcher to select models/presets |
+| =C-c . r= | =ogent-request=               | Send request with current context        |
+| =C-c . a= | =ogent-abort-request=         | Abort current request                    |
+| =C-c . R= | =ogent-retry-request=         | Retry last request                       |
+| =C-c . c= | =ogent-context-preview=       | Preview context before sending           |
+| =C-c . m= | =ogent-codemap-buffer=        | Generate codemap for current buffer      |
+| =C-c . P= | =ogent-pin-dwim=              | Pin file/buffer/region to context        |
+| =C-c . U= | =ogent-unpin-interactive=     | Unpin item from context                  |
+| =C-c . l= | =ogent-list-pinned=           | List all pinned context items            |
+| =C-c . e= | =ogent-edit-menu=             | Edit menu for inline code changes        |
+| =C-c . E= | =ogent-request-edit=          | Request code edits for buffer            |
+| =C-c . s= | =ogent-edit-goto-source=      | Go to source from companion              |
+| =C-c . C= | =ogent-edit-goto-companion=   | Go to companion from source              |
+| =C-c . t= | =ogent-debug-tools-menu=      | Tools debug menu                         |
+| =C-c . T= | =ogent-tool-rerun=            | Re-run tool at point                     |
+| =C-c . b= | =ogent-show-backlinks=        | Show backlinks to current heading        |
+| =C-c . g= | =ogent-show-dependency-graph= | Show dependency graph                    |
+| =C-c . o= | =ogent-open-block=            | Open source block with ogent-mode        |
+| =C-c . i= | =ogent-issues=                | Open issue tracker                       |
+| =C-c . S= | =ogent-session-save=          | Save current session                     |
+| =C-c . L= | =ogent-session-load=          | Load a saved session                     |
+| =C-c . H= | =ogent-session-list=          | List saved sessions                      |
+| =C-c . ?= | =ogent-ask=                   | Quick Q&A (no context)                   |
+| =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
+| =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 
 * Updating
 Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.
