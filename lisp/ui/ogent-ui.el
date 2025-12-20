@@ -23,6 +23,9 @@
 (declare-function ogent-pinned-item-label "ogent-context")
 (declare-function ogent-pinned-item-content "ogent-context")
 (declare-function ogent-pinned-context-string "ogent-context")
+(declare-function ogent-pin-dwim "ogent-context")
+(declare-function ogent-list-pinned "ogent-context")
+(declare-function ogent-pinned-count "ogent-context")
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
@@ -374,6 +377,36 @@ Makes the variable buffer-local for session-level control."
             (ogent--toggle-tools)
             ;; Return current value to satisfy the reader contract
             ogent-tools-enabled))
+
+;;; Preset Selector Infix
+
+(defun ogent--preset-description ()
+  "Return description string for preset infix showing current selection."
+  (concat "Preset: "
+          (if ogent-ui--selected-preset
+              (propertize ogent-ui--selected-preset 'face 'font-lock-function-name-face)
+            (propertize "[none]" 'face 'font-lock-comment-face))))
+
+(defun ogent--read-preset (_prompt _initial _history)
+  "Read a preset name with completion."
+  (let* ((available (if (fboundp 'ogent-presets-available)
+                        (ogent-presets-available)
+                      nil))
+         (choices (cons "[none]" available))
+         (selection (completing-read "Preset: " choices nil t nil nil
+                                     (or ogent-ui--selected-preset "[none]"))))
+    (if (string= selection "[none]")
+        (progn (setq ogent-ui--selected-preset nil) nil)
+      (setq ogent-ui--selected-preset selection)
+      selection)))
+
+(transient-define-infix ogent--infix-preset ()
+  "Select gptel preset."
+  :description #'ogent--preset-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-ui--selected-preset
+  :key "s"
+  :reader #'ogent--read-preset)
 
 ;;; Direct Send Suffix
 
@@ -826,16 +859,42 @@ Shows current model, allows changing it, and sends prompts to LLM."
                 ["Options"
                  (ogent--infix-provider)
                  (ogent--infix-prompt)
-                 (ogent--infix-tools)]
+                 (ogent--infix-tools)
+                 (ogent--infix-preset)]
                 ["Context"
                  ("c" "Preview context" ogent-context-preview-toggle :transient t)
-                 ("C" "Codemap" ogent-codemap-buffer)]]
+                 ("C" "Codemap" ogent-codemap-buffer)
+                 ("P" ogent--suffix-pin-dwim)
+                 ("l" ogent--suffix-list-pinned)]]
   [["Actions"
     (ogent--suffix-send)
     ("q" "Quit" transient-quit-one)]]
   (interactive)
   (ogent-ui--ensure-companion-context)
   (transient-setup 'ogent-prompt-dispatch))
+
+(transient-define-suffix ogent--suffix-pin-dwim ()
+  "Pin current file/buffer/region to context."
+  :description
+  (lambda ()
+    (format "Pin %s"
+            (cond
+             ((use-region-p) "region")
+             ((buffer-file-name) "file")
+             (t "buffer"))))
+  (interactive)
+  (ogent-pin-dwim))
+
+(transient-define-suffix ogent--suffix-list-pinned ()
+  "List pinned context items."
+  :description
+  (lambda ()
+    (let ((count (ogent-pinned-count)))
+      (if (zerop count)
+          "List pinned"
+        (format "List pinned (%d)" count))))
+  (interactive)
+  (ogent-list-pinned))
 
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
 
