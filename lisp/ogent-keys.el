@@ -90,6 +90,8 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Save session")
     (session-load     :key "L" :command ogent-session-load
                       :desc "Load session")
+    (session-list     :key "H" :command ogent-session-list
+                      :desc "List sessions")
     ;; Misc
     (ask              :key "?" :command ogent-ask
                       :desc "Quick ask"
