@@ -42,6 +42,9 @@
 ;; ogent-tools integration
 (declare-function ogent-tools-enabled-list "ogent-models")
 (declare-function ogent-tool-spec-get "ogent-models")
+(declare-function ogent-tool--bash-async "ogent-tools")
+(declare-function ogent-tools--resolve-path "ogent-tools")
+(declare-function ogent-tools--project-root "ogent-tools")
 
 ;;; Org-mode Output Formatting
 
@@ -59,6 +62,13 @@ During a streaming response, the window will scroll to show new content
 as it arrives. Auto-scroll stops if the user manually scrolls away from
 the bottom, and resumes when they scroll back to the bottom or when a
 new request starts."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defcustom ogent-stream-tool-output t
+  "When non-nil, stream shell command output incrementally.
+This shows command output as it arrives rather than waiting for
+the command to complete. Only applies to async-capable tools like bash."
   :type 'boolean
   :group 'ogent-mode)
 
@@ -1235,6 +1245,50 @@ completes, in case the callback-based detection doesn't trigger."
   (with-eval-after-load 'gptel
     (ogent-ui--register-gptel-hook)))
 
+(defun ogent-ui--async-tool-p (tool-name)
+  "Return non-nil if TOOL-NAME supports async streaming execution."
+  (and ogent-stream-tool-output
+       (member tool-name '("bash" "Bash"))))
+
+(defun ogent-ui--execute-tool-async (tool-name tool-args)
+  "Execute TOOL-NAME with TOOL-ARGS asynchronously with streaming output.
+Returns the streaming drawer struct.  Output is streamed to the drawer."
+  (let* ((drawer (ogent-ui--insert-streaming-drawer tool-name tool-args))
+         (spec (and (fboundp 'ogent-tool-spec-get)
+                    (ogent-tool-spec-get (intern tool-name))))
+         (arg-values (ogent-ui--extract-tool-args spec tool-args))
+         (command (nth 0 arg-values))
+         (working-dir (nth 1 arg-values))
+         (timeout (nth 2 arg-values))
+         ;; Resolve working directory
+         (resolved-dir (if working-dir
+                           (and (fboundp 'ogent-tools--resolve-path)
+                                (ogent-tools--resolve-path working-dir))
+                         (and (fboundp 'ogent-tools--project-root)
+                              (ogent-tools--project-root)))))
+    ;; Start async process
+    (when (fboundp 'ogent-tool--bash-async)
+      (ogent-tool--bash-async
+       command
+       (lambda (type data)
+         (pcase type
+           ('chunk
+            (ogent-ui--streaming-drawer-append drawer data))
+           ('done
+            (ogent-ui--streaming-drawer-finalize
+             drawer
+             (if (= data 0) 'success 'error)
+             data)
+            (ogent-ui--streaming-drawer-cleanup drawer))
+           ('error
+            (ogent-ui--streaming-drawer-append
+             drawer (format "\n[Error: %s]" data))
+            (ogent-ui--streaming-drawer-finalize drawer 'error)
+            (ogent-ui--streaming-drawer-cleanup drawer))))
+       resolved-dir
+       timeout))
+    drawer))
+
 (defun ogent-ui--handle-tool-calls (request tool-calls _info)
   "Handle TOOL-CALLS from gptel response for REQUEST.
 Each tool call is checked for approval, then executed if approved.
@@ -1256,17 +1310,22 @@ Results are displayed in the buffer."
                  (approval (ogent-ui--check-tool-approval tool-name tool-args)))
             (pcase approval
               ('approved
-               ;; For edit tools, show diff preview instead of executing
-               (if (ogent-ui--is-edit-tool-p tool-name)
-                   (condition-case err
-                       (ogent-ui--show-diff-for-tool tool-name tool-args)
-                     (error
-                      (ogent-ui--insert-tool-block
-                       tool-name tool-args
-                       (format "[Diff preview error: %s]" (error-message-string err))))))
-               ;; Non-edit tools execute immediately
-               (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                 (ogent-ui--insert-tool-block tool-name tool-args result))))
+               (cond
+               ;; Edit tools: show diff preview instead of executing
+               ((ogent-ui--is-edit-tool-p tool-name)
+                (condition-case err
+                    (ogent-ui--show-diff-for-tool tool-name tool-args)
+                  (error
+                   (ogent-ui--insert-tool-block
+                    tool-name tool-args
+                    (format "[Diff preview error: %s]" (error-message-string err))))))
+               ;; Async-capable tools: stream output incrementally
+               ((ogent-ui--async-tool-p tool-name)
+                (ogent-ui--execute-tool-async tool-name tool-args))
+               ;; All other tools: execute synchronously
+               (t
+                (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                  (ogent-ui--insert-tool-block tool-name tool-args result))))))
             ('denied
              (ogent-ui--insert-tool-block tool-name tool-args
                                           "[Tool execution denied by user]"))))))))
@@ -1607,6 +1666,136 @@ Uses Org drawer format for collapsible display with summary line."
   "Insert a tool block with NAME, ARGS, and RESULT.
 Uses drawer format for collapsible display."
   (ogent-ui--insert-tool-drawer name args result))
+
+;;; Streaming Tool Drawer Support
+
+(cl-defstruct ogent-streaming-drawer
+  "State for a streaming tool drawer."
+  id
+  buffer
+  drawer-start     ; marker at :TOOL:
+  result-start     ; marker at start of result content
+  result-end       ; marker at end of result content (before #+end_src)
+  status-marker    ; marker at status icon position
+  name
+  args
+  char-count)      ; total chars streamed
+
+(defun ogent-ui--insert-streaming-drawer (name args)
+  "Insert a streaming tool drawer for NAME with ARGS.
+Returns an `ogent-streaming-drawer' struct for updating the drawer."
+  (let* ((tool-id (format "tool-%d" (cl-incf ogent-ui--tool-seq)))
+         (context (ogent-ui--tool-context-summary name args))
+         (icon (ogent-ui--tool-status-icon 'running))
+         (name-str (if (stringp name) name (symbol-name name)))
+         (drawer-start (point-marker))
+         header-end result-start result-end status-marker)
+    ;; Insert drawer header
+    (insert ":TOOL:\n")
+    (insert (format "▶ %s: %s " name-str context))
+    (setq status-marker (point-marker))
+    (insert (format "%s\n" icon))
+    (setq header-end (point))
+    ;; Args block
+    (insert "#+begin_src elisp :args\n")
+    (insert (pp-to-string args))
+    (unless (bolp) (insert "\n"))
+    (insert "#+end_src\n")
+    ;; Result block - initially empty with markers
+    (insert "#+begin_src text :result\n")
+    (setq result-start (point-marker))
+    (set-marker-insertion-type result-start nil)  ; grows with inserted text
+    (insert "(running...)\n")
+    (setq result-end (point-marker))
+    (set-marker-insertion-type result-end t)  ; stays at end
+    (insert "#+end_src\n")
+    (insert ":END:\n")
+    ;; Add text properties (will update when finalized)
+    (add-text-properties (marker-position drawer-start) (point)
+                         (list 'ogent-tool-id tool-id
+                               'ogent-tool-name (intern name-str)
+                               'ogent-tool-status 'running
+                               'ogent-tool-args args))
+    ;; Return struct for updates
+    (make-ogent-streaming-drawer
+     :id tool-id
+     :buffer (current-buffer)
+     :drawer-start drawer-start
+     :result-start result-start
+     :result-end result-end
+     :status-marker status-marker
+     :name name-str
+     :args args
+     :char-count 0)))
+
+(defun ogent-ui--streaming-drawer-append (drawer chunk)
+  "Append CHUNK to streaming DRAWER's result section.
+Returns nil if drawer buffer is dead."
+  (let ((buf (ogent-streaming-drawer-buffer drawer)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (save-excursion
+          (let ((inhibit-read-only t)
+                (result-start (ogent-streaming-drawer-result-start drawer))
+                (result-end (ogent-streaming-drawer-result-end drawer))
+                (count (ogent-streaming-drawer-char-count drawer)))
+            ;; On first chunk, remove "(running...)" placeholder
+            (when (= count 0)
+              (goto-char result-start)
+              (when (looking-at "(running\\.\\.\\.)\n")
+                (delete-region result-start (match-end 0))))
+            ;; Append chunk at result-end
+            (goto-char result-end)
+            (insert chunk)
+            ;; Update char count
+            (setf (ogent-streaming-drawer-char-count drawer)
+                  (+ count (length chunk))))))
+      t)))
+
+(defun ogent-ui--streaming-drawer-finalize (drawer status &optional exit-code)
+  "Finalize streaming DRAWER with STATUS and optional EXIT-CODE.
+STATUS is `success', `error', or other status symbol."
+  (let ((buf (ogent-streaming-drawer-buffer drawer)))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
+        (save-excursion
+          (let ((inhibit-read-only t)
+                (drawer-start (ogent-streaming-drawer-drawer-start drawer))
+                (status-marker (ogent-streaming-drawer-status-marker drawer))
+                (result-end (ogent-streaming-drawer-result-end drawer))
+                (new-icon (ogent-ui--tool-status-icon status)))
+            ;; Update status icon
+            (goto-char status-marker)
+            (when (looking-at ".")
+              (delete-char 1)
+              (insert new-icon))
+            ;; Add exit code line if provided
+            (when exit-code
+              (goto-char result-end)
+              (insert (format "\nExit code: %s" exit-code)))
+            ;; Update text properties
+            (let ((end-pos (save-excursion
+                            (goto-char drawer-start)
+                            (when (re-search-forward "^:END:$" nil t)
+                              (line-end-position)))))
+              (when end-pos
+                (put-text-property drawer-start end-pos
+                                   'ogent-tool-status status)))))
+        ;; Try to fold the drawer
+        (save-excursion
+          (goto-char (ogent-streaming-drawer-drawer-start drawer))
+          (when (derived-mode-p 'org-mode)
+            (condition-case nil
+                (when (fboundp 'org-hide-drawer-toggle)
+                  (org-hide-drawer-toggle t))
+              (error nil))))))))
+
+(defun ogent-ui--streaming-drawer-cleanup (drawer)
+  "Clean up markers from DRAWER."
+  (set-marker (ogent-streaming-drawer-drawer-start drawer) nil)
+  (set-marker (ogent-streaming-drawer-result-start drawer) nil)
+  (set-marker (ogent-streaming-drawer-result-end drawer) nil)
+  (set-marker (ogent-streaming-drawer-status-marker drawer) nil))
 
 (defun ogent-tool-at-point ()
   "Return tool info plist if point is within a tool drawer, nil otherwise.
