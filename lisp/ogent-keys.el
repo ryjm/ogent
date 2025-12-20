@@ -53,6 +53,14 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Preview context")
     (codemap          :key "m" :command ogent-codemap-buffer
                       :desc "Show codemap")
+    ;; Pinned context
+    (pin-dwim         :key "P" :command ogent-pin-dwim
+                      :desc "Pin file/buffer/region"
+                      :visual t)
+    (unpin            :key "U" :command ogent-unpin-interactive
+                      :desc "Unpin item")
+    (list-pinned      :key "l" :command ogent-list-pinned
+                      :desc "List pinned")
     ;; Editing
     (edit-menu        :key "e" :command ogent-edit-menu
                       :desc "Edit menu")

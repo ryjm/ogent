@@ -49,6 +49,226 @@ list when building context payloads.")
 (cl-defstruct ogent-context-node
   title id level begin end content properties buffer)
 
+;;; Pinned Context
+;;
+;; Pinned items persist across requests, allowing users to build up
+;; context incrementally. Items can be files, buffers, or regions.
+
+(cl-defstruct ogent-pinned-item
+  "A pinned context item."
+  type           ; 'file, 'buffer, or 'region
+  path           ; file path (for 'file type)
+  buffer         ; buffer object (for 'buffer and 'region types)
+  start-marker   ; start marker (for 'region type)
+  end-marker     ; end marker (for 'region type)
+  label          ; display label
+  pinned-at)     ; timestamp when pinned
+
+(defvar ogent-pinned-context nil
+  "List of `ogent-pinned-item' structs representing pinned context.")
+
+(defun ogent-pin--make-label (type &optional path buffer start end)
+  "Generate a label for a pinned item of TYPE."
+  (pcase type
+    ('file (file-name-nondirectory path))
+    ('buffer (buffer-name buffer))
+    ('region (format "%s:%d-%d"
+                     (buffer-name buffer)
+                     (line-number-at-pos start)
+                     (line-number-at-pos end)))))
+
+(defun ogent-pin-file (path)
+  "Pin file at PATH to context."
+  (interactive "fPin file: ")
+  (let* ((abs-path (expand-file-name path))
+         (existing (cl-find-if (lambda (item)
+                                 (and (eq (ogent-pinned-item-type item) 'file)
+                                      (string= (ogent-pinned-item-path item) abs-path)))
+                               ogent-pinned-context)))
+    (if existing
+        (message "File already pinned: %s" (ogent-pinned-item-label existing))
+      (push (make-ogent-pinned-item
+             :type 'file
+             :path abs-path
+             :label (ogent-pin--make-label 'file abs-path)
+             :pinned-at (current-time))
+            ogent-pinned-context)
+      (message "Pinned: %s" (file-name-nondirectory abs-path)))))
+
+(defun ogent-pin-buffer (&optional buffer)
+  "Pin BUFFER (or current buffer) to context."
+  (interactive)
+  (let* ((buf (or buffer (current-buffer)))
+         (existing (cl-find-if (lambda (item)
+                                 (and (eq (ogent-pinned-item-type item) 'buffer)
+                                      (eq (ogent-pinned-item-buffer item) buf)))
+                               ogent-pinned-context)))
+    (if existing
+        (message "Buffer already pinned: %s" (ogent-pinned-item-label existing))
+      (push (make-ogent-pinned-item
+             :type 'buffer
+             :buffer buf
+             :label (ogent-pin--make-label 'buffer nil buf)
+             :pinned-at (current-time))
+            ogent-pinned-context)
+      (message "Pinned: %s" (buffer-name buf)))))
+
+(defun ogent-pin-region (start end &optional buffer)
+  "Pin region from START to END in BUFFER to context."
+  (interactive "r")
+  (let* ((buf (or buffer (current-buffer)))
+         (start-marker (with-current-buffer buf
+                         (copy-marker start)))
+         (end-marker (with-current-buffer buf
+                       (copy-marker end t))))  ; t = insert after
+    (push (make-ogent-pinned-item
+           :type 'region
+           :buffer buf
+           :start-marker start-marker
+           :end-marker end-marker
+           :label (ogent-pin--make-label 'region nil buf start end)
+           :pinned-at (current-time))
+          ogent-pinned-context)
+    (message "Pinned region: %s" (ogent-pin--make-label 'region nil buf start end))))
+
+(defun ogent-unpin (item-or-index)
+  "Remove ITEM-OR-INDEX from pinned context.
+ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
+  (let ((item (if (integerp item-or-index)
+                  (nth item-or-index ogent-pinned-context)
+                item-or-index)))
+    (when item
+      ;; Clean up markers for region items
+      (when (eq (ogent-pinned-item-type item) 'region)
+        (let ((start (ogent-pinned-item-start-marker item))
+              (end (ogent-pinned-item-end-marker item)))
+          (when (markerp start) (set-marker start nil))
+          (when (markerp end) (set-marker end nil))))
+      (setq ogent-pinned-context (delq item ogent-pinned-context))
+      (message "Unpinned: %s" (ogent-pinned-item-label item)))))
+
+(defun ogent-unpin-all ()
+  "Clear all pinned context items."
+  (interactive)
+  (let ((count (length ogent-pinned-context)))
+    ;; Clean up all markers
+    (dolist (item ogent-pinned-context)
+      (when (eq (ogent-pinned-item-type item) 'region)
+        (let ((start (ogent-pinned-item-start-marker item))
+              (end (ogent-pinned-item-end-marker item)))
+          (when (markerp start) (set-marker start nil))
+          (when (markerp end) (set-marker end nil)))))
+    (setq ogent-pinned-context nil)
+    (message "Unpinned %d item(s)" count)))
+
+(defun ogent-unpin-interactive ()
+  "Interactively select and unpin a context item."
+  (interactive)
+  (if (null ogent-pinned-context)
+      (message "No pinned context items")
+    (let* ((candidates (mapcar (lambda (item)
+                                 (cons (format "[%s] %s"
+                                               (ogent-pinned-item-type item)
+                                               (ogent-pinned-item-label item))
+                                       item))
+                               ogent-pinned-context))
+           (choice (completing-read "Unpin: " candidates nil t))
+           (item (cdr (assoc choice candidates))))
+      (when item
+        (ogent-unpin item)))))
+
+(defun ogent-list-pinned ()
+  "Display all pinned context items."
+  (interactive)
+  (if (null ogent-pinned-context)
+      (message "No pinned context items")
+    (with-help-window "*Ogent Pinned Context*"
+      (princ "Pinned Context Items\n")
+      (princ "====================\n\n")
+      (let ((idx 0))
+        (dolist (item (reverse ogent-pinned-context))
+          (let ((valid (pcase (ogent-pinned-item-type item)
+                         ('file (file-readable-p (ogent-pinned-item-path item)))
+                         ('buffer (buffer-live-p (ogent-pinned-item-buffer item)))
+                         ('region (and (buffer-live-p (ogent-pinned-item-buffer item))
+                                       (marker-position (ogent-pinned-item-start-marker item)))))))
+            (princ (format "%d. [%s] %s %s\n"
+                           idx
+                           (ogent-pinned-item-type item)
+                           (ogent-pinned-item-label item)
+                           (if valid "" "(invalid)"))))
+          (cl-incf idx)))
+      (princ (format "\nTotal: %d item(s)\n" (length ogent-pinned-context))))))
+
+(defun ogent-pin-dwim ()
+  "Pin context based on current state (Do What I Mean).
+If region is active, pin the region.
+If current buffer has a file, pin the file.
+Otherwise, pin the buffer."
+  (interactive)
+  (cond
+   ((use-region-p)
+    (ogent-pin-region (region-beginning) (region-end)))
+   ((buffer-file-name)
+    (ogent-pin-file (buffer-file-name)))
+   (t
+    (ogent-pin-buffer))))
+
+(defun ogent-pinned-count ()
+  "Return the number of valid pinned items."
+  (length (ogent-pinned-items-valid)))
+
+(defun ogent-pinned-item-content (item)
+  "Get the content string for pinned ITEM."
+  (pcase (ogent-pinned-item-type item)
+    ('file
+     (let ((path (ogent-pinned-item-path item)))
+       (when (file-readable-p path)
+         (with-temp-buffer
+           (insert-file-contents path)
+           (buffer-string)))))
+    ('buffer
+     (let ((buf (ogent-pinned-item-buffer item)))
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (buffer-substring-no-properties (point-min) (point-max))))))
+    ('region
+     (let ((buf (ogent-pinned-item-buffer item))
+           (start (ogent-pinned-item-start-marker item))
+           (end (ogent-pinned-item-end-marker item)))
+       (when (and (buffer-live-p buf)
+                  (markerp start) (markerp end)
+                  (marker-position start) (marker-position end))
+         (with-current-buffer buf
+           (buffer-substring-no-properties start end)))))))
+
+(defun ogent-pinned-items-valid ()
+  "Return list of valid pinned items (buffers still live, files exist)."
+  (cl-remove-if-not
+   (lambda (item)
+     (pcase (ogent-pinned-item-type item)
+       ('file (file-readable-p (ogent-pinned-item-path item)))
+       ('buffer (buffer-live-p (ogent-pinned-item-buffer item)))
+       ('region (and (buffer-live-p (ogent-pinned-item-buffer item))
+                     (marker-position (ogent-pinned-item-start-marker item))
+                     (marker-position (ogent-pinned-item-end-marker item))))))
+   ogent-pinned-context))
+
+(defun ogent-pinned-context-string ()
+  "Format all pinned items as a string for inclusion in prompts."
+  (let ((valid-items (ogent-pinned-items-valid)))
+    (when valid-items
+      (mapconcat
+       (lambda (item)
+         (let ((content (ogent-pinned-item-content item))
+               (label (ogent-pinned-item-label item))
+               (type (ogent-pinned-item-type item)))
+           (format "--- Pinned %s: %s ---\n%s"
+                   type label
+                   (or content "(content unavailable)"))))
+       valid-items
+       "\n\n"))))
+
 (defun ogent-context--ensure-org ()
   "Ensure the current buffer is an Org buffer."
   (unless (derived-mode-p 'org-mode)
@@ -292,7 +512,7 @@ Returns a plist containing :root, :ancestors, :handles, and :dependencies."
 Like `ogent-context-build', but filters dependencies where :handle
 is in `ogent-context-excluded-handles'.
 Returns a plist with :root, :ancestors, :handles, :dependencies,
-and :excluded-handles keys."
+:excluded-handles, and :pinned keys."
   (let* ((ctx (ogent-context-build point))
          (all-dependencies (plist-get ctx :dependencies))
          (filtered-dependencies
@@ -300,12 +520,14 @@ and :excluded-handles keys."
                           (member (plist-get dep :handle)
                                   ogent-context-excluded-handles))
                         all-dependencies))
-         (excluded-handles (copy-sequence ogent-context-excluded-handles)))
+         (excluded-handles (copy-sequence ogent-context-excluded-handles))
+         (pinned-items (ogent-pinned-items-valid)))
     (list :root (plist-get ctx :root)
           :ancestors (plist-get ctx :ancestors)
           :handles (plist-get ctx :handles)
           :dependencies filtered-dependencies
-          :excluded-handles excluded-handles)))
+          :excluded-handles excluded-handles
+          :pinned pinned-items)))
 
 ;;;###autoload
 (defun ogent-context-build-for-buffer (&optional buffer region-start region-end)
@@ -335,7 +557,7 @@ Returns a plist with :source-context for non-Org or standard Org context keys."
   "Build combined context from SOURCE-BUFFER and current Org buffer.
 The current buffer should be an Org companion buffer.
 SOURCE-BUFFER is the code buffer the user is editing.
-Returns context with both Org structure (if any) and source code."
+Returns context with both Org structure (if any), source code, and pinned items."
   (let ((source-ctx (when (and source-buffer
                                (buffer-live-p source-buffer)
                                ;; Use buffer-local-value for faster check
@@ -346,12 +568,14 @@ Returns context with both Org structure (if any) and source code."
         (org-ctx (when (derived-mode-p 'org-mode)
                    (condition-case nil
                        (ogent-context-build)
-                     (error nil)))))
+                     (error nil))))
+        (pinned-items (ogent-pinned-items-valid)))
     (list :source-context source-ctx
           :root (plist-get org-ctx :root)
           :ancestors (plist-get org-ctx :ancestors)
           :handles (plist-get org-ctx :handles)
-          :dependencies (plist-get org-ctx :dependencies))))
+          :dependencies (plist-get org-ctx :dependencies)
+          :pinned pinned-items)))
 
 ;;; Lazy Context Building
 ;;
