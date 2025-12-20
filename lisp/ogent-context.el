@@ -77,6 +77,7 @@ list when building context payloads.")
                      (line-number-at-pos start)
                      (line-number-at-pos end)))))
 
+;;;###autoload
 (defun ogent-pin-file (path)
   "Pin file at PATH to context."
   (interactive "fPin file: ")
@@ -95,6 +96,7 @@ list when building context payloads.")
             ogent-pinned-context)
       (message "Pinned: %s" (file-name-nondirectory abs-path)))))
 
+;;;###autoload
 (defun ogent-pin-buffer (&optional buffer)
   "Pin BUFFER (or current buffer) to context."
   (interactive)
@@ -113,6 +115,7 @@ list when building context payloads.")
             ogent-pinned-context)
       (message "Pinned: %s" (buffer-name buf)))))
 
+;;;###autoload
 (defun ogent-pin-region (start end &optional buffer)
   "Pin region from START to END in BUFFER to context."
   (interactive "r")
@@ -147,6 +150,7 @@ ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
       (setq ogent-pinned-context (delq item ogent-pinned-context))
       (message "Unpinned: %s" (ogent-pinned-item-label item)))))
 
+;;;###autoload
 (defun ogent-unpin-all ()
   "Clear all pinned context items."
   (interactive)
@@ -161,6 +165,7 @@ ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
     (setq ogent-pinned-context nil)
     (message "Unpinned %d item(s)" count)))
 
+;;;###autoload
 (defun ogent-unpin-interactive ()
   "Interactively select and unpin a context item."
   (interactive)
@@ -177,6 +182,7 @@ ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
       (when item
         (ogent-unpin item)))))
 
+;;;###autoload
 (defun ogent-list-pinned ()
   "Display all pinned context items."
   (interactive)
@@ -200,6 +206,7 @@ ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
           (cl-incf idx)))
       (princ (format "\nTotal: %d item(s)\n" (length ogent-pinned-context))))))
 
+;;;###autoload
 (defun ogent-pin-dwim ()
   "Pin context based on current state (Do What I Mean).
 If region is active, pin the region.

@@ -36,6 +36,7 @@
 (declare-function ogent-notes-capture "ogent-notes")
 (declare-function ogent-session-save "ogent-session")
 (declare-function ogent-session-load "ogent-session")
+(declare-function ogent-session-list "ogent-session")
 (declare-function ogent-issues "ogent-issues")
 (declare-function ogent-pin-dwim "ogent-context")
 (declare-function ogent-unpin-interactive "ogent-context")
