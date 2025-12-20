@@ -157,8 +157,11 @@ CONTEXT-LINES shows N lines before/after matches."
 
 ;;; Tool: Bash (Shell Execution)
 
+(defvar ogent-tools--active-processes nil
+  "Alist of (process . callback-info) for active async tool processes.")
+
 (defun ogent-tool--bash (command &optional working-directory timeout)
-  "Execute shell COMMAND.
+  "Execute shell COMMAND synchronously.
 WORKING-DIRECTORY defaults to project root.
 TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
   (let* ((default-directory (if working-directory
@@ -182,6 +185,73 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
              (if (string-empty-p output) "(no output)" output)
              exit-code)
      ogent-tools-max-output-chars)))
+
+(defun ogent-tool--bash-async (command callback &optional working-directory timeout)
+  "Execute shell COMMAND asynchronously with streaming output.
+CALLBACK is called with (TYPE DATA) where TYPE is:
+  - `chunk': DATA is a string of output
+  - `done': DATA is the exit code (integer)
+  - `error': DATA is an error message
+WORKING-DIRECTORY defaults to project root.
+TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
+  (let* ((default-directory (if working-directory
+                                (ogent-tools--resolve-path working-directory)
+                              (ogent-tools--project-root)))
+         (timeout-secs (or timeout ogent-tools-shell-timeout))
+         (proc-name (format "ogent-bash-%d" (random 100000)))
+         (output-count 0)
+         proc timer)
+    (condition-case err
+        (progn
+          (setq proc (start-process-shell-command
+                      proc-name nil command))
+          ;; Set up process filter for streaming output
+          (set-process-filter
+           proc
+           (lambda (process output)
+             (setq output-count (+ output-count (length output)))
+             (when (< output-count ogent-tools-max-output-chars)
+               (funcall callback 'chunk output))))
+          ;; Set up sentinel for completion
+          (set-process-sentinel
+           proc
+           (lambda (process event)
+             (when timer (cancel-timer timer))
+             (setq ogent-tools--active-processes
+                   (assq-delete-all process ogent-tools--active-processes))
+             (let ((status (process-exit-status process)))
+               (if (string-match-p "finished\\|exited" event)
+                   (funcall callback 'done status)
+                 (funcall callback 'error
+                          (format "Process %s: %s"
+                                  (process-name process)
+                                  (string-trim event)))))))
+          ;; Set up timeout
+          (when (> timeout-secs 0)
+            (setq timer
+                  (run-at-time timeout-secs nil
+                               (lambda ()
+                                 (when (process-live-p proc)
+                                   (kill-process proc)
+                                   (funcall callback 'error
+                                            (format "Timeout after %ds" timeout-secs)))))))
+          ;; Track active process
+          (push (cons proc (list :callback callback :timer timer))
+                ogent-tools--active-processes)
+          proc)
+      (error
+       (funcall callback 'error (error-message-string err))
+       nil))))
+
+(defun ogent-tool--abort-process (proc)
+  "Abort an active async tool PROC."
+  (when (process-live-p proc)
+    (kill-process proc))
+  (when-let ((info (assq proc ogent-tools--active-processes)))
+    (when-let ((timer (plist-get (cdr info) :timer)))
+      (cancel-timer timer))
+    (setq ogent-tools--active-processes
+          (assq-delete-all proc ogent-tools--active-processes))))
 
 ;;; Tool: Write File
 
