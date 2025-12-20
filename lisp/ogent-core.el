@@ -15,6 +15,7 @@
 (require 'cl-lib)
 (require 'org)
 (require 'ogent-context)
+(require 'ogent-keys)
 
 (declare-function ogent-request "ui/ogent-ui")
 (declare-function ogent-context-preview "ui/ogent-ui")
@@ -123,30 +124,12 @@ Adds :validation-warnings to context as a side effect."
 
 (defvar ogent-mode-map
   (let ((map (make-sparse-keymap)))
-    ;; Note: C-c followed by punctuation is reserved for minor modes
-    (define-key map (kbd "C-c . p") #'ogent-prompt-dispatch)
-    (define-key map (kbd "C-c . r") #'ogent-request)
-    (define-key map (kbd "C-c . c") #'ogent-context-preview)
-    (define-key map (kbd "C-c . b") #'ogent-show-backlinks)
-    (define-key map (kbd "C-c . g") #'ogent-show-dependency-graph)
-    (define-key map (kbd "C-c . m") #'ogent-codemap-buffer)
-    (define-key map (kbd "C-c . a") #'ogent-abort-request)
-    (define-key map (kbd "C-c . R") #'ogent-retry-request)
-    (define-key map (kbd "C-c . e") #'ogent-edit-menu)
-    (define-key map (kbd "C-c . E") #'ogent-request-edit)
-    (define-key map (kbd "C-c . t") #'ogent-debug-tools-menu)
-    (define-key map (kbd "C-c . T") #'ogent-tool-rerun)
-    ;; Navigation between source and companion
-    (define-key map (kbd "C-c . s") #'ogent-edit-goto-source)
-    (define-key map (kbd "C-c . C") #'ogent-edit-goto-companion)
-    ;; Quick ask
-    (define-key map (kbd "C-c . ?") #'ogent-ask)
-    ;; Open block
-    (define-key map (kbd "C-c . o") #'ogent-open-block)
-    ;; Notes capture
-    (define-key map (kbd "C-c . d") #'ogent-notes-capture)
+    ;; Set up all bindings from the action registry
+    (ogent-setup-all-bindings map)
     map)
-  "Keymap for `ogent-mode'.")
+  "Keymap for `ogent-mode'.
+Bindings are defined in `ogent-action-registry' and set up via
+`ogent-setup-all-bindings'.  Use `ogent-describe-bindings' to see all.")
 
 ;;;###autoload (autoload 'ogent-mode "ogent" nil t)
 (define-minor-mode ogent-mode
