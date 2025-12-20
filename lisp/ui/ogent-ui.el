@@ -19,6 +19,10 @@
 ;; Forward declarations for source context
 (declare-function ogent-context-build-with-source "ogent-context")
 (declare-function ogent-context--format-source-context "ogent-context")
+(declare-function ogent-pinned-item-type "ogent-context")
+(declare-function ogent-pinned-item-label "ogent-context")
+(declare-function ogent-pinned-item-content "ogent-context")
+(declare-function ogent-pinned-context-string "ogent-context")
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
@@ -524,7 +528,20 @@ Used for retry functionality.")
          (ancestors (plist-get context :ancestors))
          (dependencies (plist-get context :dependencies))
          (handles (plist-get context :handles))
+         (pinned (plist-get context :pinned))
          (lines nil))
+    ;; Pinned context (always include first)
+    (when pinned
+      (push (format "Pinned (%d item%s):"
+                    (length pinned)
+                    (if (= (length pinned) 1) "" "s"))
+            lines)
+      (dolist (item pinned)
+        (push (format "  - [%s] %s"
+                      (ogent-pinned-item-type item)
+                      (ogent-pinned-item-label item))
+              lines))
+      (push "" lines))
     ;; Source context (for non-Org buffers)
     (when source-ctx
       (push (ogent-context--format-source-context source-ctx) lines)
@@ -1433,12 +1450,18 @@ preset name strings found in the prompt."
   "Render PROMPT and CONTEXT into the final text sent to gptel."
   (let* ((root (plist-get context :root))
          (content (when root (ogent-context-node-content root)))
+         (pinned (plist-get context :pinned))
+         (pinned-content (when pinned
+                           (ogent-pinned-context-string)))
          (segments (delq nil
                          (list (format "Prompt:\n%s" prompt)
                                (format "Org Context:\n%s"
                                        (ogent-ui--format-context context))
                                (when (and content (not (string-empty-p content)))
-                                 (format "Subtree Content:\n%s" content))))))
+                                 (format "Subtree Content:\n%s" content))
+                               (when (and pinned-content
+                                          (not (string-empty-p pinned-content)))
+                                 (format "Pinned Context:\n%s" pinned-content))))))
     (string-join segments "\n\n")))
 
 (defun ogent-ui--send-request (request)
