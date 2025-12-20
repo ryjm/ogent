@@ -55,6 +55,7 @@
 
 (require 'ogent-context)
 (require 'ogent-models)
+(require 'ogent-tools)
 (require 'ogent-companion)
 (require 'ogent-core)
 (require 'ogent-codemap)
@@ -62,7 +63,12 @@
 (require 'ogent-onboard)
 (require 'ogent-edit)
 (require 'ogent-notes)
+(require 'ogent-session)
+(require 'ogent-debug)
 (require 'ogent-anthropic-oauth)
+
+;; Install default tool implementations
+(ogent-tools-install-defaults)
 
 (provide 'ogent)
 

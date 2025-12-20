@@ -167,9 +167,9 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
   (let* ((default-directory (if working-directory
                                 (ogent-tools--resolve-path working-directory)
                               (ogent-tools--project-root)))
-         (timeout-secs (or timeout ogent-tools-shell-timeout))
+         (_timeout-secs (or timeout ogent-tools-shell-timeout))
          (output-buffer (generate-new-buffer " *ogent-bash*"))
-         (start-time (current-time))
+         (_start-time (current-time))
          exit-code output)
     (unwind-protect
         (progn

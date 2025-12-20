@@ -114,7 +114,7 @@ Requires evil-mode to be loaded. Uses leader key prefix."
              (featurep 'evil))
     (require 'evil)
     (dolist (entry ogent-action-registry)
-      (let* ((name (car entry))
+      (let* ((_name (car entry))
              (props (cdr entry))
              (key (plist-get props :key))
              (cmd (plist-get props :command))

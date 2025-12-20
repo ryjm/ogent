@@ -363,10 +363,12 @@ local checkout path."
       (dolist (file files)
         (byte-compile-file file))
       ;; Unload all ogent features
-      (dolist (feat '(ogent-onboard ogent-ui ogent-codemap ogent-companion
-                      ogent-core ogent-models ogent-context ogent-debug
-                      ogent-edit ogent-edit-format ogent-edit-log
-                      ogent-edit-parse ogent-edit-request ogent-anthropic-oauth ogent))
+      (dolist (feat '(ogent-onboard ogent-issues ogent-ui ogent-codemap ogent-companion
+                      ogent-core ogent-models ogent-context ogent-tools ogent-debug
+                      ogent-session ogent-notes ogent-keys
+                      ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
+                      ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                      ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
         (when (featurep feat)
           (unload-feature feat t)))
       ;; Add source to load-path temporarily and reload
@@ -390,9 +392,11 @@ local checkout path."
     (message "Reloading ogent from %s..." project-root)
     ;; Unload all ogent features
     (dolist (feat '(ogent-onboard ogent-issues ogent-ui ogent-codemap ogent-companion
-                    ogent-core ogent-models ogent-context ogent-debug
-                    ogent-edit ogent-edit-format ogent-edit-log
-                    ogent-edit-parse ogent-edit-request ogent-anthropic-oauth ogent))
+                    ogent-core ogent-models ogent-context ogent-tools ogent-debug
+                    ogent-session ogent-notes ogent-keys
+                    ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
+                    ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                    ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
       (when (featurep feat)
         (unload-feature feat t)))
     ;; Add source to load-path temporarily and reload
