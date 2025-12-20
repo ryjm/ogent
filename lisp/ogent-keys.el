@@ -83,12 +83,21 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Dependency graph")
     (open-block       :key "o" :command ogent-open-block
                       :desc "Open block")
+    ;; Session & Issues
+    (issues           :key "i" :command ogent-issues
+                      :desc "Issue tracker")
+    (session-save     :key "S" :command ogent-session-save
+                      :desc "Save session")
+    (session-load     :key "L" :command ogent-session-load
+                      :desc "Load session")
     ;; Misc
     (ask              :key "?" :command ogent-ask
                       :desc "Quick ask"
                       :visual t)
     (notes            :key "d" :command ogent-notes-capture
-                      :desc "Capture notes"))
+                      :desc "Capture notes")
+    (debug-mode       :key "D" :command ogent-debug-mode
+                      :desc "Toggle debug mode"))
   "Registry of ogent actions with keys and commands.
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")

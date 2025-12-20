@@ -31,8 +31,15 @@
 (declare-function ogent-edit-goto-source "ogent-edit-display")
 (declare-function ogent-edit-goto-companion "ogent-edit-display")
 (declare-function ogent-debug-tools-menu "ogent-debug")
+(declare-function ogent-debug-mode "ogent-debug")
 (declare-function ogent-tool-rerun "ui/ogent-ui")
 (declare-function ogent-notes-capture "ogent-notes")
+(declare-function ogent-session-save "ogent-session")
+(declare-function ogent-session-load "ogent-session")
+(declare-function ogent-issues "ogent-issues")
+(declare-function ogent-pin-dwim "ogent-context")
+(declare-function ogent-unpin-interactive "ogent-context")
+(declare-function ogent-list-pinned "ogent-context")
 
 ;; gptel integration
 (declare-function gptel-request "ext:gptel" (prompt &rest args))
