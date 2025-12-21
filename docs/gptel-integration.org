@@ -94,20 +94,34 @@ After modifying the registry, refresh the dispatcher:
 
 Presets bundle common settings (system messages, parameters, tools) into reusable configurations.
 
-** Defining ogent Presets
+** Built-in Presets
 
-Register presets in =ogent-preset-registry=:
+ogent ships with three default presets:
+
+| Preset               | Description                              |
+|----------------------+------------------------------------------|
+| =ogent-code-review=  | Code review: bugs, security, maintainability |
+| =ogent-explain=      | Explain code clearly with examples       |
+| =ogent-refactor=     | Suggest refactoring improvements         |
+
+Use them with @preset cookies in your prompts:
+
+#+begin_example
+Review this function @ogent-code-review
+Explain what this does @ogent-explain
+How can I improve this? @ogent-refactor
+#+end_example
+
+** Defining Custom Presets
+
+Add custom presets to =ogent-preset-registry=:
 
 #+begin_src emacs-lisp
-(setq ogent-preset-registry
-      '((:name code-review
-         :spec (:description "Code review assistant"
-                :system "You are a code reviewer. Focus on bugs, security issues, and maintainability.")
-         :description "Code review mode")
-        (:name summarize
-         :spec (:description "Summarization mode"
-                :system "Summarize the provided content concisely.")
-         :description "Quick summarization")))
+(add-to-list 'ogent-preset-registry
+             '(:name my-summarize
+               :spec (:description "Summarization mode"
+                      :system "Summarize the provided content concisely.")
+               :description "Quick summarization"))
 #+end_src
 
 ogent registers these with gptel on first use via =ogent-register-presets=.

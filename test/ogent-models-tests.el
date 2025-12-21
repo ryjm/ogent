@@ -37,5 +37,41 @@
     (should (equal (plist-get (ogent-preset-get 'code-review) :name) 'code-review))
     (should (null (ogent-preset-get "missing")))))
 
+;;; Default Presets Tests
+
+(ert-deftest ogent-default-presets-defined ()
+  "Default ogent presets are defined in the registry."
+  (should (assq 'ogent-code-review
+                (mapcar (lambda (p) (cons (plist-get p :name) p))
+                        ogent-default-presets)))
+  (should (assq 'ogent-explain
+                (mapcar (lambda (p) (cons (plist-get p :name) p))
+                        ogent-default-presets)))
+  (should (assq 'ogent-refactor
+                (mapcar (lambda (p) (cons (plist-get p :name) p))
+                        ogent-default-presets))))
+
+(ert-deftest ogent-default-presets-have-system-messages ()
+  "Each default preset has a system message in its spec."
+  (dolist (preset ogent-default-presets)
+    (let ((spec (plist-get preset :spec)))
+      (should (plist-get spec :system)))))
+
+(ert-deftest ogent-default-presets-have-descriptions ()
+  "Each default preset has a description."
+  (dolist (preset ogent-default-presets)
+    (should (plist-get preset :description))))
+
+(ert-deftest ogent-preset-registry-includes-defaults ()
+  "When ogent-preset-registry is nil, defaults are used."
+  (let ((ogent-preset-registry nil)
+        (ogent--presets-registered nil))
+    ;; ogent-presets-available should include defaults
+    (cl-letf (((symbol-function 'gptel-make-preset) (lambda (&rest _) nil)))
+      (let ((names (ogent-presets-available)))
+        (should (member "ogent-code-review" names))
+        (should (member "ogent-explain" names))
+        (should (member "ogent-refactor" names))))))
+
 (provide 'ogent-models-tests)
 ;;; ogent-models-tests.el ends here
