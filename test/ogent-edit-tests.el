@@ -245,6 +245,177 @@ missing separator and end marker")
     (should (string-match-p "^\\+ new line" diff))
     (should (string-match-p "#\\+end_src" diff))))
 
+;;; Companion Buffer Logging Integration Tests
+
+(ert-deftest ogent-edit-log-proposal-creates-entry ()
+  "Logging a proposal creates an Org entry in companion buffer."
+  (let ((source-buffer (get-buffer-create "*test-source-log*"))
+        (companion-buffer (get-buffer-create "*ogent:test-source-log*")))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create and log an edit
+          (let ((edit (make-ogent-edit
+                       :id "test-log-001"
+                       :old-text "old code"
+                       :new-text "new code"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-log-proposal edit)
+            ;; Verify companion buffer has the entry
+            (with-current-buffer companion-buffer
+              (should (string-match-p "\\*\\* Edit: test-log-001" (buffer-string)))
+              (should (string-match-p ":OGENT_EDIT_ID: test-log-001" (buffer-string)))
+              (should (string-match-p ":SOURCE_FILE: /test/file.el" (buffer-string)))
+              (should (string-match-p ":STATUS: pending" (buffer-string)))
+              (should (string-match-p "\\*\\*\\* Proposed Change" (buffer-string)))
+              (should (string-match-p "#\\+begin_src diff" (buffer-string))))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
+(ert-deftest ogent-edit-log-resolution-updates-status ()
+  "Logging a resolution updates STATUS property and adds timestamp."
+  (let ((source-buffer (get-buffer-create "*test-source-res*"))
+        (companion-buffer (get-buffer-create "*ogent:test-source-res*")))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create, log proposal, then log resolution
+          (let ((edit (make-ogent-edit
+                       :id "test-res-001"
+                       :old-text "old"
+                       :new-text "new"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-log-proposal edit)
+            ;; Now resolve it
+            (ogent-edit-log-resolution edit 'accepted)
+            ;; Verify resolution was logged
+            ;; Note: org-set-property may add padding, so use flexible match
+            (with-current-buffer companion-buffer
+              (should (string-match-p ":STATUS:\\s-*accepted" (buffer-string)))
+              (should (string-match-p "\\*\\*\\* Resolution" (buffer-string)))
+              (should (string-match-p "Status: accepted" (buffer-string))))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
+(ert-deftest ogent-edit-log-resolution-rejected ()
+  "Rejected edits are logged with rejected status."
+  (let ((source-buffer (get-buffer-create "*test-source-rej*"))
+        (companion-buffer (get-buffer-create "*ogent:test-source-rej*")))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create, log proposal, then reject
+          (let ((edit (make-ogent-edit
+                       :id "test-rej-001"
+                       :old-text "old"
+                       :new-text "new"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-log-proposal edit)
+            (ogent-edit-log-resolution edit 'rejected)
+            ;; Verify rejection was logged
+            ;; Note: org-set-property may add padding, so use flexible match
+            (with-current-buffer companion-buffer
+              (should (string-match-p ":STATUS:\\s-*rejected" (buffer-string)))
+              (should (string-match-p "Status: rejected" (buffer-string))))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
+(ert-deftest ogent-edit-log-marker-stored ()
+  "Log marker is stored in edit struct for navigation."
+  (let ((source-buffer (get-buffer-create "*test-source-marker*"))
+        (companion-buffer (get-buffer-create "*ogent:test-source-marker*")))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create and log an edit
+          (let ((edit (make-ogent-edit
+                       :id "test-marker-001"
+                       :old-text "old"
+                       :new-text "new"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-log-proposal edit)
+            ;; Verify marker was stored
+            (should (ogent-edit-companion-marker edit))
+            (should (markerp (ogent-edit-companion-marker edit)))
+            (should (eq (marker-buffer (ogent-edit-companion-marker edit))
+                        companion-buffer))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
+(ert-deftest ogent-edit-resolved-hook-logs-resolution ()
+  "The resolved hook triggers logging to companion buffer."
+  (let ((source-buffer (get-buffer-create "*test-source-hook*"))
+        (companion-buffer (get-buffer-create "*ogent:test-source-hook*")))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create and log an edit
+          (let ((edit (make-ogent-edit
+                       :id "test-hook-001"
+                       :old-text "old"
+                       :new-text "new"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-log-proposal edit)
+            ;; Simulate resolution via hook (as if smerge resolved)
+            (setf (ogent-edit-status edit) 'accepted)
+            (run-hook-with-args 'ogent-edit-resolved-hook edit)
+            ;; Verify resolution was logged via hook
+            (with-current-buffer companion-buffer
+              (should (string-match-p ":STATUS:\\s-*accepted" (buffer-string)))
+              (should (string-match-p "\\*\\*\\* Resolution" (buffer-string))))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
 ;;; Integration Tests
 
 (ert-deftest ogent-edit-full-flow ()
