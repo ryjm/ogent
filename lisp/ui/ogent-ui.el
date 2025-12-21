@@ -851,23 +851,56 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
                 gptel-model))
     "Model: not configured"))
 
+(defun ogent--format-status-header ()
+  "Format a comprehensive status line for the dispatcher header.
+Shows model, context info, and pinned count."
+  (let* ((model-str (ogent--format-model-header))
+         (pinned (ogent-pinned-count))
+         (pinned-str (if (> pinned 0)
+                         (propertize (format " | %d pinned" pinned)
+                                     'face 'font-lock-constant-face)
+                       ""))
+         (preset-str (if ogent-ui--selected-preset
+                         (propertize (format " | @%s" ogent-ui--selected-preset)
+                                     'face 'font-lock-function-name-face)
+                       "")))
+    (concat model-str pinned-str preset-str)))
+
+(defun ogent--format-context-group ()
+  "Format the Context group header with pinned count."
+  (let ((count (ogent-pinned-count)))
+    (if (> count 0)
+        (format "Context (%d pinned)" count)
+      "Context")))
+
 ;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
   "Prompt dispatcher for ogent requests.
-Shows current model, allows changing it, and sends prompts to LLM."
-  [:description ogent--format-model-header
-                ["Options"
-                 (ogent--infix-provider)
-                 (ogent--infix-prompt)
-                 (ogent--infix-tools)
-                 (ogent--infix-preset)]
-                ["Context"
-                 ("c" "Preview context" ogent-context-preview-toggle :transient t)
-                 ("C" "Codemap" ogent-codemap-buffer)
-                 ("P" ogent--suffix-pin-dwim)
-                 ("l" ogent--suffix-list-pinned)]]
-  [["Actions"
+Ergonomic interface following Casual Suite patterns."
+  [:description ogent--format-status-header
+   ;; Row 1: Primary action + Model configuration
+   ["Send"
     (ogent--suffix-send)
+    ("?" "Quick ask..." ogent-ask)]
+   ["Model"
+    (ogent--infix-provider)
+    (ogent--infix-preset)]]
+
+  [;; Row 2: Prompt input + Context management
+   ["Prompt"
+    (ogent--infix-prompt)
+    (ogent--infix-tools)]
+   [:description ogent--format-context-group
+    ("c" "Preview..." ogent-context-preview-toggle :transient t)
+    ("m" "Codemap..." ogent-codemap-buffer)
+    (ogent--suffix-pin-dwim)
+    (ogent--suffix-unpin)]]
+
+  [;; Row 3: Navigation + Quit
+   ["Navigate"
+    ("e" "Edit menu >" ogent-edit-menu)
+    ("i" "Issues >" ogent-issues)]
+   [""
     ("q" "Quit" transient-quit-one)]]
   (interactive)
   (ogent-ui--ensure-companion-context)
@@ -875,6 +908,7 @@ Shows current model, allows changing it, and sends prompts to LLM."
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
   "Pin current file/buffer/region to context."
+  :key "P"
   :description
   (lambda ()
     (format "Pin %s"
@@ -882,11 +916,28 @@ Shows current model, allows changing it, and sends prompts to LLM."
              ((use-region-p) "region")
              ((buffer-file-name) "file")
              (t "buffer"))))
+  :transient t
   (interactive)
   (ogent-pin-dwim))
 
+(transient-define-suffix ogent--suffix-unpin ()
+  "Unpin an item from context."
+  :key "U"
+  :description
+  (lambda ()
+    (let ((count (ogent-pinned-count)))
+      (if (zerop count)
+          (propertize "Unpin..." 'face 'transient-inactive-value)
+        "Unpin...")))
+  :transient t
+  (interactive)
+  (if (zerop (ogent-pinned-count))
+      (message "No pinned items")
+    (ogent-unpin-interactive)))
+
 (transient-define-suffix ogent--suffix-list-pinned ()
   "List pinned context items."
+  :key "l"
   :description
   (lambda ()
     (let ((count (ogent-pinned-count)))
