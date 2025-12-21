@@ -1,4 +1,27 @@
-#+title: ogent Installation Guide
+#+title: ogent
+
+*An Iron Man suit for Emacs, not an Iron Man robot.*
+
+ogent is an LLM integration layer for Org-mode that keeps you in control. It's built on the insight that there's a real, defensible layer between foundation models and end users—one that handles context engineering, multi-model orchestration, and application-specific UI so you can focus on verification, not prompt wrangling.
+
+** The Suit Philosophy
+
+AI generates instantly. But you're still responsible for the output. If you get a 1,000 line diff, you have to verify it actually works, introduces no bugs, and has no security issues. That takes time.
+
+ogent addresses this with two levers:
+
+1. *Speed up verification* — Visual diffs, structured Org blocks, keybindings for accept/reject. Your visual system is faster than reading chat transcripts.
+
+2. *Keep the AI on a leash* — Explicit context via @handles, preview before sending, autonomy you control. Better to spend time on a precise prompt that succeeds on the first pass than spin in a re-prompt loop.
+
+This is a suit, not a robot. The suit augments your capabilities while you make the decisions. The robot flies around on its own. We're building the suit.
+
+** What ogent does for you
+
+- *Context engineering* — You don't copy-paste files and error logs. ogent curates what goes into the context window via @handles, codemap, and pinned items.
+- *Multi-call orchestration* — Fan out to multiple models, compare responses side-by-side, apply the best one.
+- *Org-native UI* — Responses land in structured blocks you can fold, edit, and version. Red/green diffs for code changes. =C-c C-c= to accept.
+- *Autonomy slider* — Quick Q&A (=C-c . ?=) for small queries. Full context dispatch (=C-c . p=) for deeper work. You control the scope.
 
 * Requirements
 - Emacs 29.1 or newer with Org-mode

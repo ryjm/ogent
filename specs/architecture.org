@@ -1,5 +1,69 @@
 #+title: ogent Architectural Constraints
 
+* Design Philosophy: The Suit Pattern
+
+ogent implements what Karpathy calls "Cursor for X"—the defensible layer between foundation models and end users. This section maps that pattern to ogent's technical architecture.
+
+** The Four Pillars
+
+*** 1. Context Engineering
+The app decides what goes into the context window. Users don't manually copy-paste.
+
+*ogent implementation:*
+- =ogent-context-build= curates subtree content, ancestors, and dependencies
+- =@handle= syntax resolves to Org nodes, files, or org-roam entries
+- =ogent-codemap= generates navigable maps of the codebase
+- Pinned items (=ogent-pin-dwim=) persist context across requests
+- Lazy evaluation (=ogent-context-build-lazy=) defers expensive resolution
+
+*** 2. Multi-Call Orchestration
+One user action triggers multiple model calls behind the scenes.
+
+*ogent implementation:*
+- =ogent-prompt-dispatch= fans out to multiple models simultaneously
+- =ogent-model-registry= declares backends, streaming, and presets per model
+- gptel handles transport; ogent handles orchestration and presentation
+- Request table (=ogent-ui--request-table=) tracks concurrent streams
+- Tool calls route through =ogent-tool-registry= with approval workflows
+
+*** 3. Application-Specific GUI
+Text is hard to audit. Visual affordances use your visual system.
+
+*ogent implementation:*
+- Responses land in Org src blocks with =:model=, =:status=, =:latency= headers
+- Edit diffs render as smerge conflicts—red/green, =C-c C-c= to accept
+- Companion buffers link code files to their Org transcripts
+- Folding, navigation, and block structure leverage Org's native UI
+- Transient menus (=ogent-prompt-dispatch=) for model/preset selection
+
+*** 4. Autonomy Slider
+User controls how much the AI does at once.
+
+*ogent implementation:*
+- =ogent-ask= (=C-c . ?=): Quick Q&A, no context machinery
+- =ogent-request=: Full context, single model
+- =ogent-prompt-dispatch=: Multi-model fan-out with preset selection
+- =ogent-request-edit=: Autonomous code changes with diff review
+- Context preview (=ogent-context-preview=) before committing to a request
+
+** The Verification Bottleneck
+
+AI generates instantly. Human verification is the bottleneck. ogent addresses this:
+
+*Speed up verification:*
+- Structured Org blocks over chat transcripts
+- Visual diffs over text descriptions of changes
+- Keybindings (=C-c C-c=, =C-c C-k=) over typing "yes/no"
+- Folded tool/reasoning blocks to reduce noise
+
+*Keep the AI on a leash:*
+- Explicit context via @handles (no implicit "send everything")
+- Preview before sending (=ogent-context-preview=)
+- Presets for consistent behavior (=ogent-preset-registry=)
+- Smaller, focused prompts over vague instructions
+
+The goal: increase probability of successful verification on the first pass.
+
 * Rule of Engagement
 - Treat this file as required context before building any feature.
 - Emacs Lisp modules must stay under =lisp/=, UI helpers under =lisp/ui/=, docs under =docs/=, specs here.
