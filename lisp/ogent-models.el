@@ -65,11 +65,59 @@ Falls back to the first registry entry if `ogent-default-model' is unset."
 
 ;;; Preset Registry
 
+(defconst ogent-default-presets
+  '((:name ogent-code-review
+     :spec (:description "Code review assistant"
+            :system "You are a code reviewer. Analyze the provided code for:
+- Bugs and logic errors
+- Security vulnerabilities
+- Performance issues
+- Code style and maintainability
+- Missing error handling
+
+Be specific and actionable. Reference line numbers when possible.
+Prioritize issues by severity (critical, warning, suggestion).")
+     :description "Code review: bugs, security, maintainability")
+
+    (:name ogent-explain
+     :spec (:description "Code explanation assistant"
+            :system "You are a code explainer. Your goal is to help developers understand code clearly.
+
+When explaining code:
+- Start with a high-level summary of what the code does
+- Break down complex logic step by step
+- Explain the 'why' behind design decisions when apparent
+- Use analogies when helpful
+- Point out any non-obvious patterns or idioms
+- Keep explanations concise but thorough")
+     :description "Explain code clearly with examples")
+
+    (:name ogent-refactor
+     :spec (:description "Refactoring assistant"
+            :system "You are a refactoring expert. Suggest improvements to make code:
+- More readable and maintainable
+- More efficient (when it matters)
+- Better aligned with language idioms
+- Easier to test
+
+For each suggestion:
+1. Explain what to change and why
+2. Show the refactored code
+3. Note any tradeoffs or considerations
+
+Focus on practical improvements, not theoretical perfection.")
+     :description "Suggest refactoring improvements"))
+  "Default ogent presets shipped with the package.
+These are merged with `ogent-preset-registry' when registering presets.")
+
 (defcustom ogent-preset-registry nil
   "List of ogent-flavored preset definitions.
 Each entry is a plist with at least :name (symbol) and :spec (plist).
 The :spec is passed to `gptel-make-preset' when presets are registered.
-You may also include :description for UI display."
+You may also include :description for UI display.
+
+Note: Default presets from `ogent-default-presets' are always included.
+Use this variable to add custom presets or override defaults."
   :type '(repeat (plist :options (:name :spec :description)))
   :group 'ogent-models)
 
@@ -79,12 +127,26 @@ You may also include :description for UI display."
 (declare-function gptel-make-preset "ext:gptel" (name &rest spec))
 (defvar gptel-presets)  ; Forward declaration for gptel variable
 
+(defun ogent--all-presets ()
+  "Return all presets, combining defaults with user registry.
+User presets in `ogent-preset-registry' override defaults with the same name."
+  (let ((result (copy-sequence ogent-default-presets)))
+    (dolist (entry ogent-preset-registry)
+      (let* ((name (plist-get entry :name))
+             (existing (seq-position result name
+                                     (lambda (e n) (eq (plist-get e :name) n)))))
+        (if existing
+            (setf (nth existing result) entry)
+          (push entry result))))
+    result))
+
 (defun ogent-register-presets ()
-  "Register all presets in `ogent-preset-registry' with gptel.
+  "Register all presets with gptel.
+Includes both `ogent-default-presets' and `ogent-preset-registry'.
 Safe to call multiple times; only registers once."
   (unless ogent--presets-registered
-    (when (and (fboundp 'gptel-make-preset) ogent-preset-registry)
-      (dolist (entry ogent-preset-registry)
+    (when (fboundp 'gptel-make-preset)
+      (dolist (entry (ogent--all-presets))
         (let ((name (plist-get entry :name))
               (spec (plist-get entry :spec)))
           (when (and name spec)
@@ -93,10 +155,10 @@ Safe to call multiple times; only registers once."
 
 (defun ogent-presets-available ()
   "Return a list of available preset names as strings.
-Includes both ogent presets and any defined in gptel."
+Includes ogent defaults, user presets, and any defined in gptel."
   (ogent-register-presets)
   (let ((names nil))
-    (dolist (entry ogent-preset-registry)
+    (dolist (entry (ogent--all-presets))
       (let ((name (plist-get entry :name)))
         (when name (push (symbol-name name) names))))
     (when (boundp 'gptel-presets)
@@ -111,7 +173,7 @@ Includes both ogent presets and any defined in gptel."
   "Return the preset plist for NAME (string or symbol), or nil."
   (let ((sym (if (symbolp name) name (intern name))))
     (or (seq-find (lambda (e) (eq (plist-get e :name) sym))
-                  ogent-preset-registry)
+                  (ogent--all-presets))
         (when (boundp 'gptel-presets)
           (assq sym gptel-presets)))))
 

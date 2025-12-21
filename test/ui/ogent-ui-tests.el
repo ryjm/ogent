@@ -111,6 +111,21 @@
       (should (member "code-review" (cdr result)))
       (should (= 2 (length (cdr result)))))))
 
+(ert-deftest ogent-ui-extract-default-preset-cookies ()
+  "Default ogent presets can be used as @preset cookies."
+  (let ((ogent-preset-registry nil)
+        (ogent--presets-registered nil))
+    ;; Default presets should be available
+    (let ((result (ogent-ui--extract-preset-cookies "Review @ogent-code-review this")))
+      (should (equal (car result) "Review this"))
+      (should (equal (cdr result) '("ogent-code-review"))))
+    (let ((result (ogent-ui--extract-preset-cookies "@ogent-explain the code")))
+      (should (equal (car result) "the code"))
+      (should (equal (cdr result) '("ogent-explain"))))
+    (let ((result (ogent-ui--extract-preset-cookies "@ogent-refactor this function")))
+      (should (equal (car result) "this function"))
+      (should (equal (cdr result) '("ogent-refactor"))))))
+
 (ert-deftest ogent-request-applies-preset ()
   "ogent-request applies presets from cookies and dispatcher."
   (ogent-test-with-fixture "data/fixture.org"
