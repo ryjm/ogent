@@ -894,13 +894,19 @@ Ergonomic interface following Casual Suite patterns."
     ("c" "Preview..." ogent-context-preview-toggle :transient t)
     ("m" "Codemap..." ogent-codemap-buffer)
     (ogent--suffix-pin-dwim)
-    (ogent--suffix-unpin)]]
+    (ogent--suffix-unpin)
+    (ogent--suffix-list-pinned)]]
 
-  [;; Row 3: Navigation + Quit
+  [;; Row 3: Navigation + Session + Quit
    ["Navigate"
     ("e" "Edit menu >" ogent-edit-menu)
     ("i" "Issues >" ogent-issues)]
+   ["Session"
+    ("S" "Save..." ogent-session-save)
+    ("L" "Load..." ogent-session-load)
+    ("H" "History..." ogent-session-list)]
    [""
+    ("D" "Debug mode" ogent-debug-mode)
     ("q" "Quit" transient-quit-one)]]
   (interactive)
   (ogent-ui--ensure-companion-context)
