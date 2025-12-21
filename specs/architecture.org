@@ -1,6 +1,6 @@
 #+title: ogent Architectural Constraints
 
-* Design Philosophy: The Suit Pattern
+* Design Philosophy: The Exoskeleton Pattern
 
 ogent implements what Karpathy calls "Cursor for X"—the defensible layer between foundation models and end users. This section maps that pattern to ogent's technical architecture.
 
