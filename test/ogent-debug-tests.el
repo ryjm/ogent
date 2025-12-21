@@ -220,14 +220,18 @@
   (require 'ogent-tool-fsm)
   (require 'ogent-tools)
   (require 'ogent-models)
-  
-  (let ((ogent-debug-tool-history nil)
-        (ogent-tool-registry
-         (list '(:name test-integration-tool
-                       :function (lambda (arg) (format "Result: %s" arg))
-                       :description "Test tool"
-                       :args ((:name "arg" :type "string" :description "Test"))
-                       :confirm nil))))
+
+  ;; Save and restore global state to ensure test isolation
+  (let ((saved-history ogent-debug-tool-history)
+        (saved-registry ogent-tool-registry))
+    (unwind-protect
+        (let ((ogent-debug-tool-history nil)
+              (ogent-tool-registry
+               (list '(:name test-integration-tool
+                             :function (lambda (arg) (format "Result: %s" arg))
+                             :description "Test tool"
+                             :args ((:name "arg" :type "string" :description "Test"))
+                             :confirm nil))))
     
     ;; Execute a tool via FSM
     (let ((callback-invoked nil))
@@ -251,44 +255,54 @@
         (should (plist-get entry :result))
         (should (null (plist-get entry :error)))
         (should (numberp (plist-get entry :duration)))
-        (should (> (plist-get entry :duration) 0))))))
+        (should (> (plist-get entry :duration) 0)))))
+      ;; Cleanup: restore global state
+      (setq ogent-debug-tool-history saved-history)
+      (setq ogent-tool-registry saved-registry))))
 
 (ert-deftest ogent-debug-test-fsm-failure-integration ()
   "Test that failed tool executions are logged correctly."
   (require 'ogent-tool-fsm)
   (require 'ogent-tools)
   (require 'ogent-models)
-  
-  (let ((ogent-debug-tool-history nil)
-        (ogent-tool-registry
-         (list '(:name failing-integration-tool
-                       :function (lambda (_arg) (error "Boom!"))
-                       :description "Failing test tool"
-                       :args ((:name "arg" :type "string" :description "Test"))
-                       :confirm nil))))
-    
-    ;; Execute a failing tool
-    (let ((callback-invoked nil))
-      (ogent-tool-fsm-execute
-       '(:id "fail-1" :name failing-integration-tool :args (:arg "test"))
-       (lambda (result error)
-         (setq callback-invoked t)
-         (should (null result))
-         (should (stringp error))))
-      
-      ;; Callback should have been invoked
-      (should callback-invoked)
-      
-      ;; History should have one entry
-      (should (= (length ogent-debug-tool-history) 1))
-      
-      ;; Verify error is recorded
-      (let ((entry (car ogent-debug-tool-history)))
-        (should (equal (plist-get entry :id) "fail-1"))
-        (should (null (plist-get entry :result)))
-        (should (stringp (plist-get entry :error)))
-        (should (string-match-p "Boom!" (plist-get entry :error)))
-        (should (numberp (plist-get entry :duration)))))))
+
+  ;; Save and restore global state to ensure test isolation
+  (let ((saved-history ogent-debug-tool-history)
+        (saved-registry ogent-tool-registry))
+    (unwind-protect
+        (let ((ogent-debug-tool-history nil)
+              (ogent-tool-registry
+               (list '(:name failing-integration-tool
+                             :function (lambda (_arg) (error "Boom!"))
+                             :description "Failing test tool"
+                             :args ((:name "arg" :type "string" :description "Test"))
+                             :confirm nil))))
+
+          ;; Execute a failing tool
+          (let ((callback-invoked nil))
+            (ogent-tool-fsm-execute
+             '(:id "fail-1" :name failing-integration-tool :args (:arg "test"))
+             (lambda (result error)
+               (setq callback-invoked t)
+               (should (null result))
+               (should (stringp error))))
+
+            ;; Callback should have been invoked
+            (should callback-invoked)
+
+            ;; History should have one entry
+            (should (= (length ogent-debug-tool-history) 1))
+
+            ;; Verify error is recorded
+            (let ((entry (car ogent-debug-tool-history)))
+              (should (equal (plist-get entry :id) "fail-1"))
+              (should (null (plist-get entry :result)))
+              (should (stringp (plist-get entry :error)))
+              (should (string-match-p "Boom!" (plist-get entry :error)))
+              (should (numberp (plist-get entry :duration))))))
+      ;; Cleanup: restore global state
+      (setq ogent-debug-tool-history saved-history)
+      (setq ogent-tool-registry saved-registry))))
 
 ;;; Debug Mode Tests
 
