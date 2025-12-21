@@ -416,6 +416,108 @@ missing separator and end marker")
       (kill-buffer source-buffer)
       (kill-buffer companion-buffer))))
 
+(ert-deftest ogent-edit-accept-current-triggers-hook ()
+  "Accepting an edit via ogent-edit-accept-current triggers the resolved hook."
+  (let ((source-buffer (get-buffer-create "*test-accept*"))
+        (companion-buffer (get-buffer-create "*ogent:test-accept*"))
+        (hook-called nil))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (emacs-lisp-mode)
+            (insert "(defun foo () nil)")
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create edit, validate, and apply as smerge
+          (let ((edit (make-ogent-edit
+                       :id "test-accept-001"
+                       :old-text "(defun foo () nil)"
+                       :new-text "(defun foo () t)"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-validate edit)
+            (ogent-edit-log-proposal edit)
+            (ogent-edit-apply-as-smerge edit)
+            ;; Track pending edits and add hook in source buffer
+            (with-current-buffer source-buffer
+              (setq ogent-edit--pending-edits (list edit))
+              ;; Add test hook to verify it's called (global, not buffer-local)
+              (add-hook 'ogent-edit-resolved-hook
+                        (lambda (e) (setq hook-called (ogent-edit-status e)))))
+            ;; Accept the edit
+            (with-current-buffer source-buffer
+              (goto-char (point-min))
+              (smerge-next)
+              (ogent-edit-accept-current))
+            ;; Verify hook was called with accepted status
+            (should (eq hook-called 'accepted))
+            ;; Verify companion was updated
+            (with-current-buffer companion-buffer
+              (should (string-match-p ":STATUS:\\s-*accepted" (buffer-string))))))
+      ;; Clean up hook
+      (remove-hook 'ogent-edit-resolved-hook
+                   (lambda (e) (setq hook-called (ogent-edit-status e))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
+(ert-deftest ogent-edit-reject-current-triggers-hook ()
+  "Rejecting an edit via ogent-edit-reject-current triggers the resolved hook."
+  (let ((source-buffer (get-buffer-create "*test-reject*"))
+        (companion-buffer (get-buffer-create "*ogent:test-reject*"))
+        (hook-called nil))
+    (unwind-protect
+        (progn
+          ;; Set up companion link
+          (with-current-buffer companion-buffer
+            (org-mode)
+            (insert "#+title: Test Session\n\n* Session\n"))
+          (with-current-buffer source-buffer
+            (emacs-lisp-mode)
+            (insert "(defun bar () nil)")
+            (setq-local ogent-companion--linked-buffer companion-buffer))
+          (with-current-buffer companion-buffer
+            (setq-local ogent-companion--linked-buffer source-buffer))
+          ;; Create edit, validate, and apply as smerge
+          (let ((edit (make-ogent-edit
+                       :id "test-reject-001"
+                       :old-text "(defun bar () nil)"
+                       :new-text "(defun bar () t)"
+                       :source-buffer source-buffer
+                       :source-file "/test/file.el"
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-validate edit)
+            (ogent-edit-log-proposal edit)
+            (ogent-edit-apply-as-smerge edit)
+            ;; Track pending edits and add hook in source buffer
+            (with-current-buffer source-buffer
+              (setq ogent-edit--pending-edits (list edit))
+              ;; Add test hook to verify it's called (global, not buffer-local)
+              (add-hook 'ogent-edit-resolved-hook
+                        (lambda (e) (setq hook-called (ogent-edit-status e)))))
+            ;; Reject the edit
+            (with-current-buffer source-buffer
+              (goto-char (point-min))
+              (smerge-next)
+              (ogent-edit-reject-current))
+            ;; Verify hook was called with rejected status
+            (should (eq hook-called 'rejected))
+            ;; Verify companion was updated
+            (with-current-buffer companion-buffer
+              (should (string-match-p ":STATUS:\\s-*rejected" (buffer-string))))))
+      ;; Clean up hook
+      (remove-hook 'ogent-edit-resolved-hook
+                   (lambda (e) (setq hook-called (ogent-edit-status e))))
+      (kill-buffer source-buffer)
+      (kill-buffer companion-buffer))))
+
 ;;; Integration Tests
 
 (ert-deftest ogent-edit-full-flow ()
