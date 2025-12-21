@@ -95,5 +95,136 @@
     ;; Should not contain test/ files
     (should-not (string-match-p "^\\*\\* .*test/" content))))
 
+;;; Caching Tests
+
+(ert-deftest ogent-codemap-cache-stores-mtime ()
+  "File cache stores modification times."
+  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+        (test-file (make-temp-file "ogent-cache-test")))
+    (unwind-protect
+        (progn
+          (ogent-codemap--cache-file test-file '("def1" "def2"))
+          (let ((entry (gethash test-file ogent-codemap--file-cache)))
+            (should entry)
+            (should (plist-get entry :mtime))
+            (should (equal (plist-get entry :data) '("def1" "def2")))))
+      (delete-file test-file))))
+
+(ert-deftest ogent-codemap-cache-detects-stale ()
+  "Cache correctly identifies stale entries."
+  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+        (test-file (make-temp-file "ogent-test")))
+    (unwind-protect
+        (progn
+          ;; Cache with old mtime
+          (puthash test-file
+                   (list :mtime (time-subtract (current-time) (seconds-to-time 10))
+                         :data '("old-def"))
+                   ogent-codemap--file-cache)
+          ;; Touch file to update mtime
+          (write-region "new content" nil test-file)
+          (should (ogent-codemap--cache-stale-p test-file)))
+      (delete-file test-file))))
+
+(ert-deftest ogent-codemap-cache-fresh-not-stale ()
+  "Fresh cache entries are not marked stale."
+  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+        (test-file (make-temp-file "ogent-test")))
+    (unwind-protect
+        (progn
+          ;; Cache with current mtime
+          (puthash test-file
+                   (list :mtime (file-attribute-modification-time
+                                 (file-attributes test-file))
+                         :data '("def"))
+                   ogent-codemap--file-cache)
+          (should-not (ogent-codemap--cache-stale-p test-file)))
+      (delete-file test-file))))
+
+;;; Incremental Refresh Tests
+
+(ert-deftest ogent-codemap-preserves-annotations ()
+  "Manual annotations in codemap are preserved on refresh."
+  (let ((buf (get-buffer-create "*ogent-codemap-test*"))
+        (ogent-codemap-buffer-name "*ogent-codemap-test*"))
+    (unwind-protect
+        (progn
+          ;; Initial render
+          (ogent-codemap-refresh)
+          (with-current-buffer buf
+            ;; Add a manual annotation after a file heading
+            (goto-char (point-min))
+            (when (re-search-forward "^\\*\\* \\[\\[file:lisp/ogent-core\\.el" nil t)
+              (end-of-line)
+              (insert "\n# MY ANNOTATION: important note")))
+          ;; Refresh again
+          (ogent-codemap-refresh)
+          ;; Annotation should still be there
+          (with-current-buffer buf
+            (goto-char (point-min))
+            (should (search-forward "MY ANNOTATION: important note" nil t))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-codemap-incremental-updates-changed ()
+  "Incremental refresh updates only changed files."
+  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+        (scanned-files nil))
+    ;; Advice to track which files get scanned
+    (cl-letf (((symbol-function 'ogent-codemap--definitions)
+               (lambda (file)
+                 (push file scanned-files)
+                 '("mock-def"))))
+      ;; First render - should scan all
+      (let ((files (ogent-codemap--source-files)))
+        (dolist (f files)
+          (when (eq (ogent-codemap--file-type f) 'elisp)
+            (ogent-codemap--get-cached-or-scan f 'elisp))))
+      ;; Verify we scanned some files
+      (should (> (length scanned-files) 0))
+      (setq scanned-files nil)
+      ;; Second pass - nothing changed, should scan none
+      (let ((files (ogent-codemap--source-files)))
+        (dolist (f files)
+          (when (eq (ogent-codemap--file-type f) 'elisp)
+            (ogent-codemap--get-cached-or-scan f 'elisp))))
+      (should (= 0 (length scanned-files))))))
+
+;;; Cross-linking Tests
+
+(ert-deftest ogent-codemap-finds-test-file ()
+  "Source files are linked to their test files."
+  (should (string-match-p "ogent-core-tests\\.el"
+                          (ogent-codemap--find-test-file "lisp/ogent-core.el")))
+  (should (string-match-p "ogent-context-tests\\.el"
+                          (ogent-codemap--find-test-file "lisp/ogent-context.el")))
+  ;; No test file for non-existent module
+  (should-not (ogent-codemap--find-test-file "lisp/ogent-nonexistent.el")))
+
+(ert-deftest ogent-codemap-finds-source-for-test ()
+  "Test files are linked back to their source files."
+  (should (string-match-p "ogent-core\\.el"
+                          (ogent-codemap--find-source-file "test/ogent-core-tests.el")))
+  ;; UI subdir tests
+  (should (string-match-p "ogent-ui\\.el"
+                          (ogent-codemap--find-source-file "test/ui/ogent-ui-tests.el"))))
+
+(ert-deftest ogent-codemap-renders-test-links ()
+  "Rendered codemap includes test file links for source files."
+  (let ((buf (ogent-codemap-refresh)))
+    (unwind-protect
+        (with-current-buffer buf
+          (goto-char (point-min))
+          ;; Find ogent-core.el entry
+          (when (re-search-forward "^\\*\\* \\[\\[file:lisp/ogent-core\\.el" nil t)
+            (let ((section-end (save-excursion
+                                 (if (re-search-forward "^\\*\\* " nil t)
+                                     (point)
+                                   (point-max)))))
+              ;; Should have a Tests: link within this section
+              (should (re-search-forward "Tests:" section-end t)))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
 (provide 'ogent-codemap-tests)
 ;;; ogent-codemap-tests.el ends here
