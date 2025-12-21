@@ -1,68 +1,65 @@
 #+title: ogent Architectural Constraints
 
-* Design Philosophy: The Exoskeleton Pattern
+* Design Philosophy
 
-ogent implements what Karpathy calls "Cursor for X"—the defensible layer between foundation models and end users. This section maps that pattern to ogent's technical architecture.
+ogent treats language models as Unix tools: they take structured input, produce structured output, and compose with everything else in Emacs. The user remains in the loop, wielding the tool rather than supervising an agent.
 
-** The Four Pillars
+** Core Principles
 
-*** 1. Context Engineering
-The app decides what goes into the context window. Users don't manually copy-paste.
+*** Text as Interface
+Everything flows through Org. Context is text. Responses are text. Diffs are text. This means standard Emacs operations—search, replace, version control, export—work on LLM interactions the same as any other buffer content.
 
-*ogent implementation:*
-- =ogent-context-build= curates subtree content, ancestors, and dependencies
-- =@handle= syntax resolves to Org nodes, files, or org-roam entries
-- =ogent-codemap= generates navigable maps of the codebase
-- Pinned items (=ogent-pin-dwim=) persist context across requests
-- Lazy evaluation (=ogent-context-build-lazy=) defers expensive resolution
+*** Explicit Context
+No implicit "send my whole project." The user declares what goes into the context window:
+- =@handle= syntax resolves to specific Org nodes, files, or org-roam entries
+- =ogent-codemap= generates a navigable index of the codebase
+- =ogent-pin-dwim= persists items across requests
+- =ogent-context-preview= shows exactly what will be sent
 
-*** 2. Multi-Call Orchestration
-One user action triggers multiple model calls behind the scenes.
+This explicitness serves two purposes: reproducibility (same input → same behavior) and efficiency (smaller context → faster responses, lower cost).
 
-*ogent implementation:*
-- =ogent-prompt-dispatch= fans out to multiple models simultaneously
-- =ogent-model-registry= declares backends, streaming, and presets per model
+*** Responses as Data
+Model output lands in Org src blocks with structured headers:
+#+begin_example
+#+begin_src text :model claude-3.5 :status done :latency 2.1s
+#+end_example
+
+This metadata enables programmatic access. Fold responses, navigate between them, extract them for export. The response is not ephemeral chat—it's a first-class Org element.
+
+*** Diffs Over Descriptions
+When the model suggests code changes, ogent renders them as smerge conflicts:
+- Red/green highlighting shows exactly what changed
+- =C-c C-c= accepts, =C-c C-k= rejects
+- No parsing prose like "change line 42 to..."
+
+Visual review is faster than textual review. The interface should optimize for the bottleneck, which is human verification.
+
+** Technical Implementation
+
+*** Context Pipeline
+1. =ogent-context-build= resolves the current subtree, ancestors, and =@handle= dependencies
+2. =ogent-context-build-lazy= defers expensive resolution until needed
+3. Context flows as an immutable plist—presentation code never mutates it
+4. =ogent-response-function= fires exactly once per request for reliable hook execution
+
+*** Model Orchestration
+- =ogent-model-registry= declares backends with =:id=, =:backend=, =:stream?=, and optional =:preset=
+- =ogent-prompt-dispatch= can fan out to multiple models simultaneously
+- =ogent-ui--request-table= tracks concurrent streams for cancellation/retry
 - gptel handles transport; ogent handles orchestration and presentation
-- Request table (=ogent-ui--request-table=) tracks concurrent streams
-- Tool calls route through =ogent-tool-registry= with approval workflows
 
-*** 3. Application-Specific GUI
-Text is hard to audit. Visual affordances use your visual system.
+*** Companion Buffers
+When invoked from non-Org buffers, ogent creates a companion Org buffer for the transcript:
+- Code buffer receives inline diffs/patches
+- Companion buffer records prompts, context, and responses
+- Markers keep the two synchronized
+- Navigation commands work from either buffer
 
-*ogent implementation:*
-- Responses land in Org src blocks with =:model=, =:status=, =:latency= headers
-- Edit diffs render as smerge conflicts—red/green, =C-c C-c= to accept
-- Companion buffers link code files to their Org transcripts
-- Folding, navigation, and block structure leverage Org's native UI
-- Transient menus (=ogent-prompt-dispatch=) for model/preset selection
-
-*** 4. Autonomy Slider
-User controls how much the AI does at once.
-
-*ogent implementation:*
-- =ogent-ask= (=C-c . ?=): Quick Q&A, no context machinery
-- =ogent-request=: Full context, single model
-- =ogent-prompt-dispatch=: Multi-model fan-out with preset selection
-- =ogent-request-edit=: Autonomous code changes with diff review
-- Context preview (=ogent-context-preview=) before committing to a request
-
-** The Verification Bottleneck
-
-AI generates instantly. Human verification is the bottleneck. ogent addresses this:
-
-*Speed up verification:*
-- Structured Org blocks over chat transcripts
-- Visual diffs over text descriptions of changes
-- Keybindings (=C-c C-c=, =C-c C-k=) over typing "yes/no"
-- Folded tool/reasoning blocks to reduce noise
-
-*Keep the AI on a leash:*
-- Explicit context via @handles (no implicit "send everything")
-- Preview before sending (=ogent-context-preview=)
-- Presets for consistent behavior (=ogent-preset-registry=)
-- Smaller, focused prompts over vague instructions
-
-The goal: increase probability of successful verification on the first pass.
+*** Tool Execution
+- =ogent-tool-registry= defines available tools with approval workflows
+- Tool results render in =#+begin_tool= blocks, folded by default
+- =ogent-tool-fsm= manages the approval state machine
+- Users can re-run tools at point with =ogent-tool-rerun=
 
 * Rule of Engagement
 - Treat this file as required context before building any feature.
