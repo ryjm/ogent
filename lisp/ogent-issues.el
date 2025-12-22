@@ -238,6 +238,7 @@ The inherited `value' slot holds the issue plist.")))
     ;; j/k are intentionally NOT bound here so evil users get normal line movement
     (define-key map "n" #'ogent-issues-next-issue)
     (define-key map "p" #'ogent-issues-prev-issue)
+    (define-key map "N" #'ogent-issues-next-ready)  ; Jump to next ready issue
     (define-key map (kbd "M-n") #'ogent-issues-next-section)
     (define-key map (kbd "M-p") #'ogent-issues-prev-section)
     (define-key map (kbd "RET") #'ogent-issues-visit)
@@ -385,7 +386,11 @@ Otherwise returns `ogent-issues-buffer-name'."
   "Generate header line for ogent-issues buffer."
   (let* ((project (or (ogent-issues-bd-project-name) "unknown"))
          (view (symbol-name ogent-issues--current-view))
-         (count (length ogent-issues--issues))
+         (issues ogent-issues--issues)
+         (count (length issues))
+         ;; Calculate ready and blocked counts
+         (ready-count (cl-count-if #'ogent-issues--issue-ready-p issues))
+         (blocked-count (cl-count-if (lambda (i) (string= (plist-get i :status) "blocked")) issues))
          (filters (ogent-issues--format-filters)))
     (concat
      " "
@@ -394,7 +399,15 @@ Otherwise returns `ogent-issues-buffer-name'."
      (propertize project 'face 'font-lock-constant-face)
      "  "
      (propertize (format "[%s]" (capitalize view)) 'face 'font-lock-type-face)
-     (propertize (format " %d" count) 'face 'ogent-issues-dimmed)
+     "  "
+     ;; Show ready count with emphasis when > 0
+     (if (> ready-count 0)
+         (propertize (format "%d ready" ready-count) 'face 'ogent-issues-ready)
+       (propertize "0 ready" 'face 'ogent-issues-dimmed))
+     ;; Show blocked count only if > 0
+     (when (> blocked-count 0)
+       (concat " " (propertize (format "%d blocked" blocked-count) 'face 'ogent-issues-status-blocked)))
+     (propertize (format " (%d total)" count) 'face 'ogent-issues-dimmed)
      (when filters
        (concat "  " (propertize "filtered:" 'face 'ogent-issues-dimmed) " " filters))
      "  "
@@ -668,6 +681,30 @@ An issue is ready if it's open, not blocked, and has no blockers."
     (let ((pos (previous-single-property-change (point) 'ogent-issue)))
       (when pos
         (goto-char pos)))))
+
+(defun ogent-issues-next-ready ()
+  "Move to the next ready (unblocked, actionable) issue."
+  (interactive)
+  (let ((start-pos (point))
+        (found nil))
+    ;; Move forward until we find a ready issue or reach end
+    (while (and (not found) (not (eobp)))
+      (ogent-issues-next-issue)
+      (when-let ((issue (ogent-issues--current-issue)))
+        (when (ogent-issues--issue-ready-p issue)
+          (setq found t))))
+    (if found
+        (message "Ready: %s" (plist-get (ogent-issues--current-issue) :id))
+      ;; Wrap around from beginning
+      (goto-char (point-min))
+      (while (and (not found) (< (point) start-pos) (not (eobp)))
+        (ogent-issues-next-issue)
+        (when-let ((issue (ogent-issues--current-issue)))
+          (when (ogent-issues--issue-ready-p issue)
+            (setq found t))))
+      (unless found
+        (goto-char start-pos)
+        (message "No ready issues found")))))
 
 (defun ogent-issues-next-section ()
   "Move to the next status section."
