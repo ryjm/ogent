@@ -232,30 +232,29 @@
                              :description "Test tool"
                              :args ((:name "arg" :type "string" :description "Test"))
                              :confirm nil))))
-    
-    ;; Execute a tool via FSM
-    (let ((callback-invoked nil))
-      (ogent-tool-fsm-execute
-       '(:id "integration-1" :name test-integration-tool :args (:arg "hello"))
-       (lambda (result error)
-         (setq callback-invoked t)
-         (should (null error))
-         (should (stringp result))))
-      
-      ;; Callback should have been invoked
-      (should callback-invoked)
-      
-      ;; History should have one entry
-      (should (= (length ogent-debug-tool-history) 1))
-      
-      ;; Verify entry details
-      (let ((entry (car ogent-debug-tool-history)))
-        (should (equal (plist-get entry :id) "integration-1"))
-        (should (eq (plist-get entry :name) 'test-integration-tool))
-        (should (plist-get entry :result))
-        (should (null (plist-get entry :error)))
-        (should (numberp (plist-get entry :duration)))
-        (should (> (plist-get entry :duration) 0)))))
+          ;; Execute a tool via FSM
+          (let ((callback-invoked nil))
+            (ogent-tool-fsm-execute
+             '(:id "integration-1" :name test-integration-tool :args (:arg "hello"))
+             (lambda (result error)
+               (setq callback-invoked t)
+               (should (null error))
+               (should (stringp result))))
+
+            ;; Callback should have been invoked
+            (should callback-invoked)
+
+            ;; History should have one entry
+            (should (= (length ogent-debug-tool-history) 1))
+
+            ;; Verify entry details
+            (let ((entry (car ogent-debug-tool-history)))
+              (should (equal (plist-get entry :id) "integration-1"))
+              (should (eq (plist-get entry :name) 'test-integration-tool))
+              (should (plist-get entry :result))
+              (should (null (plist-get entry :error)))
+              (should (numberp (plist-get entry :duration)))
+              (should (> (plist-get entry :duration) 0)))))
       ;; Cleanup: restore global state
       (setq ogent-debug-tool-history saved-history)
       (setq ogent-tool-registry saved-registry))))

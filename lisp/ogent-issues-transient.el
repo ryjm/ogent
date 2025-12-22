@@ -6,6 +6,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'transient)
 (require 'ogent-issues-bd)
 
@@ -16,6 +17,8 @@
 (declare-function ogent-issues--current-issue-id "ogent-issues")
 (declare-function ogent-issues-next-issue "ogent-issues")
 (declare-function ogent-issues-prev-issue "ogent-issues")
+(declare-function ogent-issues-next-ready "ogent-issues")
+(declare-function ogent-issues--issue-ready-p "ogent-issues")
 (declare-function ogent-issues-visit "ogent-issues")
 (declare-function ogent-issues-toggle-section "ogent-issues")
 (declare-function ogent-issues-create "ogent-issues")
@@ -35,6 +38,7 @@
 
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)
+(defvar ogent-issues--issues)
 
 ;;; Context Capture
 
@@ -74,20 +78,64 @@ Returns a plist with :file, :line, :function, and :formatted keys."
 
 ;;; Header Formatting
 
+(defvar ogent-issues-transient--cached-stats nil
+  "Cached stats for transient header, updated on each open.")
+
+(defun ogent-issues-transient--refresh-stats ()
+  "Refresh cached stats for transient display."
+  (when-let ((issues ogent-issues--issues))
+    (let ((open 0) (in-progress 0) (blocked 0) (closed 0) (ready 0))
+      (dolist (issue issues)
+        (let ((status (plist-get issue :status)))
+          (pcase status
+            ("open" (cl-incf open)
+                    (when (ogent-issues--issue-ready-p issue)
+                      (cl-incf ready)))
+            ("in_progress" (cl-incf in-progress))
+            ("blocked" (cl-incf blocked))
+            ("closed" (cl-incf closed)))))
+      (setq ogent-issues-transient--cached-stats
+            (list :open open :in-progress in-progress :blocked blocked
+                  :closed closed :ready ready :total (length issues))))))
+
 (defun ogent-issues-transient--format-header ()
-  "Format header showing current issue context."
-  (let* ((issue (ignore-errors (ogent-issues--current-issue)))
+  "Format header showing project stats and current issue context."
+  (ogent-issues-transient--refresh-stats)
+  (let* ((project (or (ignore-errors (ogent-issues-bd-project-name)) "unknown"))
+         (stats ogent-issues-transient--cached-stats)
+         (issue (ignore-errors (ogent-issues--current-issue)))
          (id (when issue (plist-get issue :id)))
          (title (when issue (plist-get issue :title)))
          (status (when issue (plist-get issue :status)))
          (view (symbol-name (or ogent-issues--current-view 'list))))
     (concat
-     (propertize "Ogent Issues" 'face 'transient-heading)
-     " | "
-     (propertize (capitalize view) 'face 'transient-value)
+     (propertize "Issues" 'face 'transient-heading)
+     " "
+     (propertize project 'face 'transient-value)
+     " "
+     (propertize (format "[%s]" (capitalize view)) 'face 'transient-inactive-value)
+     ;; Stats line
+     (when stats
+       (concat
+        "\n"
+        (propertize (format "%d ready" (or (plist-get stats :ready) 0))
+                    'face (if (> (or (plist-get stats :ready) 0) 0)
+                              'success 'transient-inactive-value))
+        (propertize " | " 'face 'transient-inactive-value)
+        (propertize (format "%d open" (or (plist-get stats :open) 0))
+                    'face 'transient-inactive-value)
+        (propertize " | " 'face 'transient-inactive-value)
+        (propertize (format "%d in-progress" (or (plist-get stats :in-progress) 0))
+                    'face 'transient-inactive-value)
+        (when (> (or (plist-get stats :blocked) 0) 0)
+          (concat
+           (propertize " | " 'face 'transient-inactive-value)
+           (propertize (format "%d blocked" (plist-get stats :blocked))
+                       'face 'warning)))))
+     ;; Current issue context
      (when id
        (concat "\n"
-               (propertize "Current: " 'face 'transient-inactive-argument)
+               (propertize "At: " 'face 'transient-inactive-argument)
                (propertize id 'face 'transient-argument)
                " "
                (propertize (or status "") 'face 'transient-inactive-value)
@@ -101,8 +149,9 @@ Returns a plist with :file, :line, :function, and :formatted keys."
   "Dispatch menu for ogent-issues."
   [:description ogent-issues-transient--format-header
    ["Navigation"
-    ("j" "Next issue" ogent-issues-next-issue :transient t)
-    ("k" "Previous issue" ogent-issues-prev-issue :transient t)
+    ("n" "Next issue" ogent-issues-next-issue :transient t)
+    ("p" "Previous issue" ogent-issues-prev-issue :transient t)
+    ("N" "Next ready" ogent-issues-next-ready :transient t)
     ("RET" "View details" ogent-issues-visit)
     ("TAB" "Toggle section" ogent-issues-toggle-section :transient t)]
    ["Actions"
