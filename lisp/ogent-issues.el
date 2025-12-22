@@ -82,97 +82,153 @@ Set to nil for ASCII-only terminals."
 
 ;; Section headings - like magit-section-heading
 (defface ogent-issues-section-heading
-  '((((class color) (background light)) :foreground "DarkGoldenrod4" :weight bold)
-    (((class color) (background dark)) :foreground "LightGoldenrod2" :weight bold))
+  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
   "Face for section headings."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-section-heading-selection
-  '((((class color) (background light)) :foreground "salmon4" :weight bold)
-    (((class color) (background dark)) :foreground "LightSalmon3" :weight bold))
+  '((((class color) (background light)) :foreground "#bf360c" :weight bold)
+    (((class color) (background dark)) :foreground "#d08770" :weight bold))
   "Face for selected section headings."
   :group 'ogent-issues-faces)
 
 ;; Issue ID - like magit-hash
 (defface ogent-issues-id
-  '((((class color) (background light)) :foreground "grey40")
-    (((class color) (background dark)) :foreground "grey60"))
+  '((((class color) (background light)) :foreground "#546e7a")
+    (((class color) (background dark)) :foreground "#81a1c1"))
   "Face for issue IDs."
   :group 'ogent-issues-faces)
 
-;; Priority faces - traffic light colors
+;; Priority faces - refined color scale
 (defface ogent-issues-priority-critical
-  '((t :foreground "#ff5555" :weight bold))
+  '((((class color) (background light)) :foreground "#c62828" :weight bold)
+    (((class color) (background dark)) :foreground "#bf616a" :weight bold))
   "Face for P0 (critical) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-high
-  '((t :foreground "#ffb86c" :weight bold))
+  '((((class color) (background light)) :foreground "#d84315" :weight bold)
+    (((class color) (background dark)) :foreground "#d08770" :weight bold))
   "Face for P1 (high) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-medium
-  '((t :foreground "#f1fa8c"))
+  '((((class color) (background light)) :foreground "#5d4037")
+    (((class color) (background dark)) :foreground "#ebcb8b"))
   "Face for P2 (medium) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-low
-  '((t :foreground "#50fa7b"))
+  '((((class color) (background light)) :foreground "#558b2f")
+    (((class color) (background dark)) :foreground "#a3be8c"))
   "Face for P3 (low) issues."
   :group 'ogent-issues-faces)
 
 ;; Status faces
 (defface ogent-issues-status-open
-  '((((class color) (background light)) :foreground "ForestGreen")
-    (((class color) (background dark)) :foreground "#8be9fd"))
+  '((((class color) (background light)) :foreground "#1565c0")
+    (((class color) (background dark)) :foreground "#88c0d0"))
   "Face for open issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-in-progress
-  '((((class color) (background light)) :foreground "DarkOrange")
-    (((class color) (background dark)) :foreground "#bd93f9"))
+  '((((class color) (background light)) :foreground "#6a1b9a" :weight bold)
+    (((class color) (background dark)) :foreground "#b48ead" :weight bold))
   "Face for in-progress issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-blocked
-  '((t :foreground "#ff5555" :slant italic))
+  '((((class color) (background light)) :foreground "#c62828" :slant italic)
+    (((class color) (background dark)) :foreground "#bf616a" :slant italic))
   "Face for blocked issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-closed
-  '((((class color) (background light)) :foreground "grey50")
-    (((class color) (background dark)) :foreground "#6272a4"))
+  '((((class color) (background light)) :foreground "grey55")
+    (((class color) (background dark)) :foreground "#4c566a"))
   "Face for closed issues."
   :group 'ogent-issues-faces)
 
 ;; Ready indicator
 (defface ogent-issues-ready
-  '((t :foreground "#f1fa8c" :weight bold))
+  '((((class color) (background light)) :foreground "#2e7d32" :weight bold)
+    (((class color) (background dark)) :foreground "#a3be8c" :weight bold))
   "Face for ready issue indicator."
   :group 'ogent-issues-faces)
 
 ;; Dimmed text - like magit-dimmed
 (defface ogent-issues-dimmed
-  '((((class color) (background light)) :foreground "grey50")
-    (((class color) (background dark)) :foreground "grey50"))
+  '((((class color) (background light)) :foreground "#78909c")
+    (((class color) (background dark)) :foreground "#4c566a"))
   "Face for less important text."
   :group 'ogent-issues-faces)
 
 ;; Type badge
 (defface ogent-issues-type
-  '((((class color) (background light)) :foreground "grey30" :box (:line-width -1 :color "grey70"))
-    (((class color) (background dark)) :foreground "grey70" :box (:line-width -1 :color "grey40")))
+  '((((class color) (background light))
+     :foreground "#455a64" :box (:line-width -1 :color "#90a4ae"))
+    (((class color) (background dark))
+     :foreground "#81a1c1" :box (:line-width -1 :color "#4c566a")))
   "Face for issue type badges."
   :group 'ogent-issues-faces)
 
-;; Header line
+;; Header line - magit-style with background
 (defface ogent-issues-header-line
-  '((t :inherit header-line :weight bold))
-  "Face for the header line."
+  '((((class color) (background light))
+     :background "grey90" :foreground "grey20"
+     :weight bold :box (:line-width 2 :color "grey90"))
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#eceff4"
+     :weight bold :box (:line-width 2 :color "#2e3440")))
+  "Face for the header line title."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-header-line-project
+  '((((class color) (background light))
+     :background "grey90" :foreground "#5e81ac" :weight bold)
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#88c0d0" :weight bold))
+  "Face for the project name in header line."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-header-line-view
+  '((((class color) (background light))
+     :background "grey90" :foreground "#4c566a")
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#81a1c1"))
+  "Face for the view indicator in header line."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-header-line-stat
+  '((((class color) (background light))
+     :background "grey90" :foreground "grey40")
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#7b88a1"))
+  "Face for stats in header line."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-header-line-ready
+  '((((class color) (background light))
+     :background "grey90" :foreground "#2e7d32" :weight bold)
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#a3be8c" :weight bold))
+  "Face for ready count in header line."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-header-line-blocked
+  '((((class color) (background light))
+     :background "grey90" :foreground "#bf360c" :slant italic)
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#bf616a" :slant italic))
+  "Face for blocked count in header line."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-header-line-key
-  '((t :inherit font-lock-builtin-face :weight bold))
+  '((((class color) (background light))
+     :background "grey90" :foreground "#5e35b1" :weight bold)
+    (((class color) (background dark))
+     :background "#2e3440" :foreground "#b48ead" :weight bold))
   "Face for keybindings in header line."
   :group 'ogent-issues-faces)
 
@@ -393,26 +449,43 @@ Otherwise returns `ogent-issues-buffer-name'."
          (blocked-count (cl-count-if (lambda (i) (string= (plist-get i :status) "blocked")) issues))
          (filters (ogent-issues--format-filters)))
     (concat
-     " "
+     (propertize " " 'face 'ogent-issues-header-line)
      (propertize "Issues" 'face 'ogent-issues-header-line)
-     "  "
-     (propertize project 'face 'font-lock-constant-face)
-     "  "
-     (propertize (format "[%s]" (capitalize view)) 'face 'font-lock-type-face)
-     "  "
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     (propertize project 'face 'ogent-issues-header-line-project)
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     (propertize (format "[%s]" (capitalize view)) 'face 'ogent-issues-header-line-view)
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
      ;; Show ready count with emphasis when > 0
      (if (> ready-count 0)
-         (propertize (format "%d ready" ready-count) 'face 'ogent-issues-ready)
-       (propertize "0 ready" 'face 'ogent-issues-dimmed))
+         (propertize (format "%d ready" ready-count) 'face 'ogent-issues-header-line-ready)
+       (propertize "0 ready" 'face 'ogent-issues-header-line-stat))
      ;; Show blocked count only if > 0
-     (when (> blocked-count 0)
-       (concat " " (propertize (format "%d blocked" blocked-count) 'face 'ogent-issues-status-blocked)))
-     (propertize (format " (%d total)" count) 'face 'ogent-issues-dimmed)
-     (when filters
-       (concat "  " (propertize "filtered:" 'face 'ogent-issues-dimmed) " " filters))
-     "  "
+     (if (> blocked-count 0)
+         (concat (propertize "  " 'face 'ogent-issues-header-line-stat)
+                 (propertize (format "%d blocked" blocked-count) 'face 'ogent-issues-header-line-blocked))
+       "")
+     (propertize (format "  %d total" count) 'face 'ogent-issues-header-line-stat)
+     (if filters
+         (concat (propertize "  filtered: " 'face 'ogent-issues-header-line-stat)
+                 (ogent-issues--format-filters-for-header))
+       "")
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
      (propertize "?" 'face 'ogent-issues-header-line-key)
-     (propertize ":help" 'face 'ogent-issues-dimmed))))
+     (propertize ":help " 'face 'ogent-issues-header-line-stat))))
+
+(defun ogent-issues--format-filters-for-header ()
+  "Format current filters for header line with proper faces."
+  (let ((parts nil))
+    (when-let ((status (plist-get ogent-issues--filters :status)))
+      (push (propertize status 'face 'ogent-issues-header-line-view) parts))
+    (when-let ((type (plist-get ogent-issues--filters :type)))
+      (push (propertize type 'face 'ogent-issues-header-line-view) parts))
+    (when-let ((priority (plist-get ogent-issues--filters :priority)))
+      (push (propertize (format "P%d" priority) 'face 'ogent-issues-header-line-view) parts))
+    (if parts
+        (mapconcat #'identity (nreverse parts) (propertize " " 'face 'ogent-issues-header-line-stat))
+      "")))
 
 (defun ogent-issues--format-filters ()
   "Format current filters for display."
