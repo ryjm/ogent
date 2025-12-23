@@ -126,5 +126,86 @@ To logout: =M-x ogent-anthropic-logout=
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 
+* Prompt Templates
+
+ogent includes a library of reusable prompt templates for common AI-assisted workflows.
+Templates are defined in =docs/prompts.org= and can be referenced using =@handle= syntax.
+
+** Using Prompt Templates
+
+Reference a template by its =OGENT_ID= with the =@= prefix:
+
+#+begin_example
+@code-review
+
+Please review the following function for bugs and improvements.
+#+end_example
+
+** Composing Multiple Templates
+
+Combine templates with =+= syntax:
+
+#+begin_example
+@code-review+@security-audit
+
+Analyze this authentication code.
+#+end_example
+
+Templates are sorted by their =compose-order= and concatenated.
+
+** Available Templates
+
+| Template            | Purpose                                      |
+|---------------------+----------------------------------------------|
+| =@code-review=      | Review code for bugs, style, performance     |
+| =@refactoring=      | Suggest refactoring opportunities            |
+| =@documentation=    | Generate docstrings and comments             |
+| =@testing=          | Suggest test cases and edge cases            |
+| =@explain-code=     | Explain what code does step by step          |
+| =@debug-steps=      | Systematic debugging approach                |
+| =@security-audit=   | Audit for security vulnerabilities           |
+| =@performance-review= | Review for performance issues              |
+
+See =docs/prompts.org= for the full list and detailed instructions.
+
+** Creating Custom Templates
+
+Create Org headlines with an =OGENT_ID= property:
+
+#+begin_src org
+,** My Custom Review
+:PROPERTIES:
+:OGENT_ID: my-review
+:END:
+Review this code with special attention to:
+- Our team's coding standards
+- Integration with the legacy API
+#+end_src
+
+** Per-Project Customization
+
+Set =ogent-project-prompts-file= in =.dir-locals.el= to load project-specific templates:
+
+#+begin_src emacs-lisp
+((nil . ((ogent-project-prompts-file . "prompts.org"))))
+#+end_src
+
+Override existing templates with =ogent-prompt-overrides=:
+
+#+begin_src emacs-lisp
+((nil . ((ogent-prompt-overrides
+          . (("code-review" . (:content "Review with our team standards...")))))))
+#+end_src
+
+** Yasnippet Integration
+
+Enable yasnippet integration for quick template insertion:
+
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'ogent-prompts-yasnippet-mode)
+#+end_src
+
+Then type =@code-review= and press TAB to expand the template.
+
 * Updating
 Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.

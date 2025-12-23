@@ -40,6 +40,9 @@
 (declare-function ogent-issues "ogent-issues")
 (declare-function ogent-pin-dwim "ogent-context")
 (declare-function ogent-unpin-interactive "ogent-context")
+
+;; Prompt validation (optional dependency)
+(declare-function ogent-prompt-validate-composition "ogent-prompts")
 (declare-function ogent-list-pinned "ogent-context")
 
 ;; gptel integration
@@ -128,6 +131,55 @@ Adds :validation-warnings to context as a side effect."
          (y-or-n-p
           (format "Missing handles: %s. Continue anyway? "
                   (string-join missing-handles ", "))))
+        (_ t)))))  ; Unknown setting, proceed
+
+;;; Prompt Validation Integration
+
+(defun ogent-validate-prompts (prompt-ids context)
+  "Validate that CONTEXT satisfies requirements for PROMPT-IDS.
+PROMPT-IDS is a list of prompt ID strings.
+CONTEXT is a plist of available context (e.g., (:code \"...\")).
+Returns a plist with :valid (boolean) and :missing (list of missing keys).
+
+Requires ogent-prompts to be loaded; returns valid if not available."
+  (if (require 'ogent-prompts nil t)
+      (ogent-prompt-validate-composition prompt-ids context)
+    (list :valid t :missing nil)))
+
+(defun ogent-context-add-prompt-warnings (context)
+  "Add :prompt-warnings key to CONTEXT plist.
+Validates prompts referenced in :prompt-ids against available context.
+Returns the updated context plist with warnings about missing context."
+  (let* ((prompt-ids (plist-get context :prompt-ids))
+         (validation (when prompt-ids
+                       (ogent-validate-prompts prompt-ids context)))
+         (missing (plist-get validation :missing))
+         (warnings (when missing
+                     (list (format "Prompts require missing context: %s"
+                                   (mapconcat #'symbol-name missing ", "))))))
+    (plist-put context :prompt-warnings warnings)))
+
+(defun ogent-validate-prompts-and-prompt (context)
+  "Validate prompt requirements in CONTEXT according to `ogent-validate-before-send'.
+Returns non-nil if the request should proceed, nil to abort.
+Adds :prompt-warnings to context as a side effect."
+  (let* ((prompt-ids (plist-get context :prompt-ids))
+         (validation (when prompt-ids
+                       (ogent-validate-prompts prompt-ids context)))
+         (missing (plist-get validation :missing)))
+    (ogent-context-add-prompt-warnings context)
+    (if (null missing)
+        t  ; No missing context, proceed
+      (pcase ogent-validate-before-send
+        ('nil t)  ; No validation, proceed anyway
+        ('warn
+         (message "Warning: Prompts require missing context: %s"
+                  (mapconcat #'symbol-name missing ", "))
+         t)  ; Show warning but proceed
+        ('confirm
+         (y-or-n-p
+          (format "Prompts require missing context: %s. Continue anyway? "
+                  (mapconcat #'symbol-name missing ", "))))
         (_ t)))))  ; Unknown setting, proceed
 
 (defvar ogent-mode-map

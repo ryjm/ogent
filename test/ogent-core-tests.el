@@ -196,6 +196,55 @@
                                    :node '(node))))))
     (should (ogent-validate-and-prompt context))))
 
+;;; Prompt Validation Integration Tests
+
+(ert-deftest ogent-validate-prompts-detects-missing-context ()
+  "ogent-validate-prompts should detect missing required context."
+  (require 'ogent-prompts)
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "needs-code"
+                           :title "Needs Code"
+                           :content "Review this."
+                           :required-context '(code))
+    (let ((result (ogent-validate-prompts '("needs-code") nil)))
+      (should-not (plist-get result :valid))
+      (should (member 'code (plist-get result :missing))))))
+
+(ert-deftest ogent-validate-prompts-passes-with-context ()
+  "ogent-validate-prompts should pass when context is present."
+  (require 'ogent-prompts)
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "needs-code"
+                           :title "Needs Code"
+                           :content "Review this."
+                           :required-context '(code))
+    (let ((result (ogent-validate-prompts '("needs-code") '(:code "some code"))))
+      (should (plist-get result :valid)))))
+
+(ert-deftest ogent-validate-prompts-handles-no-requirements ()
+  "ogent-validate-prompts should pass for prompts without requirements."
+  (require 'ogent-prompts)
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "simple"
+                           :title "Simple"
+                           :content "Just do it.")
+    (let ((result (ogent-validate-prompts '("simple") nil)))
+      (should (plist-get result :valid)))))
+
+(ert-deftest ogent-context-add-prompt-warnings-adds-warnings ()
+  "ogent-context-add-prompt-warnings should add prompt validation warnings."
+  (require 'ogent-prompts)
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal))
+        (context (list :prompt-ids '("needs-code"))))
+    (ogent-prompt-register "needs-code"
+                           :title "Needs Code"
+                           :content "Review."
+                           :required-context '(code))
+    (let ((updated (ogent-context-add-prompt-warnings context)))
+      (should (plist-get updated :prompt-warnings))
+      (should (string-match-p "code"
+                              (car (plist-get updated :prompt-warnings)))))))
+
 ;;; Completion Notification Tests
 
 (ert-deftest ogent-notify-completion-with-nil-setting ()
