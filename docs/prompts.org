@@ -2,16 +2,249 @@
 :PROPERTIES:
 :OGENT_ID: prompts-library
 :END:
-Reusable instructions you can attach via @prompts-library.
+Reusable instructions you can attach via @handle syntax. Reference these in your
+prompts to include their content. Combine multiple with @code-review+@testing.
 
-** @bug-diagnosis
+** Code Analysis
+
+*** @code-review
+:PROPERTIES:
+:OGENT_ID: code-review
+:END:
+Review the provided code for:
+- Bugs and logic errors
+- Security vulnerabilities (injection, XSS, auth issues)
+- Performance issues (N+1 queries, unnecessary allocations)
+- Code style and maintainability
+- Missing error handling
+- Edge cases not covered
+
+Be specific and actionable. Reference line numbers when possible.
+Prioritize issues by severity:
+- *Critical*: Security vulnerabilities, data loss risks, crashes
+- *Warning*: Bugs, performance issues, missing error handling
+- *Suggestion*: Style improvements, refactoring opportunities
+
+*** @refactoring
+:PROPERTIES:
+:OGENT_ID: refactoring
+:END:
+Analyze the code and suggest refactoring opportunities:
+- Extract methods for repeated logic
+- Simplify complex conditionals (guard clauses, early returns)
+- Improve naming for clarity
+- Reduce coupling between components
+- Apply appropriate design patterns
+- Remove dead code and unused variables
+
+For each suggestion:
+1. Explain what to change and why
+2. Show the refactored code
+3. Note any tradeoffs or considerations
+
+Focus on practical improvements, not theoretical perfection.
+
+*** @explain-code
+:PROPERTIES:
+:OGENT_ID: explain-code
+:END:
+Explain what this code does:
+- Start with a high-level summary (1-2 sentences)
+- Break down complex logic step by step
+- Trace data flow through the code
+- Explain the 'why' behind design decisions when apparent
+- Point out any non-obvious patterns or idioms
+- Use analogies when helpful for complex concepts
+
+Keep explanations clear and concise. Assume the reader knows the language
+basics but may be unfamiliar with this specific codebase.
+
+** Documentation
+
+*** @documentation
+:PROPERTIES:
+:OGENT_ID: documentation
+:END:
+Generate documentation for the provided code:
+- Add docstrings/comments explaining purpose and behavior
+- Document parameters, return values, and side effects
+- Include usage examples where helpful
+- Note any important caveats or edge cases
+- Document error conditions and exceptions
+
+Match the documentation style of the surrounding codebase:
+- Emacs Lisp: Use standard docstring format with imperative verbs
+- Python: Use Google or NumPy docstring style
+- TypeScript/JavaScript: Use JSDoc format
+- Other languages: Follow their conventions
+
+*** @readme-section
+:PROPERTIES:
+:OGENT_ID: readme-section
+:END:
+Generate a README section for this code/feature:
+- Clear, concise description of what it does
+- Installation/setup instructions if applicable
+- Usage examples with code snippets
+- Configuration options
+- Common gotchas or troubleshooting tips
+
+Use markdown formatting. Keep it scannable with headers and bullet points.
+
+** Testing
+
+*** @testing
+:PROPERTIES:
+:OGENT_ID: testing
+:END:
+Suggest test cases for the provided code:
+- Happy path tests for normal operation
+- Edge cases and boundary conditions
+- Error handling and invalid input
+- Integration points with dependencies
+- Property-based test ideas where applicable
+
+For each test:
+1. Describe what it verifies
+2. Provide example test code
+3. Note any mocking/stubbing needed
+
+Prioritize tests that catch real bugs over tests that just increase coverage.
+
+*** @test-coverage
+:PROPERTIES:
+:OGENT_ID: test-coverage
+:END:
+Analyze test coverage for this code:
+- Identify untested code paths
+- Find missing edge case coverage
+- Suggest tests for error conditions
+- Check for integration test gaps
+- Recommend property-based tests for complex logic
+
+Focus on meaningful coverage, not just line coverage metrics.
+
+** Debugging
+
+*** @bug-diagnosis
 :PROPERTIES:
 :OGENT_ID: bug-diagnosis
 :END:
-Clarify repro steps and add hypothesis-driven fixes.
+Help diagnose this bug systematically:
+1. Clarify the symptoms and reproduction steps
+2. Identify the expected vs actual behavior
+3. Form hypotheses about root causes
+4. Suggest diagnostic steps to test each hypothesis
+5. Recommend fixes once the cause is identified
 
-** @architecture-digest
+Be methodical. Prioritize likely causes based on the evidence.
+Ask clarifying questions if the bug report is incomplete.
+
+*** @debug-steps
+:PROPERTIES:
+:OGENT_ID: debug-steps
+:END:
+Provide a systematic debugging approach:
+1. Reproduce the issue consistently
+2. Isolate the problem (binary search through code/commits)
+3. Add logging/breakpoints at key points
+4. Form and test hypotheses
+5. Verify the fix doesn't introduce regressions
+
+Include specific debugging commands/techniques for the relevant language/framework.
+
+*** @error-analysis
+:PROPERTIES:
+:OGENT_ID: error-analysis
+:END:
+Analyze this error message/stack trace:
+- Identify the immediate cause
+- Trace back to the root cause
+- Explain why this error occurred
+- Suggest fixes with code examples
+- Recommend preventive measures
+
+If the error is common, mention known gotchas or FAQ solutions.
+
+** Architecture
+
+*** @architecture-digest
 :PROPERTIES:
 :OGENT_ID: architecture-digest
 :END:
-Summarize module responsibilities and data flow implications.
+Summarize the architecture of this code:
+- Module responsibilities and boundaries
+- Data flow between components
+- Key abstractions and their purposes
+- Dependencies (internal and external)
+- Design patterns in use
+
+Keep it high-level. Focus on the "why" behind architectural decisions.
+
+*** @design-review
+:PROPERTIES:
+:OGENT_ID: design-review
+:END:
+Review this design/architecture for:
+- Separation of concerns
+- Coupling and cohesion
+- Scalability considerations
+- Testability
+- Maintainability over time
+- Security implications
+
+Suggest improvements with concrete alternatives.
+
+** Specialized
+
+*** @security-audit
+:PROPERTIES:
+:OGENT_ID: security-audit
+:END:
+Audit this code for security issues:
+- Injection vulnerabilities (SQL, XSS, command injection)
+- Authentication and authorization flaws
+- Sensitive data exposure
+- Insecure dependencies
+- Cryptographic weaknesses
+- Input validation gaps
+
+Rate each finding by severity (Critical/High/Medium/Low).
+Provide remediation steps for each issue.
+
+*** @performance-review
+:PROPERTIES:
+:OGENT_ID: performance-review
+:END:
+Review this code for performance:
+- Time complexity of algorithms
+- Memory usage and potential leaks
+- I/O bottlenecks (database, network, file)
+- Caching opportunities
+- Unnecessary computations
+- N+1 query patterns
+
+Suggest optimizations with expected impact.
+Note when premature optimization isn't worth it.
+
+*** @accessibility-check
+:PROPERTIES:
+:OGENT_ID: accessibility-check
+:END:
+Check this UI code for accessibility:
+- Semantic HTML usage
+- ARIA labels and roles
+- Keyboard navigation
+- Screen reader compatibility
+- Color contrast
+- Focus management
+
+Reference WCAG guidelines where applicable.
+
+** Composition Examples
+
+Use =+= to combine prompts. Examples:
+- =@code-review+@security-audit= - Security-focused code review
+- =@testing+@documentation= - Generate tests with documentation
+- =@refactoring+@performance-review= - Optimize while refactoring
+- =@bug-diagnosis+@debug-steps= - Full debugging workflow
