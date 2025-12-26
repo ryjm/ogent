@@ -303,5 +303,129 @@ but doesn't test actual insertion behavior (that's in UI tests)."
           (should (eq (ogent-companion-get-or-create org-buffer) org-buffer)))
       (kill-buffer org-buffer))))
 
+;;; Lifecycle Edge Cases
+
+(ert-deftest ogent-companion-kill-companion-keeps-source ()
+  "Killing companion buffer doesn't affect source buffer."
+  (let ((text-buffer (get-buffer-create "*test-kill-companion*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (insert "source content")
+          (let ((companion (ogent-companion-get-or-create)))
+            ;; Kill companion
+            (kill-buffer companion)
+            ;; Source buffer should still be alive and have content
+            (should (buffer-live-p text-buffer))
+            (with-current-buffer text-buffer
+              (should (string-match-p "source content" (buffer-string))))
+            ;; Link should be cleared
+            (should-not (ogent-companion--get-linked-buffer text-buffer))
+            ;; Can create new companion
+            (let ((new-companion (ogent-companion-get-or-create)))
+              (should (buffer-live-p new-companion))
+              (should-not (eq companion new-companion))
+              (kill-buffer new-companion))))
+      (when (buffer-live-p text-buffer)
+        (kill-buffer text-buffer)))))
+
+(ert-deftest ogent-companion-kill-source-orphans-companion ()
+  "Killing source buffer orphans companion but keeps content."
+  (let ((text-buffer (get-buffer-create "*test-kill-source*"))
+        companion-buffer)
+    (unwind-protect
+        (progn
+          (with-current-buffer text-buffer
+            (fundamental-mode)
+            (setq companion-buffer (ogent-companion-get-or-create))
+            ;; Add some content to companion
+            (with-current-buffer companion-buffer
+              (goto-char (point-max))
+              (insert "\n* Test Response\nContent here")))
+          ;; Kill source
+          (kill-buffer text-buffer)
+          ;; Companion should still be alive
+          (should (buffer-live-p companion-buffer))
+          ;; Companion content preserved
+          (with-current-buffer companion-buffer
+            (should (string-match-p "Test Response" (buffer-string)))))
+      (when (buffer-live-p companion-buffer)
+        (kill-buffer companion-buffer)))))
+
+(ert-deftest ogent-companion-multiple-sources-independent ()
+  "Multiple source buffers have independent companions."
+  (let ((source1 (get-buffer-create "*test-source1*"))
+        (source2 (get-buffer-create "*test-source2*")))
+    (unwind-protect
+        (let (companion1 companion2)
+          (with-current-buffer source1
+            (fundamental-mode)
+            (setq companion1 (ogent-companion-get-or-create)))
+          (with-current-buffer source2
+            (fundamental-mode)
+            (setq companion2 (ogent-companion-get-or-create)))
+          ;; Should be different companions
+          (should-not (eq companion1 companion2))
+          ;; Kill one doesn't affect other
+          (kill-buffer source1)
+          (should (buffer-live-p source2))
+          (should (buffer-live-p companion2))
+          (kill-buffer companion1)
+          (kill-buffer companion2))
+      (when (buffer-live-p source1) (kill-buffer source1))
+      (when (buffer-live-p source2) (kill-buffer source2)))))
+
+(ert-deftest ogent-companion-switch-and-return ()
+  "Switching away from source and returning maintains link."
+  (let ((source-buffer (get-buffer-create "*test-switch*"))
+        (other-buffer (get-buffer-create "*test-other*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            ;; Switch away
+            (switch-to-buffer other-buffer)
+            ;; Return to source
+            (switch-to-buffer source-buffer)
+            ;; Link should still work
+            (should (eq (ogent-companion-get-or-create) companion))
+            (kill-buffer companion)))
+      (kill-buffer source-buffer)
+      (kill-buffer other-buffer))))
+
+(ert-deftest ogent-companion-recreate-after-kill ()
+  "New companion after kill has fresh content."
+  (let ((text-buffer (get-buffer-create "*test-recreate*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion1 (ogent-companion-get-or-create)))
+            ;; Add content
+            (with-current-buffer companion1
+              (goto-char (point-max))
+              (insert "\n* Old Content\nThis should be gone"))
+            ;; Kill companion
+            (kill-buffer companion1)
+            ;; Create new companion
+            (let ((companion2 (ogent-companion-get-or-create)))
+              ;; Should be fresh (no old content)
+              (with-current-buffer companion2
+                (should-not (string-match-p "Old Content" (buffer-string))))
+              (kill-buffer companion2))))
+      (kill-buffer text-buffer))))
+
+(ert-deftest ogent-companion-works-from-companion-buffer ()
+  "Calling get-or-create from companion returns itself."
+  (let ((text-buffer (get-buffer-create "*test-from-companion*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-get-or-create)))
+            ;; Call from companion should return the companion
+            (with-current-buffer companion
+              (should (eq (ogent-companion-get-or-create) companion)))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
 (provide 'ogent-companion-tests)
 ;;; ogent-companion-tests.el ends here

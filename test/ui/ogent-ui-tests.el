@@ -1093,5 +1093,200 @@
            (goto-char (point-min))
            (should-not (search-forward "\n* My Heading" nil t))))))))
 
+;;; Streaming Edge Cases
+
+(ert-deftest ogent-ui-streaming-empty-chunks ()
+  "Test streaming with empty chunks interspersed."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-streaming-mock '("Hello" "" " " "world" "" "!")
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; Empty chunks should be handled gracefully
+           (should (search-forward "Hello world!" nil t))))))))
+
+(ert-deftest ogent-ui-streaming-unicode-chunks ()
+  "Test streaming with unicode characters split across chunks."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-streaming-mock '("Hello " "world " "from " "Emacs")
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           (should (search-forward "Hello world from Emacs" nil t))))))))
+
+(ert-deftest ogent-ui-streaming-large-response ()
+  "Test streaming with many small chunks."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           ;; Generate 100 small chunks
+           (chunks (make-list 100 "x")))
+       (ogent-test-with-streaming-mock chunks
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; Should have 100 x's concatenated
+           (should (search-forward (make-string 100 ?x) nil t))))))))
+
+(ert-deftest ogent-ui-streaming-error-mid-stream ()
+  "Test error occurring after partial response."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    (when-let ((callback (plist-get args :callback)))
+                      ;; First some content arrives
+                      (funcall callback "Partial response..." nil)
+                      ;; Then an error occurs
+                      (funcall callback nil '(:error "Connection reset")))
+                    'mock-request)))
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; Partial content should still be present
+           (should (search-forward "Partial response..." nil t))
+           ;; Error should be recorded
+           (should (>= (length ogent-ui--error-history) 1))))))))
+
+(ert-deftest ogent-ui-streaming-newlines-preserved ()
+  "Test that newlines in streamed content are preserved."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-streaming-mock '("Line 1\n" "Line 2\n" "Line 3")
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           (should (search-forward "Line 1\nLine 2\nLine 3" nil t))))))))
+
+(ert-deftest ogent-ui-streaming-code-block-content ()
+  "Test streaming content that includes org code blocks."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+       (ogent-test-with-streaming-mock
+           '("Here's code:\n" "#+begin_src elisp\n" "(message \"hi\")\n" "#+end_src")
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (save-excursion
+           (goto-char (point-min))
+           ;; The nested code block should be preserved
+           (should (search-forward "#+begin_src elisp" nil t))
+           (should (search-forward "(message \"hi\")" nil t))))))))
+
+;;; Error Injection Tests
+
+(ert-deftest ogent-ui-error-api-rate-limit ()
+  "Test handling of API rate limit error."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       (ogent-test-with-error-mock "Rate limit exceeded. Please retry after 60 seconds."
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         ;; Error should be recorded in history
+         (should (= 1 (length ogent-ui--error-history)))
+         (should (string-match-p "Rate limit"
+                                 (plist-get (car ogent-ui--error-history) :error))))))))
+
+(ert-deftest ogent-ui-error-invalid-api-key ()
+  "Test handling of invalid API key error."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       (ogent-test-with-error-mock "Invalid API key provided"
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (should (= 1 (length ogent-ui--error-history)))
+         (should (string-match-p "Invalid API key"
+                                 (plist-get (car ogent-ui--error-history) :error))))))))
+
+(ert-deftest ogent-ui-error-context-too-long ()
+  "Test handling of context length exceeded error."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       (ogent-test-with-error-mock "This model's maximum context length is 128000 tokens"
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (should (= 1 (length ogent-ui--error-history)))
+         (should (string-match-p "context length"
+                                 (plist-get (car ogent-ui--error-history) :error))))))))
+
+(ert-deftest ogent-ui-error-network-timeout ()
+  "Test handling of network timeout."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       (ogent-test-with-error-mock "Connection timed out"
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (should (= 1 (length ogent-ui--error-history))))))))
+
+(ert-deftest ogent-ui-error-malformed-response ()
+  "Test handling of malformed JSON response."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       (ogent-test-with-error-mock "JSON parse error: unexpected character at position 0"
+         (ogent-request "Test prompt" '("gpt-4o-mini"))
+         (should (= 1 (length ogent-ui--error-history))))))))
+
+(ert-deftest ogent-ui-multiple-errors-recorded ()
+  "Test that multiple errors are recorded in history."
+  (ogent-test-with-fixture "data/fixture.org"
+   (lambda ()
+     (goto-char (point-min))
+     (search-forward "Details Block")
+     (org-back-to-heading t)
+     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+           (ogent-ui--error-history nil))
+       ;; First error
+       (ogent-test-with-error-mock "Error 1"
+         (ogent-request "Test prompt 1" '("gpt-4o-mini")))
+       ;; Second error
+       (ogent-test-with-error-mock "Error 2"
+         (ogent-request "Test prompt 2" '("gpt-4o-mini")))
+       ;; Both should be recorded
+       (should (= 2 (length ogent-ui--error-history)))))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
