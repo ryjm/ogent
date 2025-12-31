@@ -15,7 +15,11 @@
   "Parse RESPONSE text for SEARCH/REPLACE blocks.
 SOURCE-BUFFER is the buffer containing the source code.
 Returns list of `ogent-edit' structs."
-  (let ((edits nil))
+  (let ((edits nil)
+        ;; Capture source-file before entering temp buffer
+        ;; to avoid calling buffer-file-name on potentially dead buffer
+        (source-file (when (and source-buffer (buffer-live-p source-buffer))
+                       (buffer-file-name source-buffer))))
     (ogent-edit--reset-counter)
     (with-temp-buffer
       (insert response)
@@ -43,7 +47,7 @@ Returns list of `ogent-edit' structs."
                    :old-text (ogent-edit--normalize-text old-text)
                    :new-text (ogent-edit--normalize-text new-text)
                    :source-buffer source-buffer
-                   :source-file (buffer-file-name source-buffer)
+                   :source-file source-file
                    :status 'pending
                    :timestamp (current-time))
                   edits))
