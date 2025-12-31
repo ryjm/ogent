@@ -30,6 +30,9 @@ as other (lower), matching smerge conventions."
         (start (ogent-edit-start-pos edit))
         (old-text (ogent-edit-old-text edit))
         (new-text (ogent-edit-new-text edit)))
+    (unless (buffer-live-p buf)
+      (user-error "Source buffer for edit %s is no longer available"
+                  (ogent-edit-id edit)))
     (with-current-buffer buf
       (save-excursion
         (goto-char start)
@@ -133,8 +136,12 @@ Each function receives the `ogent-edit' struct.")
   (when (bound-and-true-p smerge-mode)
     (save-excursion
       (goto-char (point-min))
-      (let ((count 0))
-        (while (ignore-errors (smerge-next) t)
+      (let ((count 0)
+            (prev-pos nil))
+        (while (let ((cur-pos (point)))
+                 (and (not (eq cur-pos prev-pos))
+                      (ignore-errors (smerge-next) t)
+                      (setq prev-pos cur-pos)))
           (cl-incf count))
         count))))
 
@@ -167,16 +174,24 @@ Each function receives the `ogent-edit' struct.")
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (ignore-errors (smerge-next) t)
-      (ogent-edit-accept-current))))
+    (let ((prev-pos nil))
+      (while (let ((cur-pos (point)))
+               (and (not (eq cur-pos prev-pos))
+                    (ignore-errors (smerge-next) t)
+                    (setq prev-pos cur-pos)))
+        (ogent-edit-accept-current)))))
 
 (defun ogent-edit-reject-all ()
   "Reject all AI-proposed changes in current buffer."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (while (ignore-errors (smerge-next) t)
-      (ogent-edit-reject-current))))
+    (let ((prev-pos nil))
+      (while (let ((cur-pos (point)))
+               (and (not (eq cur-pos prev-pos))
+                    (ignore-errors (smerge-next) t)
+                    (setq prev-pos cur-pos)))
+        (ogent-edit-reject-current)))))
 
 ;;; Marker Navigation
 
@@ -335,6 +350,8 @@ Returns a string in unified diff format."
     (user-error "No edit to accept"))
   (let ((edit ogent-edit-preview--current-edit)
         (source-buf ogent-edit-preview--source-buffer))
+    (unless (buffer-live-p source-buf)
+      (user-error "Source buffer is no longer available"))
     ;; Apply the edit as smerge conflict
     (with-current-buffer source-buf
       (ogent-edit-apply-as-smerge edit))
