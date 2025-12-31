@@ -11,6 +11,9 @@
 
 (require 'cl-lib)
 
+;; Declare evil functions to avoid byte-compile warnings
+(declare-function evil-define-key* "ext:evil-core")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -124,28 +127,31 @@ Requires evil-mode to be loaded. Uses leader key prefix."
   (when (and ogent-enable-evil-bindings
              (featurep 'evil))
     (require 'evil)
-    (dolist (entry ogent-action-registry)
-      (let* ((_name (car entry))
-             (props (cdr entry))
-             (key (plist-get props :key))
-             (cmd (plist-get props :command))
-             (visual-p (plist-get props :visual)))
-        ;; Normal state binding
-        (evil-define-key 'normal keymap
-          (kbd (concat ogent-evil-prefix " " key)) cmd)
-        ;; Visual state for region-based actions
-        (when visual-p
-          (evil-define-key 'visual keymap
-            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
+    ;; Use evil-define-key* (the function version) instead of the macro
+    ;; to avoid compile-time expansion issues
+    (when (fboundp 'evil-define-key*)
+      (dolist (entry ogent-action-registry)
+        (let* ((_name (car entry))
+               (props (cdr entry))
+               (key (plist-get props :key))
+               (cmd (plist-get props :command))
+               (visual-p (plist-get props :visual)))
+          ;; Normal state binding
+          (evil-define-key* 'normal keymap
+			    (kbd (concat ogent-evil-prefix " " key)) cmd)
+          ;; Visual state for region-based actions
+          (when visual-p
+            (evil-define-key* 'visual keymap
+			      (kbd (concat ogent-evil-prefix " " key)) cmd)))))))
 
 (defun ogent-setup-which-key ()
   "Set up which-key descriptions for ogent prefixes."
   (when (featurep 'which-key)
     (which-key-add-key-based-replacements
-      ogent-vanilla-prefix "ogent")
+     ogent-vanilla-prefix "ogent")
     (when (and ogent-enable-evil-bindings (featurep 'evil))
       (which-key-add-key-based-replacements
-        ogent-evil-prefix "ogent"))))
+       ogent-evil-prefix "ogent"))))
 
 (defun ogent-setup-all-bindings (keymap)
   "Set up all keybindings in KEYMAP.
