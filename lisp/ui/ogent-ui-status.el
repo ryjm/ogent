@@ -145,7 +145,8 @@ Returns a plist with :overlay, :animation-frame, :animation-timer."
   (when-let* ((marker (ogent-ui-request-marker request))
               (headline-pos (ogent-status--find-request-headline marker))
               (buffer (ogent-ui-request-buffer request)))
-    (with-current-buffer buffer
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
       (let ((ov (make-overlay headline-pos (1+ headline-pos) buffer t nil)))
         ;; Initialize with waiting icon
         (let ((icon (ogent-status--get-margin-icon 'waiting)))
@@ -154,7 +155,7 @@ Returns a plist with :overlay, :animation-frame, :animation-timer."
                                    (list '(margin left-margin)
                                          (propertize icon 'face 'warning)))))
         (overlay-put ov 'ogent-status-indicator t)
-        (list :overlay ov :animation-frame 0 :animation-timer nil)))))
+        (list :overlay ov :animation-frame 0 :animation-timer nil))))))
 
 (defun ogent-status--update-margin-overlay (overlay-info status)
   "Update OVERLAY-INFO to show STATUS.
@@ -215,21 +216,23 @@ REQUEST should be an `ogent-ui-request' struct."
   (ogent-status--start-timer)
   (force-mode-line-update)
   ;; Create margin indicator
-  (when (and request (ogent-ui-request-buffer request))
-    (with-current-buffer (ogent-ui-request-buffer request)
+  (when-let ((buf (and request (ogent-ui-request-buffer request))))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
       (unless ogent-status--margin-overlays
         (setq ogent-status--margin-overlays (make-hash-table :test 'equal)))
       (when-let* ((request-id (ogent-ui-request-id request))
                   (overlay-info (ogent-status--create-margin-overlay request)))
         (puthash request-id overlay-info ogent-status--margin-overlays)
         ;; Set initial status
-        (ogent-status--update-margin-overlay overlay-info 'wait)))))
+        (ogent-status--update-margin-overlay overlay-info 'wait))))))
 
 (defun ogent-status-update-indicator (request new-status)
   "Update margin indicator for REQUEST to show NEW-STATUS.
 NEW-STATUS should be one of: wait, type, done, error, aborted."
-  (when (and request (ogent-ui-request-buffer request))
-    (with-current-buffer (ogent-ui-request-buffer request)
+  (when-let ((buf (and request (ogent-ui-request-buffer request))))
+    (when (buffer-live-p buf)
+      (with-current-buffer buf
       (when ogent-status--margin-overlays
         (when-let* ((request-id (ogent-ui-request-id request))
                     (overlay-info (gethash request-id ogent-status--margin-overlays)))
@@ -241,7 +244,7 @@ NEW-STATUS should be one of: wait, type, done, error, aborted."
            ((memq new-status '(done error aborted))
             (ogent-status--stop-animation overlay-info)))
           ;; Update icon
-          (ogent-status--update-margin-overlay overlay-info new-status))))))
+          (ogent-status--update-margin-overlay overlay-info new-status)))))))
 
 (defun ogent-status-clear-request (&optional request)
   "Clear the active request and stop timer.

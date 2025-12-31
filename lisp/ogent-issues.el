@@ -729,11 +729,14 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Move to the next issue."
   (interactive)
   (if ogent-issues--magit-section-available
-      (progn
+      (let ((prev-pos nil))
         (magit-section-forward)
-        ;; Skip non-issue sections
-        (while (and (not (eobp))
-                    (not (ogent-issues--current-issue)))
+        ;; Skip non-issue sections, tracking position to prevent infinite loop
+        (while (let ((cur-pos (point)))
+                 (and (not (eobp))
+                      (not (eq cur-pos prev-pos))
+                      (not (ogent-issues--current-issue))
+                      (setq prev-pos cur-pos)))
           (magit-section-forward)))
     ;; Fallback: search for next issue property
     (let ((pos (next-single-property-change (point) 'ogent-issue)))
@@ -744,11 +747,14 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Move to the previous issue."
   (interactive)
   (if ogent-issues--magit-section-available
-      (progn
+      (let ((prev-pos nil))
         (magit-section-backward)
-        ;; Skip non-issue sections
-        (while (and (not (bobp))
-                    (not (ogent-issues--current-issue)))
+        ;; Skip non-issue sections, tracking position to prevent infinite loop
+        (while (let ((cur-pos (point)))
+                 (and (not (bobp))
+                      (not (eq cur-pos prev-pos))
+                      (not (ogent-issues--current-issue))
+                      (setq prev-pos cur-pos)))
           (magit-section-backward)))
     ;; Fallback: search for previous issue property
     (let ((pos (previous-single-property-change (point) 'ogent-issue)))
@@ -759,9 +765,14 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Move to the next ready (unblocked, actionable) issue."
   (interactive)
   (let ((start-pos (point))
-        (found nil))
+        (found nil)
+        (prev-pos nil))
     ;; Move forward until we find a ready issue or reach end
-    (while (and (not found) (not (eobp)))
+    (while (let ((cur-pos (point)))
+             (and (not found)
+                  (not (eobp))
+                  (not (eq cur-pos prev-pos))
+                  (setq prev-pos cur-pos)))
       (ogent-issues-next-issue)
       (when-let ((issue (ogent-issues--current-issue)))
         (when (ogent-issues--issue-ready-p issue)
@@ -770,7 +781,13 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (message "Ready: %s" (plist-get (ogent-issues--current-issue) :id))
       ;; Wrap around from beginning
       (goto-char (point-min))
-      (while (and (not found) (< (point) start-pos) (not (eobp)))
+      (setq prev-pos nil)
+      (while (let ((cur-pos (point)))
+               (and (not found)
+                    (< (point) start-pos)
+                    (not (eobp))
+                    (not (eq cur-pos prev-pos))
+                    (setq prev-pos cur-pos)))
         (ogent-issues-next-issue)
         (when-let ((issue (ogent-issues--current-issue)))
           (when (ogent-issues--issue-ready-p issue)
@@ -1235,8 +1252,13 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Restore cursor to last known position."
   (goto-char (point-min))
   (when ogent-issues--last-position
-    (let ((found nil))
-      (while (and (not found) (not (eobp)))
+    (let ((found nil)
+          (prev-pos nil))
+      (while (let ((cur-pos (point)))
+               (and (not found)
+                    (not (eobp))
+                    (not (eq cur-pos prev-pos))
+                    (setq prev-pos cur-pos)))
         (if (equal (ogent-issues--current-issue-id) ogent-issues--last-position)
             (setq found t)
           (ogent-issues-next-issue)))

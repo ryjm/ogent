@@ -163,9 +163,10 @@ Returns the process object, or nil if no project root found."
                                           (buffer-substring-no-properties
                                            (point-min)
                                            (min (point-max) (+ (point-min) 100)))))
-                       (message "ogent-bd: JSON parse error: %s" (error-message-string err))))))
+                        (message "ogent-bd: JSON parse error: %s" (error-message-string err))))))
                 ;; Clean up buffers
-                (kill-buffer (process-buffer process))
+                (when (buffer-live-p (process-buffer process))
+                  (kill-buffer (process-buffer process)))
                 (when (buffer-live-p stderr-buffer)
                   (kill-buffer stderr-buffer)))
               
