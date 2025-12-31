@@ -1646,43 +1646,51 @@ An issue is ready if it's open, not blocked, and has no blockers."
 ;; Use n/p for issue-to-issue navigation, gj/gk for section navigation.
 ;; This section must be at the end of the file, after all keymaps are defined.
 
+;; Declare evil functions to avoid byte-compile warnings
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
+
+(defun ogent-issues--setup-evil ()
+  "Set up evil keybindings for ogent-issues modes.
+Called after evil is loaded."
+  (when (fboundp 'evil-set-initial-state)
+    ;; Set initial state to normal for ogent-issues modes
+    (evil-set-initial-state 'ogent-issues-mode 'normal)
+    (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
+    
+    ;; Make our keymaps override evil's state maps for non-movement keys.
+    ;; j/k are intentionally NOT in the mode map so evil handles them.
+    (evil-make-overriding-map ogent-issues-mode-map 'all)
+    (evil-make-overriding-map ogent-issues-detail-mode-map 'all)
+    
+    ;; Add evil-specific navigation using define-key on evil's state maps
+    ;; This avoids the evil-define-key macro which causes load-order issues
+    (when (boundp 'evil-normal-state-local-map)
+      (add-hook 'ogent-issues-mode-hook
+                (lambda ()
+                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
+                  (evil-local-set-key 'normal "G" #'evil-goto-line)
+                  (evil-local-set-key 'normal "gr" #'ogent-issues-refresh)
+                  (evil-local-set-key 'normal "gR" #'ogent-issues-refresh-force)
+                  (evil-local-set-key 'normal "gj" #'ogent-issues-next-section)
+                  (evil-local-set-key 'normal "gk" #'ogent-issues-prev-section)
+                  (evil-local-set-key 'normal "ZZ" #'quit-window)
+                  (evil-local-set-key 'normal "ZQ" #'quit-window)))
+      (add-hook 'ogent-issues-detail-mode-hook
+                (lambda ()
+                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
+                  (evil-local-set-key 'normal "G" #'evil-goto-line)
+                  (evil-local-set-key 'normal "gr" #'ogent-issues-detail-refresh)
+                  (evil-local-set-key 'normal "ZZ" #'quit-window)
+                  (evil-local-set-key 'normal "ZQ" #'quit-window))))
+    
+    ;; Normalize keymaps when entering these modes
+    (add-hook 'ogent-issues-mode-hook #'evil-normalize-keymaps)
+    (add-hook 'ogent-issues-detail-mode-hook #'evil-normalize-keymaps)))
+
 (with-eval-after-load 'evil
-  ;; Set initial state to normal for ogent-issues modes
-  (evil-set-initial-state 'ogent-issues-mode 'normal)
-  (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
-  
-  ;; Make our keymaps override evil's state maps for non-movement keys.
-  ;; j/k are intentionally NOT in the mode map so evil handles them.
-  (evil-make-overriding-map ogent-issues-mode-map 'all)
-  (evil-make-overriding-map ogent-issues-detail-mode-map 'all)
-  
-  ;; Add evil-specific navigation that isn't in the base keymap
-  ;; These supplement rather than replace the mode bindings
-  (evil-define-key* 'normal ogent-issues-mode-map
-    ;; Vim-style go to top/bottom
-    "gg" #'evil-goto-first-line
-    "G" #'evil-goto-line
-    ;; Vim-style refresh (gr is more vim-like than g)
-    "gr" #'ogent-issues-refresh
-    "gR" #'ogent-issues-refresh-force
-    ;; Section navigation with g prefix
-    "gj" #'ogent-issues-next-section
-    "gk" #'ogent-issues-prev-section
-    ;; Vim quit
-    "ZZ" #'quit-window
-    "ZQ" #'quit-window)
-  
-  ;; Detail mode - just add vim navigation, let mode map handle the rest
-  (evil-define-key* 'normal ogent-issues-detail-mode-map
-    "gg" #'evil-goto-first-line
-    "G" #'evil-goto-line
-    "gr" #'ogent-issues-detail-refresh
-    "ZZ" #'quit-window
-    "ZQ" #'quit-window)
-  
-  ;; Normalize keymaps when entering these modes
-  (add-hook 'ogent-issues-mode-hook #'evil-normalize-keymaps)
-  (add-hook 'ogent-issues-detail-mode-hook #'evil-normalize-keymaps))
+  (ogent-issues--setup-evil))
 
 (provide 'ogent-issues)
 
