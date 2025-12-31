@@ -42,10 +42,11 @@ the project name is appended."
   :type 'string
   :group 'ogent-issues)
 
-(defcustom ogent-issues-per-project-buffers nil
+(defcustom ogent-issues-per-project-buffers t
   "When non-nil, create separate buffer for each project.
 Buffer names will be `*ogent-issues: <project>*'.
-When nil (default), use single shared buffer."
+When nil, use single shared buffer (not recommended).
+Default is t, matching magit's behavior of per-repo buffers."
   :type 'boolean
   :group 'ogent-issues)
 
@@ -70,6 +71,32 @@ Set to nil for ASCII-only terminals."
 
 (defcustom ogent-issues-show-counts t
   "Whether to show issue counts in section headings."
+  :type 'boolean
+  :group 'ogent-issues)
+
+(defcustom ogent-issues-display-buffer-action 'same-window
+  "How to display the issues buffer when calling `ogent-issues'.
+Options:
+  `same-window' - Take over current window (like `magit-status')
+  `other-window' - Display in another window (horizontal split)"
+  :type '(choice (const :tag "Same window (magit-style)" same-window)
+                 (const :tag "Other window" other-window))
+  :group 'ogent-issues)
+
+(defcustom ogent-issues-detail-display-action 'below
+  "How to display the issue detail buffer.
+Options:
+  `below' - Vertical split below issues buffer (like `magit-show-commit')
+  `other-window' - Display in another window"
+  :type '(choice (const :tag "Below (magit-style)" below)
+                 (const :tag "Other window" other-window))
+  :group 'ogent-issues)
+
+(defcustom ogent-issues-detail-auto-refresh t
+  "Whether to automatically refresh issue details in background.
+When non-nil, after rendering the detail view with cached data,
+a background fetch will update the view with fresh data (comments, etc.).
+Set to nil for fastest possible display with no background activity."
   :type 'boolean
   :group 'ogent-issues)
 
@@ -271,14 +298,14 @@ Used to detect project switches and clear stale state.")
 (eval-and-compile
   (when (bound-and-true-p ogent-issues--magit-section-available)
     (defclass ogent-issues-root-section (magit-section) ()
-      "Root section for ogent-issues buffer.")
+	      "Root section for ogent-issues buffer.")
 
     (defclass ogent-issues-status-section (magit-section) ()
-      "Section for a status group (open, in_progress, etc.).
+	      "Section for a status group (open, in_progress, etc.).
 The inherited `value' slot holds the status string.")
 
     (defclass ogent-issues-issue-section (magit-section) ()
-      "Section for a single issue.
+	      "Section for a single issue.
 The inherited `value' slot holds the issue plist.")))
 
 ;;; Keymap - Following magit conventions
@@ -418,23 +445,40 @@ Otherwise returns `ogent-issues-buffer-name'."
 
 ;;;###autoload
 (defun ogent-issues ()
-  "Open the ogent-issues buffer in a split window."
+  "Open the ogent-issues buffer for the current project.
+Like `magit-status', this always shows issues for the project containing
+the current buffer's file. By default, takes over the current window.
+Customize `ogent-issues-display-buffer-action' to change display behavior."
   (interactive)
-  (let* ((current-project (ogent-issues-bd-project-root))
-         (buf (get-buffer-create (ogent-issues--buffer-name))))
-    (with-current-buffer buf
-      (unless (eq major-mode 'ogent-issues-mode)
-        (ogent-issues-mode))
-      ;; Detect project change and clear stale state
-      (when (and ogent-issues--project-root
-                 (not (equal ogent-issues--project-root current-project)))
-        (setq ogent-issues--issues nil)
-        (let ((inhibit-read-only t))
-          (erase-buffer)
-          (insert "Loading issues...\n")))
-      (setq ogent-issues--project-root current-project)
-      (ogent-issues-refresh))
-    (switch-to-buffer-other-window buf)))
+  (let ((current-project (ogent-issues-bd-project-root)))
+    ;; Error if not in a beads project
+    (unless current-project
+      (user-error "Not in a beads project (no .beads directory found). Run `bd init' to initialize"))
+    ;; Bind default-directory to project root so buffer inherits it
+    ;; This ensures subsequent calls from the issues buffer detect the correct project
+    (let* ((default-directory current-project)
+           (buf (get-buffer-create (ogent-issues--buffer-name))))
+      (with-current-buffer buf
+        ;; Set default-directory in the buffer itself
+        (setq default-directory current-project)
+        (unless (eq major-mode 'ogent-issues-mode)
+          (ogent-issues-mode))
+        ;; Detect project change and clear stale state
+        (when (and ogent-issues--project-root
+                   (not (equal ogent-issues--project-root current-project)))
+          (setq ogent-issues--issues nil)
+          (let ((inhibit-read-only t))
+            (erase-buffer)
+            (insert "Loading issues...\n")))
+        (setq ogent-issues--project-root current-project)
+        (ogent-issues-refresh))
+      ;; Display based on customization (default to 'same-window if not set)
+      (pcase (if (boundp 'ogent-issues-display-buffer-action)
+                 ogent-issues-display-buffer-action
+               'same-window)
+        ('same-window (switch-to-buffer buf))
+        ('other-window (switch-to-buffer-other-window buf))
+        (_ (switch-to-buffer buf))))))
 
 ;;; Header Line
 
@@ -640,12 +684,12 @@ An issue is ready if it's open, not blocked, and has no blockers."
 (defun ogent-issues--insert-with-magit-section (issues)
   "Insert ISSUES using magit-section."
   (magit-insert-section (ogent-issues-root-section)
-    (ogent-issues--insert-header-section)
-    (insert "\n")
-    (let ((grouped (ogent-issues--group-by-status issues)))
-      (dolist (status '("in_progress" "open" "blocked" "closed"))
-        (when-let ((group (alist-get status grouped nil nil #'string=)))
-          (ogent-issues--insert-status-section status group))))))
+			(ogent-issues--insert-header-section)
+			(insert "\n")
+			(let ((grouped (ogent-issues--group-by-status issues)))
+			  (dolist (status '("in_progress" "open" "blocked" "closed"))
+			    (when-let ((group (alist-get status grouped nil nil #'string=)))
+			      (ogent-issues--insert-status-section status group))))))
 
 (defun ogent-issues--insert-plain (issues)
   "Insert ISSUES without magit-section (fallback)."
@@ -684,22 +728,22 @@ An issue is ready if it's open, not blocked, and has no blockers."
         (label (ogent-issues--status-label status))
         (count (length issues)))
     (magit-insert-section (ogent-issues-status-section status collapsed)
-      (magit-insert-heading
-        (concat
-         (propertize icon 'face (ogent-issues--status-face status))
-         " "
-         (propertize label 'face 'ogent-issues-section-heading)
-         (when ogent-issues-show-counts
-           (propertize (format " (%d)" count) 'face 'ogent-issues-dimmed))))
-      (dolist (issue issues)
-        (ogent-issues--insert-issue issue))
-      (insert "\n"))))
+			  (magit-insert-heading
+			   (concat
+			    (propertize icon 'face (ogent-issues--status-face status))
+			    " "
+			    (propertize label 'face 'ogent-issues-section-heading)
+			    (when ogent-issues-show-counts
+			      (propertize (format " (%d)" count) 'face 'ogent-issues-dimmed))))
+			  (dolist (issue issues)
+			    (ogent-issues--insert-issue issue))
+			  (insert "\n"))))
 
 (defun ogent-issues--insert-issue (issue)
   "Insert a single ISSUE as a section."
   (if ogent-issues--magit-section-available
       (magit-insert-section (ogent-issues-issue-section issue)
-        (insert (ogent-issues--format-issue-line issue) "\n"))
+			    (insert (ogent-issues--format-issue-line issue) "\n"))
     (insert (ogent-issues--format-issue-line issue) "\n")
     (put-text-property (line-beginning-position 0)
                        (line-end-position 0)
@@ -838,7 +882,13 @@ An issue is ready if it's open, not blocked, and has no blockers."
 ;;; Detail View
 
 (defvar ogent-issues-detail-buffer-name "*ogent-issue*"
-  "Name of the issue detail buffer.")
+  "Base name of the issue detail buffer.
+Actual buffer name includes project: `*ogent-issue: <project>*'.")
+
+(defun ogent-issues--detail-buffer-name ()
+  "Return the detail buffer name for the current project."
+  (let ((project (ogent-issues-bd-project-name)))
+    (format "*ogent-issue: %s*" (or project "unknown"))))
 
 (defvar ogent-issues-detail-mode-map
   (let ((map (make-sparse-keymap)))
@@ -865,24 +915,50 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "The issue being displayed in this detail buffer.")
 
 (defun ogent-issues--show-detail (issue)
-  "Show detailed view for ISSUE in a dedicated buffer."
-  (let ((id (plist-get issue :id)))
-    ;; Fetch full issue details
-    (ogent-issues-bd-get id
-                         (lambda (full-issue)
-                           (ogent-issues--render-detail full-issue))
-                         (lambda (err)
-                           ;; Fallback to cached data if fetch fails
-                           (message "Could not fetch details: %s (using cached)" err)
-                           (ogent-issues--render-detail issue)))))
+  "Show detailed view for ISSUE in a dedicated buffer.
+Renders immediately with available data for instant feedback.
+Optionally refreshes in background if
+`ogent-issues-detail-auto-refresh' is non-nil."
+  ;; Capture project root from current buffer (the issues buffer)
+  ;; so detail buffer and callbacks use the correct project
+  (let ((project-root (ogent-issues-bd-project-root))
+        (detail-buf-name (ogent-issues--detail-buffer-name)))
+    ;; Render immediately with the data we have (no waiting for bd show)
+    (ogent-issues--render-detail issue project-root detail-buf-name)
+    ;; Background refresh to get fresh data (comments, full description, etc.)
+    (when (and (boundp 'ogent-issues-detail-auto-refresh)
+               ogent-issues-detail-auto-refresh)
+      (let ((id (plist-get issue :id))
+            (buf (get-buffer detail-buf-name)))
+        ;; Run bd from the correct project directory
+        (let ((default-directory project-root))
+          (ogent-issues-bd-get id
+                               (lambda (fresh-issue)
+                                 (when (and (buffer-live-p buf)
+                                            fresh-issue
+                                            ;; Only re-render if still viewing same issue
+                                            (with-current-buffer buf
+                                              (equal (plist-get ogent-issues-detail--issue :id)
+                                                     (plist-get fresh-issue :id))))
+                                   (ogent-issues--render-detail fresh-issue project-root detail-buf-name)))
+                               nil))))))
 
-(defun ogent-issues--render-detail (issue)
-  "Render ISSUE in the detail buffer."
-  (let ((buf (get-buffer-create ogent-issues-detail-buffer-name)))
+(defun ogent-issues--render-detail (issue &optional project-root buffer-name)
+  "Render ISSUE in the detail buffer.
+PROJECT-ROOT is the beads project directory (for setting default-directory).
+BUFFER-NAME is the detail buffer name (defaults to project-specific name).
+By default, displays in a vertical split below the issues buffer,
+similar to how `magit-show-commit' displays commit details.
+Customize `ogent-issues-detail-display-action' to change this behavior."
+  (let* ((proj-root (or project-root (ogent-issues-bd-project-root)))
+         (buf-name (or buffer-name (ogent-issues--detail-buffer-name)))
+         (buf (get-buffer-create buf-name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
         (ogent-issues-detail-mode)
+        ;; Set default-directory so bd commands run in correct project
+        (setq default-directory proj-root)
         (setq ogent-issues-detail--issue issue)
         (ogent-issues--insert-detail-header issue)
         (ogent-issues--insert-detail-description issue)
@@ -904,12 +980,32 @@ An issue is ready if it's open, not blocked, and has no blockers."
                (propertize ":start " 'face 'ogent-issues-dimmed)
                (propertize "K" 'face 'ogent-issues-header-line-key)
                (propertize ":close" 'face 'ogent-issues-dimmed)))))
-    (pop-to-buffer buf)))
+    ;; Display based on customization (default to 'below if not set)
+    (pcase (if (boundp 'ogent-issues-detail-display-action)
+               ogent-issues-detail-display-action
+             'below)
+      ('below
+       ;; Vertical split below, like magit-show-commit
+       (let ((window (display-buffer buf
+                                     '((display-buffer-below-selected)
+                                       (window-height . 0.4)
+                                       (preserve-size . (nil . t))))))
+         (when window
+           (select-window window))))
+      ('other-window
+       (pop-to-buffer buf))
+      (_
+       ;; Default to below
+       (let ((window (display-buffer buf
+                                     '((display-buffer-below-selected)
+                                       (window-height . 0.4)
+                                       (preserve-size . (nil . t))))))
+         (when window
+           (select-window window)))))))
 
 (defun ogent-issues--insert-detail-header (issue)
   "Insert header section for ISSUE."
-  (let* ((id (plist-get issue :id))
-         (title (plist-get issue :title))
+  (let* ((title (plist-get issue :title))
          (status (plist-get issue :status))
          (priority (plist-get issue :priority))
          (type (plist-get issue :issue_type))
@@ -1117,6 +1213,13 @@ An issue is ready if it's open, not blocked, and has no blockers."
                  (split-string text "\n")
                  "\n"))))
 
+(defvar ogent-issues-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ogent-issues-detail-follow-link)
+    (define-key map [mouse-1] #'ogent-issues-detail-follow-link)
+    map)
+  "Keymap for issue links.")
+
 (defun ogent-issues--format-dep-link (id)
   "Format ID as a clickable link."
   (propertize id
@@ -1125,13 +1228,6 @@ An issue is ready if it's open, not blocked, and has no blockers."
               'help-echo (format "Visit issue %s" id)
               'ogent-issue-id id
               'keymap ogent-issues-link-map))
-
-(defvar ogent-issues-link-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "RET") #'ogent-issues-detail-follow-link)
-    (define-key map [mouse-1] #'ogent-issues-detail-follow-link)
-    map)
-  "Keymap for issue links.")
 
 ;;; Detail View Actions
 
@@ -1441,8 +1537,8 @@ An issue is ready if it's open, not blocked, and has no blockers."
                                        'face 'ogent-issues-dimmed))
                    (if ogent-issues--magit-section-available
                        (magit-insert-section (ogent-issues-root-section)
-                         (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
-                           (ogent-issues--insert-issue issue)))
+					     (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+					       (ogent-issues--insert-issue issue)))
                      (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
                        (insert (ogent-issues--format-issue-line issue) "\n"))))
                (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))
@@ -1629,10 +1725,10 @@ An issue is ready if it's open, not blocked, and has no blockers."
      (t
       ;; Use bd CLI to update status
       (ogent-issues-bd-update id
-        (lambda ()
-          (message "Moved %s to %s" id new-status)
-          (ogent-issues-refresh))
-        :status new-status)))))
+			      (lambda ()
+				(message "Moved %s to %s" id new-status)
+				(ogent-issues-refresh))
+			      :status new-status)))))
 
 (defun ogent-issues-view-deps ()
   "Switch to dependency graph view."
