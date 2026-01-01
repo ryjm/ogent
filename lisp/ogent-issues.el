@@ -26,6 +26,7 @@
 (declare-function ogent-issues-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
+(autoload 'ogent-issues-filter-dispatch "ogent-issues-transient" nil t)
 
 ;;; Customization
 
@@ -1416,12 +1417,7 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
   (setq ogent-issues--filters nil)
   (ogent-issues-refresh))
 
-(defun ogent-issues-filter-dispatch ()
-  "Open filter transient menu."
-  (interactive)
-  (if (fboundp 'ogent-issues-filter-dispatch)
-      (call-interactively 'ogent-issues-filter-dispatch)
-    (message "ff:filter fc:clear fs:status ft:type fp:priority")))
+;; ogent-issues-filter-dispatch is autoloaded from ogent-issues-transient.el
 
 ;;; Actions
 
