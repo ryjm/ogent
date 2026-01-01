@@ -99,18 +99,18 @@ Must be called with point at a heading."
           (end (save-excursion (org-end-of-subtree t) (point)))
           (notes-name ogent-notes-heading-name)
           found)
-      ;; Move to first child
-      (org-goto-first-child)
-      ;; Search through siblings at this level
-      (while (and (not found)
-                  (< (point) end))
-        (when (and (org-at-heading-p)
-                   (= (org-current-level) (1+ parent-level))
-                   (string= (org-get-heading t t t t) notes-name))
-          (setq found (point)))
-        (unless found
-          (unless (org-goto-sibling)
-            (goto-char end))))
+      ;; Move to first child - returns nil if no children exist
+      (when (org-goto-first-child)
+        ;; Search through siblings at this level
+        (while (and (not found)
+                    (< (point) end))
+          (when (and (org-at-heading-p)
+                     (= (org-current-level) (1+ parent-level))
+                     (string= (org-get-heading t t t t) notes-name))
+            (setq found (point)))
+          (unless found
+            (unless (org-goto-sibling)
+              (goto-char end)))))
       found)))
 
 (defun ogent-notes--create-notes-heading ()

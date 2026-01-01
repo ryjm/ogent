@@ -376,7 +376,7 @@ Supports:
 (defun ogent-codemap--extract-section (content section)
   "Extract SECTION from codemap CONTENT.
 SECTION should match a directory name (lisp, test, specs, docs)."
-  (let ((section-rx (format "^\\*\\* \\[\\[file:%s/.*" (regexp-quote section))))
+  (let ((section-rx (format "^\\*\\* \\[\\[file:%s/" (regexp-quote section))))
     (with-temp-buffer
       (insert content)
       (goto-char (point-min))
@@ -388,11 +388,18 @@ SECTION should match a directory name (lisp, test, specs, docs)."
           (setq start (point))
           ;; Find next top-level file heading from different section or end
           (forward-line 1)
-          (if (re-search-forward "^\\*\\* \\[\\[file:\\([^/]+\\)/" nil t)
-              (let ((next-dir (match-string 1)))
-                (unless (string= next-dir section)
-                  (beginning-of-line)
-                  (setq end (point))))
+          ;; Keep searching until we find a file from a different section
+          (while (and (not end)
+                      (re-search-forward "^\\*\\* \\[\\[file:\\([^/]+\\)/" nil t))
+            (let ((next-dir (match-string 1)))
+              (if (string= next-dir section)
+                  ;; Same section, continue searching
+                  (forward-line 1)
+                ;; Different section, mark end
+                (beginning-of-line)
+                (setq end (point)))))
+          ;; If we didn't find a different section, use end of buffer
+          (unless end
             (setq end (point-max))))
         (if (and start end)
             (buffer-substring-no-properties start end)
