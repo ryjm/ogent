@@ -283,8 +283,12 @@ If REPLACE-ALL is non-nil, replace all occurrences."
                              (regexp-quote old-string)
                              new-string
                              content t t))
-          (setq count (/ (- (length content) (length new-content))
-                         (- (length old-string) (length new-string)))))
+          ;; Count occurrences by counting matches in original content
+          (let ((pos 0)
+                (old-len (length old-string)))
+            (while (string-match (regexp-quote old-string) content pos)
+              (setq count (1+ count)
+                    pos (+ (match-beginning 0) old-len)))))
       ;; Single replacement
       (if (string-match (regexp-quote old-string) content)
           (setq new-content (replace-match new-string t t content)
@@ -298,73 +302,73 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
 (defvar ogent-tools-default-registry
   '((:name read-file
-     :function ogent-tool--read-file
-     :description "Read the contents of a file. Returns lines with line numbers."
-     :args ((:name "file_path" :type "string"
-             :description "Absolute path to the file to read")
-            (:name "offset" :type "integer" :optional t
-             :description "Line number to start from (1-indexed)")
-            (:name "limit" :type "integer" :optional t
-             :description "Maximum lines to read"))
-     :category "filesystem")
+	   :function ogent-tool--read-file
+	   :description "Read the contents of a file. Returns lines with line numbers."
+	   :args ((:name "file_path" :type "string"
+			 :description "Absolute path to the file to read")
+		  (:name "offset" :type "integer" :optional t
+			 :description "Line number to start from (1-indexed)")
+		  (:name "limit" :type "integer" :optional t
+			 :description "Maximum lines to read"))
+	   :category "filesystem")
 
     (:name glob
-     :function ogent-tool--glob
-     :description "Find files matching a glob pattern. Returns paths sorted by modification time."
-     :args ((:name "pattern" :type "string"
-             :description "Glob pattern like **/*.el or src/**/*.py")
-            (:name "path" :type "string" :optional t
-             :description "Directory to search in (default: project root)"))
-     :category "search")
+	   :function ogent-tool--glob
+	   :description "Find files matching a glob pattern. Returns paths sorted by modification time."
+	   :args ((:name "pattern" :type "string"
+			 :description "Glob pattern like **/*.el or src/**/*.py")
+		  (:name "path" :type "string" :optional t
+			 :description "Directory to search in (default: project root)"))
+	   :category "search")
 
     (:name grep
-     :function ogent-tool--grep
-     :description "Search file contents using regex pattern. Uses ripgrep if available."
-     :args ((:name "pattern" :type "string"
-             :description "Regular expression pattern to search for")
-            (:name "path" :type "string" :optional t
-             :description "File or directory to search")
-            (:name "glob_filter" :type "string" :optional t
-             :description "Limit search to files matching pattern (e.g., *.el)")
-            (:name "context_lines" :type "integer" :optional t
-             :description "Lines of context around matches"))
-     :category "search")
+	   :function ogent-tool--grep
+	   :description "Search file contents using regex pattern. Uses ripgrep if available."
+	   :args ((:name "pattern" :type "string"
+			 :description "Regular expression pattern to search for")
+		  (:name "path" :type "string" :optional t
+			 :description "File or directory to search")
+		  (:name "glob_filter" :type "string" :optional t
+			 :description "Limit search to files matching pattern (e.g., *.el)")
+		  (:name "context_lines" :type "integer" :optional t
+			 :description "Lines of context around matches"))
+	   :category "search")
 
     (:name bash
-     :function ogent-tool--bash
-     :description "Execute a shell command and return output."
-     :args ((:name "command" :type "string"
-             :description "Shell command to execute")
-            (:name "working_directory" :type "string" :optional t
-             :description "Directory to run command in")
-            (:name "timeout" :type "integer" :optional t
-             :description "Timeout in seconds"))
-     :category "shell"
-     :confirm t)
+	   :function ogent-tool--bash
+	   :description "Execute a shell command and return output."
+	   :args ((:name "command" :type "string"
+			 :description "Shell command to execute")
+		  (:name "working_directory" :type "string" :optional t
+			 :description "Directory to run command in")
+		  (:name "timeout" :type "integer" :optional t
+			 :description "Timeout in seconds"))
+	   :category "shell"
+	   :confirm t)
 
     (:name write-file
-     :function ogent-tool--write-file
-     :description "Write content to a file, creating it if it doesn't exist."
-     :args ((:name "file_path" :type "string"
-             :description "Absolute path to write to")
-            (:name "content" :type "string"
-             :description "Content to write"))
-     :category "filesystem"
-     :confirm t)
+	   :function ogent-tool--write-file
+	   :description "Write content to a file, creating it if it doesn't exist."
+	   :args ((:name "file_path" :type "string"
+			 :description "Absolute path to write to")
+		  (:name "content" :type "string"
+			 :description "Content to write"))
+	   :category "filesystem"
+	   :confirm t)
 
     (:name edit-file
-     :function ogent-tool--edit-file
-     :description "Replace a string in a file. The old_string must be unique."
-     :args ((:name "file_path" :type "string"
-             :description "Absolute path to the file")
-            (:name "old_string" :type "string"
-             :description "Exact string to replace (must be unique in file)")
-            (:name "new_string" :type "string"
-             :description "Replacement string")
-            (:name "replace_all" :type "boolean" :optional t
-             :description "If true, replace all occurrences"))
-     :category "filesystem"
-     :confirm t))
+	   :function ogent-tool--edit-file
+	   :description "Replace a string in a file. The old_string must be unique."
+	   :args ((:name "file_path" :type "string"
+			 :description "Absolute path to the file")
+		  (:name "old_string" :type "string"
+			 :description "Exact string to replace (must be unique in file)")
+		  (:name "new_string" :type "string"
+			 :description "Replacement string")
+		  (:name "replace_all" :type "boolean" :optional t
+			 :description "If true, replace all occurrences"))
+	   :category "filesystem"
+	   :confirm t))
   "Default tool definitions for ogent.
 These provide Claude Code-like functionality.")
 
