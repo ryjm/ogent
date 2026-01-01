@@ -247,11 +247,11 @@ and there's an active request."
 ;;; Provider/Model Selection Infix
 
 (defclass ogent-provider-variable (transient-lisp-variable)
-  ((model       :initarg :model)
-   (model-value :initarg :model-value)
-   (always-read :initform t)
-   (set-value   :initarg :set-value :initform #'set))
-  "Transient variable class for selecting gptel backend and model.")
+	  ((model       :initarg :model)
+	   (model-value :initarg :model-value)
+	   (always-read :initform t)
+	   (set-value   :initarg :set-value :initform #'set))
+	  "Transient variable class for selecting gptel backend and model.")
 
 (cl-defmethod transient-init-value ((obj ogent-provider-variable))
   "Initialize OBJ's value from gptel-backend."
@@ -297,14 +297,14 @@ PROMPT is the completion prompt."
       (user-error "No gptel backends configured. Run gptel-make-* first"))))
 
 (transient-define-infix ogent--infix-provider ()
-  "Select LLM provider and model."
-  :description "Model"
-  :class 'ogent-provider-variable
-  :variable 'gptel-backend
-  :model 'gptel-model
-  :set-value #'ogent--set-with-scope
-  :key "m"
-  :reader #'ogent--read-provider)
+			"Select LLM provider and model."
+			:description "Model"
+			:class 'ogent-provider-variable
+			:variable 'gptel-backend
+			:model 'gptel-model
+			:set-value #'ogent--set-with-scope
+			:key "m"
+			:reader #'ogent--read-provider)
 
 ;;; Inline Prompt Infix
 
@@ -324,15 +324,15 @@ PROMPT is the completion prompt."
   block-start response-pos)
 
 (transient-define-infix ogent--infix-prompt ()
-  "Enter a prompt to send."
-  :description "Prompt"
-  :class 'transient-lisp-variable
-  :variable 'ogent--transient-prompt
-  :key "p"
-  :prompt "Prompt: "
-  :reader (lambda (prompt _initial _history)
-            (let ((text (read-string prompt)))
-              (unless (string-empty-p text) text))))
+			"Enter a prompt to send."
+			:description "Prompt"
+			:class 'transient-lisp-variable
+			:variable 'ogent--transient-prompt
+			:key "p"
+			:prompt "Prompt: "
+			:reader (lambda (prompt _initial _history)
+				  (let ((text (read-string prompt)))
+				    (unless (string-empty-p text) text))))
 
 ;;; Tools Toggle Infix
 
@@ -368,15 +368,15 @@ Makes the variable buffer-local for session-level control."
            (if ogent-tools-enabled "enabled" "disabled")))
 
 (transient-define-infix ogent--infix-tools ()
-  "Toggle tool availability."
-  :description #'ogent--tools-description
-  :class 'transient-lisp-variable
-  :variable 'ogent-tools-enabled
-  :key "t"
-  :reader (lambda (_prompt _initial _history)
-            (ogent--toggle-tools)
-            ;; Return current value to satisfy the reader contract
-            ogent-tools-enabled))
+			"Toggle tool availability."
+			:description #'ogent--tools-description
+			:class 'transient-lisp-variable
+			:variable 'ogent-tools-enabled
+			:key "t"
+			:reader (lambda (_prompt _initial _history)
+				  (ogent--toggle-tools)
+				  ;; Return current value to satisfy the reader contract
+				  ogent-tools-enabled))
 
 ;;; Preset Selector Infix
 
@@ -401,12 +401,12 @@ Makes the variable buffer-local for session-level control."
       selection)))
 
 (transient-define-infix ogent--infix-preset ()
-  "Select gptel preset."
-  :description #'ogent--preset-description
-  :class 'transient-lisp-variable
-  :variable 'ogent-ui--selected-preset
-  :key "s"
-  :reader #'ogent--read-preset)
+			"Select gptel preset."
+			:description #'ogent--preset-description
+			:class 'transient-lisp-variable
+			:variable 'ogent-ui--selected-preset
+			:key "s"
+			:reader #'ogent--read-preset)
 
 ;;; Direct Send Suffix
 
@@ -445,20 +445,20 @@ Captures source buffer context and sends to companion without switching focus."
         (ogent-ui--send-request request)))))
 
 (transient-define-suffix ogent--suffix-send ()
-  "Send prompt to LLM."
-  :key "RET"
-  :description
-  (lambda ()
-    (concat "Send"
-            (cond
-             (ogent--transient-prompt
-              (format " \"%s\"" (truncate-string-to-width ogent--transient-prompt 20 nil nil "...")))
-             ((use-region-p) " (region)")
-             (t ""))))
-  (interactive)
-  (let ((prompt (ogent--get-effective-prompt)))
-    (setq ogent--transient-prompt nil)  ; Clear for next time
-    (ogent--send-with-current-model prompt)))
+			 "Send prompt to LLM."
+			 :key "RET"
+			 :description
+			 (lambda ()
+			   (concat "Send"
+				   (cond
+				    (ogent--transient-prompt
+				     (format " \"%s\"" (truncate-string-to-width ogent--transient-prompt 20 nil nil "...")))
+				    ((use-region-p) " (region)")
+				    (t ""))))
+			 (interactive)
+			 (let ((prompt (ogent--get-effective-prompt)))
+			   (setq ogent--transient-prompt nil)  ; Clear for next time
+			   (ogent--send-with-current-model prompt)))
 
 (defun ogent-ui--ensure-companion-context ()
   "Ensure we're in an Org buffer, creating a companion if needed.
@@ -875,83 +875,83 @@ Shows model, context info, and pinned count."
 
 ;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
-  "Prompt dispatcher for ogent requests.
+			 "Prompt dispatcher for ogent requests.
 Ergonomic interface following Casual Suite patterns."
-  [:description ogent--format-status-header
-   ;; Row 1: Primary action + Model configuration
-   ["Send"
-    (ogent--suffix-send)
-    ("?" "Quick ask..." ogent-ask)]
-   ["Model"
-    (ogent--infix-provider)
-    (ogent--infix-preset)]]
+			 [:description ogent--format-status-header
+				       ;; Row 1: Primary action + Model configuration
+				       ["Send"
+					(ogent--suffix-send)
+					("?" "Quick ask..." ogent-ask)]
+				       ["Model"
+					(ogent--infix-provider)
+					(ogent--infix-preset)]]
 
-  [;; Row 2: Prompt input + Context management
-   ["Prompt"
-    (ogent--infix-prompt)
-    (ogent--infix-tools)]
-   [:description ogent--format-context-group
-    ("c" "Preview..." ogent-context-preview-toggle :transient t)
-    ("m" "Codemap..." ogent-codemap-buffer)
-    (ogent--suffix-pin-dwim)
-    (ogent--suffix-unpin)
-    (ogent--suffix-list-pinned)]]
+			 [;; Row 2: Prompt input + Context management
+			  ["Prompt"
+			   (ogent--infix-prompt)
+			   (ogent--infix-tools)]
+			  [:description ogent--format-context-group
+					("c" "Preview..." ogent-context-preview-toggle :transient t)
+					("m" "Codemap..." ogent-codemap-buffer)
+					(ogent--suffix-pin-dwim)
+					(ogent--suffix-unpin)
+					(ogent--suffix-list-pinned)]]
 
-  [;; Row 3: Navigation + Session + Quit
-   ["Navigate"
-    ("e" "Edit menu >" ogent-edit-menu)
-    ("i" "Issues >" ogent-issues)]
-   ["Session"
-    ("S" "Save..." ogent-session-save)
-    ("L" "Load..." ogent-session-load)
-    ("H" "History..." ogent-session-list)]
-   [""
-    ("D" "Debug mode" ogent-debug-mode)
-    ("q" "Quit" transient-quit-one)]]
-  (interactive)
-  (ogent-ui--ensure-companion-context)
-  (transient-setup 'ogent-prompt-dispatch))
+			 [;; Row 3: Navigation + Session + Quit
+			  ["Navigate"
+			   ("e" "Edit menu >" ogent-edit-menu)
+			   ("i" "Issues >" ogent-issues)]
+			  ["Session"
+			   ("S" "Save..." ogent-session-save)
+			   ("L" "Load..." ogent-session-load)
+			   ("H" "History..." ogent-session-list)]
+			  [""
+			   ("D" "Debug mode" ogent-debug-mode)
+			   ("q" "Quit" transient-quit-one)]]
+			 (interactive)
+			 (ogent-ui--ensure-companion-context)
+			 (transient-setup 'ogent-prompt-dispatch))
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
-  "Pin current file/buffer/region to context."
-  :key "P"
-  :description
-  (lambda ()
-    (format "Pin %s"
-            (cond
-             ((use-region-p) "region")
-             ((buffer-file-name) "file")
-             (t "buffer"))))
-  :transient t
-  (interactive)
-  (ogent-pin-dwim))
+			 "Pin current file/buffer/region to context."
+			 :key "P"
+			 :description
+			 (lambda ()
+			   (format "Pin %s"
+				   (cond
+				    ((use-region-p) "region")
+				    ((buffer-file-name) "file")
+				    (t "buffer"))))
+			 :transient t
+			 (interactive)
+			 (ogent-pin-dwim))
 
 (transient-define-suffix ogent--suffix-unpin ()
-  "Unpin an item from context."
-  :key "U"
-  :description
-  (lambda ()
-    (let ((count (ogent-pinned-count)))
-      (if (zerop count)
-          (propertize "Unpin..." 'face 'transient-inactive-value)
-        "Unpin...")))
-  :transient t
-  (interactive)
-  (if (zerop (ogent-pinned-count))
-      (message "No pinned items")
-    (ogent-unpin-interactive)))
+			 "Unpin an item from context."
+			 :key "U"
+			 :description
+			 (lambda ()
+			   (let ((count (ogent-pinned-count)))
+			     (if (zerop count)
+				 (propertize "Unpin..." 'face 'transient-inactive-value)
+			       "Unpin...")))
+			 :transient t
+			 (interactive)
+			 (if (zerop (ogent-pinned-count))
+			     (message "No pinned items")
+			   (ogent-unpin-interactive)))
 
 (transient-define-suffix ogent--suffix-list-pinned ()
-  "List pinned context items."
-  :key "l"
-  :description
-  (lambda ()
-    (let ((count (ogent-pinned-count)))
-      (if (zerop count)
-          "List pinned"
-        (format "List pinned (%d)" count))))
-  (interactive)
-  (ogent-list-pinned))
+			 "List pinned context items."
+			 :key "l"
+			 :description
+			 (lambda ()
+			   (let ((count (ogent-pinned-count)))
+			     (if (zerop count)
+				 "List pinned"
+			       (format "List pinned (%d)" count))))
+			 (interactive)
+			 (ogent-list-pinned))
 
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
 
@@ -1444,21 +1444,21 @@ Results are displayed in the buffer."
             (pcase approval
               ('approved
                (cond
-               ;; Edit tools: show diff preview instead of executing
-               ((ogent-ui--is-edit-tool-p tool-name)
-                (condition-case err
-                    (ogent-ui--show-diff-for-tool tool-name tool-args)
-                  (error
-                   (ogent-ui--insert-tool-block
-                    tool-name tool-args
-                    (format "[Diff preview error: %s]" (error-message-string err))))))
-               ;; Async-capable tools: stream output incrementally
-               ((ogent-ui--async-tool-p tool-name)
-                (ogent-ui--execute-tool-async tool-name tool-args))
-               ;; All other tools: execute synchronously
-               (t
-                (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                  (ogent-ui--insert-tool-block tool-name tool-args result))))))
+		;; Edit tools: show diff preview instead of executing
+		((ogent-ui--is-edit-tool-p tool-name)
+                 (condition-case err
+                     (ogent-ui--show-diff-for-tool tool-name tool-args)
+                   (error
+                    (ogent-ui--insert-tool-block
+                     tool-name tool-args
+                     (format "[Diff preview error: %s]" (error-message-string err))))))
+		;; Async-capable tools: stream output incrementally
+		((ogent-ui--async-tool-p tool-name)
+                 (ogent-ui--execute-tool-async tool-name tool-args))
+		;; All other tools: execute synchronously
+		(t
+                 (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                   (ogent-ui--insert-tool-block tool-name tool-args result))))))
             ('denied
              (ogent-ui--insert-tool-block tool-name tool-args
                                           "[Tool execution denied by user]"))))))))
@@ -1627,7 +1627,7 @@ When model has :tools, enables gptel tool calling."
                (handle (if preset
                            (if (fboundp 'gptel-with-preset)
                                (gptel-with-preset (if (stringp preset) (intern preset) preset)
-                                 (funcall sender))
+						  (funcall sender))
                              (funcall sender))
                          (funcall sender))))
           (setf (ogent-ui-request-gptel-handle request) handle))
@@ -1914,9 +1914,9 @@ STATUS is `success', `error', or other status symbol."
               (insert (format "\nExit code: %s" exit-code)))
             ;; Update text properties
             (let ((end-pos (save-excursion
-                            (goto-char drawer-start)
-                            (when (re-search-forward "^:END:$" nil t)
-                              (line-end-position)))))
+                             (goto-char drawer-start)
+                             (when (re-search-forward "^:END:$" nil t)
+                               (line-end-position)))))
               (when end-pos
                 (put-text-property drawer-start end-pos
                                    'ogent-tool-status status)))))
@@ -2258,8 +2258,7 @@ Returns the diff-id if a diff was created, nil otherwise."
     (setq diff-text
           (pcase tool-name
             ("write-file"
-             (let ((content (or (plist-get tool-args :content)
-                                (plist-get tool-args :content))))
+             (let ((content (plist-get tool-args :content)))
                (ogent-ui--generate-diff file-path content)))
             ("edit-file"
              (let ((old-string (or (plist-get tool-args :old-string)

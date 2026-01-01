@@ -1164,7 +1164,9 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 
 (defun ogent-issues--format-time (iso-time)
   "Format ISO-TIME as human-readable string."
-  (if (and iso-time (not (string-empty-p iso-time)))
+  (if (and iso-time
+           (stringp iso-time)
+           (not (string-empty-p iso-time)))
       (condition-case nil
           (let ((time (parse-iso8601-time-string iso-time)))
             (format-time-string "%Y-%m-%d %H:%M" time))
