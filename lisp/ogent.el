@@ -49,7 +49,7 @@
 ;; Ensure the ui/ subdirectory is in load-path before requiring ogent-ui
 ;; This handles package managers that only add the main lisp/ directory
 (let ((ui-dir (expand-file-name "ui" (file-name-directory
-                                       (or load-file-name buffer-file-name)))))
+                                      (or load-file-name buffer-file-name)))))
   (unless (member ui-dir load-path)
     (add-to-list 'load-path ui-dir)))
 
@@ -59,6 +59,7 @@
 (require 'ogent-companion)
 (require 'ogent-core)
 (require 'ogent-codemap)
+(require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
 (require 'ogent-onboard)
 (require 'ogent-edit)

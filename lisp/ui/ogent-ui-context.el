@@ -9,6 +9,26 @@
 
 (require 'org)
 (require 'ogent-context)
+(require 'ogent-ui-theme)
+
+;;; Context Budget Configuration
+
+(defcustom ogent-ui-context-budget-default 100000
+  "Default context budget in characters.
+This is used when no model-specific limit is known.
+Most models support ~100k tokens which is roughly 400k chars."
+  :type 'integer
+  :group 'ogent-mode)
+
+(defcustom ogent-ui-context-budget-warning-threshold 70
+  "Percentage of budget at which to show warning color."
+  :type 'integer
+  :group 'ogent-mode)
+
+(defcustom ogent-ui-context-budget-danger-threshold 90
+  "Percentage of budget at which to show danger color."
+  :type 'integer
+  :group 'ogent-mode)
 
 ;;; Context Management Buffer
 
@@ -154,10 +174,50 @@ Returns a plist with :heading and :content."
            (heading (format "* Dependencies [%d chars]" total-chars)))
       (list :heading heading :content body :chars total-chars))))
 
+;;; Budget Visualization
+
+(defun ogent-ui-context--format-budget-bar (used budget)
+  "Format a visual budget bar showing USED of BUDGET chars.
+Returns a string with progress bar and percentage."
+  (let* ((percent (if (> budget 0)
+                      (min 100 (* 100.0 (/ (float used) budget)))
+                    0))
+         (face (ogent-theme-progress-face percent))
+         (bar (ogent-theme-progress-bar percent 20 face))
+         (tokens-used (ogent-ui-context--estimate-tokens (number-to-string used)))
+         (tokens-budget (ogent-ui-context--estimate-tokens (number-to-string budget))))
+    (concat
+     bar
+     " "
+     (propertize (format "%.0f%%" percent) 'face face)
+     "  "
+     (propertize (format "%dk" (/ used 1000)) 'face face)
+     (propertize "/" 'face 'ogent-theme-muted)
+     (propertize (format "%dk chars" (/ budget 1000)) 'face 'ogent-theme-muted)
+     "  "
+     (propertize (format "(~%dk tokens)" (/ tokens-used 1000)) 'face 'ogent-theme-muted))))
+
+(defun ogent-ui-context--format-section-bar (chars total-budget section-name)
+  "Format a mini progress bar for a section with CHARS.
+TOTAL-BUDGET is the overall context budget.
+SECTION-NAME is displayed before the bar."
+  (let* ((percent (if (> total-budget 0)
+                      (min 100 (* 100.0 (/ (float chars) total-budget)))
+                    0))
+         (face (if (> percent 30) 'ogent-theme-warning 'ogent-theme-muted))
+         (bar (ogent-theme-progress-bar percent 8 face)))
+    (concat
+     (propertize section-name 'face 'ogent-theme-muted)
+     " "
+     bar
+     " "
+     (propertize (format "%d" chars) 'face face))))
+
 ;;;###autoload
 (defun ogent-ui-context-format (context)
   "Format CONTEXT plist as interactive Org structure.
 Returns an Org-formatted string with:
+- Visual budget indicator with progress bar
 - Clickable file:line links to source locations
 - Collapsible sections (Root, Ancestors, Dependencies)
 - Character and token counts per section and total
@@ -180,35 +240,55 @@ CONTEXT is a plist with keys:
          (deps-section (ogent-ui-context--format-dependencies-section dependencies))
          
          ;; Calculate totals
-         (total-chars (+ (if source-section (plist-get source-section :chars) 0)
-                         (plist-get root-section :chars)
-                         (plist-get ancestors-section :chars)
-                         (plist-get deps-section :chars)))
-         (total-tokens (ogent-ui-context--estimate-tokens
-                        (number-to-string total-chars)))
+         (source-chars (if source-section (plist-get source-section :chars) 0))
+         (root-chars (plist-get root-section :chars))
+         (ancestors-chars (plist-get ancestors-section :chars))
+         (deps-chars (plist-get deps-section :chars))
+         (total-chars (+ source-chars root-chars ancestors-chars deps-chars))
+         (budget ogent-ui-context-budget-default)
+         
+         ;; Build header with budget visualization
+         (header (concat
+                  (propertize "Context Budget" 'face 'ogent-theme-section-heading)
+                  "\n"
+                  (ogent-ui-context--format-budget-bar total-chars budget)
+                  "\n\n"
+                  (propertize "Breakdown:" 'face 'ogent-theme-muted)
+                  "\n"
+                  (when source-section
+                    (concat "  " (ogent-ui-context--format-section-bar source-chars budget "Source") "\n"))
+                  "  " (ogent-ui-context--format-section-bar root-chars budget "Root") "\n"
+                  "  " (ogent-ui-context--format-section-bar ancestors-chars budget "Ancestors") "\n"
+                  "  " (ogent-ui-context--format-section-bar deps-chars budget "Dependencies") "\n"
+                  "\n"
+                  (ogent-theme-separator)
+                  "\n\n"))
          
          ;; Build output parts
-         (parts (list (format "#+title: Context Preview\nTotal: %d chars (~%d tokens)\n"
-                              total-chars total-tokens))))
+         (parts (list header)))
     
-    ;; Add sections
+    ;; Add sections with icons
     (when source-section
-      (push (format "%s\n%s\n"
+      (push (format "%s %s\n%s\n"
+                    (ogent-theme-icon 'file)
                     (plist-get source-section :heading)
                     (plist-get source-section :content))
             parts))
     
-    (push (format "%s\n%s\n"
+    (push (format "%s %s\n%s\n"
+                  (ogent-theme-icon 'context)
                   (plist-get root-section :heading)
                   (plist-get root-section :content))
           parts)
     
-    (push (format "%s\n%s\n"
+    (push (format "%s %s\n%s\n"
+                  (ogent-theme-icon 'link)
                   (plist-get ancestors-section :heading)
                   (plist-get ancestors-section :content))
           parts)
     
-    (push (format "%s\n%s\n"
+    (push (format "%s %s\n%s\n"
+                  (ogent-theme-icon 'search)
                   (plist-get deps-section :heading)
                   (plist-get deps-section :content))
           parts)
@@ -244,8 +324,13 @@ PREVIEW is a snippet of content."
         (ctx ogent-ui-context--context)
         (index 1))
     (erase-buffer)
-    (insert (propertize "Ogent Context Manager\n" 'face 'bold)
-            (propertize "======================\n\n" 'face 'bold))
+    ;; Header with icon
+    (insert (ogent-theme-icon 'context 'ogent-theme-primary)
+            " "
+            (propertize "Context Manager" 'face 'ogent-theme-section-heading)
+            "\n"
+            (ogent-theme-separator)
+            "\n\n")
     
     ;; Source context
     (when-let ((source (plist-get ctx :source-context)))
@@ -295,8 +380,14 @@ PREVIEW is a snippet of content."
         (cl-incf index)))
     
     (insert "\n")
-    (insert (propertize "Commands: " 'face 'bold)
-            "n/p: navigate  d: delete  a: add  RET: preview  q: quit\n")
+    ;; Help line with themed keybindings
+    (insert (ogent-theme-keys '("n" . "next")
+                              '("p" . "prev")
+                              '("d" . "delete")
+                              '("a" . "add")
+                              '("RET" . "preview")
+                              '("q" . "quit"))
+            "\n")
     (goto-char (point-min))
     ;; Move to first element
     (when (re-search-forward "^\\s-*1\\." nil t)
