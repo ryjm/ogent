@@ -208,7 +208,7 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
           ;; Set up process filter for streaming output
           (set-process-filter
            proc
-           (lambda (process output)
+           (lambda (_process output)
              (setq output-count (+ output-count (length output)))
              (when (< output-count ogent-tools-max-output-chars)
                (funcall callback 'chunk output))))

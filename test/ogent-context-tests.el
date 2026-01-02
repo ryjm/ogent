@@ -138,8 +138,7 @@
 			     (goto-char (point-min))
 			     (search-forward "Root Overview")
 			     (org-back-to-heading t)
-			     (let* ((call-count 0)
-				    (thunk (progn
+			     (let* ((thunk (progn
 					     ;; Create thunk - should not call ogent-context-build yet
 					     (ogent-context-build-lazy))))
 			       ;; Thunk should be a closure, not evaluated yet

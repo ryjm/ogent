@@ -9,6 +9,8 @@
 (require 'ogent-notes)
 (require 'org)
 
+(defvar ogent-mode-map)  ; Defined in ogent-core
+
 ;;; Response Tracking Tests
 
 (ert-deftest ogent-notes-track-response-stores-text ()
