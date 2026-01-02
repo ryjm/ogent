@@ -25,6 +25,7 @@
 
 (require 'cl-lib)
 (require 'org)
+(require 'ogent-ui-theme)
 
 ;; Forward declarations for request struct accessors
 (declare-function ogent-ui-request-model "ogent-ui")
@@ -35,8 +36,29 @@
 (declare-function ogent-ui-request-id "ogent-ui")
 (declare-function ogent-ui-request-marker "ogent-ui")
 
-;;; Status Icons
+;;; Status Icons - Now using ogent-ui-theme for consistency
 
+(defun ogent-status--get-icon (status)
+  "Get icon for STATUS using the theme system."
+  (pcase status
+    ('wait (ogent-theme-icon 'pending))
+    ('type (ogent-theme-icon 'running))
+    ('done (ogent-theme-icon 'done))
+    ('error (ogent-theme-icon 'error))
+    ('aborted (ogent-theme-icon 'blocked))
+    (_ "?")))
+
+(defun ogent-status--get-face (status)
+  "Get face for STATUS using the theme system."
+  (pcase status
+    ('wait 'ogent-theme-muted)
+    ('type 'ogent-theme-warning)
+    ('done 'ogent-theme-success)
+    ('error 'ogent-theme-error)
+    ('aborted 'ogent-theme-error)
+    (_ 'default)))
+
+;; Legacy alists kept for compatibility but prefer theme functions
 (defconst ogent-status--icons
   '((wait . "⏳")
     (type . "✍")
@@ -82,17 +104,30 @@ Returns a string like \"3.2s\"."
 
 (defun ogent-status--format-header-line ()
   "Format the header-line string for the current request.
-Shows model name, status icon, and elapsed time.
+Shows model name, status icon, and elapsed time with proper theming.
 Returns \"ogent: ready\" when no active request."
   (if ogent-status--current-request
       (let* ((model (ogent-ui-request-model ogent-status--current-request))
              (model-id (plist-get model :id))
              (status (ogent-ui-request-status ogent-status--current-request))
-             (icon (or (cdr (assoc status ogent-status--icons)) "?"))
+             (icon (ogent-status--get-icon status))
+             (face (ogent-status--get-face status))
              (start-time (ogent-ui-request-start-time ogent-status--current-request))
              (elapsed (ogent-status--format-elapsed start-time)))
-        (format "ogent: %s %s %s" model-id icon elapsed))
-    "ogent: ready"))
+        (concat
+         (propertize "ogent" 'face 'ogent-theme-primary)
+         (propertize ": " 'face 'ogent-theme-muted)
+         (propertize model-id 'face 'ogent-theme-secondary)
+         " "
+         (propertize icon 'face face)
+         " "
+         (propertize elapsed 'face 'ogent-theme-muted)))
+    (concat
+     (propertize "ogent" 'face 'ogent-theme-primary)
+     (propertize ": " 'face 'ogent-theme-muted)
+     (ogent-theme-icon 'success 'ogent-theme-success)
+     " "
+     (propertize "ready" 'face 'ogent-theme-success))))
 
 ;;; Timer Management
 
@@ -147,52 +182,50 @@ Returns a plist with :overlay, :animation-frame, :animation-timer."
               (buffer (ogent-ui-request-buffer request)))
     (when (buffer-live-p buffer)
       (with-current-buffer buffer
-      (let ((ov (make-overlay headline-pos (1+ headline-pos) buffer t nil)))
-        ;; Initialize with waiting icon
-        (let ((icon (ogent-status--get-margin-icon 'waiting)))
-          (overlay-put ov 'before-string
-                       (propertize " " 'display
-                                   (list '(margin left-margin)
-                                         (propertize icon 'face 'warning)))))
-        (overlay-put ov 'ogent-status-indicator t)
-        (list :overlay ov :animation-frame 0 :animation-timer nil))))))
+	(let ((ov (make-overlay headline-pos (1+ headline-pos) buffer t nil)))
+          ;; Initialize with waiting icon
+          (let ((icon (ogent-status--get-margin-icon 'waiting)))
+            (overlay-put ov 'before-string
+			 (propertize " " 'display
+                                     (list '(margin left-margin)
+                                           (propertize icon 'face 'warning)))))
+          (overlay-put ov 'ogent-status-indicator t)
+          (list :overlay ov :animation-frame 0 :animation-timer nil))))))
 
 (defun ogent-status--update-margin-overlay (overlay-info status)
   "Update OVERLAY-INFO to show STATUS.
-OVERLAY-INFO is a plist with :overlay, :animation-frame, :animation-timer."
+OVERLAY-INFO is a plist with :overlay, :animation-frame, :animation-timer.
+Uses theme faces for consistent styling."
   (when-let ((ov (plist-get overlay-info :overlay)))
     (when (overlay-buffer ov)
-      (let ((icon (ogent-status--get-margin-icon
-                   (pcase status
-                     ('wait 'waiting)
-                     ('type 'streaming)
-                     ('done 'done)
-                     ('error 'error)
-                     ('aborted 'error)
-                     (_ 'waiting))
-                   (plist-get overlay-info :animation-frame))))
+      (let* ((frame (plist-get overlay-info :animation-frame))
+             (icon (pcase status
+                     ('wait (ogent-theme-icon 'pending))
+                     ('type (ogent-theme-stream-icon (or frame 0)))
+                     ('done (ogent-theme-icon 'done))
+                     ('error (ogent-theme-icon 'error))
+                     ('aborted (ogent-theme-icon 'blocked))
+                     (_ (ogent-theme-icon 'pending))))
+             (face (ogent-status--get-face status)))
         (overlay-put ov 'before-string
                      (propertize " " 'display
                                  (list '(margin left-margin)
-                                       (propertize icon 'face
-                                                   (pcase status
-                                                     ('done 'success)
-                                                     ('error 'error)
-                                                     ('aborted 'error)
-                                                     (_ 'warning))))))))))
+                                       (propertize icon 'face face))))))))
 
 (defun ogent-status--start-animation (overlay-info)
-  "Start animation timer for OVERLAY-INFO (for streaming status)."
+  "Start animation timer for OVERLAY-INFO (for streaming status).
+Uses theme animation interval for consistent timing."
   ;; Stop existing timer if any
   (ogent-status--stop-animation overlay-info)
-  (let ((timer (run-at-time 0.25 0.25
-                            (lambda (info)
-                              (when-let ((ov (plist-get info :overlay)))
-                                (when (overlay-buffer ov)
-                                  (let ((frame (mod (1+ (plist-get info :animation-frame)) 4)))
-                                    (plist-put info :animation-frame frame)
-                                    (ogent-status--update-margin-overlay info 'type)))))
-                            overlay-info)))
+  (let* ((interval (or (ogent-theme-animation-interval) 0.25))
+         (timer (run-at-time interval interval
+                             (lambda (info)
+                               (when-let ((ov (plist-get info :overlay)))
+                                 (when (overlay-buffer ov)
+                                   (let ((frame (mod (1+ (or (plist-get info :animation-frame) 0)) 4)))
+                                     (plist-put info :animation-frame frame)
+                                     (ogent-status--update-margin-overlay info 'type)))))
+                             overlay-info)))
     (plist-put overlay-info :animation-timer timer)))
 
 (defun ogent-status--stop-animation (overlay-info)
@@ -219,13 +252,13 @@ REQUEST should be an `ogent-ui-request' struct."
   (when-let ((buf (and request (ogent-ui-request-buffer request))))
     (when (buffer-live-p buf)
       (with-current-buffer buf
-      (unless ogent-status--margin-overlays
-        (setq ogent-status--margin-overlays (make-hash-table :test 'equal)))
-      (when-let* ((request-id (ogent-ui-request-id request))
-                  (overlay-info (ogent-status--create-margin-overlay request)))
-        (puthash request-id overlay-info ogent-status--margin-overlays)
-        ;; Set initial status
-        (ogent-status--update-margin-overlay overlay-info 'wait))))))
+	(unless ogent-status--margin-overlays
+          (setq ogent-status--margin-overlays (make-hash-table :test 'equal)))
+	(when-let* ((request-id (ogent-ui-request-id request))
+                    (overlay-info (ogent-status--create-margin-overlay request)))
+          (puthash request-id overlay-info ogent-status--margin-overlays)
+          ;; Set initial status
+          (ogent-status--update-margin-overlay overlay-info 'wait))))))
 
 (defun ogent-status-update-indicator (request new-status)
   "Update margin indicator for REQUEST to show NEW-STATUS.
@@ -233,18 +266,18 @@ NEW-STATUS should be one of: wait, type, done, error, aborted."
   (when-let ((buf (and request (ogent-ui-request-buffer request))))
     (when (buffer-live-p buf)
       (with-current-buffer buf
-      (when ogent-status--margin-overlays
-        (when-let* ((request-id (ogent-ui-request-id request))
-                    (overlay-info (gethash request-id ogent-status--margin-overlays)))
-          (cond
-           ;; Start animation for streaming
-           ((eq new-status 'type)
-            (ogent-status--start-animation overlay-info))
-           ;; Stop animation for terminal states
-           ((memq new-status '(done error aborted))
-            (ogent-status--stop-animation overlay-info)))
-          ;; Update icon
-          (ogent-status--update-margin-overlay overlay-info new-status)))))))
+	(when ogent-status--margin-overlays
+          (when-let* ((request-id (ogent-ui-request-id request))
+                      (overlay-info (gethash request-id ogent-status--margin-overlays)))
+            (cond
+             ;; Start animation for streaming
+             ((eq new-status 'type)
+              (ogent-status--start-animation overlay-info))
+             ;; Stop animation for terminal states
+             ((memq new-status '(done error aborted))
+              (ogent-status--stop-animation overlay-info)))
+            ;; Update icon
+            (ogent-status--update-margin-overlay overlay-info new-status)))))))
 
 (defun ogent-status-clear-request (&optional request)
   "Clear the active request and stop timer.

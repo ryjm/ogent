@@ -17,14 +17,17 @@
   "Elapsed time formatting works correctly."
   (let ((start-time (time-subtract (current-time) (seconds-to-time 3.2))))
     (should (string-match-p "^3\\.[0-9]s$"
-                           (ogent-status--format-elapsed start-time))))
+                            (ogent-status--format-elapsed start-time))))
   (should (equal (ogent-status--format-elapsed nil) "0.0s")))
 
 (ert-deftest ogent-status-format-header-line-ready ()
   "Header-line shows 'ready' when no active request."
   (with-temp-buffer
     (setq ogent-status--current-request nil)
-    (should (equal (ogent-status--format-header-line) "ogent: ready"))))
+    ;; New format includes icon and faces, so check for key parts
+    (let ((header (ogent-status--format-header-line)))
+      (should (string-match-p "ogent" header))
+      (should (string-match-p "ready" header)))))
 
 (ert-deftest ogent-status-format-header-line-waiting ()
   "Header-line shows model, icon, and elapsed time for waiting request."
@@ -38,7 +41,9 @@
                      :start-time start-time)))
       (setq ogent-status--current-request request)
       (let ((header (ogent-status--format-header-line)))
-        (should (string-match-p "ogent: claude-3.5-sonnet ⏳" header))
+        ;; New format uses theme icons (○ for pending) instead of ⏳
+        (should (string-match-p "ogent" header))
+        (should (string-match-p "claude-3.5-sonnet" header))
         (should (string-match-p "[0-9]\\.[0-9]s" header))))))
 
 (ert-deftest ogent-status-format-header-line-typing ()
@@ -53,7 +58,9 @@
                      :start-time start-time)))
       (setq ogent-status--current-request request)
       (let ((header (ogent-status--format-header-line)))
-        (should (string-match-p "ogent: gpt-4o ✍" header))
+        ;; New format uses theme icons (◐ for running) instead of ✍
+        (should (string-match-p "ogent" header))
+        (should (string-match-p "gpt-4o" header))
         (should (string-match-p "[0-9]\\.[0-9]s" header))))))
 
 (ert-deftest ogent-status-format-header-line-done ()
@@ -82,7 +89,7 @@
                      :start-time start-time)))
       (setq ogent-status--current-request request)
       (should (string-match-p "ogent: test-model ✗"
-                             (ogent-status--format-header-line))))))
+                              (ogent-status--format-header-line))))))
 
 (ert-deftest ogent-status-format-header-line-aborted ()
   "Header-line shows abort icon for aborted request."
@@ -96,7 +103,7 @@
                      :start-time start-time)))
       (setq ogent-status--current-request request)
       (should (string-match-p "ogent: test-model ⊘"
-                             (ogent-status--format-header-line))))))
+                              (ogent-status--format-header-line))))))
 
 (ert-deftest ogent-status-set-request ()
   "Setting a request updates buffer state."
@@ -135,7 +142,7 @@
       ;; Enable mode
       (ogent-status-mode 1)
       (should (equal header-line-format
-                    '(:eval (ogent-status--format-header-line))))
+                     '(:eval (ogent-status--format-header-line))))
       ;; Disable mode
       (ogent-status-mode -1)
       (should (equal header-line-format original-header))

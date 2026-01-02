@@ -15,6 +15,7 @@
 (require 'ogent-models)
 (require 'ogent-companion)
 (require 'ogent-ui-status)
+(require 'ogent-ui-theme)
 
 ;; Forward declarations for source context
 (declare-function ogent-context-build-with-source "ogent-context")
@@ -444,21 +445,8 @@ Captures source buffer context and sends to companion without switching focus."
         (setf (ogent-ui-request-source-buffer request) source-buffer)
         (ogent-ui--send-request request)))))
 
-(transient-define-suffix ogent--suffix-send ()
-			 "Send prompt to LLM."
-			 :key "RET"
-			 :description
-			 (lambda ()
-			   (concat "Send"
-				   (cond
-				    (ogent--transient-prompt
-				     (format " \"%s\"" (truncate-string-to-width ogent--transient-prompt 20 nil nil "...")))
-				    ((use-region-p) " (region)")
-				    (t ""))))
-			 (interactive)
-			 (let ((prompt (ogent--get-effective-prompt)))
-			   (setq ogent--transient-prompt nil)  ; Clear for next time
-			   (ogent--send-with-current-model prompt)))
+;; Note: ogent--suffix-send replaced by ogent--suffix-send-action
+;; which includes visual feedback via ogent-theme-flash
 
 (defun ogent-ui--ensure-companion-context ()
   "Ensure we're in an Org buffer, creating a companion if needed.
@@ -842,89 +830,196 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
   "Format the current model for display in transient header."
   (if (and (boundp 'gptel-backend) gptel-backend
            (boundp 'gptel-model) gptel-model)
-      (format "Model: %s:%s"
-              (if (fboundp 'gptel-backend-name)
-                  (gptel-backend-name gptel-backend)
-                "backend")
-              (if (fboundp 'gptel--model-name)
-                  (gptel--model-name gptel-model)
-                gptel-model))
-    "Model: not configured"))
+      (concat (ogent-theme-icon 'model 'ogent-theme-primary)
+              " "
+              (propertize
+               (format "%s:%s"
+                       (if (fboundp 'gptel-backend-name)
+                           (gptel-backend-name gptel-backend)
+                         "backend")
+                       (if (fboundp 'gptel--model-name)
+                           (gptel--model-name gptel-model)
+                         gptel-model))
+               'face 'ogent-theme-primary))
+    (concat (ogent-theme-icon 'warning 'ogent-theme-muted)
+            " "
+            (propertize "not configured" 'face 'ogent-theme-muted))))
 
 (defun ogent--format-status-header ()
   "Format a comprehensive status line for the dispatcher header.
-Shows model, context info, and pinned count."
+Shows model, context info, and pinned count with icons."
   (let* ((model-str (ogent--format-model-header))
          (pinned (ogent-pinned-count))
          (pinned-str (if (> pinned 0)
-                         (propertize (format " | %d pinned" pinned)
-                                     'face 'font-lock-constant-face)
+                         (concat "  "
+                                 (ogent-theme-icon 'pin 'ogent-theme-highlight)
+                                 " "
+                                 (propertize (format "%d" pinned)
+                                             'face 'ogent-theme-highlight))
                        ""))
          (preset-str (if ogent-ui--selected-preset
-                         (propertize (format " | @%s" ogent-ui--selected-preset)
-                                     'face 'font-lock-function-name-face)
+                         (concat "  "
+                                 (ogent-theme-icon 'settings 'ogent-theme-secondary)
+                                 " "
+                                 (propertize ogent-ui--selected-preset
+                                             'face 'ogent-theme-secondary))
+                       ""))
+         ;; Show active request count if any
+         (active-count (hash-table-count ogent-ui--request-table))
+         (active-str (if (> active-count 0)
+                         (concat "  "
+                                 (ogent-theme-icon 'running 'ogent-theme-warning)
+                                 " "
+                                 (propertize (format "%d active" active-count)
+                                             'face 'ogent-theme-warning))
                        "")))
-    (concat model-str pinned-str preset-str)))
+    (concat model-str pinned-str preset-str active-str)))
 
 (defun ogent--format-context-group ()
-  "Format the Context group header with pinned count."
+  "Format the Context group header with pinned count and icon."
   (let ((count (ogent-pinned-count)))
-    (if (> count 0)
-        (format "Context (%d pinned)" count)
-      "Context")))
+    (concat (ogent-theme-icon 'context)
+            " Context"
+            (when (> count 0)
+              (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
+
+;;; Enhanced Transient Menu Descriptions with Icons
+
+(defun ogent--desc-send ()
+  "Dynamic description for send action with icon."
+  (concat (ogent-theme-icon 'send 'ogent-theme-success)
+          " "
+          (cond
+           (ogent--transient-prompt
+            (propertize
+             (format "Send \"%s\""
+                     (truncate-string-to-width ogent--transient-prompt 20 nil nil "..."))
+             'face 'ogent-theme-success))
+           ((use-region-p)
+            (propertize "Send region" 'face 'ogent-theme-success))
+           (t (propertize "Send" 'face 'ogent-theme-success)))))
+
+(defun ogent--desc-quick-ask ()
+  "Description for quick ask with icon."
+  (concat (ogent-theme-icon 'help) " Quick ask..."))
+
+(defun ogent--desc-preview ()
+  "Description for context preview with icon."
+  (concat (ogent-theme-icon 'search) " Preview..."))
+
+(defun ogent--desc-codemap ()
+  "Description for codemap with icon."
+  (concat (ogent-theme-icon 'code) " Codemap..."))
+
+(defun ogent--desc-edit-menu ()
+  "Description for edit menu with icon."
+  (concat (ogent-theme-icon 'edit) " Edit menu"))
+
+(defun ogent--desc-issues ()
+  "Description for issues with icon."
+  (concat (ogent-theme-icon 'issue) " Issues"))
+
+(defun ogent--desc-save ()
+  "Description for save with icon."
+  (concat (ogent-theme-icon 'save) " Save..."))
+
+(defun ogent--desc-load ()
+  "Description for load with icon."
+  (concat (ogent-theme-icon 'folder) " Load..."))
+
+(defun ogent--desc-history ()
+  "Description for history with icon."
+  (concat (ogent-theme-icon 'session) " History..."))
+
+(defun ogent--desc-debug ()
+  "Description for debug mode with icon."
+  (concat (ogent-theme-icon 'terminal) " Debug mode"))
+
+(defun ogent--desc-quit ()
+  "Description for quit with icon."
+  (concat (ogent-theme-icon 'cancel 'ogent-theme-muted) " Quit"))
 
 ;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
 			 "Prompt dispatcher for ogent requests.
-Ergonomic interface following Casual Suite patterns."
+
+A polished interface for AI-assisted workflows.
+
+                    ╭─────────────────────────────╮
+                    │      OGENT DISPATCHER       │
+                    ╰─────────────────────────────╯"
 			 [:description ogent--format-status-header
+				       :class transient-row
 				       ;; Row 1: Primary action + Model configuration
-				       ["Send"
-					(ogent--suffix-send)
-					("?" "Quick ask..." ogent-ask)]
-				       ["Model"
+				       [:description
+					(lambda () (concat (ogent-theme-icon 'send) " Send"))
+					:class transient-column
+					("RET" ogent--desc-send ogent--suffix-send-action)
+					("?" ogent--desc-quick-ask ogent-ask)]
+				       [:description
+					(lambda () (concat (ogent-theme-icon 'model) " Model"))
+					:class transient-column
 					(ogent--infix-provider)
 					(ogent--infix-preset)]]
 
 			 [;; Row 2: Prompt input + Context management
-			  ["Prompt"
+			  [:description
+			   (lambda () (concat (ogent-theme-icon 'edit) " Prompt"))
+			   :class transient-column
 			   (ogent--infix-prompt)
 			   (ogent--infix-tools)]
 			  [:description ogent--format-context-group
-					("c" "Preview..." ogent-context-preview-toggle :transient t)
-					("m" "Codemap..." ogent-codemap-buffer)
+					:class transient-column
+					("c" ogent--desc-preview ogent-context-preview-toggle :transient t)
+					("m" ogent--desc-codemap ogent-codemap-buffer)
 					(ogent--suffix-pin-dwim)
 					(ogent--suffix-unpin)
 					(ogent--suffix-list-pinned)]]
 
 			 [;; Row 3: Navigation + Session + Quit
-			  ["Navigate"
-			   ("e" "Edit menu >" ogent-edit-menu)
-			   ("i" "Issues >" ogent-issues)]
-			  ["Session"
-			   ("S" "Save..." ogent-session-save)
-			   ("L" "Load..." ogent-session-load)
-			   ("H" "History..." ogent-session-list)]
-			  [""
-			   ("D" "Debug mode" ogent-debug-mode)
-			   ("q" "Quit" transient-quit-one)]]
+			  [:description
+			   (lambda () (concat (ogent-theme-icon 'link) " Navigate"))
+			   :class transient-column
+			   ("e" ogent--desc-edit-menu ogent-edit-menu)
+			   ("i" ogent--desc-issues ogent-issues)]
+			  [:description
+			   (lambda () (concat (ogent-theme-icon 'session) " Session"))
+			   :class transient-column
+			   ("S" ogent--desc-save ogent-session-save)
+			   ("L" ogent--desc-load ogent-session-load)
+			   ("H" ogent--desc-history ogent-session-list)]
+			  [:description ""
+					:class transient-column
+					("D" ogent--desc-debug ogent-debug-mode)
+					("q" ogent--desc-quit transient-quit-one)]]
 			 (interactive)
 			 (ogent-ui--ensure-companion-context)
 			 (transient-setup 'ogent-prompt-dispatch))
+
+(defun ogent--suffix-send-action ()
+  "Send prompt to LLM with visual feedback."
+  (interactive)
+  (let ((prompt (ogent--get-effective-prompt)))
+    (setq ogent--transient-prompt nil)
+    ;; Flash success on send
+    (ogent-theme-flash 'info "Sending request...")
+    (ogent--send-with-current-model prompt)))
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
 			 "Pin current file/buffer/region to context."
 			 :key "P"
 			 :description
 			 (lambda ()
-			   (format "Pin %s"
+			   (concat (ogent-theme-icon 'pin 'ogent-theme-highlight)
+				   " Pin "
 				   (cond
 				    ((use-region-p) "region")
 				    ((buffer-file-name) "file")
 				    (t "buffer"))))
 			 :transient t
 			 (interactive)
-			 (ogent-pin-dwim))
+			 (ogent-pin-dwim)
+			 (ogent-theme-flash 'success "Pinned to context"))
 
 (transient-define-suffix ogent--suffix-unpin ()
 			 "Unpin an item from context."
@@ -933,13 +1028,17 @@ Ergonomic interface following Casual Suite patterns."
 			 (lambda ()
 			   (let ((count (ogent-pinned-count)))
 			     (if (zerop count)
-				 (propertize "Unpin..." 'face 'transient-inactive-value)
-			       "Unpin...")))
+				 (concat (ogent-theme-icon 'unpin 'ogent-theme-muted)
+					 " "
+					 (propertize "Unpin..." 'face 'ogent-theme-muted))
+			       (concat (ogent-theme-icon 'unpin)
+				       " Unpin..."))))
 			 :transient t
 			 (interactive)
 			 (if (zerop (ogent-pinned-count))
-			     (message "No pinned items")
-			   (ogent-unpin-interactive)))
+			     (message "%s No pinned items" (ogent-theme-icon 'warning))
+			   (ogent-unpin-interactive)
+			   (ogent-theme-flash 'info "Unpinned from context")))
 
 (transient-define-suffix ogent--suffix-list-pinned ()
 			 "List pinned context items."
@@ -947,9 +1046,10 @@ Ergonomic interface following Casual Suite patterns."
 			 :description
 			 (lambda ()
 			   (let ((count (ogent-pinned-count)))
-			     (if (zerop count)
-				 "List pinned"
-			       (format "List pinned (%d)" count))))
+			     (concat (ogent-theme-icon 'context)
+				     " List"
+				     (when (> count 0)
+				       (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
 			 (interactive)
 			 (ogent-list-pinned))
 
@@ -1229,13 +1329,22 @@ heading (see `ogent-shift-response-headings')."
 
 (defun ogent-ui--close-response (request &optional error-message)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
-The src block is already closed; this just updates status and folds."
+The src block is already closed; this just updates status and folds.
+Provides visual feedback via mode-line flash."
   (when error-message
     (ogent-ui--insert-error-block request error-message)
-    (ogent-ui--update-status request 'error))
+    (ogent-ui--update-status request 'error)
+    ;; Flash error
+    (ogent-theme-flash 'error (format "Request failed: %s"
+                                      (truncate-string-to-width error-message 50 nil nil "..."))))
   (unless (ogent-ui-request-closed request)
     (unless error-message
-      (ogent-ui--update-status request 'done))
+      (ogent-ui--update-status request 'done)
+      ;; Flash success with latency info
+      (let ((latency (ogent-ui--format-latency request)))
+        (ogent-theme-flash 'success
+                           (format "Response complete%s"
+                                   (if latency (format " (%s)" latency) "")))))
     ;; Fold the prompt/context src block
     (ogent-ui--fold-prompt-block request)
     (setf (ogent-ui-request-closed request) t)
