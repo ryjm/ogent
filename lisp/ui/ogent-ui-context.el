@@ -174,7 +174,7 @@ CONTEXT is a plist with keys:
          
          ;; Build sections
          (source-section (when source-ctx
-                          (ogent-ui-context--format-source-section source-ctx)))
+                           (ogent-ui-context--format-source-section source-ctx)))
          (root-section (ogent-ui-context--format-root-section root))
          (ancestors-section (ogent-ui-context--format-ancestors-section ancestors))
          (deps-section (ogent-ui-context--format-dependencies-section dependencies))
@@ -421,7 +421,7 @@ PREVIEW is a snippet of content."
             (when (and (buffer-live-p buf) pos)
               (pop-to-buffer buf t)
               (goto-char pos)
-              (org-show-context)))))
+              (org-fold-show-context)))))
        
        ((eq type 'ancestor)
         (when-let ((ancestor (nth index (plist-get ogent-ui-context--context :ancestors))))
@@ -430,7 +430,7 @@ PREVIEW is a snippet of content."
             (when (and (buffer-live-p buf) pos)
               (pop-to-buffer buf t)
               (goto-char pos)
-              (org-show-context)))))
+              (org-fold-show-context)))))
        
        ((eq type 'dependency)
         (let ((deps (plist-get ogent-ui-context--context :dependencies))
@@ -447,7 +447,7 @@ PREVIEW is a snippet of content."
                     (when (and (buffer-live-p buf) pos)
                       (pop-to-buffer buf t)
                       (goto-char pos)
-                      (org-show-context)))
+                      (org-fold-show-context)))
                 (message "Dependency not resolved"))))))))))
 
 ;;;###autoload

@@ -119,9 +119,9 @@
           (with-current-buffer source-buf
             (org-mode)
             (insert "* Test\n@target appears here.\n"))
-          (let ((refs (ogent-backlinks--find-in-buffer "target" source-buf))
+          (let ((_refs (ogent-backlinks--find-in-buffer "target" source-buf))
                 (backlinks (list (cons source-buf
-                                      (ogent-backlinks--find-in-buffer "target" source-buf)))))
+                                       (ogent-backlinks--find-in-buffer "target" source-buf)))))
             (with-temp-buffer
               (ogent-backlinks--format-buffer "target" backlinks)
               (goto-char (point-min))

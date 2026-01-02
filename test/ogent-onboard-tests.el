@@ -55,7 +55,7 @@
 
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
-  (let ((provider (car ogent-onboard-providers)))  ; Anthropic
+  (let ((_provider (car ogent-onboard-providers)))  ; Anthropic
     (ogent-test-with-input "claude-sonnet-4-5 RET"
 			   (let ((model (ogent-onboard--select-model provider)))
 			     (should model)

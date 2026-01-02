@@ -157,7 +157,7 @@
   "Test callback wrapper integration."
   (let ((original-called nil)
         (text-received nil)
-        (info-received nil))
+        (_info-received nil))
     (let ((wrapped (ogent-tool-fsm-callback-wrapper
                     (lambda (text info)
                       (setq original-called t

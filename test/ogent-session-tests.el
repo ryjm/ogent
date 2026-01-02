@@ -45,9 +45,9 @@
 (ert-deftest ogent-persist-formats-metadata-header ()
   "Metadata header is properly formatted as Org keywords."
   (let* ((metadata '(:id "session-001"
-                     :models ("gpt-4" "claude-3")
-                     :start-time (25000 0 0 0)
-                     :title "My Session"))
+			 :models ("gpt-4" "claude-3")
+			 :start-time (25000 0 0 0)
+			 :title "My Session"))
          (header (ogent-persist--format-metadata-header metadata)))
     (should (string-match-p "^#\\+title: My Session$" header))
     (should (string-match-p "^#\\+OGENT-SESSION-ID: session-001$" header))
@@ -151,8 +151,8 @@
     (unwind-protect
         (with-current-buffer buffer
           (let ((metadata '(:id "apply-001"
-                           :models ("gpt-4")
-                           :start-time (25000 0 0 0))))
+				:models ("gpt-4")
+				:start-time (25000 0 0 0))))
             (ogent-persist--apply-metadata metadata)
             
             (should (equal ogent-persist--id "apply-001"))
@@ -258,7 +258,7 @@
   "Re-saving a session preserves its original ID."
   (let* ((ogent-session-directory (make-temp-file "ogent-test-resave-" t))
          (buffer (get-buffer-create "*test-resave*"))
-         file1 file2)
+         _file1 file2)
     (unwind-protect
         (progn
           (with-current-buffer buffer

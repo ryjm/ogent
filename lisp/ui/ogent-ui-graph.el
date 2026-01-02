@@ -30,9 +30,10 @@ Uses ogent-context caching for performance."
   ;; Delegate to ogent-context which has caching
   (ogent-context--collect-handles-from-buffer buffer))
 
-(defun ogent-graph--find-references-in-node (node buffer)
+(defun ogent-graph--find-references-in-node (node _buffer)
   "Find all @handle references in NODE from BUFFER.
-Returns a list of handle strings (without @)."
+Returns a list of handle strings (without @).
+BUFFER argument is unused but kept for API consistency."
   (when node
     (let ((content (ogent-context-node-content node)))
       (ogent-context--collect-handles content))))
@@ -131,9 +132,9 @@ SOURCE-BUFFER is the buffer to link back to."
     (unless is-cycle
       (dolist (ref references)
         (ogent-graph--insert-tree-node ref adjacency-list cycles
-                                        (1+ depth) max-depth
-                                        (cons handle visited-this-path)
-                                        source-buffer)))))
+                                       (1+ depth) max-depth
+                                       (cons handle visited-this-path)
+                                       source-buffer)))))
 
 (defun ogent-graph--goto-handle (handle source-buffer)
   "Jump to HANDLE definition in SOURCE-BUFFER.
@@ -146,7 +147,7 @@ Handles the case where buffer is killed or node no longer exists."
           (if (and pos (>= pos (point-min)) (<= pos (point-max)))
               (progn
                 (goto-char pos)
-                (org-show-context)
+                (org-fold-show-context)
                 (recenter))
             (message "Handle @%s position is invalid" handle)))
       (message "Handle @%s not found" handle))))
@@ -175,8 +176,8 @@ Returns the formatted string."
             (insert "** Roots (not referenced by others)\n")
             (dolist (root roots)
               (ogent-graph--insert-tree-node root adjacency-list cycles
-                                              2 ogent-graph-max-depth
-                                              nil source-buffer))
+                                             2 ogent-graph-max-depth
+                                             nil source-buffer))
             (insert "\n"))
         (insert "** No root nodes (all handles are referenced)\n\n")))
     
