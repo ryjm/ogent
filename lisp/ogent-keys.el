@@ -14,6 +14,11 @@
 ;; Declare evil functions to avoid byte-compile warnings
 (declare-function evil-define-key* "ext:evil-core")
 
+;; Declare hydra commands (defined in ogent-ui-hydra.el)
+(declare-function ogent-navigate "ogent-ui-hydra")
+(declare-function ogent-edit-menu "ogent-ui-hydra")
+(declare-function ogent-request-menu "ogent-ui-hydra")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -64,9 +69,9 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Unpin item")
     (list-pinned      :key "l" :command ogent-list-pinned
                       :desc "List pinned")
-    ;; Editing
+    ;; Editing (hydra menu)
     (edit-menu        :key "e" :command ogent-edit-menu
-                      :desc "Edit menu")
+                      :desc "Edit hydra menu")
     (request-edit     :key "E" :command ogent-request-edit
                       :desc "Request edit"
                       :visual t)
@@ -79,7 +84,9 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Tools debug menu")
     (tool-rerun       :key "T" :command ogent-tool-rerun
                       :desc "Re-run tool at point")
-    ;; Navigation
+    ;; Navigation (hydra menu)
+    (navigate         :key "n" :command ogent-navigate
+                      :desc "Navigation hydra")
     (backlinks        :key "b" :command ogent-show-backlinks
                       :desc "Show backlinks")
     (graph            :key "g" :command ogent-show-dependency-graph
@@ -145,13 +152,24 @@ Requires evil-mode to be loaded. Uses leader key prefix."
 			      (kbd (concat ogent-evil-prefix " " key)) cmd)))))))
 
 (defun ogent-setup-which-key ()
-  "Set up which-key descriptions for ogent prefixes."
+  "Set up which-key descriptions for ogent prefixes and all commands."
   (when (featurep 'which-key)
+    ;; Add prefix descriptions
     (which-key-add-key-based-replacements
      ogent-vanilla-prefix "ogent")
     (when (and ogent-enable-evil-bindings (featurep 'evil))
       (which-key-add-key-based-replacements
-       ogent-evil-prefix "ogent"))))
+       ogent-evil-prefix "ogent"))
+    ;; Add descriptions for each command
+    (dolist (entry ogent-action-registry)
+      (let* ((props (cdr entry))
+             (key (plist-get props :key))
+             (desc (plist-get props :desc))
+             (full-key (concat ogent-vanilla-prefix " " key)))
+        (which-key-add-key-based-replacements full-key desc)
+        (when (and ogent-enable-evil-bindings (featurep 'evil))
+          (which-key-add-key-based-replacements
+           (concat ogent-evil-prefix " " key) desc))))))
 
 (defun ogent-setup-all-bindings (keymap)
   "Set up all keybindings in KEYMAP.
