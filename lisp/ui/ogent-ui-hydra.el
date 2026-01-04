@@ -43,13 +43,24 @@
 (declare-function ogent-context-preview "ogent-ui")
 (declare-function ogent-show-backlinks "ogent-ui-backlinks")
 (declare-function ogent-show-dependency-graph "ogent-ui-graph")
-(declare-function ogent-edit-accept-current "ogent-edit")
-(declare-function ogent-edit-reject-current "ogent-edit")
-(declare-function ogent-edit-accept-all "ogent-edit")
-(declare-function ogent-edit-reject-all "ogent-edit")
-(declare-function ogent-edit-next "ogent-edit")
-(declare-function ogent-edit-previous "ogent-edit")
+(declare-function ogent-edit-accept-current "ogent-edit-display")
+(declare-function ogent-edit-reject-current "ogent-edit-display")
+(declare-function ogent-edit-accept-all "ogent-edit-display")
+(declare-function ogent-edit-reject-all "ogent-edit-display")
 (declare-function ogent-edit-preview-diff "ogent-edit-display")
+(declare-function ogent-edit--accept-current-dispatch "ogent-edit")
+(declare-function ogent-edit--reject-current-dispatch "ogent-edit")
+(declare-function ogent-edit--accept-all-dispatch "ogent-edit")
+(declare-function ogent-edit--reject-all-dispatch "ogent-edit")
+(declare-function ogent-edit--next-dispatch "ogent-edit")
+(declare-function ogent-edit--prev-dispatch "ogent-edit")
+(declare-function ogent-edit-overlay-diff "ogent-edit-display")
+(declare-function ogent-edit-overlay-ediff "ogent-edit-display")
+(declare-function ogent-edit-overlay-merge "ogent-edit-display")
+(declare-function ogent-edit-overlay-dispatch "ogent-edit-display")
+(declare-function ogent-edit-goto-source "ogent-edit-display")
+(declare-function ogent-edit-goto-companion "ogent-edit-display")
+(defvar ogent-edit-display-method)
 
 ;;; Customization
 
@@ -131,22 +142,26 @@ Options: `posframe' (floating), `lv' (echo area), `nil' (none)."
 	    ("q" nil "quit" :color blue)
 	    ("<escape>" nil nil :color blue))
   
-  ;; Edit Hydra
+  ;; Edit Hydra - uses dispatch functions that work with both smerge and overlay modes
   (defhydra ogent-hydra-edit (:color pink :hint nil)
 	    "
 ╭─────────────────────────────────────────────────────────────╮
 │ _a_: accept current  _A_: accept ALL     _d_: show diff     │
-│ _r_: reject current  _R_: reject ALL     _s_: goto source   │
-│ _n_: next edit       _p_: prev edit      _c_: goto companion│
+│ _r_: reject current  _R_: reject ALL     _e_: ediff         │
+│ _n_: next edit       _p_: prev edit      _m_: merge (smerge)│
+│ _s_: goto source     _c_: goto companion _D_: dispatch menu │
 ╰─────────────────────────────────────────────────────────────╯
 "
-	    ("a" ogent-edit-accept-current)
-	    ("r" ogent-edit-reject-current)
-	    ("A" ogent-edit-accept-all :color blue)
-	    ("R" ogent-edit-reject-all :color blue)
-	    ("n" ogent-edit-next)
-	    ("p" ogent-edit-previous)
-	    ("d" ogent-edit-preview-diff)
+	    ("a" ogent-edit--accept-current-dispatch)
+	    ("r" ogent-edit--reject-current-dispatch)
+	    ("A" ogent-edit--accept-all-dispatch :color blue)
+	    ("R" ogent-edit--reject-all-dispatch :color blue)
+	    ("n" ogent-edit--next-dispatch)
+	    ("p" ogent-edit--prev-dispatch)
+	    ("d" ogent-edit-overlay-diff)
+	    ("e" ogent-edit-overlay-ediff :color blue)
+	    ("m" ogent-edit-overlay-merge)
+	    ("D" ogent-edit-overlay-dispatch)
 	    ("s" ogent-edit-goto-source :color blue)
 	    ("c" ogent-edit-goto-companion :color blue)
 	    ("q" nil "quit" :color blue)
