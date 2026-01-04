@@ -28,6 +28,10 @@
 (autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-filter-dispatch "ogent-issues-transient" nil t)
 
+;; Load graph visualization if available
+(declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
+(autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
+
 ;;; Customization
 
 (defgroup ogent-issues nil
@@ -360,6 +364,9 @@ The inherited `value' slot holds the issue plist.")))
     (define-key map "vr" #'ogent-issues-view-ready)
     (define-key map "vk" #'ogent-issues-view-kanban)
     (define-key map "vd" #'ogent-issues-view-deps)
+
+    ;; Dependencies (d for current issue's graph)
+    (define-key map "d" #'ogent-issues-view-deps-current)
     
     ;; Kanban-specific (work in all views, but most useful in Kanban)
     (define-key map "H" #'ogent-issues-kanban-move-left)
@@ -1731,8 +1738,18 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 (defun ogent-issues-view-deps ()
   "Switch to dependency graph view."
   (interactive)
-  (setq ogent-issues--current-view 'deps)
-  (message "Dependency view not yet implemented"))
+  (require 'ogent-issues-graph)
+  (if-let ((id (ogent-issues--current-issue-id)))
+      (ogent-issues-graph-view id)
+    (ogent-issues-graph-view)))
+
+(defun ogent-issues-view-deps-current ()
+  "View dependency graph centered on current issue."
+  (interactive)
+  (require 'ogent-issues-graph)
+  (if-let ((id (ogent-issues--current-issue-id)))
+      (ogent-issues-graph-view id)
+    (user-error "No issue at point")))
 
 ;;; Evil Integration
 ;; When evil is loaded, set up proper evil keybindings.
