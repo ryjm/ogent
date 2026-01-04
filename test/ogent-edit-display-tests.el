@@ -248,6 +248,249 @@
     (insert "No edit here")
     (should-error (ogent-edit-goto-companion) :type 'user-error)))
 
+;;; Overlay Display Tests
+
+(ert-deftest ogent-edit-display-test-overlay-customization-exists ()
+  "Test that display method customization exists."
+  (should (boundp 'ogent-edit-display-method))
+  (should (memq ogent-edit-display-method '(smerge overlay))))
+
+(ert-deftest ogent-edit-display-test-overlay-faces-defined ()
+  "Test that overlay faces are defined."
+  (should (facep 'ogent-edit-overlay-face))
+  (should (facep 'ogent-edit-overlay-new-face)))
+
+(ert-deftest ogent-edit-display-test-overlay-keymap-defined ()
+  "Test that overlay keymap has expected bindings."
+  (should (keymapp ogent-edit-overlay-map))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "a"))
+              'ogent-edit-overlay-accept))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "r"))
+              'ogent-edit-overlay-reject))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "d"))
+              'ogent-edit-overlay-diff))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "e"))
+              'ogent-edit-overlay-ediff))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "m"))
+              'ogent-edit-overlay-merge))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "n"))
+              'ogent-edit-overlay-next))
+  (should (eq (lookup-key ogent-edit-overlay-map (kbd "p"))
+              'ogent-edit-overlay-previous)))
+
+(ert-deftest ogent-edit-display-test-apply-as-overlay-creates-overlay ()
+  "Test applying edit as overlay creates overlay with correct properties."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-overlay edit)
+          ;; Should have created an overlay
+          (should (= (length ogent-edit--overlay-list) 1))
+          (let ((ov (car ogent-edit--overlay-list)))
+            ;; Overlay should have correct properties
+            (should (overlay-get ov 'ogent-edit))
+            (should (equal (overlay-get ov 'ogent-new-text) new-text))
+            (should (overlay-get ov 'display))
+            (should (overlay-get ov 'keymap))
+            (should (eq (overlay-get ov 'face) 'ogent-edit-overlay-face)))
+          ;; Edit status should be applied
+          (should (eq (ogent-edit-status edit) 'applied))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-accept-replaces-text ()
+  "Test accepting overlay replaces original with new text."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-overlay edit)
+          (goto-char (point-min))
+          (ogent-edit-overlay-accept)
+          ;; Overlay should be removed
+          (should (= (length ogent-edit--overlay-list) 0))
+          ;; Text should be replaced
+          (should (equal (buffer-string) new-text))
+          ;; Edit status should be accepted
+          (should (eq (ogent-edit-status edit) 'accepted))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-reject-keeps-original ()
+  "Test rejecting overlay keeps original text."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-overlay edit)
+          (goto-char (point-min))
+          (ogent-edit-overlay-reject)
+          ;; Overlay should be removed
+          (should (= (length ogent-edit--overlay-list) 0))
+          ;; Text should be unchanged
+          (should (equal (buffer-string) old-text))
+          ;; Edit status should be rejected
+          (should (eq (ogent-edit-status edit) 'rejected))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-merge-creates-smerge ()
+  "Test merge action converts overlay to smerge conflict."
+  (unwind-protect
+      (let* ((old-text "original code")
+             (new-text "modified code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-overlay edit)
+          (goto-char (point-min))
+          (ogent-edit-overlay-merge)
+          ;; Overlay should be removed
+          (should (= (length ogent-edit--overlay-list) 0))
+          ;; Buffer should have smerge markers
+          (let ((content (buffer-string)))
+            (should (string-match-p "<<<<<<< original" content))
+            (should (string-match-p "=======" content))
+            (should (string-match-p ">>>>>>> ogent" content)))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-navigation ()
+  "Test navigation between multiple overlays."
+  (unwind-protect
+      (let* ((buf (generate-new-buffer " *ogent-test-nav*")))
+        (with-current-buffer buf
+          (insert "line1\nline2\nline3\nline4\nline5")
+          ;; Create two edits at different positions
+          (let* ((edit1 (make-ogent-edit
+                         :id "edit-1"
+                         :old-text "line2"
+                         :new-text "modified2"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time)))
+                 (edit2 (make-ogent-edit
+                         :id "edit-2"
+                         :old-text "line4"
+                         :new-text "modified4"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time))))
+            ;; Validate edits
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            ;; Apply as overlays (in reverse order to preserve positions)
+            (ogent-edit-apply-as-overlay edit2)
+            (ogent-edit-apply-as-overlay edit1)
+            ;; Should have 2 overlays
+            (should (= (length ogent-edit--overlay-list) 2))
+            ;; Navigate from start
+            (goto-char (point-min))
+            (ogent-edit-overlay-next)
+            ;; Should be at first overlay
+            (should (> (point) (point-min)))
+            ;; Navigate to next
+            (ogent-edit-overlay-next)
+            ;; Should be at second overlay
+            (let ((pos (point)))
+              ;; Navigate back
+              (ogent-edit-overlay-previous)
+              (should (< (point) pos))))))
+    (dolist (buf (buffer-list))
+      (when (string-prefix-p " *ogent-test" (buffer-name buf))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-edit-display-test-unified-display-interface ()
+  "Test unified display interface respects display method."
+  (unwind-protect
+      (let* ((old-text "original")
+             (new-text "modified")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        ;; Test smerge method
+        (let ((ogent-edit-display-method 'smerge))
+          (ogent-edit-display edit)
+          (with-current-buffer source-buf
+            (should (string-match-p "<<<<<<< original" (buffer-string))))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-accept-all ()
+  "Test accepting all overlays."
+  (unwind-protect
+      (let* ((buf (generate-new-buffer " *ogent-test-all*")))
+        (with-current-buffer buf
+          (insert "line1\nline2")
+          (let* ((edit1 (make-ogent-edit
+                         :id "edit-1"
+                         :old-text "line1"
+                         :new-text "mod1"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time)))
+                 (edit2 (make-ogent-edit
+                         :id "edit-2"
+                         :old-text "line2"
+                         :new-text "mod2"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time))))
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            (ogent-edit-apply-as-overlay edit2)
+            (ogent-edit-apply-as-overlay edit1)
+            (should (= (length ogent-edit--overlay-list) 2))
+            (ogent-edit-overlay-accept-all)
+            (should (= (length ogent-edit--overlay-list) 0))
+            (should (eq (ogent-edit-status edit1) 'accepted))
+            (should (eq (ogent-edit-status edit2) 'accepted)))))
+    (dolist (buf (buffer-list))
+      (when (string-prefix-p " *ogent-test" (buffer-name buf))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-edit-display-test-overlay-reject-all ()
+  "Test rejecting all overlays."
+  (unwind-protect
+      (let* ((buf (generate-new-buffer " *ogent-test-all*")))
+        (with-current-buffer buf
+          (insert "line1\nline2")
+          (let* ((edit1 (make-ogent-edit
+                         :id "edit-1"
+                         :old-text "line1"
+                         :new-text "mod1"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time)))
+                 (edit2 (make-ogent-edit
+                         :id "edit-2"
+                         :old-text "line2"
+                         :new-text "mod2"
+                         :source-buffer buf
+                         :source-file "test.el"
+                         :status 'pending
+                         :timestamp (current-time))))
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            (ogent-edit-apply-as-overlay edit2)
+            (ogent-edit-apply-as-overlay edit1)
+            (should (= (length ogent-edit--overlay-list) 2))
+            (ogent-edit-overlay-reject-all)
+            (should (= (length ogent-edit--overlay-list) 0))
+            (should (eq (ogent-edit-status edit1) 'rejected))
+            (should (eq (ogent-edit-status edit2) 'rejected))
+            ;; Original text should be preserved
+            (should (equal (buffer-string) "line1\nline2")))))
+    (dolist (buf (buffer-list))
+      (when (string-prefix-p " *ogent-test" (buffer-name buf))
+        (kill-buffer buf)))))
+
 (provide 'ogent-edit-display-tests)
 
 ;;; ogent-edit-display-tests.el ends here

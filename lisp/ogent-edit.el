@@ -25,7 +25,8 @@
 ;;; Customization
 
 (defcustom ogent-edit-auto-display t
-  "When non-nil, automatically display edits as smerge conflicts."
+  "When non-nil, automatically display edits using configured method.
+See `ogent-edit-display-method' for display options."
   :type 'boolean
   :group 'ogent-edit)
 
@@ -146,38 +147,93 @@ edits as smerge conflicts when response arrives."
       (let ((valid (ogent-edit-filter-valid edits)))
         (if valid
             (progn
-              (message "Edit: applying %d edits as smerge conflicts" (length valid))
-              (ogent-edit-apply-all-as-smerge valid)
+              (message "Edit: displaying %d edits using %s method"
+                       (length valid) ogent-edit-display-method)
+              (ogent-edit-display-all valid)
               (ogent-edit--track-edits valid)
-              ;; Switch to source buffer and go to first conflict
+              ;; Switch to source buffer and go to first edit
               (pop-to-buffer source-buffer)
-              (ogent-edit-goto-first))
+              (pcase ogent-edit-display-method
+                ('overlay (when ogent-edit--overlay-list
+                            (goto-char (overlay-start (car ogent-edit--overlay-list)))))
+                (_ (ogent-edit-goto-first))))
           (message "Edit: no valid edits to apply"))))
     ;; Return edits for further processing
     edits))
 
 ;;; Transient Menu
 
+(defun ogent-edit--pending-count ()
+  "Return count of pending edits based on display method."
+  (pcase ogent-edit-display-method
+    ('overlay (length ogent-edit--overlay-list))
+    (_ (or (ogent-edit-count-pending) 0))))
+
+(defun ogent-edit--accept-current-dispatch ()
+  "Accept current edit using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-accept))
+    (_ (ogent-edit-accept-current))))
+
+(defun ogent-edit--reject-current-dispatch ()
+  "Reject current edit using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-reject))
+    (_ (ogent-edit-reject-current))))
+
+(defun ogent-edit--next-dispatch ()
+  "Go to next edit using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-next))
+    (_ (smerge-next))))
+
+(defun ogent-edit--prev-dispatch ()
+  "Go to previous edit using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-previous))
+    (_ (smerge-prev))))
+
+(defun ogent-edit--accept-all-dispatch ()
+  "Accept all edits using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-accept-all))
+    (_ (ogent-edit-accept-all))))
+
+(defun ogent-edit--reject-all-dispatch ()
+  "Reject all edits using appropriate method."
+  (interactive)
+  (pcase ogent-edit-display-method
+    ('overlay (ogent-edit-overlay-reject-all))
+    (_ (ogent-edit-reject-all))))
+
 ;;;###autoload (autoload 'ogent-edit-menu "ogent-edit" nil t)
 (transient-define-prefix ogent-edit-menu ()
-  "Commands for managing ogent edits."
-  [:description
-   (lambda ()
-     (let ((pending (or (ogent-edit-count-pending) 0)))
-       (if (> pending 0)
-           (format "Pending edits: %d" pending)
-         "No pending edits")))
-   ["Current Edit"
-    ("a" "Accept" ogent-edit-accept-current)
-    ("r" "Reject" ogent-edit-reject-current)
-    ("n" "Next" smerge-next :transient t)
-    ("p" "Previous" smerge-prev :transient t)]
-   ["All Edits"
-    ("A" "Accept all" ogent-edit-accept-all)
-    ("R" "Reject all" ogent-edit-reject-all)]]
-  [["Request"
-    ("e" "Request edit" ogent-request-edit)
-    ("q" "Quit" transient-quit-one)]])
+			 "Commands for managing ogent edits."
+			 [:description
+			  (lambda ()
+			    (let ((pending (ogent-edit--pending-count)))
+			      (format "Pending edits: %d (%s mode)"
+				      pending ogent-edit-display-method)))
+			  ["Current Edit"
+			   ("a" "Accept" ogent-edit--accept-current-dispatch)
+			   ("r" "Reject" ogent-edit--reject-current-dispatch)
+			   ("n" "Next" ogent-edit--next-dispatch :transient t)
+			   ("p" "Previous" ogent-edit--prev-dispatch :transient t)]
+			  ["All Edits"
+			   ("A" "Accept all" ogent-edit--accept-all-dispatch)
+			   ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
+			 [["Request"
+			   ("e" "Request edit" ogent-request-edit)
+			   ("q" "Quit" transient-quit-one)]
+			  ["Overlay Actions" :if (lambda () (eq ogent-edit-display-method 'overlay))
+			   ("d" "Diff" ogent-edit-overlay-diff)
+			   ("E" "Ediff" ogent-edit-overlay-ediff)
+			   ("m" "Merge (smerge)" ogent-edit-overlay-merge)]])
 
 (provide 'ogent-edit)
 
