@@ -60,7 +60,9 @@ Set to nil to disable automatic evil binding setup."
     (context-preview  :key "c" :command ogent-context-preview
                       :desc "Preview context")
     (codemap          :key "m" :command ogent-codemap-buffer
-                      :desc "Show codemap")
+                      :desc "Show static codemap")
+    (codemap-task     :key "M" :command ogent-codemap-generate
+                      :desc "Generate task codemap")
     ;; Pinned context
     (pin-dwim         :key "P" :command ogent-pin-dwim
                       :desc "Pin file/buffer/region"
