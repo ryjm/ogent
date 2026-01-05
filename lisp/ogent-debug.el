@@ -371,6 +371,84 @@ DURATION is execution time in seconds."
   (setq ogent-debug-tool-history nil)
   (message "Tool call history cleared"))
 
+;;; Tool History Major Mode
+
+(defvar ogent-tool-history-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "n") #'ogent-tool-history-next)
+    (define-key map (kbd "p") #'ogent-tool-history-prev)
+    (define-key map (kbd "RET") #'ogent-tool-history-replay-at-point)
+    (define-key map (kbd "r") #'ogent-tool-history-replay-at-point)
+    (define-key map (kbd "g") #'ogent-tool-history-refresh)
+    (define-key map (kbd "j") #'ogent-debug-export-tool-history-json)
+    (define-key map (kbd "t") #'ogent-debug-export-tool-history-text)
+    (define-key map (kbd "c") #'ogent-debug-clear-tool-history)
+    (define-key map (kbd "q") #'quit-window)
+    (define-key map (kbd "?") #'ogent-tool-history-help)
+    map)
+  "Keymap for `ogent-tool-history-mode'.")
+
+(define-derived-mode ogent-tool-history-mode special-mode "ToolHist"
+  "Major mode for browsing ogent tool call history.
+
+\\{ogent-tool-history-mode-map}"
+  :group 'ogent-debug
+  (setq-local revert-buffer-function #'ogent-tool-history--revert)
+  (setq truncate-lines t))
+
+(defun ogent-tool-history--revert (_ignore-auto _noconfirm)
+  "Revert the tool history buffer."
+  (ogent-tool-history-refresh))
+
+(defvar-local ogent-tool-history--entries nil
+  "List of history entries displayed in current buffer.
+Each entry maps line ranges to history plists.")
+
+(defun ogent-tool-history-next ()
+  "Move to next tool entry."
+  (interactive)
+  (when (re-search-forward "^## \\[" nil t)
+    (beginning-of-line)))
+
+(defun ogent-tool-history-prev ()
+  "Move to previous tool entry."
+  (interactive)
+  (beginning-of-line)
+  (when (re-search-backward "^## \\[" nil t)
+    (beginning-of-line)))
+
+(defun ogent-tool-history--entry-at-point ()
+  "Return the history entry at point, or nil."
+  (save-excursion
+    (beginning-of-line)
+    (when (or (looking-at "^## \\[")
+              (re-search-backward "^## \\[" nil t))
+      (when-let* ((id-line (save-excursion
+                            (forward-line 1)
+                            (when (looking-at "^ID: \\(.+\\)$")
+                              (match-string 1)))))
+        (seq-find (lambda (e) (equal (plist-get e :id) id-line))
+                  ogent-debug-tool-history)))))
+
+(defun ogent-tool-history-replay-at-point ()
+  "Replay the tool call at point."
+  (interactive)
+  (if-let ((entry (ogent-tool-history--entry-at-point)))
+      (ogent-debug-replay-tool entry)
+    (user-error "No tool entry at point")))
+
+(defun ogent-tool-history-refresh ()
+  "Refresh the tool history buffer."
+  (interactive)
+  (let ((pos (point)))
+    (ogent-debug-tool-history-buffer)
+    (goto-char (min pos (point-max)))))
+
+(defun ogent-tool-history-help ()
+  "Show help for tool history mode."
+  (interactive)
+  (message "n/p: next/prev  RET/r: replay  g: refresh  j: export JSON  t: export text  c: clear  q: quit"))
+
 (defun ogent-debug-tool-history-buffer ()
   "Display tool call history in a dedicated buffer."
   (interactive)
@@ -378,35 +456,42 @@ DURATION is execution time in seconds."
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert "# Ogent Tool Call History\n\n")
+        (insert "# Ogent Tool Call History\n")
+        (insert "# Keys: n/p=nav  RET=replay  g=refresh  j=json  t=text  q=quit\n\n")
         (if (null ogent-debug-tool-history)
             (insert "No tool calls recorded yet.\n")
-          (dolist (entry (reverse ogent-debug-tool-history))
-            (let* ((id (plist-get entry :id))
-                   (name (plist-get entry :name))
-                   (args (plist-get entry :args))
-                   (result (plist-get entry :result))
-                   (error-val (plist-get entry :error))
-                   (duration (plist-get entry :duration))
-                   (timestamp (plist-get entry :timestamp))
-                   (time-str (format-time-string "%Y-%m-%d %H:%M:%S" timestamp))
-                   (status (if error-val "FAILED" "SUCCESS")))
-              (insert (format "## [%s] %s - %s (%.3fs)\n"
-                              time-str status name duration))
-              (insert (format "ID: %s\n" id))
-              (when args
-                (insert "Args:\n")
-                (insert (format "  %S\n" args)))
-              (if error-val
-                  (insert (format "Error: %s\n" error-val))
-                (when result
-                  (insert (format "Result: %s\n" 
-                                  (if (stringp result)
-                                      (substring result 0 (min 200 (length result)))
-                                    (format "%S" result))))))
-              (insert "\n"))))
+          (let ((entries (reverse ogent-debug-tool-history)))
+            (dolist (entry entries)
+              (let* ((id (plist-get entry :id))
+                     (name (plist-get entry :name))
+                     (args (plist-get entry :args))
+                     (result (plist-get entry :result))
+                     (error-val (plist-get entry :error))
+                     (duration (plist-get entry :duration))
+                     (timestamp (plist-get entry :timestamp))
+                     (time-str (format-time-string "%Y-%m-%d %H:%M:%S" timestamp))
+                     (status (if error-val "FAILED" "SUCCESS")))
+                (insert (format "## [%s] %s - %s (%.3fs)\n"
+                                time-str status name duration))
+                (insert (format "ID: %s\n" id))
+                (when args
+                  (insert "Args:\n")
+                  (let ((arg-str (format "%S" args)))
+                    (insert (format "  %s\n"
+                                    (if (> (length arg-str) 300)
+                                        (concat (substring arg-str 0 300) "...")
+                                      arg-str)))))
+                (if error-val
+                    (insert (format "Error: %s\n" error-val))
+                  (when result
+                    (let ((res-str (if (stringp result) result (format "%S" result))))
+                      (insert (format "Result: %s\n"
+                                      (if (> (length res-str) 200)
+                                          (concat (substring res-str 0 200) "...")
+                                        res-str))))))
+                (insert "\n")))))
         (goto-char (point-min))
-        (view-mode 1)))
+        (ogent-tool-history-mode)))
     (display-buffer buf)))
 
 (defun ogent-debug-replay-tool (entry)
@@ -479,6 +564,114 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
         (view-mode 1)))
     (display-buffer buf)))
 
+;;; Export Tool History
+
+(require 'json)
+
+(defun ogent-debug-export-tool-history-json (file)
+  "Export tool call history to FILE in JSON format.
+Creates a shareable record of tool calls for debugging."
+  (interactive
+   (list (read-file-name "Export JSON to: "
+                         nil nil nil
+                         (format "ogent-tool-history-%s.json"
+                                 (format-time-string "%Y%m%d-%H%M%S")))))
+  (if (null ogent-debug-tool-history)
+      (user-error "No tool calls in history")
+    (let ((json-array-type 'list)
+          (json-object-type 'plist)
+          (entries
+           (mapcar
+            (lambda (entry)
+              (list :id (plist-get entry :id)
+                    :name (symbol-name (plist-get entry :name))
+                    :args (plist-get entry :args)
+                    :result (let ((r (plist-get entry :result)))
+                              (if (stringp r)
+                                  (substring r 0 (min 1000 (length r)))
+                                r))
+                    :error (plist-get entry :error)
+                    :duration (plist-get entry :duration)
+                    :timestamp (format-time-string
+                                "%Y-%m-%dT%H:%M:%S%z"
+                                (plist-get entry :timestamp))))
+            (reverse ogent-debug-tool-history))))
+      (with-temp-file file
+        (insert (json-encode (list :version 1
+                                   :exported (format-time-string "%Y-%m-%dT%H:%M:%S%z")
+                                   :count (length entries)
+                                   :calls entries))))
+      (message "Exported %d tool calls to %s" (length entries) file))))
+
+(defun ogent-debug-export-tool-history-text (file)
+  "Export tool call history to FILE in readable text format."
+  (interactive
+   (list (read-file-name "Export text to: "
+                         nil nil nil
+                         (format "ogent-tool-history-%s.txt"
+                                 (format-time-string "%Y%m%d-%H%M%S")))))
+  (if (null ogent-debug-tool-history)
+      (user-error "No tool calls in history")
+    (with-temp-file file
+      (insert "# Ogent Tool Call History\n")
+      (insert (format "# Exported: %s\n" (format-time-string "%Y-%m-%d %H:%M:%S")))
+      (insert (format "# Entries: %d\n\n" (length ogent-debug-tool-history)))
+      (dolist (entry (reverse ogent-debug-tool-history))
+        (let* ((name (plist-get entry :name))
+               (args (plist-get entry :args))
+               (result (plist-get entry :result))
+               (error-val (plist-get entry :error))
+               (duration (plist-get entry :duration))
+               (timestamp (plist-get entry :timestamp))
+               (time-str (format-time-string "%Y-%m-%d %H:%M:%S" timestamp)))
+          (insert (format "## %s - %s (%.3fs) %s\n"
+                          time-str name duration
+                          (if error-val "FAILED" "SUCCESS")))
+          (insert (format "ID: %s\n" (plist-get entry :id)))
+          (when args
+            (insert "Args:\n")
+            (let ((arg-str (format "%S" args)))
+              (insert (format "  %s\n"
+                              (if (> (length arg-str) 500)
+                                  (concat (substring arg-str 0 500) "...")
+                                arg-str)))))
+          (if error-val
+              (insert (format "Error: %s\n" error-val))
+            (when result
+              (let ((result-str (if (stringp result) result (format "%S" result))))
+                (insert (format "Result:\n  %s\n"
+                                (if (> (length result-str) 500)
+                                    (concat (substring result-str 0 500) "...")
+                                  result-str))))))
+          (insert "\n"))))
+    (message "Exported %d tool calls to %s"
+             (length ogent-debug-tool-history) file)))
+
+(defun ogent-debug-import-tool-history (file)
+  "Import tool call history from JSON FILE.
+Merges with existing history."
+  (interactive "fImport JSON from: ")
+  (let* ((json-array-type 'list)
+         (json-object-type 'plist)
+         (data (json-read-file file))
+         (calls (plist-get data :calls))
+         (imported 0))
+    (dolist (call calls)
+      (let ((entry (list :id (plist-get call :id)
+                         :name (intern (plist-get call :name))
+                         :args (plist-get call :args)
+                         :result (plist-get call :result)
+                         :error (plist-get call :error)
+                         :duration (plist-get call :duration)
+                         :timestamp (current-time)))) ; Use current time for imported
+        (push entry ogent-debug-tool-history)
+        (cl-incf imported)))
+    ;; Trim to max
+    (when (> (length ogent-debug-tool-history) ogent-debug-tool-history-max)
+      (setq ogent-debug-tool-history
+            (seq-take ogent-debug-tool-history ogent-debug-tool-history-max)))
+    (message "Imported %d tool calls from %s" imported file)))
+
 ;;; Transient Menu
 
 (require 'transient)
@@ -490,6 +683,10 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
    ("h" "View history" ogent-debug-tool-history-buffer)
    ("r" "Replay last tool" ogent-debug-replay-last-tool)
    ("c" "Clear history" ogent-debug-clear-tool-history)]
+  ["Export/Import"
+   ("j" "Export JSON" ogent-debug-export-tool-history-json)
+   ("t" "Export text" ogent-debug-export-tool-history-text)
+   ("i" "Import JSON" ogent-debug-import-tool-history)]
   ["Approval Status"
    ("a" "Show approvals" ogent-debug-show-approval-status)])
 
