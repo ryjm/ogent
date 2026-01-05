@@ -329,6 +329,161 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown-prime)
       (should-not ogent-gastown-test--captured-command))))
 
+;;; Beads (bd) Integration Tests
+
+(defconst ogent-gastown-test--sample-ready-issues
+  (list '(:id "test-abc"
+          :title "Ready issue 1"
+          :priority 1
+          :issue_type "task"
+          :status "open")
+        '(:id "test-def"
+          :title "Ready issue 2"
+          :priority 2
+          :issue_type "bug"
+          :status "open"))
+  "Sample ready issues list for testing.")
+
+(defconst ogent-gastown-test--sample-issue
+  '(:id "test-abc"
+    :title "Test issue"
+    :description "A test issue"
+    :status "open"
+    :priority 1
+    :issue_type "task"
+    :created_at "2026-01-05T10:00:00-05:00")
+  "Sample issue plist for testing.")
+
+(defvar ogent-gastown-test--bd-captured-args nil
+  "Captured arguments from mock bd calls.")
+
+(defmacro ogent-gastown-test-bd-with-mock (output &rest body)
+  "Execute BODY with bd mocked to return OUTPUT."
+  (declare (indent 1) (debug t))
+  `(let ((ogent-gastown-test--bd-captured-args nil)
+         (ogent-gastown--bd-ready-cache nil)
+         (ogent-gastown-bd-executable "bd"))
+     (cl-letf (((symbol-function 'executable-find)
+                (lambda (cmd)
+                  (when (string= cmd "bd") "/usr/local/bin/bd")))
+               ((symbol-function 'ogent-gastown-bd--run-async)
+                (lambda (args callback &optional _error-callback _raw)
+                  (setq ogent-gastown-test--bd-captured-args args)
+                  (funcall callback ,output)
+                  nil)))
+       ,@body)))
+
+(ert-deftest ogent-gastown-test-bd-available-p ()
+  "Test bd availability check."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (cmd)
+               (when (string= cmd "bd") "/usr/local/bin/bd"))))
+    (should (ogent-gastown-bd-available-p)))
+
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) nil)))
+    (should-not (ogent-gastown-bd-available-p))))
+
+(ert-deftest ogent-gastown-test-bd-ready-refresh ()
+  "Test bd ready refresh."
+  (ogent-gastown-test-bd-with-mock ogent-gastown-test--sample-ready-issues
+    (let ((result nil))
+      (ogent-gastown-bd-ready-refresh
+       (lambda (issues)
+         (setq result issues)))
+      (should (equal 2 (length result)))
+      (should (equal "test-abc" (plist-get (car result) :id)))
+      ;; Check args
+      (should (member "ready" ogent-gastown-test--bd-captured-args))
+      (should (member "--json" ogent-gastown-test--bd-captured-args)))))
+
+(ert-deftest ogent-gastown-test-bd-show ()
+  "Test bd show issue."
+  (ogent-gastown-test-bd-with-mock ogent-gastown-test--sample-issue
+    (let ((result nil))
+      (ogent-gastown-bd-show "test-abc"
+                              (lambda (issue)
+                                (setq result issue)))
+      (should (equal "test-abc" (plist-get result :id)))
+      (should (equal "Test issue" (plist-get result :title)))
+      ;; Check args
+      (should (member "show" ogent-gastown-test--bd-captured-args))
+      (should (member "test-abc" ogent-gastown-test--bd-captured-args)))))
+
+(ert-deftest ogent-gastown-test-bd-update ()
+  "Test bd update status."
+  ;; Track all args since update triggers ready refresh in callback
+  (let ((all-args nil))
+    (let ((ogent-gastown--bd-ready-cache nil)
+          (ogent-gastown-bd-executable "bd"))
+      (cl-letf (((symbol-function 'executable-find)
+                 (lambda (cmd)
+                   (when (string= cmd "bd") "/usr/local/bin/bd")))
+                ((symbol-function 'ogent-gastown-bd--run-async)
+                 (lambda (args callback &optional _error-callback _raw)
+                   (push args all-args)
+                   (funcall callback nil)
+                   nil)))
+        (let ((updated nil))
+          (ogent-gastown-bd-update "test-abc" "in_progress"
+                                    (lambda () (setq updated t)))
+          (should updated)
+          ;; First call should be update
+          (let ((update-args (car (last all-args))))
+            (should (member "update" update-args))
+            (should (member "test-abc" update-args))
+            (should (member "--status=in_progress" update-args))))))))
+
+(ert-deftest ogent-gastown-test-bd-close ()
+  "Test bd close issue."
+  ;; Track all args since close triggers ready refresh in callback
+  (let ((all-args nil))
+    (let ((ogent-gastown--bd-ready-cache nil)
+          (ogent-gastown-bd-executable "bd"))
+      (cl-letf (((symbol-function 'executable-find)
+                 (lambda (cmd)
+                   (when (string= cmd "bd") "/usr/local/bin/bd")))
+                ((symbol-function 'ogent-gastown-bd--run-async)
+                 (lambda (args callback &optional _error-callback _raw)
+                   (push args all-args)
+                   (funcall callback nil)
+                   nil)))
+        (let ((closed nil))
+          (ogent-gastown-bd-close "test-abc" "Done"
+                                   (lambda () (setq closed t)))
+          (should closed)
+          ;; First call should be close
+          (let ((close-args (car (last all-args))))
+            (should (member "close" close-args))
+            (should (member "test-abc" close-args))
+            (should (member "--reason=Done" close-args))))))))
+
+(ert-deftest ogent-gastown-test-bd-ready-id-at-point ()
+  "Test extracting issue ID from ready buffer line."
+  (with-temp-buffer
+    (insert "[P1] test-abc [task] Ready issue 1\n")
+    (insert "[P2] test-def [bug] Ready issue 2\n")
+    (goto-char (point-min))
+    (should (equal "test-abc" (ogent-gastown-bd-ready--id-at-point)))
+    (forward-line)
+    (should (equal "test-def" (ogent-gastown-bd-ready--id-at-point)))))
+
+(ert-deftest ogent-gastown-test-cleanup-includes-bd ()
+  "Test cleanup clears bd state too."
+  (let ((ogent-gastown--hook-cache '(:id "test"))
+        (ogent-gastown--mail-cache '((:id "mail")))
+        (ogent-gastown--convoy-cache '((:id "convoy")))
+        (ogent-gastown--bd-ready-cache '((:id "issue")))
+        (ogent-gastown--bd-processes nil)
+        (ogent-gastown--processes nil)
+        (ogent-gastown--town-root "/mock/gt/"))
+    (ogent-gastown-cleanup)
+    (should-not ogent-gastown--hook-cache)
+    (should-not ogent-gastown--mail-cache)
+    (should-not ogent-gastown--convoy-cache)
+    (should-not ogent-gastown--bd-ready-cache)
+    (should-not ogent-gastown--town-root)))
+
 (provide 'ogent-gastown-tests)
 
 ;;; ogent-gastown-tests.el ends here
