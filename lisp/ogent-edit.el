@@ -23,11 +23,23 @@
 (defvar gptel-backend)
 (defvar gptel-model)
 
+;; ogent-edit-diff functions (defined after require)
+(declare-function ogent-edit-diff-show "ogent-edit-diff")
+
 ;;; Customization
 
 (defcustom ogent-edit-auto-display t
   "When non-nil, automatically display edits using configured method.
 See `ogent-edit-display-method' for display options."
+  :type 'boolean
+  :group 'ogent-edit)
+
+(defcustom ogent-edit-auto-apply nil
+  "When non-nil, automatically apply valid edits without user confirmation.
+This is for trusted operations where you want edits applied immediately.
+Changes can still be reverted using standard Emacs undo (`C-/` or `C-x u`).
+When enabled, edits are still logged to the companion buffer if
+`ogent-edit-log-to-companion' is non-nil."
   :type 'boolean
   :group 'ogent-edit)
 
@@ -124,8 +136,49 @@ edits as smerge conflicts when response arrives."
 
 ;;; Response Processing
 
+(defun ogent-edit-auto-apply-edit (edit)
+  "Directly apply EDIT to its source buffer without user confirmation.
+Replaces old-text with new-text at the validated position.
+Returns t on success, nil on failure."
+  (when (and (ogent-edit-valid-p edit)
+             (eq (ogent-edit-status edit) 'pending))
+    (let* ((buf (ogent-edit-source-buffer edit))
+           (start (ogent-edit-start-pos edit))
+           (end (ogent-edit-end-pos edit))
+           (new-text (ogent-edit-new-text edit)))
+      (when (and buf (buffer-live-p buf))
+        (with-current-buffer buf
+          (save-excursion
+            ;; Use undo boundaries for clean undo
+            (undo-boundary)
+            (goto-char start)
+            (delete-region start end)
+            (insert new-text)
+            (undo-boundary)))
+        (setf (ogent-edit-status edit) 'accepted)
+        (run-hook-with-args 'ogent-edit-resolved-hook edit)
+        t))))
+
+(defun ogent-edit-auto-apply-all (edits)
+  "Directly apply all valid EDITS without user confirmation.
+Applies in reverse position order to preserve positions.
+Returns count of successfully applied edits."
+  (let* ((valid-edits (ogent-edit-filter-valid edits))
+         ;; Sort by position descending to apply from end to start
+         (sorted (sort (copy-sequence valid-edits)
+                       (lambda (a b)
+                         (> (ogent-edit-start-pos a)
+                            (ogent-edit-start-pos b)))))
+         (count 0))
+    (dolist (edit sorted)
+      (when (ogent-edit-auto-apply-edit edit)
+        (cl-incf count)))
+    count))
+
 (defun ogent-edit--process-response (response)
-  "Process LLM RESPONSE and apply edits to source buffer."
+  "Process LLM RESPONSE and apply edits to source buffer.
+If `ogent-edit-auto-apply' is non-nil, edits are applied directly.
+Otherwise, edits are displayed for user review."
   (let* ((request ogent-edit--pending-request)
          (source-buffer (plist-get request :source-buffer))
          (edits (ogent-edit-parse-response response source-buffer)))
@@ -143,22 +196,29 @@ edits as smerge conflicts when response arrives."
       (when errors
         (dolist (e errors)
           (message "Edit error: %s" (ogent-edit-error-message e)))))
-    ;; Display valid edits
-    (when ogent-edit-auto-display
-      (let ((valid (ogent-edit-filter-valid edits)))
-        (if valid
-            (progn
-              (message "Edit: displaying %d edits using %s method"
-                       (length valid) ogent-edit-display-method)
-              (ogent-edit-display-all valid)
-              (ogent-edit--track-edits valid)
-              ;; Switch to source buffer and go to first edit
-              (pop-to-buffer source-buffer)
-              (pcase ogent-edit-display-method
-                ('overlay (when ogent-edit--overlay-list
-                            (goto-char (overlay-start (car ogent-edit--overlay-list)))))
-                (_ (ogent-edit-goto-first))))
-          (message "Edit: no valid edits to apply"))))
+    ;; Apply or display valid edits
+    (let ((valid (ogent-edit-filter-valid edits)))
+      (cond
+       ;; Auto-apply mode: directly apply without confirmation
+       ((and ogent-edit-auto-apply valid)
+        (let ((count (ogent-edit-auto-apply-all valid)))
+          (message "Edit: auto-applied %d edit(s). Use C-/ to undo." count)
+          (pop-to-buffer source-buffer)))
+       ;; Display mode: show edits for user review
+       ((and ogent-edit-auto-display valid)
+        (message "Edit: displaying %d edits using %s method"
+                 (length valid) ogent-edit-display-method)
+        (ogent-edit-display-all valid)
+        (ogent-edit--track-edits valid)
+        ;; Switch to source buffer and go to first edit
+        (pop-to-buffer source-buffer)
+        (pcase ogent-edit-display-method
+          ('overlay (when ogent-edit--overlay-list
+                      (goto-char (overlay-start (car ogent-edit--overlay-list)))))
+          (_ (ogent-edit-goto-first))))
+       ;; No valid edits
+       ((null valid)
+        (message "Edit: no valid edits to apply"))))
     ;; Return edits for further processing
     edits))
 
