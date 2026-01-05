@@ -315,10 +315,6 @@ PROMPT is the completion prompt."
 (defvar ogent-ui--selected-preset nil
   "The currently selected preset name (string), or nil for no preset.")
 
-(defvar ogent-ui--selected-models nil
-  "List of selected model IDs for multi-model fan-out.
-When non-nil, requests are dispatched to all listed models concurrently.")
-
 ;; Forward declaration for ogent-response-function (defined as defcustom later)
 (defvar ogent-response-function)
 
@@ -413,39 +409,6 @@ Makes the variable buffer-local for session-level control."
 			:key "s"
 			:reader #'ogent--read-preset)
 
-;;; Multi-Model Selection Infix
-
-(defun ogent--models-description ()
-  "Return description string for multi-model infix showing current selection."
-  (concat "Fan-out: "
-          (if ogent-ui--selected-models
-              (propertize (format "[%d models]" (length ogent-ui--selected-models))
-                          'face 'font-lock-function-name-face)
-            (propertize "[single]" 'face 'font-lock-comment-face))))
-
-(defun ogent--read-models (_prompt _initial _history)
-  "Read multiple model IDs with completing-read-multiple."
-  (let* ((available (if (fboundp 'ogent-models-ids)
-                        (ogent-models-ids)
-                      nil))
-         (selection (completing-read-multiple
-                     "Models (comma-separated, empty for single): "
-                     available nil nil
-                     (when ogent-ui--selected-models
-                       (string-join ogent-ui--selected-models ",")))))
-    (if (or (null selection) (equal selection '("")))
-        (progn (setq ogent-ui--selected-models nil) nil)
-      (setq ogent-ui--selected-models selection)
-      selection)))
-
-(transient-define-infix ogent--infix-models ()
-			"Select multiple models for fan-out."
-			:description #'ogent--models-description
-			:class 'transient-lisp-variable
-			:variable 'ogent-ui--selected-models
-			:key "M"
-			:reader #'ogent--read-models)
-
 ;;; Direct Send Suffix
 
 (defun ogent--get-effective-prompt ()
@@ -457,9 +420,7 @@ Makes the variable buffer-local for session-level control."
 
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
-Captures source buffer context and sends to companion without switching focus.
-When `ogent-ui--selected-models' is non-nil, dispatches to all selected models
-concurrently (fan-out mode)."
+Captures source buffer context and sends to companion without switching focus."
   (let* ((source-buffer (current-buffer))
          (region-start (when (use-region-p) (region-beginning)))
          (region-end (when (use-region-p) (region-end)))
@@ -469,30 +430,20 @@ concurrently (fan-out mode)."
          (cookie-presets (cdr extracted))
          (effective-preset (or (car cookie-presets) ogent-ui--selected-preset)))
     (with-current-buffer companion
-      (let ((context (ogent-context-build-with-source
-                      source-buffer region-start region-end)))
-        (if ogent-ui--selected-models
-            ;; Multi-model fan-out: dispatch to all selected models
-            (dolist (model-id ogent-ui--selected-models)
-              (let* ((model (ogent-models-ensure model-id))
-                     (request (funcall ogent-response-function clean-prompt context model)))
-                (unless (ogent-ui-request-p request)
-                  (user-error "ogent-response-function must return an `ogent-ui-request'"))
-                (setf (ogent-ui-request-preset request) effective-preset)
-                (setf (ogent-ui-request-source-buffer request) source-buffer)
-                (ogent-ui--send-request request)))
-          ;; Single model: use current gptel-backend/gptel-model
-          (let* ((model (list :id (if (fboundp 'gptel--model-name)
-                                      (gptel--model-name gptel-model)
-                                    gptel-model)
-                              :backend gptel-backend
-                              :stream? gptel-stream))
-                 (request (funcall ogent-response-function clean-prompt context model)))
-            (unless (ogent-ui-request-p request)
-              (user-error "ogent-response-function must return an `ogent-ui-request'"))
-            (setf (ogent-ui-request-preset request) effective-preset)
-            (setf (ogent-ui-request-source-buffer request) source-buffer)
-            (ogent-ui--send-request request)))))))
+      (let* ((context (ogent-context-build-with-source
+                       source-buffer region-start region-end))
+             (model (list :id (if (fboundp 'gptel--model-name)
+                                  (gptel--model-name gptel-model)
+                                gptel-model)
+                          :backend gptel-backend
+                          :stream? gptel-stream))
+             (request (funcall ogent-response-function clean-prompt context model)))
+        (unless (ogent-ui-request-p request)
+          (user-error "ogent-response-function must return an `ogent-ui-request'"))
+        (setf (ogent-ui-request-preset request) effective-preset)
+        ;; Store source buffer reference for inline edits
+        (setf (ogent-ui-request-source-buffer request) source-buffer)
+        (ogent-ui--send-request request)))))
 
 ;; Note: ogent--suffix-send replaced by ogent--suffix-send-action
 ;; which includes visual feedback via ogent-theme-flash
@@ -1009,8 +960,7 @@ A polished interface for AI-assisted workflows.
 					(lambda () (concat (ogent-theme-icon 'model) " Model"))
 					:class transient-column
 					(ogent--infix-provider)
-					(ogent--infix-preset)
-					(ogent--infix-models)]]
+					(ogent--infix-preset)]]
 
 			 [;; Row 2: Prompt input + Context management
 			  [:description
@@ -1177,9 +1127,8 @@ Returns a plist containing a streaming marker and block-start marker."
                  (fboundp 'org-fold-hide-block-toggle))
         (org-fold-hide-block-toggle 'hide)))
     ;; Insert Response sub-headline as child of Request (level 3)
-    ;; Include model name for multi-model fan-out disambiguation
     (setq response-heading-pos (point))
-    (insert (format "*** Response (%s)\n" model-id))
+    (insert "*** Response\n")
     (let ((marker (copy-marker (point) t)))
       (list :marker marker
             :block-start block-start
