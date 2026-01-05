@@ -20,8 +20,6 @@
 ;; Forward declarations for codemap handle resolution
 (declare-function ogent-codemap-handle-p "ogent-codemap")
 (declare-function ogent-codemap-resolve-handle "ogent-codemap")
-(declare-function ogent-codemap-task-handle-p "ogent-codemap")
-(declare-function ogent-codemap-resolve-task-handle "ogent-codemap")
 
 ;; Forward declarations for org-roam integration (optional dependency)
 (declare-function org-roam-node-title "ext:org-roam-node")
@@ -31,13 +29,9 @@
 (declare-function org-roam-node-list "ext:org-roam")
 
 (defcustom ogent-context-handle-regexp
-  (rx "@" (group
-           (+ (any alnum "_-"))
-           ;; Optional colon-suffix for task handles like @codemap-task:desc
-           (optional ":" (+ (not (any "\n" "@"))))))
+  (rx "@" (group (+ (any alnum "_-"))))
   "Regexp that captures handle references inside Org text.
-Matches @handle-name with alphanumeric, underscore, and hyphen.
-Also supports colon-suffix syntax like @codemap-task:question."
+Matches @handle-name where handle can contain alphanumeric, underscore, and hyphen."
   :type 'string
   :group 'ogent)
 
@@ -444,38 +438,24 @@ Returns nil when the handle cannot be located."
 
 (defun ogent-context--dependency (handle)
   "Return a plist describing HANDLE, resolved when possible.
-Handles special cases like @codemap and @codemap-task: handles."
-  (cond
-   ;; Task-scoped codemap handles (@codemap-task:description)
-   ((and (fboundp 'ogent-codemap-task-handle-p)
-         (ogent-codemap-task-handle-p handle))
-    (let ((content (ogent-codemap-resolve-task-handle handle)))
-      (list :handle handle
-            :missing-p (null content)
-            :node (when content
-                    (make-ogent-context-node
-                     :title (format "Task Codemap: %s" handle)
-                     :id handle
-                     :content content
-                     :buffer nil)))))
-   ;; Static codemap handles (@codemap, @codemap-lisp, etc.)
-   ((and (fboundp 'ogent-codemap-handle-p)
-         (ogent-codemap-handle-p handle))
-    (let ((content (ogent-codemap-resolve-handle handle)))
-      (list :handle handle
-            :missing-p (null content)
-            :node (when content
-                    (make-ogent-context-node
-                     :title (format "Codemap: %s" handle)
-                     :id handle
-                     :content content
-                     :buffer nil)))))
-   ;; Standard handle resolution
-   (t
+Handles special cases like @codemap handles."
+  ;; Check for codemap handles first
+  (if (and (fboundp 'ogent-codemap-handle-p)
+           (ogent-codemap-handle-p handle))
+      (let ((content (ogent-codemap-resolve-handle handle)))
+        (list :handle handle
+              :missing-p (null content)
+              :node (when content
+                      (make-ogent-context-node
+                       :title (format "Codemap: %s" handle)
+                       :id handle
+                       :content content
+                       :buffer nil))))
+    ;; Standard handle resolution
     (let ((node (ogent-resolve-handle handle)))
       (list :handle handle
             :missing-p (null node)
-            :node node)))))
+            :node node))))
 
 ;;;###autoload
 (defun ogent-context-exclude-handle (handle)

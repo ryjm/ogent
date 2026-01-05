@@ -28,10 +28,6 @@
 (autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-filter-dispatch "ogent-issues-transient" nil t)
 
-;; Load graph visualization if available
-(declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
-(autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
-
 ;;; Customization
 
 (defgroup ogent-issues nil
@@ -296,24 +292,6 @@ Each entry is (TYPE . (UNICODE . ASCII))."
   "Project root for the issues displayed in this buffer.
 Used to detect project switches and clear stale state.")
 
-;;; Loading State
-
-(defvar-local ogent-issues--loading nil
-  "Non-nil when a bd command is in progress.")
-
-(defvar-local ogent-issues--loading-timer nil
-  "Timer for animating the loading spinner.")
-
-(defvar-local ogent-issues--loading-frame 0
-  "Current animation frame index (0-3).")
-
-(defconst ogent-issues--loading-frames
-  (if (display-graphic-p)
-      '("◐" "◑" "◒" "◓")
-    '("|" "/" "-" "\\"))
-  "Animation frames for loading spinner.
-Uses Unicode in GUI, ASCII in terminal.")
-
 ;;; Section Classes (when magit-section available)
 ;; Use eval-and-compile to ensure classes exist at macro-expansion time
 ;; (needed for magit-insert-section macro)
@@ -382,9 +360,6 @@ The inherited `value' slot holds the issue plist.")))
     (define-key map "vr" #'ogent-issues-view-ready)
     (define-key map "vk" #'ogent-issues-view-kanban)
     (define-key map "vd" #'ogent-issues-view-deps)
-
-    ;; Dependencies (d for current issue's graph)
-    (define-key map "d" #'ogent-issues-view-deps-current)
     
     ;; Kanban-specific (work in all views, but most useful in Kanban)
     (define-key map "H" #'ogent-issues-kanban-move-left)
@@ -457,50 +432,6 @@ Other:
 
 (ogent-issues--define-mode)
 
-;;; Loading Animation
-
-(defun ogent-issues--start-loading ()
-  "Start the loading animation."
-  (setq ogent-issues--loading t
-        ogent-issues--loading-frame 0)
-  (ogent-issues--stop-loading-timer)
-  (setq ogent-issues--loading-timer
-        (run-at-time 0.25 0.25 #'ogent-issues--animate-loading (current-buffer)))
-  (force-mode-line-update))
-
-(defun ogent-issues--stop-loading ()
-  "Stop the loading animation."
-  (ogent-issues--stop-loading-timer)
-  (setq ogent-issues--loading nil)
-  (force-mode-line-update))
-
-(defun ogent-issues--stop-loading-timer ()
-  "Cancel the loading timer if active."
-  (when ogent-issues--loading-timer
-    (cancel-timer ogent-issues--loading-timer)
-    (setq ogent-issues--loading-timer nil)))
-
-(defun ogent-issues--animate-loading (buffer)
-  "Advance the loading animation frame in BUFFER."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (setq ogent-issues--loading-frame
-            (mod (1+ ogent-issues--loading-frame) 4))
-      (force-mode-line-update))))
-
-(defun ogent-issues--loading-indicator ()
-  "Return the current loading spinner character, or nil if not loading."
-  (when ogent-issues--loading
-    (nth ogent-issues--loading-frame ogent-issues--loading-frames)))
-
-(defun ogent-issues--cleanup-on-kill ()
-  "Clean up timers when the buffer is killed."
-  (ogent-issues--stop-loading-timer))
-
-(add-hook 'ogent-issues-mode-hook
-          (lambda ()
-            (add-hook 'kill-buffer-hook #'ogent-issues--cleanup-on-kill nil t)))
-
 ;;; Entry Point
 
 (defun ogent-issues--buffer-name ()
@@ -561,40 +492,32 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
          ;; Calculate ready and blocked counts
          (ready-count (cl-count-if #'ogent-issues--issue-ready-p issues))
          (blocked-count (cl-count-if (lambda (i) (string= (plist-get i :status) "blocked")) issues))
-         (filters (ogent-issues--format-filters))
-         (loading-indicator (ogent-issues--loading-indicator)))
+         (filters (ogent-issues--format-filters)))
     (concat
      (propertize " " 'face 'ogent-issues-header-line)
      (propertize "Issues" 'face 'ogent-issues-header-line)
-     ;; Show loading spinner if loading
-     (if loading-indicator
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     (propertize project 'face 'ogent-issues-header-line-project)
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     (propertize (format "[%s]" (capitalize view)) 'face 'ogent-issues-header-line-view)
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     ;; Show ready count with emphasis when > 0
+     (if (> ready-count 0)
+         (propertize (format "%d ready" ready-count) 'face 'ogent-issues-header-line-ready)
+       (propertize "0 ready" 'face 'ogent-issues-header-line-stat))
+     ;; Show blocked count only if > 0
+     (if (> blocked-count 0)
          (concat (propertize "  " 'face 'ogent-issues-header-line-stat)
-                 (propertize loading-indicator 'face 'ogent-issues-header-line-ready)
-                 (propertize " Loading..." 'face 'ogent-issues-header-line-stat))
-       ;; Normal display when not loading
-       (concat
-        (propertize "  " 'face 'ogent-issues-header-line-stat)
-        (propertize project 'face 'ogent-issues-header-line-project)
-        (propertize "  " 'face 'ogent-issues-header-line-stat)
-        (propertize (format "[%s]" (capitalize view)) 'face 'ogent-issues-header-line-view)
-        (propertize "  " 'face 'ogent-issues-header-line-stat)
-        ;; Show ready count with emphasis when > 0
-        (if (> ready-count 0)
-            (propertize (format "%d ready" ready-count) 'face 'ogent-issues-header-line-ready)
-          (propertize "0 ready" 'face 'ogent-issues-header-line-stat))
-        ;; Show blocked count only if > 0
-        (if (> blocked-count 0)
-            (concat (propertize "  " 'face 'ogent-issues-header-line-stat)
-                    (propertize (format "%d blocked" blocked-count) 'face 'ogent-issues-header-line-blocked))
-          "")
-        (propertize (format "  %d total" count) 'face 'ogent-issues-header-line-stat)
-        (if filters
-            (concat (propertize "  filtered: " 'face 'ogent-issues-header-line-stat)
-                    (ogent-issues--format-filters-for-header))
-          "")
-        (propertize "  " 'face 'ogent-issues-header-line-stat)
-        (propertize "?" 'face 'ogent-issues-header-line-key)
-        (propertize ":help " 'face 'ogent-issues-header-line-stat))))))
+                 (propertize (format "%d blocked" blocked-count) 'face 'ogent-issues-header-line-blocked))
+       "")
+     (propertize (format "  %d total" count) 'face 'ogent-issues-header-line-stat)
+     (if filters
+         (concat (propertize "  filtered: " 'face 'ogent-issues-header-line-stat)
+                 (ogent-issues--format-filters-for-header))
+       "")
+     (propertize "  " 'face 'ogent-issues-header-line-stat)
+     (propertize "?" 'face 'ogent-issues-header-line-key)
+     (propertize ":help " 'face 'ogent-issues-header-line-stat))))
 
 (defun ogent-issues--format-filters-for-header ()
   "Format current filters for header line with proper faces."
@@ -1396,15 +1319,11 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
           (plist-get issue :id)))
   ;; Capture buffer for async callback
   (let ((buf (current-buffer)))
-    ;; Start loading animation
-    (ogent-issues--start-loading)
     ;; Fetch and render
     (ogent-issues-bd-list
      (lambda (issues)
        (when (buffer-live-p buf)
          (with-current-buffer buf
-           ;; Stop loading animation
-           (ogent-issues--stop-loading)
            (setq ogent-issues--issues (ogent-issues--apply-filters issues))
            (let ((inhibit-read-only t))
              (erase-buffer)
@@ -1420,9 +1339,6 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
                 (insert "  Press 'g' to retry refresh.\n")))))))
      ogent-issues--filters
      (lambda (err)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (ogent-issues--stop-loading)))
        (message "Failed to refresh: %s" err)))))
 
 (defun ogent-issues-refresh-force ()
@@ -1604,12 +1520,10 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
   (interactive)
   (setq ogent-issues--current-view 'ready)
   (let ((buf (current-buffer)))
-    (ogent-issues--start-loading)
     (ogent-issues-bd-ready
      (lambda (issues)
        (when (buffer-live-p buf)
          (with-current-buffer buf
-           (ogent-issues--stop-loading)
            (setq ogent-issues--issues issues)
            (let ((inhibit-read-only t))
              (erase-buffer)
@@ -1632,9 +1546,6 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
                                    'face 'ogent-issues-dimmed)))
              (goto-char (point-min))))))
      (lambda (err)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (ogent-issues--stop-loading)))
        (message "Failed to fetch ready work: %s" err)))))
 
 ;;; Kanban View
@@ -1654,12 +1565,10 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
   (interactive)
   (setq ogent-issues--current-view 'kanban)
   (let ((buf (current-buffer)))
-    (ogent-issues--start-loading)
     (ogent-issues-bd-list
      (lambda (issues)
        (when (buffer-live-p buf)
          (with-current-buffer buf
-           (ogent-issues--stop-loading)
            (setq ogent-issues--issues issues)
            (let ((inhibit-read-only t))
              (erase-buffer)
@@ -1667,9 +1576,6 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
              (goto-char (point-min))))))
      nil  ; no filters
      (lambda (err)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (ogent-issues--stop-loading)))
        (message "Failed to fetch issues for Kanban: %s" err)))))
 
 (defun ogent-issues--kanban-column-width ()
@@ -1825,18 +1731,8 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 (defun ogent-issues-view-deps ()
   "Switch to dependency graph view."
   (interactive)
-  (require 'ogent-issues-graph)
-  (if-let ((id (ogent-issues--current-issue-id)))
-      (ogent-issues-graph-view id)
-    (ogent-issues-graph-view)))
-
-(defun ogent-issues-view-deps-current ()
-  "View dependency graph centered on current issue."
-  (interactive)
-  (require 'ogent-issues-graph)
-  (if-let ((id (ogent-issues--current-issue-id)))
-      (ogent-issues-graph-view id)
-    (user-error "No issue at point")))
+  (setq ogent-issues--current-view 'deps)
+  (message "Dependency view not yet implemented"))
 
 ;;; Evil Integration
 ;; When evil is loaded, set up proper evil keybindings.
