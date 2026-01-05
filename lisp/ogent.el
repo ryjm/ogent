@@ -68,6 +68,7 @@
 (require 'ogent-session)
 (require 'ogent-debug)
 (require 'ogent-anthropic-oauth)
+(require 'ogent-completions)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
