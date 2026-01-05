@@ -557,6 +557,324 @@ This syncs beads and submits to the merge queue."
         (ogent-gastown-mail-send from subject body
                                  #'ogent-gastown-show-mail)))))
 
+;;; Beads (bd) Integration
+
+(defvar ogent-gastown--bd-ready-cache nil
+  "Cached ready issues: list of issue plists.")
+
+(defvar ogent-gastown--bd-processes nil
+  "List of active bd processes for cleanup.")
+
+(defun ogent-gastown-bd-available-p ()
+  "Return non-nil if bd CLI is available."
+  (executable-find ogent-gastown-bd-executable))
+
+(defun ogent-gastown-bd--run-async (args callback &optional error-callback raw-output)
+  "Run bd with ARGS asynchronously, call CALLBACK with result.
+ARGS is a list of command-line arguments.
+CALLBACK receives the parsed JSON result (as plist) on success.
+ERROR-CALLBACK receives an error message string on failure.
+If RAW-OUTPUT is non-nil, pass raw string output instead of parsing JSON.
+
+Returns the process object, or nil if bd is not available."
+  (unless (ogent-gastown-bd-available-p)
+    (when error-callback
+      (funcall error-callback "bd CLI not found"))
+    (cl-return-from ogent-gastown-bd--run-async nil))
+
+  (let* ((buffer (generate-new-buffer " *ogent-bd*"))
+         (stderr-buffer (generate-new-buffer " *ogent-bd-stderr*"))
+         (proc nil)
+         (timer nil))
+
+    ;; Set up timeout timer
+    (setq timer
+          (run-with-timer
+           ogent-gastown-timeout nil
+           (lambda ()
+             (when (and proc (process-live-p proc))
+               (kill-process proc)
+               (when error-callback
+                 (funcall error-callback
+                          (format "bd command timed out after %ds"
+                                  ogent-gastown-timeout)))))))
+
+    ;; Start the process
+    (let ((full-command (cons ogent-gastown-bd-executable args)))
+      (setq proc
+            (make-process
+             :name "ogent-bd"
+             :buffer buffer
+             :stderr stderr-buffer
+             :command full-command
+             :sentinel
+             (lambda (process event)
+               ;; Cancel timeout timer
+               (when timer (cancel-timer timer))
+
+               ;; Clean up process list
+               (setq ogent-gastown--bd-processes
+                     (delq process ogent-gastown--bd-processes))
+
+               (cond
+                ;; Success
+                ((string= event "finished\n")
+                 (with-current-buffer (process-buffer process)
+                   (goto-char (point-min))
+                   (skip-chars-forward " \t\n\r")
+                   (condition-case err
+                       (let ((result (if raw-output
+                                         (string-trim (buffer-string))
+                                       (if (eobp)
+                                           nil
+                                         (json-parse-buffer
+                                          :object-type 'plist
+                                          :array-type 'list
+                                          :null-object nil
+                                          :false-object nil)))))
+                         (funcall callback result))
+                     (error
+                      (if error-callback
+                          (funcall error-callback
+                                   (format "JSON parse error: %s"
+                                           (error-message-string err)))
+                        (message "ogent-bd: JSON parse error: %s"
+                                 (error-message-string err))))))
+                 ;; Clean up buffers
+                 (when (buffer-live-p (process-buffer process))
+                   (kill-buffer (process-buffer process)))
+                 (when (buffer-live-p stderr-buffer)
+                   (kill-buffer stderr-buffer)))
+
+                ;; Process exited with error
+                ((string-match "exited abnormally" event)
+                 (let ((stderr-content
+                        (when (buffer-live-p stderr-buffer)
+                          (with-current-buffer stderr-buffer
+                            (string-trim (buffer-string))))))
+                   (if error-callback
+                       (funcall error-callback
+                                (or stderr-content
+                                    (format "bd command failed: %s" event)))
+                     (message "ogent-bd error: %s" (or stderr-content event))))
+                 ;; Clean up buffers
+                 (when (buffer-live-p (process-buffer process))
+                   (kill-buffer (process-buffer process)))
+                 (when (buffer-live-p stderr-buffer)
+                   (kill-buffer stderr-buffer)))
+
+                ;; Other events
+                (t
+                 (when (buffer-live-p (process-buffer process))
+                   (kill-buffer (process-buffer process)))
+                 (when (buffer-live-p stderr-buffer)
+                   (kill-buffer stderr-buffer))))))))
+
+    ;; Track process for cleanup
+    (push proc ogent-gastown--bd-processes)
+    proc))
+
+;;; Beads API
+
+(defun ogent-gastown-bd-ready-refresh (&optional callback)
+  "Refresh ready issues asynchronously.
+If CALLBACK is provided, call it with the issues list when done."
+  (ogent-gastown-bd--run-async
+   '("ready" "--json")
+   (lambda (result)
+     (setq ogent-gastown--bd-ready-cache result)
+     (when callback (funcall callback result)))
+   (lambda (err)
+     (setq ogent-gastown--bd-ready-cache nil)
+     (message "Failed to get ready issues: %s" err))))
+
+(defun ogent-gastown-bd-show (id callback &optional error-callback)
+  "Get issue details for ID, calling CALLBACK with the result."
+  (ogent-gastown-bd--run-async
+   (list "show" id "--json")
+   callback
+   (or error-callback
+       (lambda (err)
+         (message "Failed to get issue %s: %s" id err)))))
+
+(defun ogent-gastown-bd-update (id status callback &optional error-callback)
+  "Update issue ID to STATUS, calling CALLBACK on success."
+  (ogent-gastown-bd--run-async
+   (list "update" id (format "--status=%s" status))
+   (lambda (_result)
+     (message "Updated %s to %s" id status)
+     (ogent-gastown-bd-ready-refresh)
+     (when callback (funcall callback)))
+   (or error-callback
+       (lambda (err)
+         (message "Failed to update %s: %s" id err)))
+   t))
+
+(defun ogent-gastown-bd-close (id reason callback &optional error-callback)
+  "Close issue ID with REASON, calling CALLBACK on success."
+  (ogent-gastown-bd--run-async
+   (list "close" id (format "--reason=%s" reason))
+   (lambda (_result)
+     (message "Closed %s" id)
+     (ogent-gastown-bd-ready-refresh)
+     (when callback (funcall callback)))
+   (or error-callback
+       (lambda (err)
+         (message "Failed to close %s: %s" id err)))
+   t))
+
+;;; Beads Interactive Commands
+
+;;;###autoload
+(defun ogent-gastown-show-ready ()
+  "Show ready issues in a buffer."
+  (interactive)
+  (ogent-gastown-bd-ready-refresh
+   (lambda (issues)
+     (let ((buf (get-buffer-create "*Beads Ready*")))
+       (with-current-buffer buf
+         (let ((inhibit-read-only t))
+           (erase-buffer)
+           (insert (propertize "Ready Work\n" 'face 'bold))
+           (insert (make-string 50 ?=) "\n\n")
+           (if (null issues)
+               (insert "No ready issues.\n")
+             (dolist (issue issues)
+               (let ((id (plist-get issue :id))
+                     (title (plist-get issue :title))
+                     (priority (plist-get issue :priority))
+                     (type (plist-get issue :issue_type)))
+                 (insert (propertize (format "[P%s]" (or priority "?"))
+                                     'face 'font-lock-warning-face))
+                 (insert " ")
+                 (insert (propertize (or id "?") 'face 'font-lock-constant-face))
+                 (insert " ")
+                 (when type
+                   (insert (propertize (format "[%s]" type)
+                                       'face 'font-lock-type-face))
+                   (insert " "))
+                 (insert (or title "(no title)"))
+                 (insert "\n"))))
+           (goto-char (point-min))
+           (ogent-gastown-bd-ready-mode)))
+       (display-buffer buf)))))
+
+;;;###autoload
+(defun ogent-gastown-show-issue (id)
+  "Show issue details for ID in a buffer."
+  (interactive "sIssue ID: ")
+  (ogent-gastown-bd-show
+   id
+   (lambda (issue)
+     (let ((buf (get-buffer-create (format "*Beads: %s*" id))))
+       (with-current-buffer buf
+         (let ((inhibit-read-only t))
+           (erase-buffer)
+           (insert (propertize (format "%s\n" (or (plist-get issue :title) id))
+                               'face 'bold))
+           (insert (make-string 50 ?=) "\n\n")
+           (insert (format "ID: %s\n" (plist-get issue :id)))
+           (insert (format "Status: %s\n" (plist-get issue :status)))
+           (insert (format "Priority: P%s\n" (or (plist-get issue :priority) "?")))
+           (insert (format "Type: %s\n" (or (plist-get issue :issue_type) "?")))
+           (when-let ((created (plist-get issue :created_at)))
+             (insert (format "Created: %s\n" created)))
+           (when-let ((desc (plist-get issue :description)))
+             (insert "\nDescription:\n")
+             (insert desc))
+           (goto-char (point-min))
+           (ogent-gastown-bd-issue-mode)
+           (setq-local ogent-gastown-bd--current-issue-id id)))
+       (display-buffer buf)))))
+
+;;;###autoload
+(defun ogent-gastown-claim-issue (id)
+  "Claim issue ID by setting status to in_progress."
+  (interactive "sIssue ID: ")
+  (ogent-gastown-bd-update id "in_progress" nil))
+
+;;;###autoload
+(defun ogent-gastown-close-issue (id reason)
+  "Close issue ID with REASON."
+  (interactive "sIssue ID: \nsReason: ")
+  (ogent-gastown-bd-close id reason nil))
+
+;;; Beads Ready Mode
+
+(defvar ogent-gastown-bd-ready-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ogent-gastown-bd-ready-show-at-point)
+    (define-key map (kbd "s") #'ogent-gastown-bd-ready-start-at-point)
+    (define-key map (kbd "g") #'ogent-gastown-show-ready)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for `ogent-gastown-bd-ready-mode'.")
+
+(define-derived-mode ogent-gastown-bd-ready-mode special-mode "BD-Ready"
+  "Mode for viewing ready issues."
+  (setq-local revert-buffer-function
+              (lambda (_ignore-auto _noconfirm)
+                (ogent-gastown-show-ready))))
+
+(defun ogent-gastown-bd-ready--id-at-point ()
+  "Extract issue ID from current line."
+  (save-excursion
+    (beginning-of-line)
+    (when (re-search-forward "\\[P[0-4?]\\] \\([^ ]+\\)" (line-end-position) t)
+      (match-string 1))))
+
+(defun ogent-gastown-bd-ready-show-at-point ()
+  "Show details of issue at point."
+  (interactive)
+  (when-let ((id (ogent-gastown-bd-ready--id-at-point)))
+    (ogent-gastown-show-issue id)))
+
+(defun ogent-gastown-bd-ready-start-at-point ()
+  "Start working on issue at point."
+  (interactive)
+  (when-let ((id (ogent-gastown-bd-ready--id-at-point)))
+    (ogent-gastown-claim-issue id)))
+
+;;; Beads Issue Mode
+
+(defvar-local ogent-gastown-bd--current-issue-id nil
+  "Current issue ID in this buffer.")
+
+(defvar ogent-gastown-bd-issue-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "s") #'ogent-gastown-bd-issue-start)
+    (define-key map (kbd "c") #'ogent-gastown-bd-issue-close)
+    (define-key map (kbd "g") #'ogent-gastown-bd-issue-refresh)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for `ogent-gastown-bd-issue-mode'.")
+
+(define-derived-mode ogent-gastown-bd-issue-mode special-mode "BD-Issue"
+  "Mode for viewing issue details."
+  (setq-local revert-buffer-function
+              (lambda (_ignore-auto _noconfirm)
+                (when ogent-gastown-bd--current-issue-id
+                  (ogent-gastown-show-issue ogent-gastown-bd--current-issue-id)))))
+
+(defun ogent-gastown-bd-issue-start ()
+  "Start working on the current issue."
+  (interactive)
+  (when ogent-gastown-bd--current-issue-id
+    (ogent-gastown-claim-issue ogent-gastown-bd--current-issue-id)))
+
+(defun ogent-gastown-bd-issue-close ()
+  "Close the current issue."
+  (interactive)
+  (when ogent-gastown-bd--current-issue-id
+    (let ((reason (read-string "Close reason: ")))
+      (ogent-gastown-close-issue ogent-gastown-bd--current-issue-id reason))))
+
+(defun ogent-gastown-bd-issue-refresh ()
+  "Refresh the current issue."
+  (interactive)
+  (when ogent-gastown-bd--current-issue-id
+    (ogent-gastown-show-issue ogent-gastown-bd--current-issue-id)))
+
 ;;; Transient Menu
 
 ;;;###autoload (autoload 'ogent-gastown-dispatch "ogent-gastown" nil t)
@@ -581,7 +899,13 @@ This syncs beads and submits to the merge queue."
 
    ["Convoy"
     ("v" "Show convoys" ogent-gastown-show-convoy)
-    ("V" "Refresh convoys" ogent-gastown-convoy-refresh)]]
+    ("V" "Refresh convoys" ogent-gastown-convoy-refresh)]
+
+   ["Beads"
+    ("b" "Ready work" ogent-gastown-show-ready)
+    ("i" "Show issue" ogent-gastown-show-issue)
+    ("s" "Start issue" ogent-gastown-claim-issue)
+    ("k" "Close issue" ogent-gastown-close-issue)]]
 
   [["Session"
     ("p" "Prime (init)" ogent-gastown-prime)
@@ -639,15 +963,23 @@ to Gas Town commands."
 ;;; Cleanup
 
 (defun ogent-gastown-cleanup ()
-  "Kill all active gt processes and clear cache."
+  "Kill all active gt and bd processes and clear cache."
   (interactive)
+  ;; Clean up gt processes
   (dolist (proc ogent-gastown--processes)
     (when (process-live-p proc)
       (kill-process proc)))
   (setq ogent-gastown--processes nil)
+  ;; Clean up bd processes
+  (dolist (proc ogent-gastown--bd-processes)
+    (when (process-live-p proc)
+      (kill-process proc)))
+  (setq ogent-gastown--bd-processes nil)
+  ;; Clear all caches
   (setq ogent-gastown--hook-cache nil)
   (setq ogent-gastown--mail-cache nil)
   (setq ogent-gastown--convoy-cache nil)
+  (setq ogent-gastown--bd-ready-cache nil)
   (setq ogent-gastown--town-root nil)
   (ogent-gastown--stop-polling)
   (message "ogent-gastown: Cleaned up"))
