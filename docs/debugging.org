@@ -1,0 +1,329 @@
+#+TITLE: Ogent Interactive Debugging Guide
+#+AUTHOR: Ogent Development Team
+#+OPTIONS: toc:2
+
+* Introduction
+
+This guide covers interactive debugging techniques for developing and troubleshooting ogent.
+It covers Edebug for source-level debugging, error handling, profiling, and ogent-specific
+debug tools.
+
+* Edebug (Source-level Debugging)
+
+Edebug is Emacs's built-in source-level debugger. It lets you step through Lisp code
+and inspect state at each point.
+
+** Instrumenting Functions
+
+#+BEGIN_SRC elisp
+;; Instrument a function for stepping (with prefix arg)
+C-u C-M-x        ; Place cursor inside defun, then use this
+
+;; Or use the menu
+M-x edebug-defun
+
+;; Instrument all functions in a file
+M-x edebug-all-defs
+;; Then load the file
+#+END_SRC
+
+** Edebug Commands
+
+Once in an Edebug session:
+
+| Key   | Command                     |
+|-------+-----------------------------|
+| SPC   | Step to next expression     |
+| n     | Next (skip function calls)  |
+| i     | Step Into function          |
+| o     | Step Out of function        |
+| c     | Continue to breakpoint      |
+| g     | Go (continue, ignore breaks)|
+| b     | Set Breakpoint at point     |
+| u     | Unset breakpoint            |
+| x     | Set conditional breakpoint  |
+| e     | Eval expression             |
+| d     | Display backtrace           |
+| ?     | Show all commands           |
+| q     | Quit edebug                 |
+
+** Removing Instrumentation
+
+#+BEGIN_SRC elisp
+;; Re-evaluate without C-u prefix to remove instrumentation
+C-M-x
+
+;; Or remove all instrumentation
+M-x edebug-remove-instrumentation
+#+END_SRC
+
+** Debug on Entry
+
+#+BEGIN_SRC elisp
+;; Enter debugger when function is called
+M-x debug-on-entry RET function-name RET
+
+;; Cancel debug-on-entry
+M-x cancel-debug-on-entry RET function-name RET
+#+END_SRC
+
+* Debug on Error
+
+** Basic Error Debugging
+
+#+BEGIN_SRC elisp
+;; Enter debugger on any error
+(setq debug-on-error t)
+
+;; Only debug on specific error types
+(setq debug-on-error '(error wrong-type-argument void-function))
+
+;; Debug when a message matches a regex
+(setq debug-on-message "ogent")
+
+;; Disable
+(setq debug-on-error nil)
+(setq debug-on-message nil)
+#+END_SRC
+
+** Debugging Signals
+
+#+BEGIN_SRC elisp
+;; Debug on quit (C-g)
+(setq debug-on-quit t)
+
+;; This is useful for debugging infinite loops:
+;; 1. Set debug-on-quit
+;; 2. Run the code
+;; 3. Press C-g to break in
+;; 4. Use 'd' to see backtrace
+#+END_SRC
+
+* Testing in Isolation
+
+** Batch Mode Testing
+
+#+BEGIN_SRC bash
+# Run Emacs with only ogent loaded
+make batch
+
+# Run in sandbox (clean user config)
+make sandbox
+
+# Run specific test file
+emacs --batch -l ert -l test/ogent-test-helper.el \
+  -l test/ogent-edit-test.el \
+  -f ert-run-tests-batch-and-exit
+
+# Run tests matching a pattern
+emacs --batch -l ert -l test/ogent-test-helper.el \
+  -eval '(ert-run-tests-batch-and-exit "ogent-edit")'
+#+END_SRC
+
+** Interactive Test Running
+
+#+BEGIN_SRC elisp
+;; Run tests interactively
+M-x ert RET "ogent" RET
+
+;; Re-run failed tests
+M-x ert-run-tests-interactively RET :failed RET
+#+END_SRC
+
+* Profiling
+
+** Elapsed Time Profiling (ELP)
+
+#+BEGIN_SRC elisp
+;; Profile specific functions
+M-x elp-instrument-function RET ogent-context-build RET
+M-x elp-instrument-function RET ogent-edit-parse-response RET
+
+;; ... use the functions ...
+
+;; View timing data
+M-x elp-results
+
+;; Clean up
+M-x elp-restore-all
+#+END_SRC
+
+** Profiling a Package
+
+#+BEGIN_SRC elisp
+;; Profile all functions with prefix
+M-x elp-instrument-package RET ogent- RET
+
+;; ... use ogent ...
+
+M-x elp-results
+M-x elp-restore-all
+#+END_SRC
+
+** Memory Profiling (Emacs 29+)
+
+#+BEGIN_SRC elisp
+;; View memory report
+M-x memory-report
+
+;; Garbage collection info
+(garbage-collect)
+#+END_SRC
+
+* Tracing Function Calls
+
+#+BEGIN_SRC elisp
+;; Start tracing
+(trace-function 'ogent-request-edit)
+
+;; ... use the function ...
+
+;; View trace in *trace-output* buffer
+(switch-to-buffer "*trace-output*")
+
+;; Stop tracing
+(untrace-function 'ogent-request-edit)
+
+;; Trace with custom output
+(trace-function 'ogent-context-build
+                (lambda (args)
+                  (message "context-build called with %d args" (length args))))
+#+END_SRC
+
+* Ogent Debug Mode
+
+Ogent includes a built-in debug mode that provides structured logging of
+LLM interactions and tool calls.
+
+** Enabling Debug Mode
+
+#+BEGIN_SRC elisp
+;; Toggle debug mode globally
+M-x ogent-debug-mode
+
+;; Or enable via variable
+(setq ogent-debug-log-level 'info)  ; or 'debug for verbose
+
+;; Enable for current session only
+M-x ogent-debug-enable
+#+END_SRC
+
+** Debug Buffer
+
+#+BEGIN_SRC elisp
+;; Show debug buffer
+M-x ogent-debug-show   ; or C-c d s
+
+;; Clear debug buffer
+M-x ogent-debug-clear  ; or C-c d c
+#+END_SRC
+
+** Tool Call History
+
+Ogent tracks all tool calls for debugging and replay:
+
+#+BEGIN_SRC elisp
+;; View tool history buffer
+M-x ogent-debug-tool-history-buffer
+
+;; In the history buffer:
+;; n/p - Navigate between entries
+;; RET - Replay tool call at point
+;; j   - Export to JSON
+;; t   - Export to text file
+;; g   - Refresh
+;; q   - Quit
+
+;; Or use the transient menu
+M-x ogent-debug-tools-menu  ; or C-c . t
+#+END_SRC
+
+** Replaying Tool Calls
+
+#+BEGIN_SRC elisp
+;; Replay the most recent tool call
+M-x ogent-debug-replay-last-tool
+
+;; Replay a specific tool (interactive selection)
+M-x ogent-debug-replay-tool
+#+END_SRC
+
+** Exporting History
+
+#+BEGIN_SRC elisp
+;; Export to JSON (for sharing/analysis)
+M-x ogent-debug-export-tool-history-json
+
+;; Export to readable text
+M-x ogent-debug-export-tool-history-text
+
+;; Import from JSON
+M-x ogent-debug-import-tool-history
+#+END_SRC
+
+* Common Debugging Scenarios
+
+** Debugging Edit Parsing
+
+#+BEGIN_SRC elisp
+;; Enable debug mode to see parsing details
+(setq ogent-debug-log-level 'debug)
+
+;; The debug buffer will show:
+;; - Raw LLM response
+;; - Parsed edit structures
+;; - Validation results
+;; - Apply success/failure
+#+END_SRC
+
+** Debugging gptel Integration
+
+#+BEGIN_SRC elisp
+;; Enable gptel logging
+(setq gptel-log-level 'info)
+
+;; View gptel log
+M-x gptel-log
+
+;; Mirror gptel logs to ogent debug buffer
+(setq ogent-debug-mirror-gptel t)
+#+END_SRC
+
+** Debugging Async Operations
+
+#+BEGIN_SRC elisp
+;; Check active tool processes
+M-x ogent-tool-fsm-status
+
+;; Reset FSM state if stuck
+M-x ogent-tool-fsm-reset
+#+END_SRC
+
+** Debugging Context Building
+
+#+BEGIN_SRC elisp
+;; Enable context logging
+(setq ogent-debug-log-context t)
+
+;; Preview what context will be sent
+M-x ogent-context-preview  ; or C-c . c
+#+END_SRC
+
+* Tips and Best Practices
+
+1. *Start with ogent-debug-mode* - It provides structured logging without
+   modifying code.
+
+2. *Use Edebug for stepping* - When you need to understand control flow,
+   instrument the function with =C-u C-M-x=.
+
+3. *Profile before optimizing* - Use ELP to identify actual bottlenecks.
+
+4. *Test in batch mode* - Isolate issues from your personal config using
+   =make batch= or =make sandbox=.
+
+5. *Save tool history* - Export to JSON when reporting bugs to share
+   exact reproduction steps.
+
+6. *Check the debug buffer first* - Most issues leave traces in
+   =*ogent-debug*=.
