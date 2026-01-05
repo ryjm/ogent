@@ -13,6 +13,7 @@
 (require 'ogent-edit-parse)
 (require 'ogent-edit-display)
 (require 'ogent-edit-log)
+(require 'ogent-edit-diff)
 (require 'ogent-companion)
 
 ;; gptel integration
@@ -211,6 +212,16 @@ edits as smerge conflicts when response arrives."
     ('overlay (ogent-edit-overlay-reject-all))
     (_ (ogent-edit-reject-all))))
 
+;;;###autoload
+(defun ogent-edit-show-diff-buffer ()
+  "Show pending edits in a magit-style diff buffer.
+Provides stage/unstage semantics, collapsible sections, and batch operations."
+  (interactive)
+  (let ((edits ogent-edit--pending-edits))
+    (if edits
+        (ogent-edit-diff-show edits)
+      (user-error "No pending edits"))))
+
 ;;;###autoload (autoload 'ogent-edit-menu "ogent-edit" nil t)
 (transient-define-prefix ogent-edit-menu ()
 			 "Commands for managing ogent edits."
@@ -229,6 +240,7 @@ edits as smerge conflicts when response arrives."
 			   ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
 			 [["Request"
 			   ("e" "Request edit" ogent-request-edit)
+			   ("D" "Diff buffer (magit-style)" ogent-edit-show-diff-buffer)
 			   ("q" "Quit" transient-quit-one)]
 			  ["Overlay Actions" :if (lambda () (eq ogent-edit-display-method 'overlay))
 			   ("d" "Diff" ogent-edit-overlay-diff)
