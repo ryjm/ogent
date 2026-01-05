@@ -19,6 +19,12 @@
 (declare-function ogent-edit-menu "ogent-ui-hydra")
 (declare-function ogent-request-menu "ogent-ui-hydra")
 
+;; Declare completion commands (defined in ogent-completions.el)
+(declare-function ogent-completion-next "ogent-completions")
+(declare-function ogent-completion-prev "ogent-completions")
+(declare-function ogent-completion-accept "ogent-completions")
+(declare-function ogent-completion-reject "ogent-completions")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -111,7 +117,16 @@ Set to nil to disable automatic evil binding setup."
     (notes            :key "d" :command ogent-notes-capture
                       :desc "Capture notes")
     (debug-mode       :key "D" :command ogent-debug-mode
-                      :desc "Toggle debug mode"))
+                      :desc "Toggle debug mode")
+    ;; Completion review
+    (completion-next   :key "]" :command ogent-completion-next
+                       :desc "Next completion")
+    (completion-prev   :key "[" :command ogent-completion-prev
+                       :desc "Previous completion")
+    (completion-accept :key "z" :command ogent-completion-accept
+                       :desc "Accept completion")
+    (completion-reject :key "x" :command ogent-completion-reject
+                       :desc "Reject completion"))
   "Registry of ogent actions with keys and commands.
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")
