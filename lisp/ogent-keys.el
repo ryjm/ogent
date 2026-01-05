@@ -25,6 +25,9 @@
 (declare-function ogent-completion-accept "ogent-completions")
 (declare-function ogent-completion-reject "ogent-completions")
 
+;; Declare Gas Town commands (defined in ogent-gastown.el)
+(declare-function ogent-gastown-dispatch "ogent-gastown")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -118,6 +121,9 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Capture notes")
     (debug-mode       :key "D" :command ogent-debug-mode
                       :desc "Toggle debug mode")
+    ;; Gas Town
+    (gastown          :key "G" :command ogent-gastown-dispatch
+                      :desc "Gas Town menu")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")

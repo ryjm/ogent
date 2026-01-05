@@ -69,6 +69,7 @@
 (require 'ogent-debug)
 (require 'ogent-anthropic-oauth)
 (require 'ogent-completions)
+(require 'ogent-gastown)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
