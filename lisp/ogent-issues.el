@@ -11,6 +11,18 @@
 (require 'subr-x)
 (require 'eieio)
 
+;; Forward declarations for loading state variables
+;; These are defined fully later with defvar-local, but need to exist early
+;; to prevent void-variable errors during header-line redisplay
+(defvar ogent-issues--loading nil
+  "Non-nil when a bd command is in progress.")
+(defvar ogent-issues--loading-timer nil
+  "Timer for animating the loading spinner.")
+(defvar ogent-issues--loading-frame 0
+  "Current animation frame index (0-3).")
+(defvar ogent-issues--loading-frames nil
+  "Animation frames for loading spinner.")
+
 ;; Soft dependency on magit-section - check at both compile and load time
 ;; to ensure classes are properly defined for macro expansion
 (eval-and-compile
