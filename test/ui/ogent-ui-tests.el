@@ -1545,11 +1545,11 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                ;; Empty prompt should be rejected or handled gracefully
                                (condition-case err
-                                  (ogent-test-with-mock-gptel
+                                   (ogent-test-with-mock-gptel
                                     (ogent-request "" '("gpt-4o-mini")))
-                                (error
-                                 ;; Expected - empty prompts may be rejected
-                                 (should (stringp (error-message-string err)))))))))
+                                 (error
+                                  ;; Expected - empty prompts may be rejected
+                                  (should (stringp (error-message-string err)))))))))
 
 (ert-deftest ogent-ui-whitespace-only-prompt ()
   "Test handling of whitespace-only prompts."
@@ -1561,9 +1561,9 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                ;; Whitespace-only prompt should be handled
                                (condition-case err
-                                  (ogent-test-with-mock-gptel
+                                   (ogent-test-with-mock-gptel
                                     (ogent-request "   \n\t  " '("gpt-4o-mini")))
-                                (error
+                                 (error
                                   ;; May be rejected - that's fine
                                   (should (stringp (error-message-string err)))))))))
 
