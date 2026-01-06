@@ -21,13 +21,6 @@
   (when ogent-gastown--magit-section-available
     (require 'magit-section)))
 
-;; Autoload tmux functions
-(autoload 'ogent-gastown-tmux-get-sessions-for-status "ogent-gastown-tmux")
-(autoload 'ogent-gastown-tmux-attach "ogent-gastown-tmux")
-(autoload 'ogent-gastown-tmux-send "ogent-gastown-tmux")
-(autoload 'ogent-gastown-tmux-preview "ogent-gastown-tmux")
-(autoload 'ogent-gastown-tmux-available-p "ogent-gastown-tmux")
-
 ;; Declare magit functions to avoid byte-compile warnings
 (declare-function magit-insert-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -147,18 +140,6 @@
   "Face for less important text."
   :group 'ogent-gastown-faces)
 
-(defface ogent-gastown-tmux-attached
-  '((((class color) (background light)) :foreground "#2e7d32" :weight bold)
-    (((class color) (background dark)) :foreground "#a3be8c" :weight bold))
-  "Face for attached tmux session."
-  :group 'ogent-gastown-faces)
-
-(defface ogent-gastown-tmux-detached
-  '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#4c566a"))
-  "Face for detached tmux session."
-  :group 'ogent-gastown-faces)
-
 (defface ogent-gastown-header-line
   '((((class color) (background light))
      :background "grey90" :foreground "grey20"
@@ -190,9 +171,6 @@
 
 (defvar-local ogent-gastown--workers-data nil
   "Cached workers list data.")
-
-(defvar-local ogent-gastown--tmux-data nil
-  "Cached tmux sessions data.")
 
 (defvar-local ogent-gastown--loading nil
   "Non-nil when a gt command is in progress.")
@@ -369,13 +347,7 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
       "Section for workers overview.")
 
     (defclass ogent-gastown-worker-section (magit-section) ()
-      "Section for a single worker.")
-
-    (defclass ogent-gastown-tmux-section (magit-section) ()
-      "Section for tmux sessions.")
-
-    (defclass ogent-gastown-tmux-item-section (magit-section) ()
-      "Section for a single tmux session.")))
+      "Section for a single worker.")))
 
 ;;; Keymap
 
@@ -406,11 +378,6 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     ;; Convoy actions
     (define-key map "c" #'ogent-gastown-convoy-status)
     (define-key map "C" #'ogent-gastown-convoy-create)
-
-    ;; Tmux actions
-    (define-key map "t" #'ogent-gastown-tmux-attach-at-point)
-    (define-key map "s" #'ogent-gastown-tmux-send-at-point)
-    (define-key map "P" #'ogent-gastown-tmux-preview-at-point)
 
     ;; Quit
     (define-key map "q" #'quit-window)
@@ -544,9 +511,6 @@ Other:
   (let ((pending 4)
         (results (make-hash-table))
         (buf (current-buffer)))
-    ;; Fetch tmux data synchronously (it's fast)
-    (when (fboundp 'ogent-gastown-tmux-get-sessions-for-status)
-      (setq ogent-gastown--tmux-data (ogent-gastown-tmux-get-sessions-for-status)))
     (cl-flet ((check-done ()
                 (cl-decf pending)
                 (when (zerop pending)
@@ -615,9 +579,7 @@ Other:
     (insert "\n")
     (ogent-gastown--insert-convoy-section)
     (insert "\n")
-    (ogent-gastown--insert-workers-section)
-    (insert "\n")
-    (ogent-gastown--insert-tmux-section)))
+    (ogent-gastown--insert-workers-section)))
 
 (defun ogent-gastown--insert-plain ()
   "Insert content without magit-section (fallback)."
@@ -627,9 +589,7 @@ Other:
   (insert "\n")
   (ogent-gastown--insert-convoy-section-plain)
   (insert "\n")
-  (ogent-gastown--insert-workers-section-plain)
-  (insert "\n")
-  (ogent-gastown--insert-tmux-section-plain))
+  (ogent-gastown--insert-workers-section-plain))
 
 ;;; Hook Section
 
@@ -858,80 +818,6 @@ Other:
         (insert (plist-get worker :state))
         (insert "]\n")))))
 
-;;; Tmux Section
-
-(defun ogent-gastown--insert-tmux-section ()
-  "Insert tmux sessions section with magit-section."
-  (let* ((sessions ogent-gastown--tmux-data)
-         (gt-sessions (seq-filter (lambda (s) (plist-get s :gastown)) sessions))
-         (attached-count (length (seq-filter (lambda (s) (plist-get s :attached)) sessions))))
-    (magit-insert-section (ogent-gastown-tmux-section sessions nil)
-      (magit-insert-heading
-        (concat
-         (if ogent-gastown-use-unicode "" "$")
-         " "
-         (propertize "Tmux Sessions" 'face 'ogent-gastown-section-heading)
-         (when sessions
-           (propertize (format " (%d total, %d attached)"
-                               (length sessions) attached-count)
-                       'face 'ogent-gastown-dimmed))))
-      (if (null sessions)
-          (insert (propertize "  No tmux sessions (or tmux not available)\n"
-                              'face 'ogent-gastown-dimmed))
-        ;; Insert Gas Town sessions first
-        (when gt-sessions
-          (dolist (session gt-sessions)
-            (ogent-gastown--insert-tmux-item session)))
-        ;; Then other sessions
-        (let ((other-sessions (seq-filter (lambda (s) (not (plist-get s :gastown))) sessions)))
-          (when other-sessions
-            (when gt-sessions
-              (insert "  " (propertize "Other:" 'face 'ogent-gastown-dimmed) "\n"))
-            (dolist (session other-sessions)
-              (ogent-gastown--insert-tmux-item session))))))))
-
-(defun ogent-gastown--insert-tmux-item (session)
-  "Insert a single tmux SESSION as a section."
-  (let* ((name (plist-get session :name))
-         (windows (plist-get session :windows))
-         (attached (plist-get session :attached))
-         (gastown (plist-get session :gastown)))
-    (magit-insert-section (ogent-gastown-tmux-item-section session)
-      (insert "  ")
-      (insert (if attached
-                  (if ogent-gastown-use-unicode "" ">")
-                (if ogent-gastown-use-unicode "" "-")))
-      (insert " ")
-      (when gastown
-        (insert (propertize "[GT] " 'face 'success)))
-      (insert (propertize name 'face (if attached
-                                         'ogent-gastown-tmux-attached
-                                       'ogent-gastown-tmux-detached)))
-      (insert " ")
-      (insert (propertize (format "(%d win)" windows) 'face 'ogent-gastown-dimmed))
-      (when attached
-        (insert " " (propertize "attached" 'face 'ogent-gastown-tmux-attached)))
-      (insert "\n"))))
-
-(defun ogent-gastown--insert-tmux-section-plain ()
-  "Insert tmux section (plain)."
-  (let ((sessions ogent-gastown--tmux-data))
-    (insert (propertize "$ Tmux Sessions\n" 'face 'ogent-gastown-section-heading))
-    (if (null sessions)
-        (insert (propertize "  No tmux sessions\n" 'face 'ogent-gastown-dimmed))
-      (dolist (session sessions)
-        (let* ((name (plist-get session :name))
-               (attached (plist-get session :attached))
-               (gastown (plist-get session :gastown)))
-          (insert "  ")
-          (insert (if attached "> " "- "))
-          (when gastown
-            (insert "[GT] "))
-          (insert name)
-          (when attached
-            (insert " [attached]"))
-          (insert "\n"))))))
-
 ;;; Utilities
 
 (defun ogent-gastown--format-time (iso-time)
@@ -981,10 +867,6 @@ Other:
         (let* ((msg (oref section value))
                (id (plist-get msg :id)))
           (ogent-gastown-mail-read id)))
-       ((eq (eieio-object-class-name section) 'ogent-gastown-tmux-item-section)
-        (let* ((session (oref section value))
-               (name (plist-get session :name)))
-          (ogent-gastown-tmux-attach name)))
        (t
         (magit-section-toggle section))))))
 
@@ -1071,37 +953,6 @@ Other:
      (lambda (err)
        (message "Failed to create convoy: %s" err))
      t)))
-
-;;; Tmux Actions
-
-(defun ogent-gastown--tmux-session-at-point ()
-  "Get the tmux session name at point."
-  (when ogent-gastown--magit-section-available
-    (let ((section (magit-current-section)))
-      (when (eq (eieio-object-class-name section) 'ogent-gastown-tmux-item-section)
-        (plist-get (oref section value) :name)))))
-
-(defun ogent-gastown-tmux-attach-at-point ()
-  "Attach to the tmux session at point."
-  (interactive)
-  (if-let ((session (ogent-gastown--tmux-session-at-point)))
-      (ogent-gastown-tmux-attach session)
-    (call-interactively #'ogent-gastown-tmux-attach)))
-
-(defun ogent-gastown-tmux-send-at-point ()
-  "Send command to the tmux session at point."
-  (interactive)
-  (if-let ((session (ogent-gastown--tmux-session-at-point)))
-      (let ((command (read-string (format "Command for %s: " session))))
-        (ogent-gastown-tmux-send session command))
-    (call-interactively #'ogent-gastown-tmux-send)))
-
-(defun ogent-gastown-tmux-preview-at-point ()
-  "Preview the tmux session at point."
-  (interactive)
-  (if-let ((session (ogent-gastown--tmux-session-at-point)))
-      (ogent-gastown-tmux-preview session)
-    (call-interactively #'ogent-gastown-tmux-preview)))
 
 ;;; Refresh
 

@@ -35,11 +35,6 @@
 (declare-function ogent-issues-view-ready "ogent-issues")
 (declare-function ogent-issues-view-kanban "ogent-issues")
 (declare-function ogent-issues-view-deps "ogent-issues")
-(declare-function ogent-issues-edit-field-at-point "ogent-issues")
-(declare-function ogent-issues-set-priority "ogent-issues")
-(declare-function ogent-issues-set-status "ogent-issues")
-(declare-function ogent-issues-set-type "ogent-issues")
-(declare-function ogent-issues-ai-edit "ogent-issues-edit")
 
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)
@@ -164,13 +159,7 @@ Returns a plist with :file, :line, :function, and :formatted keys."
     ("s" "Start working" ogent-issues-start)
     ("K" "Close issue" ogent-issues-close)
     ("R" "Reopen issue" ogent-issues-reopen)
-    ("C" "Add comment" ogent-issues-comment)]
-   ["Edit"
-    ("e" "Edit field at point" ogent-issues-edit-field-at-point)
-    ("E" "AI edit..." ogent-issues-ai-edit)
-    ("ep" "Set priority" ogent-issues-set-priority)
-    ("es" "Set status" ogent-issues-set-status)
-    ("et" "Set type" ogent-issues-set-type)]]
+    ("C" "Add comment" ogent-issues-comment)]]
   [["Filters"
     ("fs" "By status" ogent-issues-filter-status)
     ("ft" "By type" ogent-issues-filter-type)
