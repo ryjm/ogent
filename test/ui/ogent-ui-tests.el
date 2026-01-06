@@ -9,78 +9,78 @@
 (ert-deftest ogent-ui-format-context-includes-missing ()
   "Format string contains handles and missing metadata."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let* ((context (ogent-context-build))
-				    (summary (ogent-ui--format-context context)))
-			       (should (string-match-p "Handles: details-block" summary))
-			       (should (string-match-p "missing-note (missing)" summary))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((context (ogent-context-build))
+                                    (summary (ogent-ui--format-context context)))
+                               (should (string-match-p "Handles: details-block" summary))
+                               (should (string-match-p "missing-note (missing)" summary))))))
 
 (ert-deftest ogent-request-streams-via-gptel ()
   "ogent-request uses gptel and streams response with nested headline structure."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((captured nil)
-				   (_ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (prompt &rest args)
-					    (setq captured (list :prompt prompt
-								 :args args
-								 :backend gptel-backend
-								 :model gptel-model))
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Hello world" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini"))
-				 (should (string-match-p "Test prompt"
-							 (plist-get captured :prompt)))
-				 (should (eq (plist-get captured :backend) 'gptel-openai))
-				 (should (equal (plist-get captured :model) "gpt-4o-mini"))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; Should have Request headline as child of Session (level 2)
-				   (search-forward "** Request: Test prompt")
-				   ;; The src block should be under the Request headline
-				   (search-forward "#+begin_src text :model gpt-4o-mini")
-				   (search-forward "#+end_src")
-				   ;; Response streams under nested *** Response sub-headline
-				   (search-forward "*** Response")
-				   (search-forward "Hello world")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((captured nil)
+                                   (_ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (prompt &rest args)
+                                            (setq captured (list :prompt prompt
+                                                                 :args args
+                                                                 :backend gptel-backend
+                                                                 :model gptel-model))
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Hello world" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (string-match-p "Test prompt"
+                                                         (plist-get captured :prompt)))
+                                 (should (eq (plist-get captured :backend) 'gptel-openai))
+                                 (should (equal (plist-get captured :model) "gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Should have Request headline as child of Session (level 2)
+                                   (search-forward "** Request: Test prompt")
+                                   ;; The src block should be under the Request headline
+                                   (search-forward "#+begin_src text :model gpt-4o-mini")
+                                   (search-forward "#+end_src")
+                                   ;; Response streams under nested *** Response sub-headline
+                                   (search-forward "*** Response")
+                                   (search-forward "Hello world")))))))
 
 (ert-deftest ogent-ui-nested-headline-structure ()
   "Verify nested headline structure: * Session -> ** Request -> *** Response."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Response text" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "This is a longer test prompt that should be truncated in the headline" 
-						'("gpt-4o-mini"))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; Request headline as child of Session (level 2) with truncated prompt (max 60 chars)
-				   (should (search-forward "** Request: This is a longer test prompt that should be truncated in ..." nil t))
-				   ;; Src block should be directly under Request headline
-				   (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
-				   (should (search-forward "Prompt:" nil t))
-				   (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
-				   (should (search-forward "#+end_src" nil t))
-				   ;; Response should be a level 3 heading (nested under Request)
-				   (should (search-forward "*** Response" nil t))
-				   (should (search-forward "Response text" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Response text" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "This is a longer test prompt that should be truncated in the headline" 
+                                                '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Request headline as child of Session (level 2) with truncated prompt (max 60 chars)
+                                   (should (search-forward "** Request: This is a longer test prompt that should be truncated in ..." nil t))
+                                   ;; Src block should be directly under Request headline
+                                   (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
+                                   (should (search-forward "Prompt:" nil t))
+                                   (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
+                                   (should (search-forward "#+end_src" nil t))
+                                   ;; Response should be a level 3 heading (nested under Request)
+                                   (should (search-forward "*** Response" nil t))
+                                   (should (search-forward "Response text" nil t))))))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
   "ogent-ui--ensure-gptel requires gptel plus declared backend features."
@@ -129,46 +129,46 @@
 (ert-deftest ogent-request-applies-preset ()
   "ogent-request applies presets from cookies and dispatcher."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((captured-request nil)
-				   (ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--selected-preset nil)
-				   (ogent-preset-registry '((:name mypreset :spec (:description "test")))))
-			       (cl-letf (((symbol-function 'ogent-ui--send-request)
-					  (lambda (request)
-					    (setq captured-request request))))
-				 (ogent-request "Test @mypreset prompt" '("gpt-4o-mini"))
-				 (should (equal (ogent-ui-request-preset captured-request) "mypreset")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((captured-request nil)
+                                   (ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--selected-preset nil)
+                                   (ogent-preset-registry '((:name mypreset :spec (:description "test")))))
+                               (cl-letf (((symbol-function 'ogent-ui--send-request)
+                                          (lambda (request)
+                                            (setq captured-request request))))
+                                 (ogent-request "Test @mypreset prompt" '("gpt-4o-mini"))
+                                 (should (equal (ogent-ui-request-preset captured-request) "mypreset")))))))
 
 (ert-deftest ogent-ui-status-tracking ()
   "Request status transitions through wait -> type -> done."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (callback nil))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (setq callback (plist-get args :callback))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini"))
-				 (let* ((request-id (format "ogent-request-%d" ogent-ui--request-seq))
-					(request (gethash request-id ogent-ui--request-table)))
-				   ;; Initial status is wait
-				   (should (eq (ogent-ui-request-status request) 'wait))
-				   (should (ogent-ui-request-start-time request))
-				   ;; First text transitions to type
-				   (funcall callback "Hello" nil)
-				   (should (eq (ogent-ui-request-status request) 'type))
-				   ;; Done signal finalizes
-				   (funcall callback nil '(:done t))
-				   (should (eq (ogent-ui-request-status request) 'done))
-				   (should (ogent-ui-request-end-time request))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (callback nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq callback (plist-get args :callback))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (let* ((request-id (format "ogent-request-%d" ogent-ui--request-seq))
+                                        (request (gethash request-id ogent-ui--request-table)))
+                                   ;; Initial status is wait
+                                   (should (eq (ogent-ui-request-status request) 'wait))
+                                   (should (ogent-ui-request-start-time request))
+                                   ;; First text transitions to type
+                                   (funcall callback "Hello" nil)
+                                   (should (eq (ogent-ui-request-status request) 'type))
+                                   ;; Done signal finalizes
+                                   (funcall callback nil '(:done t))
+                                   (should (eq (ogent-ui-request-status request) 'done))
+                                   (should (ogent-ui-request-end-time request))))))))
 
 (ert-deftest ogent-ui-latency-formatting ()
   "Format latency shows seconds with one decimal."
@@ -337,56 +337,56 @@
 (ert-deftest ogent-ui-error-response-handling ()
   "Test error handling when gptel returns an error."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-error-mock "API rate limit exceeded"
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   ;; Verify request was captured
-							   (should (= 1 (ogent-test-request-count)))
-							   (let ((req (ogent-test-last-request)))
-							     (should (string-match-p "Test prompt" (plist-get req :prompt)))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-error-mock "API rate limit exceeded"
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           ;; Verify request was captured
+                                                           (should (= 1 (ogent-test-request-count)))
+                                                           (let ((req (ogent-test-last-request)))
+                                                             (should (string-match-p "Test prompt" (plist-get req :prompt)))))))))
 
 (ert-deftest ogent-ui-streaming-chunks ()
   "Test streaming response with multiple chunks."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-streaming-mock '("Hello " "world " "!")
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       ;; Verify the streaming content was inserted
-							       (save-excursion
-								 (goto-char (point-min))
-								 (should (search-forward "Hello world !" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-streaming-mock '("Hello " "world " "!")
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               ;; Verify the streaming content was inserted
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 (should (search-forward "Hello world !" nil t))))))))
 
 (ert-deftest ogent-ui-request-capture ()
   "Test that requests are properly captured for inspection."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-mock-gptel
-				(ogent-request "First request" '("gpt-4o-mini"))
-				(ogent-request "Second request" '("gpt-4o-mini"))
-				;; Two requests should be captured
-				(should (= 2 (ogent-test-request-count)))
-				;; Most recent is first in list
-				(should (string-match-p "Second" (plist-get (ogent-test-last-request) :prompt))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-mock-gptel
+                                (ogent-request "First request" '("gpt-4o-mini"))
+                                (ogent-request "Second request" '("gpt-4o-mini"))
+                                ;; Two requests should be captured
+                                (should (= 2 (ogent-test-request-count)))
+                                ;; Most recent is first in list
+                                (should (string-match-p "Second" (plist-get (ogent-test-last-request) :prompt))))))))
 
 ;;; Interactive function tests (require with-simulated-input)
 
 (ert-deftest ogent-ui-read-prompt-interactive ()
   "Test reading prompt with simulated input."
   (ogent-test-with-input "Hello world RET"
-			 (let ((prompt (ogent-ui--read-prompt)))
-			   (should (equal prompt "Hello world")))))
+                         (let ((prompt (ogent-ui--read-prompt)))
+                           (should (equal prompt "Hello world")))))
 
 (ert-deftest ogent-ui-read-prompt-uses-region ()
   "Test that read-prompt uses region when active."
@@ -512,10 +512,10 @@
             ;; Set up tool registry with write-file tool
             (let ((ogent-tool-registry
                    '((:name write-file
-			    :function ogent-tool--write-file
-			    :description "Write file"
-			    :args ((:name "file_path" :type "string")
-				   (:name "content" :type "string"))))))
+                            :function ogent-tool--write-file
+                            :description "Write file"
+                            :args ((:name "file_path" :type "string")
+                                   (:name "content" :type "string"))))))
               (let ((diff-id (ogent-ui--show-diff-for-tool
                               "write-file"
                               (list :file_path test-file
@@ -928,25 +928,25 @@
 (ert-deftest ogent-ui-regular-org-respects-current-position ()
   "Regular Org buffers (non-session) use current heading position."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     ;; Regular org file should not be marked as session buffer
-			     (should-not ogent-session-buffer-p)
-			     ;; Find a specific heading
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((start-pos (point)))
-			       ;; Create response block
-			       (let* ((model '(:id "test-model"))
-				      (block (ogent-ui--create-response-block
-					      "Test at heading" '() model)))
-				 ;; Should insert after current subtree (Root Overview + children)
-				 ;; Verify it comes after Deep Note (end of subtree)
-				 (goto-char start-pos)
-				 (should (search-forward "Deep Note"))
-				 (should (search-forward "** Request: Test at heading"))
-				 ;; But before Appendix Note (next top-level heading)
-				 (should (search-forward "* Appendix Note")))))))
+                           (lambda ()
+                             ;; Regular org file should not be marked as session buffer
+                             (should-not ogent-session-buffer-p)
+                             ;; Find a specific heading
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((start-pos (point)))
+                               ;; Create response block
+                               (let* ((model '(:id "test-model"))
+                                      (block (ogent-ui--create-response-block
+                                              "Test at heading" '() model)))
+                                 ;; Should insert after current subtree (Root Overview + children)
+                                 ;; Verify it comes after Deep Note (end of subtree)
+                                 (goto-char start-pos)
+                                 (should (search-forward "Deep Note"))
+                                 (should (search-forward "** Request: Test at heading"))
+                                 ;; But before Appendix Note (next top-level heading)
+                                 (should (search-forward "* Appendix Note")))))))
 
 (ert-deftest ogent-ui-session-buffer-multiple-requests ()
   "Session buffer correctly handles multiple sequential requests."
@@ -979,40 +979,40 @@
 (ert-deftest ogent-ui-auto-scroll-enabled-on-request ()
   "Auto-scroll is enabled when a new request starts."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-auto-scroll t)
-				   (ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    ;; Verify auto-scroll was enabled when request registered
-					    (should ogent--auto-scroll-enabled)
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Test" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-auto-scroll t)
+                                   (ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            ;; Verify auto-scroll was enabled when request registered
+                                            (should ogent--auto-scroll-enabled)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Test" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini")))))))
 
 (ert-deftest ogent-ui-auto-scroll-respects-global-disable ()
   "Auto-scroll is not enabled when globally disabled."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-auto-scroll nil)
-				   (ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    ;; Verify auto-scroll was NOT enabled
-					    (should-not ogent--auto-scroll-enabled)
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Test" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-auto-scroll nil)
+                                   (ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            ;; Verify auto-scroll was NOT enabled
+                                            (should-not ogent--auto-scroll-enabled)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Test" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini")))))))
 
 (ert-deftest ogent-ui-at-window-bottom-p-detects-position ()
   "ogent-ui--at-window-bottom-p correctly detects if at bottom."
@@ -1071,501 +1071,501 @@
 (ert-deftest ogent-ui-streaming-shifts-headings ()
   "Streaming response chunks have headings shifted."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-shift-response-headings t)
-				   (ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (when-let ((callback (plist-get args :callback)))
-					      ;; Simulate LLM returning an org heading
-					      (funcall callback "Here's a heading:\n* My Heading\nContent\n" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini"))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; The heading should be shifted to level 4
-				   (should (search-forward "**** My Heading" nil t))
-				   ;; Original level 1 heading should NOT exist
-				   (goto-char (point-min))
-				   (should-not (search-forward "\n* My Heading" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-shift-response-headings t)
+                                   (ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              ;; Simulate LLM returning an org heading
+                                              (funcall callback "Here's a heading:\n* My Heading\nContent\n" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; The heading should be shifted to level 4
+                                   (should (search-forward "**** My Heading" nil t))
+                                   ;; Original level 1 heading should NOT exist
+                                   (goto-char (point-min))
+                                   (should-not (search-forward "\n* My Heading" nil t))))))))
 
 ;;; Streaming Edge Cases
 
 (ert-deftest ogent-ui-streaming-empty-chunks ()
   "Test streaming with empty chunks interspersed."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-streaming-mock '("Hello" "" " " "world" "" "!")
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       (save-excursion
-								 (goto-char (point-min))
-								 ;; Empty chunks should be handled gracefully
-								 (should (search-forward "Hello world!" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-streaming-mock '("Hello" "" " " "world" "" "!")
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 ;; Empty chunks should be handled gracefully
+                                                                 (should (search-forward "Hello world!" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-unicode-chunks ()
   "Test streaming with unicode characters split across chunks."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-streaming-mock '("Hello " "world " "from " "Emacs")
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       (save-excursion
-								 (goto-char (point-min))
-								 (should (search-forward "Hello world from Emacs" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-streaming-mock '("Hello " "world " "from " "Emacs")
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 (should (search-forward "Hello world from Emacs" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-large-response ()
   "Test streaming with many small chunks."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   ;; Generate 100 small chunks
-				   (chunks (make-list 100 "x")))
-			       (ogent-test-with-streaming-mock chunks
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       (save-excursion
-								 (goto-char (point-min))
-								 ;; Should have 100 x's concatenated
-								 (should (search-forward (make-string 100 ?x) nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   ;; Generate 100 small chunks
+                                   (chunks (make-list 100 "x")))
+                               (ogent-test-with-streaming-mock chunks
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 ;; Should have 100 x's concatenated
+                                                                 (should (search-forward (make-string 100 ?x) nil t))))))))
 
 (ert-deftest ogent-ui-streaming-error-mid-stream ()
   "Test error occurring after partial response."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (when-let ((callback (plist-get args :callback)))
-					      ;; First some content arrives
-					      (funcall callback "Partial response..." nil)
-					      ;; Then an error occurs
-					      (funcall callback nil '(:error "Connection reset")))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("gpt-4o-mini"))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; Partial content should still be present
-				   (should (search-forward "Partial response..." nil t))
-				   ;; Error should be recorded
-				   (should (>= (length ogent-ui--error-history) 1))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              ;; First some content arrives
+                                              (funcall callback "Partial response..." nil)
+                                              ;; Then an error occurs
+                                              (funcall callback nil '(:error "Connection reset")))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Partial content should still be present
+                                   (should (search-forward "Partial response..." nil t))
+                                   ;; Error should be recorded
+                                   (should (>= (length ogent-ui--error-history) 1))))))))
 
 (ert-deftest ogent-ui-streaming-newlines-preserved ()
   "Test that newlines in streamed content are preserved."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-streaming-mock '("Line 1\n" "Line 2\n" "Line 3")
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       (save-excursion
-								 (goto-char (point-min))
-								 (should (search-forward "Line 1\nLine 2\nLine 3" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-streaming-mock '("Line 1\n" "Line 2\n" "Line 3")
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 (should (search-forward "Line 1\nLine 2\nLine 3" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-code-block-content ()
   "Test streaming content that includes org code blocks."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-streaming-mock
-				'("Here's code:\n" "#+begin_src elisp\n" "(message \"hi\")\n" "#+end_src")
-				(ogent-request "Test prompt" '("gpt-4o-mini"))
-				(save-excursion
-				  (goto-char (point-min))
-				  ;; The nested code block should be preserved
-				  (should (search-forward "#+begin_src elisp" nil t))
-				  (should (search-forward "(message \"hi\")" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-streaming-mock
+                                '("Here's code:\n" "#+begin_src elisp\n" "(message \"hi\")\n" "#+end_src")
+                                (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                (save-excursion
+                                  (goto-char (point-min))
+                                  ;; The nested code block should be preserved
+                                  (should (search-forward "#+begin_src elisp" nil t))
+                                  (should (search-forward "(message \"hi\")" nil t))))))))
 
 ;;; Error Injection Tests
 
 (ert-deftest ogent-ui-error-api-rate-limit ()
   "Test handling of API rate limit error."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       (ogent-test-with-error-mock "Rate limit exceeded. Please retry after 60 seconds."
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   ;; Error should be recorded in history
-							   (should (= 1 (length ogent-ui--error-history)))
-							   (should (string-match-p "Rate limit"
-										   (plist-get (car ogent-ui--error-history) :error))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               (ogent-test-with-error-mock "Rate limit exceeded. Please retry after 60 seconds."
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           ;; Error should be recorded in history
+                                                           (should (= 1 (length ogent-ui--error-history)))
+                                                           (should (string-match-p "Rate limit"
+                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-error-invalid-api-key ()
   "Test handling of invalid API key error."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       (ogent-test-with-error-mock "Invalid API key provided"
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   (should (= 1 (length ogent-ui--error-history)))
-							   (should (string-match-p "Invalid API key"
-										   (plist-get (car ogent-ui--error-history) :error))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               (ogent-test-with-error-mock "Invalid API key provided"
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           (should (= 1 (length ogent-ui--error-history)))
+                                                           (should (string-match-p "Invalid API key"
+                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-error-context-too-long ()
   "Test handling of context length exceeded error."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       (ogent-test-with-error-mock "This model's maximum context length is 128000 tokens"
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   (should (= 1 (length ogent-ui--error-history)))
-							   (should (string-match-p "context length"
-										   (plist-get (car ogent-ui--error-history) :error))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               (ogent-test-with-error-mock "This model's maximum context length is 128000 tokens"
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           (should (= 1 (length ogent-ui--error-history)))
+                                                           (should (string-match-p "context length"
+                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-error-network-timeout ()
   "Test handling of network timeout."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       (ogent-test-with-error-mock "Connection timed out"
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   (should (= 1 (length ogent-ui--error-history))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               (ogent-test-with-error-mock "Connection timed out"
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           (should (= 1 (length ogent-ui--error-history))))))))
 
 (ert-deftest ogent-ui-error-malformed-response ()
   "Test handling of malformed JSON response."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       (ogent-test-with-error-mock "JSON parse error: unexpected character at position 0"
-							   (ogent-request "Test prompt" '("gpt-4o-mini"))
-							   (should (= 1 (length ogent-ui--error-history))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               (ogent-test-with-error-mock "JSON parse error: unexpected character at position 0"
+                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                           (should (= 1 (length ogent-ui--error-history))))))))
 
 (ert-deftest ogent-ui-multiple-errors-recorded ()
   "Test that multiple errors are recorded in history."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (ogent-ui--error-history nil))
-			       ;; First error
-			       (ogent-test-with-error-mock "Error 1"
-							   (ogent-request "Test prompt 1" '("gpt-4o-mini")))
-			       ;; Second error
-			       (ogent-test-with-error-mock "Error 2"
-							   (ogent-request "Test prompt 2" '("gpt-4o-mini")))
-			       ;; Both should be recorded
-			       (should (= 2 (length ogent-ui--error-history)))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil))
+                               ;; First error
+                               (ogent-test-with-error-mock "Error 1"
+                                                           (ogent-request "Test prompt 1" '("gpt-4o-mini")))
+                               ;; Second error
+                               (ogent-test-with-error-mock "Error 2"
+                                                           (ogent-request "Test prompt 2" '("gpt-4o-mini")))
+                               ;; Both should be recorded
+                               (should (= 2 (length ogent-ui--error-history)))))))
 
 ;;; Multi-Model Fan-Out Tests
 
 (ert-deftest ogent-ui-multi-model-request-count ()
   "Test that each model in a multi-model request gets its own gptel request."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
-							   (:id "test-model-2" :backend gptel-anthropic)))
-				   (ogent-ui--selected-models '("test-model-1" "test-model-2")))
-			       (ogent-test-with-mock-gptel
-				(ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-				;; Should have made 2 separate requests
-				(should (= 2 (ogent-test-request-count))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
+                                                           (:id "test-model-2" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("test-model-1" "test-model-2")))
+                               (ogent-test-with-mock-gptel
+                                (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                ;; Should have made 2 separate requests
+                                (should (= 2 (ogent-test-request-count))))))))
 
 (ert-deftest ogent-ui-multi-model-distinct-backends ()
   "Test that each model request uses the correct backend."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
-							   (:id "test-model-2" :backend gptel-anthropic)))
-				   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
-				   (captured-backends nil))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (push (list :backend gptel-backend :model gptel-model) captured-backends)
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Response" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-				 ;; Should capture 2 distinct backend configurations
-				 (should (= 2 (length captured-backends)))
-				 ;; One should be OpenAI, one should be Anthropic
-				 (let ((backends (mapcar (lambda (b) (plist-get b :backend)) captured-backends)))
-				   (should (member 'gptel-openai backends))
-				   (should (member 'gptel-anthropic backends))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
+                                                           (:id "test-model-2" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
+                                   (captured-backends nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (push (list :backend gptel-backend :model gptel-model) captured-backends)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Response" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                 ;; Should capture 2 distinct backend configurations
+                                 (should (= 2 (length captured-backends)))
+                                 ;; One should be OpenAI, one should be Anthropic
+                                 (let ((backends (mapcar (lambda (b) (plist-get b :backend)) captured-backends)))
+                                   (should (member 'gptel-openai backends))
+                                   (should (member 'gptel-anthropic backends))))))))
 
 (ert-deftest ogent-ui-multi-model-independent-responses ()
   "Test that each model's response is recorded separately in buffer."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
-							   (:id "test-model-2" :backend gptel-anthropic)))
-				   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
-				   (response-count 0))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (setq response-count (1+ response-count))
-					    (let ((model-response (format "Response from model %d" response-count)))
-					      (when-let ((callback (plist-get args :callback)))
-						(funcall callback model-response nil)
-						(funcall callback nil '(:done t))))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; Both responses should appear in buffer
-				   (should (search-forward "Response from model 1" nil t))
-				   (goto-char (point-min))
-				   (should (search-forward "Response from model 2" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
+                                                           (:id "test-model-2" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
+                                   (response-count 0))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq response-count (1+ response-count))
+                                            (let ((model-response (format "Response from model %d" response-count)))
+                                              (when-let ((callback (plist-get args :callback)))
+                                                (funcall callback model-response nil)
+                                                (funcall callback nil '(:done t))))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Both responses should appear in buffer
+                                   (should (search-forward "Response from model 1" nil t))
+                                   (goto-char (point-min))
+                                   (should (search-forward "Response from model 2" nil t))))))))
 
 (ert-deftest ogent-ui-multi-model-streaming-concurrent ()
   "Test that multiple models can stream responses concurrently."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
-							   (:id "test-model-2" :backend gptel-anthropic)))
-				   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
-				   (callbacks nil))
-			       ;; Capture callbacks without immediately calling them
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (push (plist-get args :callback) callbacks)
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-				 ;; Both requests should be initiated
-				 (should (= 2 (length callbacks)))
-				 ;; Simulate concurrent streaming by interleaving callback invocations
-				 (let ((cb1 (nth 1 callbacks))
-				       (cb2 (nth 0 callbacks)))
-				   (funcall cb1 "First chunk from model 1" nil)
-				   (funcall cb2 "First chunk from model 2" nil)
-				   (funcall cb1 " second chunk from model 1" nil)
-				   (funcall cb2 " second chunk from model 2" nil)
-				   (funcall cb1 nil '(:done t))
-				   (funcall cb2 nil '(:done t)))
-				 (save-excursion
-				   (goto-char (point-min))
-				   ;; Both response streams should be present
-				   (should (search-forward "First chunk from model 1 second chunk from model 1" nil t))
-				   (goto-char (point-min))
-				   (should (search-forward "First chunk from model 2 second chunk from model 2" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
+                                                           (:id "test-model-2" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
+                                   (callbacks nil))
+                               ;; Capture callbacks without immediately calling them
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (push (plist-get args :callback) callbacks)
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                 ;; Both requests should be initiated
+                                 (should (= 2 (length callbacks)))
+                                 ;; Simulate concurrent streaming by interleaving callback invocations
+                                 (let ((cb1 (nth 1 callbacks))
+                                       (cb2 (nth 0 callbacks)))
+                                   (funcall cb1 "First chunk from model 1" nil)
+                                   (funcall cb2 "First chunk from model 2" nil)
+                                   (funcall cb1 " second chunk from model 1" nil)
+                                   (funcall cb2 " second chunk from model 2" nil)
+                                   (funcall cb1 nil '(:done t))
+                                   (funcall cb2 nil '(:done t)))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Both response streams should be present
+                                   (should (search-forward "First chunk from model 1 second chunk from model 1" nil t))
+                                   (goto-char (point-min))
+                                   (should (search-forward "First chunk from model 2 second chunk from model 2" nil t))))))))
 
 (ert-deftest ogent-ui-multi-model-partial-failure ()
   "Test that one model failing doesn't prevent other models from responding."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
-							   (:id "test-model-2" :backend gptel-anthropic)))
-				   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
-				   (ogent-ui--error-history nil)
-				   (request-count 0))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (_prompt &rest args)
-					    (setq request-count (1+ request-count))
-					    (when-let ((callback (plist-get args :callback)))
-					      (if (= request-count 1)
-						  ;; First model fails
-						  (funcall callback nil '(:error "Model temporarily unavailable"))
-						;; Second model succeeds
-						(progn
-						  (funcall callback "Successful response" nil)
-						  (funcall callback nil '(:done t)))))
-					    'mock-request)))
-				 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-				 ;; Both requests were made
-				 (should (= 2 request-count))
-				 ;; Error was recorded
-				 (should (= 1 (length ogent-ui--error-history)))
-				 ;; Successful response is in buffer
-				 (save-excursion
-				   (goto-char (point-min))
-				   (should (search-forward "Successful response" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry '((:id "test-model-1" :backend gptel-openai)
+                                                           (:id "test-model-2" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("test-model-1" "test-model-2"))
+                                   (ogent-ui--error-history nil)
+                                   (request-count 0))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq request-count (1+ request-count))
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (if (= request-count 1)
+                                                  ;; First model fails
+                                                  (funcall callback nil '(:error "Model temporarily unavailable"))
+                                                ;; Second model succeeds
+                                                (progn
+                                                  (funcall callback "Successful response" nil)
+                                                  (funcall callback nil '(:done t)))))
+                                            'mock-request)))
+                                 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                 ;; Both requests were made
+                                 (should (= 2 request-count))
+                                 ;; Error was recorded
+                                 (should (= 1 (length ogent-ui--error-history)))
+                                 ;; Successful response is in buffer
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Successful response" nil t))))))))
 
 (ert-deftest ogent-ui-single-model-no-fanout ()
   "Test that single model request only makes one gptel request."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       (ogent-test-with-mock-gptel
-				(ogent-request "Test prompt" '("gpt-4o-mini"))
-				;; Should have made exactly 1 request
-				(should (= 1 (ogent-test-request-count))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               (ogent-test-with-mock-gptel
+                                (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                ;; Should have made exactly 1 request
+                                (should (= 1 (ogent-test-request-count))))))))
 
 ;;; Large Context Handling Tests
 
 (ert-deftest ogent-ui-large-prompt-headline-truncation ()
   "Test that very long prompts are truncated in headline but preserved in body."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   ;; Create a 500 character prompt
-				   (long-prompt (make-string 500 ?A)))
-			       (ogent-test-with-mock-gptel
-				(ogent-request long-prompt '("gpt-4o-mini"))
-				(save-excursion
-				  (goto-char (point-min))
-				  ;; Headline should be truncated (max ~60 chars visible)
-				  (should (search-forward "** Request: AAAA" nil t))
-				  (should (search-forward "..." nil t))
-				  ;; But full prompt should be in the src block
-				  (should (search-forward "#+begin_src text" nil t))
-				  (should (search-forward long-prompt nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   ;; Create a 500 character prompt
+                                   (long-prompt (make-string 500 ?A)))
+                               (ogent-test-with-mock-gptel
+                                (ogent-request long-prompt '("gpt-4o-mini"))
+                                (save-excursion
+                                  (goto-char (point-min))
+                                  ;; Headline should be truncated (max ~60 chars visible)
+                                  (should (search-forward "** Request: AAAA" nil t))
+                                  (should (search-forward "..." nil t))
+                                  ;; But full prompt should be in the src block
+                                  (should (search-forward "#+begin_src text" nil t))
+                                  (should (search-forward long-prompt nil t))))))))
 
 (ert-deftest ogent-ui-large-context-passed-to-gptel ()
   "Test that large context is properly passed through to gptel-request."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   (captured-prompt nil))
-			       (cl-letf (((symbol-function 'gptel-request)
-					  (lambda (prompt &rest args)
-					    (setq captured-prompt prompt)
-					    (when-let ((callback (plist-get args :callback)))
-					      (funcall callback "Response" nil)
-					      (funcall callback nil '(:done t)))
-					    'mock-request)))
-				 ;; The fixture has context - make a request
-				 (ogent-request "Test prompt" '("gpt-4o-mini"))
-				 ;; Captured prompt should include both context and user prompt
-				 (should captured-prompt)
-				 (should (stringp captured-prompt))
-				 (should (> (length captured-prompt) 10)))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (captured-prompt nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (prompt &rest args)
+                                            (setq captured-prompt prompt)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Response" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 ;; The fixture has context - make a request
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 ;; Captured prompt should include both context and user prompt
+                                 (should captured-prompt)
+                                 (should (stringp captured-prompt))
+                                 (should (> (length captured-prompt) 10)))))))
 
 (ert-deftest ogent-ui-streaming-very-large-response ()
   "Test streaming with a very large response (1000+ chunks)."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   ;; Generate 1000 chunks
-				   (chunks (make-list 1000 "chunk")))
-			       (ogent-test-with-streaming-mock chunks
-							       (ogent-request "Test prompt" '("gpt-4o-mini"))
-							       (save-excursion
-								 (goto-char (point-min))
-								 (should (search-forward "*** Response" nil t))
-								 ;; Response should contain all chunks concatenated
-								 ;; Just verify it's there and reasonably sized
-								 (let ((response-start (point)))
-								   (should (search-forward "chunk" nil t))
-								   ;; Count occurrences - should have many
-								   (goto-char response-start)
-								   (let ((count 0))
-								     (while (search-forward "chunk" nil t)
-								       (setq count (1+ count)))
-								     ;; Should have all 1000 chunks
-								     (should (= 1000 count))))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   ;; Generate 1000 chunks
+                                   (chunks (make-list 1000 "chunk")))
+                               (ogent-test-with-streaming-mock chunks
+                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                                               (save-excursion
+                                                                 (goto-char (point-min))
+                                                                 (should (search-forward "*** Response" nil t))
+                                                                 ;; Response should contain all chunks concatenated
+                                                                 ;; Just verify it's there and reasonably sized
+                                                                 (let ((response-start (point)))
+                                                                   (should (search-forward "chunk" nil t))
+                                                                   ;; Count occurrences - should have many
+                                                                   (goto-char response-start)
+                                                                   (let ((count 0))
+                                                                     (while (search-forward "chunk" nil t)
+                                                                       (setq count (1+ count)))
+                                                                     ;; Should have all 1000 chunks
+                                                                     (should (= 1000 count))))))))))
 
 (ert-deftest ogent-ui-large-prompt-with-newlines ()
   "Test handling of large prompts with embedded newlines."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini"))
-				   ;; Multi-line prompt
-				   (multi-line-prompt (mapconcat #'identity
-								 (make-list 50 "This is a line of the prompt")
-								 "\n")))
-			       (ogent-test-with-mock-gptel
-				(ogent-request multi-line-prompt '("gpt-4o-mini"))
-				(save-excursion
-				  (goto-char (point-min))
-				  ;; Headline should use first line only
-				  (should (search-forward "** Request: This is a line of the prompt" nil t))
-				  ;; Full prompt with newlines should be in src block
-				  (should (search-forward "#+begin_src text" nil t))
-				  (should (search-forward "This is a line of the prompt" nil t))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   ;; Multi-line prompt
+                                   (multi-line-prompt (mapconcat #'identity
+                                                                 (make-list 50 "This is a line of the prompt")
+                                                                 "\n")))
+                               (ogent-test-with-mock-gptel
+                                (ogent-request multi-line-prompt '("gpt-4o-mini"))
+                                (save-excursion
+                                  (goto-char (point-min))
+                                  ;; Headline should use first line only
+                                  (should (search-forward "** Request: This is a line of the prompt" nil t))
+                                  ;; Full prompt with newlines should be in src block
+                                  (should (search-forward "#+begin_src text" nil t))
+                                  (should (search-forward "This is a line of the prompt" nil t))))))))
 
 (ert-deftest ogent-ui-empty-prompt-handling ()
   "Test that empty prompts are handled gracefully."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       ;; Empty prompt should be rejected or handled gracefully
-			       (condition-case err
-				   (ogent-test-with-mock-gptel
-				    (ogent-request "" '("gpt-4o-mini")))
-				 (error
-				  ;; Expected - empty prompts may be rejected
-				  (should (stringp (error-message-string err)))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               ;; Empty prompt should be rejected or handled gracefully
+                               (condition-case err
+                                   (ogent-test-with-mock-gptel
+                                    (ogent-request "" '("gpt-4o-mini")))
+                                 (error
+                                  ;; Expected - empty prompts may be rejected
+                                  (should (stringp (error-message-string err)))))))))
 
 (ert-deftest ogent-ui-whitespace-only-prompt ()
   "Test handling of whitespace-only prompts."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-ui--selected-models '("gpt-4o-mini")))
-			       ;; Whitespace-only prompt should be handled
-			       (condition-case err
-				   (ogent-test-with-mock-gptel
-				    (ogent-request "   \n\t  " '("gpt-4o-mini")))
-				 (error
-				  ;; May be rejected - that's fine
-				  (should (stringp (error-message-string err)))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+                               ;; Whitespace-only prompt should be handled
+                               (condition-case err
+                                   (ogent-test-with-mock-gptel
+                                    (ogent-request "   \n\t  " '("gpt-4o-mini")))
+                                 (error
+                                  ;; May be rejected - that's fine
+                                  (should (stringp (error-message-string err)))))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
