@@ -8,6 +8,12 @@
 ;; - `ogent-session-save' - Save current session buffer to a file
 ;; - `ogent-session-load' - Load a saved session file
 ;; - `ogent-session-list' - List available saved sessions with metadata
+;; - `ogent-history' - Interactive history browser with search
+;;
+;; Features:
+;; - Full-text search across saved sessions
+;; - Project context tracking
+;; - Optional org-roam integration for knowledge capture
 
 ;;; Code:
 
@@ -43,6 +49,18 @@ t - Save without prompting
                  (const :tag "Prompt before saving" prompt))
   :group 'ogent-session)
 
+(defcustom ogent-session-track-project t
+  "Whether to track project context in session metadata.
+When non-nil, the project root directory is saved with the session."
+  :type 'boolean
+  :group 'ogent-session)
+
+(defcustom ogent-session-roam-integration nil
+  "Whether to enable org-roam integration.
+When non-nil, sessions can be linked to org-roam nodes."
+  :type 'boolean
+  :group 'ogent-session)
+
 (defvar-local ogent-persist--id nil
   "Unique identifier for the current session.
 Generated on first save and preserved across loads.")
@@ -56,6 +74,12 @@ Tracked automatically when requests are made.")
 
 (defvar-local ogent-persist--file-path nil
   "File path of the loaded session, if any.")
+
+(defvar-local ogent-persist--project nil
+  "Project root directory for this session.")
+
+(defvar-local ogent-persist--roam-id nil
+  "Org-roam node ID linked to this session, if any.")
 
 (defun ogent-persist--ensure-directory ()
   "Ensure the session directory exists, creating it if necessary."
@@ -71,10 +95,14 @@ Returns a string in the format: ogent-YYYYMMDD-HHMMSS-RANDOM"
 
 (defun ogent-persist--extract-metadata ()
   "Extract session metadata from the current buffer.
-Returns a plist with :id, :models, :start-time, :title."
+Returns a plist with :id, :models, :start-time, :title, :project."
   (let ((id (or ogent-persist--id (ogent-persist--generate-id)))
         (models (or ogent-persist--models '()))
         (start-time (or ogent-persist--start-time (current-time)))
+        (project (or ogent-persist--project
+                     (when ogent-session-track-project
+                       (ogent-persist--detect-project))))
+        (roam-id ogent-persist--roam-id)
         (title (save-excursion
                  (goto-char (point-min))
                  (if (re-search-forward "^#\\+title:\\s-*\\(.+\\)$" nil t)
@@ -83,15 +111,27 @@ Returns a plist with :id, :models, :start-time, :title."
     (list :id id
           :models models
           :start-time start-time
-          :title title)))
+          :title title
+          :project project
+          :roam-id roam-id)))
+
+(defun ogent-persist--detect-project ()
+  "Detect the project root directory.
+Uses `project-root' if available, or vc-root-dir as fallback."
+  (or (when (fboundp 'project-root)
+        (when-let ((proj (project-current)))
+          (project-root proj)))
+      (vc-root-dir)
+      default-directory))
 
 (defun ogent-persist--format-metadata-header (metadata)
-  "Format METADATA plist as Org file-level keywords.
-Returns a string with #+OGENT-SESSION-ID:, etc."
+  "Format METADATA plist as Org file-level keywords."
   (let ((id (plist-get metadata :id))
         (models (plist-get metadata :models))
         (start-time (plist-get metadata :start-time))
-        (title (plist-get metadata :title)))
+        (title (plist-get metadata :title))
+        (project (plist-get metadata :project))
+        (roam-id (plist-get metadata :roam-id)))
     (concat
      (format "#+title: %s\n" title)
      (format "#+OGENT-SESSION-ID: %s\n" id)
@@ -100,17 +140,18 @@ Returns a string with #+OGENT-SESSION-ID:, etc."
      (when models
        (format "#+OGENT-SESSION-MODELS: %s\n"
                (string-join models ", ")))
+     (when project
+       (format "#+OGENT-SESSION-PROJECT: %s\n" project))
+     (when roam-id
+       (format "#+OGENT-SESSION-ROAM: %s\n" roam-id))
      "\n")))
 
 (defun ogent-persist--parse-metadata-from-buffer ()
-  "Parse session metadata from current buffer's Org keywords.
-Returns a plist with :id, :models, :start-time, :title, or nil if not found."
+  "Parse session metadata from current buffer's Org keywords."
   (save-excursion
     (goto-char (point-min))
-    (let ((id nil)
-          (models nil)
-          (start-time nil)
-          (title nil))
+    (let ((id nil) (models nil) (start-time nil) (title nil)
+          (project nil) (roam-id nil))
       ;; Extract ID
       (when (re-search-forward "^#\\+OGENT-SESSION-ID:\\s-*\\(.+\\)$" nil t)
         (setq id (match-string-no-properties 1)))
@@ -128,18 +169,25 @@ Returns a plist with :id, :models, :start-time, :title, or nil if not found."
       (goto-char (point-min))
       (when (re-search-forward "^#\\+title:\\s-*\\(.+\\)$" nil t)
         (setq title (match-string-no-properties 1)))
-      ;; Return metadata if we found at least an ID
+      ;; Extract project
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+OGENT-SESSION-PROJECT:\\s-*\\(.+\\)$" nil t)
+        (setq project (match-string-no-properties 1)))
+      ;; Extract roam ID
+      (goto-char (point-min))
+      (when (re-search-forward "^#\\+OGENT-SESSION-ROAM:\\s-*\\(.+\\)$" nil t)
+        (setq roam-id (match-string-no-properties 1)))
       (when id
-        (list :id id
-              :models models
-              :start-time start-time
-              :title title)))))
+        (list :id id :models models :start-time start-time
+              :title title :project project :roam-id roam-id)))))
 
 (defun ogent-persist--apply-metadata (metadata)
   "Apply METADATA plist to buffer-local session variables."
   (setq-local ogent-persist--id (plist-get metadata :id))
   (setq-local ogent-persist--models (plist-get metadata :models))
-  (setq-local ogent-persist--start-time (plist-get metadata :start-time)))
+  (setq-local ogent-persist--start-time (plist-get metadata :start-time))
+  (setq-local ogent-persist--project (plist-get metadata :project))
+  (setq-local ogent-persist--roam-id (plist-get metadata :roam-id)))
 
 (defun ogent-persist--generate-filename (&optional custom-name)
   "Generate a session filename.
@@ -307,6 +355,237 @@ Adds to `ogent-persist--models' if not already present."
 
 ;; Hook into buffer kill to support auto-save
 (add-hook 'kill-buffer-hook #'ogent-persist--maybe-auto-save)
+
+;;; History Browser
+
+(defvar ogent-history-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ogent-history-load)
+    (define-key map (kbd "o") #'ogent-history-load-other-window)
+    (define-key map (kbd "d") #'ogent-history-delete)
+    (define-key map (kbd "s") #'ogent-history-search)
+    (define-key map (kbd "/") #'ogent-history-search)
+    (define-key map (kbd "g") #'ogent-history-refresh)
+    (define-key map (kbd "r") #'ogent-history-link-roam)
+    (define-key map (kbd "n") #'next-line)
+    (define-key map (kbd "p") #'previous-line)
+    (define-key map (kbd "q") #'quit-window)
+    map)
+  "Keymap for `ogent-history-mode'.")
+
+(define-derived-mode ogent-history-mode special-mode "Ogent-History"
+  "Major mode for browsing ogent session history.
+
+\\{ogent-history-mode-map}"
+  :group 'ogent-session
+  (setq-local revert-buffer-function
+              (lambda (_ignore-auto _noconfirm)
+                (ogent-history-refresh)))
+  (setq-local truncate-lines t))
+
+(defvar-local ogent-history--sessions nil
+  "List of session metadata plists in the current history buffer.")
+
+(defun ogent-history--session-at-point ()
+  "Get the session metadata at point."
+  (get-text-property (line-beginning-position) 'ogent-history-session))
+
+(defun ogent-history--format-entry (session)
+  "Format a SESSION plist as a display line."
+  (let* ((title (or (plist-get session :title) "(untitled)"))
+         (start-time (plist-get session :start-time))
+         (models (plist-get session :models))
+         (project (plist-get session :project))
+         (date-str (if start-time
+                       (format-time-string "%Y-%m-%d %H:%M" start-time)
+                     "???"))
+         (model-str (if models
+                        (string-join (seq-take models 2) ",")
+                      ""))
+         (project-str (if project
+                          (abbreviate-file-name project)
+                        "")))
+    (format "%-18s  %-35s  %-20s  %s"
+            (propertize date-str 'face 'font-lock-comment-face)
+            (propertize (truncate-string-to-width title 35 nil nil "...")
+                        'face 'font-lock-keyword-face)
+            (propertize (truncate-string-to-width model-str 20 nil nil "...")
+                        'face 'font-lock-type-face)
+            (propertize (truncate-string-to-width project-str 30 nil nil "...")
+                        'face 'font-lock-string-face))))
+
+;;;###autoload
+(defun ogent-history ()
+  "Open the ogent session history browser."
+  (interactive)
+  (ogent-persist--ensure-directory)
+  (let* ((session-files (directory-files ogent-session-directory t "\\.org$" nil))
+         (sessions (sort (mapcar #'ogent-persist--parse-file-metadata session-files)
+                         (lambda (a b)
+                           (time-less-p (or (plist-get b :start-time) 0)
+                                        (or (plist-get a :start-time) 0)))))
+         (buffer (get-buffer-create "*Ogent History*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (setq-local ogent-history--sessions sessions)
+        (insert (propertize "Ogent Session History\n" 'face 'bold))
+        (insert (propertize "Keybindings: " 'face 'shadow))
+        (insert "RET:load  o:other-window  d:delete  s:search  r:link-roam  g:refresh  q:quit\n\n")
+        (insert (propertize (format "%-18s  %-35s  %-20s  %s\n"
+                                    "Date" "Title" "Model" "Project")
+                            'face '(:weight bold :underline t)))
+        (if (null sessions)
+            (insert (propertize "\nNo saved sessions found.\n" 'face 'shadow))
+          (dolist (session sessions)
+            (let ((start (point)))
+              (insert (ogent-history--format-entry session) "\n")
+              (put-text-property start (point) 'ogent-history-session session)))))
+      (goto-char (point-min))
+      (forward-line 4)
+      (ogent-history-mode))
+    (switch-to-buffer buffer)))
+
+(defun ogent-history-refresh ()
+  "Refresh the history buffer."
+  (interactive)
+  (ogent-history))
+
+(defun ogent-history-load ()
+  "Load the session at point."
+  (interactive)
+  (when-let* ((session (ogent-history--session-at-point))
+              (file (plist-get session :file)))
+    (ogent-session-load file)))
+
+(defun ogent-history-load-other-window ()
+  "Load the session at point in another window."
+  (interactive)
+  (when-let* ((session (ogent-history--session-at-point))
+              (file (plist-get session :file)))
+    (let ((buf (ogent-session-load file)))
+      (switch-to-buffer-other-window buf))))
+
+(defun ogent-history-delete ()
+  "Delete the session at point after confirmation."
+  (interactive)
+  (when-let* ((session (ogent-history--session-at-point))
+              (file (plist-get session :file))
+              (title (or (plist-get session :title) file)))
+    (when (yes-or-no-p (format "Delete session \"%s\"? " title))
+      (delete-file file)
+      (message "Deleted: %s" (file-name-nondirectory file))
+      (ogent-history-refresh))))
+
+;;; Full-text Search
+
+;;;###autoload
+(defun ogent-history-search (query)
+  "Search across all saved sessions for QUERY.
+Uses grep for fast full-text search."
+  (interactive "sSearch sessions: ")
+  (ogent-persist--ensure-directory)
+  (let ((default-directory ogent-session-directory))
+    (grep (format "grep -n -i -r --include=\"*.org\" %s ."
+                  (shell-quote-argument query)))))
+
+;;;###autoload
+(defun ogent-session-search (query)
+  "Search across saved sessions for QUERY and display results in a buffer."
+  (interactive "sSearch sessions: ")
+  (ogent-persist--ensure-directory)
+  (let* ((files (directory-files ogent-session-directory t "\\.org$"))
+         (results '()))
+    (dolist (file files)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (let ((metadata (ogent-persist--parse-metadata-from-buffer))
+              (matches '()))
+          (while (search-forward-regexp query nil t)
+            (let* ((line-num (line-number-at-pos))
+                   (line-start (line-beginning-position))
+                   (line-end (line-end-position))
+                   (context (buffer-substring-no-properties line-start line-end)))
+              (push (list :line line-num :context context) matches)))
+          (when matches
+            (push (list :file file
+                        :metadata metadata
+                        :matches (nreverse matches))
+                  results)))))
+    (ogent-history--display-search-results query (nreverse results))))
+
+(defun ogent-history--display-search-results (query results)
+  "Display search RESULTS for QUERY in a buffer."
+  (let ((buf (get-buffer-create "*Ogent Search*")))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (format "Search: %s\n" query) 'face 'bold))
+        (insert (format "%d session(s) matched\n\n" (length results)))
+        (if (null results)
+            (insert (propertize "No matches found.\n" 'face 'shadow))
+          (dolist (result results)
+            (let* ((file (plist-get result :file))
+                   (metadata (plist-get result :metadata))
+                   (title (or (plist-get metadata :title)
+                              (file-name-base file)))
+                   (matches (plist-get result :matches)))
+              (insert (propertize (format "▸ %s\n" title) 'face 'font-lock-function-name-face))
+              (insert (propertize (format "  %s\n" file) 'face 'font-lock-comment-face))
+              (dolist (match matches)
+                (insert (format "  L%d: %s\n"
+                                (plist-get match :line)
+                                (truncate-string-to-width
+                                 (string-trim (plist-get match :context))
+                                 70 nil nil "..."))))
+              (insert "\n")))))
+      (goto-char (point-min))
+      (special-mode))
+    (display-buffer buf)))
+
+;;; Org-roam Integration
+
+(declare-function org-roam-node-read "ext:org-roam")
+(declare-function org-roam-node-id "ext:org-roam")
+(declare-function org-roam-node-find "ext:org-roam")
+
+(defun ogent-history-link-roam ()
+  "Link the session at point to an org-roam node."
+  (interactive)
+  (unless ogent-session-roam-integration
+    (user-error "Org-roam integration is not enabled"))
+  (unless (require 'org-roam nil t)
+    (user-error "org-roam package not available"))
+  (when-let* ((session (ogent-history--session-at-point))
+              (file (plist-get session :file))
+              (node (org-roam-node-read)))
+    (let ((roam-id (org-roam-node-id node)))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        ;; Update or add roam ID
+        (if (re-search-forward "^#\\+OGENT-SESSION-ROAM:.*$" nil t)
+            (replace-match (format "#+OGENT-SESSION-ROAM: %s" roam-id))
+          ;; Insert after other metadata
+          (when (re-search-forward "^#\\+OGENT-SESSION-" nil t)
+            (end-of-line)
+            (insert (format "\n#+OGENT-SESSION-ROAM: %s" roam-id))))
+        (write-region (point-min) (point-max) file nil 'silent))
+      (message "Linked to org-roam node: %s" roam-id)
+      (ogent-history-refresh))))
+
+;;;###autoload
+(defun ogent-session-create-roam-note ()
+  "Create an org-roam note from the current ogent session."
+  (interactive)
+  (unless ogent-session-roam-integration
+    (user-error "Org-roam integration is not enabled"))
+  (unless (require 'org-roam nil t)
+    (user-error "org-roam package not available"))
+  (let* ((metadata (ogent-persist--extract-metadata))
+         (title (plist-get metadata :title)))
+    (org-roam-node-find nil (format "ogent: %s" title))))
 
 (provide 'ogent-session)
 
