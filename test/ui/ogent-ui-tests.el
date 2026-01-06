@@ -1564,8 +1564,8 @@
                                   (ogent-test-with-mock-gptel
                                     (ogent-request "   \n\t  " '("gpt-4o-mini")))
                                 (error
-                                 ;; May be rejected - that's fine
-                                 (should (stringp (error-message-string err)))))))))
+                                  ;; May be rejected - that's fine
+                                  (should (stringp (error-message-string err)))))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
