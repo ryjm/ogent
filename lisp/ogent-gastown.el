@@ -24,6 +24,13 @@
 (require 'seq)
 (require 'transient)
 
+;; Autoload tmux integration
+(autoload 'ogent-gastown-tmux-list-sessions "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-dispatch "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-attach "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-send "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-preview "ogent-gastown-tmux" nil t)
+
 (defgroup ogent-gastown nil
   "Gas Town integration for ogent."
   :group 'ogent)
@@ -905,7 +912,11 @@ If CALLBACK is provided, call it with the issues list when done."
     ("b" "Ready work" ogent-gastown-show-ready)
     ("i" "Show issue" ogent-gastown-show-issue)
     ("s" "Start issue" ogent-gastown-claim-issue)
-    ("k" "Close issue" ogent-gastown-close-issue)]]
+    ("k" "Close issue" ogent-gastown-close-issue)]
+
+   ["Tmux"
+    ("t" "List sessions" ogent-gastown-tmux-list-sessions)
+    ("T" "Tmux menu..." ogent-gastown-tmux-dispatch)]]
 
   [["Session"
     ("p" "Prime (init)" ogent-gastown-prime)
