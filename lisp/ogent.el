@@ -70,6 +70,7 @@
 (require 'ogent-anthropic-oauth)
 (require 'ogent-completions)
 (require 'ogent-mcp)
+(require 'ogent-presets)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
