@@ -436,7 +436,7 @@ ERROR-CALLBACK is called on error with an error message."
 
 (defun ogent-issues-bd-update (id callback &rest props)
   "Update issue ID with PROPS, calling CALLBACK on success.
-PROPS is a plist with optional :status, :priority, :description, :title.
+PROPS is a plist with optional :status, :priority, :description.
 The last element of PROPS can be :error-callback followed by a function."
   (let ((err (ogent-issues-bd-check-requirements))
         (error-callback (plist-get props :error-callback)))
@@ -454,8 +454,6 @@ The last element of PROPS can be :error-callback followed by a function."
           (setq args (append args (list "--priority" (number-to-string priority)))))
         (when-let ((description (plist-get props :description)))
           (setq args (append args (list "--description" description))))
-        (when-let ((title (plist-get props :title)))
-          (setq args (append args (list "--title" title))))
         (ogent-issues-bd--run-async
          args
          (lambda (_result)

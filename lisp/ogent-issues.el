@@ -11,18 +11,6 @@
 (require 'subr-x)
 (require 'eieio)
 
-;; Forward declarations for loading state variables
-;; These are defined fully later with defvar-local, but need to exist early
-;; to prevent void-variable errors during header-line redisplay
-(defvar ogent-issues--loading nil
-  "Non-nil when a bd command is in progress.")
-(defvar ogent-issues--loading-timer nil
-  "Timer for animating the loading spinner.")
-(defvar ogent-issues--loading-frame 0
-  "Current animation frame index (0-3).")
-(defvar ogent-issues--loading-frames nil
-  "Animation frames for loading spinner.")
-
 ;; Soft dependency on magit-section - check at both compile and load time
 ;; to ensure classes are properly defined for macro expansion
 (eval-and-compile
@@ -39,10 +27,6 @@
 (autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-filter-dispatch "ogent-issues-transient" nil t)
-
-;; Load AI editing if available
-(declare-function ogent-issues-ai-edit "ogent-issues-edit" nil t)
-(autoload 'ogent-issues-ai-edit "ogent-issues-edit" nil t)
 
 ;; Load graph visualization if available
 (declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
@@ -996,15 +980,6 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
     (define-key map "C" #'ogent-issues-detail-comment)
     (define-key map (kbd "RET") #'ogent-issues-detail-follow-link)
     (define-key map "?" #'ogent-issues-detail-help)
-    ;; Edit commands
-    (define-key map "e" #'ogent-issues-edit-field-at-point)
-    (define-key map "E" #'ogent-issues-ai-edit)
-    (define-key map (kbd "C-c C-c") #'ogent-issues-save-edit)
-    (define-key map (kbd "C-c C-k") #'ogent-issues-cancel-edit)
-    ;; Quick-change commands
-    (define-key map "ep" #'ogent-issues-set-priority)
-    (define-key map "es" #'ogent-issues-set-status)
-    (define-key map "et" #'ogent-issues-set-type)
     map)
   "Keymap for `ogent-issues-detail-mode'.")
 
@@ -1108,36 +1083,22 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 
 (defun ogent-issues--insert-detail-header (issue)
   "Insert header section for ISSUE."
-  (let* ((id (plist-get issue :id))
-         (title (plist-get issue :title))
+  (let* ((title (plist-get issue :title))
          (status (plist-get issue :status))
          (priority (plist-get issue :priority))
          (type (plist-get issue :issue_type))
          (ready (ogent-issues--issue-ready-p issue)))
-    ;; Title line - with editable text property
-    (insert (propertize (or title "Untitled")
-                        'face '(:weight bold :height 1.1)
-                        'ogent-issues-field 'title
-                        'ogent-issues-issue-id id
-                        'ogent-issues-original-value title))
+    ;; Title line
+    (insert (propertize (or title "Untitled") 'face '(:weight bold :height 1.1)))
     (insert "\n\n")
-    ;; Status line with badges - editable fields
-    (insert (propertize (ogent-issues--priority-indicator priority)
-                        'ogent-issues-field 'priority
-                        'ogent-issues-issue-id id
-                        'ogent-issues-original-value priority))
+    ;; Status line with badges
+    (insert (ogent-issues--priority-indicator priority))
     (insert " ")
     (insert (propertize (format "[%s]" (upcase (or type "task")))
-                        'face 'ogent-issues-type
-                        'ogent-issues-field 'type
-                        'ogent-issues-issue-id id
-                        'ogent-issues-original-value type))
+                        'face 'ogent-issues-type))
     (insert " ")
     (insert (propertize (ogent-issues--status-label status)
-                        'face (ogent-issues--status-face status)
-                        'ogent-issues-field 'status
-                        'ogent-issues-issue-id id
-                        'ogent-issues-original-value status))
+                        'face (ogent-issues--status-face status)))
     (when ready
       (insert " ")
       (insert (ogent-issues--ready-indicator))
@@ -1146,20 +1107,12 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 
 (defun ogent-issues--insert-detail-description (issue)
   "Insert description section for ISSUE."
-  (let ((id (plist-get issue :id))
-        (desc (plist-get issue :description)))
+  (let ((desc (plist-get issue :description)))
     (insert (propertize "Description" 'face 'ogent-issues-section-heading))
     (insert "\n")
     (if (and desc (not (string-empty-p desc)))
-        (insert (propertize (ogent-issues--render-markdown desc)
-                            'ogent-issues-field 'description
-                            'ogent-issues-issue-id id
-                            'ogent-issues-original-value desc))
-      (insert (propertize "(No description)"
-                          'face 'ogent-issues-dimmed
-                          'ogent-issues-field 'description
-                          'ogent-issues-issue-id id
-                          'ogent-issues-original-value "")))
+        (insert (ogent-issues--render-markdown desc))
+      (insert (propertize "(No description)" 'face 'ogent-issues-dimmed)))
     (insert "\n\n")))
 
 (defun ogent-issues--insert-detail-metadata (issue)
@@ -1430,191 +1383,7 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 (defun ogent-issues-detail-help ()
   "Show help for detail view."
   (interactive)
-  (message "q:quit g:refresh s:start K:close r:reopen C:comment e:edit E:AI-edit RET:follow-link"))
-
-;;; In-Place Field Editing
-
-(defvar-local ogent-issues-edit--active nil
-  "Non-nil when a field is being edited in-place.")
-
-(defvar-local ogent-issues-edit--field nil
-  "The field currently being edited (title, description, etc.).")
-
-(defvar-local ogent-issues-edit--region nil
-  "Cons cell (start . end) of the region being edited.")
-
-(defvar-local ogent-issues-edit--original nil
-  "Original value of the field before editing.")
-
-(defvar-local ogent-issues-edit--issue-id nil
-  "ID of the issue being edited.")
-
-(defvar ogent-issues-edit-mode-map
-  (let ((map (make-sparse-keymap)))
-    (define-key map (kbd "C-c C-c") #'ogent-issues-save-edit)
-    (define-key map (kbd "C-c C-k") #'ogent-issues-cancel-edit)
-    (define-key map (kbd "RET") #'ogent-issues-save-edit)
-    (define-key map (kbd "<escape>") #'ogent-issues-cancel-edit)
-    map)
-  "Keymap active during in-place field editing.")
-
-(define-minor-mode ogent-issues-edit-mode
-  "Minor mode active when editing an issue field in-place."
-  :lighter " Edit"
-  :keymap ogent-issues-edit-mode-map
-  (if ogent-issues-edit-mode
-      (setq-local header-line-format
-                  (concat " Editing "
-                          (propertize (symbol-name ogent-issues-edit--field) 'face 'transient-argument)
-                          " | "
-                          (propertize "C-c C-c" 'face 'transient-key)
-                          ":save "
-                          (propertize "C-c C-k" 'face 'transient-key)
-                          ":cancel"))
-    (ogent-issues-detail-refresh)))
-
-(defun ogent-issues-edit-field-at-point ()
-  "Make the field at point editable."
-  (interactive)
-  (let ((field (get-text-property (point) 'ogent-issues-field))
-        (id (get-text-property (point) 'ogent-issues-issue-id))
-        (original (get-text-property (point) 'ogent-issues-original-value)))
-    (unless field
-      (user-error "No editable field at point"))
-    (pcase field
-      ;; For priority/status/type, use completing-read
-      ('priority (ogent-issues-set-priority))
-      ('status (ogent-issues-set-status))
-      ('type (ogent-issues-set-type))
-      ;; For title/description, enable in-place editing
-      ((or 'title 'description)
-       (ogent-issues--enable-field-edit field id original)))))
-
-(defun ogent-issues--enable-field-edit (field id original)
-  "Enable in-place editing for FIELD with ID and ORIGINAL value."
-  ;; Find field region
-  (let ((start (previous-single-property-change (1+ (point)) 'ogent-issues-field))
-        (end (next-single-property-change (point) 'ogent-issues-field)))
-    (setq start (or start (point-min)))
-    (setq end (or end (point-max)))
-    ;; Store editing state
-    (setq ogent-issues-edit--active t
-          ogent-issues-edit--field field
-          ogent-issues-edit--region (cons start end)
-          ogent-issues-edit--original original
-          ogent-issues-edit--issue-id id)
-    ;; Make region editable
-    (let ((inhibit-read-only t))
-      (put-text-property start end 'read-only nil)
-      (put-text-property start end 'rear-nonsticky '(read-only))
-      ;; For description, show raw markdown instead of rendered
-      (when (eq field 'description)
-        (delete-region start end)
-        (goto-char start)
-        (insert (or original ""))))
-    ;; Enable edit mode
-    (ogent-issues-edit-mode 1)
-    (goto-char start)))
-
-(defun ogent-issues-save-edit ()
-  "Save the current in-place edit."
-  (interactive)
-  (unless ogent-issues-edit--active
-    (user-error "Not editing any field"))
-  (let* ((start (car ogent-issues-edit--region))
-         (end (cdr ogent-issues-edit--region))
-         (field ogent-issues-edit--field)
-         (id ogent-issues-edit--issue-id)
-         ;; Get new value (accounting for possible region changes)
-         (new-end (next-single-property-change start 'ogent-issues-field))
-         (new-value (string-trim (buffer-substring-no-properties start (or new-end end)))))
-    ;; Validate
-    (when (and (eq field 'title) (string-empty-p new-value))
-      (user-error "Title cannot be empty"))
-    ;; Save via bd
-    (let ((prop-key (pcase field
-                      ('title :title)
-                      ('description :description))))
-      (ogent-issues-bd-update id
-                              (lambda ()
-                                (message "Updated %s for %s" field id)
-                                (ogent-issues-edit-mode -1))
-                              prop-key new-value
-                              :error-callback
-                              (lambda (err)
-                                (message "Failed to update: %s" err)
-                                (ogent-issues-edit-mode -1))))))
-
-(defun ogent-issues-cancel-edit ()
-  "Cancel the current in-place edit."
-  (interactive)
-  (when ogent-issues-edit--active
-    (setq ogent-issues-edit--active nil)
-    (ogent-issues-edit-mode -1)))
-
-;;; Quick-Change Commands
-
-(defun ogent-issues-set-priority ()
-  "Set priority for the current issue via completing-read."
-  (interactive)
-  (let* ((issue (or ogent-issues-detail--issue (ogent-issues--current-issue)))
-         (id (plist-get issue :id))
-         (current (plist-get issue :priority))
-         (choices '(("P0 - Critical" . 0)
-                    ("P1 - High" . 1)
-                    ("P2 - Medium" . 2)
-                    ("P3 - Low" . 3)))
-         (selection (completing-read
-                     (format "Priority for %s (current: P%s): " id (or current 2))
-                     (mapcar #'car choices) nil t))
-         (new-priority (cdr (assoc selection choices))))
-    (when new-priority
-      (ogent-issues-bd-update id
-                              (lambda ()
-                                (message "Set %s to P%d" id new-priority)
-                                (if ogent-issues-detail--issue
-                                    (ogent-issues-detail-refresh)
-                                  (ogent-issues-refresh)))
-                              :priority new-priority
-                              :error-callback
-                              (lambda (err)
-                                (message "Failed to set priority: %s" err))))))
-
-(defun ogent-issues-set-status ()
-  "Set status for the current issue via completing-read."
-  (interactive)
-  (let* ((issue (or ogent-issues-detail--issue (ogent-issues--current-issue)))
-         (id (plist-get issue :id))
-         (current (plist-get issue :status))
-         (choices '("open" "in_progress" "blocked" "closed"))
-         (selection (completing-read
-                     (format "Status for %s (current: %s): " id current)
-                     choices nil t)))
-    (when (and selection (not (string-empty-p selection)))
-      (ogent-issues-bd-update id
-                              (lambda ()
-                                (message "Set %s to %s" id selection)
-                                (if ogent-issues-detail--issue
-                                    (ogent-issues-detail-refresh)
-                                  (ogent-issues-refresh)))
-                              :status selection
-                              :error-callback
-                              (lambda (err)
-                                (message "Failed to set status: %s" err))))))
-
-(defun ogent-issues-set-type ()
-  "Set type for the current issue via completing-read."
-  (interactive)
-  (let* ((issue (or ogent-issues-detail--issue (ogent-issues--current-issue)))
-         (id (plist-get issue :id))
-         (current (plist-get issue :issue_type))
-         (choices '("task" "bug" "feature" "chore" "epic"))
-         (selection (completing-read
-                     (format "Type for %s (current: %s): " id current)
-                     choices nil t)))
-    (when (and selection (not (string-empty-p selection)))
-      ;; Note: bd update may not support --type directly; use description workaround if needed
-      (message "Type change to %s requested (may require bd extension)" selection))))
+  (message "q:quit g:refresh s:start K:close r:reopen C:comment RET:follow-link"))
 
 ;;; Refresh
 

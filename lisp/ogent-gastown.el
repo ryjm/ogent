@@ -24,19 +24,12 @@
 (require 'seq)
 (require 'transient)
 
-;; Autoload tmux functions
-(autoload 'ogent-gastown-tmux-sessions "ogent-gastown-tmux"
-  "Show list of tmux sessions in a buffer." t)
-(autoload 'ogent-gastown-tmux-attach "ogent-gastown-tmux"
-  "Attach to a tmux session." t)
-(autoload 'ogent-gastown-tmux-send "ogent-gastown-tmux"
-  "Send command to a tmux session." t)
-(autoload 'ogent-gastown-tmux-send-quick "ogent-gastown-tmux"
-  "Send a quick command to a tmux session." t)
-(autoload 'ogent-gastown-tmux-preview "ogent-gastown-tmux"
-  "Preview a tmux session." t)
-(autoload 'ogent-gastown-tmux-available-p "ogent-gastown-tmux"
-  "Return non-nil if tmux is available.")
+;; Autoload tmux integration
+(autoload 'ogent-gastown-tmux-list-sessions "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-dispatch "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-attach "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-send "ogent-gastown-tmux" nil t)
+(autoload 'ogent-gastown-tmux-preview "ogent-gastown-tmux" nil t)
 
 (defgroup ogent-gastown nil
   "Gas Town integration for ogent."
@@ -919,17 +912,15 @@ If CALLBACK is provided, call it with the issues list when done."
     ("b" "Ready work" ogent-gastown-show-ready)
     ("i" "Show issue" ogent-gastown-show-issue)
     ("s" "Start issue" ogent-gastown-claim-issue)
-    ("k" "Close issue" ogent-gastown-close-issue)]]
+    ("k" "Close issue" ogent-gastown-close-issue)]
+
+   ["Tmux"
+    ("t" "List sessions" ogent-gastown-tmux-list-sessions)
+    ("T" "Tmux menu..." ogent-gastown-tmux-dispatch)]]
 
   [["Session"
     ("p" "Prime (init)" ogent-gastown-prime)
     ("d" "Done (submit)" ogent-gastown-done)]
-
-   ["Tmux"
-    ("t t" "List sessions" ogent-gastown-tmux-sessions)
-    ("t a" "Attach" ogent-gastown-tmux-attach)
-    ("t s" "Send command" ogent-gastown-tmux-send)
-    ("t p" "Preview" ogent-gastown-tmux-preview)]
 
    ["Quit"
     ("q" "Quit" transient-quit-one)]])

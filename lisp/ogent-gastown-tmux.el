@@ -1,28 +1,33 @@
 ;;; ogent-gastown-tmux.el --- Tmux session integration for Gas Town -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Provides tmux session management for Gas Town agent workflows.
+;; Provides tmux session management for Gas Town workers from within Emacs.
 ;; Features:
 ;; - Session picker with completing-read (consult/marginalia compatible)
-;; - Attach to session (vterm, term, or external terminal)
-;; - Send commands to sessions
-;; - Session preview via tmux capture-pane
+;; - Attach to sessions via vterm, term, or external terminal
+;; - Send commands to sessions (emamux-style targeting)
+;; - Session preview via capture-pane
+;;
+;; Integration:
+;; - Adds tmux commands to ogent-gastown-dispatch transient menu
+;; - Workers section in ogent-gastown-status becomes actionable
+;;
+;; Dependencies:
+;; - tmux (CLI)
+;; - vterm (optional, for embedded terminal attach)
 
 ;;; Code:
 
 (require 'cl-lib)
 (require 'seq)
-
-;; Soft dependencies
-(declare-function vterm "ext:vterm")
-(declare-function vterm-send-string "ext:vterm")
-
-;;; Customization
+(require 'subr-x)
 
 (defgroup ogent-gastown-tmux nil
-  "Tmux session integration for Gas Town."
+  "Tmux integration for Gas Town."
   :group 'ogent-gastown
   :prefix "ogent-gastown-tmux-")
+
+;;; Customization
 
 (defcustom ogent-gastown-tmux-executable "tmux"
   "Path to the tmux executable."
@@ -31,17 +36,23 @@
 
 (defcustom ogent-gastown-tmux-attach-method 'vterm
   "Method for attaching to tmux sessions.
-`vterm' - Open in vterm buffer (requires vterm package)
-`term' - Open in built-in term buffer
-`external' - Launch external terminal"
-  :type '(choice (const :tag "vterm buffer" vterm)
-                 (const :tag "term buffer" term)
+- `vterm': Open in a vterm buffer (requires vterm package)
+- `term': Open in an Emacs term buffer
+- `external': Launch external terminal application"
+  :type '(choice (const :tag "VTerm buffer" vterm)
+                 (const :tag "Term buffer" term)
                  (const :tag "External terminal" external))
   :group 'ogent-gastown-tmux)
 
-(defcustom ogent-gastown-tmux-external-terminal "kitty"
-  "External terminal to use when attach-method is `external'.
-Common options: \"kitty\", \"alacritty\", \"Terminal.app\"."
+(defcustom ogent-gastown-tmux-external-terminal
+  (cond
+   ((eq system-type 'darwin) "Terminal.app")
+   ((executable-find "kitty") "kitty")
+   ((executable-find "alacritty") "alacritty")
+   ((executable-find "gnome-terminal") "gnome-terminal")
+   (t "xterm"))
+  "External terminal application for tmux attach.
+Used when `ogent-gastown-tmux-attach-method' is `external'."
   :type 'string
   :group 'ogent-gastown-tmux)
 
@@ -52,23 +63,24 @@ Common options: \"kitty\", \"alacritty\", \"Terminal.app\"."
 
 (defcustom ogent-gastown-tmux-quick-commands
   '(("Check mail" . "gt mail inbox")
+    ("Sync beads" . "bd sync")
     ("Show hook" . "gt hook")
-    ("Nudge" . "# nudge - type your message")
-    ("Sync beads" . "bd sync"))
-  "Quick commands available for sending to sessions.
-Each entry is (LABEL . COMMAND)."
+    ("Prime session" . "gt prime")
+    ("Nudge" . "# Nudge sent"))
+  "Quick commands for tmux sessions.
+Alist of (LABEL . COMMAND) pairs."
   :type '(alist :key-type string :value-type string)
   :group 'ogent-gastown-tmux)
 
 (defcustom ogent-gastown-tmux-session-prefix "gt-"
   "Prefix for Gas Town tmux sessions.
-Used to filter sessions in the picker."
+Sessions matching this prefix are shown in the picker."
   :type 'string
   :group 'ogent-gastown-tmux)
 
 ;;; Internal State
 
-(defvar ogent-gastown-tmux--sessions-cache nil
+(defvar ogent-gastown-tmux--session-cache nil
   "Cached list of tmux sessions.")
 
 (defvar ogent-gastown-tmux--cache-time nil
@@ -77,281 +89,314 @@ Used to filter sessions in the picker."
 (defconst ogent-gastown-tmux--cache-ttl 5
   "Cache TTL in seconds.")
 
-;;; Core Utilities
+;;; Availability
 
 (defun ogent-gastown-tmux-available-p ()
   "Return non-nil if tmux is available."
   (executable-find ogent-gastown-tmux-executable))
 
-(defun ogent-gastown-tmux--run-command (args)
-  "Run tmux with ARGS synchronously, return output as string."
-  (with-temp-buffer
-    (let ((exit-code (apply #'call-process
-                            ogent-gastown-tmux-executable
-                            nil t nil args)))
-      (if (zerop exit-code)
-          (string-trim (buffer-string))
-        nil))))
-
-(defun ogent-gastown-tmux--run-command-async (args callback &optional error-callback)
-  "Run tmux with ARGS asynchronously, call CALLBACK with output.
-ERROR-CALLBACK is called with error message on failure."
-  (let* ((buffer (generate-new-buffer " *ogent-tmux*"))
-         (proc nil))
-    (setq proc
-          (make-process
-           :name "ogent-tmux"
-           :buffer buffer
-           :command (cons ogent-gastown-tmux-executable args)
-           :sentinel
-           (lambda (process event)
-             (cond
-              ((string= event "finished\n")
-               (with-current-buffer (process-buffer process)
-                 (funcall callback (string-trim (buffer-string))))
-               (kill-buffer (process-buffer process)))
-              ((string-match "exited abnormally" event)
-               (when error-callback
-                 (funcall error-callback
-                          (format "tmux command failed: %s" event)))
-               (kill-buffer (process-buffer process)))
-              (t
-               (kill-buffer (process-buffer process)))))))
-    proc))
-
-;;; Session Discovery
+;;; Session Data
 
 (defun ogent-gastown-tmux--parse-session-line (line)
-  "Parse a tmux list-sessions LINE into a plist."
-  (when (string-match "^\\([^:]+\\):\\s-*\\([0-9]+\\)\\s-*windows" line)
-    (let ((name (match-string 1 line))
-          (windows (string-to-number (match-string 2 line)))
-          (attached (string-match-p "(attached)" line)))
-      (list :name name
-            :windows windows
-            :attached (not (null attached))
-            :gastown (string-prefix-p ogent-gastown-tmux-session-prefix name)))))
+  "Parse a tmux session LINE into a plist.
+Format: name:windows:attached:activity:created"
+  (let ((parts (split-string line ":")))
+    (when (>= (length parts) 5)
+      (list :name (nth 0 parts)
+            :windows (string-to-number (nth 1 parts))
+            :attached (not (string= (nth 2 parts) "0"))
+            :activity (string-to-number (nth 3 parts))
+            :created (string-to-number (nth 4 parts))))))
 
-(defun ogent-gastown-tmux--list-sessions ()
-  "Get list of tmux sessions as plists.
-Returns cached value if still valid."
-  (when (and ogent-gastown-tmux--sessions-cache
-             ogent-gastown-tmux--cache-time
-             (< (float-time (time-subtract (current-time)
+(defun ogent-gastown-tmux--list-sessions-sync ()
+  "List all tmux sessions synchronously.
+Returns a list of plists with session info."
+  (when (ogent-gastown-tmux-available-p)
+    (let ((output (shell-command-to-string
+                   (format "%s list-sessions -F '#{session_name}:#{session_windows}:#{session_attached}:#{session_activity}:#{session_created}' 2>/dev/null"
+                           ogent-gastown-tmux-executable))))
+      (when (and output (not (string-empty-p output)))
+        (delq nil
+              (mapcar #'ogent-gastown-tmux--parse-session-line
+                      (split-string (string-trim output) "\n" t)))))))
+
+(defun ogent-gastown-tmux--get-sessions (&optional force-refresh)
+  "Return list of Gas Town tmux sessions.
+Uses cache unless FORCE-REFRESH is non-nil or cache is stale.
+Sessions are filtered to only show those with `ogent-gastown-tmux-session-prefix'."
+  (when (or force-refresh
+            (null ogent-gastown-tmux--session-cache)
+            (null ogent-gastown-tmux--cache-time)
+            (> (float-time (time-subtract (current-time)
                                            ogent-gastown-tmux--cache-time))
-                ogent-gastown-tmux--cache-ttl))
-    (cl-return-from ogent-gastown-tmux--list-sessions
-      ogent-gastown-tmux--sessions-cache))
-
-  (let ((output (ogent-gastown-tmux--run-command '("list-sessions"))))
-    (when output
-      (let ((sessions (delq nil
-                            (mapcar #'ogent-gastown-tmux--parse-session-line
-                                    (split-string output "\n" t)))))
-        (setq ogent-gastown-tmux--sessions-cache sessions)
-        (setq ogent-gastown-tmux--cache-time (current-time))
-        sessions))))
+               ogent-gastown-tmux--cache-ttl))
+    (setq ogent-gastown-tmux--session-cache (ogent-gastown-tmux--list-sessions-sync))
+    (setq ogent-gastown-tmux--cache-time (current-time)))
+  ;; Filter to Gas Town sessions only
+  (seq-filter (lambda (s)
+                (string-prefix-p ogent-gastown-tmux-session-prefix
+                                 (plist-get s :name)))
+              ogent-gastown-tmux--session-cache))
 
 (defun ogent-gastown-tmux-refresh-sessions ()
-  "Force refresh of session cache."
-  (interactive)
-  (setq ogent-gastown-tmux--sessions-cache nil)
-  (setq ogent-gastown-tmux--cache-time nil)
-  (ogent-gastown-tmux--list-sessions))
+  "Force refresh session cache and return sessions."
+  (ogent-gastown-tmux--get-sessions t))
 
-;;; Session Picker
+;;; Session Metadata
+
+(defun ogent-gastown-tmux--parse-session-name (name)
+  "Parse a Gas Town session NAME into components.
+Returns plist with :rig :role :type or nil if not a GT session."
+  (when (string-prefix-p ogent-gastown-tmux-session-prefix name)
+    (let* ((stripped (substring name (length ogent-gastown-tmux-session-prefix)))
+           (parts (split-string stripped "-")))
+      (cond
+       ;; gt-<rig>-refinery
+       ((and (>= (length parts) 2)
+             (string= (car (last parts)) "refinery"))
+        (list :rig (string-join (butlast parts) "-")
+              :role "refinery"
+              :type 'refinery))
+       ;; gt-<rig>-witness
+       ((and (>= (length parts) 2)
+             (string= (car (last parts)) "witness"))
+        (list :rig (string-join (butlast parts) "-")
+              :role "witness"
+              :type 'witness))
+       ;; gt-<rig>-<polecat-name>
+       ((>= (length parts) 2)
+        (list :rig (car parts)
+              :role (string-join (cdr parts) "-")
+              :type 'polecat))
+       ;; gt-<something>
+       ((= (length parts) 1)
+        (list :rig (car parts)
+              :role nil
+              :type 'other))
+       (t nil)))))
 
 (defun ogent-gastown-tmux--format-session (session)
-  "Format SESSION plist for display in completing-read."
-  (let ((name (plist-get session :name))
-        (windows (plist-get session :windows))
-        (attached (plist-get session :attached))
-        (gastown (plist-get session :gastown)))
-    (format "%s%s (%d windows)%s"
-            (if gastown "[GT] " "")
+  "Format SESSION for display in completing-read.
+Returns a propertized string with annotations."
+  (let* ((name (plist-get session :name))
+         (attached (plist-get session :attached))
+         (windows (plist-get session :windows))
+         (parsed (ogent-gastown-tmux--parse-session-name name))
+         (role-type (plist-get parsed :type))
+         (role-icon (pcase role-type
+                      ('refinery "")
+                      ('witness "")
+                      ('polecat "")
+                      (_ ""))))
+    (format "%s %s%s [%d win%s]"
+            role-icon
             name
+            (if attached " (attached)" "")
             windows
-            (if attached " [attached]" ""))))
+            (if (= windows 1) "" "s"))))
 
-(defun ogent-gastown-tmux--annotation-function (candidate)
-  "Provide annotation for session CANDIDATE."
-  (let* ((sessions (ogent-gastown-tmux--list-sessions))
-         (session (seq-find (lambda (s)
-                              (string-match-p (regexp-quote (plist-get s :name))
-                                              candidate))
-                            sessions)))
-    (when session
-      (let ((attached (plist-get session :attached))
-            (windows (plist-get session :windows)))
-        (concat (propertize " " 'display '(space :align-to 40))
-                (if attached
-                    (propertize "attached" 'face 'success)
-                  (propertize "detached" 'face 'shadow))
-                " "
-                (propertize (format "%d win" windows) 'face 'font-lock-comment-face))))))
+;;; Completing Read
 
 (defun ogent-gastown-tmux--read-session (&optional prompt)
-  "Read a session name with completion.
-PROMPT defaults to \"Session: \"."
-  (unless (ogent-gastown-tmux-available-p)
-    (user-error "tmux not found in PATH"))
-  (let* ((sessions (ogent-gastown-tmux--list-sessions))
-         (candidates (mapcar (lambda (s) (plist-get s :name)) sessions))
-         (completion-extra-properties
-          '(:annotation-function ogent-gastown-tmux--annotation-function)))
-    (unless sessions
-      (user-error "No tmux sessions found"))
-    (completing-read (or prompt "Session: ") candidates nil t)))
+  "Read a tmux session name with completion.
+PROMPT is the prompt string, defaults to \"Tmux session: \"."
+  (let* ((sessions (ogent-gastown-tmux--get-sessions))
+         (candidates (mapcar (lambda (s)
+                               (cons (ogent-gastown-tmux--format-session s)
+                                     (plist-get s :name)))
+                             sessions)))
+    (unless candidates
+      (user-error "No Gas Town tmux sessions found"))
+    (let ((choice (completing-read (or prompt "Tmux session: ")
+                                   candidates nil t)))
+      (cdr (assoc choice candidates)))))
+
+;;;###autoload
+(defun ogent-gastown-tmux-sessions ()
+  "Show a list of Gas Town tmux sessions and select one to attach."
+  (interactive)
+  (let ((session (ogent-gastown-tmux--read-session "Attach to session: ")))
+    (ogent-gastown-tmux-attach session)))
 
 ;;; Attach to Session
 
-(defun ogent-gastown-tmux--attach-vterm (session-name)
-  "Attach to SESSION-NAME using vterm."
+(declare-function vterm "ext:vterm")
+(defvar vterm-shell)
+
+(defun ogent-gastown-tmux--attach-vterm (session)
+  "Attach to SESSION using vterm."
   (unless (require 'vterm nil t)
-    (user-error "vterm package not installed"))
-  (let ((buffer-name (format "*tmux:%s*" session-name)))
-    (if (get-buffer buffer-name)
-        (switch-to-buffer buffer-name)
-      (let ((vterm-shell (format "%s attach -t %s"
+    (user-error "vterm package not available; install it or use a different attach method"))
+  (let ((buf-name (format "*tmux: %s*" session)))
+    (if-let ((existing-buf (get-buffer buf-name)))
+        (switch-to-buffer existing-buf)
+      (let ((vterm-shell (format "%s attach-session -t %s"
                                  ogent-gastown-tmux-executable
-                                 (shell-quote-argument session-name))))
-        (vterm buffer-name)))))
+                                 (shell-quote-argument session))))
+        (vterm buf-name)))))
 
-(defun ogent-gastown-tmux--attach-term (session-name)
-  "Attach to SESSION-NAME using built-in term."
-  (let ((buffer-name (format "*tmux:%s*" session-name)))
-    (if (get-buffer buffer-name)
-        (switch-to-buffer buffer-name)
-      (ansi-term ogent-gastown-tmux-executable buffer-name)
-      (with-current-buffer buffer-name
-        (term-send-raw-string (format "attach -t %s\n"
-                                      (shell-quote-argument session-name)))))))
+(defun ogent-gastown-tmux--attach-term (session)
+  "Attach to SESSION using term."
+  (let ((buf-name (format "*tmux: %s*" session)))
+    (if-let ((existing-buf (get-buffer buf-name)))
+        (switch-to-buffer existing-buf)
+      (term (format "%s attach-session -t %s"
+                    ogent-gastown-tmux-executable
+                    (shell-quote-argument session))))))
 
-(defun ogent-gastown-tmux--attach-external (session-name)
-  "Attach to SESSION-NAME using external terminal."
-  (let ((cmd (format "%s attach -t %s"
+(defun ogent-gastown-tmux--attach-external (session)
+  "Attach to SESSION using external terminal."
+  (let ((cmd (pcase ogent-gastown-tmux-external-terminal
+               ("Terminal.app"
+                (format "open -a Terminal.app %s -new-window '%s attach-session -t %s'"
+                        ""
+                        ogent-gastown-tmux-executable
+                        (shell-quote-argument session)))
+               ("kitty"
+                (format "kitty --single-instance %s attach-session -t %s &"
+                        ogent-gastown-tmux-executable
+                        (shell-quote-argument session)))
+               ("alacritty"
+                (format "alacritty -e %s attach-session -t %s &"
+                        ogent-gastown-tmux-executable
+                        (shell-quote-argument session)))
+               ("gnome-terminal"
+                (format "gnome-terminal -- %s attach-session -t %s &"
+                        ogent-gastown-tmux-executable
+                        (shell-quote-argument session)))
+               (_
+                (format "%s -e '%s attach-session -t %s' &"
+                        ogent-gastown-tmux-external-terminal
+                        ogent-gastown-tmux-executable
+                        (shell-quote-argument session))))))
+    (shell-command cmd)))
+
+;;;###autoload
+(defun ogent-gastown-tmux-attach (session)
+  "Attach to tmux SESSION using configured method."
+  (interactive (list (ogent-gastown-tmux--read-session "Attach to: ")))
+  (pcase ogent-gastown-tmux-attach-method
+    ('vterm (ogent-gastown-tmux--attach-vterm session))
+    ('term (ogent-gastown-tmux--attach-term session))
+    ('external (ogent-gastown-tmux--attach-external session))
+    (_ (ogent-gastown-tmux--attach-vterm session))))
+
+;;;###autoload
+(defun ogent-gastown-tmux-attach-vterm (session)
+  "Attach to tmux SESSION using vterm."
+  (interactive (list (ogent-gastown-tmux--read-session "Attach via vterm: ")))
+  (ogent-gastown-tmux--attach-vterm session))
+
+;;;###autoload
+(defun ogent-gastown-tmux-attach-external (session)
+  "Attach to tmux SESSION using external terminal."
+  (interactive (list (ogent-gastown-tmux--read-session "Attach externally: ")))
+  (ogent-gastown-tmux--attach-external session))
+
+;;; Send Command
+
+(defun ogent-gastown-tmux--send-keys (session keys)
+  "Send KEYS to tmux SESSION."
+  (let ((cmd (format "%s send-keys -t %s %s Enter"
                      ogent-gastown-tmux-executable
-                     (shell-quote-argument session-name))))
-    (pcase ogent-gastown-tmux-external-terminal
-      ("kitty"
-       (start-process "tmux-attach" nil
-                      "kitty" "--" "sh" "-c" cmd))
-      ("alacritty"
-       (start-process "tmux-attach" nil
-                      "alacritty" "-e" "sh" "-c" cmd))
-      ("Terminal.app"
-       (start-process "tmux-attach" nil
-                      "open" "-a" "Terminal.app"
-                      (expand-file-name "~")))  ; macOS quirk
-      (_
-       (start-process "tmux-attach" nil
-                      ogent-gastown-tmux-external-terminal
-                      "-e" cmd)))))
+                     (shell-quote-argument session)
+                     (shell-quote-argument keys))))
+    (shell-command cmd)))
 
 ;;;###autoload
-(defun ogent-gastown-tmux-attach (&optional session-name method)
-  "Attach to a tmux SESSION-NAME using METHOD.
-If SESSION-NAME is nil, prompt for one.
-METHOD defaults to `ogent-gastown-tmux-attach-method'."
-  (interactive)
-  (let ((session (or session-name (ogent-gastown-tmux--read-session "Attach to: ")))
-        (attach-method (or method ogent-gastown-tmux-attach-method)))
-    (pcase attach-method
-      ('vterm (ogent-gastown-tmux--attach-vterm session))
-      ('term (ogent-gastown-tmux--attach-term session))
-      ('external (ogent-gastown-tmux--attach-external session))
-      (_ (user-error "Unknown attach method: %s" attach-method)))))
-
-;;; Send Commands
-
-(defun ogent-gastown-tmux--send-keys (session-name keys)
-  "Send KEYS to SESSION-NAME."
-  (ogent-gastown-tmux--run-command
-   (list "send-keys" "-t" session-name keys "Enter")))
-
-;;;###autoload
-(defun ogent-gastown-tmux-send (session-name command)
-  "Send COMMAND to SESSION-NAME.
-If called interactively, prompt for both."
+(defun ogent-gastown-tmux-send (session command)
+  "Send COMMAND to tmux SESSION."
   (interactive
-   (let ((session (ogent-gastown-tmux--read-session "Send to: ")))
-     (list session
-           (read-string (format "Command for %s: " session)))))
-  (if (ogent-gastown-tmux--send-keys session-name command)
-      (message "Sent to %s: %s" session-name command)
-    (message "Failed to send command to %s" session-name)))
+   (let* ((session (ogent-gastown-tmux--read-session "Send to session: "))
+          (command (read-string "Command: ")))
+     (list session command)))
+  (ogent-gastown-tmux--send-keys session command)
+  (message "Sent to %s: %s" session command))
 
 ;;;###autoload
-(defun ogent-gastown-tmux-send-quick ()
-  "Send a quick command from `ogent-gastown-tmux-quick-commands'."
-  (interactive)
-  (let* ((session (ogent-gastown-tmux--read-session "Send to: "))
-         (choice (completing-read "Command: "
-                                  (mapcar #'car ogent-gastown-tmux-quick-commands)
-                                  nil t))
-         (command (cdr (assoc choice ogent-gastown-tmux-quick-commands))))
-    (ogent-gastown-tmux-send session command)))
+(defun ogent-gastown-tmux-send-quick (session)
+  "Send a quick command to SESSION, selected from predefined list."
+  (interactive (list (ogent-gastown-tmux--read-session "Send quick command to: ")))
+  (let* ((choices ogent-gastown-tmux-quick-commands)
+         (choice (completing-read "Quick command: " choices nil t))
+         (command (cdr (assoc choice choices))))
+    (ogent-gastown-tmux--send-keys session command)
+    (message "Sent to %s: %s" session choice)))
+
+;;;###autoload
+(defun ogent-gastown-tmux-nudge (session)
+  "Send a nudge to SESSION (just press Enter to wake it up)."
+  (interactive (list (ogent-gastown-tmux--read-session "Nudge session: ")))
+  (let ((cmd (format "%s send-keys -t %s Enter"
+                     ogent-gastown-tmux-executable
+                     (shell-quote-argument session))))
+    (shell-command cmd)
+    (message "Nudged: %s" session)))
 
 ;;; Session Preview
 
-(defun ogent-gastown-tmux--capture-pane (session-name &optional lines)
-  "Capture pane content from SESSION-NAME.
+(defun ogent-gastown-tmux--capture-pane (session &optional lines)
+  "Capture recent output from SESSION pane.
 LINES defaults to `ogent-gastown-tmux-preview-lines'."
-  (let ((line-count (or lines ogent-gastown-tmux-preview-lines)))
-    (ogent-gastown-tmux--run-command
-     (list "capture-pane" "-t" session-name "-p"
-           "-S" (format "-%d" line-count)))))
+  (let* ((num-lines (or lines ogent-gastown-tmux-preview-lines))
+         (cmd (format "%s capture-pane -t %s -p -S -%d 2>/dev/null"
+                      ogent-gastown-tmux-executable
+                      (shell-quote-argument session)
+                      num-lines)))
+    (shell-command-to-string cmd)))
 
 ;;;###autoload
-(defun ogent-gastown-tmux-preview (&optional session-name)
-  "Show preview of SESSION-NAME in a popup buffer.
-If SESSION-NAME is nil, prompt for one."
-  (interactive)
-  (let* ((session (or session-name (ogent-gastown-tmux--read-session "Preview: ")))
-         (content (ogent-gastown-tmux--capture-pane session))
-         (buf (get-buffer-create (format "*tmux-preview:%s*" session))))
-    (if content
-        (progn
-          (with-current-buffer buf
-            (let ((inhibit-read-only t))
-              (erase-buffer)
-              (insert (propertize (format "=== %s ===\n\n" session)
-                                  'face 'bold))
-              (insert content)
-              (goto-char (point-max))
-              (ansi-color-apply-on-region (point-min) (point-max))
-              (view-mode 1)
-              (setq-local revert-buffer-function
-                          (lambda (_ignore-auto _noconfirm)
-                            (ogent-gastown-tmux-preview session)))))
-          (display-buffer buf))
-      (message "Failed to capture pane from %s" session))))
+(defun ogent-gastown-tmux-preview (session)
+  "Show a preview of SESSION's pane output in a popup buffer."
+  (interactive (list (ogent-gastown-tmux--read-session "Preview session: ")))
+  (let* ((content (ogent-gastown-tmux--capture-pane session))
+         (buf (get-buffer-create (format "*Tmux Preview: %s*" session))))
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (propertize (format "Session: %s\n" session) 'face 'bold))
+        (insert (propertize (format "Captured: %s\n" (format-time-string "%H:%M:%S"))
+                            'face 'shadow))
+        (insert (make-string 50 ?-) "\n\n")
+        (insert (or content "(empty)"))
+        (goto-char (point-max))
+        (special-mode)))
+    (display-buffer buf '((display-buffer-at-bottom)
+                          (window-height . 15)))))
 
-;;; Session List Buffer
+;;;###autoload
+(defun ogent-gastown-tmux-preview-refresh ()
+  "Refresh the current tmux preview buffer."
+  (interactive)
+  (when (string-prefix-p "*Tmux Preview: " (buffer-name))
+    (let ((session (substring (buffer-name) 15 -1)))
+      (ogent-gastown-tmux-preview session))))
+
+;;; Session Buffer Mode
 
 (defvar ogent-gastown-tmux-list-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-gastown-tmux-list-attach)
     (define-key map (kbd "a") #'ogent-gastown-tmux-list-attach)
+    (define-key map (kbd "A") #'ogent-gastown-tmux-list-attach-external)
     (define-key map (kbd "s") #'ogent-gastown-tmux-list-send)
     (define-key map (kbd "p") #'ogent-gastown-tmux-list-preview)
-    (define-key map (kbd "g") #'ogent-gastown-tmux-list-refresh)
+    (define-key map (kbd "n") #'ogent-gastown-tmux-list-nudge)
+    (define-key map (kbd "g") #'ogent-gastown-tmux-list-sessions)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap for `ogent-gastown-tmux-list-mode'.")
 
 (define-derived-mode ogent-gastown-tmux-list-mode special-mode "GT-Tmux"
-  "Mode for viewing tmux sessions."
+  "Mode for viewing Gas Town tmux sessions."
+  :group 'ogent-gastown-tmux
   (setq-local revert-buffer-function
               (lambda (_ignore-auto _noconfirm)
-                (ogent-gastown-tmux-sessions))))
+                (ogent-gastown-tmux-list-sessions))))
 
 (defun ogent-gastown-tmux-list--session-at-point ()
-  "Get session name at point."
-  (save-excursion
-    (beginning-of-line)
-    (when (looking-at "^\\(?:\\[GT\\] \\)?\\([^ ]+\\)")
-      (match-string 1))))
+  "Get the session name at point."
+  (get-text-property (line-beginning-position) 'ogent-gastown-tmux-session))
 
 (defun ogent-gastown-tmux-list-attach ()
   "Attach to session at point."
@@ -359,11 +404,17 @@ If SESSION-NAME is nil, prompt for one."
   (when-let ((session (ogent-gastown-tmux-list--session-at-point)))
     (ogent-gastown-tmux-attach session)))
 
+(defun ogent-gastown-tmux-list-attach-external ()
+  "Attach to session at point via external terminal."
+  (interactive)
+  (when-let ((session (ogent-gastown-tmux-list--session-at-point)))
+    (ogent-gastown-tmux-attach-external session)))
+
 (defun ogent-gastown-tmux-list-send ()
   "Send command to session at point."
   (interactive)
   (when-let ((session (ogent-gastown-tmux-list--session-at-point)))
-    (let ((command (read-string (format "Command for %s: " session))))
+    (let ((command (read-string (format "Send to %s: " session))))
       (ogent-gastown-tmux-send session command))))
 
 (defun ogent-gastown-tmux-list-preview ()
@@ -372,74 +423,94 @@ If SESSION-NAME is nil, prompt for one."
   (when-let ((session (ogent-gastown-tmux-list--session-at-point)))
     (ogent-gastown-tmux-preview session)))
 
-(defun ogent-gastown-tmux-list-refresh ()
-  "Refresh session list."
+(defun ogent-gastown-tmux-list-nudge ()
+  "Nudge session at point."
   (interactive)
-  (ogent-gastown-tmux-refresh-sessions)
-  (ogent-gastown-tmux-sessions))
+  (when-let ((session (ogent-gastown-tmux-list--session-at-point)))
+    (ogent-gastown-tmux-nudge session)))
 
 ;;;###autoload
-(defun ogent-gastown-tmux-sessions ()
-  "Show list of tmux sessions in a buffer."
+(defun ogent-gastown-tmux-list-sessions ()
+  "Display a buffer with Gas Town tmux sessions."
   (interactive)
-  (unless (ogent-gastown-tmux-available-p)
-    (user-error "tmux not found in PATH"))
-  (let* ((sessions (ogent-gastown-tmux-refresh-sessions))
-         (buf (get-buffer-create "*Gas Town Tmux*")))
+  (let ((buf (get-buffer-create "*Gas Town Tmux*"))
+        (sessions (ogent-gastown-tmux-refresh-sessions)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (propertize "Tmux Sessions\n" 'face 'bold))
-        (insert (make-string 40 ?=) "\n\n")
-        (insert (propertize "RET" 'face 'help-key-binding)
-                ":attach  "
-                (propertize "s" 'face 'help-key-binding)
-                ":send  "
-                (propertize "p" 'face 'help-key-binding)
-                ":preview  "
-                (propertize "g" 'face 'help-key-binding)
-                ":refresh\n\n")
+        (insert (propertize "Gas Town Tmux Sessions\n" 'face 'bold))
+        (insert (propertize (format "Last refresh: %s\n" (format-time-string "%H:%M:%S"))
+                            'face 'shadow))
+        (insert (make-string 60 ?=) "\n\n")
+        (insert (propertize "Keybindings: " 'face 'bold))
+        (insert "RET:attach  s:send  p:preview  n:nudge  g:refresh  q:quit\n\n")
         (if (null sessions)
-            (insert (propertize "No tmux sessions found.\n" 'face 'shadow))
-          ;; Group by gastown status
-          (let ((gt-sessions (seq-filter (lambda (s) (plist-get s :gastown)) sessions))
-                (other-sessions (seq-filter (lambda (s) (not (plist-get s :gastown))) sessions)))
-            (when gt-sessions
-              (insert (propertize "Gas Town Sessions:\n" 'face 'font-lock-keyword-face))
-              (dolist (session gt-sessions)
-                (ogent-gastown-tmux--insert-session-line session))
-              (insert "\n"))
-            (when other-sessions
-              (insert (propertize "Other Sessions:\n" 'face 'font-lock-comment-face))
-              (dolist (session other-sessions)
-                (ogent-gastown-tmux--insert-session-line session)))))
-        (goto-char (point-min))
-        (ogent-gastown-tmux-list-mode)))
-    (display-buffer buf)))
+            (insert (propertize "No Gas Town sessions found.\n" 'face 'shadow))
+          ;; Group by rig
+          (let ((by-rig (seq-group-by
+                         (lambda (s)
+                           (or (plist-get (ogent-gastown-tmux--parse-session-name
+                                           (plist-get s :name))
+                                          :rig)
+                               "other"))
+                         sessions)))
+            (dolist (rig-group (sort by-rig (lambda (a b) (string< (car a) (car b)))))
+              (let ((rig (car rig-group))
+                    (rig-sessions (cdr rig-group)))
+                (insert (propertize (format "# %s\n" rig) 'face 'bold))
+                (dolist (session rig-sessions)
+                  (let* ((name (plist-get session :name))
+                         (attached (plist-get session :attached))
+                         (windows (plist-get session :windows))
+                         (parsed (ogent-gastown-tmux--parse-session-name name))
+                         (role (plist-get parsed :role))
+                         (role-type (plist-get parsed :type))
+                         (role-icon (pcase role-type
+                                      ('refinery "")
+                                      ('witness "")
+                                      ('polecat "")
+                                      (_ "")))
+                         (face (cond
+                                (attached 'success)
+                                ((eq role-type 'polecat) 'font-lock-function-name-face)
+                                ((eq role-type 'refinery) 'font-lock-type-face)
+                                ((eq role-type 'witness) 'font-lock-keyword-face)
+                                (t nil))))
+                    (insert (propertize
+                             (format "  %s %-30s %s [%d win%s]\n"
+                                     role-icon
+                                     (or role name)
+                                     (if attached "(attached)" "")
+                                     windows
+                                     (if (= windows 1) "" "s"))
+                             'face face
+                             'ogent-gastown-tmux-session name))))
+                (insert "\n"))))))
+      (goto-char (point-min))
+      (ogent-gastown-tmux-list-mode))
+    (switch-to-buffer buf)))
 
-(defun ogent-gastown-tmux--insert-session-line (session)
-  "Insert a line for SESSION in the list buffer."
-  (let ((name (plist-get session :name))
-        (windows (plist-get session :windows))
-        (attached (plist-get session :attached))
-        (gastown (plist-get session :gastown)))
-    (insert "  ")
-    (when gastown
-      (insert (propertize "[GT] " 'face 'success)))
-    (insert (propertize name 'face (if attached 'bold 'default)))
-    (insert (propertize (format " (%d windows)" windows)
-                        'face 'font-lock-comment-face))
-    (when attached
-      (insert " " (propertize "[attached]" 'face 'success)))
-    (insert "\n")))
+;;; Transient Integration
 
-;;; Integration Helpers (for ogent-gastown-status.el)
+(declare-function transient-define-prefix "ext:transient")
+(declare-function transient-define-suffix "ext:transient")
 
-(defun ogent-gastown-tmux-get-sessions-for-status ()
-  "Get sessions formatted for status buffer integration.
-Returns list of plists with :name :windows :attached :gastown keys."
-  (when (ogent-gastown-tmux-available-p)
-    (ogent-gastown-tmux--list-sessions)))
+(with-eval-after-load 'transient
+  (transient-define-prefix ogent-gastown-tmux-dispatch ()
+    "Tmux session management."
+    [:description
+     (lambda ()
+       (let ((count (length (ogent-gastown-tmux--get-sessions))))
+         (format "Tmux Sessions (%d active)" count)))
+     ["Sessions"
+      ("t" "List sessions" ogent-gastown-tmux-list-sessions)
+      ("a" "Attach to session" ogent-gastown-tmux-sessions)
+      ("A" "Attach (external)" ogent-gastown-tmux-attach-external)]
+     ["Actions"
+      ("s" "Send command" ogent-gastown-tmux-send)
+      ("q" "Quick command" ogent-gastown-tmux-send-quick)
+      ("n" "Nudge session" ogent-gastown-tmux-nudge)
+      ("p" "Preview pane" ogent-gastown-tmux-preview)]]))
 
 (provide 'ogent-gastown-tmux)
 
