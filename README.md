@@ -73,22 +73,36 @@ Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
 - `ogent-request` now streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
 - Specs live under `specs/gptel/` (`overview.org`, `gptel-integration.org`) and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
 - `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
-- Remaining tasks (tracked in docs and roadmap):
-  - Surface gptel’s FSM status/latency inside the Org buffer header line.
-  - Wire gptel highlight + tool-call UI so reasoning/tool blocks render inline.
-  - Support cancellation/resume controls and richer error reporting.
-  - Document backend/preset configuration in the user-facing guides.
+- Workspace presets allow per-project model and backend configuration via `.ogent-presets`.
 
 ## Roadmap
-- **Core UX**
-  - Flesh out minor-mode affordances (`ogent-ask`, `ogent-open-block`, richer `ogent-context-preview` interactions).
-  - Expand codemap coverage (link UI nodes back to specs/tests, expose incremental refresh APIs).
-  - Ship a default prompt schema plus reusable Org snippets for common AI workflows.
-- **gptel Transport**
-  - Expose preset toggles + per-backend settings in the dispatcher (read/edit `ogent-models.el`).
-  - Bubble up gptel FSM status (waiting/typing/errored) and cancellation commands inside Org buffers.
-  - Render reasoning/tool-call blocks using the same markers as `gptel-mode`, including highlight overlays.
-  - Provide docs covering API key management, `gptel-make-preset` usage, and how to register custom providers.
-- **Testing**
-  - Continue expanding fixture coverage (streaming edge cases, error injection, preset application).
-  - Exercise multi-model fan-out with mocked gptel streams to guard against regressions.
+
+### Completed
+
+Core agent functionality is now stable:
+
+- **Prompt dispatch**: Multi-model fan-out, prompt templates, context preview
+- **Completions**: Streaming responses, accept/reject flow, inline src blocks
+- **Context**: @handle references, external file/folder pinning, org-roam integration
+- **Codemaps**: Repository analysis, incremental refresh, architecture digests
+- **Edit mode**: Diff-based edits, auto-apply for trusted operations
+- **Tool system**: Tool approval flow, FSM state tracking, inline rendering
+- **Issue tracking**: beads CLI integration, magit-style issue browser
+- **Workspace presets**: Project-specific configurations
+- **OAuth**: Browser-based Anthropic authentication for Claude Max/Pro
+- **Session memory**: Agent history browser with search
+
+### In Progress
+
+- **Gas Town integration**: Multi-agent coordination with tmux terminals, refinery merge queues
+
+### Next
+
+- **Eval/benchmarking**: Track prompt effectiveness—response ratings, token usage, latency metrics, accept/reject ratios
+- **Analytics dashboard**: SQLite-backed metrics with export to CSV/org-table
+
+### Future
+
+- **Reasoning blocks**: Render tool-call UI inline with highlight overlays
+- **Cancellation controls**: Resume/abort with richer error reporting
+- **Provider documentation**: API key management guides, custom backend registration
