@@ -34,17 +34,12 @@
 ;; - Companion buffers for non-Org files
 ;; - Inline code editing with smerge-based accept/reject workflow
 ;; - Codemap generation for codebase exploration
-;; - Gas Town integration for multi-agent coordination
-;; - Beads issue tracking with magit-style browser
 ;;
 ;; Quick start:
 ;;   (require 'ogent)
 ;;   (ogent-global-mode 1)
-;;   (ogent-gastown-global-mode 1)  ; Optional: enable Gas Town status
 ;;
 ;; Then use C-c o p to open the prompt dispatcher.
-;; Use M-x ogent-gastown-dispatch for Gas Town commands.
-;; Use M-x ogent-issues for the issue browser.
 ;;
 ;; For more information, see the README at:
 ;; https://github.com/jake-87/ogent
@@ -77,10 +72,6 @@
 (require 'ogent-mcp)
 (require 'ogent-gastown)
 (require 'ogent-presets)
-
-;; Autoload issue browser (separate from gastown integration)
-(autoload 'ogent-issues "ogent-issues"
-  "Open the ogent-issues buffer for the current project." t)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
