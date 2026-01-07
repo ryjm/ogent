@@ -72,6 +72,7 @@
 (require 'ogent-mcp)
 (require 'ogent-gastown)
 (require 'ogent-presets)
+(require 'ogent-analytics)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)

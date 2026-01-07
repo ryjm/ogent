@@ -25,6 +25,11 @@
 (declare-function ogent-completion-accept "ogent-completions")
 (declare-function ogent-completion-reject "ogent-completions")
 
+;; Declare analytics commands (defined in ogent-analytics.el)
+(declare-function ogent-analytics-rate-up "ogent-analytics")
+(declare-function ogent-analytics-rate-down "ogent-analytics")
+(declare-function ogent-analytics-dashboard "ogent-analytics")
+
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
@@ -132,7 +137,14 @@ Set to nil to disable automatic evil binding setup."
     (completion-accept :key "z" :command ogent-completion-accept
                        :desc "Accept completion")
     (completion-reject :key "x" :command ogent-completion-reject
-                       :desc "Reject completion"))
+                       :desc "Reject completion")
+    ;; Analytics
+    (analytics-rate-up   :key "+" :command ogent-analytics-rate-up
+                         :desc "Rate thumbs up")
+    (analytics-rate-down :key "-" :command ogent-analytics-rate-down
+                         :desc "Rate thumbs down")
+    (analytics-dashboard :key "A" :command ogent-analytics-dashboard
+                         :desc "Analytics dashboard"))
   "Registry of ogent actions with keys and commands.
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")
