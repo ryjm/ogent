@@ -70,25 +70,57 @@ Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
 
 ## gptel Integration Status
 - Dynamic dispatcher buttons are generated from `ogent-models.el`, so contributors can define additional providers without editing UI code.
-- `ogent-request` now streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
+- `ogent-request` streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
 - Specs live under `specs/gptel/` (`overview.org`, `gptel-integration.org`) and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
 - `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
-- Remaining tasks (tracked in docs and roadmap):
-  - Surface gptel’s FSM status/latency inside the Org buffer header line.
-  - Wire gptel highlight + tool-call UI so reasoning/tool blocks render inline.
-  - Support cancellation/resume controls and richer error reporting.
-  - Document backend/preset configuration in the user-facing guides.
+- FSM status tracking is implemented via `ogent-tool-fsm.el`, with visual state indicators in the mode line.
+- Tool-call rendering is handled by `ogent-tool-render.el`, displaying reasoning and tool blocks inline.
+- Backend/preset configuration is documented in [docs/getting-started.md](docs/getting-started.md) and the `ogent-onboard` wizard.
+
+## Module Overview
+
+ogent is organized into focused modules under `lisp/`:
+
+| Module | Purpose |
+|--------|---------|
+| `ogent.el`, `ogent-core.el` | Entry points and core infrastructure |
+| `ogent-keys.el` | Keybinding management |
+| `ogent-models.el`, `ogent-presets.el` | Model registry and preset configuration |
+| `ogent-context.el` | Context building from Org hierarchies |
+| `ogent-prompts.el`, `ogent-prompts-yasnippet.el` | Prompt templates and snippet integration |
+| `ogent-codemap.el` | Repository analysis and codemap generation |
+| `ogent-completions.el`, `ogent-session.el` | Completion handling and session buffers |
+| `ogent-edit*.el` | AI-powered code editing (diff, display, format, parse) |
+| `ogent-tool*.el` | Tool system (approval, FSM, rendering) |
+| `ogent-issues*.el` | Beads issue tracker integration |
+| `ogent-gastown*.el`, `ogent-refinery.el` | Gas Town multi-agent coordination |
+| `ogent-onboard.el`, `ogent-anthropic-oauth.el` | Setup wizard and OAuth |
+| `ogent-debug.el`, `ogent-mcp.el` | Debugging and MCP integration |
+
+## Recent Additions
+
+The following features were added recently:
+
+- **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads issues with inline filtering, transient menus, and dependency graph visualization.
+- **Gas Town Multi-Agent** (`ogent-gastown.el`): Status buffer and tmux integration for coordinating multiple AI agent workspaces.
+- **Refinery Buffer** (`ogent-refinery.el`): Merge queue visualization for tracking and managing pending merges.
+- **Session Management** (`ogent-session.el`): Improved Org hierarchy with proper request/response threading and inline prompting.
+- **Tool System** (`ogent-tool-*.el`): Complete tool approval UI, FSM status tracking, and inline rendering of tool calls/results.
+- **Onboarding Wizard** (`ogent-onboard.el`): Interactive setup for API keys and provider configuration with OAuth support.
+- **Default Prompts** (`ogent-prompts.el`): Reusable prompt templates with yasnippet integration.
+- **Code Editing** (`ogent-edit.el`): AI-powered code editing with diff preview and apply/reject workflow.
 
 ## Roadmap
-- **Core UX**
-  - Flesh out minor-mode affordances (`ogent-ask`, `ogent-open-block`, richer `ogent-context-preview` interactions).
-  - Expand codemap coverage (link UI nodes back to specs/tests, expose incremental refresh APIs).
-  - Ship a default prompt schema plus reusable Org snippets for common AI workflows.
-- **gptel Transport**
-  - Expose preset toggles + per-backend settings in the dispatcher (read/edit `ogent-models.el`).
-  - Bubble up gptel FSM status (waiting/typing/errored) and cancellation commands inside Org buffers.
-  - Render reasoning/tool-call blocks using the same markers as `gptel-mode`, including highlight overlays.
-  - Provide docs covering API key management, `gptel-make-preset` usage, and how to register custom providers.
-- **Testing**
-  - Continue expanding fixture coverage (streaming edge cases, error injection, preset application).
-  - Exercise multi-model fan-out with mocked gptel streams to guard against regressions.
+
+- **Eval & Analytics**
+  - Track prompt effectiveness over time (accept/reject ratios, token usage, latency metrics).
+  - Add inline rating for completions (`C-c o +` / `C-c o -`) with per-project aggregation.
+  - Dashboard buffer showing model comparison stats and prompt template performance.
+- **Codemap Enhancements**
+  - Link codemap nodes to specs/tests for full traceability.
+  - Expose incremental refresh APIs for large codebases.
+  - Add data-flow annotations showing function call chains.
+- **Testing Infrastructure**
+  - Expand fixture coverage (streaming edge cases, error injection, preset application).
+  - Exercise multi-model fan-out with mocked gptel streams.
+  - Add integration tests for Gas Town and beads coordination.
