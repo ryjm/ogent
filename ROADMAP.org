@@ -21,13 +21,13 @@ Each section maps vision statements to implementation status.
 ** Identified Gaps (Vision vs Code)
 
 *** Critical Gaps
-1. *Multi-model Fan-out*: README promises concurrent requests to multiple models - NOT IMPLEMENTED
-2. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
+1. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
 
 *** Recently Completed
 1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
 2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
 3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
+4. *Multi-model Fan-out*: Concurrent requests to multiple models via transient UI (M key) - IMPLEMENTED in =ogent-ui.el=
 
 *** Partial Implementations
 1. *Codemap*: Static regex-based, not LLM-powered as envisioned (ogent-32t tracks this)
@@ -148,23 +148,17 @@ These items from README.md are not yet tracked as beads:
 
 ** Critical (P1)
 #+begin_src elisp
-;; Notes Capture - C-c C-d to shunt completion to Notes child
-(bd-quick_create :title "Implement Notes capture (C-c C-d)" :type "feature" :priority 1)
+;; Notes Capture - DONE: implemented in ogent-notes.el
+;; Multi-model fan-out - DONE: implemented in ogent-ui.el (ogent-lrgk)
 
-;; Multi-model fan-out - concurrent requests to multiple models
-(bd-quick_create :title "Multi-model fan-out with concurrent requests" :type "feature" :priority 1)
-
-;; Ergonomic review commands
+;; Ergonomic review commands (still needed)
 (bd-quick_create :title "Implement C-c o n (cycle completions) and C-c o a (accept)" :type "feature" :priority 1)
 #+end_src
 
 ** High (P2)
 #+begin_src elisp
-;; ogent-ask command mentioned in README
-(bd-quick_create :title "Implement ogent-ask command" :type "feature" :priority 2)
-
-;; ogent-open-block command mentioned in README
-(bd-quick_create :title "Implement ogent-open-block command" :type "feature" :priority 2)
+;; ogent-ask - DONE: implemented in ogent-core.el
+;; ogent-open-block - DONE: implemented in ogent-core.el
 
 ;; Backend/preset configuration docs
 (bd-quick_create :title "Document backend/preset configuration and gptel-make-preset" :type "task" :priority 2)
