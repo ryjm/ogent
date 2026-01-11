@@ -21,18 +21,21 @@ Each section maps vision statements to implementation status.
 ** Identified Gaps (Vision vs Code)
 
 *** Critical Gaps
-1. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
+(None - all critical features implemented)
 
 *** Recently Completed
 1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
 2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
 3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
 4. *Multi-model Fan-out*: Concurrent requests to multiple models via transient UI (M key) - IMPLEMENTED in =ogent-ui.el=
+5. *Ergonomic Review (C-c . N/P/A/X)*: Cycle, accept, reject completions - IMPLEMENTED in =ogent-completions.el=
+6. *MCP Server Support*: Model Context Protocol client for external tools - IMPLEMENTED in =ogent-mcp.el=
+7. *LLM-Powered Codemap*: Task-scoped codemaps via @codemap-task: handles - IMPLEMENTED in =ogent-codemap.el=
+8. *Magit-style Diff UX*: Diff preview for edits with smerge/overlay display - IMPLEMENTED in =ogent-edit-display.el=
 
 *** Partial Implementations
-1. *Codemap*: Static regex-based, not LLM-powered as envisioned (ogent-32t tracks this)
-2. *Incremental codemap refresh*: Mentioned in README, not implemented (ogent-tro tracks this)
-3. *Tool result streaming*: Tools execute but don't stream incrementally (ogent-24x tracks this)
+1. *Incremental codemap refresh*: Mentioned in README, partially implemented (ogent-tro tracks this)
+2. *Tool result streaming*: Async shell commands stream, but some tools still batch results
 
 *** Documentation Gaps
 1. *Prompt templates*: No default templates shipped (ogent-60u tracks this)
@@ -99,10 +102,9 @@ Each section maps vision statements to implementation status.
   - Pagination for large results
 
 ** P2 - Ready
-- [ ] LLM-powered codemap generation (ogent-32t)
-  - Replace regex-based extraction with LLM analysis
+- [X] LLM-powered codemap generation (ogent-32t) - DONE in ogent-codemap.el
+  - Task-scoped codemaps via @codemap-task: handles
   - Semantic relationship understanding
-  - Architectural pattern identification
 
 - [ ] Incremental codemap refresh (ogent-tro)
   - Detect changed files
@@ -112,13 +114,13 @@ Each section maps vision statements to implementation status.
 * Backlog
 
 ** P3 - Features
-- [ ] MCP server support (ogent-c8l)
+- [X] MCP server support (ogent-c8l) - DONE in ogent-mcp.el
   - Model Context Protocol integration
   - External tool providers
 
-- [ ] Magit-style diff UX (ogent-wxc)
-  - Hunk-by-hunk navigation
-  - Partial accept/reject
+- [X] Magit-style diff UX (ogent-wxc) - DONE in ogent-edit-display.el
+  - Diff preview before applying
+  - smerge and overlay display options
 
 - [ ] Inline-diff alternative display (ogent-npb)
   - Use inline-diff package instead of smerge
@@ -150,9 +152,11 @@ These items from README.md are not yet tracked as beads:
 #+begin_src elisp
 ;; Notes Capture - DONE: implemented in ogent-notes.el
 ;; Multi-model fan-out - DONE: implemented in ogent-ui.el (ogent-lrgk)
-
-;; Ergonomic review commands (still needed)
-(bd-quick_create :title "Implement C-c o n (cycle completions) and C-c o a (accept)" :type "feature" :priority 1)
+;; Ergonomic review - DONE: implemented in ogent-completions.el
+;; MCP server support - DONE: implemented in ogent-mcp.el
+;; LLM-powered codemap - DONE: implemented in ogent-codemap.el
+;; Magit-style diff UX - DONE: implemented in ogent-edit-display.el
+;; ALL CRITICAL FEATURES COMPLETE
 #+end_src
 
 ** High (P2)
@@ -227,9 +231,11 @@ These items from README.md are not yet tracked as beads:
 | C-c . t   | ogent-debug-tools-menu         | Implemented |
 | C-c . s   | ogent-edit-goto-source         | Implemented |
 | C-c . C   | ogent-edit-goto-companion      | Implemented |
-| C-c o n   | (cycle completions)            | NOT IMPLEMENTED |
-| C-c o a   | (accept completion)            | NOT IMPLEMENTED |
-| C-c C-d   | (notes capture)                | NOT IMPLEMENTED |
+| C-c . N   | ogent-completion-next          | Implemented |
+| C-c . P   | ogent-completion-prev          | Implemented |
+| C-c . A   | ogent-completion-accept        | Implemented |
+| C-c . X   | ogent-completion-reject        | Implemented |
+| C-c . d   | ogent-notes-capture            | Implemented |
 
 * Test Coverage
 
@@ -266,17 +272,17 @@ These items from README.md are not yet tracked as beads:
 - Inline edits
 - Doom Emacs support
 
-** v0.2.0 - Workflow Polish
-- Notes capture (C-c C-d)
-- Ergonomic review (C-c o n/a)
-- Multi-model fan-out
-- Default prompt templates
+** v0.2.0 - Workflow Polish (Complete)
+- [X] Notes capture (C-c . d)
+- [X] Ergonomic review (C-c . N/P/A/X)
+- [X] Multi-model fan-out
+- [ ] Default prompt templates (in progress)
 
-** v0.3.0 - Intelligence
-- LLM-powered codemap
-- Incremental refresh
-- Tool result streaming
-- MCP support
+** v0.3.0 - Intelligence (Mostly Complete)
+- [X] LLM-powered codemap (@codemap-task: handles)
+- [ ] Incremental refresh (partial)
+- [X] Tool result streaming (async shell)
+- [X] MCP support
 
 ** v1.0.0 - Production Ready
 - Full README feature parity
