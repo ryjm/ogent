@@ -22,7 +22,9 @@ Each section maps vision statements to implementation status.
 
 *** Critical Gaps
 1. *Multi-model Fan-out*: README promises concurrent requests to multiple models - NOT IMPLEMENTED
-2. *Ergonomic Review (C-c o n / C-c o a)*: README promises cycling/accepting completions - NOT IMPLEMENTED
+
+*** Recently Implemented
+1. *Ergonomic Review (C-c o n / C-c o a)*: Cycling/accepting completions - IMPLEMENTED in =ogent-completions.el=
 
 *** Recently Completed
 1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
@@ -154,8 +156,8 @@ These items from README.md are not yet tracked as beads:
 ;; Multi-model fan-out - concurrent requests to multiple models
 (bd-quick_create :title "Multi-model fan-out with concurrent requests" :type "feature" :priority 1)
 
-;; Ergonomic review commands
-(bd-quick_create :title "Implement C-c o n (cycle completions) and C-c o a (accept)" :type "feature" :priority 1)
+;; Ergonomic review commands - DONE
+;; (bd-quick_create :title "Implement C-c o n (cycle completions) and C-c o a (accept)" :type "feature" :priority 1)
 #+end_src
 
 ** High (P2)
@@ -233,8 +235,10 @@ These items from README.md are not yet tracked as beads:
 | C-c . t   | ogent-debug-tools-menu         | Implemented |
 | C-c . s   | ogent-edit-goto-source         | Implemented |
 | C-c . C   | ogent-edit-goto-companion      | Implemented |
-| C-c o n   | (cycle completions)            | NOT IMPLEMENTED |
-| C-c o a   | (accept completion)            | NOT IMPLEMENTED |
+| C-c o n   | ogent-completion-next          | Implemented |
+| C-c o p   | ogent-completion-prev          | Implemented |
+| C-c o a   | ogent-review-accept            | Implemented |
+| C-c o x   | ogent-completion-reject        | Implemented |
 | C-c C-d   | (notes capture)                | NOT IMPLEMENTED |
 
 * Test Coverage
