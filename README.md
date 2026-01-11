@@ -24,7 +24,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
 - **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
 - **Multi-model fan-out**: Selecting multiple providers triggers concurrent gptel requests via the registry; each response streams into its own src block tagged with model/backend metadata so you can compare answers side-by-side without blocking.
-- **Ergonomic review**: `C-c o n` cycles focus across pending completions, while `C-c o a` accepts the highlighted block and automatically removes transient metadata drawers.
+- **Ergonomic review**: `C-c . N` / `C-c . P` cycle through completions, `C-c . A` accepts the current one (deleting others), and `C-c . X` rejects it. Visual feedback dims non-current completions and optionally folds them.
 - **Context hydration**: The dispatcher remembers which external documents, folders, or handles you attached to the current subtree and offers a `C-c o c` toggle to reuse or clear that context when issuing follow-up prompts.
 
 ## Codemap Overview
