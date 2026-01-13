@@ -450,6 +450,8 @@ Other:
        (setq-local truncate-lines t)
        (setq-local buffer-read-only t)
        (setq header-line-format '(:eval (ogent-issues--header-line)))
+       ;; Disable font-lock to prevent it from overriding our face text properties
+       (font-lock-mode -1)
        ;; Configure magit-section if we're derived from it
        (when (bound-and-true-p ogent-issues--magit-section-available)
          (setq-local magit-section-visibility-indicator
@@ -624,11 +626,13 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
 ;;; Formatting Utilities
 
 (defun ogent-issues--type-icon (type)
-  "Return icon for issue TYPE."
+  "Return icon for issue TYPE with proper face applied."
   (let ((entry (cdr (assoc type ogent-issues-type-icons))))
-    (if ogent-issues-use-unicode
-        (or (car entry) "•")
-      (or (cdr entry) "?"))))
+    (propertize
+     (if ogent-issues-use-unicode
+         (or (car entry) "•")
+       (or (cdr entry) "?"))
+     'face 'ogent-issues-type)))
 
 (defun ogent-issues--priority-face (priority)
   "Return face for PRIORITY level."
@@ -987,7 +991,9 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
   "Major mode for viewing issue details."
   :group 'ogent-issues
   (setq-local truncate-lines nil)
-  (setq-local word-wrap t))
+  (setq-local word-wrap t)
+  ;; Disable font-lock to prevent it from overriding our face text properties
+  (font-lock-mode -1))
 
 (defvar-local ogent-issues-detail--issue nil
   "The issue being displayed in this detail buffer.")
