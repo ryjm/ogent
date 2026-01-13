@@ -76,73 +76,85 @@
 
 (defface ogent-refinery-section-heading
   '((((class color) (background light)) :foreground "#5d4037" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold))
   "Face for section headings."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-queue-ready
   '((((class color) (background light)) :foreground "#2e7d32" :weight bold)
-    (((class color) (background dark)) :foreground "#a3be8c" :weight bold))
+    (((class color) (background dark)) :foreground "#a3be8c" :weight bold)
+    (t :weight bold :inherit success))
   "Face for ready queue items."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-queue-processing
   '((((class color) (background light)) :foreground "#ff8f00" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold :inherit font-lock-keyword-face))
   "Face for items currently processing."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-queue-blocked
   '((((class color) (background light)) :foreground "#c62828" :weight bold)
-    (((class color) (background dark)) :foreground "#bf616a" :weight bold))
+    (((class color) (background dark)) :foreground "#bf616a" :weight bold)
+    (t :weight bold :slant italic))
   "Face for blocked items."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-queue-failed
   '((((class color) (background light)) :foreground "#c62828")
-    (((class color) (background dark)) :foreground "#bf616a"))
+    (((class color) (background dark)) :foreground "#bf616a")
+    (t :inherit font-lock-warning-face))
   "Face for failed items."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-merged
   '((((class color) (background light)) :foreground "#2e7d32")
-    (((class color) (background dark)) :foreground "#a3be8c"))
+    (((class color) (background dark)) :foreground "#a3be8c")
+    (t :inherit success))
   "Face for successfully merged items."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-branch
   '((((class color) (background light)) :foreground "#1565c0")
-    (((class color) (background dark)) :foreground "#88c0d0"))
+    (((class color) (background dark)) :foreground "#88c0d0")
+    (t :inherit font-lock-function-name-face))
   "Face for branch names."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-worker
   '((((class color) (background light)) :foreground "#6a1b9a")
-    (((class color) (background dark)) :foreground "#b48ead"))
+    (((class color) (background dark)) :foreground "#b48ead")
+    (t :inherit font-lock-type-face))
   "Face for worker names."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-priority-p0
   '((((class color) (background light)) :foreground "#c62828" :weight bold)
-    (((class color) (background dark)) :foreground "#bf616a" :weight bold))
+    (((class color) (background dark)) :foreground "#bf616a" :weight bold)
+    (t :weight bold :inverse-video t))
   "Face for P0 (critical) priority."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-priority-p1
   '((((class color) (background light)) :foreground "#ff8f00" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold :underline t))
   "Face for P1 (high) priority."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-priority-p2
   '((((class color) (background light)) :foreground "#2e7d32")
-    (((class color) (background dark)) :foreground "#a3be8c"))
+    (((class color) (background dark)) :foreground "#a3be8c")
+    (t :inherit default))
   "Face for P2 (medium) priority."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-dimmed
   '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#4c566a"))
+    (((class color) (background dark)) :foreground "#4c566a")
+    (t :inherit shadow))
   "Face for less important text."
   :group 'ogent-refinery-faces)
 
@@ -152,7 +164,8 @@
      :weight bold :box (:line-width 2 :color "grey90"))
     (((class color) (background dark))
      :background "#2e3440" :foreground "#eceff4"
-     :weight bold :box (:line-width 2 :color "#2e3440")))
+     :weight bold :box (:line-width 2 :color "#2e3440"))
+    (t :weight bold :inherit mode-line))
   "Face for the header line."
   :group 'ogent-refinery-faces)
 
@@ -160,7 +173,8 @@
   '((((class color) (background light))
      :background "grey90" :foreground "#5e35b1" :weight bold)
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#b48ead" :weight bold))
+     :background "#2e3440" :foreground "#b48ead" :weight bold)
+    (t :weight bold :inherit mode-line))
   "Face for keybindings in header line."
   :group 'ogent-refinery-faces)
 
@@ -830,15 +844,69 @@ MR is the merge request plist, STATUS-TYPE is the display context."
     (user-error "No merge request at point")))
 
 (defun ogent-refinery-merge ()
-  "Bump priority of MR at point to merge next."
+  "Bump priority of MR at point to merge next.
+Sets the MR priority to P0 (critical) so it will be processed ahead of
+other items in the merge queue."
   (interactive)
   (if-let ((mr (ogent-refinery--current-mr)))
-      (let ((id (plist-get mr :id)))
-        (when (yes-or-no-p (format "Bump priority of %s to merge next? " id))
-          (message "Bumping priority: %s" id)
-          ;; TODO: Implement gt mq merge command
-          (ogent-refinery-refresh)))
+      (let ((id (plist-get mr :id))
+            (current-priority (or (plist-get mr :priority) "P2")))
+        (when (yes-or-no-p (format "Bump %s from %s to P0 (merge next)? " id current-priority))
+          (message "Bumping priority of %s to P0..." id)
+          (ogent-refinery--run-priority-bump
+           id
+           (lambda ()
+             (message "Priority bumped: %s is now P0 (will merge next)" id)
+             (ogent-refinery-cache-invalidate)
+             (ogent-refinery-refresh))
+           (lambda (err)
+             (message "Failed to bump priority: %s" err)))))
     (user-error "No merge request at point")))
+
+(defun ogent-refinery--run-priority-bump (id callback &optional error-callback)
+  "Bump priority of MR ID to P0, call CALLBACK on success.
+ERROR-CALLBACK receives error message on failure."
+  (let* ((default-directory (expand-file-name "~/gt"))
+         (buffer (generate-new-buffer " *ogent-refinery-bd*"))
+         (stderr-buffer (generate-new-buffer " *ogent-refinery-bd-stderr*"))
+         (proc nil))
+    (setq proc
+          (make-process
+           :name "ogent-refinery-bd-priority"
+           :buffer buffer
+           :stderr stderr-buffer
+           :command (list "bd" "update" id "--priority" "0")
+           :sentinel
+           (lambda (process event)
+             (cond
+              ((string= event "finished\n")
+               (funcall callback)
+               (when (buffer-live-p (process-buffer process))
+                 (kill-buffer (process-buffer process)))
+               (when (buffer-live-p stderr-buffer)
+                 (kill-buffer stderr-buffer)))
+
+              ((string-match "exited abnormally" event)
+               (let ((stderr-content
+                      (when (buffer-live-p stderr-buffer)
+                        (with-current-buffer stderr-buffer
+                          (string-trim (buffer-string))))))
+                 (if error-callback
+                     (funcall error-callback
+                              (or stderr-content
+                                  (format "bd update failed: %s" event)))
+                   (message "ogent-refinery bd error: %s" (or stderr-content event))))
+               (when (buffer-live-p (process-buffer process))
+                 (kill-buffer (process-buffer process)))
+               (when (buffer-live-p stderr-buffer)
+                 (kill-buffer stderr-buffer)))
+
+              (t
+               (when (buffer-live-p (process-buffer process))
+                 (kill-buffer (process-buffer process)))
+               (when (buffer-live-p stderr-buffer)
+                 (kill-buffer stderr-buffer)))))))
+    proc))
 
 (defun ogent-refinery-retry ()
   "Retry the failed MR at point."
