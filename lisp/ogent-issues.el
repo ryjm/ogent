@@ -6,6 +6,13 @@
 
 ;;; Code:
 
+;; Ensure sibling files (ogent-issues-bd, ogent-issues-graph, etc.) can be found
+;; This handles cases where ogent-issues is loaded directly without going through
+;; a package manager that sets up load-path automatically
+(let ((this-dir (file-name-directory (or load-file-name buffer-file-name))))
+  (when (and this-dir (not (member this-dir load-path)))
+    (add-to-list 'load-path this-dir)))
+
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
