@@ -44,31 +44,36 @@ Set to nil for ASCII-only terminals."
 
 (defface ogent-issues-graph-node
   '((((class color) (background light)) :foreground "#37474f")
-    (((class color) (background dark)) :foreground "#b0bec5"))
+    (((class color) (background dark)) :foreground "#b0bec5")
+    (t :inherit default))
   "Face for graph node IDs."
   :group 'ogent-issues-graph)
 
 (defface ogent-issues-graph-connector
   '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#546e7a"))
+    (((class color) (background dark)) :foreground "#546e7a")
+    (t :inherit shadow))
   "Face for tree connectors (lines, branches)."
   :group 'ogent-issues-graph)
 
 (defface ogent-issues-graph-cycle
   '((((class color) (background light)) :foreground "#c62828" :weight bold)
-    (((class color) (background dark)) :foreground "#ef5350" :weight bold))
+    (((class color) (background dark)) :foreground "#ef5350" :weight bold)
+    (t :weight bold :inverse-video t))
   "Face for cycle indicators."
   :group 'ogent-issues-graph)
 
 (defface ogent-issues-graph-critical
   '((((class color) (background light)) :foreground "#d84315" :weight bold)
-    (((class color) (background dark)) :foreground "#ff7043" :weight bold))
+    (((class color) (background dark)) :foreground "#ff7043" :weight bold)
+    (t :weight bold :underline t))
   "Face for critical path nodes."
   :group 'ogent-issues-graph)
 
 (defface ogent-issues-graph-root
   '((((class color) (background light)) :foreground "#1565c0" :weight bold)
-    (((class color) (background dark)) :foreground "#64b5f6" :weight bold))
+    (((class color) (background dark)) :foreground "#64b5f6" :weight bold)
+    (t :weight bold :inherit font-lock-function-name-face))
   "Face for root nodes (no incoming edges)."
   :group 'ogent-issues-graph)
 
