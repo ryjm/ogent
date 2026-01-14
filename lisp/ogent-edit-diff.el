@@ -95,8 +95,6 @@
 ;; These are defined at load time when magit-section is available.
 ;; We use eval-when-compile to avoid warnings about undefined classes.
 
-(defvar ogent-edit-diff--section-edit nil
-  "Buffer-local mapping of section to edit struct.")
 
 (when (bound-and-true-p ogent-edit-diff--magit-available)
   (require 'eieio)

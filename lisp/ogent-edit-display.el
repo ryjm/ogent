@@ -402,13 +402,6 @@ Returns a string in unified diff format."
     (message "Edit rejected"))
   (quit-window t))
 
-(defun ogent-edit-preview-or-apply (edit)
-  "Preview EDIT as diff, or apply directly based on customization.
-If `ogent-edit-auto-display' is non-nil, shows preview first.
-Otherwise applies as smerge immediately."
-  (if ogent-edit-auto-display
-      (ogent-edit-preview-diff edit)
-    (ogent-edit-apply-as-smerge edit)))
 
 ;;; Overlay-based Display (gptel-rewrite style)
 
