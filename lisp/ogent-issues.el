@@ -115,84 +115,97 @@ Set to nil for fastest possible display with no background activity."
 ;; Section headings - like magit-section-heading
 (defface ogent-issues-section-heading
   '((((class color) (background light)) :foreground "#5d4037" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold))
   "Face for section headings."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-section-heading-selection
   '((((class color) (background light)) :foreground "#bf360c" :weight bold)
-    (((class color) (background dark)) :foreground "#d08770" :weight bold))
+    (((class color) (background dark)) :foreground "#d08770" :weight bold)
+    (t :weight bold :underline t))
   "Face for selected section headings."
   :group 'ogent-issues-faces)
 
 ;; Issue ID - like magit-hash
 (defface ogent-issues-id
   '((((class color) (background light)) :foreground "#546e7a")
-    (((class color) (background dark)) :foreground "#81a1c1"))
+    (((class color) (background dark)) :foreground "#81a1c1")
+    (t :inherit font-lock-comment-face))
   "Face for issue IDs."
   :group 'ogent-issues-faces)
 
 ;; Priority faces - refined color scale
 (defface ogent-issues-priority-critical
   '((((class color) (background light)) :foreground "#c62828" :weight bold)
-    (((class color) (background dark)) :foreground "#bf616a" :weight bold))
+    (((class color) (background dark)) :foreground "#bf616a" :weight bold)
+    (t :weight bold :inverse-video t))
   "Face for P0 (critical) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-high
   '((((class color) (background light)) :foreground "#d84315" :weight bold)
-    (((class color) (background dark)) :foreground "#d08770" :weight bold))
+    (((class color) (background dark)) :foreground "#d08770" :weight bold)
+    (t :weight bold :underline t))
   "Face for P1 (high) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-medium
   '((((class color) (background light)) :foreground "#5d4037")
-    (((class color) (background dark)) :foreground "#ebcb8b"))
+    (((class color) (background dark)) :foreground "#ebcb8b")
+    (t :inherit default))
   "Face for P2 (medium) issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-priority-low
   '((((class color) (background light)) :foreground "#558b2f")
-    (((class color) (background dark)) :foreground "#a3be8c"))
+    (((class color) (background dark)) :foreground "#a3be8c")
+    (t :inherit font-lock-comment-face))
   "Face for P3 (low) issues."
   :group 'ogent-issues-faces)
 
 ;; Status faces
 (defface ogent-issues-status-open
   '((((class color) (background light)) :foreground "#1565c0")
-    (((class color) (background dark)) :foreground "#88c0d0"))
+    (((class color) (background dark)) :foreground "#88c0d0")
+    (t :inherit font-lock-function-name-face))
   "Face for open issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-in-progress
   '((((class color) (background light)) :foreground "#6a1b9a" :weight bold)
-    (((class color) (background dark)) :foreground "#b48ead" :weight bold))
+    (((class color) (background dark)) :foreground "#b48ead" :weight bold)
+    (t :weight bold :inherit font-lock-keyword-face))
   "Face for in-progress issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-blocked
   '((((class color) (background light)) :foreground "#c62828" :slant italic)
-    (((class color) (background dark)) :foreground "#bf616a" :slant italic))
+    (((class color) (background dark)) :foreground "#bf616a" :slant italic)
+    (t :slant italic :inherit font-lock-warning-face))
   "Face for blocked issues."
   :group 'ogent-issues-faces)
 
 (defface ogent-issues-status-closed
   '((((class color) (background light)) :foreground "grey55")
-    (((class color) (background dark)) :foreground "#4c566a"))
+    (((class color) (background dark)) :foreground "#4c566a")
+    (t :inherit shadow))
   "Face for closed issues."
   :group 'ogent-issues-faces)
 
 ;; Ready indicator
 (defface ogent-issues-ready
   '((((class color) (background light)) :foreground "#2e7d32" :weight bold)
-    (((class color) (background dark)) :foreground "#a3be8c" :weight bold))
+    (((class color) (background dark)) :foreground "#a3be8c" :weight bold)
+    (t :weight bold :inherit success))
   "Face for ready issue indicator."
   :group 'ogent-issues-faces)
 
 ;; Dimmed text - like magit-dimmed
 (defface ogent-issues-dimmed
   '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#4c566a"))
+    (((class color) (background dark)) :foreground "#4c566a")
+    (t :inherit shadow))
   "Face for less important text."
   :group 'ogent-issues-faces)
 
@@ -201,7 +214,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :foreground "#455a64" :box (:line-width -1 :color "#90a4ae"))
     (((class color) (background dark))
-     :foreground "#81a1c1" :box (:line-width -1 :color "#4c566a")))
+     :foreground "#81a1c1" :box (:line-width -1 :color "#4c566a"))
+    (t :inherit font-lock-type-face))
   "Face for issue type badges."
   :group 'ogent-issues-faces)
 
@@ -212,7 +226,8 @@ Set to nil for fastest possible display with no background activity."
      :weight bold :box (:line-width 2 :color "grey90"))
     (((class color) (background dark))
      :background "#2e3440" :foreground "#eceff4"
-     :weight bold :box (:line-width 2 :color "#2e3440")))
+     :weight bold :box (:line-width 2 :color "#2e3440"))
+    (t :weight bold :inherit mode-line))
   "Face for the header line title."
   :group 'ogent-issues-faces)
 
@@ -220,7 +235,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "#5e81ac" :weight bold)
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#88c0d0" :weight bold))
+     :background "#2e3440" :foreground "#88c0d0" :weight bold)
+    (t :weight bold :inherit mode-line))
   "Face for the project name in header line."
   :group 'ogent-issues-faces)
 
@@ -228,7 +244,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "#4c566a")
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#81a1c1"))
+     :background "#2e3440" :foreground "#81a1c1")
+    (t :inherit mode-line))
   "Face for the view indicator in header line."
   :group 'ogent-issues-faces)
 
@@ -236,7 +253,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "grey40")
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#7b88a1"))
+     :background "#2e3440" :foreground "#7b88a1")
+    (t :inherit mode-line))
   "Face for stats in header line."
   :group 'ogent-issues-faces)
 
@@ -244,7 +262,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "#2e7d32" :weight bold)
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#a3be8c" :weight bold))
+     :background "#2e3440" :foreground "#a3be8c" :weight bold)
+    (t :weight bold :inherit mode-line))
   "Face for ready count in header line."
   :group 'ogent-issues-faces)
 
@@ -252,7 +271,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "#bf360c" :slant italic)
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#bf616a" :slant italic))
+     :background "#2e3440" :foreground "#bf616a" :slant italic)
+    (t :slant italic :inherit mode-line))
   "Face for blocked count in header line."
   :group 'ogent-issues-faces)
 
@@ -260,7 +280,8 @@ Set to nil for fastest possible display with no background activity."
   '((((class color) (background light))
      :background "grey90" :foreground "#5e35b1" :weight bold)
     (((class color) (background dark))
-     :background "#2e3440" :foreground "#b48ead" :weight bold))
+     :background "#2e3440" :foreground "#b48ead" :weight bold)
+    (t :weight bold :inherit mode-line))
   "Face for keybindings in header line."
   :group 'ogent-issues-faces)
 

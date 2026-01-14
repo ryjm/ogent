@@ -24,6 +24,7 @@
 (declare-function ogent-completion-prev "ogent-completions")
 (declare-function ogent-completion-accept "ogent-completions")
 (declare-function ogent-completion-reject "ogent-completions")
+(declare-function ogent-review-accept "ogent-completions")
 
 ;; Declare analytics commands (defined in ogent-analytics.el)
 (declare-function ogent-analytics-rate-up "ogent-analytics")
@@ -48,6 +49,12 @@ This prefix is used for all ogent commands in standard Emacs."
 (defcustom ogent-evil-prefix "SPC e"
   "Prefix for evil leader keybindings.
 This prefix is used with evil-mode's leader key system."
+  :type 'string
+  :group 'ogent-keys)
+
+(defcustom ogent-review-prefix "C-c o"
+  "Prefix for ergonomic review keybindings.
+This prefix provides quick access to completion review commands."
   :type 'string
   :group 'ogent-keys)
 
@@ -149,6 +156,19 @@ Set to nil to disable automatic evil binding setup."
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")
 
+(defconst ogent-review-action-registry
+  '(;; Ergonomic review commands (C-c o prefix)
+    (review-next   :key "n" :command ogent-completion-next
+                   :desc "Next completion")
+    (review-prev   :key "p" :command ogent-completion-prev
+                   :desc "Previous completion")
+    (review-accept :key "a" :command ogent-review-accept
+                   :desc "Accept completion")
+    (review-reject :key "x" :command ogent-completion-reject
+                   :desc "Reject completion"))
+  "Registry of review actions for the C-c o prefix.
+These are ergonomic keybindings optimized for the review workflow.")
+
 ;;; Binding Generators
 
 (defun ogent-action-get (action prop)
@@ -161,6 +181,15 @@ The :visual flag indicates the action should also be bound in visual state.")
     (let* ((key (plist-get (cdr entry) :key))
            (cmd (plist-get (cdr entry) :command))
            (full-key (concat ogent-vanilla-prefix " " key)))
+      (define-key keymap (kbd full-key) cmd))))
+
+(defun ogent-setup-review-bindings (keymap)
+  "Set up ergonomic review keybindings in KEYMAP from review action registry.
+These use the `ogent-review-prefix' (C-c o by default)."
+  (dolist (entry ogent-review-action-registry)
+    (let* ((key (plist-get (cdr entry) :key))
+           (cmd (plist-get (cdr entry) :command))
+           (full-key (concat ogent-review-prefix " " key)))
       (define-key keymap (kbd full-key) cmd))))
 
 (defun ogent-setup-evil-bindings (keymap)
@@ -192,6 +221,8 @@ Requires evil-mode to be loaded. Uses leader key prefix."
     ;; Add prefix descriptions
     (which-key-add-key-based-replacements
      ogent-vanilla-prefix "ogent")
+    (which-key-add-key-based-replacements
+     ogent-review-prefix "ogent review")
     (when (and ogent-enable-evil-bindings (featurep 'evil))
       (which-key-add-key-based-replacements
        ogent-evil-prefix "ogent"))
@@ -204,13 +235,21 @@ Requires evil-mode to be loaded. Uses leader key prefix."
         (which-key-add-key-based-replacements full-key desc)
         (when (and ogent-enable-evil-bindings (featurep 'evil))
           (which-key-add-key-based-replacements
-           (concat ogent-evil-prefix " " key) desc))))))
+           (concat ogent-evil-prefix " " key) desc))))
+    ;; Add descriptions for review commands
+    (dolist (entry ogent-review-action-registry)
+      (let* ((props (cdr entry))
+             (key (plist-get props :key))
+             (desc (plist-get props :desc))
+             (full-key (concat ogent-review-prefix " " key)))
+        (which-key-add-key-based-replacements full-key desc)))))
 
 (defun ogent-setup-all-bindings (keymap)
   "Set up all keybindings in KEYMAP.
-This sets up vanilla bindings, evil bindings (if available),
+This sets up vanilla bindings, review bindings, evil bindings (if available),
 and which-key integration."
   (ogent-setup-vanilla-bindings keymap)
+  (ogent-setup-review-bindings keymap)
   (ogent-setup-evil-bindings keymap)
   (with-eval-after-load 'which-key
     (ogent-setup-which-key)))
@@ -224,6 +263,7 @@ and which-key integration."
     (princ "Ogent Keybindings\n")
     (princ "=================\n\n")
     (princ (format "Vanilla prefix: %s\n" ogent-vanilla-prefix))
+    (princ (format "Review prefix: %s\n" ogent-review-prefix))
     (when (featurep 'evil)
       (princ (format "Evil prefix: %s\n" ogent-evil-prefix)))
     (princ "\n")
@@ -239,7 +279,19 @@ and which-key integration."
              (visual-p (plist-get props :visual)))
         (princ (format "%-12s %-8s %-30s %s%s\n"
                        name key cmd desc
-                       (if visual-p " [visual]" "")))))))
+                       (if visual-p " [visual]" "")))))
+    ;; Review bindings
+    (princ "\n")
+    (princ "Review Keybindings (C-c o prefix)\n")
+    (princ "----------------------------------\n")
+    (dolist (entry ogent-review-action-registry)
+      (let* ((name (car entry))
+             (props (cdr entry))
+             (key (plist-get props :key))
+             (cmd (plist-get props :command))
+             (desc (plist-get props :desc)))
+        (princ (format "%-12s %-8s %-30s %s\n"
+                       name key cmd desc))))))
 
 (provide 'ogent-keys)
 
