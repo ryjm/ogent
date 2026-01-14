@@ -252,21 +252,6 @@ Updates status to \\='failed."
       (goto-char start)
       (message "No previous tool calls"))))
 
-;;; Convenience Functions
-
-(defun ogent-tool-render-create-and-insert (name args)
-  "Create a new tool call for NAME with ARGS and insert at point.
-Returns the created tool-call struct."
-  (let* ((id (format "%s-%d" name (random 10000)))
-         (tool-call (ogent-tool-call-create
-                     :id id
-                     :name name
-                     :args args
-                     :status 'pending
-                     :timestamp (current-time))))
-    (ogent-tool-render-call tool-call t)
-    tool-call))
-
 ;;; Keybindings
 
 (defvar ogent-tool-render-mode-map

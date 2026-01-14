@@ -11,6 +11,9 @@
 
 (require 'cl-lib)
 
+;; Forward declaration for variable defined in ogent-models.el
+(defvar ogent-tool-registry)
+
 (defgroup ogent-tools nil
   "Configuration for ogent tool implementations."
   :group 'ogent)
@@ -243,15 +246,6 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
        (funcall callback 'error (error-message-string err))
        nil))))
 
-(defun ogent-tool--abort-process (proc)
-  "Abort an active async tool PROC."
-  (when (process-live-p proc)
-    (kill-process proc))
-  (when-let ((info (assq proc ogent-tools--active-processes)))
-    (when-let ((timer (plist-get (cdr info) :timer)))
-      (cancel-timer timer))
-    (setq ogent-tools--active-processes
-          (assq-delete-all proc ogent-tools--active-processes))))
 
 ;;; Tool: Write File
 
