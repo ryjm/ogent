@@ -321,9 +321,6 @@ Runs `ogent-after-completion-hook' with REQUEST as argument."
 
 ;;; Quick Ask Command
 
-(declare-function gptel-request "ext:gptel" (prompt &rest args))
-(defvar gptel-model)
-
 (defcustom ogent-ask-display-function #'ogent-ask--display-popup
   "Function to display ogent-ask responses.
 Called with the response text as argument.
