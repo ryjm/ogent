@@ -16,8 +16,10 @@
   "Configuration for ogent model registry."
   :group 'ogent)
 
-(defvar ogent-default-model nil
-  "Placeholder for the default model id.")
+(defcustom ogent-default-model "gpt-4o-mini"
+  "Default model identifier used when dispatching prompts."
+  :type 'string
+  :group 'ogent-models)
 
 (defcustom ogent-model-registry
   '((:id "gpt-4o-mini" :backend gptel-openai :stream? t
