@@ -24,8 +24,6 @@
 
 ;; Forward declarations
 (declare-function projectile-project-root "ext:projectile")
-(declare-function ogent-models-get "ogent-models")
-(declare-function ogent-preset-get "ogent-models")
 (declare-function ogent-prompt-register "ogent-prompts")
 (declare-function ogent-pin-file "ogent-context")
 

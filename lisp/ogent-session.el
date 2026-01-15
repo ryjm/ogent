@@ -19,7 +19,6 @@
 
 (require 'cl-lib)
 (require 'org)
-(require 'format-spec)
 
 (defgroup ogent-session nil
   "Session persistence for ogent."
