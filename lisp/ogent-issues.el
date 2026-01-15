@@ -328,12 +328,18 @@ Used to detect project switches and clear stale state.")
 (defvar-local ogent-issues--loading-frame 0
   "Current animation frame index (0-3).")
 
-(defconst ogent-issues--loading-frames
-  (if (display-graphic-p)
-      '("◐" "◑" "◒" "◓")
-    '("|" "/" "-" "\\"))
+(defvar ogent-issues--loading-frames nil
   "Animation frames for loading spinner.
-Uses Unicode in GUI, ASCII in terminal.")
+Uses Unicode in GUI, ASCII in terminal.
+Initialized lazily to avoid issues during byte-compilation.")
+
+(defun ogent-issues--get-loading-frames ()
+  "Return loading frames, initializing if needed."
+  (or ogent-issues--loading-frames
+      (setq ogent-issues--loading-frames
+            (if (display-graphic-p)
+                '("◐" "◑" "◒" "◓")
+              '("|" "/" "-" "\\")))))
 
 ;;; Section Classes (when magit-section available)
 ;; Use eval-and-compile to ensure classes exist at macro-expansion time
@@ -482,12 +488,15 @@ Other:
 
 (defun ogent-issues--start-loading ()
   "Start the loading animation."
-  (setq ogent-issues--loading t
-        ogent-issues--loading-frame 0)
-  (ogent-issues--stop-loading-timer)
-  (setq ogent-issues--loading-timer
-        (run-at-time 0.25 0.25 #'ogent-issues--animate-loading (current-buffer)))
-  (force-mode-line-update))
+  ;; Guard: only run in ogent-issues-mode buffers where buffer-local vars exist
+  (when (and (eq major-mode 'ogent-issues-mode)
+             (boundp 'ogent-issues--loading))
+    (setq ogent-issues--loading t
+          ogent-issues--loading-frame 0)
+    (ogent-issues--stop-loading-timer)
+    (setq ogent-issues--loading-timer
+          (run-at-time 0.25 0.25 #'ogent-issues--animate-loading (current-buffer)))
+    (force-mode-line-update)))
 
 (defun ogent-issues--stop-loading ()
   "Stop the loading animation."
@@ -497,7 +506,8 @@ Other:
 
 (defun ogent-issues--stop-loading-timer ()
   "Cancel the loading timer if active."
-  (when ogent-issues--loading-timer
+  (when (and (boundp 'ogent-issues--loading-timer)
+             ogent-issues--loading-timer)
     (cancel-timer ogent-issues--loading-timer)
     (setq ogent-issues--loading-timer nil)))
 
@@ -512,7 +522,7 @@ Other:
 (defun ogent-issues--loading-indicator ()
   "Return the current loading spinner character, or nil if not loading."
   (when ogent-issues--loading
-    (nth ogent-issues--loading-frame ogent-issues--loading-frames)))
+    (nth ogent-issues--loading-frame (ogent-issues--get-loading-frames))))
 
 (defun ogent-issues--cleanup-on-kill ()
   "Clean up timers when the buffer is killed."
