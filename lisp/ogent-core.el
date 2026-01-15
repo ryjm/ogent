@@ -54,11 +54,6 @@
   "Customization entries for `ogent-mode'."
   :group 'ogent)
 
-(defcustom ogent-default-model "gpt-4o-mini"
-  "Default model identifier used when dispatching prompts."
-  :type 'string
-  :group 'ogent-mode)
-
 (defcustom ogent-after-request-hook nil
   "Hook run after `ogent-request' inserts a response.
 Each function receives the formatted context plist."

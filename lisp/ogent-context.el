@@ -684,10 +684,6 @@ Returns an `ogent-context-node' if found, nil otherwise."
   "Cache of handles for current buffer.
 A plist with :tick and :handles keys.")
 
-(defvar ogent-context--global-handle-cache nil
-  "Global cache for all handles across buffers.
-A plist with :tick-alist and :handles keys.")
-
 (defun ogent-context--cache-valid-p (buffer cache)
   "Return non-nil if CACHE is valid for BUFFER."
   (and cache

@@ -61,9 +61,6 @@ Each provider can have :auth-type of `oauth' or `api-key'."
   :type '(repeat plist)
   :group 'ogent-onboard)
 
-(defvar ogent-onboard--current-provider nil
-  "Provider being configured during onboarding.")
-
 ;;; Auth-source integration
 
 (defun ogent-onboard--get-api-key (host)
