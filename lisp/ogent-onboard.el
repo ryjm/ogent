@@ -14,7 +14,6 @@
 (declare-function ogent-anthropic-oauth-authenticated-p "ogent-anthropic-oauth")
 (declare-function ogent-anthropic-oauth-mode "ogent-anthropic-oauth")
 (declare-function ogent-anthropic-login "ogent-anthropic-oauth")
-(declare-function ogent-anthropic-status "ogent-anthropic-oauth")
 
 (defgroup ogent-onboard nil
   "Interactive setup for ogent providers."
@@ -167,7 +166,6 @@ Each provider can have :auth-type of `oauth' or `api-key'."
 
 ;;; Verification
 
-(declare-function gptel-request "ext:gptel-request")
 (declare-function gptel-make-anthropic "ext:gptel-anthropic")
 (declare-function gptel-make-openai "ext:gptel-openai")
 (defvar gptel-backend)

@@ -17,7 +17,6 @@
 ;; Declare hydra commands (defined in ogent-ui-hydra.el)
 (declare-function ogent-navigate "ogent-ui-hydra")
 (declare-function ogent-edit-menu "ogent-ui-hydra")
-(declare-function ogent-request-menu "ogent-ui-hydra")
 
 ;; Declare completion commands (defined in ogent-completions.el)
 (declare-function ogent-completion-next "ogent-completions")
