@@ -17,7 +17,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'org)
 
 (defgroup ogent-session nil

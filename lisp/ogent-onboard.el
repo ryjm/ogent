@@ -6,7 +6,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'auth-source)
 (require 'ogent-models)
 

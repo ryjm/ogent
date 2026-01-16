@@ -12,7 +12,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'org)
 (require 'ogent-context)
 (require 'ogent-keys)

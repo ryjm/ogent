@@ -9,8 +9,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-
 ;; Declare evil functions to avoid byte-compile warnings
 (declare-function evil-define-key* "ext:evil-core")
 

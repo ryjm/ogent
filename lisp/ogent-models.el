@@ -9,7 +9,6 @@
 
 ;;; Code:
 
-(require 'cl-lib)
 (require 'seq)
 
 (defgroup ogent-models nil
