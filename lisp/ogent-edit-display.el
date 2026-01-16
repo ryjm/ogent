@@ -312,6 +312,7 @@ Returns the edit struct or nil if not found."
     (define-key map (kbd "RET") #'ogent-edit-preview-accept)
     (define-key map (kbd "n") #'diff-hunk-next)
     (define-key map (kbd "p") #'diff-hunk-prev)
+    (define-key map (kbd "t") #'ogent-edit-toggle-display-method)
     map)
   "Keymap for `ogent-edit-preview-mode'.")
 
@@ -444,6 +445,7 @@ Returns a string in unified diff format."
     (define-key map (kbd "m") #'ogent-edit-overlay-merge)
     (define-key map (kbd "n") #'ogent-edit-overlay-next)
     (define-key map (kbd "p") #'ogent-edit-overlay-previous)
+    (define-key map (kbd "t") #'ogent-edit-toggle-display-method)
     (define-key map [mouse-1] #'ogent-edit-overlay-dispatch)
     map)
   "Keymap for ogent edit overlays.")
@@ -483,7 +485,7 @@ User can accept, reject, diff, ediff, or merge."
         (overlay-put ov 'keymap ogent-edit-overlay-map)
         (overlay-put ov 'mouse-face 'highlight)
         (overlay-put ov 'help-echo
-                     "ogent edit: RET=dispatch, a=accept, r=reject, d=diff, e=ediff, m=merge")
+                     "ogent edit: RET=dispatch, a=accept, r=reject, d=diff, e=ediff, m=merge, t=toggle method")
         ;; Track overlay
         (push ov ogent-edit--overlay-list)
         ;; Store marker for navigation
@@ -504,7 +506,8 @@ User can accept, reject, diff, ediff, or merge."
    (propertize "r" 'face 'help-key-binding) "eject, "
    (propertize "d" 'face 'help-key-binding) "iff, "
    (propertize "e" 'face 'help-key-binding) "diff, "
-   (propertize "m" 'face 'help-key-binding) "erge"))
+   (propertize "m" 'face 'help-key-binding) "erge, "
+   (propertize "t" 'face 'help-key-binding) "oggle"))
 
 (defun ogent-edit--overlay-at (&optional pt)
   "Return the ogent edit overlay at PT (or point).
