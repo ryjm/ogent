@@ -30,6 +30,10 @@
   "Hash table mapping file paths to cached parse results.
 Each entry is a plist with :mtime and :data keys.")
 
+(defvar ogent-codemap--last-file-snapshot nil
+  "Snapshot of files and mtimes from last refresh.
+Alist of (FILE . MTIME) used to detect changes.")
+
 (defun ogent-codemap--cache-file (file data)
   "Cache DATA for FILE with current modification time."
   (let ((mtime (file-attribute-modification-time (file-attributes file))))
@@ -63,7 +67,57 @@ FILE-TYPE is one of `elisp', `elisp-test', `org', `markdown'."
 (defun ogent-codemap-clear-cache ()
   "Clear the file cache, forcing a full rescan on next refresh."
   (interactive)
-  (clrhash ogent-codemap--file-cache))
+  (clrhash ogent-codemap--file-cache)
+  (setq ogent-codemap--last-file-snapshot nil))
+
+;;; Change Detection
+;;
+;; Detect added, modified, and removed files since last refresh.
+
+(defun ogent-codemap--get-file-mtime (file)
+  "Return modification time of FILE, or nil if it doesn't exist."
+  (when (file-exists-p file)
+    (file-attribute-modification-time (file-attributes file))))
+
+(defun ogent-codemap--snapshot-files ()
+  "Create a snapshot of current files and their mtimes.
+Returns an alist of (FILE . MTIME)."
+  (let ((files (ogent-codemap--source-files)))
+    (mapcar (lambda (f)
+              (cons f (ogent-codemap--get-file-mtime f)))
+            files)))
+
+(defun ogent-codemap--detect-changes ()
+  "Detect changes since last refresh.
+Returns a plist with :added :modified :removed :unchanged file lists.
+Each list contains absolute file paths."
+  (let* ((current-files (ogent-codemap--source-files))
+         (old-snapshot (or ogent-codemap--last-file-snapshot '()))
+         (old-files (mapcar #'car old-snapshot))
+         (added nil)
+         (modified nil)
+         (removed nil)
+         (unchanged nil))
+    ;; Find added and modified
+    (dolist (file current-files)
+      (let* ((old-entry (assoc file old-snapshot))
+             (old-mtime (cdr old-entry))
+             (new-mtime (ogent-codemap--get-file-mtime file)))
+        (cond
+         ((null old-entry)
+          (push file added))
+         ((not (equal old-mtime new-mtime))
+          (push file modified))
+         (t
+          (push file unchanged)))))
+    ;; Find removed
+    (dolist (file old-files)
+      (unless (member file current-files)
+        (push file removed)))
+    (list :added (nreverse added)
+          :modified (nreverse modified)
+          :removed (nreverse removed)
+          :unchanged (nreverse unchanged))))
 
 (defun ogent-codemap--project-root ()
   "Return the project root, using project.el when available.
@@ -253,7 +307,83 @@ Returns the relative path to the source file, or nil if not found."
 
 ;;; Incremental Refresh
 ;;
-;; Parse existing codemap sections and preserve manual annotations.
+;; Parse existing codemap sections, preserve manual annotations, and
+;; update only changed sections.
+
+(defun ogent-codemap--section-bounds (buffer relative-path)
+  "Find the bounds of the section for RELATIVE-PATH in BUFFER.
+Returns (START . END) positions, or nil if not found."
+  (with-current-buffer buffer
+    (save-excursion
+      (goto-char (point-min))
+      (let ((pattern (format "^\\*\\* \\[\\[file:%s\\]"
+                             (regexp-quote relative-path))))
+        (when (re-search-forward pattern nil t)
+          (let ((start (line-beginning-position))
+                (end (save-excursion
+                       (forward-line 1)
+                       (if (re-search-forward "^\\*\\* " nil t)
+                           (line-beginning-position)
+                         (point-max)))))
+            (cons start end)))))))
+
+(defun ogent-codemap--remove-section (buffer relative-path)
+  "Remove the section for RELATIVE-PATH from BUFFER.
+Returns t if section was found and removed, nil otherwise."
+  (when-let ((bounds (ogent-codemap--section-bounds buffer relative-path)))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (delete-region (car bounds) (cdr bounds))))
+    t))
+
+(defun ogent-codemap--update-section (buffer file)
+  "Update or insert the section for FILE in BUFFER.
+Preserves any manual annotations. FILE is an absolute path."
+  (let* ((root (ogent-codemap--project-root))
+         (relative (file-relative-name file root))
+         (bounds (ogent-codemap--section-bounds buffer relative))
+         (old-annotations nil))
+    ;; Extract annotations from old section if it exists
+    (when bounds
+      (with-current-buffer buffer
+        (let ((old-text (buffer-substring-no-properties (car bounds) (cdr bounds))))
+          (setq old-annotations (ogent-codemap--extract-annotations old-text)))))
+    ;; Remove old section
+    (when bounds
+      (ogent-codemap--remove-section buffer relative))
+    ;; Generate new content
+    (let ((new-content
+           (with-temp-buffer
+             (ogent-codemap--insert-file (current-buffer) file)
+             (buffer-string))))
+      ;; Find insertion point (maintain sorted order by path)
+      (with-current-buffer buffer
+        (let ((inhibit-read-only t)
+              (insert-point nil))
+          (save-excursion
+            (goto-char (point-min))
+            ;; Find first file section that should come after this one
+            (while (and (not insert-point)
+                        (re-search-forward "^\\*\\* \\[\\[file:\\([^]]+\\)\\]" nil t))
+              (let ((other-path (match-string 1)))
+                (when (string> other-path relative)
+                  (setq insert-point (line-beginning-position)))))
+            ;; If no insertion point found, append at end
+            (unless insert-point
+              (goto-char (point-max))
+              (setq insert-point (point))))
+          ;; Insert new content
+          (goto-char insert-point)
+          (insert new-content)
+          ;; Re-insert annotations after the heading line
+          (when old-annotations
+            (goto-char insert-point)
+            (forward-line 1)
+            ;; Skip Tests: line if present
+            (when (looking-at "^Tests\\( for\\)?: ")
+              (forward-line 1))
+            (dolist (ann old-annotations)
+              (insert ann "\n"))))))))
 
 (defun ogent-codemap--parse-sections ()
   "Parse the current buffer into a hash table of file -> section content.
@@ -287,9 +417,9 @@ standard codemap patterns)."
         (push line annotations)))
     (nreverse annotations)))
 
-(defun ogent-codemap--render ()
-  "Assemble the codemap buffer and return it.
-Uses incremental refresh to preserve manual annotations."
+(defun ogent-codemap--render-full ()
+  "Do a full render of the codemap buffer.
+Erases buffer and rebuilds from scratch, preserving annotations."
   (let ((buffer (get-buffer-create ogent-codemap-buffer-name)))
     (with-current-buffer buffer
       (let* ((inhibit-read-only t)
@@ -324,7 +454,53 @@ Uses incremental refresh to preserve manual annotations."
                   (insert ann "\n"))))))
         (org-mode)
         (goto-char (point-min))))
+    ;; Update snapshot after full render
+    (setq ogent-codemap--last-file-snapshot (ogent-codemap--snapshot-files))
     buffer))
+
+(defun ogent-codemap--render-incremental ()
+  "Do an incremental render, updating only changed sections.
+Returns the codemap buffer, or nil if full render is needed."
+  (let ((buffer (get-buffer ogent-codemap-buffer-name)))
+    ;; Need existing buffer with content for incremental
+    (when (and buffer
+               (buffer-live-p buffer)
+               (> (buffer-size buffer) 0)
+               ogent-codemap--last-file-snapshot)
+      (let* ((changes (ogent-codemap--detect-changes))
+             (added (plist-get changes :added))
+             (modified (plist-get changes :modified))
+             (removed (plist-get changes :removed))
+             (root (ogent-codemap--project-root)))
+        ;; If nothing changed, just return the buffer
+        (if (and (null added) (null modified) (null removed))
+            buffer
+          ;; Apply incremental updates
+          (with-current-buffer buffer
+            (let ((inhibit-read-only t))
+              ;; Remove deleted files
+              (dolist (file removed)
+                (let ((relative (file-relative-name file root)))
+                  (ogent-codemap--remove-section buffer relative)))
+              ;; Update modified files (preserves annotations)
+              (dolist (file modified)
+                (ogent-codemap--update-section buffer file))
+              ;; Add new files
+              (dolist (file added)
+                (ogent-codemap--update-section buffer file))))
+          ;; Update snapshot
+          (setq ogent-codemap--last-file-snapshot (ogent-codemap--snapshot-files))
+          ;; Report what changed
+          (when (called-interactively-p 'any)
+            (message "Codemap: %d added, %d modified, %d removed"
+                     (length added) (length modified) (length removed)))
+          buffer)))))
+
+(defun ogent-codemap--render ()
+  "Assemble the codemap buffer and return it.
+Uses incremental refresh when possible, falls back to full render."
+  (or (ogent-codemap--render-incremental)
+      (ogent-codemap--render-full)))
 
 ;;;###autoload
 (defun ogent-codemap-buffer ()
@@ -337,9 +513,47 @@ Uses incremental refresh to preserve manual annotations."
 
 ;;;###autoload
 (defun ogent-codemap-refresh ()
-  "Rebuild the codemap buffer and return it."
+  "Rebuild the codemap buffer and return it.
+Uses incremental refresh when possible."
   (interactive)
   (ogent-codemap--render))
+
+;;;###autoload
+(defun ogent-codemap-refresh-full ()
+  "Force a full rebuild of the codemap, ignoring cache."
+  (interactive)
+  (ogent-codemap-clear-cache)
+  (ogent-codemap--render-full))
+
+;;;###autoload
+(defun ogent-codemap-changes ()
+  "Show what files have changed since last codemap refresh.
+Returns a summary of added, modified, and removed files."
+  (interactive)
+  (let ((changes (ogent-codemap--detect-changes)))
+    (if (called-interactively-p 'any)
+        (let ((added (plist-get changes :added))
+              (modified (plist-get changes :modified))
+              (removed (plist-get changes :removed))
+              (root (ogent-codemap--project-root)))
+          (if (and (null added) (null modified) (null removed))
+              (message "No changes since last refresh")
+            (with-output-to-temp-buffer "*codemap-changes*"
+              (princ "Codemap Changes\n")
+              (princ "===============\n\n")
+              (when added
+                (princ (format "Added (%d):\n" (length added)))
+                (dolist (f added)
+                  (princ (format "  + %s\n" (file-relative-name f root)))))
+              (when modified
+                (princ (format "\nModified (%d):\n" (length modified)))
+                (dolist (f modified)
+                  (princ (format "  ~ %s\n" (file-relative-name f root)))))
+              (when removed
+                (princ (format "\nRemoved (%d):\n" (length removed)))
+                (dolist (f removed)
+                  (princ (format "  - %s\n" (file-relative-name f root))))))))
+      changes)))
 
 ;;; Handle Integration
 ;;
