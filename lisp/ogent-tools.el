@@ -39,6 +39,132 @@ If nil, uses `default-directory' or projectile/project.el root."
   :type '(choice (const nil) directory)
   :group 'ogent-tools)
 
+(defcustom ogent-tools-stream-callback nil
+  "Function called with streaming output from tools.
+If set, receives (TOOL-NAME TYPE DATA) where:
+  TOOL-NAME is a symbol like `bash' or `grep'
+  TYPE is one of: `start', `stdout', `stderr', `progress', `done', `error'
+  DATA varies by type:
+    start: plist with :command, :directory
+    stdout/stderr: string of output chunk
+    progress: plist with :bytes, :lines, :elapsed
+    done: plist with :exit-code, :duration
+    error: error message string"
+  :type '(choice (const nil) function)
+  :group 'ogent-tools)
+
+(defcustom ogent-tools-show-progress t
+  "Whether to show progress indicators for long-running tools.
+When non-nil, displays spinner and byte counts in echo area."
+  :type 'boolean
+  :group 'ogent-tools)
+
+;;; Streaming Infrastructure
+
+(defvar ogent-tools--progress-timer nil
+  "Timer for updating progress display.")
+
+(defvar ogent-tools--progress-state nil
+  "Current progress state plist with :tool, :bytes, :lines, :start-time.")
+
+(defconst ogent-tools--spinner-frames '("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+  "Frames for progress spinner animation.")
+
+(defvar ogent-tools--spinner-index 0
+  "Current spinner frame index.")
+
+(defun ogent-tools--format-bytes (bytes)
+  "Format BYTES as human-readable string."
+  (cond
+   ((< bytes 1024) (format "%d B" bytes))
+   ((< bytes (* 1024 1024)) (format "%.1f KB" (/ bytes 1024.0)))
+   (t (format "%.1f MB" (/ bytes (* 1024.0 1024.0))))))
+
+(defun ogent-tools--progress-update ()
+  "Update the progress display in echo area."
+  (when (and ogent-tools-show-progress ogent-tools--progress-state)
+    (let* ((tool (plist-get ogent-tools--progress-state :tool))
+           (bytes (plist-get ogent-tools--progress-state :bytes))
+           (lines (plist-get ogent-tools--progress-state :lines))
+           (start (plist-get ogent-tools--progress-state :start-time))
+           (elapsed (float-time (time-subtract (current-time) start)))
+           (spinner (nth ogent-tools--spinner-index ogent-tools--spinner-frames)))
+      (setq ogent-tools--spinner-index
+            (mod (1+ ogent-tools--spinner-index)
+                 (length ogent-tools--spinner-frames)))
+      (message "%s %s: %s | %d lines | %.1fs"
+               spinner tool
+               (ogent-tools--format-bytes bytes)
+               lines elapsed))))
+
+(defun ogent-tools--stream-start (tool-name &optional info)
+  "Signal start of streaming for TOOL-NAME with optional INFO plist."
+  (setq ogent-tools--progress-state
+        (list :tool tool-name
+              :bytes 0
+              :lines 0
+              :start-time (current-time)))
+  (setq ogent-tools--spinner-index 0)
+  ;; Start progress timer
+  (when ogent-tools-show-progress
+    (when ogent-tools--progress-timer
+      (cancel-timer ogent-tools--progress-timer))
+    (setq ogent-tools--progress-timer
+          (run-at-time 0.1 0.1 #'ogent-tools--progress-update)))
+  ;; Notify callback
+  (when ogent-tools-stream-callback
+    (funcall ogent-tools-stream-callback tool-name 'start info)))
+
+(defun ogent-tools--stream-output (tool-name type data)
+  "Stream output DATA of TYPE for TOOL-NAME.
+TYPE is `stdout' or `stderr'."
+  (when ogent-tools--progress-state
+    ;; Update counters
+    (let ((bytes (+ (plist-get ogent-tools--progress-state :bytes)
+                    (length data)))
+          (lines (+ (plist-get ogent-tools--progress-state :lines)
+                    (cl-count ?\n data))))
+      (plist-put ogent-tools--progress-state :bytes bytes)
+      (plist-put ogent-tools--progress-state :lines lines)))
+  ;; Notify callback
+  (when ogent-tools-stream-callback
+    (funcall ogent-tools-stream-callback tool-name type data)))
+
+(defun ogent-tools--stream-done (tool-name exit-code)
+  "Signal completion of TOOL-NAME with EXIT-CODE."
+  (let ((duration (when ogent-tools--progress-state
+                    (float-time
+                     (time-subtract (current-time)
+                                    (plist-get ogent-tools--progress-state :start-time))))))
+    ;; Stop progress timer
+    (when ogent-tools--progress-timer
+      (cancel-timer ogent-tools--progress-timer)
+      (setq ogent-tools--progress-timer nil))
+    ;; Final message
+    (when ogent-tools-show-progress
+      (message "%s completed (exit %d) in %.1fs"
+               (or (plist-get ogent-tools--progress-state :tool) tool-name)
+               exit-code
+               (or duration 0)))
+    ;; Notify callback
+    (when ogent-tools-stream-callback
+      (funcall ogent-tools-stream-callback tool-name 'done
+               (list :exit-code exit-code :duration duration)))
+    ;; Clear state
+    (setq ogent-tools--progress-state nil)))
+
+(defun ogent-tools--stream-error (tool-name message)
+  "Signal error for TOOL-NAME with MESSAGE."
+  ;; Stop progress timer
+  (when ogent-tools--progress-timer
+    (cancel-timer ogent-tools--progress-timer)
+    (setq ogent-tools--progress-timer nil))
+  ;; Notify callback
+  (when ogent-tools-stream-callback
+    (funcall ogent-tools-stream-callback tool-name 'error message))
+  ;; Clear state
+  (setq ogent-tools--progress-state nil))
+
 ;;; Helper Functions
 
 (defun ogent-tools--project-root ()
@@ -130,15 +256,17 @@ Returns files sorted by modification time (newest first)."
 ;;; Tool: Grep (Content Search)
 
 (defun ogent-tool--grep (pattern &optional path glob-filter context-lines)
-  "Search for PATTERN in files.
+  "Search for PATTERN in files with streaming progress.
 PATH is file or directory to search (default project root).
 GLOB-FILTER limits to matching files (e.g., \"*.el\").
-CONTEXT-LINES shows N lines before/after matches."
+CONTEXT-LINES shows N lines before/after matches.
+Output is streamed incrementally via `ogent-tools-stream-callback'."
   (let* ((dir (if path
                   (ogent-tools--resolve-path path)
                 (ogent-tools--project-root)))
          (context (or context-lines 0))
-         (cmd (if (executable-find "rg")
+         (use-rg (executable-find "rg"))
+         (cmd (if use-rg
                   ;; Use ripgrep if available
                   (format "rg --no-heading --line-number --color=never %s %s %s %s"
                           (if (> context 0) (format "-C %d" context) "")
@@ -151,68 +279,250 @@ CONTEXT-LINES shows N lines before/after matches."
                         (if glob-filter (format "--include='%s'" glob-filter) "")
                         (shell-quote-argument pattern)
                         (shell-quote-argument dir))))
-         (output (shell-command-to-string cmd)))
+         (default-directory dir)
+         (output-buffer (generate-new-buffer " *ogent-grep*"))
+         (start-time (current-time))
+         exit-code output)
+    ;; Signal start
+    (ogent-tools--stream-start 'grep
+                               (list :pattern pattern
+                                     :directory dir
+                                     :filter glob-filter))
+    (unwind-protect
+        (progn
+          ;; Use make-process for streaming
+          (let ((proc (make-process
+                       :name "ogent-grep"
+                       :command (list shell-file-name
+                                      shell-command-switch
+                                      cmd)
+                       :buffer output-buffer
+                       :sentinel #'ignore
+                       :noquery t
+                       :filter (lambda (_proc chunk)
+                                 (with-current-buffer output-buffer
+                                   (goto-char (point-max))
+                                   (insert chunk))
+                                 (ogent-tools--stream-output 'grep 'stdout chunk)))))
+            ;; Wait for completion (grep is usually fast, but can be slow on large codebases)
+            (while (process-live-p proc)
+              (accept-process-output proc 0.1))
+            (setq exit-code (process-exit-status proc)))
+          (setq output (with-current-buffer output-buffer
+                         (buffer-string))))
+      ;; Cleanup
+      (kill-buffer output-buffer))
+    ;; Signal completion
+    (ogent-tools--stream-done 'grep exit-code)
+    ;; Format result
     (ogent-tools--truncate-output
      (if (string-empty-p output)
-         "No matches found"
-       output)
+         (format "No matches found (searched in %.1fs)"
+                 (float-time (time-subtract (current-time) start-time)))
+       (format "%s\n\n[%d matches in %.1fs]"
+               output
+               (cl-count ?\n output)
+               (float-time (time-subtract (current-time) start-time))))
      ogent-tools-max-output-chars)))
+
+(defun ogent-tool--grep-async (pattern callback &optional path glob-filter context-lines)
+  "Search for PATTERN asynchronously with streaming.
+CALLBACK is called with (TYPE DATA) where TYPE is:
+  - `match': DATA is a matched line string
+  - `done': DATA is the total match count
+  - `error': DATA is an error message
+PATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'."
+  (let* ((dir (if path
+                  (ogent-tools--resolve-path path)
+                (ogent-tools--project-root)))
+         (context (or context-lines 0))
+         (use-rg (executable-find "rg"))
+         (cmd (if use-rg
+                  (format "rg --no-heading --line-number --color=never %s %s %s %s"
+                          (if (> context 0) (format "-C %d" context) "")
+                          (if glob-filter (format "-g '%s'" glob-filter) "")
+                          (shell-quote-argument pattern)
+                          (shell-quote-argument dir))
+                (format "grep -rn %s %s %s %s"
+                        (if (> context 0) (format "-C %d" context) "")
+                        (if glob-filter (format "--include='%s'" glob-filter) "")
+                        (shell-quote-argument pattern)
+                        (shell-quote-argument dir))))
+         (default-directory dir)
+         (match-count 0)
+         proc)
+    ;; Signal start
+    (ogent-tools--stream-start 'grep
+                               (list :pattern pattern
+                                     :directory dir
+                                     :filter glob-filter))
+    (condition-case err
+        (progn
+          (setq proc (make-process
+                      :name "ogent-grep-async"
+                      :command (list shell-file-name
+                                     shell-command-switch
+                                     cmd)
+                      :noquery t
+                      :filter (lambda (_proc output)
+                                (ogent-tools--stream-output 'grep 'stdout output)
+                                ;; Split into lines and callback each match
+                                (dolist (line (split-string output "\n" t))
+                                  (cl-incf match-count)
+                                  (funcall callback 'match line)))))
+          (set-process-sentinel
+           proc
+           (lambda (process event)
+             (if (string-match-p "finished\\|exited" event)
+                 (progn
+                   (ogent-tools--stream-done 'grep (process-exit-status process))
+                   (funcall callback 'done match-count))
+               (ogent-tools--stream-error 'grep (string-trim event))
+               (funcall callback 'error (string-trim event)))))
+          proc)
+      (error
+       (ogent-tools--stream-error 'grep (error-message-string err))
+       (funcall callback 'error (error-message-string err))
+       nil))))
 
 ;;; Tool: Bash (Shell Execution)
 
 (defvar ogent-tools--active-processes nil
   "Alist of (process . callback-info) for active async tool processes.")
 
-(defun ogent-tool--bash (command &optional working-directory _timeout)
-  "Execute shell COMMAND synchronously.
+(defcustom ogent-tools-bash-stream-threshold 0
+  "Byte threshold above which bash output is streamed.
+Set to 0 to always stream, or a larger value to only stream
+for commands that produce significant output."
+  :type 'integer
+  :group 'ogent-tools)
+
+(defun ogent-tool--bash (command &optional working-directory timeout)
+  "Execute shell COMMAND with streaming progress.
 WORKING-DIRECTORY defaults to project root.
-_TIMEOUT is accepted for API compatibility but not enforced in sync mode."
+TIMEOUT in seconds (default `ogent-tools-shell-timeout').
+Output is streamed incrementally via `ogent-tools-stream-callback'."
   (let* ((default-directory (if working-directory
                                 (ogent-tools--resolve-path working-directory)
                               (ogent-tools--project-root)))
+         (timeout-secs (or timeout ogent-tools-shell-timeout))
          (output-buffer (generate-new-buffer " *ogent-bash*"))
-         exit-code output)
+         (stderr-buffer (generate-new-buffer " *ogent-bash-stderr*"))
+         (start-time (current-time))
+         exit-code stdout-text stderr-text)
+    ;; Signal start
+    (ogent-tools--stream-start 'bash
+                               (list :command command
+                                     :directory default-directory))
     (unwind-protect
         (progn
-          (setq exit-code
-                (call-process-shell-command
-                 command nil output-buffer nil))
-          (setq output (with-current-buffer output-buffer
-                         (buffer-string))))
-      (kill-buffer output-buffer))
+          ;; Use make-process for separate stdout/stderr handling
+          (let* ((proc (make-process
+                        :name "ogent-bash"
+                        :command (list shell-file-name
+                                       shell-command-switch
+                                       command)
+                        :buffer output-buffer
+                        :stderr stderr-buffer
+                        :sentinel #'ignore
+                        :noquery t
+                        :filter (lambda (_proc output)
+                                  (with-current-buffer output-buffer
+                                    (goto-char (point-max))
+                                    (insert output))
+                                  (ogent-tools--stream-output 'bash 'stdout output))))
+                 ;; Set up stderr filter
+                 (stderr-proc (get-buffer-process stderr-buffer)))
+            ;; Don't query on stderr process exit either
+            (when stderr-proc
+              (set-process-query-on-exit-flag stderr-proc nil))
+            (when stderr-proc
+              (set-process-filter
+               stderr-proc
+               (lambda (_proc output)
+                 (with-current-buffer stderr-buffer
+                   (goto-char (point-max))
+                   (insert output))
+                 (ogent-tools--stream-output 'bash 'stderr output))))
+            ;; Wait for completion with timeout
+            (let ((deadline (+ (float-time) timeout-secs)))
+              (while (and (process-live-p proc)
+                          (< (float-time) deadline))
+                (accept-process-output proc 0.1))
+              ;; Check for timeout
+              (when (process-live-p proc)
+                (kill-process proc)
+                (ogent-tools--stream-error 'bash
+                                           (format "Timeout after %ds" timeout-secs))
+                (error "Command timed out after %d seconds" timeout-secs)))
+            (setq exit-code (process-exit-status proc)))
+          ;; Collect output
+          (setq stdout-text (with-current-buffer output-buffer
+                              (buffer-string)))
+          (setq stderr-text (with-current-buffer stderr-buffer
+                              (buffer-string))))
+      ;; Cleanup
+      (kill-buffer output-buffer)
+      (kill-buffer stderr-buffer))
+    ;; Signal completion
+    (ogent-tools--stream-done 'bash exit-code)
     ;; Format result
     (ogent-tools--truncate-output
-     (format "%s\n\nExit code: %s"
-             (if (string-empty-p output) "(no output)" output)
-             exit-code)
+     (concat
+      (if (string-empty-p stdout-text)
+          "(no stdout)"
+        stdout-text)
+      (unless (string-empty-p stderr-text)
+        (concat "\n\n--- stderr ---\n" stderr-text))
+      (format "\n\nExit code: %s (%.1fs)"
+              exit-code
+              (float-time (time-subtract (current-time) start-time))))
      ogent-tools-max-output-chars)))
 
 (defun ogent-tool--bash-async (command callback &optional working-directory timeout)
   "Execute shell COMMAND asynchronously with streaming output.
 CALLBACK is called with (TYPE DATA) where TYPE is:
-  - `chunk': DATA is a string of output
+  - `stdout': DATA is a string of stdout chunk
+  - `stderr': DATA is a string of stderr chunk
   - `done': DATA is the exit code (integer)
   - `error': DATA is an error message
 WORKING-DIRECTORY defaults to project root.
-TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
+TIMEOUT in seconds (default `ogent-tools-shell-timeout').
+Also streams via `ogent-tools-stream-callback' for progress display."
   (let* ((default-directory (if working-directory
                                 (ogent-tools--resolve-path working-directory)
                               (ogent-tools--project-root)))
          (timeout-secs (or timeout ogent-tools-shell-timeout))
          (proc-name (format "ogent-bash-%d" (random 100000)))
          (output-count 0)
+         (stderr-buffer (generate-new-buffer " *ogent-bash-stderr*"))
          proc timer)
+    ;; Signal start
+    (ogent-tools--stream-start 'bash
+                               (list :command command
+                                     :directory default-directory))
     (condition-case err
         (progn
-          (setq proc (start-process-shell-command
-                      proc-name nil command))
-          ;; Set up process filter for streaming output
-          (set-process-filter
-           proc
-           (lambda (_process output)
-             (setq output-count (+ output-count (length output)))
-             (when (< output-count ogent-tools-max-output-chars)
-               (funcall callback 'chunk output))))
+          (setq proc (make-process
+                      :name proc-name
+                      :command (list shell-file-name
+                                     shell-command-switch
+                                     command)
+                      :stderr stderr-buffer
+                      :noquery t
+                      :filter (lambda (_process output)
+                                (setq output-count (+ output-count (length output)))
+                                (ogent-tools--stream-output 'bash 'stdout output)
+                                (when (< output-count ogent-tools-max-output-chars)
+                                  (funcall callback 'stdout output)))))
+          ;; Set up stderr filter
+          (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+            (set-process-query-on-exit-flag stderr-proc nil)
+            (set-process-filter
+             stderr-proc
+             (lambda (_proc output)
+               (ogent-tools--stream-output 'bash 'stderr output)
+               (funcall callback 'stderr output))))
           ;; Set up sentinel for completion
           (set-process-sentinel
            proc
@@ -220,9 +530,16 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
              (when timer (cancel-timer timer))
              (setq ogent-tools--active-processes
                    (assq-delete-all process ogent-tools--active-processes))
+             (kill-buffer stderr-buffer)
              (let ((status (process-exit-status process)))
                (if (string-match-p "finished\\|exited" event)
-                   (funcall callback 'done status)
+                   (progn
+                     (ogent-tools--stream-done 'bash status)
+                     (funcall callback 'done status))
+                 (ogent-tools--stream-error 'bash
+                                            (format "Process %s: %s"
+                                                    (process-name process)
+                                                    (string-trim event)))
                  (funcall callback 'error
                           (format "Process %s: %s"
                                   (process-name process)
@@ -234,16 +551,52 @@ TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
                                (lambda ()
                                  (when (process-live-p proc)
                                    (kill-process proc)
+                                   (ogent-tools--stream-error 'bash
+                                                              (format "Timeout after %ds" timeout-secs))
                                    (funcall callback 'error
                                             (format "Timeout after %ds" timeout-secs)))))))
           ;; Track active process
-          (push (cons proc (list :callback callback :timer timer))
+          (push (cons proc (list :callback callback :timer timer :stderr-buffer stderr-buffer))
                 ogent-tools--active-processes)
           proc)
       (error
+       (kill-buffer stderr-buffer)
+       (ogent-tools--stream-error 'bash (error-message-string err))
        (funcall callback 'error (error-message-string err))
        nil))))
 
+
+;;; Process Management
+
+(defun ogent-tools-cancel-all ()
+  "Cancel all active tool processes."
+  (interactive)
+  (let ((count 0))
+    (dolist (entry ogent-tools--active-processes)
+      (let ((proc (car entry))
+            (info (cdr entry)))
+        (when (process-live-p proc)
+          (kill-process proc)
+          (cl-incf count))
+        ;; Cancel associated timer if any
+        (when-let ((timer (plist-get info :timer)))
+          (cancel-timer timer))
+        ;; Kill stderr buffer if any
+        (when-let ((buf (plist-get info :stderr-buffer)))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))
+    (setq ogent-tools--active-processes nil)
+    ;; Clean up progress state
+    (when ogent-tools--progress-timer
+      (cancel-timer ogent-tools--progress-timer)
+      (setq ogent-tools--progress-timer nil))
+    (setq ogent-tools--progress-state nil)
+    (message "Cancelled %d active tool process(es)" count)))
+
+(defun ogent-tools-active-count ()
+  "Return the number of active tool processes."
+  (cl-count-if (lambda (entry) (process-live-p (car entry)))
+               ogent-tools--active-processes))
 
 ;;; Tool: Write File
 
