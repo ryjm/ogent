@@ -4,6 +4,7 @@
 ;; Displays proposed edits using configurable methods:
 ;; - smerge: Traditional conflict markers (built-in)
 ;; - overlay: gptel-rewrite style overlays with dispatch menu
+;; - inline-diff: Word-level inline highlighting (requires inline-diff.el)
 ;;
 ;; Also provides Magit-style diff preview for edits before applying.
 ;; See specs/inline-edits.org for full specification.
@@ -24,15 +25,21 @@
 (defvar ediff-window-setup-function)
 (defvar ediff-split-window-function)
 
+;; Optional: inline-diff for word-level change highlighting
+(declare-function inline-diff-mode "inline-diff" (&optional arg))
+(declare-function inline-diff-words-region "inline-diff" (beg end old-text))
+
 ;;; Customization
 
 (defcustom ogent-edit-display-method 'smerge
   "Method for displaying proposed edits.
 Options:
 - `smerge': Traditional conflict markers (built-in, always available)
-- `overlay': gptel-rewrite style overlays with inline preview and dispatch menu"
+- `overlay': gptel-rewrite style overlays with inline preview and dispatch menu
+- `inline-diff': Word-level inline highlighting (requires inline-diff.el)"
   :type '(choice (const :tag "Smerge conflict markers" smerge)
-                 (const :tag "Overlay with inline preview" overlay))
+                 (const :tag "Overlay with inline preview" overlay)
+                 (const :tag "Inline-diff word highlighting" inline-diff))
   :group 'ogent-edit)
 
 (defcustom ogent-edit-overlay-default-action nil
@@ -696,6 +703,96 @@ Returns list of successfully applied edits."
       (cl-incf count))
     (message "Rejected %d edit(s)." count)))
 
+;;; Inline-diff Display (optional)
+
+(defun ogent-edit-inline-diff-available-p ()
+  "Return non-nil if inline-diff is available."
+  (featurep 'inline-diff))
+
+(defun ogent-edit-apply-as-inline-diff (edit)
+  "Display EDIT using inline-diff word-level highlighting.
+Replaces old text with new text and shows word-level diff overlay.
+Requires inline-diff.el to be installed."
+  (unless (ogent-edit-inline-diff-available-p)
+    (user-error "inline-diff not available; install inline-diff.el or use different display method"))
+  (unless (eq (ogent-edit-status edit) 'pending)
+    (user-error "Edit %s is not pending" (ogent-edit-id edit)))
+  (unless (ogent-edit-start-pos edit)
+    (user-error "Edit %s has not been validated" (ogent-edit-id edit)))
+  (let* ((buf (ogent-edit-source-buffer edit))
+         (start (ogent-edit-start-pos edit))
+         (end (ogent-edit-end-pos edit))
+         (old-text (ogent-edit-old-text edit))
+         (new-text (ogent-edit-new-text edit)))
+    (unless (buffer-live-p buf)
+      (user-error "Source buffer for edit %s is no longer available"
+                  (ogent-edit-id edit)))
+    (with-current-buffer buf
+      ;; Store marker before changes
+      (setf (ogent-edit-source-marker edit) (copy-marker start))
+      ;; Replace old text with new text
+      (save-excursion
+        (goto-char start)
+        (delete-region start end)
+        (insert new-text))
+      ;; Apply inline-diff highlighting to show changes
+      (let ((new-end (+ start (length new-text))))
+        (inline-diff-words-region start new-end old-text))
+      ;; Enable inline-diff-mode if not already active
+      (unless (bound-and-true-p inline-diff-mode)
+        (inline-diff-mode 1))
+      ;; Update status - mark as applied (user can accept by clearing diff)
+      (setf (ogent-edit-status edit) 'applied)
+      ;; Track this edit
+      (ogent-edit--track-edits (list edit))
+      ;; Move to the change
+      (goto-char start)
+      (message "Edit displayed with inline-diff. Use C-c C-c to accept, C-c C-k to reject."))))
+
+(defun ogent-edit-apply-all-as-inline-diff (edits)
+  "Apply all valid EDITS using inline-diff display.
+Edits are applied in reverse position order to preserve positions.
+Returns list of successfully applied edits."
+  (unless (ogent-edit-inline-diff-available-p)
+    (user-error "inline-diff not available; install inline-diff.el"))
+  (let* ((valid-edits (ogent-edit-filter-valid edits))
+         (sorted (sort (copy-sequence valid-edits)
+                       (lambda (a b)
+                         (> (ogent-edit-start-pos a)
+                            (ogent-edit-start-pos b)))))
+         (applied nil))
+    (dolist (edit sorted)
+      (condition-case err
+          (progn
+            (ogent-edit-apply-as-inline-diff edit)
+            (push edit applied))
+        (error
+         (setf (ogent-edit-status edit) 'error
+               (ogent-edit-error-message edit)
+               (error-message-string err)))))
+    (nreverse applied)))
+
+;;; Display Method Toggle
+
+(defvar ogent-edit-display-methods '(smerge overlay inline-diff)
+  "List of available display methods in cycle order.")
+
+;;;###autoload
+(defun ogent-edit-toggle-display-method ()
+  "Toggle between available edit display methods.
+Cycles through smerge -> overlay -> inline-diff -> smerge."
+  (interactive)
+  (let* ((current ogent-edit-display-method)
+         (available (if (ogent-edit-inline-diff-available-p)
+                        ogent-edit-display-methods
+                      (remq 'inline-diff ogent-edit-display-methods)))
+         (pos (cl-position current available))
+         (next (if pos
+                   (nth (mod (1+ pos) (length available)) available)
+                 (car available))))
+    (setq ogent-edit-display-method next)
+    (message "Edit display method: %s" next)))
+
 ;;; Unified Display Interface
 
 (defun ogent-edit-display (edit)
@@ -704,6 +801,7 @@ See `ogent-edit-display-method' for options."
   (pcase ogent-edit-display-method
     ('smerge (ogent-edit-apply-as-smerge edit))
     ('overlay (ogent-edit-apply-as-overlay edit))
+    ('inline-diff (ogent-edit-apply-as-inline-diff edit))
     (_ (ogent-edit-apply-as-smerge edit))))
 
 (defun ogent-edit-display-all (edits)
@@ -712,6 +810,7 @@ Returns list of successfully displayed edits."
   (pcase ogent-edit-display-method
     ('smerge (ogent-edit-apply-all-as-smerge edits))
     ('overlay (ogent-edit-apply-all-as-overlay edits))
+    ('inline-diff (ogent-edit-apply-all-as-inline-diff edits))
     (_ (ogent-edit-apply-all-as-smerge edits))))
 
 (provide 'ogent-edit-display)
