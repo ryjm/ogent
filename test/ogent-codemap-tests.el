@@ -226,5 +226,125 @@
       (when (buffer-live-p buf)
         (kill-buffer buf)))))
 
+;;; Incremental Refresh Tests
+
+(ert-deftest ogent-codemap-detect-changes-no-snapshot ()
+  "All files are reported as added when no snapshot exists."
+  (let ((ogent-codemap--last-file-snapshot nil))
+    (let ((changes (ogent-codemap--detect-changes)))
+      (should (> (length (plist-get changes :added)) 0))
+      (should (null (plist-get changes :modified)))
+      (should (null (plist-get changes :removed))))))
+
+(ert-deftest ogent-codemap-detect-changes-with-snapshot ()
+  "Change detection correctly categorizes files."
+  (let* ((files (ogent-codemap--source-files))
+         ;; Create snapshot with current files but old mtimes
+         (ogent-codemap--last-file-snapshot
+          (mapcar (lambda (f)
+                    (cons f (time-subtract (current-time)
+                                           (seconds-to-time 3600))))
+                  files)))
+    (let ((changes (ogent-codemap--detect-changes)))
+      ;; All files should be marked as modified (mtime mismatch)
+      (should (> (length (plist-get changes :modified)) 0))
+      ;; Nothing should be added (same file set)
+      (should (null (plist-get changes :added))))))
+
+(ert-deftest ogent-codemap-detect-changes-removed ()
+  "Removed files are detected correctly."
+  (let ((ogent-codemap--last-file-snapshot
+         (list (cons "/nonexistent/removed-file.el"
+                     (current-time)))))
+    (let ((changes (ogent-codemap--detect-changes)))
+      (should (member "/nonexistent/removed-file.el"
+                      (plist-get changes :removed))))))
+
+(ert-deftest ogent-codemap-section-bounds ()
+  "Section bounds are correctly identified."
+  (let ((buf (ogent-codemap-refresh)))
+    (unwind-protect
+        (let ((bounds (ogent-codemap--section-bounds buf "lisp/ogent-core.el")))
+          (should bounds)
+          (should (< (car bounds) (cdr bounds)))
+          ;; Should contain the file link
+          (with-current-buffer buf
+            (should (string-match-p "ogent-core\\.el"
+                                    (buffer-substring (car bounds) (cdr bounds))))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-codemap-remove-section ()
+  "Sections can be removed from the buffer."
+  (let ((buf (ogent-codemap-refresh)))
+    (unwind-protect
+        (progn
+          ;; Verify section exists
+          (should (ogent-codemap--section-bounds buf "lisp/ogent-core.el"))
+          ;; Remove it
+          (should (ogent-codemap--remove-section buf "lisp/ogent-core.el"))
+          ;; Verify it's gone
+          (should-not (ogent-codemap--section-bounds buf "lisp/ogent-core.el")))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-codemap-update-section ()
+  "Sections can be updated in place."
+  (let* ((ogent-codemap-buffer-name "*ogent-codemap-test-update*")
+         (buf (ogent-codemap-refresh))
+         (core-file (cl-find-if (lambda (f)
+                                  (string-match-p "ogent-core\\.el$" f))
+                                (ogent-codemap--source-files))))
+    (unwind-protect
+        (progn
+          ;; Add annotation to section
+          (with-current-buffer buf
+            (goto-char (point-min))
+            (when (re-search-forward "^\\*\\* \\[\\[file:lisp/ogent-core\\.el" nil t)
+              (end-of-line)
+              (insert "\n# TEST ANNOTATION")))
+          ;; Update section
+          (ogent-codemap--update-section buf core-file)
+          ;; Annotation should be preserved
+          (with-current-buffer buf
+            (goto-char (point-min))
+            (should (search-forward "TEST ANNOTATION" nil t))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-codemap-incremental-vs-full ()
+  "Incremental render produces same result as full render."
+  (let ((ogent-codemap-buffer-name "*ogent-codemap-test-inc*")
+        (ogent-codemap--last-file-snapshot nil)
+        (ogent-codemap--file-cache (make-hash-table :test 'equal)))
+    (unwind-protect
+        (progn
+          ;; Do initial full render
+          (let ((full-buf (ogent-codemap--render-full)))
+            (with-current-buffer full-buf
+              (let ((full-content (buffer-string)))
+                ;; Now do incremental (should be no-op since snapshot matches)
+                (let ((inc-buf (ogent-codemap--render-incremental)))
+                  (should inc-buf)
+                  ;; Content should be identical
+                  (with-current-buffer inc-buf
+                    (should (string= full-content (buffer-string)))))))))
+      (when-let ((buf (get-buffer "*ogent-codemap-test-inc*")))
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-codemap-snapshot-updates ()
+  "Snapshot is updated after refresh."
+  (let ((ogent-codemap-buffer-name "*ogent-codemap-test-snap*")
+        (ogent-codemap--last-file-snapshot nil))
+    (unwind-protect
+        (progn
+          (should-not ogent-codemap--last-file-snapshot)
+          (ogent-codemap--render-full)
+          (should ogent-codemap--last-file-snapshot)
+          (should (> (length ogent-codemap--last-file-snapshot) 0)))
+      (when-let ((buf (get-buffer "*ogent-codemap-test-snap*")))
+        (kill-buffer buf))
+      (setq ogent-codemap--last-file-snapshot nil))))
+
 (provide 'ogent-codemap-tests)
 ;;; ogent-codemap-tests.el ends here
