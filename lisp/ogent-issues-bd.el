@@ -120,7 +120,6 @@ Returns the process object, or nil if no project root found."
       
       ;; Start the process from project root
       (let ((full-command (cons ogent-issues-bd-executable args)))
-        (message "ogent-bd: running %S in %s" full-command default-directory)
         (setq proc
               (make-process
                :name "ogent-bd"

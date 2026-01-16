@@ -561,8 +561,8 @@ With prefix argument, prompts for issue ID to center on."
               (blocked-by (plist-get issue :blocked_by))
               (blocker-id (car blocked-by)))
     (goto-char (point-min))
-    (if (text-property-search-forward 'ogent-issue-id blocker-id #'equal)
-        (goto-char (prop-match-beginning (text-property-search-forward 'ogent-issue-id blocker-id #'equal)))
+    (if-let ((match (text-property-search-forward 'ogent-issue-id blocker-id #'equal)))
+        (goto-char (prop-match-beginning match))
       (message "Blocker %s not found in view" blocker-id))))
 
 (defun ogent-issues-graph-toggle-node ()
