@@ -14,7 +14,6 @@
 (require 'ogent-edit-display)
 (require 'ogent-edit-log)
 (require 'ogent-edit-diff)
-(require 'ogent-companion)
 
 ;; gptel integration
 (declare-function gptel-request "ext:gptel" (prompt &rest args))
@@ -23,8 +22,6 @@
 (defvar gptel-backend)
 (defvar gptel-model)
 
-;; ogent-edit-diff functions (defined after require)
-(declare-function ogent-edit-diff-show "ogent-edit-diff")
 
 ;;; Customization
 

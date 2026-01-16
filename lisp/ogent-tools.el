@@ -163,16 +163,14 @@ CONTEXT-LINES shows N lines before/after matches."
 (defvar ogent-tools--active-processes nil
   "Alist of (process . callback-info) for active async tool processes.")
 
-(defun ogent-tool--bash (command &optional working-directory timeout)
+(defun ogent-tool--bash (command &optional working-directory _timeout)
   "Execute shell COMMAND synchronously.
 WORKING-DIRECTORY defaults to project root.
-TIMEOUT in seconds (default `ogent-tools-shell-timeout')."
+_TIMEOUT is accepted for API compatibility but not enforced in sync mode."
   (let* ((default-directory (if working-directory
                                 (ogent-tools--resolve-path working-directory)
                               (ogent-tools--project-root)))
-         (_timeout-secs (or timeout ogent-tools-shell-timeout))
          (output-buffer (generate-new-buffer " *ogent-bash*"))
-         (_start-time (current-time))
          exit-code output)
     (unwind-protect
         (progn

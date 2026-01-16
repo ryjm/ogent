@@ -13,7 +13,6 @@
 ;;; Code:
 
 (require 'cl-lib)
-(require 'diff-mode)
 (require 'ogent-edit-parse)
 
 ;; Soft dependency on magit-section
