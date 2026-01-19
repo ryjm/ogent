@@ -988,6 +988,15 @@ Shows model, context info, and pinned count with icons."
   "Description for quit with icon."
   (concat (ogent-theme-icon 'cancel 'ogent-theme-muted) " Quit"))
 
+(defun ogent--suffix-send-action ()
+  "Send prompt to LLM with visual feedback."
+  (interactive)
+  (let ((prompt (ogent--get-effective-prompt)))
+    (setq ogent--transient-prompt nil)
+    ;; Flash success on send
+    (ogent-theme-flash 'info "Sending request...")
+    (ogent--send-with-current-model prompt)))
+
 ;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
 			 "Prompt dispatcher for ogent requests.
@@ -1003,8 +1012,8 @@ A polished interface for AI-assisted workflows.
 				       [:description
 					(lambda () (concat (ogent-theme-icon 'send) " Send"))
 					:class transient-column
-					("RET" ogent--desc-send ogent--suffix-send-action)
-					("?" ogent--desc-quick-ask ogent-ask)]
+					("RET" ogent--suffix-send-action :description ogent--desc-send)
+					("?" ogent-ask :description ogent--desc-quick-ask)]
 				       [:description
 					(lambda () (concat (ogent-theme-icon 'model) " Model"))
 					:class transient-column
@@ -1020,8 +1029,8 @@ A polished interface for AI-assisted workflows.
 			   (ogent--infix-tools)]
 			  [:description ogent--format-context-group
 					:class transient-column
-					("c" ogent--desc-preview ogent-context-preview-toggle :transient t)
-					("m" ogent--desc-codemap ogent-codemap-buffer)
+					("c" ogent-context-preview-toggle :description ogent--desc-preview :transient t)
+					("m" ogent-codemap-buffer :description ogent--desc-codemap)
 					(ogent--suffix-pin-dwim)
 					(ogent--suffix-unpin)
 					(ogent--suffix-list-pinned)]]
@@ -1030,30 +1039,21 @@ A polished interface for AI-assisted workflows.
 			  [:description
 			   (lambda () (concat (ogent-theme-icon 'link) " Navigate"))
 			   :class transient-column
-			   ("e" ogent--desc-edit-menu ogent-edit-menu)
-			   ("i" ogent--desc-issues ogent-issues)]
+			   ("e" ogent-edit-menu :description ogent--desc-edit-menu)
+			   ("i" ogent-issues :description ogent--desc-issues)]
 			  [:description
 			   (lambda () (concat (ogent-theme-icon 'session) " Session"))
 			   :class transient-column
-			   ("S" ogent--desc-save ogent-session-save)
-			   ("L" ogent--desc-load ogent-session-load)
-			   ("H" ogent--desc-history ogent-session-list)]
+			   ("S" ogent-session-save :description ogent--desc-save)
+			   ("L" ogent-session-load :description ogent--desc-load)
+			   ("H" ogent-session-list :description ogent--desc-history)]
 			  [:description ""
 					:class transient-column
-					("D" ogent--desc-debug ogent-debug-mode)
-					("q" ogent--desc-quit transient-quit-one)]]
+					("D" ogent-debug-mode :description ogent--desc-debug)
+					("q" transient-quit-one :description ogent--desc-quit)]]
 			 (interactive)
 			 (ogent-ui--ensure-companion-context)
 			 (transient-setup 'ogent-prompt-dispatch))
-
-(defun ogent--suffix-send-action ()
-  "Send prompt to LLM with visual feedback."
-  (interactive)
-  (let ((prompt (ogent--get-effective-prompt)))
-    (setq ogent--transient-prompt nil)
-    ;; Flash success on send
-    (ogent-theme-flash 'info "Sending request...")
-    (ogent--send-with-current-model prompt)))
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
 			 "Pin current file/buffer/region to context."
