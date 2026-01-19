@@ -775,7 +775,17 @@ An issue is ready if it's open, not blocked, and has no blockers."
       (ogent-issues--insert-plain issues))))
 
 (defun ogent-issues--insert-empty-state ()
-  "Insert empty state message when no issues match."
+  "Insert empty state message when no issues match.
+Wraps content in a magit-section root when available to prevent
+errors in `magit-section-post-command-hook'."
+  (if ogent-issues--magit-section-available
+      ;; Wrap in root section to prevent nil section errors
+      (magit-insert-section (ogent-issues-root-section)
+        (ogent-issues--insert-empty-state-content))
+    (ogent-issues--insert-empty-state-content)))
+
+(defun ogent-issues--insert-empty-state-content ()
+  "Insert the actual empty state content."
   (insert "\n")
   (if ogent-issues--filters
       (progn
@@ -971,7 +981,9 @@ An issue is ready if it's open, not blocked, and has no blockers."
   "Toggle the current section."
   (interactive)
   (if ogent-issues--magit-section-available
-      (magit-section-toggle (magit-current-section))
+      (if-let ((section (magit-current-section)))
+          (magit-section-toggle section)
+        (message "No section at point"))
     (message "Section toggling requires magit-section")))
 
 (defun ogent-issues-cycle-sections ()
