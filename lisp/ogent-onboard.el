@@ -195,7 +195,8 @@ For OAuth providers, API-KEY may be nil; authentication is handled by advice."
      (t nil))))
 
 (defun ogent-onboard--verify-connection (provider api-key _model-id)
-  "Verify connection to PROVIDER with API-KEY using MODEL-ID."
+  "Verify connection to PROVIDER with API-KEY.
+MODEL-ID is accepted for future use but not currently verified."
   (message "Verifying connection to %s..." (plist-get provider :name))
   (let* ((feature (plist-get provider :feature))
          (verified nil)

@@ -366,15 +366,6 @@ Creates or updates the .ogent.el file in the project root."
         (princ (format "\n  System Prompt:\n    %s\n"
                        (truncate-string-to-width system-prompt 60 nil nil "...")))))))
 
-;;; Integration with ogent-codemap
-
-(defun ogent-presets--codemap-directories ()
-  "Return directories to scan for codemap, respecting project settings.
-Hook into `ogent-codemap-source-directories' via advice."
-  (or (ogent-presets-effective-codemap-roots)
-      (when (boundp 'ogent-codemap-source-directories)
-        ogent-codemap-source-directories)))
-
 ;;; Context Inclusion
 
 ;;;###autoload
