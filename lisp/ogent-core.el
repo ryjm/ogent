@@ -408,21 +408,10 @@ Response is displayed according to `ogent-ask-display-function'."
 
 ;;; Open Block Command
 
-(defvar ogent-open-block--source-buffer nil
-  "Buffer from which ogent-open-block was invoked.")
-
-(defvar ogent-open-block--source-marker nil
-  "Marker to the source block in the original buffer.")
-
 (defun ogent-open-block--setup-edit-buffer ()
   "Set up the org-src edit buffer with ogent-mode."
   (when (and (boundp 'org-src-mode) org-src-mode)
-    (ogent-mode 1)
-    ;; Store reference to source for context
-    (setq-local ogent-open-block--source-buffer
-                (marker-buffer org-src--beg-marker))
-    (setq-local ogent-open-block--source-marker
-                (copy-marker org-src--beg-marker))))
+    (ogent-mode 1)))
 
 ;;;###autoload
 (defun ogent-open-block (&optional arg)
