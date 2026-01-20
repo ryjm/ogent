@@ -29,6 +29,9 @@
   :type 'boolean
   :group 'ogent-tool-render)
 
+(defvar ogent-tool-render--id-counter 0
+  "Counter for generating unique tool call IDs.")
+
 ;;; Status Indicators
 
 (defconst ogent-tool-render-status-indicators
@@ -265,6 +268,23 @@ Updates status to \\='failed."
   "Minor mode for navigating tool call drawers in org buffers."
   :lighter " ToolRender"
   :keymap ogent-tool-render-mode-map)
+
+;;; Convenience Functions
+
+(defun ogent-tool-render-create-and-insert (name args)
+  "Create a tool call with NAME and ARGS, insert it at point, and return it.
+NAME is the tool name (string or symbol).
+ARGS is a plist of arguments to pass to the tool.
+The tool call is created with a unique ID and 'pending status."
+  (let* ((name-str (if (symbolp name) (symbol-name name) name))
+         (id (format "%s-%d" name-str (cl-incf ogent-tool-render--id-counter)))
+         (tool-call (ogent-tool-call-create
+                     :id id
+                     :name name-str
+                     :args args
+                     :status 'pending)))
+    (ogent-tool-render-call tool-call t)
+    tool-call))
 
 (provide 'ogent-tool-render)
 
