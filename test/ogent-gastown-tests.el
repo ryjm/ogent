@@ -827,10 +827,44 @@ OUTPUT should be a plist or list that will be returned."
 
 ;;; Mail Recipient Completion Tests
 
-(defconst ogent-gastown-test--sample-witnesses
-  (list '(:rig "ogent" :has_witness t :polecat_count 2 :crew_count 1)
-        '(:rig "beads" :has_witness nil :polecat_count 1 :crew_count 0))
-  "Sample witness data for testing.")
+(defconst ogent-gastown-test--sample-crew
+  (list '(:name "stallman"
+          :rig "ogent"
+          :session_running t
+          :hooked_work "ogent-123"
+          :session_started "2026-01-22T10:00:00Z")
+        '(:name "wolf"
+          :rig "ogent"
+          :session_running nil
+          :hooked_work nil
+          :session_started nil)
+        '(:name "alpha"
+          :rig "beads"
+          :session_running t
+          :hooked_work nil
+          :session_started "2026-01-22T09:30:00Z"))
+  "Sample crew list for testing.")
+
+(defconst ogent-gastown-test--sample-polecats
+  (list '(:name "alpha"
+          :rig "ogent"
+          :state "running"
+          :session_running t
+          :hooked_work "task-001"
+          :session_started "2026-01-22T08:00:00Z")
+        '(:name "beta"
+          :rig "ogent"
+          :state "idle"
+          :session_running nil
+          :hooked_work nil
+          :session_started nil)
+        '(:name "gamma"
+          :rig "beads"
+          :state "running"
+          :session_running t
+          :hooked_work "beads-789"
+          :session_started "2026-01-22T11:00:00Z"))
+  "Sample polecat list for testing.")
 
 (ert-deftest ogent-gastown-status-test-get-mail-recipients ()
   "Test mail recipient list generation."
@@ -855,10 +889,12 @@ OUTPUT should be a plist or list that will be returned."
             (should (member "ogent/polecats/beta" recipients))
             (should (member "beads/polecats/gamma" recipients))
             ;; Should include witnesses (only for rigs that have them)
-            (should (member "ogent/witness/" recipients))
+            ;; Note: sample witnesses has beads=t, gastown=nil
+            (should (member "beads/witness/" recipients))
+            (should-not (member "gastown/witness/" recipients))
             ;; Should include refineries
-            (should (member "ogent/refinery/" recipients))
-            (should (member "beads/refinery/" recipients))))
+            (should (member "beads/refinery/" recipients))
+            (should (member "gastown/refinery/" recipients))))
       (setq-default ogent-gastown--crew-data orig-crew)
       (setq-default ogent-gastown--polecat-data orig-polecat)
       (setq-default ogent-gastown--witness-data orig-witness))))
