@@ -484,6 +484,190 @@ OUTPUT should be a plist or list that will be returned."
     (should-not ogent-gastown--bd-ready-cache)
     (should-not ogent-gastown--town-root)))
 
+;;; Status Buffer Tests (ogent-gastown-status.el)
+
+(require 'ogent-gastown-status)
+
+(defconst ogent-gastown-test--sample-crew
+  (list '(:name "stallman"
+          :rig "ogent"
+          :session_running t
+          :hooked_work "beads-123"
+          :branch "master"
+          :dirty t
+          :unread_mail 3)
+        '(:name "wolf"
+          :rig "ogent"
+          :session_running nil
+          :hooked_work nil
+          :branch "feature"
+          :dirty nil
+          :unread_mail 0)
+        '(:name "alpha"
+          :rig "beads"
+          :session_running t
+          :hooked_work nil
+          :branch "main"
+          :dirty nil
+          :unread_mail 1))
+  "Sample crew list for testing.")
+
+(defconst ogent-gastown-test--sample-polecats
+  (list '(:name "alpha"
+          :rig "ogent"
+          :state "working"
+          :session_running t
+          :current_task "ogent-456"
+          :session_started "2026-01-22T10:00:00Z")
+        '(:name "beta"
+          :rig "ogent"
+          :state "idle"
+          :session_running nil
+          :current_task nil
+          :session_started nil)
+        '(:name "gamma"
+          :rig "beads"
+          :state "working"
+          :session_running t
+          :hooked_work "beads-789"
+          :session_started "2026-01-22T11:00:00Z"))
+  "Sample polecat list for testing.")
+
+(defmacro ogent-gastown-status-test-with-buffer (&rest body)
+  "Execute BODY in a temp buffer with status mode setup."
+  (declare (indent 0) (debug t))
+  `(with-temp-buffer
+     ;; Don't use magit-section for predictable output
+     (let ((ogent-gastown--magit-section-available nil)
+           (ogent-gastown-use-unicode nil))
+       ,@body)))
+
+;;; Crew Section Tests
+
+(ert-deftest ogent-gastown-status-test-insert-crew-section-plain ()
+  "Test crew section plain rendering with data."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--crew-data ogent-gastown-test--sample-crew))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        ;; Should have section header
+        (should (string-match-p "Crew" content))
+        ;; Should show crew members
+        (should (string-match-p "ogent/stallman" content))
+        (should (string-match-p "ogent/wolf" content))
+        (should (string-match-p "beads/alpha" content))
+        ;; Active member should be marked
+        (should (string-match-p "\\[active\\]" content))))))
+
+(ert-deftest ogent-gastown-status-test-insert-crew-section-empty ()
+  "Test crew section plain rendering with no data."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--crew-data nil))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Crew" content))
+        (should (string-match-p "No crew members" content))))))
+
+(ert-deftest ogent-gastown-status-test-insert-crew-section-nil-values ()
+  "Test crew section handles nil values gracefully."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name nil :rig nil :session_running nil))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        ;; Should not error, should show placeholder
+        (should (string-match-p "\\?\\?\\?" content))))))
+
+;;; Polecat Section Tests
+
+(ert-deftest ogent-gastown-status-test-insert-polecat-section-plain ()
+  "Test polecat section plain rendering with data."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--polecat-data ogent-gastown-test--sample-polecats))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        ;; Should have section header
+        (should (string-match-p "Polecats" content))
+        ;; Should show polecats
+        (should (string-match-p "ogent/alpha" content))
+        (should (string-match-p "ogent/beta" content))
+        (should (string-match-p "beads/gamma" content))
+        ;; Should show state
+        (should (string-match-p "\\[working\\]" content))
+        (should (string-match-p "\\[idle\\]" content))
+        ;; Running ones should be marked
+        (should (string-match-p "running" content))))))
+
+(ert-deftest ogent-gastown-status-test-insert-polecat-section-empty ()
+  "Test polecat section plain rendering with no data."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--polecat-data nil))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Polecats" content))
+        (should (string-match-p "No polecats" content))))))
+
+(ert-deftest ogent-gastown-status-test-insert-polecat-section-nil-values ()
+  "Test polecat section handles nil values gracefully."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name nil :rig nil :state nil :session_running nil))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        ;; Should not error, should show placeholder
+        (should (string-match-p "\\?\\?\\?" content))
+        (should (string-match-p "unknown" content))))))
+
+;;; Grouping Tests
+
+(ert-deftest ogent-gastown-status-test-crew-grouped-by-rig ()
+  "Test that crew members are grouped by rig."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--crew-data ogent-gastown-test--sample-crew))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        ;; Both ogent crew should be together
+        (let ((ogent-pos (string-match "ogent/stallman" content))
+              (wolf-pos (string-match "ogent/wolf" content))
+              (beads-pos (string-match "beads/alpha" content)))
+          ;; stallman and wolf are both in ogent, should be near each other
+          (should ogent-pos)
+          (should wolf-pos)
+          (should beads-pos))))))
+
+(ert-deftest ogent-gastown-status-test-polecat-grouped-by-rig ()
+  "Test that polecats are grouped by rig."
+  (ogent-gastown-status-test-with-buffer
+    (let ((ogent-gastown--polecat-data ogent-gastown-test--sample-polecats))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        ;; Should have rig groupings
+        (should (string-match-p "ogent/alpha" content))
+        (should (string-match-p "ogent/beta" content))
+        (should (string-match-p "beads/gamma" content))))))
+
+;;; Count Tests
+
+(ert-deftest ogent-gastown-status-test-crew-active-count ()
+  "Test crew active count calculation."
+  (let ((crew ogent-gastown-test--sample-crew)
+        (active-count 0))
+    (dolist (member crew)
+      (when (plist-get member :session_running)
+        (cl-incf active-count)))
+    ;; Sample data has 2 active: stallman and beads/alpha
+    (should (equal 2 active-count))))
+
+(ert-deftest ogent-gastown-status-test-polecat-running-count ()
+  "Test polecat running count calculation."
+  (let ((polecats ogent-gastown-test--sample-polecats)
+        (running-count 0))
+    (dolist (p polecats)
+      (when (plist-get p :session_running)
+        (cl-incf running-count)))
+    ;; Sample data has 2 running: alpha and gamma
+    (should (equal 2 running-count))))
+
 (provide 'ogent-gastown-tests)
 
 ;;; ogent-gastown-tests.el ends here
