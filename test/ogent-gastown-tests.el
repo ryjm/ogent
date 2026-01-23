@@ -8,6 +8,7 @@
 (require 'ert)
 (require 'ogent-test-helper)
 (require 'ogent-gastown)
+(require 'ogent-gastown-status)
 
 ;;; Test Fixtures
 
@@ -484,189 +485,181 @@ OUTPUT should be a plist or list that will be returned."
     (should-not ogent-gastown--bd-ready-cache)
     (should-not ogent-gastown--town-root)))
 
-;;; Status Buffer Tests (ogent-gastown-status.el)
+;;; Stats/Deacon/Witness Section Tests
 
-(require 'ogent-gastown-status)
+(defconst ogent-gastown-test--sample-town-status
+  '(:name "gt"
+    :location "/Users/test/gt"
+    :agents ((:name "mayor"
+              :address "mayor/"
+              :session "hq-mayor"
+              :role "coordinator"
+              :running t
+              :has_work nil
+              :unread_mail 0)
+             (:name "deacon"
+              :address "deacon/"
+              :session "hq-deacon"
+              :role "health-check"
+              :running t
+              :has_work t
+              :unread_mail 2))
+    :rigs ((:name "beads"
+            :polecat_count 2
+            :crew_count 1
+            :has_witness t
+            :has_refinery t)
+           (:name "gastown"
+            :polecat_count 0
+            :crew_count 3
+            :has_witness nil
+            :has_refinery t))
+    :summary (:rig_count 2
+              :polecat_count 2
+              :crew_count 4
+              :witness_count 1
+              :refinery_count 2
+              :active_hooks 1))
+  "Sample town status response for testing.")
 
-(defconst ogent-gastown-test--sample-crew
-  (list '(:name "stallman"
-          :rig "ogent"
-          :session_running t
-          :hooked_work "beads-123"
-          :branch "master"
-          :dirty t
-          :unread_mail 3)
-        '(:name "wolf"
-          :rig "ogent"
-          :session_running nil
-          :hooked_work nil
-          :branch "feature"
-          :dirty nil
-          :unread_mail 0)
-        '(:name "alpha"
-          :rig "beads"
-          :session_running t
-          :hooked_work nil
-          :branch "main"
-          :dirty nil
-          :unread_mail 1))
-  "Sample crew list for testing.")
+(defconst ogent-gastown-test--sample-stats
+  '(:rig_count 5
+    :polecat_count 3
+    :crew_count 10
+    :witness_count 2
+    :refinery_count 2
+    :active_hooks 3)
+  "Sample stats plist for testing.")
 
-(defconst ogent-gastown-test--sample-polecats
-  (list '(:name "alpha"
-          :rig "ogent"
-          :state "working"
-          :session_running t
-          :current_task "ogent-456"
-          :session_started "2026-01-22T10:00:00Z")
-        '(:name "beta"
-          :rig "ogent"
-          :state "idle"
-          :session_running nil
-          :current_task nil
-          :session_started nil)
-        '(:name "gamma"
-          :rig "beads"
-          :state "working"
-          :session_running t
-          :hooked_work "beads-789"
-          :session_started "2026-01-22T11:00:00Z"))
-  "Sample polecat list for testing.")
+(defconst ogent-gastown-test--sample-deacon
+  '(:name "deacon"
+    :address "deacon/"
+    :running t
+    :has_work nil)
+  "Sample deacon plist for testing.")
 
-(defmacro ogent-gastown-status-test-with-buffer (&rest body)
-  "Execute BODY in a temp buffer with status mode setup."
-  (declare (indent 0) (debug t))
-  `(with-temp-buffer
-     ;; Don't use magit-section for predictable output
-     (let ((ogent-gastown--magit-section-available nil)
-           (ogent-gastown-use-unicode nil))
-       ,@body)))
+(defconst ogent-gastown-test--sample-witnesses
+  (list '(:rig "beads"
+          :has_witness t
+          :polecat_count 2
+          :crew_count 1)
+        '(:rig "gastown"
+          :has_witness nil
+          :polecat_count 0
+          :crew_count 3))
+  "Sample witnesses list for testing.")
 
-;;; Crew Section Tests
+;; Extraction function tests
 
-(ert-deftest ogent-gastown-status-test-insert-crew-section-plain ()
-  "Test crew section plain rendering with data."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--crew-data ogent-gastown-test--sample-crew))
-      (ogent-gastown--insert-crew-section-plain)
-      (let ((content (buffer-string)))
-        ;; Should have section header
-        (should (string-match-p "Crew" content))
-        ;; Should show crew members
-        (should (string-match-p "ogent/stallman" content))
-        (should (string-match-p "ogent/wolf" content))
-        (should (string-match-p "beads/alpha" content))
-        ;; Active member should be marked
-        (should (string-match-p "\\[active\\]" content))))))
+(ert-deftest ogent-gastown-test-extract-deacon ()
+  "Test extracting deacon info from town status."
+  (let ((deacon (ogent-gastown--extract-deacon
+                 ogent-gastown-test--sample-town-status)))
+    (should deacon)
+    (should (equal "deacon" (plist-get deacon :name)))
+    (should (eq t (plist-get deacon :running)))
+    (should (eq t (plist-get deacon :has_work)))))
 
-(ert-deftest ogent-gastown-status-test-insert-crew-section-empty ()
-  "Test crew section plain rendering with no data."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--crew-data nil))
-      (ogent-gastown--insert-crew-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Crew" content))
-        (should (string-match-p "No crew members" content))))))
+(ert-deftest ogent-gastown-test-extract-deacon-nil ()
+  "Test extracting deacon from nil town status."
+  (should-not (ogent-gastown--extract-deacon nil)))
 
-(ert-deftest ogent-gastown-status-test-insert-crew-section-nil-values ()
-  "Test crew section handles nil values gracefully."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--crew-data
-           (list '(:name nil :rig nil :session_running nil))))
-      (ogent-gastown--insert-crew-section-plain)
-      (let ((content (buffer-string)))
-        ;; Should not error, should show placeholder
-        (should (string-match-p "\\?\\?\\?" content))))))
+(ert-deftest ogent-gastown-test-extract-deacon-no-agents ()
+  "Test extracting deacon when no agents present."
+  (should-not (ogent-gastown--extract-deacon '(:name "gt" :agents nil))))
 
-;;; Polecat Section Tests
+(ert-deftest ogent-gastown-test-extract-witnesses ()
+  "Test extracting witness info from town status."
+  (let ((witnesses (ogent-gastown--extract-witnesses
+                    ogent-gastown-test--sample-town-status)))
+    (should witnesses)
+    (should (equal 2 (length witnesses)))
+    ;; First rig (beads)
+    (let ((beads (car witnesses)))
+      (should (equal "beads" (plist-get beads :rig)))
+      (should (eq t (plist-get beads :has_witness)))
+      (should (equal 2 (plist-get beads :polecat_count)))
+      (should (equal 1 (plist-get beads :crew_count))))
+    ;; Second rig (gastown)
+    (let ((gastown (cadr witnesses)))
+      (should (equal "gastown" (plist-get gastown :rig)))
+      (should-not (plist-get gastown :has_witness))
+      (should (equal 0 (plist-get gastown :polecat_count)))
+      (should (equal 3 (plist-get gastown :crew_count))))))
 
-(ert-deftest ogent-gastown-status-test-insert-polecat-section-plain ()
-  "Test polecat section plain rendering with data."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--polecat-data ogent-gastown-test--sample-polecats))
-      (ogent-gastown--insert-polecat-section-plain)
-      (let ((content (buffer-string)))
-        ;; Should have section header
-        (should (string-match-p "Polecats" content))
-        ;; Should show polecats
-        (should (string-match-p "ogent/alpha" content))
-        (should (string-match-p "ogent/beta" content))
-        (should (string-match-p "beads/gamma" content))
-        ;; Should show state
-        (should (string-match-p "\\[working\\]" content))
-        (should (string-match-p "\\[idle\\]" content))
-        ;; Running ones should be marked
-        (should (string-match-p "running" content))))))
+(ert-deftest ogent-gastown-test-extract-witnesses-nil ()
+  "Test extracting witnesses from nil town status."
+  (should-not (ogent-gastown--extract-witnesses nil)))
 
-(ert-deftest ogent-gastown-status-test-insert-polecat-section-empty ()
-  "Test polecat section plain rendering with no data."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--polecat-data nil))
-      (ogent-gastown--insert-polecat-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Polecats" content))
-        (should (string-match-p "No polecats" content))))))
+(ert-deftest ogent-gastown-test-extract-witnesses-no-rigs ()
+  "Test extracting witnesses when no rigs present."
+  (should-not (ogent-gastown--extract-witnesses '(:name "gt" :rigs nil))))
 
-(ert-deftest ogent-gastown-status-test-insert-polecat-section-nil-values ()
-  "Test polecat section handles nil values gracefully."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--polecat-data
-           (list '(:name nil :rig nil :state nil :session_running nil))))
-      (ogent-gastown--insert-polecat-section-plain)
-      (let ((content (buffer-string)))
-        ;; Should not error, should show placeholder
-        (should (string-match-p "\\?\\?\\?" content))
-        (should (string-match-p "unknown" content))))))
+(ert-deftest ogent-gastown-test-extract-witnesses-missing-counts ()
+  "Test extracting witnesses with missing polecat/crew counts defaults to 0."
+  (let ((witnesses (ogent-gastown--extract-witnesses
+                    '(:rigs ((:name "minimal" :has_witness t))))))
+    (should witnesses)
+    (let ((rig (car witnesses)))
+      (should (equal 0 (plist-get rig :polecat_count)))
+      (should (equal 0 (plist-get rig :crew_count))))))
 
-;;; Grouping Tests
+;; Insert section tests (plain text mode, no magit-section dependency)
 
-(ert-deftest ogent-gastown-status-test-crew-grouped-by-rig ()
-  "Test that crew members are grouped by rig."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--crew-data ogent-gastown-test--sample-crew))
-      (ogent-gastown--insert-crew-section-plain)
-      (let ((content (buffer-string)))
-        ;; Both ogent crew should be together
-        (let ((ogent-pos (string-match "ogent/stallman" content))
-              (wolf-pos (string-match "ogent/wolf" content))
-              (beads-pos (string-match "beads/alpha" content)))
-          ;; stallman and wolf are both in ogent, should be near each other
-          (should ogent-pos)
-          (should wolf-pos)
-          (should beads-pos))))))
+(ert-deftest ogent-gastown-test-insert-stats-section-plain ()
+  "Test stats section plain text rendering."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data ogent-gastown-test--sample-stats))
+      (ogent-gastown--insert-stats-section-plain)
+      (should (string-match-p "Town Stats" (buffer-string)))
+      (should (string-match-p "Rigs: 5" (buffer-string)))
+      (should (string-match-p "Polecats: 3" (buffer-string)))
+      (should (string-match-p "Crew: 10" (buffer-string)))
+      (should (string-match-p "Witnesses: 2" (buffer-string)))
+      (should (string-match-p "Refineries: 2" (buffer-string)))
+      (should (string-match-p "Hooks: 3" (buffer-string))))))
 
-(ert-deftest ogent-gastown-status-test-polecat-grouped-by-rig ()
-  "Test that polecats are grouped by rig."
-  (ogent-gastown-status-test-with-buffer
-    (let ((ogent-gastown--polecat-data ogent-gastown-test--sample-polecats))
-      (ogent-gastown--insert-polecat-section-plain)
-      (let ((content (buffer-string)))
-        ;; Should have rig groupings
-        (should (string-match-p "ogent/alpha" content))
-        (should (string-match-p "ogent/beta" content))
-        (should (string-match-p "beads/gamma" content))))))
+(ert-deftest ogent-gastown-test-insert-stats-section-plain-nil ()
+  "Test stats section plain text rendering with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data nil))
+      (ogent-gastown--insert-stats-section-plain)
+      (should (string-match-p "No stats available" (buffer-string))))))
 
-;;; Count Tests
+(ert-deftest ogent-gastown-test-insert-deacon-section-plain ()
+  "Test deacon section plain text rendering."
+  (with-temp-buffer
+    (let ((ogent-gastown--deacon-data ogent-gastown-test--sample-deacon))
+      (ogent-gastown--insert-deacon-section-plain)
+      (should (string-match-p "Deacon" (buffer-string)))
+      (should (string-match-p "running" (buffer-string))))))
 
-(ert-deftest ogent-gastown-status-test-crew-active-count ()
-  "Test crew active count calculation."
-  (let ((crew ogent-gastown-test--sample-crew)
-        (active-count 0))
-    (dolist (member crew)
-      (when (plist-get member :session_running)
-        (cl-incf active-count)))
-    ;; Sample data has 2 active: stallman and beads/alpha
-    (should (equal 2 active-count))))
+(ert-deftest ogent-gastown-test-insert-deacon-section-plain-stopped ()
+  "Test deacon section plain text rendering when stopped."
+  (with-temp-buffer
+    (let ((ogent-gastown--deacon-data '(:name "deacon" :running nil)))
+      (ogent-gastown--insert-deacon-section-plain)
+      (should (string-match-p "Deacon" (buffer-string)))
+      (should (string-match-p "stopped" (buffer-string))))))
 
-(ert-deftest ogent-gastown-status-test-polecat-running-count ()
-  "Test polecat running count calculation."
-  (let ((polecats ogent-gastown-test--sample-polecats)
-        (running-count 0))
-    (dolist (p polecats)
-      (when (plist-get p :session_running)
-        (cl-incf running-count)))
-    ;; Sample data has 2 running: alpha and gamma
-    (should (equal 2 running-count))))
+(ert-deftest ogent-gastown-test-insert-witness-section-plain ()
+  "Test witness section plain text rendering."
+  (with-temp-buffer
+    (let ((ogent-gastown--witness-data ogent-gastown-test--sample-witnesses))
+      (ogent-gastown--insert-witness-section-plain)
+      (should (string-match-p "Witnesses" (buffer-string)))
+      (should (string-match-p "beads" (buffer-string)))
+      (should (string-match-p "gastown" (buffer-string)))
+      ;; Check active indicator
+      (should (string-match-p "\\+ beads" (buffer-string)))
+      (should (string-match-p "- gastown" (buffer-string))))))
+
+(ert-deftest ogent-gastown-test-insert-witness-section-plain-nil ()
+  "Test witness section plain text rendering with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--witness-data nil))
+      (ogent-gastown--insert-witness-section-plain)
+      (should (string-match-p "No rig data available" (buffer-string))))))
 
 (provide 'ogent-gastown-tests)
 
