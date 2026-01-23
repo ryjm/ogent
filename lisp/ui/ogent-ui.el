@@ -988,8 +988,10 @@ Shows model, context info, and pinned count with icons."
   "Description for quit with icon."
   (concat (ogent-theme-icon 'cancel 'ogent-theme-muted) " Quit"))
 
-(defun ogent--suffix-send-action ()
+(transient-define-suffix ogent--suffix-send-action ()
   "Send prompt to LLM with visual feedback."
+  :key "RET"
+  :description #'ogent--desc-send
   (interactive)
   (let ((prompt (ogent--get-effective-prompt)))
     (setq ogent--transient-prompt nil)
@@ -1012,7 +1014,7 @@ A polished interface for AI-assisted workflows.
 				       [:description
 					(lambda () (concat (ogent-theme-icon 'send) " Send"))
 					:class transient-column
-					("RET" ogent--suffix-send-action :description ogent--desc-send)
+					(ogent--suffix-send-action)
 					("?" ogent-ask :description ogent--desc-quick-ask)]
 				       [:description
 					(lambda () (concat (ogent-theme-icon 'model) " Model"))

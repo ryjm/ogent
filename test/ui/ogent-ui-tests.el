@@ -1567,5 +1567,28 @@
                                   ;; May be rejected - that's fine
                                   (should (stringp (error-message-string err)))))))))
 
+;;; Transient Suffix Definition Tests
+
+(ert-deftest ogent-ui-suffix-send-action-is-transient-suffix ()
+  "Test that ogent--suffix-send-action is properly defined as a transient suffix.
+Regression test: plain defun with inline shorthand caused macro expansion error."
+  ;; The suffix should have transient metadata attached
+  (let ((suffix-obj (get 'ogent--suffix-send-action 'transient--suffix)))
+    (should suffix-obj)
+    ;; Should be a transient-suffix object
+    (should (cl-typep suffix-obj 'transient-suffix))
+    ;; Should have the correct key binding
+    (should (equal (oref suffix-obj key) "RET"))
+    ;; Should have a description (function reference)
+    (should (oref suffix-obj description))))
+
+(ert-deftest ogent-ui-prompt-dispatch-loads-without-error ()
+  "Test that ogent-prompt-dispatch transient prefix loads without macro errors.
+Regression test: inline suffix shorthand with plain defun caused 'Need keyword' error."
+  ;; Simply loading the transient should not error
+  (should (fboundp 'ogent-prompt-dispatch))
+  ;; The prefix should be defined as a transient command
+  (should (get 'ogent-prompt-dispatch 'transient--prefix)))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
