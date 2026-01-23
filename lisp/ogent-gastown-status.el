@@ -1529,21 +1529,96 @@ Other:
       (let ((cmd (format "%s mail read %s" ogent-gastown-gt-executable mail-id)))
         (async-shell-command cmd "*gt mail*")))))
 
-(defun ogent-gastown-mail-compose ()
-  "Compose a new mail message."
-  (interactive)
-  (let* ((to (read-string "To: "))
+(defun ogent-gastown--get-mail-recipients ()
+  "Get list of available mail recipients for completion.
+Builds list from:
+- Fixed addresses: mayor/, deacon/
+- Crew members (rig/crew/name format)
+- Polecats (rig/polecats/name format)
+- Witnesses (rig/witness/)
+- Refineries (rig/refinery/)"
+  (let ((recipients (list "mayor/" "deacon/")))
+    ;; Add crew members
+    (dolist (member ogent-gastown--crew-data)
+      (let ((rig (plist-get member :rig))
+            (name (plist-get member :name)))
+        (when (and rig name)
+          (push (format "%s/crew/%s" rig name) recipients))))
+    ;; Add polecats
+    (dolist (polecat ogent-gastown--polecat-data)
+      (let ((rig (plist-get polecat :rig))
+            (name (plist-get polecat :name)))
+        (when (and rig name)
+          (push (format "%s/polecats/%s" rig name) recipients))))
+    ;; Add witnesses and refineries from witness data (has rig info)
+    (dolist (witness ogent-gastown--witness-data)
+      (let ((rig (plist-get witness :rig)))
+        (when rig
+          (when (plist-get witness :has_witness)
+            (push (format "%s/witness/" rig) recipients))
+          ;; Add refinery for each rig (assume exists if rig exists)
+          (push (format "%s/refinery/" rig) recipients))))
+    ;; Remove duplicates and sort
+    (sort (delete-dups recipients) #'string<)))
+
+(defun ogent-gastown--recipient-at-point ()
+  "Get mail recipient address for item at point, or nil."
+  (when ogent-gastown--magit-section-available
+    (let ((section (magit-current-section)))
+      (when section
+        (let ((class (eieio-object-class-name section))
+              (value (and (slot-boundp section 'value)
+                          (oref section value))))
+          (cond
+           ;; Crew member
+           ((eq class 'ogent-gastown-crew-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/crew/%s" rig name))))
+           ;; Polecat
+           ((eq class 'ogent-gastown-polecat-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/polecats/%s" rig name))))
+           ;; Witness item
+           ((eq class 'ogent-gastown-witness-item-section)
+            (let ((rig (plist-get value :rig)))
+              (when rig
+                (format "%s/witness/" rig))))
+           (t nil)))))))
+
+(defun ogent-gastown-mail-compose (&optional initial-recipient)
+  "Compose a new mail message.
+With INITIAL-RECIPIENT, pre-fill the To field.
+When called interactively with point on a crew/polecat item,
+pre-fills that recipient."
+  (interactive (list (ogent-gastown--recipient-at-point)))
+  (let* ((recipients (ogent-gastown--get-mail-recipients))
+         (to (completing-read "To: " recipients nil nil initial-recipient))
          (subject (read-string "Subject: "))
          (body (read-string "Message: ")))
-    (ogent-gastown--run-async
-     (list "mail" "send" to "-s" subject "-m" body)
-     (lambda (_result)
-       (message "Mail sent to %s" to)
-       (ogent-gastown-cache-invalidate)
-       (ogent-gastown-refresh))
-     (lambda (err)
-       (message "Failed to send mail: %s" err))
-     t)))
+    (when (and to (not (string-empty-p to)))
+      (ogent-gastown--run-async
+       (list "mail" "send" to "-s" subject "-m" body)
+       (lambda (_result)
+         (message "Mail sent to %s" to)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       (lambda (err)
+         (message "Failed to send mail: %s" err))
+       t))))
+
+(defun ogent-gastown-mail-to-mayor ()
+  "Quick send mail to mayor."
+  (interactive)
+  (ogent-gastown-mail-compose "mayor/"))
+
+(defun ogent-gastown-mail-to-deacon ()
+  "Quick send mail to deacon."
+  (interactive)
+  (ogent-gastown-mail-compose "deacon/"))
 
 (defun ogent-gastown-hook-show ()
   "Show hook details."
