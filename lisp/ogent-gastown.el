@@ -24,6 +24,62 @@
 (require 'seq)
 (require 'transient)
 
+;; Load faces from gastown-status
+(require 'ogent-gastown-status)
+
+;;; Additional Faces (supplement ogent-gastown-status faces)
+
+(defface ogent-gastown-id
+  '((((class color) (background light)) :foreground "#546e7a")
+    (((class color) (background dark)) :foreground "#81a1c1")
+    (t :inherit font-lock-comment-face))
+  "Face for IDs (mail IDs, issue IDs, etc.)."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-title
+  '((((class color) (background light)) :foreground "#37474f")
+    (((class color) (background dark)) :foreground "#d8dee9")
+    (t :inherit default))
+  "Face for titles and descriptions."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-priority
+  '((((class color) (background light)) :foreground "#d84315" :weight bold)
+    (((class color) (background dark)) :foreground "#d08770" :weight bold)
+    (t :weight bold))
+  "Face for priority indicators."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-type
+  '((((class color) (background light))
+     :foreground "#455a64" :box (:line-width -1 :color "#90a4ae"))
+    (((class color) (background dark))
+     :foreground "#81a1c1" :box (:line-width -1 :color "#4c566a"))
+    (t :inherit font-lock-type-face))
+  "Face for type badges."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-transient-title
+  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold))
+  "Face for transient menu titles."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-connected
+  '((((class color) (background light)) :foreground "#2e7d32")
+    (((class color) (background dark)) :foreground "#a3be8c")
+    (t :inherit success))
+  "Face for connected/active status indicators."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-disconnected
+  '((((class color) (background light)) :foreground "#78909c")
+    (((class color) (background dark)) :foreground "#4c566a")
+    (t :inherit shadow))
+  "Face for disconnected/inactive status indicators."
+  :group 'ogent-gastown-faces)
+
 ;; Autoload tmux integration
 (autoload 'ogent-gastown-tmux-list-sessions "ogent-gastown-tmux" nil t)
 (autoload 'ogent-gastown-tmux-dispatch "ogent-gastown-tmux" nil t)
@@ -357,7 +413,7 @@ This syncs beads and submits to the merge queue."
                   (title (plist-get hook :title)))
               (propertize
                (format " [⚓ %s]" (or id "hooked"))
-               'face 'success
+               'face 'ogent-gastown-hook-active
                'help-echo (or title "Hooked work")))
           "")))
 
@@ -370,22 +426,22 @@ This syncs beads and submits to the merge queue."
              (title (plist-get hook :title))
              (mail-count (ogent-gastown-mail-unread-count)))
         (concat
-         (propertize "Gas Town" 'face 'bold)
+         (propertize "Gas Town" 'face 'ogent-gastown-section-heading)
          " | "
-         (propertize "⚓ " 'face 'success)
-         (propertize (or id "hooked") 'face 'font-lock-constant-face)
+         (propertize "⚓ " 'face 'ogent-gastown-hook-active)
+         (propertize (or id "hooked") 'face 'ogent-gastown-id)
          " "
          (when title
            (propertize (truncate-string-to-width title 30 nil nil "…")
-                       'face 'font-lock-doc-face))
+                       'face 'ogent-gastown-title))
          (when (> mail-count 0)
            (concat " | "
                    (propertize (format "📬 %d" mail-count)
-                               'face 'warning)))))
+                               'face 'ogent-gastown-mail-unread)))))
     (concat
-     (propertize "Gas Town" 'face 'bold)
+     (propertize "Gas Town" 'face 'ogent-gastown-section-heading)
      " | "
-     (propertize "no hook" 'face 'shadow))))
+     (propertize "no hook" 'face 'ogent-gastown-hook-empty))))
 
 ;;; Polling Timer
 
@@ -421,7 +477,7 @@ This syncs beads and submits to the merge queue."
         (with-current-buffer buf
           (let ((inhibit-read-only t))
             (erase-buffer)
-            (insert (propertize "Hooked Work\n" 'face 'bold))
+            (insert (propertize "Hooked Work\n" 'face 'ogent-gastown-section-heading))
             (insert (make-string 40 ?=) "\n\n")
             (insert (format "ID: %s\n" (plist-get hook :id)))
             (insert (format "Title: %s\n" (plist-get hook :title)))
@@ -445,7 +501,7 @@ This syncs beads and submits to the merge queue."
        (with-current-buffer buf
          (let ((inhibit-read-only t))
            (erase-buffer)
-           (insert (propertize "Mail Inbox\n" 'face 'bold))
+           (insert (propertize "Mail Inbox\n" 'face 'ogent-gastown-section-heading))
            (insert (make-string 40 ?=) "\n\n")
            (if (null mail)
                (insert "No messages.\n")
@@ -455,9 +511,9 @@ This syncs beads and submits to the merge queue."
                      (subject (plist-get m :subject))
                      (read (plist-get m :read)))
                  (insert (if read "  " "● "))
-                 (insert (propertize (or id "?") 'face 'font-lock-constant-face))
+                 (insert (propertize (or id "?") 'face 'ogent-gastown-id))
                  (insert " ")
-                 (insert (propertize (or from "unknown") 'face 'font-lock-keyword-face))
+                 (insert (propertize (or from "unknown") 'face 'ogent-gastown-mail-from))
                  (insert ": ")
                  (insert (or subject "(no subject)"))
                  (insert "\n"))))
@@ -487,7 +543,7 @@ This syncs beads and submits to the merge queue."
        (with-current-buffer buf
          (let ((inhibit-read-only t))
            (erase-buffer)
-           (insert (propertize "Active Convoys\n" 'face 'bold))
+           (insert (propertize "Active Convoys\n" 'face 'ogent-gastown-section-heading))
            (insert (make-string 40 ?=) "\n\n")
            (if (null convoys)
                (insert "No active convoys.\n")
@@ -496,9 +552,9 @@ This syncs beads and submits to the merge queue."
                      (name (plist-get c :name))
                      (status (plist-get c :status))
                      (progress (plist-get c :progress)))
-                 (insert (propertize (or id "?") 'face 'font-lock-constant-face))
+                 (insert (propertize (or id "?") 'face 'ogent-gastown-id))
                  (insert " ")
-                 (insert (propertize (or name "unnamed") 'face 'bold))
+                 (insert (propertize (or name "unnamed") 'face 'ogent-gastown-convoy-active))
                  (insert " [")
                  (insert (or status "unknown"))
                  (insert "]")
@@ -742,7 +798,7 @@ If CALLBACK is provided, call it with the issues list when done."
        (with-current-buffer buf
          (let ((inhibit-read-only t))
            (erase-buffer)
-           (insert (propertize "Ready Work\n" 'face 'bold))
+           (insert (propertize "Ready Work\n" 'face 'ogent-gastown-section-heading))
            (insert (make-string 50 ?=) "\n\n")
            (if (null issues)
                (insert "No ready issues.\n")
@@ -752,13 +808,13 @@ If CALLBACK is provided, call it with the issues list when done."
                      (priority (plist-get issue :priority))
                      (type (plist-get issue :issue_type)))
                  (insert (propertize (format "[P%s]" (or priority "?"))
-                                     'face 'font-lock-warning-face))
+                                     'face 'ogent-gastown-priority))
                  (insert " ")
-                 (insert (propertize (or id "?") 'face 'font-lock-constant-face))
+                 (insert (propertize (or id "?") 'face 'ogent-gastown-id))
                  (insert " ")
                  (when type
                    (insert (propertize (format "[%s]" type)
-                                       'face 'font-lock-type-face))
+                                       'face 'ogent-gastown-type))
                    (insert " "))
                  (insert (or title "(no title)"))
                  (insert "\n"))))
@@ -778,7 +834,7 @@ If CALLBACK is provided, call it with the issues list when done."
          (let ((inhibit-read-only t))
            (erase-buffer)
            (insert (propertize (format "%s\n" (or (plist-get issue :title) id))
-                               'face 'bold))
+                               'face 'ogent-gastown-section-heading))
            (insert (make-string 50 ?=) "\n\n")
            (insert (format "ID: %s\n" (plist-get issue :id)))
            (insert (format "Status: %s\n" (plist-get issue :status)))
@@ -890,10 +946,10 @@ If CALLBACK is provided, call it with the issues list when done."
   [:description
    (lambda ()
      (concat
-      (propertize "Gas Town" 'face 'transient-heading)
+      (propertize "Gas Town" 'face 'ogent-gastown-transient-title)
       (if (ogent-gastown-in-town-p)
-          (concat " " (propertize "● connected" 'face 'success))
-        (concat " " (propertize "○ not in town" 'face 'shadow)))))
+          (concat " " (propertize "● connected" 'face 'ogent-gastown-connected))
+        (concat " " (propertize "○ not in town" 'face 'ogent-gastown-disconnected)))))
 
    ["Hook"
     ("h" "Show hook" ogent-gastown-show-hook)
