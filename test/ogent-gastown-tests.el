@@ -39,6 +39,39 @@
           :progress 75))
   "Sample convoy list for testing.")
 
+(defconst ogent-gastown-test--sample-rigs
+  (list '(:name "ogent"
+          :polecat_count 2
+          :crew_count 3
+          :has_witness t
+          :has_refinery t
+          :agents ((:name "witness"
+                    :role "witness"
+                    :running t
+                    :has_work nil
+                    :unread_mail 0)
+                   (:name "refinery"
+                    :role "refinery"
+                    :running nil
+                    :has_work nil
+                    :unread_mail 0)
+                   (:name "ritchie"
+                    :role "crew"
+                    :running t
+                    :has_work t
+                    :unread_mail 2)))
+        '(:name "beads"
+          :polecat_count 0
+          :crew_count 1
+          :has_witness nil
+          :has_refinery nil
+          :agents ((:name "knuth"
+                    :role "crew"
+                    :running nil
+                    :has_work nil
+                    :unread_mail 0))))
+  "Sample rigs list for testing.")
+
 ;;; Mocking Utilities
 
 (defvar ogent-gastown-test--mock-output nil
@@ -660,6 +693,137 @@ OUTPUT should be a plist or list that will be returned."
     (let ((ogent-gastown--witness-data nil))
       (ogent-gastown--insert-witness-section-plain)
       (should (string-match-p "No rig data available" (buffer-string))))))
+
+;;; Rigs Section Tests (ogent-gastown-status.el)
+
+(ert-deftest ogent-gastown-test-insert-rigs-section-plain ()
+  "Test rigs section insertion (plain mode)."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data ogent-gastown-test--sample-rigs))
+      (ogent-gastown--insert-rigs-section-plain)
+      (goto-char (point-min))
+      ;; Check section heading
+      (should (search-forward "Rigs" nil t))
+      ;; Check rig names appear
+      (goto-char (point-min))
+      (should (search-forward "ogent" nil t))
+      (should (search-forward "beads" nil t))
+      ;; Check counts appear
+      (goto-char (point-min))
+      (should (search-forward "P:2 C:3" nil t)))))
+
+(ert-deftest ogent-gastown-test-insert-rigs-section-empty ()
+  "Test rigs section with no rigs."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data nil))
+      (ogent-gastown--insert-rigs-section-plain)
+      (goto-char (point-min))
+      (should (search-forward "Rigs" nil t))
+      (should (search-forward "No rigs configured" nil t)))))
+
+(ert-deftest ogent-gastown-test-insert-rig-agent ()
+  "Test rig agent line insertion."
+  (with-temp-buffer
+    (let ((agent '(:name "ritchie"
+                   :role "crew"
+                   :running t
+                   :has_work t
+                   :unread_mail 2))
+          (ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent agent)
+      (goto-char (point-min))
+      ;; Check agent name appears
+      (should (search-forward "ritchie" nil t))
+      ;; Check role icon (C for crew)
+      (goto-char (point-min))
+      (should (search-forward "C" nil t)))))
+
+(ert-deftest ogent-gastown-test-insert-rig-agent-with-hook ()
+  "Test rig agent with hooked work shows hook indicator."
+  (with-temp-buffer
+    (let ((agent '(:name "worker"
+                   :role "polecat"
+                   :running t
+                   :has_work t
+                   :unread_mail 0))
+          (ogent-gastown-use-unicode t))
+      (ogent-gastown--insert-rig-agent agent)
+      (goto-char (point-min))
+      ;; Check hook indicator appears
+      (should (search-forward "⚓" nil t)))))
+
+(ert-deftest ogent-gastown-test-insert-rig-agent-with-mail ()
+  "Test rig agent with unread mail shows mail indicator."
+  (with-temp-buffer
+    (let ((agent '(:name "worker"
+                   :role "crew"
+                   :running nil
+                   :has_work nil
+                   :unread_mail 5))
+          (ogent-gastown-use-unicode t))
+      (ogent-gastown--insert-rig-agent agent)
+      (goto-char (point-min))
+      ;; Check mail indicator appears
+      (should (search-forward "📬5" nil t)))))
+
+(ert-deftest ogent-gastown-test-insert-rig-agent-no-mail ()
+  "Test rig agent with no unread mail does not show mail indicator."
+  (with-temp-buffer
+    (let ((agent '(:name "worker"
+                   :role "crew"
+                   :running nil
+                   :has_work nil
+                   :unread_mail 0))
+          (ogent-gastown-use-unicode t))
+      (ogent-gastown--insert-rig-agent agent)
+      (let ((content (buffer-string)))
+        ;; Should NOT have mail indicator
+        (should-not (string-match-p "📬" content))))))
+
+(ert-deftest ogent-gastown-test-rig-agent-role-icons ()
+  "Test that different roles get different icons."
+  ;; Test witness
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent '(:name "w" :role "witness" :running nil :has_work nil :unread_mail 0))
+      (goto-char (point-min))
+      (should (search-forward "W" nil t))))
+  ;; Test refinery
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent '(:name "r" :role "refinery" :running nil :has_work nil :unread_mail 0))
+      (goto-char (point-min))
+      (should (search-forward "R" nil t))))
+  ;; Test polecat
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent '(:name "p" :role "polecat" :running nil :has_work nil :unread_mail 0))
+      (goto-char (point-min))
+      (should (search-forward "P" nil t))))
+  ;; Test crew
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent '(:name "c" :role "crew" :running nil :has_work nil :unread_mail 0))
+      (goto-char (point-min))
+      (should (search-forward "C" nil t)))))
+
+(ert-deftest ogent-gastown-test-rigs-data-nil-values ()
+  "Test rigs rendering handles nil values gracefully."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "test-rig"
+                   :polecat_count nil
+                   :crew_count nil
+                   :has_witness nil
+                   :has_refinery nil
+                   :agents nil))))
+      (ogent-gastown--insert-rigs-section-plain)
+      ;; Should not error, should show rig name
+      (goto-char (point-min))
+      (should (search-forward "test-rig" nil t))
+      ;; Nil counts should show as 0
+      (goto-char (point-min))
+      (should (search-forward "P:0 C:0" nil t)))))
 
 (provide 'ogent-gastown-tests)
 
