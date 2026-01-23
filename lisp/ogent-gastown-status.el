@@ -172,6 +172,12 @@
 (defvar-local ogent-gastown--workers-data nil
   "Cached workers list data.")
 
+(defvar-local ogent-gastown--rigs-data nil
+  "Cached rig overview data from gt status.")
+
+(defvar-local ogent-gastown--refinery-data nil
+  "Cached refinery/merge-queue data per rig.")
+
 (defvar-local ogent-gastown--loading nil
   "Non-nil when a gt command is in progress.")
 
@@ -347,7 +353,19 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
       "Section for workers overview.")
 
     (defclass ogent-gastown-worker-section (magit-section) ()
-      "Section for a single worker.")))
+      "Section for a single worker.")
+
+    (defclass ogent-gastown-rigs-section (magit-section) ()
+      "Section for rig overview.")
+
+    (defclass ogent-gastown-rig-item-section (magit-section) ()
+      "Section for a single rig.")
+
+    (defclass ogent-gastown-refinery-section (magit-section) ()
+      "Section for refinery/merge-queue status.")
+
+    (defclass ogent-gastown-refinery-item-section (magit-section) ()
+      "Section for a single refinery status.")))
 
 ;;; Keymap
 
@@ -378,6 +396,13 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     ;; Convoy actions
     (define-key map "c" #'ogent-gastown-convoy-status)
     (define-key map "C" #'ogent-gastown-convoy-create)
+
+    ;; Rig actions
+    (define-key map "r" #'ogent-gastown-rig-status)
+    (define-key map "R" #'ogent-gastown-rig-boot)
+
+    ;; Refinery/MQ actions
+    (define-key map "f" #'ogent-gastown-refinery-status)
 
     ;; Quit
     (define-key map "q" #'quit-window)
@@ -508,7 +533,7 @@ Other:
 
 (defun ogent-gastown--fetch-all (callback)
   "Fetch all data for the status buffer, call CALLBACK when done."
-  (let ((pending 4)
+  (let ((pending 5)
         (results (make-hash-table))
         (buf (current-buffer)))
     (cl-flet ((check-done ()
@@ -520,6 +545,7 @@ Other:
                       (setq ogent-gastown--mail-data (gethash 'mail results))
                       (setq ogent-gastown--convoy-data (gethash 'convoy results))
                       (setq ogent-gastown--workers-data (gethash 'workers results))
+                      (setq ogent-gastown--rigs-data (gethash 'rigs results))
                       (funcall callback))))))
 
       ;; Fetch hook status
@@ -560,6 +586,16 @@ Other:
          (check-done))
        (lambda (_err)
          (puthash 'workers nil results)
+         (check-done)))
+
+      ;; Fetch rigs overview (includes refinery info)
+      (ogent-gastown--run-async
+       '("status" "--json" "--fast")
+       (lambda (result)
+         (puthash 'rigs (plist-get result :rigs) results)
+         (check-done))
+       (lambda (_err)
+         (puthash 'rigs nil results)
          (check-done))))))
 
 ;;; Buffer Rendering
@@ -577,6 +613,8 @@ Other:
     (insert "\n")
     (ogent-gastown--insert-mail-section)
     (insert "\n")
+    (ogent-gastown--insert-rigs-section)
+    (insert "\n")
     (ogent-gastown--insert-convoy-section)
     (insert "\n")
     (ogent-gastown--insert-workers-section)))
@@ -586,6 +624,8 @@ Other:
   (ogent-gastown--insert-hook-section-plain)
   (insert "\n")
   (ogent-gastown--insert-mail-section-plain)
+  (insert "\n")
+  (ogent-gastown--insert-rigs-section-plain)
   (insert "\n")
   (ogent-gastown--insert-convoy-section-plain)
   (insert "\n")
@@ -747,6 +787,130 @@ Other:
         (insert "  ")
         (insert (or (plist-get convoy :name) "(unnamed)"))
         (insert "\n")))))
+
+;;; Rigs Section
+
+(defface ogent-gastown-rig-name
+  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
+  "Face for rig names."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-rig-running
+  '((((class color) (background light)) :foreground "#2e7d32")
+    (((class color) (background dark)) :foreground "#a3be8c"))
+  "Face for running rig indicator."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-rig-stopped
+  '((((class color) (background light)) :foreground "#78909c")
+    (((class color) (background dark)) :foreground "#4c566a"))
+  "Face for stopped rig indicator."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-refinery-active
+  '((((class color) (background light)) :foreground "#6a1b9a" :weight bold)
+    (((class color) (background dark)) :foreground "#b48ead" :weight bold))
+  "Face for active refinery."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-refinery-idle
+  '((((class color) (background light)) :foreground "#78909c")
+    (((class color) (background dark)) :foreground "#4c566a"))
+  "Face for idle refinery."
+  :group 'ogent-gastown-faces)
+
+(defun ogent-gastown--insert-rigs-section ()
+  "Insert rigs overview section with magit-section."
+  (let ((rigs ogent-gastown--rigs-data))
+    (magit-insert-section (ogent-gastown-rigs-section rigs nil)
+      (magit-insert-heading
+        (concat
+         (if ogent-gastown-use-unicode "🏗" "#")
+         " "
+         (propertize "Rigs" 'face 'ogent-gastown-section-heading)
+         (propertize (format " (%d)" (length rigs))
+                     'face 'ogent-gastown-dimmed)))
+      (if (null rigs)
+          (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed))
+        (dolist (rig rigs)
+          (ogent-gastown--insert-rig-item rig))))))
+
+(defun ogent-gastown--insert-rig-item (rig)
+  "Insert a single RIG as a collapsible section."
+  (let* ((name (plist-get rig :name))
+         (polecat-count (or (plist-get rig :polecat_count) 0))
+         (crew-count (or (plist-get rig :crew_count) 0))
+         (has-witness (plist-get rig :has_witness))
+         (has-refinery (plist-get rig :has_refinery))
+         (agents (plist-get rig :agents))
+         (running-count (length (seq-filter
+                                 (lambda (a) (plist-get a :running))
+                                 agents))))
+    (magit-insert-section (ogent-gastown-rig-item-section rig t)
+      (magit-insert-heading
+        (concat
+         "  "
+         (propertize name 'face 'ogent-gastown-rig-name)
+         " "
+         (propertize (format "P:%d C:%d" polecat-count crew-count)
+                     'face 'ogent-gastown-dimmed)
+         " "
+         (if (> running-count 0)
+             (propertize (format "[%d running]" running-count)
+                         'face 'ogent-gastown-rig-running)
+           (propertize "[stopped]" 'face 'ogent-gastown-rig-stopped))
+         (when has-witness
+           (concat " " (propertize "W" 'face 'ogent-gastown-dimmed)))
+         (when has-refinery
+           (concat " " (propertize "R" 'face 'ogent-gastown-dimmed)))))
+      ;; Show agents when expanded
+      (when agents
+        (dolist (agent agents)
+          (ogent-gastown--insert-rig-agent agent))))))
+
+(defun ogent-gastown--insert-rig-agent (agent)
+  "Insert a single AGENT line within a rig section."
+  (let* ((name (plist-get agent :name))
+         (role (plist-get agent :role))
+         (running (plist-get agent :running))
+         (has-work (plist-get agent :has_work))
+         (unread (or (plist-get agent :unread_mail) 0))
+         (role-icon (pcase role
+                      ("witness" (if ogent-gastown-use-unicode "👁" "W"))
+                      ("refinery" (if ogent-gastown-use-unicode "⚙" "R"))
+                      ("polecat" (if ogent-gastown-use-unicode "🐱" "P"))
+                      ("crew" (if ogent-gastown-use-unicode "👤" "C"))
+                      (_ "?"))))
+    (insert "    ")
+    (insert (propertize role-icon 'face 'ogent-gastown-dimmed))
+    (insert " ")
+    (insert (propertize name
+                        'face (if running
+                                  'ogent-gastown-worker-running
+                                'ogent-gastown-worker-done)))
+    (when has-work
+      (insert " ")
+      (insert (propertize "⚓" 'face 'ogent-gastown-hook-active)))
+    (when (> unread 0)
+      (insert " ")
+      (insert (propertize (format "📬%d" unread) 'face 'ogent-gastown-mail-unread)))
+    (insert "\n")))
+
+(defun ogent-gastown--insert-rigs-section-plain ()
+  "Insert rigs section (plain)."
+  (let ((rigs ogent-gastown--rigs-data))
+    (insert (propertize "# Rigs\n" 'face 'ogent-gastown-section-heading))
+    (if (null rigs)
+        (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed))
+      (dolist (rig rigs)
+        (let* ((name (plist-get rig :name))
+               (polecat-count (or (plist-get rig :polecat_count) 0))
+               (crew-count (or (plist-get rig :crew_count) 0)))
+          (insert "  ")
+          (insert name)
+          (insert (format " (P:%d C:%d)" polecat-count crew-count))
+          (insert "\n"))))))
 
 ;;; Workers Section
 
@@ -953,6 +1117,77 @@ Other:
      (lambda (err)
        (message "Failed to create convoy: %s" err))
      t)))
+
+(defun ogent-gastown-rig-status ()
+  "Show status for rig at point or prompt for rig name."
+  (interactive)
+  (let ((rig-name (when ogent-gastown--magit-section-available
+                    (let ((section (magit-current-section)))
+                      (when (eq (eieio-object-class-name section)
+                                'ogent-gastown-rig-item-section)
+                        (plist-get (oref section value) :name))))))
+    (unless rig-name
+      (setq rig-name (completing-read
+                      "Rig: "
+                      (mapcar (lambda (r) (plist-get r :name))
+                              ogent-gastown--rigs-data))))
+    (when rig-name
+      (async-shell-command
+       (format "%s rig status %s" ogent-gastown-gt-executable rig-name)
+       "*gt rig*"))))
+
+(defun ogent-gastown-rig-boot ()
+  "Boot (start) rig at point or prompt for rig name."
+  (interactive)
+  (let ((rig-name (when ogent-gastown--magit-section-available
+                    (let ((section (magit-current-section)))
+                      (when (eq (eieio-object-class-name section)
+                                'ogent-gastown-rig-item-section)
+                        (plist-get (oref section value) :name))))))
+    (unless rig-name
+      (setq rig-name (completing-read
+                      "Rig to boot: "
+                      (mapcar (lambda (r) (plist-get r :name))
+                              ogent-gastown--rigs-data))))
+    (when rig-name
+      (message "Booting rig %s..." rig-name)
+      (ogent-gastown--run-async
+       (list "rig" "boot" rig-name)
+       (lambda (_result)
+         (message "Rig %s booted" rig-name)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       (lambda (err)
+         (message "Failed to boot rig %s: %s" rig-name err))
+       t))))
+
+(defun ogent-gastown-refinery-status ()
+  "Show refinery/merge-queue status for rig at point or prompt."
+  (interactive)
+  (let ((rig-name (when ogent-gastown--magit-section-available
+                    (let ((section (magit-current-section)))
+                      (cond
+                       ((eq (eieio-object-class-name section)
+                            'ogent-gastown-rig-item-section)
+                        (plist-get (oref section value) :name))
+                       ((eq (eieio-object-class-name section)
+                            'ogent-gastown-refinery-item-section)
+                        (plist-get (oref section value) :rig)))))))
+    (unless rig-name
+      (setq rig-name (completing-read
+                      "Rig: "
+                      (seq-filter
+                       (lambda (name)
+                         (let ((rig (seq-find
+                                     (lambda (r) (equal (plist-get r :name) name))
+                                     ogent-gastown--rigs-data)))
+                           (plist-get rig :has_refinery)))
+                       (mapcar (lambda (r) (plist-get r :name))
+                               ogent-gastown--rigs-data)))))
+    (when rig-name
+      (async-shell-command
+       (format "%s refinery status %s" ogent-gastown-gt-executable rig-name)
+       "*gt refinery*"))))
 
 ;;; Refresh
 
