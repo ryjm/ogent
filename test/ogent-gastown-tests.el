@@ -825,6 +825,99 @@ OUTPUT should be a plist or list that will be returned."
       (goto-char (point-min))
       (should (search-forward "P:0 C:0" nil t)))))
 
+;;; Mail Recipient Completion Tests
+
+(defconst ogent-gastown-test--sample-witnesses
+  (list '(:rig "ogent" :has_witness t :polecat_count 2 :crew_count 1)
+        '(:rig "beads" :has_witness nil :polecat_count 1 :crew_count 0))
+  "Sample witness data for testing.")
+
+(ert-deftest ogent-gastown-status-test-get-mail-recipients ()
+  "Test mail recipient list generation."
+  (let ((orig-crew (default-value 'ogent-gastown--crew-data))
+        (orig-polecat (default-value 'ogent-gastown--polecat-data))
+        (orig-witness (default-value 'ogent-gastown--witness-data)))
+    (unwind-protect
+        (progn
+          (setq-default ogent-gastown--crew-data ogent-gastown-test--sample-crew)
+          (setq-default ogent-gastown--polecat-data ogent-gastown-test--sample-polecats)
+          (setq-default ogent-gastown--witness-data ogent-gastown-test--sample-witnesses)
+          (let ((recipients (ogent-gastown--get-mail-recipients)))
+            ;; Should include fixed addresses
+            (should (member "mayor/" recipients))
+            (should (member "deacon/" recipients))
+            ;; Should include crew members
+            (should (member "ogent/crew/stallman" recipients))
+            (should (member "ogent/crew/wolf" recipients))
+            (should (member "beads/crew/alpha" recipients))
+            ;; Should include polecats
+            (should (member "ogent/polecats/alpha" recipients))
+            (should (member "ogent/polecats/beta" recipients))
+            (should (member "beads/polecats/gamma" recipients))
+            ;; Should include witnesses (only for rigs that have them)
+            (should (member "ogent/witness/" recipients))
+            ;; Should include refineries
+            (should (member "ogent/refinery/" recipients))
+            (should (member "beads/refinery/" recipients))))
+      (setq-default ogent-gastown--crew-data orig-crew)
+      (setq-default ogent-gastown--polecat-data orig-polecat)
+      (setq-default ogent-gastown--witness-data orig-witness))))
+
+(ert-deftest ogent-gastown-status-test-get-mail-recipients-empty ()
+  "Test mail recipient list with no data."
+  (let ((orig-crew (default-value 'ogent-gastown--crew-data))
+        (orig-polecat (default-value 'ogent-gastown--polecat-data))
+        (orig-witness (default-value 'ogent-gastown--witness-data)))
+    (unwind-protect
+        (progn
+          (setq-default ogent-gastown--crew-data nil)
+          (setq-default ogent-gastown--polecat-data nil)
+          (setq-default ogent-gastown--witness-data nil)
+          (let ((recipients (ogent-gastown--get-mail-recipients)))
+            ;; Should still have fixed addresses
+            (should (member "mayor/" recipients))
+            (should (member "deacon/" recipients))
+            ;; Should only have the 2 fixed addresses
+            (should (equal 2 (length recipients)))))
+      (setq-default ogent-gastown--crew-data orig-crew)
+      (setq-default ogent-gastown--polecat-data orig-polecat)
+      (setq-default ogent-gastown--witness-data orig-witness))))
+
+(ert-deftest ogent-gastown-status-test-get-mail-recipients-no-duplicates ()
+  "Test that recipient list has no duplicates."
+  (let ((orig-crew (default-value 'ogent-gastown--crew-data))
+        (orig-polecat (default-value 'ogent-gastown--polecat-data))
+        (orig-witness (default-value 'ogent-gastown--witness-data)))
+    (unwind-protect
+        (progn
+          (setq-default ogent-gastown--crew-data ogent-gastown-test--sample-crew)
+          (setq-default ogent-gastown--polecat-data ogent-gastown-test--sample-polecats)
+          (setq-default ogent-gastown--witness-data ogent-gastown-test--sample-witnesses)
+          (let ((recipients (ogent-gastown--get-mail-recipients)))
+            ;; Length should equal length of unique list
+            (should (equal (length recipients)
+                           (length (delete-dups (copy-sequence recipients)))))))
+      (setq-default ogent-gastown--crew-data orig-crew)
+      (setq-default ogent-gastown--polecat-data orig-polecat)
+      (setq-default ogent-gastown--witness-data orig-witness))))
+
+(ert-deftest ogent-gastown-status-test-get-mail-recipients-sorted ()
+  "Test that recipient list is sorted."
+  (let ((orig-crew (default-value 'ogent-gastown--crew-data))
+        (orig-polecat (default-value 'ogent-gastown--polecat-data))
+        (orig-witness (default-value 'ogent-gastown--witness-data)))
+    (unwind-protect
+        (progn
+          (setq-default ogent-gastown--crew-data ogent-gastown-test--sample-crew)
+          (setq-default ogent-gastown--polecat-data ogent-gastown-test--sample-polecats)
+          (setq-default ogent-gastown--witness-data ogent-gastown-test--sample-witnesses)
+          (let ((recipients (ogent-gastown--get-mail-recipients)))
+            ;; Should be sorted alphabetically
+            (should (equal recipients (sort (copy-sequence recipients) #'string<)))))
+      (setq-default ogent-gastown--crew-data orig-crew)
+      (setq-default ogent-gastown--polecat-data orig-polecat)
+      (setq-default ogent-gastown--witness-data orig-witness))))
+
 (provide 'ogent-gastown-tests)
 
 ;;; ogent-gastown-tests.el ends here
