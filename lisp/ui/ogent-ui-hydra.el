@@ -36,6 +36,10 @@
 
 (require 'cl-lib)
 
+;; Hydra must be available at compile time for defhydra macro expansion
+(eval-when-compile
+  (require 'hydra))
+
 ;; Forward declarations
 (declare-function ogent-request "ogent-ui")
 (declare-function ogent-abort-request "ogent-ui")
