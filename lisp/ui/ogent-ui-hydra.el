@@ -36,10 +36,6 @@
 
 (require 'cl-lib)
 
-;; Hydra must be available at compile time for defhydra macro expansion
-(eval-when-compile
-  (require 'hydra))
-
 ;; Forward declarations
 (declare-function ogent-request "ogent-ui")
 (declare-function ogent-abort-request "ogent-ui")
@@ -111,6 +107,10 @@ Options: `posframe' (floating), `lv' (echo area), `nil' (none)."
     (message "No previous requests")))
 
 ;;; Hydra Definitions
+;;
+;; IMPORTANT: defhydra macros must be inside with-eval-after-load to defer
+;; macro expansion until hydra is available. Putting them in a defun doesn't
+;; work because macros inside function bodies are still expanded at compile time.
 
 (defvar ogent-hydra-navigate nil
   "Navigation hydra for ogent.")
@@ -121,34 +121,32 @@ Options: `posframe' (floating), `lv' (echo area), `nil' (none)."
 (defvar ogent-hydra-request nil
   "Request operations hydra for ogent.")
 
-(defun ogent-hydra--define-hydras ()
-  "Define all ogent hydras. Called when hydra is loaded."
-  (require 'hydra)
-  
+;; Define hydras when hydra is loaded - this defers macro expansion
+(with-eval-after-load 'hydra
   ;; Navigation Hydra
   (defhydra ogent-hydra-navigate (:color pink :hint nil)
-	    "
+    "
 ╭─────────────────────────────────────────────────────────────╮
 │ _n_: next response   _N_: next request    _g_: dep graph    │
 │ _p_: prev response   _P_: prev request    _b_: backlinks    │
 │ _j_: next heading    _k_: prev heading    _o_: open block   │
 ╰─────────────────────────────────────────────────────────────╯
 "
-	    ("n" ogent-hydra--next-response)
-	    ("p" ogent-hydra--prev-response)
-	    ("N" ogent-hydra--next-request)
-	    ("P" ogent-hydra--prev-request)
-	    ("j" org-next-visible-heading)
-	    ("k" org-previous-visible-heading)
-	    ("g" ogent-show-dependency-graph :color blue)
-	    ("b" ogent-show-backlinks :color blue)
-	    ("o" org-open-at-point :color blue)
-	    ("q" nil "quit" :color blue)
-	    ("<escape>" nil nil :color blue))
-  
+    ("n" ogent-hydra--next-response)
+    ("p" ogent-hydra--prev-response)
+    ("N" ogent-hydra--next-request)
+    ("P" ogent-hydra--prev-request)
+    ("j" org-next-visible-heading)
+    ("k" org-previous-visible-heading)
+    ("g" ogent-show-dependency-graph :color blue)
+    ("b" ogent-show-backlinks :color blue)
+    ("o" org-open-at-point :color blue)
+    ("q" nil "quit" :color blue)
+    ("<escape>" nil nil :color blue))
+
   ;; Edit Hydra - uses dispatch functions that work with both smerge and overlay modes
   (defhydra ogent-hydra-edit (:color pink :hint nil)
-	    "
+    "
 ╭─────────────────────────────────────────────────────────────╮
 │ _a_: accept current  _A_: accept ALL     _d_: show diff     │
 │ _r_: reject current  _R_: reject ALL     _e_: ediff         │
@@ -156,41 +154,37 @@ Options: `posframe' (floating), `lv' (echo area), `nil' (none)."
 │ _s_: goto source     _c_: goto companion _D_: dispatch menu │
 ╰─────────────────────────────────────────────────────────────╯
 "
-	    ("a" ogent-edit--accept-current-dispatch)
-	    ("r" ogent-edit--reject-current-dispatch)
-	    ("A" ogent-edit--accept-all-dispatch :color blue)
-	    ("R" ogent-edit--reject-all-dispatch :color blue)
-	    ("n" ogent-edit--next-dispatch)
-	    ("p" ogent-edit--prev-dispatch)
-	    ("d" ogent-edit-overlay-diff)
-	    ("e" ogent-edit-overlay-ediff :color blue)
-	    ("m" ogent-edit-overlay-merge)
-	    ("D" ogent-edit-overlay-dispatch)
-	    ("s" ogent-edit-goto-source :color blue)
-	    ("c" ogent-edit-goto-companion :color blue)
-	    ("q" nil "quit" :color blue)
-	    ("<escape>" nil nil :color blue))
-  
+    ("a" ogent-edit--accept-current-dispatch)
+    ("r" ogent-edit--reject-current-dispatch)
+    ("A" ogent-edit--accept-all-dispatch :color blue)
+    ("R" ogent-edit--reject-all-dispatch :color blue)
+    ("n" ogent-edit--next-dispatch)
+    ("p" ogent-edit--prev-dispatch)
+    ("d" ogent-edit-overlay-diff)
+    ("e" ogent-edit-overlay-ediff :color blue)
+    ("m" ogent-edit-overlay-merge)
+    ("D" ogent-edit-overlay-dispatch)
+    ("s" ogent-edit-goto-source :color blue)
+    ("c" ogent-edit-goto-companion :color blue)
+    ("q" nil "quit" :color blue)
+    ("<escape>" nil nil :color blue))
+
   ;; Request Hydra
   (defhydra ogent-hydra-request (:color blue :hint nil)
-	    "
+    "
 ╭─────────────────────────────────────────────────────────────╮
 │ _s_: send request    _a_: abort          _c_: context       │
 │ _r_: retry last      _e_: request edit   _p_: pin dwim      │
 ╰─────────────────────────────────────────────────────────────╯
 "
-	    ("s" ogent-request)
-	    ("a" ogent-abort-request)
-	    ("r" ogent-retry-request)
-	    ("e" ogent-request-edit)
-	    ("c" ogent-context-preview)
-	    ("p" ogent-pin-dwim)
-	    ("q" nil "quit")
-	    ("<escape>" nil nil)))
-
-;; Define hydras when hydra is loaded
-(with-eval-after-load 'hydra
-  (ogent-hydra--define-hydras))
+    ("s" ogent-request)
+    ("a" ogent-abort-request)
+    ("r" ogent-retry-request)
+    ("e" ogent-request-edit)
+    ("c" ogent-context-preview)
+    ("p" ogent-pin-dwim)
+    ("q" nil "quit")
+    ("<escape>" nil nil)))
 
 ;;; Interactive Commands
 

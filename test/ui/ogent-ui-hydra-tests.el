@@ -107,6 +107,47 @@
       (ogent-navigate))
     (should (cl-some (lambda (m) (string-match-p "not available" m)) messages))))
 
+;;; Deferred Hydra Loading Tests
+
+(ert-deftest ogent-hydra-file-loads-without-error ()
+  "Hydra file should load without 'Symbol's value as variable is void' errors.
+Regression test: defhydra macros must be inside with-eval-after-load to defer
+macro expansion until hydra is available."
+  ;; If we got here, the file loaded successfully via (require 'ogent-ui-hydra)
+  ;; at the top of this test file. This test documents the regression.
+  (should (featurep 'ogent-ui-hydra)))
+
+(ert-deftest ogent-hydra-uses-eval-after-load ()
+  "Hydra file should use with-eval-after-load to defer defhydra expansion.
+Regression test: defhydra inside defun still expands at compile time,
+causing 'Symbol's value as variable is void: pink' error."
+  (let* ((hydra-file (locate-library "ogent-ui-hydra"))
+         (source-file (if (string-suffix-p ".elc" hydra-file)
+                          (concat (file-name-sans-extension hydra-file) ".el")
+                        hydra-file)))
+    (when (file-exists-p source-file)
+      (with-temp-buffer
+        (insert-file-contents source-file)
+        ;; Should have defhydra inside with-eval-after-load, not in a defun
+        (should (re-search-forward
+                 "(with-eval-after-load 'hydra" nil t))
+        ;; The defhydra should be directly in the with-eval-after-load body
+        (should (re-search-forward "(defhydra ogent-hydra-navigate" nil t))))))
+
+(ert-deftest ogent-hydra-no-defun-wrapper ()
+  "Hydra definitions should not be wrapped in a defun.
+Regression test: defhydra inside defun is still macro-expanded at compile time."
+  (let* ((hydra-file (locate-library "ogent-ui-hydra"))
+         (source-file (if (string-suffix-p ".elc" hydra-file)
+                          (concat (file-name-sans-extension hydra-file) ".el")
+                        hydra-file)))
+    (when (file-exists-p source-file)
+      (with-temp-buffer
+        (insert-file-contents source-file)
+        ;; Should NOT have ogent-hydra--define-hydras function
+        (should-not (re-search-forward
+                     "(defun ogent-hydra--define-hydras" nil t))))))
+
 (provide 'ogent-ui-hydra-tests)
 
 ;;; ogent-ui-hydra-tests.el ends here
