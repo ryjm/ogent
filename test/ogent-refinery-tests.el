@@ -184,12 +184,15 @@
 
 (ert-deftest ogent-refinery-test-detect-rig-in-rig ()
   "Test rig detection when in a rig directory."
-  (let ((default-directory "/Users/jake/gt/ogent/polecats/alpha/"))
+  ;; Use dynamic gt-root to work in any environment (including CI)
+  (let* ((gt-root (expand-file-name "~/gt"))
+         (default-directory (concat gt-root "/ogent/polecats/alpha/")))
     (should (equal "ogent" (ogent-refinery--detect-rig)))))
 
 (ert-deftest ogent-refinery-test-detect-rig-in-crew ()
   "Test rig detection when in a crew directory."
-  (let ((default-directory "/Users/jake/gt/beads/crew/ritchie/"))
+  (let* ((gt-root (expand-file-name "~/gt"))
+         (default-directory (concat gt-root "/beads/crew/ritchie/")))
     (should (equal "beads" (ogent-refinery--detect-rig)))))
 
 (ert-deftest ogent-refinery-test-detect-rig-outside-gt ()
@@ -199,7 +202,8 @@
 
 (ert-deftest ogent-refinery-test-detect-rig-at-gt-root ()
   "Test rig detection at the gt root returns first path component."
-  (let ((default-directory "/Users/jake/gt/gastown/"))
+  (let* ((gt-root (expand-file-name "~/gt"))
+         (default-directory (concat gt-root "/gastown/")))
     (should (equal "gastown" (ogent-refinery--detect-rig)))))
 
 ;;; Queue Status Filtering Tests

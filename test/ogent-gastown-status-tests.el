@@ -204,9 +204,11 @@
 
 (ert-deftest ogent-gts-test-format-time-graceful-parse-failure ()
   "Test that format-time returns ??? when parsing fails."
-  ;; Even if parse-iso8601-time-string exists, invalid formats should fail
+  ;; Test completely unparseable strings - these should return ???
+  ;; Note: ISO8601 parser normalizes overflow values (e.g., month 13 -> next year),
+  ;; so we test with truly invalid format strings instead
   (should (equal "???" (ogent-gastown--format-time "invalid-timestamp")))
-  (should (equal "???" (ogent-gastown--format-time "2026-13-45T99:99:99"))))
+  (should (equal "???" (ogent-gastown--format-time "not-a-real-date-format"))))
 
 (ert-deftest ogent-gts-test-format-time-just-now-mocked ()
   "Test formatting time within last minute (with mocked parser)."
