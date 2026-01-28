@@ -495,6 +495,11 @@ LINES defaults to `ogent-gastown-tmux-preview-lines'."
 (declare-function transient-define-prefix "ext:transient")
 (declare-function transient-define-suffix "ext:transient")
 
+;; Pre-define the variable so autoloads work before transient is loaded.
+;; transient-define-prefix will redefine this when transient loads.
+(defvar ogent-gastown-tmux-dispatch nil
+  "Transient prefix for tmux session management.")
+
 (with-eval-after-load 'transient
   (transient-define-prefix ogent-gastown-tmux-dispatch ()
     "Tmux session management."
