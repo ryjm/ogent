@@ -420,8 +420,11 @@
     ;; Just verify it doesn't error and returns nil (via the throw)
     (condition-case nil
         (ogent-theme-flash 'success "Test message")
-      ;; The no-catch error from cl-return-from is expected when called standalone
-      (no-catch nil))))
+      ;; The cl-return-from error when called standalone varies by Emacs version:
+      ;; - Emacs 29.x: no-catch error
+      ;; - Emacs snapshot: void-variable error for --cl-block-*--
+      (no-catch nil)
+      (void-variable nil))))
 
 (ert-deftest ogent-theme-clear-flash-cleans-up ()
   "ogent-theme--clear-flash removes timer and cookie."
