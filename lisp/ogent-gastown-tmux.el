@@ -492,6 +492,12 @@ LINES defaults to `ogent-gastown-tmux-preview-lines'."
 
 ;;; Transient Integration
 
+;; Require transient at compile time so the macro can expand properly.
+;; At runtime, with-eval-after-load ensures we only define the prefix
+;; when transient is actually loaded.
+(eval-when-compile
+  (require 'transient nil t))
+
 (declare-function transient-define-prefix "ext:transient")
 (declare-function transient-define-suffix "ext:transient")
 
