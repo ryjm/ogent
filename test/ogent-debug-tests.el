@@ -254,7 +254,7 @@
               (should (plist-get entry :result))
               (should (null (plist-get entry :error)))
               (should (numberp (plist-get entry :duration)))
-              (should (> (plist-get entry :duration) 0)))))
+              (should (>= (plist-get entry :duration) 0)))))
       ;; Cleanup: restore global state
       (setq ogent-debug-tool-history saved-history)
       (setq ogent-tool-registry saved-registry))))

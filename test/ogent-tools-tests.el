@@ -9,6 +9,38 @@
 (require 'ogent-models)
 (require 'ogent-tools)
 
+(ert-deftest ogent-tools-format-bytes ()
+  "Human-readable byte formatting matches expected units."
+  (should (equal (ogent-tools--format-bytes 512) "512 B"))
+  (should (equal (ogent-tools--format-bytes 1024) "1.0 KB"))
+  (should (equal (ogent-tools--format-bytes (* 1024 1024)) "1.0 MB")))
+
+(ert-deftest ogent-tools-project-root-prefers-custom ()
+  "Project root uses ogent-tools-project-root when set."
+  (let ((root (make-temp-file "ogent-root-" t)))
+    (unwind-protect
+        (let ((ogent-tools-project-root root))
+          (should (equal (file-name-as-directory root)
+                         (file-name-as-directory (ogent-tools--project-root)))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-tools-resolve-path-relative ()
+  "Relative paths resolve against default-directory."
+  (let ((root (make-temp-file "ogent-root-" t)))
+    (unwind-protect
+        (let ((default-directory (file-name-as-directory root)))
+          (should (equal (expand-file-name "file.txt" root)
+                         (ogent-tools--resolve-path "file.txt"))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-tools-truncate-output ()
+  "Output truncation appends a notice when exceeding max."
+  (let* ((output (make-string 20 ?a))
+         (truncated (ogent-tools--truncate-output output 10)))
+    (should (string-prefix-p (make-string 10 ?a) truncated))
+    (should (string-match-p "Output truncated" truncated)))
+  (should (equal (ogent-tools--truncate-output "short" 10) "short")))
+
 (ert-deftest ogent-tools-read-file-basic ()
   "Read file returns content with line numbers."
   (let ((test-file (make-temp-file "ogent-test-")))
@@ -39,6 +71,17 @@
 (ert-deftest ogent-tools-read-file-not-found ()
   "Read file errors on missing file."
   (should-error (ogent-tool--read-file "/nonexistent/path/file.txt")))
+
+(ert-deftest ogent-tools-read-file-binary-detected ()
+  "Binary files are rejected by read-file."
+  (let ((test-file (make-temp-file "ogent-binary-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "hello\0world"))
+          (let ((err (should-error (ogent-tool--read-file test-file))))
+            (should (string-match-p "Binary file detected" (cadr err)))))
+      (delete-file test-file))))
 
 (ert-deftest ogent-tools-glob-basic ()
   "Glob finds matching files."
