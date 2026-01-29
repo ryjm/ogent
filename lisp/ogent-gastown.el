@@ -323,11 +323,26 @@ If CALLBACK is provided, call it with the mail list when done."
   (length (seq-filter (lambda (m) (not (plist-get m :read)))
                       ogent-gastown--mail-cache)))
 
-(defun ogent-gastown-mail-read (mail-id callback)
-  "Read mail with MAIL-ID, calling CALLBACK with the message content."
+(defun ogent-gastown-mail-read (mail-id &optional callback)
+  "Read mail with MAIL-ID, calling CALLBACK with the message content.
+If CALLBACK is nil, display the mail in a buffer."
   (ogent-gastown--run-async
    "mail" (list "read" mail-id "--json")
-   callback
+   (or callback
+       (lambda (msg)
+         (let ((buf (get-buffer-create (format "*Mail: %s*" mail-id))))
+           (with-current-buffer buf
+             (let ((inhibit-read-only t))
+               (erase-buffer)
+               (insert (format "From: %s\n" (plist-get msg :from)))
+               (insert (format "To: %s\n" (plist-get msg :to)))
+               (insert (format "Subject: %s\n" (plist-get msg :subject)))
+               (insert (format "Date: %s\n" (plist-get msg :date)))
+               (insert "\n")
+               (insert (or (plist-get msg :body) "(empty)"))
+               (goto-char (point-min))
+               (view-mode 1)))
+           (display-buffer buf))))
    (lambda (err)
      (message "Failed to read mail %s: %s" mail-id err))))
 
