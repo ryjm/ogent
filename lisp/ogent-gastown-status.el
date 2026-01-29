@@ -658,101 +658,104 @@ Other:
 
 (defun ogent-gastown--fetch-all (callback)
   "Fetch all data for the status buffer, call CALLBACK when done."
-  (let ((pending 7)
-        (results (make-hash-table))
-        (buf (current-buffer)))
-    (cl-flet ((check-done ()
-                (cl-decf pending)
-                (when (zerop pending)
-                  (when (buffer-live-p buf)
-                    (with-current-buffer buf
-                      (setq ogent-gastown--hook-data (gethash 'hook results))
-                      (setq ogent-gastown--mail-data (gethash 'mail results))
-                      (setq ogent-gastown--convoy-data (gethash 'convoy results))
-                      (setq ogent-gastown--workers-data (gethash 'workers results))
-                      (setq ogent-gastown--crew-data (gethash 'crew results))
-                      (setq ogent-gastown--polecat-data (gethash 'polecat results))
-                      ;; Extract stats, deacon, witnesses, and rigs from town status
-                      (let ((town-status (gethash 'town-status results)))
-                        (setq ogent-gastown--stats-data
-                              (plist-get town-status :summary))
-                        (setq ogent-gastown--deacon-data
-                              (ogent-gastown--extract-deacon town-status))
-                        (setq ogent-gastown--witness-data
-                              (ogent-gastown--extract-witnesses town-status))
-                        (setq ogent-gastown--rigs-data
-                              (plist-get town-status :rigs)))
-                      (funcall callback))))))
+  (let* ((pending 7)
+         (results (make-hash-table))
+         (buf (current-buffer))
+         ;; Use let-bound lambda instead of cl-flet to avoid bytecode issues
+         ;; with async callbacks in certain Emacs versions
+         (check-done
+          (lambda ()
+            (cl-decf pending)
+            (when (zerop pending)
+              (when (buffer-live-p buf)
+                (with-current-buffer buf
+                  (setq ogent-gastown--hook-data (gethash 'hook results))
+                  (setq ogent-gastown--mail-data (gethash 'mail results))
+                  (setq ogent-gastown--convoy-data (gethash 'convoy results))
+                  (setq ogent-gastown--workers-data (gethash 'workers results))
+                  (setq ogent-gastown--crew-data (gethash 'crew results))
+                  (setq ogent-gastown--polecat-data (gethash 'polecat results))
+                  ;; Extract stats, deacon, witnesses, and rigs from town status
+                  (let ((town-status (gethash 'town-status results)))
+                    (setq ogent-gastown--stats-data
+                          (plist-get town-status :summary))
+                    (setq ogent-gastown--deacon-data
+                          (ogent-gastown--extract-deacon town-status))
+                    (setq ogent-gastown--witness-data
+                          (ogent-gastown--extract-witnesses town-status))
+                    (setq ogent-gastown--rigs-data
+                          (plist-get town-status :rigs)))
+                  (funcall callback)))))))
 
-      ;; Fetch hook status
-      (ogent-gastown--run-async
-       '("hook" "--json")
-       (lambda (result)
-         (puthash 'hook result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'hook nil results)
-         (check-done)))
+    ;; Fetch hook status
+    (ogent-gastown--run-async
+     '("hook" "--json")
+     (lambda (result)
+       (puthash 'hook result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'hook nil results)
+       (funcall check-done)))
 
-      ;; Fetch mail
-      (ogent-gastown--run-async
-       '("mail" "inbox" "--json")
-       (lambda (result)
-         (puthash 'mail result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'mail nil results)
-         (check-done)))
+    ;; Fetch mail
+    (ogent-gastown--run-async
+     '("mail" "inbox" "--json")
+     (lambda (result)
+       (puthash 'mail result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'mail nil results)
+       (funcall check-done)))
 
-      ;; Fetch convoys
-      (ogent-gastown--run-async
-       '("convoy" "list" "--json")
-       (lambda (result)
-         (puthash 'convoy result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'convoy nil results)
-         (check-done)))
+    ;; Fetch convoys
+    (ogent-gastown--run-async
+     '("convoy" "list" "--json")
+     (lambda (result)
+       (puthash 'convoy result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'convoy nil results)
+       (funcall check-done)))
 
-      ;; Fetch workers
-      (ogent-gastown--run-async
-       '("polecat" "list" "--all" "--json")
-       (lambda (result)
-         (puthash 'workers result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'workers nil results)
-         (check-done)))
+    ;; Fetch workers
+    (ogent-gastown--run-async
+     '("polecat" "list" "--all" "--json")
+     (lambda (result)
+       (puthash 'workers result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'workers nil results)
+       (funcall check-done)))
 
-      ;; Fetch town status (for stats, deacon, witnesses)
-      (ogent-gastown--run-async
-       '("status" "--json")
-       (lambda (result)
-         (puthash 'town-status result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'town-status nil results)
-         (check-done)))
+    ;; Fetch town status (for stats, deacon, witnesses)
+    (ogent-gastown--run-async
+     '("status" "--json")
+     (lambda (result)
+       (puthash 'town-status result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'town-status nil results)
+       (funcall check-done)))
 
-      ;; Fetch crew members
-      (ogent-gastown--run-async
-       '("crew" "list" "--json")
-       (lambda (result)
-         (puthash 'crew result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'crew nil results)
-         (check-done)))
+    ;; Fetch crew members
+    (ogent-gastown--run-async
+     '("crew" "list" "--json")
+     (lambda (result)
+       (puthash 'crew result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'crew nil results)
+       (funcall check-done)))
 
-      ;; Fetch polecats
-      (ogent-gastown--run-async
-       '("polecat" "list" "--json")
-       (lambda (result)
-         (puthash 'polecat result results)
-         (check-done))
-       (lambda (_err)
-         (puthash 'polecat nil results)
-         (check-done))))))
+    ;; Fetch polecats
+    (ogent-gastown--run-async
+     '("polecat" "list" "--json")
+     (lambda (result)
+       (puthash 'polecat result results)
+       (funcall check-done))
+     (lambda (_err)
+       (puthash 'polecat nil results)
+       (funcall check-done)))))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
