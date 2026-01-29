@@ -318,7 +318,7 @@
 (defvar ogent-gastown--processes nil
   "List of active gt processes.")
 
-(defun ogent-gastown--run-async (args callback &optional error-callback raw-output)
+(defun ogent-gastown-status--run-async (args callback &optional error-callback raw-output)
   "Run gt with ARGS asynchronously, call CALLBACK with result.
 ERROR-CALLBACK receives error message on failure.
 If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
@@ -688,7 +688,7 @@ Other:
                   (funcall callback)))))))
 
     ;; Fetch hook status
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("hook" "--json")
      (lambda (result)
        (puthash 'hook result results)
@@ -698,7 +698,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch mail
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("mail" "inbox" "--json")
      (lambda (result)
        (puthash 'mail result results)
@@ -708,7 +708,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch convoys
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("convoy" "list" "--json")
      (lambda (result)
        (puthash 'convoy result results)
@@ -718,7 +718,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch workers
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("polecat" "list" "--all" "--json")
      (lambda (result)
        (puthash 'workers result results)
@@ -728,7 +728,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch town status (for stats, deacon, witnesses)
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("status" "--json")
      (lambda (result)
        (puthash 'town-status result results)
@@ -738,7 +738,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch crew members
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("crew" "list" "--json")
      (lambda (result)
        (puthash 'crew result results)
@@ -748,7 +748,7 @@ Other:
        (funcall check-done)))
 
     ;; Fetch polecats
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      '("polecat" "list" "--json")
      (lambda (result)
        (puthash 'polecat result results)
@@ -1603,7 +1603,7 @@ pre-fills that recipient."
          (subject (read-string "Subject: "))
          (body (read-string "Message: ")))
     (when (and to (not (string-empty-p to)))
-      (ogent-gastown--run-async
+      (ogent-gastown-status--run-async
        (list "mail" "send" to "-s" subject "-m" body)
        (lambda (_result)
          (message "Mail sent to %s" to)
@@ -1632,7 +1632,7 @@ pre-fills that recipient."
   "Attach work to hook."
   (interactive)
   (let ((bead-id (read-string "Bead ID to hook: ")))
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      (list "hook" bead-id)
      (lambda (_result)
        (message "Hooked: %s" bead-id)
@@ -1663,7 +1663,7 @@ pre-fills that recipient."
   (interactive)
   (let* ((name (read-string "Convoy name: "))
          (issues (read-string "Issue IDs (space-separated): ")))
-    (ogent-gastown--run-async
+    (ogent-gastown-status--run-async
      (append (list "convoy" "create" name) (split-string issues))
      (lambda (_result)
        (message "Created convoy: %s" name)
