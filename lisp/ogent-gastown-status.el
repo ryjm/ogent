@@ -1862,6 +1862,9 @@ Called after evil is loaded."
                   ;; Section navigation
                   (evil-local-set-key 'normal "gj" #'ogent-gastown-next-item)
                   (evil-local-set-key 'normal "gk" #'ogent-gastown-prev-item)
+                  ;; Section toggle
+                  (evil-local-set-key 'normal (kbd "TAB") #'ogent-gastown-toggle-section)
+                  (evil-local-set-key 'normal (kbd "<tab>") #'ogent-gastown-toggle-section)
                   ;; Quit
                   (evil-local-set-key 'normal "ZZ" #'quit-window)
                   (evil-local-set-key 'normal "ZQ" #'quit-window))))
