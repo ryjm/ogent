@@ -67,6 +67,15 @@
     (should (eq (plist-get normalized :name) 'bash))
     (should (plist-get (plist-get normalized :args) :command))))
 
+(ert-deftest ogent-tool-fsm-test-normalize-generates-id ()
+  "Normalize generates an id when missing."
+  (let* ((call '(:name "test-tool" :input (:arg1 "value1")))
+         (normalized (ogent-tool-fsm--normalize-tool-call call))
+         (id (plist-get normalized :id)))
+    (should (stringp id))
+    (should (string-match-p "^test-tool-[0-9]+$" id))
+    (should (eq (plist-get normalized :name) 'test-tool))))
+
 ;;; Execution Tests
 
 (ert-deftest ogent-tool-fsm-test-spec-lookup ()
@@ -202,7 +211,8 @@
   "Test conversion of plist to argument list."
   (let ((plist '(:arg1 "value1" :arg2 42 :arg3 t)))
     (should (equal (ogent-tool-fsm--plist-to-args plist)
-                   '("value1" 42 t)))))
+                   '("value1" 42 t))))
+  (should (equal (ogent-tool-fsm--plist-to-args nil) nil)))
 
 (provide 'ogent-tool-fsm-tests)
 

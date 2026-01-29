@@ -6,6 +6,12 @@
 (require 'ogent-tools)
 (require 'cl-lib)
 
+(defvar ogent-ui-tests--backend nil
+  "Backend placeholder for ogent-ui backend resolution tests.")
+
+(defvar gptel-testbackend nil
+  "Dummy gptel backend binding for ogent-ui tests.")
+
 (ert-deftest ogent-ui-format-context-includes-missing ()
   "Format string contains handles and missing metadata."
   (ogent-test-with-fixture "data/fixture.org"
@@ -94,6 +100,30 @@
       (ogent-ui--ensure-gptel))
     (should (equal (nreverse requested) '(gptel foo bar)))))
 
+(ert-deftest ogent-ui-resolve-backend-function ()
+  "Backend resolution supports function backends."
+  (should (eq (ogent-ui--resolve-backend '(:backend (lambda () 'backend)))
+              'backend)))
+
+(ert-deftest ogent-ui-resolve-backend-symbol ()
+  "Backend resolution returns bound symbol value."
+  (let ((ogent-ui-tests--backend 'backend-object))
+    (should (eq (ogent-ui--resolve-backend
+                 '(:backend ogent-ui-tests--backend))
+                'backend-object))))
+
+(ert-deftest ogent-ui-resolve-backend-string-bound ()
+  "Backend resolution handles string backend with bound gptel-* symbol."
+  (let ((gptel-testbackend 'backend-object))
+    (should (eq (ogent-ui--resolve-backend '(:backend "testbackend"))
+                'backend-object))))
+
+(ert-deftest ogent-ui-resolve-backend-string-fallback ()
+  "Backend resolution falls back to string when require fails."
+  (cl-letf (((symbol-function 'require) (lambda (&rest _) nil)))
+    (should (equal (ogent-ui--resolve-backend '(:backend "missing"))
+                   "missing"))))
+
 (ert-deftest ogent-ui-extract-preset-cookies ()
   "Extract @preset cookies from prompts."
   (let ((ogent-preset-registry '((:name code-review :spec (:description "review"))
@@ -169,6 +199,81 @@
                                    (funcall callback nil '(:done t))
                                    (should (eq (ogent-ui-request-status request) 'done))
                                    (should (ogent-ui-request-end-time request))))))))
+
+(ert-deftest ogent-ui-callback-tool-pending-keeps-open ()
+  "Callback does not close request when tool-pending is set."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (closed-called nil))
+      (let* ((request (make-ogent-ui-request
+                       :id "req-tool"
+                       :buffer (current-buffer)
+                       :marker (copy-marker (point-max))
+                       :status 'wait))
+             (callback (ogent-ui--make-callback "req-tool")))
+        (puthash "req-tool" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--close-response)
+                   (lambda (&rest _args) (setq closed-called t))))
+          (funcall callback nil '(:tool-pending t)))
+        (should (not closed-called))
+        (should-not (ogent-ui-request-closed request))))))
+
+(ert-deftest ogent-ui-callback-closes-on-error ()
+  "Callback closes request when error info is supplied."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (closed-message nil))
+      (let* ((request (make-ogent-ui-request
+                       :id "req-error"
+                       :buffer (current-buffer)
+                       :marker (copy-marker (point-max))
+                       :status 'wait))
+             (callback (ogent-ui--make-callback "req-error")))
+        (puthash "req-error" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--close-response)
+                   (lambda (_req message) (setq closed-message message))))
+          (funcall callback nil '(:error "Boom"))))
+      (should (equal closed-message "Boom")))))
+
+(ert-deftest ogent-ui-close-response-updates-status ()
+  "Closing a request marks it done, closed, and removes it from table."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-close"
+                      :buffer (current-buffer)
+                      :status 'type
+                      :start-time (time-subtract (current-time) (seconds-to-time 1)))))
+        (puthash "req-close" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil)))
+          (ogent-ui--close-response request))
+        (should (ogent-ui-request-closed request))
+        (should (eq (ogent-ui-request-status request) 'done))
+        (should (ogent-ui-request-end-time request))
+        (should (null (gethash "req-close" ogent-ui--request-table)))
+        (should (member request ogent-ui--request-history))))))
+
+(ert-deftest ogent-ui-close-response-error-status ()
+  "Closing with error marks status error and closes request."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-error-close"
+                      :buffer (current-buffer)
+                      :status 'type)))
+        (puthash "req-error-close" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--insert-error-block) (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil)))
+          (ogent-ui--close-response request "failure"))
+        (should (ogent-ui-request-closed request))
+        (should (eq (ogent-ui-request-status request) 'error))
+        (should (member request ogent-ui--request-history))))))
 
 (ert-deftest ogent-ui-latency-formatting ()
   "Format latency shows seconds with one decimal."

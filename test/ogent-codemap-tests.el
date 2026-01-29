@@ -20,6 +20,23 @@
     (should (member "ogent-context-build" defs))
     (should (member "ogent-resolve-handle" defs))))
 
+(ert-deftest ogent-codemap-definitions-regex ()
+  "Definition regex captures ogent-* symbols only."
+  (let ((test-file (make-temp-file "ogent-defs-" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "(defun ogent-alpha () nil)\n")
+            (insert "(defmacro ogent-beta () nil)\n")
+            (insert "(defcustom ogent-gamma nil \"Doc\")\n")
+            (insert "(defvar ogent-delta 1)\n")
+            (insert "(defconst ogent-epsilon 2)\n")
+            (insert "(defun not-ogent () nil)\n")
+            (insert "(defun ogent-alpha () t)\n"))
+          (should (equal (ogent-codemap--definitions test-file)
+                         '("ogent-alpha" "ogent-beta" "ogent-gamma" "ogent-delta"))))
+      (delete-file test-file))))
+
 (ert-deftest ogent-codemap-buffer-renders-org ()
   "Rendering produces an Org buffer with expected headings."
   (let ((buf (ogent-codemap-refresh)))
@@ -49,6 +66,19 @@
     (should test-file)
     (should (cl-some (lambda (name) (string-match-p "^ogent-" name)) tests))))
 
+(ert-deftest ogent-codemap-test-definitions-regex ()
+  "Test regex captures ert-deftest names and removes duplicates."
+  (let ((test-file (make-temp-file "ogent-tests-" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "(ert-deftest ogent-alpha-test () nil)\n")
+            (insert "(ert-deftest other-test () nil)\n")
+            (insert "(ert-deftest ogent-alpha-test () nil)\n"))
+          (should (equal (ogent-codemap--test-definitions test-file)
+                         '("ogent-alpha-test" "other-test"))))
+      (delete-file test-file))))
+
 (ert-deftest ogent-codemap-extracts-org-headings ()
   "Org headings are extracted from .org files."
   (let* ((org-file (cl-find-if (lambda (file)
@@ -60,6 +90,34 @@
     ;; Each heading is (level . text)
     (should (numberp (caar headings)))
     (should (stringp (cdar headings)))))
+
+(ert-deftest ogent-codemap-org-heading-levels ()
+  "Org heading regex captures levels 1-3 only."
+  (let ((org-file (make-temp-file "ogent-heading-" nil ".org")))
+    (unwind-protect
+        (progn
+          (with-temp-file org-file
+            (insert "* One\n** Two\n*** Three\n**** Four\n"))
+          (let ((headings (ogent-codemap--org-headings org-file)))
+            (should (member '(1 . "One") headings))
+            (should (member '(2 . "Two") headings))
+            (should (member '(3 . "Three") headings))
+            (should-not (cl-find "Four" headings :key #'cdr :test #'string=))))
+      (delete-file org-file))))
+
+(ert-deftest ogent-codemap-md-heading-levels ()
+  "Markdown heading regex captures levels 1-3 only."
+  (let ((md-file (make-temp-file "ogent-md-" nil ".md")))
+    (unwind-protect
+        (progn
+          (with-temp-file md-file
+            (insert "# One\n## Two\n### Three\n#### Four\n"))
+          (let ((headings (ogent-codemap--md-headings md-file)))
+            (should (member '(1 . "One") headings))
+            (should (member '(2 . "Two") headings))
+            (should (member '(3 . "Three") headings))
+            (should-not (cl-find "Four" headings :key #'cdr :test #'string=))))
+      (delete-file md-file))))
 
 (ert-deftest ogent-codemap-scans-all-directories ()
   "Source files include test, specs, and docs directories."
