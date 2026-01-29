@@ -1826,6 +1826,52 @@ pre-fills that recipient."
           (lambda ()
             (add-hook 'kill-buffer-hook #'ogent-gastown--cleanup-on-kill nil t)))
 
+;;; Evil Integration
+
+;; When evil is loaded, set up proper evil keybindings.
+;; j/k are NOT bound in the mode map so evil users get normal line movement.
+;; Use n/p for item navigation, gj/gk for section navigation.
+
+;; Declare evil functions to avoid byte-compile warnings
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function evil-local-set-key "ext:evil-core")
+
+(defun ogent-gastown--setup-evil ()
+  "Set up evil keybindings for ogent-gastown-mode.
+Called after evil is loaded."
+  (when (fboundp 'evil-set-initial-state)
+    ;; Set initial state to normal so buffer is read-only and navigable
+    (evil-set-initial-state 'ogent-gastown-mode 'normal)
+
+    ;; Make our keymap override evil's state maps for non-movement keys
+    ;; j/k are intentionally NOT in the mode map so evil handles them
+    (evil-make-overriding-map ogent-gastown-mode-map 'normal)
+
+    ;; Add evil-specific navigation using evil-local-set-key in mode hook
+    (when (boundp 'evil-normal-state-local-map)
+      (add-hook 'ogent-gastown-mode-hook
+                (lambda ()
+                  ;; Standard evil navigation
+                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
+                  (evil-local-set-key 'normal "G" #'evil-goto-line)
+                  ;; Refresh with g-prefix (standard evil pattern)
+                  (evil-local-set-key 'normal "gr" #'ogent-gastown-refresh)
+                  (evil-local-set-key 'normal "gR" #'ogent-gastown-refresh-force)
+                  ;; Section navigation
+                  (evil-local-set-key 'normal "gj" #'ogent-gastown-next-item)
+                  (evil-local-set-key 'normal "gk" #'ogent-gastown-prev-item)
+                  ;; Quit
+                  (evil-local-set-key 'normal "ZZ" #'quit-window)
+                  (evil-local-set-key 'normal "ZQ" #'quit-window))))
+
+    ;; Normalize keymaps when entering the mode
+    (add-hook 'ogent-gastown-mode-hook #'evil-normalize-keymaps)))
+
+(with-eval-after-load 'evil
+  (ogent-gastown--setup-evil))
+
 (provide 'ogent-gastown-status)
 
 ;;; ogent-gastown-status.el ends here
