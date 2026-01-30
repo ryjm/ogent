@@ -481,7 +481,7 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
 
 ;;; Keymap
 
-(defvar ogent-gastown-mode-map
+(defvar ogent-gastown-status-mode-map
   (let ((map (make-sparse-keymap)))
     (when (and ogent-gastown--magit-section-available
                (boundp 'magit-section-mode-map))
@@ -494,8 +494,12 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     ;; Navigation
     (define-key map "n" #'ogent-gastown-next-item)
     (define-key map "p" #'ogent-gastown-prev-item)
+    (define-key map (kbd "M-n") #'ogent-gastown-next-section)
+    (define-key map (kbd "M-p") #'ogent-gastown-prev-section)
     (define-key map (kbd "TAB") #'ogent-gastown-toggle-section)
+    (define-key map (kbd "<backtab>") #'ogent-gastown-cycle-sections)
     (define-key map (kbd "RET") #'ogent-gastown-visit)
+    (define-key map (kbd "^") #'ogent-gastown-up-section)
 
     ;; Help/dispatch (magit-style: ?/h)
     (define-key map "?" #'ogent-gastown-status-dispatch)
@@ -532,24 +536,30 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (define-key map "q" #'quit-window)
 
     map)
-  "Keymap for `ogent-gastown-mode'.")
+  "Keymap for `ogent-gastown-status-mode'.")
 
 ;;; Mode Definition
 
-(defmacro ogent-gastown--define-mode ()
-  "Define `ogent-gastown-mode' with appropriate parent mode."
+(defmacro ogent-gastown--define-status-mode ()
+  "Define `ogent-gastown-status-mode' with appropriate parent mode."
   (let ((parent (if (bound-and-true-p ogent-gastown--magit-section-available)
                     'magit-section-mode
                   'special-mode)))
-    `(define-derived-mode ogent-gastown-mode ,parent "Gas Town"
+    `(define-derived-mode ogent-gastown-status-mode ,parent "Gas Town"
        "Major mode for viewing Gas Town status.
 
-\\<ogent-gastown-mode-map>
+Like `magit-status' but for your Gas Town multi-agent workspace.
+
+\\<ogent-gastown-status-mode-map>
 Navigation:
   \\[ogent-gastown-next-item]     Move to next item
   \\[ogent-gastown-prev-item]     Move to previous item
+  \\[ogent-gastown-next-section]   Move to next section
+  \\[ogent-gastown-prev-section]   Move to previous section
   \\[ogent-gastown-visit]   Visit item details
   \\[ogent-gastown-toggle-section]   Toggle section visibility
+  \\[ogent-gastown-cycle-sections]   Cycle all section visibility
+  \\[ogent-gastown-up-section]     Move to parent section
 
 Mail:
   \\[ogent-gastown-mail-read]     Read selected mail
@@ -577,7 +587,7 @@ Other:
   \\[ogent-gastown-status-dispatch]     Show command menu
   \\[quit-window]     Quit
 
-\\{ogent-gastown-mode-map}"
+\\{ogent-gastown-status-mode-map}"
        :group 'ogent-gastown
        (setq-local revert-buffer-function #'ogent-gastown-refresh)
        (setq-local truncate-lines t)
@@ -585,9 +595,12 @@ Other:
        (setq header-line-format '(:eval (ogent-gastown--header-line)))
        (when (bound-and-true-p ogent-gastown--magit-section-available)
          (setq-local magit-section-visibility-indicator
-                     (if ogent-gastown-use-unicode '("..." . t) '("..." . t)))))))
+                     (if ogent-gastown-use-unicode '("…" . t) '("..." . t)))))))
 
-(ogent-gastown--define-mode)
+(ogent-gastown--define-status-mode)
+
+;; Backward compatibility alias
+(defalias 'ogent-gastown-mode 'ogent-gastown-status-mode)
 
 ;;; Loading Animation
 
@@ -660,7 +673,7 @@ Other:
         (propertize "  " 'face 'ogent-gastown-dimmed)
         (propertize "g" 'face 'ogent-gastown-header-line-key)
         (propertize ":refresh " 'face 'ogent-gastown-dimmed)
-        (propertize "h" 'face 'ogent-gastown-header-line-key)
+        (propertize "?" 'face 'ogent-gastown-header-line-key)
         (propertize ":help " 'face 'ogent-gastown-dimmed)
         (propertize "q" 'face 'ogent-gastown-header-line-key)
         (propertize ":quit" 'face 'ogent-gastown-dimmed))))))
@@ -1509,8 +1522,35 @@ Other:
   "Toggle the current section."
   (interactive)
   (if ogent-gastown--magit-section-available
-      (magit-section-toggle (magit-current-section))
+      (if-let ((section (magit-current-section)))
+          (magit-section-toggle section)
+        (message "No section at point"))
     (message "Section toggling requires magit-section")))
+
+(defun ogent-gastown-next-section ()
+  "Move to the next sibling section."
+  (interactive)
+  (when ogent-gastown--magit-section-available
+    (magit-section-forward-sibling)))
+
+(defun ogent-gastown-prev-section ()
+  "Move to the previous sibling section."
+  (interactive)
+  (when ogent-gastown--magit-section-available
+    (magit-section-backward-sibling)))
+
+(defun ogent-gastown-up-section ()
+  "Move to the parent section."
+  (interactive)
+  (when ogent-gastown--magit-section-available
+    (magit-section-up)))
+
+(defun ogent-gastown-cycle-sections ()
+  "Cycle visibility of all sections."
+  (interactive)
+  (if ogent-gastown--magit-section-available
+      (magit-section-cycle-global)
+    (message "Section cycling requires magit-section")))
 
 (defun ogent-gastown-visit ()
   "Visit the item at point."
@@ -1787,6 +1827,15 @@ pre-fills that recipient."
        (format "%s refinery status %s" ogent-gastown-gt-executable rig-name)
        "*gt refinery*"))))
 
+(defun ogent-gastown-status-help ()
+  "Show help for Gas Town status buffer.
+Displays available keybindings and actions."
+  (interactive)
+  (message (concat
+            "n/p:item  M-n/M-p:section  TAB:toggle  "
+            "g:refresh  m:mail  h:hook  c:convoy  "
+            "r:rig  f:refinery  s:stats  d:deacon  w:witness  ?:help  q:quit")))
+
 ;;; Refresh
 
 (defun ogent-gastown-refresh (&optional _ignore-auto _noconfirm)
@@ -1815,14 +1864,17 @@ pre-fills that recipient."
 
 ;;;###autoload
 (defun ogent-gastown-status ()
-  "Open the Gas Town status buffer."
+  "Open the Gas Town status buffer.
+Like `magit-status', this shows a comprehensive view of your
+Gas Town multi-agent workspace including hook status, mail,
+convoys, crew members, and polecats."
   (interactive)
   (unless (ogent-gastown--in-town-p)
     (user-error "Gas Town CLI (gt) not found in PATH"))
   (let ((buf (get-buffer-create ogent-gastown-buffer-name)))
     (with-current-buffer buf
-      (unless (eq major-mode 'ogent-gastown-mode)
-        (ogent-gastown-mode))
+      (unless (eq major-mode 'ogent-gastown-status-mode)
+        (ogent-gastown-status-mode))
       (setq ogent-gastown--town-root (ogent-gastown--find-town-root))
       (ogent-gastown-refresh))
     (switch-to-buffer buf)))
@@ -1833,55 +1885,52 @@ pre-fills that recipient."
   "Clean up timers when the buffer is killed."
   (ogent-gastown--stop-loading-timer))
 
-(add-hook 'ogent-gastown-mode-hook
+(add-hook 'ogent-gastown-status-mode-hook
           (lambda ()
             (add-hook 'kill-buffer-hook #'ogent-gastown--cleanup-on-kill nil t)))
 
 ;;; Evil Integration
-
 ;; When evil is loaded, set up proper evil keybindings.
 ;; j/k are NOT bound in the mode map so evil users get normal line movement.
 ;; Use n/p for item navigation, gj/gk for section navigation.
 
-;; Declare evil functions to avoid byte-compile warnings
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function evil-local-set-key "ext:evil-core")
 
 (defun ogent-gastown--setup-evil ()
-  "Set up evil keybindings for ogent-gastown-mode.
+  "Set up evil keybindings for `ogent-gastown-status-mode'.
 Called after evil is loaded."
   (when (fboundp 'evil-set-initial-state)
     ;; Set initial state to normal so buffer is read-only and navigable
-    (evil-set-initial-state 'ogent-gastown-mode 'normal)
+    (evil-set-initial-state 'ogent-gastown-status-mode 'normal)
 
     ;; Make our keymap override evil's state maps for non-movement keys
     ;; j/k are intentionally NOT in the mode map so evil handles them
-    (evil-make-overriding-map ogent-gastown-mode-map 'normal)
+    (evil-make-overriding-map ogent-gastown-status-mode-map 'normal)
 
     ;; Add evil-specific navigation using evil-local-set-key in mode hook
-    (when (boundp 'evil-normal-state-local-map)
-      (add-hook 'ogent-gastown-mode-hook
-                (lambda ()
-                  ;; Standard evil navigation
-                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
-                  (evil-local-set-key 'normal "G" #'evil-goto-line)
-                  ;; Refresh with g-prefix (standard evil pattern)
-                  (evil-local-set-key 'normal "gr" #'ogent-gastown-refresh)
-                  (evil-local-set-key 'normal "gR" #'ogent-gastown-refresh-force)
-                  ;; Section navigation
-                  (evil-local-set-key 'normal "gj" #'ogent-gastown-next-item)
-                  (evil-local-set-key 'normal "gk" #'ogent-gastown-prev-item)
-                  ;; Section toggle
-                  (evil-local-set-key 'normal (kbd "TAB") #'ogent-gastown-toggle-section)
-                  (evil-local-set-key 'normal (kbd "<tab>") #'ogent-gastown-toggle-section)
-                  ;; Quit
-                  (evil-local-set-key 'normal "ZZ" #'quit-window)
-                  (evil-local-set-key 'normal "ZQ" #'quit-window))))
+    (add-hook 'ogent-gastown-status-mode-hook
+              (lambda ()
+                ;; Standard evil navigation
+                (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
+                (evil-local-set-key 'normal "G" #'evil-goto-line)
+                ;; Refresh with g-prefix (standard evil pattern)
+                (evil-local-set-key 'normal "gr" #'ogent-gastown-refresh)
+                (evil-local-set-key 'normal "gR" #'ogent-gastown-refresh-force)
+                ;; Section navigation
+                (evil-local-set-key 'normal "gj" #'ogent-gastown-next-section)
+                (evil-local-set-key 'normal "gk" #'ogent-gastown-prev-section)
+                ;; Section toggle
+                (evil-local-set-key 'normal (kbd "TAB") #'ogent-gastown-toggle-section)
+                (evil-local-set-key 'normal (kbd "<tab>") #'ogent-gastown-toggle-section)
+                ;; Quit
+                (evil-local-set-key 'normal "ZZ" #'quit-window)
+                (evil-local-set-key 'normal "ZQ" #'quit-window)))
 
     ;; Normalize keymaps when entering the mode
-    (add-hook 'ogent-gastown-mode-hook #'evil-normalize-keymaps)))
+    (add-hook 'ogent-gastown-status-mode-hook #'evil-normalize-keymaps)))
 
 (with-eval-after-load 'evil
   (ogent-gastown--setup-evil))
