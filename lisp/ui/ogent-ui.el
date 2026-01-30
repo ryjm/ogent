@@ -326,7 +326,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
 (cl-defstruct ogent-ui-request
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle source-buffer
-  block-start response-pos)
+  block-start response-pos
+  paused-response)  ; Stores partial response when paused for resume
 
 (transient-define-infix ogent--infix-prompt ()
 			"Enter a prompt to send."
@@ -1351,6 +1352,8 @@ heading (see `ogent-shift-response-headings')."
                                  ('type "typing")
                                  ('done "done")
                                  ('error "error")
+                                 ('paused "paused")
+                                 ('aborted "aborted")
                                  (_ nil)))
                    (new-header (concat "#+begin_src text :model " model-id
                                        (when backend
@@ -2634,6 +2637,74 @@ Records the error and displays it in the *ogent-errors* buffer."
     (ogent-ui--update-status request 'aborted)
     (ogent-ui--close-response request "Request aborted by user")))
 
+(defun ogent-ui--get-partial-response (request)
+  "Extract the partial response text accumulated so far for REQUEST."
+  (let ((start (ogent-ui-request-response-pos request))
+        (end (ogent-ui-request-marker request))
+        (buffer (ogent-ui-request-buffer request)))
+    (when (and start end buffer (buffer-live-p buffer))
+      (with-current-buffer buffer
+        (buffer-substring-no-properties
+         (if (markerp start) (marker-position start) start)
+         (if (markerp end) (marker-position end) end))))))
+
+(defun ogent-ui--pause-request (request)
+  "Pause REQUEST, storing its partial response for later resume.
+Stops the HTTP stream but keeps the request in a resumable state."
+  (unless (or (ogent-ui-request-closed request)
+              (eq (ogent-ui-request-status request) 'paused))
+    ;; Store partial response before aborting
+    (let ((partial (ogent-ui--get-partial-response request)))
+      (setf (ogent-ui-request-paused-response request) partial))
+    ;; Abort the gptel connection
+    (let ((handle (ogent-ui-request-gptel-handle request)))
+      (when (and handle (fboundp 'gptel-abort))
+        (ignore-errors
+          (gptel-abort (ogent-ui-request-buffer request)))))
+    ;; Mark as paused (not closed - can be resumed)
+    (ogent-ui--update-status request 'paused)
+    ;; Insert pause indicator in buffer
+    (let ((marker (ogent-ui-request-marker request)))
+      (when (and marker (marker-buffer marker))
+        (with-current-buffer (ogent-ui-request-buffer request)
+          (save-excursion
+            (goto-char marker)
+            (insert "\n⏸ [Paused - use ogent-resume-request to continue]\n")
+            (set-marker marker (point))))))))
+
+(defun ogent-ui--resume-request (request)
+  "Resume a paused REQUEST by continuing from where it left off.
+Creates a new request with the partial response as context."
+  (when (eq (ogent-ui-request-status request) 'paused)
+    (let* ((partial (ogent-ui-request-paused-response request))
+           (original-prompt (ogent-ui-request-prompt request))
+           (model (ogent-ui-request-model request))
+           (preset (ogent-ui-request-preset request))
+           (buffer (ogent-ui-request-buffer request))
+           ;; Create continuation prompt
+           (continuation-prompt
+            (format "Continue from where you left off. Your previous partial response was:\n\n%s\n\n---\nPlease continue naturally from this point, completing your response to the original request."
+                    (or partial "[No partial response captured]"))))
+      ;; Mark old request as resumed (close it)
+      (ogent-ui--update-status request 'done)
+      (setf (ogent-ui-request-closed request) t)
+      (remhash (ogent-ui-request-id request) ogent-ui--request-table)
+      ;; Remove the pause indicator
+      (let ((marker (ogent-ui-request-marker request)))
+        (when (and marker (marker-buffer marker))
+          (with-current-buffer buffer
+            (save-excursion
+              (goto-char marker)
+              (when (re-search-backward "⏸ \\[Paused" nil t)
+                (delete-region (line-beginning-position)
+                               (min (1+ (line-end-position)) (point-max))))))))
+      ;; Create new request to continue
+      (with-current-buffer buffer
+        (goto-char (point-max))
+        (ogent-request continuation-prompt
+                       (list (plist-get model :id))
+                       preset)))))
+
 ;;;###autoload
 (defun ogent-abort-request (&optional request-id)
   "Abort the request with REQUEST-ID, or prompt for one if interactive.
@@ -2662,6 +2733,55 @@ When called interactively with a prefix arg, abort all active requests."
             (ogent-ui--abort-request request)
             (message "Aborted request %s" id))
         (message "No request to abort")))))
+
+;;;###autoload
+(defun ogent-pause-request (&optional request-id)
+  "Pause the request with REQUEST-ID, or prompt for one if interactive.
+Paused requests can be resumed with `ogent-resume-request'.
+The partial response is stored for continuation."
+  (interactive)
+  (let* ((requests (ogent-ui-active-requests))
+         (id (or request-id
+                 (when requests
+                   (completing-read
+                    "Pause request: "
+                    (mapcar #'ogent-ui-request-id requests)
+                    nil t))))
+         (request (and id (gethash id ogent-ui--request-table))))
+    (if request
+        (progn
+          (ogent-ui--pause-request request)
+          (message "Paused request %s - use ogent-resume-request to continue" id))
+      (message "No active request to pause"))))
+
+(defun ogent-ui-paused-requests ()
+  "Return a list of all paused requests."
+  (let (requests)
+    (maphash (lambda (_id request)
+               (when (eq (ogent-ui-request-status request) 'paused)
+                 (push request requests)))
+             ogent-ui--request-table)
+    (nreverse requests)))
+
+;;;###autoload
+(defun ogent-resume-request (&optional request-id)
+  "Resume a paused request with REQUEST-ID.
+Continues from where the request left off by sending a new request
+with the partial response as context."
+  (interactive)
+  (let* ((paused (ogent-ui-paused-requests))
+         (id (or request-id
+                 (when paused
+                   (completing-read
+                    "Resume request: "
+                    (mapcar #'ogent-ui-request-id paused)
+                    nil t))))
+         (request (and id (gethash id ogent-ui--request-table))))
+    (if (and request (eq (ogent-ui-request-status request) 'paused))
+        (progn
+          (ogent-ui--resume-request request)
+          (message "Resuming request %s" id))
+      (message "No paused request to resume"))))
 
 ;;;###autoload
 (defun ogent-retry-request (&optional request-id)
