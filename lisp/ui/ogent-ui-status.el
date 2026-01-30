@@ -205,6 +205,7 @@ Uses theme faces for consistent styling."
                      ('done (ogent-theme-icon 'done))
                      ('error (ogent-theme-icon 'error))
                      ('aborted (ogent-theme-icon 'blocked))
+                     ('paused "⏸")
                      (_ (ogent-theme-icon 'pending))))
              (face (ogent-status--get-face status)))
         (overlay-put ov 'before-string
@@ -262,7 +263,7 @@ REQUEST should be an `ogent-ui-request' struct."
 
 (defun ogent-status-update-indicator (request new-status)
   "Update margin indicator for REQUEST to show NEW-STATUS.
-NEW-STATUS should be one of: wait, type, done, error, aborted."
+NEW-STATUS should be one of: wait, type, done, error, aborted, paused."
   (when-let ((buf (and request (ogent-ui-request-buffer request))))
     (when (buffer-live-p buf)
       (with-current-buffer buf
@@ -273,8 +274,8 @@ NEW-STATUS should be one of: wait, type, done, error, aborted."
              ;; Start animation for streaming
              ((eq new-status 'type)
               (ogent-status--start-animation overlay-info))
-             ;; Stop animation for terminal states
-             ((memq new-status '(done error aborted))
+             ;; Stop animation for terminal/paused states
+             ((memq new-status '(done error aborted paused))
               (ogent-status--stop-animation overlay-info)))
             ;; Update icon
             (ogent-status--update-margin-overlay overlay-info new-status)))))))
