@@ -48,6 +48,21 @@
       (when (buffer-live-p buf)
         (kill-buffer buf)))))
 
+(ert-deftest ogent-codemap-heading-includes-mtime ()
+  "File headings include modification time metadata."
+  (let* ((root (ogent-codemap--project-root))
+         (test-file (expand-file-name "test/data/ogent-codemap-mtime.el" root)))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "(defun ogent-codemap-mtime-test () nil)\n"))
+          (with-temp-buffer
+            (ogent-codemap--insert-file (current-buffer) test-file)
+            (goto-char (point-min))
+            (should (re-search-forward "mtime:" nil t))))
+      (when (file-exists-p test-file)
+        (delete-file test-file)))))
+
 (ert-deftest ogent-codemap-detects-file-types ()
   "File type detection works for all supported types."
   (should (eq (ogent-codemap--file-type "lisp/ogent-core.el") 'elisp))
@@ -247,6 +262,45 @@
           (when (eq (ogent-codemap--file-type f) 'elisp)
             (ogent-codemap--get-cached-or-scan f 'elisp))))
       (should (= 0 (length scanned-files))))))
+
+(ert-deftest ogent-codemap-refresh-on-save-schedules ()
+  "Saving a tracked file schedules a codemap refresh."
+  (let ((ogent-codemap-refresh-on-save t)
+        (ogent-codemap--last-file-snapshot (list (cons "dummy" (current-time))))
+        (called nil)
+        (buffer (get-buffer-create ogent-codemap-buffer-name)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-codemap--schedule-refresh)
+                   (lambda () (setq called t))))
+          (with-current-buffer buffer
+            (erase-buffer)
+            (insert "* Codemap\n"))
+          (with-temp-buffer
+            (setq buffer-file-name (expand-file-name "lisp/ogent-core.el"
+                                                     (ogent-codemap--project-root)))
+            (ogent-codemap--maybe-refresh-after-save))
+          (should called))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(ert-deftest ogent-codemap-refresh-on-save-ignores-untracked ()
+  "Saving an untracked file does not schedule refresh."
+  (let ((ogent-codemap-refresh-on-save t)
+        (ogent-codemap--last-file-snapshot (list (cons "dummy" (current-time))))
+        (called nil)
+        (buffer (get-buffer-create ogent-codemap-buffer-name)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-codemap--schedule-refresh)
+                   (lambda () (setq called t))))
+          (with-current-buffer buffer
+            (erase-buffer)
+            (insert "* Codemap\n"))
+          (with-temp-buffer
+            (setq buffer-file-name "/tmp/ogent-codemap-untracked.txt")
+            (ogent-codemap--maybe-refresh-after-save))
+          (should-not called))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
 
 ;;; Cross-linking Tests
 

@@ -22,6 +22,19 @@
   :type 'string
   :group 'ogent)
 
+(defcustom ogent-codemap-refresh-on-save nil
+  "When non-nil, refresh the codemap after saving tracked files."
+  :type 'boolean
+  :group 'ogent)
+
+(defcustom ogent-codemap-refresh-delay 0.5
+  "Idle delay in seconds before refreshing the codemap after saves."
+  :type 'number
+  :group 'ogent)
+
+(defvar ogent-codemap--refresh-timer nil
+  "Idle timer used for delayed codemap refreshes.")
+
 ;;; File Cache
 ;;
 ;; Cache parsed file data with modification times to avoid rescanning unchanged files.
@@ -38,6 +51,11 @@ Alist of (FILE . MTIME) used to detect changes.")
   "Cache DATA for FILE with current modification time."
   (let ((mtime (file-attribute-modification-time (file-attributes file))))
     (puthash file (list :mtime mtime :data data) ogent-codemap--file-cache)))
+
+(defun ogent-codemap--format-mtime (file)
+  "Return formatted modification time string for FILE."
+  (when-let ((mtime (ogent-codemap--get-file-mtime file)))
+    (format-time-string "%Y-%m-%d %H:%M:%S" mtime)))
 
 (defun ogent-codemap--cache-stale-p (file)
   "Return non-nil if cache for FILE is stale or missing."
@@ -266,12 +284,15 @@ Returns the relative path to the source file, or nil if not found."
   (with-current-buffer buffer
     (let* ((root (ogent-codemap--project-root))
            (relative (file-relative-name file root))
+           (mtime (ogent-codemap--format-mtime file))
            (file-type (ogent-codemap--file-type file)))
       (pcase file-type
         ('elisp
          (let ((defs (ogent-codemap--get-cached-or-scan file 'elisp))
                (test-file (ogent-codemap--find-test-file relative)))
            (insert (format "** [[file:%s][%s]]\n" relative relative))
+           (when mtime
+             (insert (format "mtime: %s\n" mtime)))
            (when test-file
              (insert (format "Tests: [[file:%s][%s]]\n" test-file test-file)))
            (dolist (def defs)
@@ -280,6 +301,8 @@ Returns the relative path to the source file, or nil if not found."
          (let ((tests (ogent-codemap--get-cached-or-scan file 'elisp-test))
                (source-file (ogent-codemap--find-source-file relative)))
            (insert (format "** [[file:%s][%s]]\n" relative relative))
+           (when mtime
+             (insert (format "mtime: %s\n" mtime)))
            (when source-file
              (insert (format "Tests for: [[file:%s][%s]]\n" source-file source-file)))
            (dolist (test tests)
@@ -287,6 +310,8 @@ Returns the relative path to the source file, or nil if not found."
         ('org
          (let ((headings (ogent-codemap--get-cached-or-scan file 'org)))
            (insert (format "** [[file:%s][%s]]\n" relative relative))
+           (when mtime
+             (insert (format "mtime: %s\n" mtime)))
            (dolist (h headings)
              (let ((level (car h))
                    (text (cdr h)))
@@ -297,6 +322,8 @@ Returns the relative path to the source file, or nil if not found."
         ('markdown
          (let ((headings (ogent-codemap--get-cached-or-scan file 'markdown)))
            (insert (format "** [[file:%s][%s]]\n" relative relative))
+           (when mtime
+             (insert (format "mtime: %s\n" mtime)))
            (dolist (h headings)
              (let ((level (car h))
                    (text (cdr h)))
@@ -379,6 +406,9 @@ Preserves any manual annotations. FILE is an absolute path."
           (when old-annotations
             (goto-char insert-point)
             (forward-line 1)
+            ;; Skip mtime line if present
+            (when (looking-at "^mtime: ")
+              (forward-line 1))
             ;; Skip Tests: line if present
             (when (looking-at "^Tests\\( for\\)?: ")
               (forward-line 1))
@@ -413,6 +443,7 @@ standard codemap patterns)."
       ;; Keep lines that are comments or don't match standard patterns
       (when (and (not (string-match-p "^\\*+ \\[\\[file:" line))
                  (not (string-match-p "^Tests\\( for\\)?: \\[\\[file:" line))
+                 (not (string-match-p "^mtime:" line))
                  (not (string-empty-p (string-trim line))))
         (push line annotations)))
     (nreverse annotations)))
@@ -446,6 +477,9 @@ Erases buffer and rebuilds from scratch, preserving annotations."
                                             (regexp-quote relative))
                                     nil t)
                 (forward-line 1)
+                ;; Skip mtime line if present
+                (when (looking-at "^mtime: ")
+                  (forward-line 1))
                 ;; Skip the Tests: line if present
                 (when (looking-at "^Tests\\( for\\)?: ")
                   (forward-line 1))
@@ -501,6 +535,29 @@ Returns the codemap buffer, or nil if full render is needed."
 Uses incremental refresh when possible, falls back to full render."
   (or (ogent-codemap--render-incremental)
       (ogent-codemap--render-full)))
+
+;;; Auto-refresh on save
+
+(defun ogent-codemap--schedule-refresh ()
+  "Schedule a codemap refresh using an idle timer."
+  (when ogent-codemap--refresh-timer
+    (cancel-timer ogent-codemap--refresh-timer))
+  (setq ogent-codemap--refresh-timer
+        (run-with-idle-timer ogent-codemap-refresh-delay nil
+                             #'ogent-codemap-refresh)))
+
+(defun ogent-codemap--maybe-refresh-after-save ()
+  "Refresh codemap after saving a tracked file when enabled."
+  (when (and ogent-codemap-refresh-on-save
+             (buffer-file-name)
+             (get-buffer ogent-codemap-buffer-name)
+             ogent-codemap--last-file-snapshot)
+    (let ((file (expand-file-name (buffer-file-name))))
+      (when (member file (ogent-codemap--source-files))
+        (ogent-codemap--schedule-refresh)))))
+
+;; Hook is cheap; guard with `ogent-codemap-refresh-on-save' in the handler.
+(add-hook 'after-save-hook #'ogent-codemap--maybe-refresh-after-save)
 
 ;;;###autoload
 (defun ogent-codemap-buffer ()
