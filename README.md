@@ -75,7 +75,11 @@ Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
 - `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
 - FSM status tracking is implemented via `ogent-tool-fsm.el`, with visual state indicators in the mode line.
 - Tool-call rendering is handled by `ogent-tool-render.el`, displaying reasoning and tool blocks inline.
-- Backend/preset configuration is documented in [docs/getting-started.md](docs/getting-started.md) and the `ogent-onboard` wizard.
+- Backend/preset configuration is documented in [docs/backends-and-presets.md](docs/backends-and-presets.md) and the `ogent-onboard` wizard.
+
+## Backends, Models, and Presets
+- `docs/backends-and-presets.md` walks through backend switching (gptel backend selection), model registry configuration, preset definition, and troubleshooting.
+- Use the prompt dispatcher (`C-c o p`) to pick a provider/model (`m`), apply a preset (`s`), or fan out across multiple models (`M`).
 
 ## Module Overview
 
