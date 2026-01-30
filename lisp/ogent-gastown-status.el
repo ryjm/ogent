@@ -21,6 +21,10 @@
   (when ogent-gastown--magit-section-available
     (require 'magit-section)))
 
+;; Load transient help menu if available
+(declare-function ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
+(autoload 'ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
+
 ;; Declare magit functions to avoid byte-compile warnings
 (declare-function magit-insert-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -493,13 +497,17 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (define-key map (kbd "TAB") #'ogent-gastown-toggle-section)
     (define-key map (kbd "RET") #'ogent-gastown-visit)
 
+    ;; Help/dispatch (magit-style: ?/h)
+    (define-key map "?" #'ogent-gastown-status-dispatch)
+    (define-key map "h" #'ogent-gastown-status-dispatch)
+
     ;; Mail actions
     (define-key map "m" #'ogent-gastown-mail-read)
     (define-key map "M" #'ogent-gastown-mail-compose)
 
     ;; Hook actions
-    (define-key map "h" #'ogent-gastown-hook-show)
-    (define-key map "H" #'ogent-gastown-hook-attach)
+    (define-key map "H" #'ogent-gastown-hook-show)
+    (define-key map "a" #'ogent-gastown-hook-attach)
 
     ;; Convoy actions
     (define-key map "c" #'ogent-gastown-convoy-status)
@@ -566,6 +574,7 @@ Crew/Polecat:
 
 Other:
   \\[ogent-gastown-refresh]     Refresh
+  \\[ogent-gastown-status-dispatch]     Show command menu
   \\[quit-window]     Quit
 
 \\{ogent-gastown-mode-map}"
@@ -651,6 +660,8 @@ Other:
         (propertize "  " 'face 'ogent-gastown-dimmed)
         (propertize "g" 'face 'ogent-gastown-header-line-key)
         (propertize ":refresh " 'face 'ogent-gastown-dimmed)
+        (propertize "h" 'face 'ogent-gastown-header-line-key)
+        (propertize ":help " 'face 'ogent-gastown-dimmed)
         (propertize "q" 'face 'ogent-gastown-header-line-key)
         (propertize ":quit" 'face 'ogent-gastown-dimmed))))))
 
