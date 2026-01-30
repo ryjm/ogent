@@ -156,6 +156,14 @@
       (should (equal (car result) "this function"))
       (should (equal (cdr result) '("ogent-refactor"))))))
 
+(ert-deftest ogent-ui-apply-prompt-templates-prefixes ()
+  "Selected templates are prefixed to the prompt."
+  (let ((ogent-ui--selected-templates '("template-one")))
+    (cl-letf (((symbol-function 'ogent-prompt-compose-with-params)
+               (lambda (_ids &optional _params) "Template content")))
+      (should (equal (ogent-ui--apply-prompt-templates "User prompt")
+                     "Template content\n\nUser prompt")))))
+
 (ert-deftest ogent-request-applies-preset ()
   "ogent-request applies presets from cookies and dispatcher."
   (ogent-test-with-fixture "data/fixture.org"

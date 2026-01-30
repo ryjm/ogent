@@ -14,6 +14,7 @@
 (require 'cl-lib)
 (require 'org)
 (require 'org-element)
+(require 'subr-x)
 
 (defgroup ogent-prompts nil
   "Configuration for ogent prompt templates."
@@ -31,6 +32,14 @@
 
 (defvar ogent-prompt-registry (make-hash-table :test 'equal)
   "Hash table mapping prompt IDs (strings) to `ogent-prompt' structs.")
+
+(defconst ogent-prompt--param-rx
+  (rx "{{" (* space)
+      (group (+ (or alnum "-" "_")))
+      (* space)
+      (opt ":" (* space) (group (+ (not (any "}")))) (* space))
+      "}}")
+  "Regexp matching template parameters like {{name}} or {{name:default}}.")
 
 ;;; Registry Functions
 
@@ -78,6 +87,75 @@ Returns a list of ID strings."
   (let ((cleaned (replace-regexp-in-string "@" "" input)))
     (split-string cleaned "\\+" t "[ \t]+")))
 
+(defun ogent-prompt-template-params (content)
+  "Return parameter specs discovered in CONTENT.
+Each entry is a plist with :name and optional :default keys."
+  (let ((params nil)
+        (seen (make-hash-table :test 'equal)))
+    (with-temp-buffer
+      (insert (or content ""))
+      (goto-char (point-min))
+      (while (re-search-forward ogent-prompt--param-rx nil t)
+        (let* ((name (string-trim (match-string-no-properties 1)))
+               (default (match-string-no-properties 2)))
+          (unless (gethash name seen)
+            (puthash name t seen)
+            (push (list :name name
+                        :default (when default (string-trim default)))
+                  params)))))
+    (nreverse params)))
+
+(defun ogent-prompt--param-value (name params)
+  "Return value for NAME from PARAMS.
+PARAMS can be an alist with string/symbol keys or a plist with keyword keys."
+  (cond
+   ((null params) nil)
+   ((and (listp params) (keywordp (car params)))
+    (plist-get params (intern (concat ":" name))))
+   (t (or (cdr (assoc name params))
+          (cdr (assoc (intern name) params))))))
+
+(defun ogent-prompt-render (content &optional params)
+  "Render CONTENT by substituting template parameters from PARAMS."
+  (replace-regexp-in-string
+   ogent-prompt--param-rx
+   (lambda (match)
+     (string-match ogent-prompt--param-rx match)
+     (let* ((name (string-trim (match-string 1 match)))
+            (default (match-string 2 match))
+            (value (ogent-prompt--param-value name params)))
+       (cond
+        ((and value (stringp value)) value)
+        (value (format "%s" value))
+        (default (string-trim default))
+        (t ""))))
+   (or content "")
+   t t))
+
+(defun ogent-prompt--collect-params (ids)
+  "Return merged param specs for prompt IDS."
+  (let ((all nil)
+        (seen (make-hash-table :test 'equal)))
+    (dolist (id ids)
+      (when-let ((prompt (ogent-prompt-get id)))
+        (dolist (param (ogent-prompt-template-params
+                        (ogent-prompt-content prompt)))
+          (let ((name (plist-get param :name)))
+            (unless (gethash name seen)
+              (puthash name t seen)
+              (push param all))))))
+    (nreverse all)))
+
+(defun ogent-prompt-read-params (params)
+  "Prompt for PARAMS values, returning an alist."
+  (let ((values nil))
+    (dolist (param params)
+      (let* ((name (plist-get param :name))
+             (default (plist-get param :default))
+             (value (read-string (format "%s: " name) default)))
+        (push (cons name value) values)))
+    (nreverse values)))
+
 (defun ogent-prompt-compose (ids)
   "Compose prompt templates with IDS into a single string.
 Sort by compose-order (lower first) and concatenate with double newlines.
@@ -93,6 +171,36 @@ Unknown IDs are silently skipped."
   "Parse INPUT and compose the referenced prompt templates.
 INPUT can be @code-review+@testing or similar syntax."
   (ogent-prompt-compose (ogent-prompt-parse-composition input)))
+
+(defun ogent-prompt-compose-rendered (ids &optional params)
+  "Compose templates IDS, rendering parameters with PARAMS."
+  (let* ((prompts (delq nil (mapcar #'ogent-prompt-get ids)))
+         (sorted (sort prompts
+                       (lambda (a b)
+                         (< (or (ogent-prompt-compose-order a) 50)
+                            (or (ogent-prompt-compose-order b) 50))))))
+    (mapconcat (lambda (prompt)
+                 (ogent-prompt-render (ogent-prompt-content prompt) params))
+               sorted
+               "\n\n")))
+
+(defun ogent-prompt-compose-with-params (ids &optional params)
+  "Compose templates IDS, prompting for PARAMS when needed."
+  (let* ((param-specs (ogent-prompt--collect-params ids))
+         (values (or params (ogent-prompt-read-params param-specs))))
+    (ogent-prompt-compose-rendered ids values)))
+
+(defun ogent-prompt-select-ids ()
+  "Interactively select prompt template IDs."
+  (ogent-prompts-initialize)
+  (let ((choices (ogent-prompt-ids)))
+    (completing-read-multiple "Prompt templates: " choices nil t)))
+
+(defun ogent-prompt-insert (ids)
+  "Insert composed prompt templates IDS at point."
+  (interactive (list (ogent-prompt-select-ids)))
+  (when ids
+    (insert (ogent-prompt-compose-with-params ids))))
 
 ;;; Validation
 
