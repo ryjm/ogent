@@ -1541,47 +1541,77 @@ completes, in case the callback-based detection doesn't trigger."
     (ogent-ui--register-gptel-hook)))
 
 (defun ogent-ui--async-tool-p (tool-name)
-  "Return non-nil if TOOL-NAME supports async streaming execution."
+  "Return non-nil if TOOL-NAME supports async streaming execution.
+Checks the tool spec for an :async-function property."
   (and ogent-stream-tool-output
-       (member tool-name '("bash" "Bash"))))
+       (when-let ((spec (and (fboundp 'ogent-tool-spec-get)
+                             (ogent-tool-spec-get (intern tool-name)))))
+         (plist-get spec :async-function))))
 
-(defun ogent-ui--execute-tool-async (tool-name tool-args)
-  "Execute TOOL-NAME with TOOL-ARGS asynchronously with streaming output.
-Returns the streaming drawer struct.  Output is streamed to the drawer."
-  (let* ((drawer (ogent-ui--insert-streaming-drawer tool-name tool-args))
-         (spec (and (fboundp 'ogent-tool-spec-get)
-                    (ogent-tool-spec-get (intern tool-name))))
-         (arg-values (ogent-ui--extract-tool-args spec tool-args))
-         (command (nth 0 arg-values))
-         (working-dir (nth 1 arg-values))
-         (timeout (nth 2 arg-values))
-         ;; Resolve working directory
-         (resolved-dir (if working-dir
-                           (and (fboundp 'ogent-tools--resolve-path)
-                                (ogent-tools--resolve-path working-dir))
-                         (and (fboundp 'ogent-tools--project-root)
-                              (ogent-tools--project-root)))))
-    ;; Start async process
-    (when (fboundp 'ogent-tool--bash-async)
-      (ogent-tool--bash-async
-       command
+(defun ogent-ui--make-streaming-callback (drawer callback-style)
+  "Create a callback function for DRAWER based on CALLBACK-STYLE.
+CALLBACK-STYLE is :stream (bash-style) or :match (grep-style)."
+  (pcase callback-style
+    ;; Stream style: (stdout chunk), (stderr chunk), (done exit-code), (error msg)
+    (:stream
+     (lambda (type data)
+       (pcase type
+         ((or 'stdout 'chunk)
+          (ogent-ui--streaming-drawer-append drawer data))
+         ('stderr
+          (ogent-ui--streaming-drawer-append drawer (propertize data 'face 'error)))
+         ('done
+          (ogent-ui--streaming-drawer-finalize
+           drawer
+           (if (= data 0) 'success 'error)
+           data)
+          (ogent-ui--streaming-drawer-cleanup drawer))
+         ('error
+          (ogent-ui--streaming-drawer-append
+           drawer (format "\n[Error: %s]" data))
+          (ogent-ui--streaming-drawer-finalize drawer 'error)
+          (ogent-ui--streaming-drawer-cleanup drawer)))))
+    ;; Match style: (match line), (done count), (error msg)
+    (:match
+     (let ((line-count 0))
        (lambda (type data)
          (pcase type
-           ('chunk
-            (ogent-ui--streaming-drawer-append drawer data))
+           ('match
+            (cl-incf line-count)
+            (ogent-ui--streaming-drawer-append drawer (concat data "\n")))
            ('done
             (ogent-ui--streaming-drawer-finalize
-             drawer
-             (if (= data 0) 'success 'error)
-             data)
+             drawer 'success
+             (format "%d matches" data))
             (ogent-ui--streaming-drawer-cleanup drawer))
            ('error
             (ogent-ui--streaming-drawer-append
              drawer (format "\n[Error: %s]" data))
             (ogent-ui--streaming-drawer-finalize drawer 'error)
-            (ogent-ui--streaming-drawer-cleanup drawer))))
-       resolved-dir
-       timeout))
+            (ogent-ui--streaming-drawer-cleanup drawer))))))
+    ;; Default: treat as stream style
+    (_
+     (ogent-ui--make-streaming-callback drawer :stream))))
+
+(defun ogent-ui--execute-tool-async (tool-name tool-args)
+  "Execute TOOL-NAME with TOOL-ARGS asynchronously with streaming output.
+Returns the streaming drawer struct.  Output is streamed to the drawer.
+Uses the :async-function and :async-callback-style from the tool spec."
+  (let* ((drawer (ogent-ui--insert-streaming-drawer tool-name tool-args))
+         (spec (and (fboundp 'ogent-tool-spec-get)
+                    (ogent-tool-spec-get (intern tool-name))))
+         (async-func (plist-get spec :async-function))
+         (callback-style (or (plist-get spec :async-callback-style) :stream))
+         (arg-values (ogent-ui--extract-tool-args spec tool-args))
+         (callback (ogent-ui--make-streaming-callback drawer callback-style)))
+    (if (and async-func (fboundp async-func))
+        ;; Call the async function with args + callback
+        (apply async-func (append arg-values (list callback)))
+      ;; Fallback: no async function found, execute sync and display result
+      (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+        (ogent-ui--streaming-drawer-append drawer result)
+        (ogent-ui--streaming-drawer-finalize drawer 'success)
+        (ogent-ui--streaming-drawer-cleanup drawer)))
     drawer))
 
 (defun ogent-ui--handle-tool-calls (request tool-calls _info)

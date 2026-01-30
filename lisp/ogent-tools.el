@@ -325,13 +325,14 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                (float-time (time-subtract (current-time) start-time))))
      ogent-tools-max-output-chars)))
 
-(defun ogent-tool--grep-async (pattern callback &optional path glob-filter context-lines)
+(defun ogent-tool--grep-async (pattern &optional path glob-filter context-lines callback)
   "Search for PATTERN asynchronously with streaming.
+PATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'.
 CALLBACK is called with (TYPE DATA) where TYPE is:
   - `match': DATA is a matched line string
   - `done': DATA is the total match count
   - `error': DATA is an error message
-PATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'."
+If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'."
   (let* ((dir (if path
                   (ogent-tools--resolve-path path)
                 (ogent-tools--project-root)))
@@ -369,20 +370,24 @@ PATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'."
                                 ;; Split into lines and callback each match
                                 (dolist (line (split-string output "\n" t))
                                   (cl-incf match-count)
-                                  (funcall callback 'match line)))))
+                                  (when callback
+                                    (funcall callback 'match line))))))
           (set-process-sentinel
            proc
            (lambda (process event)
              (if (string-match-p "finished\\|exited" event)
                  (progn
                    (ogent-tools--stream-done 'grep (process-exit-status process))
-                   (funcall callback 'done match-count))
+                   (when callback
+                     (funcall callback 'done match-count)))
                (ogent-tools--stream-error 'grep (string-trim event))
-               (funcall callback 'error (string-trim event)))))
+               (when callback
+                 (funcall callback 'error (string-trim event))))))
           proc)
       (error
        (ogent-tools--stream-error 'grep (error-message-string err))
-       (funcall callback 'error (error-message-string err))
+       (when callback
+         (funcall callback 'error (error-message-string err)))
        nil))))
 
 ;;; Tool: Bash (Shell Execution)
@@ -479,16 +484,16 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
               (float-time (time-subtract (current-time) start-time))))
      ogent-tools-max-output-chars)))
 
-(defun ogent-tool--bash-async (command callback &optional working-directory timeout)
+(defun ogent-tool--bash-async (command &optional working-directory timeout callback)
   "Execute shell COMMAND asynchronously with streaming output.
+WORKING-DIRECTORY defaults to project root.
+TIMEOUT in seconds (default `ogent-tools-shell-timeout').
 CALLBACK is called with (TYPE DATA) where TYPE is:
   - `stdout': DATA is a string of stdout chunk
   - `stderr': DATA is a string of stderr chunk
   - `done': DATA is the exit code (integer)
   - `error': DATA is an error message
-WORKING-DIRECTORY defaults to project root.
-TIMEOUT in seconds (default `ogent-tools-shell-timeout').
-Also streams via `ogent-tools-stream-callback' for progress display."
+If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'."
   (let* ((default-directory (if working-directory
                                 (ogent-tools--resolve-path working-directory)
                               (ogent-tools--project-root)))
@@ -513,7 +518,8 @@ Also streams via `ogent-tools-stream-callback' for progress display."
                       :filter (lambda (_process output)
                                 (setq output-count (+ output-count (length output)))
                                 (ogent-tools--stream-output 'bash 'stdout output)
-                                (when (< output-count ogent-tools-max-output-chars)
+                                (when (and callback
+                                           (< output-count ogent-tools-max-output-chars))
                                   (funcall callback 'stdout output)))))
           ;; Set up stderr filter
           (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
@@ -522,7 +528,8 @@ Also streams via `ogent-tools-stream-callback' for progress display."
              stderr-proc
              (lambda (_proc output)
                (ogent-tools--stream-output 'bash 'stderr output)
-               (funcall callback 'stderr output))))
+               (when callback
+                 (funcall callback 'stderr output)))))
           ;; Set up sentinel for completion
           (set-process-sentinel
            proc
@@ -535,15 +542,17 @@ Also streams via `ogent-tools-stream-callback' for progress display."
                (if (string-match-p "finished\\|exited" event)
                    (progn
                      (ogent-tools--stream-done 'bash status)
-                     (funcall callback 'done status))
+                     (when callback
+                       (funcall callback 'done status)))
                  (ogent-tools--stream-error 'bash
                                             (format "Process %s: %s"
                                                     (process-name process)
                                                     (string-trim event)))
-                 (funcall callback 'error
-                          (format "Process %s: %s"
-                                  (process-name process)
-                                  (string-trim event)))))))
+                 (when callback
+                   (funcall callback 'error
+                            (format "Process %s: %s"
+                                    (process-name process)
+                                    (string-trim event))))))))
           ;; Set up timeout
           (when (> timeout-secs 0)
             (setq timer
@@ -553,8 +562,9 @@ Also streams via `ogent-tools-stream-callback' for progress display."
                                    (kill-process proc)
                                    (ogent-tools--stream-error 'bash
                                                               (format "Timeout after %ds" timeout-secs))
-                                   (funcall callback 'error
-                                            (format "Timeout after %ds" timeout-secs)))))))
+                                   (when callback
+                                     (funcall callback 'error
+                                              (format "Timeout after %ds" timeout-secs))))))))
           ;; Track active process
           (push (cons proc (list :callback callback :timer timer :stderr-buffer stderr-buffer))
                 ogent-tools--active-processes)
@@ -562,7 +572,8 @@ Also streams via `ogent-tools-stream-callback' for progress display."
       (error
        (kill-buffer stderr-buffer)
        (ogent-tools--stream-error 'bash (error-message-string err))
-       (funcall callback 'error (error-message-string err))
+       (when callback
+         (funcall callback 'error (error-message-string err)))
        nil))))
 
 
@@ -668,6 +679,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name grep
 	   :function ogent-tool--grep
+	   :async-function ogent-tool--grep-async
+	   :async-callback-style :match  ; callback receives (match line), (done count), (error msg)
 	   :description "Search file contents using regex pattern. Uses ripgrep if available."
 	   :args ((:name "pattern" :type "string"
 			 :description "Regular expression pattern to search for")
@@ -681,6 +694,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name bash
 	   :function ogent-tool--bash
+	   :async-function ogent-tool--bash-async
+	   :async-callback-style :stream  ; callback receives (stdout chunk), (stderr chunk), (done code), (error msg)
 	   :description "Execute a shell command and return output."
 	   :args ((:name "command" :type "string"
 			 :description "Shell command to execute")
