@@ -491,6 +491,79 @@
       (when (string-prefix-p " *ogent-test" (buffer-name buf))
         (kill-buffer buf)))))
 
+;;; Inline-diff Display Tests
+
+(ert-deftest ogent-edit-display-test-inline-diff-available ()
+  "Test that inline-diff availability check works."
+  (require 'inline-diff)
+  (should (ogent-edit-inline-diff-available-p)))
+
+(ert-deftest ogent-edit-display-test-apply-as-inline-diff ()
+  "Test applying edit as inline-diff creates overlays."
+  (require 'inline-diff)
+  (unwind-protect
+      (let* ((old-text "hello world")
+             (new-text "hello there")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-inline-diff edit)
+          ;; Should have inline-diff-mode enabled
+          (should (bound-and-true-p inline-diff-mode))
+          ;; Should have overlays
+          (should (> (length inline-diff--overlays) 0))
+          ;; Edit status should be applied
+          (should (eq (ogent-edit-status edit) 'applied))
+          ;; Buffer should have new text
+          (should (equal (buffer-string) new-text))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-inline-diff-display-method ()
+  "Test unified display interface with inline-diff method."
+  (require 'inline-diff)
+  (unwind-protect
+      (let* ((old-text "original text")
+             (new-text "modified text")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit))
+             (ogent-edit-display-method 'inline-diff))
+        (with-current-buffer source-buf
+          (ogent-edit-display edit)
+          ;; Should have inline-diff-mode enabled
+          (should (bound-and-true-p inline-diff-mode))
+          ;; Buffer should have new text
+          (should (equal (buffer-string) new-text))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-toggle-display-method ()
+  "Test toggling between display methods."
+  (require 'inline-diff)
+  (let ((original ogent-edit-display-method))
+    (unwind-protect
+        (progn
+          (setq ogent-edit-display-method 'smerge)
+          (ogent-edit-toggle-display-method)
+          (should (eq ogent-edit-display-method 'overlay))
+          (ogent-edit-toggle-display-method)
+          (should (eq ogent-edit-display-method 'inline-diff))
+          (ogent-edit-toggle-display-method)
+          (should (eq ogent-edit-display-method 'smerge)))
+      (setq ogent-edit-display-method original))))
+
+(ert-deftest ogent-edit-display-test-inline-diff-tracks-edits ()
+  "Test that inline-diff adds edit to tracking list."
+  (require 'inline-diff)
+  (unwind-protect
+      (let* ((old-text "old code")
+             (new-text "new code")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-inline-diff edit)
+          ;; Edit should be tracked
+          (should (memq edit ogent-edit--pending-edits))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
 (provide 'ogent-edit-display-tests)
 
 ;;; ogent-edit-display-tests.el ends here
