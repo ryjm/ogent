@@ -13,6 +13,7 @@
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-models)
+(require 'ogent-prompts)
 (require 'ogent-companion)
 (require 'ogent-ui-status)
 (require 'ogent-ui-theme)
@@ -315,6 +316,9 @@ PROMPT is the completion prompt."
 (defvar ogent-ui--selected-preset nil
   "The currently selected preset name (string), or nil for no preset.")
 
+(defvar ogent-ui--selected-templates nil
+  "List of selected prompt template IDs for the dispatcher.")
+
 (defvar ogent-ui--selected-models nil
   "List of selected model IDs for multi-model fan-out.
 When non-nil, requests are dispatched to all listed models concurrently.")
@@ -414,6 +418,39 @@ Makes the variable buffer-local for session-level control."
 			:key "s"
 			:reader #'ogent--read-preset)
 
+;;; Prompt Template Infix
+
+(defun ogent--templates-description ()
+  "Return description string for template infix showing selection."
+  (concat "Templates: "
+          (if ogent-ui--selected-templates
+              (propertize (format "[%d]" (length ogent-ui--selected-templates))
+                          'face 'font-lock-function-name-face)
+            (propertize "[none]" 'face 'font-lock-comment-face))))
+
+(defun ogent--read-templates (_prompt _initial _history)
+  "Read prompt template IDs using completing-read-multiple."
+  (let* ((available (if (fboundp 'ogent-prompt-ids)
+                        (ogent-prompt-ids)
+                      nil))
+         (selection (completing-read-multiple
+                     "Templates (comma-separated, empty for none): "
+                     available nil nil
+                     (when ogent-ui--selected-templates
+                       (string-join ogent-ui--selected-templates ",")))))
+    (if (or (null selection) (equal selection '("")))
+        (progn (setq ogent-ui--selected-templates nil) nil)
+      (setq ogent-ui--selected-templates selection)
+      selection)))
+
+(transient-define-infix ogent--infix-templates ()
+			"Select prompt templates."
+			:description #'ogent--templates-description
+			:class 'transient-lisp-variable
+			:variable 'ogent-ui--selected-templates
+			:key "T"
+			:reader #'ogent--read-templates)
+
 ;;; Multi-Model Selection Infix
 
 (defun ogent--models-description ()
@@ -456,6 +493,16 @@ Makes the variable buffer-local for session-level control."
         (buffer-substring-no-properties (region-beginning) (region-end)))
       (read-string "Prompt: ")))
 
+(defun ogent-ui--apply-prompt-templates (prompt &optional templates)
+  "Apply prompt templates to PROMPT, returning the combined string."
+  (let ((templates (or templates ogent-ui--selected-templates)))
+    (if (and templates (fboundp 'ogent-prompt-compose-with-params))
+        (let ((template-text (ogent-prompt-compose-with-params templates)))
+          (if (string-empty-p template-text)
+              prompt
+            (string-join (list template-text prompt) "\n\n")))
+      prompt)))
+
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
 Captures source buffer context and sends to companion without switching focus.
@@ -468,7 +515,8 @@ concurrently (fan-out mode)."
          (extracted (ogent-ui--extract-preset-cookies prompt))
          (clean-prompt (car extracted))
          (cookie-presets (cdr extracted))
-         (effective-preset (or (car cookie-presets) ogent-ui--selected-preset)))
+         (effective-preset (or (car cookie-presets) ogent-ui--selected-preset))
+         (final-prompt (ogent-ui--apply-prompt-templates clean-prompt)))
     (with-current-buffer companion
       (let ((context (ogent-context-build-with-source
                       source-buffer region-start region-end)))
@@ -476,7 +524,7 @@ concurrently (fan-out mode)."
             ;; Multi-model fan-out: dispatch to all selected models
             (dolist (model-id ogent-ui--selected-models)
               (let* ((model (ogent-models-ensure model-id))
-                     (request (funcall ogent-response-function clean-prompt context model)))
+                     (request (funcall ogent-response-function final-prompt context model)))
                 (unless (ogent-ui-request-p request)
                   (user-error "ogent-response-function must return an `ogent-ui-request'"))
                 (setf (ogent-ui-request-preset request) effective-preset)
@@ -488,7 +536,7 @@ concurrently (fan-out mode)."
                                     gptel-model)
                               :backend gptel-backend
                               :stream? gptel-stream))
-                 (request (funcall ogent-response-function clean-prompt context model)))
+                 (request (funcall ogent-response-function final-prompt context model)))
             (unless (ogent-ui-request-p request)
               (user-error "ogent-response-function must return an `ogent-ui-request'"))
             (setf (ogent-ui-request-preset request) effective-preset)
@@ -1029,6 +1077,7 @@ A polished interface for AI-assisted workflows.
 			   (lambda () (concat (ogent-theme-icon 'edit) " Prompt"))
 			   :class transient-column
 			   (ogent--infix-prompt)
+			   (ogent--infix-templates)
 			   (ogent--infix-tools)]
 			  [:description ogent--format-context-group
 					:class transient-column
@@ -1830,12 +1879,13 @@ When model has :tools, enables gptel tool calling."
        (ogent-ui--close-response request (error-message-string err))))))
 
 ;;;###autoload (autoload 'ogent-request "ogent" nil t)
-(defun ogent-request (&optional prompt models preset)
+(defun ogent-request (&optional prompt models preset templates)
   "Dispatch PROMPT for the current subtree using MODELS via gptel.
 When PROMPT or MODELS are nil, prompt the user and fall back to the
 selected models from the dispatcher.
 PRESET overrides any dispatcher or model preset.  If PROMPT contains
 @preset cookies, they are extracted and applied (first cookie wins).
+TEMPLATES is an optional list of prompt template IDs to apply.
 
 When invoked from a non-Org buffer, automatically creates and displays
 a companion Org buffer to hold the request/response transcript.
@@ -1851,7 +1901,10 @@ The source buffer content is captured for context."
          (cookie-presets (cdr extracted))
          (effective-preset (or preset
                                (car cookie-presets)
-                               ogent-ui--selected-preset)))
+                               ogent-ui--selected-preset))
+         (final-prompt (ogent-ui--apply-prompt-templates
+                        clean-prompt
+                        (or templates ogent-ui--selected-templates))))
     (with-current-buffer companion
       (let* ((context (ogent-context-build-with-source
                        source-buffer region-start region-end))
@@ -1865,7 +1918,7 @@ The source buffer content is captured for context."
              last-request)
         (dolist (model-id model-ids)
           (let* ((model (ogent-models-ensure model-id))
-                 (request (funcall ogent-response-function clean-prompt context model)))
+                 (request (funcall ogent-response-function final-prompt context model)))
             (unless (ogent-ui-request-p request)
               (user-error "ogent-response-function must return an `ogent-ui-request'"))
             (setf (ogent-ui-request-preset request) effective-preset)

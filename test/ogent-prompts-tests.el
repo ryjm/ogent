@@ -104,6 +104,31 @@
   (should (equal (ogent-prompt-parse-composition "code-review+testing")
                  '("code-review" "testing"))))
 
+(ert-deftest ogent-prompt-template-params-detects-defaults ()
+  "Template parameter extraction returns names and defaults."
+  (let ((params (ogent-prompt-template-params
+                 "Hello {{name}} from {{project:ogent}} and {{name}}.")))
+    (should (equal params
+                   '((:name "name" :default nil)
+                     (:name "project" :default "ogent"))))))
+
+(ert-deftest ogent-prompt-render-replaces-params ()
+  "Render replaces template parameters with provided values."
+  (should (equal (ogent-prompt-render
+                  "Hi {{name}} {{project:ogent}}"
+                  '(("name" . "Jake")))
+                 "Hi Jake ogent")))
+
+(ert-deftest ogent-prompt-compose-renders-templates ()
+  "Compose renders parameters across multiple templates."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "one" :title "One" :content "One {{foo}}")
+    (ogent-prompt-register "two" :title "Two" :content "Two {{bar:baz}}")
+    (should (equal (ogent-prompt-compose-rendered
+                    '("one" "two")
+                    '(("foo" . "1") ("bar" . "2")))
+                   "One 1\n\nTwo 2"))))
+
 ;;; Validation Tests
 
 (ert-deftest ogent-prompt-validate-no-requirements ()
