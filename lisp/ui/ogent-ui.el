@@ -28,6 +28,12 @@
 (declare-function ogent-pin-dwim "ogent-context")
 (declare-function ogent-list-pinned "ogent-context")
 (declare-function ogent-pinned-count "ogent-context")
+(declare-function ogent-edit-display-all "ogent-edit-display")
+(declare-function ogent-edit-inline-diff-available-p "ogent-edit-display")
+(declare-function ogent-edit--generate-id "ogent-edit-format")
+(declare-function make-ogent-edit "ogent-edit-format")
+
+(defvar ogent-edit-display-method)
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
@@ -2265,6 +2271,86 @@ The block follows gptel's format for Org reasoning."
 
 ;;; Inline Diff Display for Edit Proposals
 
+(defcustom ogent-ui-edit-preview-style 'diff-block
+  "How to display edit tool previews.
+When set to `diff-block', show unified diffs in the companion buffer.
+When set to `inline-diff', display inline diff previews in the source buffer."
+  :type '(choice (const :tag "Unified diff block" diff-block)
+                 (const :tag "Inline diff preview" inline-diff))
+  :group 'ogent)
+
+(defun ogent-ui--inline-diff-available-p ()
+  "Return non-nil if inline diff preview is available."
+  (and (require 'ogent-edit-display nil 'noerror)
+       (or (and (fboundp 'ogent-edit-inline-diff-available-p)
+                (ogent-edit-inline-diff-available-p))
+           (require 'inline-diff nil 'noerror))))
+
+(defun ogent-ui--tool-edit-occurrences (buffer old-string)
+  "Return list of (START . END) occurrences of OLD-STRING in BUFFER."
+  (when (string-empty-p old-string)
+    (error "Old string is empty; cannot build inline diff edits"))
+  (let (positions)
+    (with-current-buffer buffer
+      (save-excursion
+        (goto-char (point-min))
+        (while (search-forward old-string nil t)
+          (push (cons (match-beginning 0) (match-end 0)) positions))))
+    (nreverse positions)))
+
+(defun ogent-ui--tool-edits-for-inline-diff (tool-name tool-args buffer)
+  "Return list of `ogent-edit' structs for TOOL-NAME/TOOL-ARGS in BUFFER."
+  (require 'ogent-edit-format)
+  (let ((file-path (or (plist-get tool-args :file-path)
+                       (plist-get tool-args :file_path))))
+    (pcase tool-name
+      ("write-file"
+       (let ((content (plist-get tool-args :content)))
+         (unless content
+           (error "No content in tool args"))
+         (with-current-buffer buffer
+           (list (make-ogent-edit
+                  :id (ogent-edit--generate-id)
+                  :old-text (buffer-substring-no-properties (point-min) (point-max))
+                  :new-text content
+                  :source-buffer buffer
+                  :source-file file-path
+                  :start-pos (point-min)
+                  :end-pos (point-max)
+                  :status 'pending
+                  :timestamp (current-time))))))
+      ("edit-file"
+       (let* ((old-string (or (plist-get tool-args :old-string)
+                              (plist-get tool-args :old_string)))
+              (new-string (or (plist-get tool-args :new-string)
+                              (plist-get tool-args :new_string)))
+              (replace-all (or (plist-get tool-args :replace-all)
+                               (plist-get tool-args :replace_all)))
+              (positions (and old-string
+                              (ogent-ui--tool-edit-occurrences buffer old-string))))
+         (unless old-string
+           (error "No old-string in tool args"))
+         (unless new-string
+           (error "No new-string in tool args"))
+         (unless positions
+           (error "Old string not found in buffer for %s" file-path))
+         (let* ((targets (if replace-all positions (list (car positions)))))
+           (with-current-buffer buffer
+             (mapcar (lambda (pos)
+                       (let ((old-text (buffer-substring-no-properties (car pos) (cdr pos))))
+                         (make-ogent-edit
+                          :id (ogent-edit--generate-id)
+                          :old-text old-text
+                          :new-text new-string
+                          :source-buffer buffer
+                          :source-file file-path
+                          :start-pos (car pos)
+                          :end-pos (cdr pos)
+                          :status 'pending
+                          :timestamp (current-time))))
+                     targets)))))
+      (_ (error "Unknown edit tool: %s" tool-name)))))
+
 (defvar ogent-ui--pending-diffs (make-hash-table :test 'equal)
   "Hash table mapping diff-id to pending diff info plists.
 Each entry contains: :id, :file-path, :diff-text, :tool-name,
@@ -2496,10 +2582,15 @@ DIFF-TEXT is the unified diff content. STATUS is pending/applied/rejected."
 (defun ogent-ui--show-diff-for-tool (tool-name tool-args)
   "Show a diff preview for TOOL-NAME with TOOL-ARGS.
 Returns the diff-id if a diff was created, nil otherwise."
-  (let* ((diff-id (ogent-ui--next-diff-id))
-         (file-path (or (plist-get tool-args :file-path)
-                        (plist-get tool-args :file_path)))
-         diff-text)
+  (if (and (eq ogent-ui-edit-preview-style 'inline-diff)
+           (ogent-ui--inline-diff-available-p))
+      (ogent-ui--show-inline-diff-for-tool tool-name tool-args)
+    (when (eq ogent-ui-edit-preview-style 'inline-diff)
+      (message "Inline diff not available; falling back to diff block preview."))
+    (let* ((diff-id (ogent-ui--next-diff-id))
+           (file-path (or (plist-get tool-args :file-path)
+                          (plist-get tool-args :file_path)))
+           diff-text)
     (unless file-path
       (error "No file path in tool args"))
     ;; Generate diff based on tool type
@@ -2528,7 +2619,33 @@ Returns the diff-id if a diff was created, nil otherwise."
                      :marker marker
                      :status 'pending)
                ogent-ui--pending-diffs)
-      diff-id)))
+      diff-id))))
+
+(defun ogent-ui--show-inline-diff-for-tool (tool-name tool-args)
+  "Show an inline diff preview for TOOL-NAME with TOOL-ARGS.
+Returns a generated diff-id for tracking."
+  (unless (ogent-ui--inline-diff-available-p)
+    (error "inline-diff not available"))
+  (let* ((diff-id (ogent-ui--next-diff-id))
+         (file-path (or (plist-get tool-args :file-path)
+                        (plist-get tool-args :file_path))))
+    (unless file-path
+      (error "No file path in tool args"))
+    (let* ((buffer (find-file-noselect file-path))
+           (edits (ogent-ui--tool-edits-for-inline-diff tool-name tool-args buffer)))
+      (with-current-buffer buffer
+        (let ((ogent-edit-display-method 'inline-diff))
+          (ogent-edit-display-all edits)))
+      (display-buffer buffer)
+      (ogent-ui--insert-tool-block
+       tool-name
+       tool-args
+       (format (concat "Inline diff preview opened in %s "
+                       "(%d change(s)). Use C-c C-c to accept, "
+                       "C-c C-k to reject, then save the buffer.")
+               file-path
+               (length edits))))
+    diff-id))
 
 (defun ogent-ui-pending-diffs ()
   "Return a list of all pending diff info plists."

@@ -4,6 +4,7 @@
 (require 'ogent-ui)
 (require 'ogent-context)
 (require 'ogent-tools)
+(require 'ogent-edit-format)
 (require 'cl-lib)
 
 (defvar ogent-ui-tests--backend nil
@@ -609,6 +610,60 @@
               ;; Check block was inserted
               (goto-char (point-min))
               (should (search-forward "#+begin_diff" nil t)))))
+      (delete-file test-file))))
+
+(ert-deftest ogent-ui-show-diff-for-tool-inline-diff ()
+  "Inline diff preview path is selected when configured."
+  (let ((ogent-ui-edit-preview-style 'inline-diff)
+        (captured nil))
+    (cl-letf (((symbol-function 'ogent-ui--inline-diff-available-p)
+               (lambda () t))
+              ((symbol-function 'ogent-ui--show-inline-diff-for-tool)
+               (lambda (tool-name tool-args)
+                 (setq captured (list tool-name tool-args))
+                 "inline-diff-id")))
+      (with-temp-buffer
+        (org-mode)
+        (let ((diff-id (ogent-ui--show-diff-for-tool
+                        "write-file"
+                        (list :file_path "/tmp/example.txt"
+                              :content "new content\n"))))
+          (should (equal diff-id "inline-diff-id"))
+          (should (equal captured
+                         (list "write-file"
+                               (list :file_path "/tmp/example.txt"
+                                     :content "new content\n"))))
+          (goto-char (point-min))
+          (should-not (search-forward "#+begin_diff" nil t)))))))
+
+(ert-deftest ogent-ui-tool-edits-for-inline-diff-edit-file-replace-all ()
+  "Inline diff edit builder expands replace-all edits."
+  (let ((test-file (make-temp-file "ogent-inline-edit-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "foo\nbar\nfoo\n"))
+          (let ((buffer (find-file-noselect test-file)))
+            (with-current-buffer buffer
+              (let ((edits (ogent-ui--tool-edits-for-inline-diff
+                            "edit-file"
+                            (list :file_path test-file
+                                  :old_string "foo"
+                                  :new_string "baz"
+                                  :replace_all t)
+                            buffer)))
+                (should (= 2 (length edits)))
+                (dolist (edit edits)
+                  (should (equal (ogent-edit-old-text edit) "foo"))
+                  (should (equal (ogent-edit-new-text edit) "baz"))
+                  (let ((start (ogent-edit-start-pos edit))
+                        (end (ogent-edit-end-pos edit)))
+                    (should start)
+                    (should end)
+                    (should (string= (buffer-substring-no-properties start end)
+                                     "foo"))))))))
+      (when-let ((buf (get-file-buffer test-file)))
+        (kill-buffer buf))
       (delete-file test-file))))
 
 (ert-deftest ogent-ui-diff-accept ()
