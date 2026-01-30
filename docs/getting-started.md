@@ -9,6 +9,7 @@ ogent is an AI-powered assistant for Emacs that turns your Org-mode buffers into
   - [Vanilla Emacs](#vanilla-emacs)
   - [Spacemacs](#spacemacs)
 - [API Key Setup](#api-key-setup)
+- [Backends, Models, and Presets](#backends-models-and-presets)
 - [Basic Workflow](#basic-workflow)
 - [Keybindings Cheat Sheet](#keybindings-cheat-sheet)
 - [Troubleshooting](#troubleshooting)
@@ -154,6 +155,12 @@ You can also use environment variables:
 export ANTHROPIC_API_KEY="sk-ant-your-key-here"
 export OPENAI_API_KEY="sk-your-key-here"
 ```
+
+## Backends, Models, and Presets
+
+For detailed configuration and backend switching behavior, see
+[docs/backends-and-presets.md](backends-and-presets.md). This includes
+model registry setup, preset configuration, and troubleshooting tips.
 
 ## Basic Workflow
 
