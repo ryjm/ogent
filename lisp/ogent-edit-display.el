@@ -29,6 +29,12 @@
 (declare-function inline-diff-mode "inline-diff" (&optional arg))
 (declare-function inline-diff-words-region "inline-diff" (beg end old-text))
 
+;; Org-mode functions (loaded at runtime)
+(declare-function org-back-to-heading "org" (&optional invisible-ok))
+(declare-function org-show-subtree "org" ())
+(declare-function org-fold-show-subtree "org-fold" ())
+(declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
+
 ;;; Customization
 
 (defcustom ogent-edit-display-method 'smerge
@@ -263,7 +269,9 @@ and jump to its log entry in the companion buffer."
                 (pop-to-buffer (marker-buffer marker))
                 (goto-char marker)
                 (org-back-to-heading t)
-                (org-show-subtree)
+                (if (fboundp 'org-fold-show-subtree)
+                    (org-fold-show-subtree)
+                  (org-show-subtree))
                 (message "Jumped to edit %s in companion" (ogent-edit-id edit)))
             (user-error "Companion marker not available for edit %s"
                         (ogent-edit-id edit))))

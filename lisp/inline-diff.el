@@ -76,7 +76,7 @@
 (defvar-local inline-diff--change-list nil
   "List of change records for navigation.
 Each record is a plist with:
-  :type - 'added, 'removed, or 'changed
+  :type - `added', `removed', or `changed'
   :start - buffer position
   :end - buffer position
   :overlay - the overlay object
@@ -200,7 +200,7 @@ Returns list of change operations:
 
 (defun inline-diff--create-overlay (beg end type &optional props)
   "Create an inline-diff overlay from BEG to END with TYPE.
-TYPE is 'added, 'removed, 'changed-old, or 'changed-new.
+TYPE is `added', `removed', `changed-old', or `changed-new'.
 PROPS is additional overlay properties."
   (let ((ov (make-overlay beg end nil t nil)))
     (overlay-put ov 'inline-diff t)
@@ -250,7 +250,7 @@ The buffer text is treated as the new/current version."
          (when pending-removes
            (let* ((first-remove (car (last pending-removes)))
                   (old-idx (cadr first-remove))
-                  (old-token (nth old-idx old-tokens))
+                  (_old-token (nth old-idx old-tokens))
                   (new-idx (caddr (car changes)))
                   (new-token (when new-idx (nth new-idx new-tokens)))
                   (insert-pos (if new-token
