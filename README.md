@@ -94,7 +94,7 @@ ogent is organized into focused modules under `lisp/`:
 | `ogent-prompts.el`, `ogent-prompts-yasnippet.el` | Prompt templates and snippet integration |
 | `ogent-codemap.el` | Repository analysis and codemap generation |
 | `ogent-completions.el`, `ogent-session.el` | Completion handling and session buffers |
-| `ogent-edit*.el` | AI-powered code editing (diff, display, format, parse) |
+| `ogent-edit*.el`, `inline-diff.el` | AI-powered code editing (diff, display, format, parse, word-level inline diff) |
 | `ogent-tool*.el` | Tool system (approval, FSM, rendering) |
 | `ogent-issues*.el` | Beads issue tracker integration |
 | `ogent-gastown*.el`, `ogent-refinery.el` | Gas Town multi-agent coordination |
@@ -105,6 +105,9 @@ ogent is organized into focused modules under `lisp/`:
 
 The following features were added recently:
 
+- **Request Pause/Resume** (`ogent-ui.el`): Pause active requests and resume later with full context preservation. Commands `ogent-pause-request` and `ogent-resume-request`.
+- **Tool Result Streaming** (`ogent-tools.el`): Async tool execution with streaming callbacks for bash, grep, and other long-running operations. Supports `:stream` and `:match` callback styles.
+- **Inline Diff Display** (`inline-diff.el`): Word-level inline diff highlighting as an alternative to smerge. Toggle with `ogent-edit-toggle-display-method` (cycles smerge → overlay → inline-diff).
 - **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads issues with inline filtering, transient menus, and dependency graph visualization.
 - **Gas Town Multi-Agent** (`ogent-gastown.el`): Status buffer and tmux integration for coordinating multiple AI agent workspaces.
 - **Refinery Buffer** (`ogent-refinery.el`): Merge queue visualization for tracking and managing pending merges.
@@ -116,13 +119,25 @@ The following features were added recently:
 
 ## Roadmap
 
+### Completed
+- ✓ Tool result streaming with async callbacks
+- ✓ Request pause/resume capability
+- ✓ Inline-diff word-level display alternative
+- ✓ Multi-model fan-out and comparison
+- ✓ MCP server integration
+- ✓ Magit-style diff preview UX
+
+### In Progress
+- **Incremental Codemap Refresh**: Detect changed files and update only affected sections while preserving manual annotations.
+- **Prompt Template Library**: Expand built-in templates for code review, refactoring, documentation, and debugging workflows.
+
+### Planned
 - **Eval & Analytics**
   - Track prompt effectiveness over time (accept/reject ratios, token usage, latency metrics).
   - Add inline rating for completions (`C-c o +` / `C-c o -`) with per-project aggregation.
   - Dashboard buffer showing model comparison stats and prompt template performance.
 - **Codemap Enhancements**
   - Link codemap nodes to specs/tests for full traceability.
-  - Expose incremental refresh APIs for large codebases.
   - Add data-flow annotations showing function call chains.
 - **Testing Infrastructure**
   - Expand fixture coverage (streaming edge cases, error injection, preset application).
