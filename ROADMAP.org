@@ -96,10 +96,10 @@ Each section maps vision statements to implementation status.
 * Current Sprint
 
 ** P2 - In Progress
-- [ ] Tool result streaming (ogent-24x)
-  - Stream stdout/stderr incrementally
-  - Progress indicators for long-running tools
-  - Pagination for large results
+- [X] Tool result streaming (ogent-5tjw) - DONE in ogent-tools.el
+  - Stream stdout/stderr incrementally via :async-function
+  - Callback styles: :stream (stdout/stderr/done/error) and :match (match/done/error)
+  - Generic streaming callback factory in ogent-ui.el
 
 ** P2 - Ready
 - [X] LLM-powered codemap generation (ogent-32t) - DONE in ogent-codemap.el
@@ -122,8 +122,9 @@ Each section maps vision statements to implementation status.
   - Diff preview before applying
   - smerge and overlay display options
 
-- [ ] Inline-diff alternative display (ogent-npb)
-  - Use inline-diff package instead of smerge
+- [X] Inline-diff alternative display (ogent-npb) - DONE in inline-diff.el
+  - Word-level diff highlighting via inline-diff.el
+  - Toggle display method cycles smerge → overlay → inline-diff
 
 ** P3 - Content
 - [ ] Default Prompts & Workflow Templates (ogent-60u)
