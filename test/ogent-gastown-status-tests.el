@@ -846,16 +846,16 @@
 (ert-deftest ogent-gts-test-keybindings-help ()
   "Help keys are bound to the transient dispatch menu."
   (require 'ogent-gastown-status-transient)
-  (should (eq (lookup-key ogent-gastown-mode-map (kbd "h"))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "h"))
               'ogent-gastown-status-dispatch))
-  (should (eq (lookup-key ogent-gastown-mode-map (kbd "?"))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "?"))
               'ogent-gastown-status-dispatch)))
 
 (ert-deftest ogent-gts-test-keybindings-hook ()
   "Hook actions use magit-style bindings."
-  (should (eq (lookup-key ogent-gastown-mode-map (kbd "H"))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "H"))
               'ogent-gastown-hook-show))
-  (should (eq (lookup-key ogent-gastown-mode-map (kbd "a"))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "a"))
               'ogent-gastown-hook-attach)))
 
 (provide 'ogent-gastown-status-tests)
