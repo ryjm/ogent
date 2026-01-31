@@ -275,7 +275,7 @@ Updates status to \\='failed."
   "Create a tool call with NAME and ARGS, insert it at point, and return it.
 NAME is the tool name (string or symbol).
 ARGS is a plist of arguments to pass to the tool.
-The tool call is created with a unique ID and 'pending status."
+The tool call is created with a unique ID and `pending' status."
   (let* ((name-str (if (symbolp name) (symbol-name name) name))
          (id (format "%s-%d" name-str (cl-incf ogent-tool-render--id-counter)))
          (tool-call (ogent-tool-call-create
