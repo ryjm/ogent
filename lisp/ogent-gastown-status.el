@@ -506,7 +506,7 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (define-key map "h" #'ogent-gastown-status-dispatch)
 
     ;; Mail actions
-    (define-key map "m" #'ogent-gastown-mail-read)
+    (define-key map "m" #'ogent-gastown-status-mail-read)
     (define-key map "M" #'ogent-gastown-mail-compose)
 
     ;; Hook actions
@@ -562,7 +562,7 @@ Navigation:
   \\[ogent-gastown-up-section]     Move to parent section
 
 Mail:
-  \\[ogent-gastown-mail-read]     Read selected mail
+  \\[ogent-gastown-status-mail-read]     Read selected mail
   \\[ogent-gastown-mail-compose]     Compose new mail
 
 Hook:
@@ -1561,13 +1561,13 @@ Other:
        ((eq (eieio-object-class-name section) 'ogent-gastown-mail-item-section)
         (let* ((msg (oref section value))
                (id (plist-get msg :id)))
-          (ogent-gastown-mail-read id)))
+          (ogent-gastown-status-mail-read id)))
        (t
         (magit-section-toggle section))))))
 
 ;;; Actions
 
-(defun ogent-gastown-mail-read (&optional id)
+(defun ogent-gastown-status-mail-read (&optional id)
   "Read mail message ID."
   (interactive)
   (let ((mail-id (or id

@@ -272,15 +272,6 @@ Example:
                          ,(string-join var-formats " ")
                          ,@vars))))
 
-;;; Conditional Execution
-
-(defmacro ogent-when-debug (&rest body)
-  "Execute BODY only when debugging is enabled.
-Use for debug-only side effects like assertions or state dumps."
-  (declare (indent 0) (debug t))
-  (when ogent-debug-enabled
-    `(progn ,@body)))
-
 ;;; Interactive Commands
 
 ;;;###autoload
