@@ -1692,7 +1692,7 @@ Results are displayed in the buffer."
                                 (plist-get tool-call :arguments)))
                  (approval (ogent-ui--check-tool-approval tool-name tool-args)))
             (pcase approval
-              ('approved
+              (`approved
                (cond
 		;; Edit tools: show diff preview instead of executing
 		((ogent-ui--is-edit-tool-p tool-name)
@@ -2082,13 +2082,12 @@ Returns an `ogent-streaming-drawer' struct for updating the drawer."
          (icon (ogent-ui--tool-status-icon 'running))
          (name-str (if (stringp name) name (symbol-name name)))
          (drawer-start (point-marker))
-         header-end result-start result-end status-marker)
+         result-start result-end status-marker)
     ;; Insert drawer header
     (insert ":TOOL:\n")
     (insert (format "▶ %s: %s " name-str context))
     (setq status-marker (point-marker))
     (insert (format "%s\n" icon))
-    (setq header-end (point))
     ;; Args block
     (insert "#+begin_src elisp :args\n")
     (insert (pp-to-string args))
@@ -2221,26 +2220,24 @@ If the args have been edited in the drawer, uses the edited values."
   "Parse the args src block in the current tool drawer.
 Returns the parsed plist, or nil if parsing fails."
   (save-excursion
-    (let ((start (point)))
-      ;; Find the drawer start
-      (when (re-search-backward "^:TOOL:$" nil t)
-        ;; Find args block
-        (when (re-search-forward "#\\+begin_src.*:args" nil t)
-          (forward-line 1)
-          (let ((args-start (point)))
-            (when (re-search-forward "#\\+end_src" nil t)
-              (forward-line 0)
-              (condition-case nil
-                  (read (buffer-substring-no-properties args-start (point)))
-                (error nil)))))))))
+    ;; Find the drawer start
+    (when (re-search-backward "^:TOOL:$" nil t)
+      ;; Find args block
+      (when (re-search-forward "#\\+begin_src.*:args" nil t)
+        (forward-line 1)
+        (let ((args-start (point)))
+          (when (re-search-forward "#\\+end_src" nil t)
+            (forward-line 0)
+            (condition-case nil
+                (read (buffer-substring-no-properties args-start (point)))
+              (error nil)))))))))
 
 (defun ogent-tool--replace-result-at-point (new-result)
   "Replace the result in the current tool drawer with NEW-RESULT."
   (save-excursion
     ;; Find drawer boundaries
-    (let ((start (point)))
-      (when (re-search-backward "^:TOOL:$" nil t)
-        (let ((drawer-start (point)))
+    (when (re-search-backward "^:TOOL:$" nil t)
+      (let ((_drawer-start (point)))
           ;; Find and replace result block content
           (when (re-search-forward "#\\+begin_src.*:result" nil t)
             (forward-line 1)
@@ -2726,8 +2723,8 @@ Returns a generated diff-id for tracking."
 (defun ogent-ui--surface-error (request error-message)
   "Display error prominently for REQUEST with ERROR-MESSAGE.
 Records the error and displays it in the *ogent-errors* buffer."
-  (let ((record (ogent-ui--record-error request error-message)))
-    (ogent-ui--update-error-buffer)))
+  (ogent-ui--record-error request error-message)
+  (ogent-ui--update-error-buffer))
 
 (defun ogent-ui--update-error-buffer ()
   "Update the *ogent-errors* buffer with current error history."
@@ -2847,7 +2844,6 @@ Stops the HTTP stream but keeps the request in a resumable state."
 Creates a new request with the partial response as context."
   (when (eq (ogent-ui-request-status request) 'paused)
     (let* ((partial (ogent-ui-request-paused-response request))
-           (original-prompt (ogent-ui-request-prompt request))
            (model (ogent-ui-request-model request))
            (preset (ogent-ui-request-preset request))
            (buffer (ogent-ui-request-buffer request))

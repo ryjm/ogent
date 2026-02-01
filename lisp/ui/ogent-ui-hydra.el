@@ -36,6 +36,14 @@
 
 (require 'cl-lib)
 
+;; Silence byte-compiler warnings about hydra macro
+;; Provide a stub for compile-time when hydra isn't installed
+(eval-when-compile
+  (unless (fboundp 'defhydra)
+    (defmacro defhydra (_name _params _docstring &rest _heads)
+      "Stub macro for byte-compilation without hydra."
+      nil)))
+
 ;; Forward declarations
 (declare-function ogent-request "ogent-ui")
 (declare-function ogent-abort-request "ogent-ui")

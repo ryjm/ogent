@@ -184,8 +184,7 @@ Returns a string with progress bar and percentage."
                     0))
          (face (ogent-theme-progress-face percent))
          (bar (ogent-theme-progress-bar percent 20 face))
-         (tokens-used (ogent-ui-context--estimate-tokens (number-to-string used)))
-         (tokens-budget (ogent-ui-context--estimate-tokens (number-to-string budget))))
+         (tokens-used (ogent-ui-context--estimate-tokens (number-to-string used))))
     (concat
      bar
      " "
