@@ -14,7 +14,7 @@
 (declare-function ogent-gastown-prev-item "ogent-gastown-status")
 (declare-function ogent-gastown-toggle-section "ogent-gastown-status")
 (declare-function ogent-gastown-visit "ogent-gastown-status")
-(declare-function ogent-gastown-mail-read "ogent-gastown-status")
+(declare-function ogent-gastown-status-mail-read "ogent-gastown-status")
 (declare-function ogent-gastown-mail-compose "ogent-gastown-status")
 (declare-function ogent-gastown-hook-show "ogent-gastown-status")
 (declare-function ogent-gastown-hook-attach "ogent-gastown-status")
@@ -35,7 +35,7 @@
 (autoload 'ogent-gastown-prev-item "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-toggle-section "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-visit "ogent-gastown-status" nil t)
-(autoload 'ogent-gastown-mail-read "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-status-mail-read "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-mail-compose "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-hook-show "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-hook-attach "ogent-gastown-status" nil t)
@@ -69,7 +69,7 @@
     ("RET" "Visit item" ogent-gastown-visit)
     ("TAB" "Toggle section" ogent-gastown-toggle-section :transient t)]
    ["Mail"
-    ("m" "Read mail" ogent-gastown-mail-read)
+    ("m" "Read mail" ogent-gastown-status-mail-read)
     ("M" "Compose" ogent-gastown-mail-compose)]
    ["Hook"
     ("H" "Show hook" ogent-gastown-hook-show)

@@ -548,12 +548,6 @@ Returns nil if sqlite is not available."
   (when ogent-analytics-enabled
     (ogent-analytics-start-request)))
 
-(defun ogent-analytics--post-response-hook (_beg _end)
-  "Hook to call after receiving a response."
-  (when ogent-analytics-enabled
-    ;; First token tracking happens in streaming callback
-    nil))
-
 (defun ogent-analytics--completion-accept-advice (orig-fun &rest args)
   "Advice around `ogent-completion-accept' to track acceptance.
 ORIG-FUN and ARGS are the original function and arguments."
