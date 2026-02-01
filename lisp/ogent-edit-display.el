@@ -271,7 +271,9 @@ and jump to its log entry in the companion buffer."
                 (org-back-to-heading t)
                 (if (fboundp 'org-fold-show-subtree)
                     (org-fold-show-subtree)
-                  (org-show-subtree))
+                  ;; Fallback for older Org versions; use funcall to avoid
+                  ;; byte-compile warning about obsolete function
+                  (funcall 'org-show-subtree))
                 (message "Jumped to edit %s in companion" (ogent-edit-id edit)))
             (user-error "Companion marker not available for edit %s"
                         (ogent-edit-id edit))))
