@@ -110,8 +110,7 @@ SOURCE-BUFFER is the buffer to link back to."
     (insert (make-string (* 2 depth) ?\s) "...\n")
     (cl-return-from ogent-graph--insert-tree-node))
   
-  (let* ((indent (make-string (* 2 depth) ?\s))
-         (prefix (make-string (1+ depth) ?*))
+  (let* ((prefix (make-string (1+ depth) ?*))
          (references (cdr (assoc handle adjacency-list)))
          (is-cycle (member handle visited-this-path))
          (cycle-marker (if is-cycle " [cycle]" ""))
