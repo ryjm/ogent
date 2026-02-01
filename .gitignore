@@ -20,3 +20,10 @@
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Runtime state (not tracked)
+.runtime/
+state.json
+
+# Beads temp files
+*.jsonl.new
