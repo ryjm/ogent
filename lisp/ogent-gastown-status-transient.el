@@ -27,6 +27,7 @@
 (declare-function ogent-gastown-polecat-status "ogent-gastown-status")
 (declare-function ogent-gastown-rig-status "ogent-gastown-status")
 (declare-function ogent-gastown-refinery-status "ogent-gastown-status")
+(declare-function ogent-gastown-rig-issues "ogent-gastown-status")
 
 (autoload 'ogent-gastown--in-town-p "ogent-gastown-status" nil nil)
 (autoload 'ogent-gastown-refresh "ogent-gastown-status" nil t)
@@ -48,6 +49,7 @@
 (autoload 'ogent-gastown-polecat-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-refinery-status "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-rig-issues "ogent-gastown-status" nil t)
 
 (defun ogent-gastown-status-transient--format-header ()
   "Format header for the Gas Town status transient menu."
@@ -86,7 +88,8 @@
     ("P" "Polecat status" ogent-gastown-polecat-status)]]
   [["Rig"
     ("r" "Rig status" ogent-gastown-rig-status)
-    ("f" "Refinery status" ogent-gastown-refinery-status)]
+    ("f" "Refinery status" ogent-gastown-refinery-status)
+    ("i" "Rig issues" ogent-gastown-rig-issues)]
    ["Refresh"
     ("g" "Refresh" ogent-gastown-refresh :transient t)
     ("G" "Force refresh" ogent-gastown-refresh-force :transient t)]

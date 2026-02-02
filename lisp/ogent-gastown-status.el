@@ -25,6 +25,11 @@
 (declare-function ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
 (autoload 'ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
 
+;; Load ogent-issues for rig → issues navigation
+(autoload 'ogent-issues "ogent-issues" nil t)
+(autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
+
 ;; Declare magit functions to avoid byte-compile warnings
 (declare-function magit-insert-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -532,6 +537,9 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (define-key map "r" #'ogent-gastown-rig-status)
     (define-key map "f" #'ogent-gastown-refinery-status)
 
+    ;; Issues navigation
+    (define-key map "i" #'ogent-gastown-rig-issues)
+
     ;; Quit
     (define-key map "q" #'quit-window)
 
@@ -799,6 +807,17 @@ Other:
                       :polecat_count (or (plist-get rig :polecat_count) 0)
                       :crew_count (or (plist-get rig :crew_count) 0)))
               rigs))))
+
+;;; Bead Link Keymap (defined early for use in section rendering)
+
+(declare-function ogent-gastown-visit-bead "ogent-gastown-status")
+
+(defvar ogent-gastown-bead-link-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "RET") #'ogent-gastown-visit-bead)
+    (define-key map [mouse-1] #'ogent-gastown-visit-bead)
+    map)
+  "Keymap for clickable bead IDs in Gas Town buffer.")
 
 ;;; Buffer Rendering
 
@@ -1285,10 +1304,16 @@ Other:
                                     branch
                                     (if dirty "*" ""))
                             'face 'ogent-gastown-dimmed)))
-      ;; Hooked work
+      ;; Hooked work (clickable bead link)
       (when hooked-work
         (insert " ")
-        (insert (propertize (format "→ %s" hooked-work) 'face 'ogent-gastown-hook-active)))
+        (insert (propertize (format "→ %s" hooked-work)
+                            'face 'ogent-gastown-hook-active
+                            'ogent-bead-id hooked-work
+                            'ogent-rig-path (ogent-gastown--crew-rig-path member)
+                            'keymap ogent-gastown-bead-link-map
+                            'mouse-face 'highlight
+                            'help-echo (format "RET to view bead %s" hooked-work))))
       ;; Mail count
       (when (and mail-count (> mail-count 0))
         (insert " ")
@@ -1365,10 +1390,19 @@ Other:
       ;; State
       (insert " ")
       (insert (propertize (format "[%s]" (or state "unknown")) 'face 'ogent-gastown-dimmed))
-      ;; Current task/bead
+      ;; Current task/bead (clickable)
       (when task
-        (insert " ")
-        (insert (propertize (format "→ %s" task) 'face 'ogent-gastown-hook-active)))
+        (let ((rig-path (let ((rig (plist-get polecat :rig)))
+                          (when rig
+                            (expand-file-name rig ogent-gastown--town-root)))))
+          (insert " ")
+          (insert (propertize (format "→ %s" task)
+                              'face 'ogent-gastown-hook-active
+                              'ogent-bead-id task
+                              'ogent-rig-path rig-path
+                              'keymap ogent-gastown-bead-link-map
+                              'mouse-face 'highlight
+                              'help-echo (format "RET to view bead %s" task)))))
       ;; Time active
       (when (and running started)
         (let ((time-str (ogent-gastown--format-time started)))
@@ -1827,6 +1861,67 @@ pre-fills that recipient."
        (format "%s refinery status %s" ogent-gastown-gt-executable rig-name)
        "*gt refinery*"))))
 
+;;; Rig → Issues Navigation
+
+(defun ogent-gastown--rig-at-point ()
+  "Return rig name from section at point.
+Works on rig sections, crew sections, and polecat sections."
+  (when ogent-gastown--magit-section-available
+    (let ((section (magit-current-section)))
+      (when section
+        (pcase (eieio-object-class-name section)
+          ('ogent-gastown-rig-item-section
+           (plist-get (oref section value) :name))
+          ((or 'ogent-gastown-crew-item-section
+               'ogent-gastown-polecat-item-section)
+           (plist-get (oref section value) :rig))
+          ('ogent-gastown-witness-item-section
+           (plist-get (oref section value) :rig))
+          (_ nil))))))
+
+(defun ogent-gastown--crew-rig-path (member)
+  "Get rig path for crew MEMBER."
+  (let ((rig (plist-get member :rig)))
+    (when rig
+      (expand-file-name rig ogent-gastown--town-root))))
+
+(defun ogent-gastown-rig-issues ()
+  "Open issues buffer for the rig at point.
+Works when point is on a rig, crew member, or polecat."
+  (interactive)
+  (let* ((rig-name (or (ogent-gastown--rig-at-point)
+                       (completing-read
+                        "Rig: "
+                        (mapcar (lambda (r) (plist-get r :name))
+                                ogent-gastown--rigs-data))))
+         (rig-path (when rig-name
+                     (expand-file-name rig-name ogent-gastown--town-root))))
+    (if (and rig-path (file-directory-p rig-path))
+        (let ((default-directory rig-path))
+          (ogent-issues))
+      (user-error "No rig at point or rig directory not found: %s" rig-name))))
+
+;;; Bead Link Navigation
+
+(defun ogent-gastown-visit-bead ()
+  "Visit the bead at point."
+  (interactive)
+  (let ((bead-id (get-text-property (point) 'ogent-bead-id))
+        (rig-path (get-text-property (point) 'ogent-rig-path)))
+    (cond
+     ((and bead-id rig-path (file-directory-p rig-path))
+      (let ((default-directory rig-path))
+        (ogent-issues-bd-get bead-id
+                             (lambda (issue)
+                               (when issue
+                                 (ogent-issues--show-detail issue)))
+                             (lambda (err)
+                               (message "Could not fetch bead %s: %s" bead-id err)))))
+     (bead-id
+      (message "Rig path not found for bead %s" bead-id))
+     (t
+      (message "No bead at point")))))
+
 (defun ogent-gastown-status-help ()
   "Show help for Gas Town status buffer.
 Displays available keybindings and actions."
@@ -1834,7 +1929,7 @@ Displays available keybindings and actions."
   (message (concat
             "n/p:item  M-n/M-p:section  TAB:toggle  "
             "g:refresh  m:mail  h:hook  c:convoy  "
-            "r:rig  f:refinery  s:stats  d:deacon  w:witness  ?:help  q:quit")))
+            "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit")))
 
 ;;; Refresh
 
