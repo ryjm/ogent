@@ -427,5 +427,133 @@ but doesn't test actual insertion behavior (that's in UI tests)."
             (kill-buffer companion)))
       (kill-buffer text-buffer))))
 
+;;; Display Function Tests
+
+(ert-deftest ogent-companion-display-buffer-popup-or-side-standard ()
+  "Test display function falls back to side window when no Doom."
+  (let ((displayed-buffer nil)
+        (displayed-alist nil))
+    (cl-letf (((symbol-function 'display-buffer-in-side-window)
+               (lambda (buf alist)
+                 (setq displayed-buffer buf
+                       displayed-alist alist)
+                 nil)))
+      (let ((buf (get-buffer-create " *test-display*")))
+        (unwind-protect
+            (progn
+              (ogent-companion--display-buffer-popup-or-side
+               buf '((side . right) (window-width . 0.4)))
+              (should (eq displayed-buffer buf))
+              ;; Should pass through side parameter
+              (should (eq (alist-get 'side displayed-alist) 'right)))
+          (kill-buffer buf))))))
+
+(ert-deftest ogent-companion-display-buffer-uses-display-action ()
+  "Test display-buffer uses configured display action."
+  (let ((called-with nil))
+    (cl-letf (((symbol-function 'display-buffer)
+               (lambda (buf action)
+                 (setq called-with (list buf action))
+                 nil)))
+      (let ((buf (get-buffer-create " *test-display-2*")))
+        (unwind-protect
+            (progn
+              (ogent-companion-display-buffer buf)
+              (should called-with)
+              (should (eq (car called-with) buf)))
+          (kill-buffer buf))))))
+
+;;; Companion Display Interactive
+
+(ert-deftest ogent-companion-display-returns-companion ()
+  "Test companion-display returns the companion buffer."
+  (let ((text-buffer (get-buffer-create "*test-display-3*")))
+    (unwind-protect
+        (with-current-buffer text-buffer
+          (fundamental-mode)
+          (let ((companion (ogent-companion-display)))
+            (should companion)
+            (should (buffer-live-p companion))
+            (kill-buffer companion)))
+      (kill-buffer text-buffer))))
+
+;;; Save Link Tests
+
+(ert-deftest ogent-companion-save-link-file-backed ()
+  "Test save-link saves identifier for file-backed buffer."
+  (let ((temp-file (make-temp-file "ogent-save-link" nil ".el")))
+    (unwind-protect
+        (let ((src-buf (find-file-noselect temp-file)))
+          (with-current-buffer src-buf
+            (fundamental-mode)
+            (let ((companion (ogent-companion-get-or-create)))
+              (unwind-protect
+                  (progn
+                    ;; companion-file should be set
+                    (should (local-variable-p 'ogent-companion-file))
+                    (should ogent-companion-file))
+                (kill-buffer companion))))
+          (kill-buffer src-buf))
+      (delete-file temp-file))))
+
+;;; Restore Link Tests
+
+(ert-deftest ogent-companion-restore-link-with-buffer-name ()
+  "Test restore-link works with buffer name identifier."
+  (let ((companion-buf (get-buffer-create "*ogent:test-restore*")))
+    (unwind-protect
+        (with-temp-buffer
+          (setq-local ogent-companion-persist-links t)
+          (setq-local ogent-companion-file (buffer-name companion-buf))
+          (setq-local ogent-companion--linked-buffer nil)
+          (ogent-companion--restore-link)
+          ;; Should now be linked
+          (should (buffer-live-p ogent-companion--linked-buffer))
+          (should (eq ogent-companion--linked-buffer companion-buf)))
+      (kill-buffer companion-buf))))
+
+(ert-deftest ogent-companion-restore-link-nil-when-no-file ()
+  "Test restore-link does nothing when no companion-file."
+  (with-temp-buffer
+    (setq-local ogent-companion-persist-links t)
+    (setq-local ogent-companion-file nil)
+    (ogent-companion--restore-link)
+    (should-not ogent-companion--linked-buffer)))
+
+;;; Find or Create from Identifier Tests
+
+(ert-deftest ogent-companion-find-from-buffer-name-identifier ()
+  "Test find-or-create-from-identifier with buffer name."
+  (let ((buf (ogent-companion--find-or-create-from-identifier "*ogent:test-find*")))
+    (unwind-protect
+        (progn
+          (should buf)
+          (should (buffer-live-p buf))
+          (should (equal (buffer-name buf) "*ogent:test-find*")))
+      (when buf (kill-buffer buf)))))
+
+(ert-deftest ogent-companion-find-from-identifier-returns-nil ()
+  "Test find-or-create-from-identifier returns nil for bad input."
+  (should-not (ogent-companion--find-or-create-from-identifier "not-ogent-prefix"))
+  (should-not (ogent-companion--find-or-create-from-identifier nil)))
+
+;;; Get Companion Identifier Tests
+
+(ert-deftest ogent-companion-get-identifier-for-file-backed ()
+  "Test get-companion-identifier returns file path for file buffers."
+  (let ((temp-file (make-temp-file "ogent-id-test")))
+    (unwind-protect
+        (let ((buf (find-file-noselect temp-file)))
+          (should (equal (ogent-companion--get-companion-identifier buf) temp-file))
+          (kill-buffer buf))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-companion-get-identifier-for-temp-buffer ()
+  "Test get-companion-identifier returns buffer name for temp buffers."
+  (let ((buf (get-buffer-create "*test-id*")))
+    (unwind-protect
+        (should (equal (ogent-companion--get-companion-identifier buf) "*test-id*"))
+      (kill-buffer buf))))
+
 (provide 'ogent-companion-tests)
 ;;; ogent-companion-tests.el ends here

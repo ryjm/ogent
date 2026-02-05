@@ -670,6 +670,1353 @@
       (should (string= "*ogent-issues: unknown*"
                        (ogent-issues--buffer-name))))))
 
+;;; Status Icon Tests
+
+(ert-deftest ogent-issues-test-status-icon-unicode ()
+  "Test status icons with Unicode enabled."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "○" (ogent-issues--status-icon "open")))
+    (should (string= "◐" (ogent-issues--status-icon "in_progress")))
+    (should (string= "✗" (ogent-issues--status-icon "blocked")))
+    (should (string= "●" (ogent-issues--status-icon "closed")))
+    (should (string= "?" (ogent-issues--status-icon "unknown")))))
+
+(ert-deftest ogent-issues-test-status-icon-ascii ()
+  "Test status icons with Unicode disabled."
+  (let ((ogent-issues-use-unicode nil))
+    (should (string= "o" (ogent-issues--status-icon "open")))
+    (should (string= ">" (ogent-issues--status-icon "in_progress")))
+    (should (string= "x" (ogent-issues--status-icon "blocked")))
+    (should (string= "*" (ogent-issues--status-icon "closed")))
+    (should (string= "?" (ogent-issues--status-icon "unknown")))))
+
+(ert-deftest ogent-issues-test-status-icon-nil-status ()
+  "Test status icon with nil status."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "?" (ogent-issues--status-icon nil)))))
+
+;;; Priority Indicator Tests
+
+(ert-deftest ogent-issues-test-priority-indicator-unicode ()
+  "Test priority indicator returns propertized string with Unicode."
+  (let ((ogent-issues-use-unicode t))
+    (let ((result (ogent-issues--priority-indicator 0)))
+      (should (string= "●" (substring-no-properties result)))
+      (should (eq 'ogent-issues-priority-critical (get-text-property 0 'face result))))
+    (let ((result (ogent-issues--priority-indicator 1)))
+      (should (string= "◐" (substring-no-properties result)))
+      (should (eq 'ogent-issues-priority-high (get-text-property 0 'face result))))
+    (let ((result (ogent-issues--priority-indicator 2)))
+      (should (string= "○" (substring-no-properties result)))
+      (should (eq 'ogent-issues-priority-medium (get-text-property 0 'face result))))
+    (let ((result (ogent-issues--priority-indicator 3)))
+      (should (string= "◌" (substring-no-properties result)))
+      (should (eq 'ogent-issues-priority-low (get-text-property 0 'face result))))))
+
+(ert-deftest ogent-issues-test-priority-indicator-ascii ()
+  "Test priority indicator with ASCII fallback."
+  (let ((ogent-issues-use-unicode nil))
+    (let ((result (ogent-issues--priority-indicator 0)))
+      (should (string= "P0" (substring-no-properties result))))
+    (let ((result (ogent-issues--priority-indicator 2)))
+      (should (string= "P2" (substring-no-properties result))))))
+
+(ert-deftest ogent-issues-test-priority-indicator-nil ()
+  "Test priority indicator with nil defaults to P2."
+  (let ((ogent-issues-use-unicode nil))
+    (let ((result (ogent-issues--priority-indicator nil)))
+      (should (string= "P2" (substring-no-properties result)))
+      (should (eq 'ogent-issues-priority-medium (get-text-property 0 'face result))))))
+
+;;; Type Icon Edge Cases
+
+(ert-deftest ogent-issues-test-type-icon-unknown ()
+  "Test type icon for unknown type returns fallback."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "•" (ogent-issues--type-icon "nonexistent"))))
+  (let ((ogent-issues-use-unicode nil))
+    (should (string= "?" (ogent-issues--type-icon "nonexistent")))))
+
+(ert-deftest ogent-issues-test-type-icon-epic ()
+  "Test type icon for epic."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "[epic]" (ogent-issues--type-icon "epic"))))
+  (let ((ogent-issues-use-unicode nil))
+    (should (string= "E" (ogent-issues--type-icon "epic")))))
+
+(ert-deftest ogent-issues-test-type-icon-chore ()
+  "Test type icon for chore."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "[chore]" (ogent-issues--type-icon "chore"))))
+  (let ((ogent-issues-use-unicode nil))
+    (should (string= "C" (ogent-issues--type-icon "chore")))))
+
+(ert-deftest ogent-issues-test-type-icon-nil ()
+  "Test type icon for nil type returns fallback."
+  (let ((ogent-issues-use-unicode t))
+    (should (string= "•" (ogent-issues--type-icon nil)))))
+
+;;; Status Face Edge Cases
+
+(ert-deftest ogent-issues-test-status-face-unknown ()
+  "Test status face for unknown status returns default."
+  (should (eq 'default (ogent-issues--status-face "mystery")))
+  (should (eq 'default (ogent-issues--status-face nil))))
+
+;;; Status Label Edge Cases
+
+(ert-deftest ogent-issues-test-status-label-unknown ()
+  "Test status label for unknown status."
+  (should (string= "Unknown" (ogent-issues--status-label "unknown")))
+  (should (string= "Custom" (ogent-issues--status-label "custom"))))
+
+(ert-deftest ogent-issues-test-status-label-nil ()
+  "Test status label for nil status."
+  (should (string= "Unknown" (ogent-issues--status-label nil))))
+
+;;; Priority Face Edge Case
+
+(ert-deftest ogent-issues-test-priority-face-nil ()
+  "Test priority face with nil defaults to medium."
+  (should (eq 'ogent-issues-priority-medium (ogent-issues--priority-face nil))))
+
+;;; Format Dep Link Edge Cases
+
+(ert-deftest ogent-issues-test-format-dep-link-has-keymap ()
+  "Test that dependency link has a keymap for click handling."
+  (let ((link (ogent-issues--format-dep-link "test-abc")))
+    (should (keymapp (get-text-property 0 'keymap link)))
+    (should (get-text-property 0 'help-echo link))
+    (should (eq 'highlight (get-text-property 0 'mouse-face link)))))
+
+;;; Format Issue Line Edge Cases
+
+(ert-deftest ogent-issues-test-format-issue-line-no-deps ()
+  "Test issue line with zero dependencies."
+  (let ((issue '(:id "test-abc"
+                      :title "No deps"
+                      :priority 2
+                      :issue_type "task"
+                      :status "open"
+                      :dependency_count 0)))
+    (let ((line (ogent-issues--format-issue-line issue)))
+      (should-not (string-match-p "([0-9])" line)))))
+
+(ert-deftest ogent-issues-test-format-issue-line-nil-title ()
+  "Test issue line with nil title."
+  (let ((issue '(:id "test-abc"
+                      :title nil
+                      :priority 2
+                      :issue_type "task"
+                      :status "open"
+                      :dependency_count 0)))
+    ;; Should not error
+    (should (stringp (ogent-issues--format-issue-line issue)))))
+
+(ert-deftest ogent-issues-test-format-issue-line-nil-id ()
+  "Test issue line with nil id uses fallback."
+  (let ((issue '(:id nil
+                      :title "Test"
+                      :priority 2
+                      :issue_type "task"
+                      :status "open"
+                      :dependency_count 0)))
+    (let ((line (ogent-issues--format-issue-line issue)))
+      (should (string-match-p "\\?" line)))))
+
+;;; Group-by-status Tests
+
+(ert-deftest ogent-issues-test-group-by-status-empty ()
+  "Test grouping empty list returns nil."
+  (should (null (ogent-issues--group-by-status nil))))
+
+(ert-deftest ogent-issues-test-group-by-status-all-same ()
+  "Test grouping when all issues have same status."
+  (let ((issues '((:id "a" :status "open")
+                  (:id "b" :status "open")
+                  (:id "c" :status "open"))))
+    (let ((grouped (ogent-issues--group-by-status issues)))
+      (should (= 3 (length (alist-get "open" grouped nil nil #'string=))))
+      (should-not (alist-get "closed" grouped nil nil #'string=)))))
+
+;;; Filter Tests - Additional Cases
+
+(ert-deftest ogent-issues-test-apply-filters-priority-zero ()
+  "Test filtering by priority 0 (critical)."
+  (let ((ogent-issues--filters '(:priority 0)))
+    (let ((filtered (ogent-issues--apply-filters ogent-issues-test--sample-issues)))
+      (should (= 1 (length filtered)))
+      (should (= 0 (plist-get (car filtered) :priority))))))
+
+(ert-deftest ogent-issues-test-apply-filters-status-closed ()
+  "Test filtering for closed status."
+  (let ((ogent-issues--filters '(:status "closed")))
+    (let ((filtered (ogent-issues--apply-filters ogent-issues-test--sample-issues)))
+      (should (= 1 (length filtered)))
+      (should (string= "closed" (plist-get (car filtered) :status))))))
+
+;;; Kanban Column Width Tests
+
+(ert-deftest ogent-issues-test-kanban-column-width-minimum ()
+  "Test that kanban column width has a minimum of 15."
+  ;; With a very narrow window, should still return at least 15
+  (cl-letf (((symbol-function 'window-width) (lambda () 20)))
+    (should (>= (ogent-issues--kanban-column-width) 15))))
+
+(ert-deftest ogent-issues-test-kanban-column-width-calculation ()
+  "Test kanban column width calculation."
+  ;; 4 columns, 5 separators
+  ;; available = window-width - 5
+  ;; each col = available / 4
+  (cl-letf (((symbol-function 'window-width) (lambda () 85)))
+    (should (= 20 (ogent-issues--kanban-column-width)))))
+
+;;; Kanban Columns Constant
+
+(ert-deftest ogent-issues-test-kanban-columns-order ()
+  "Test that Kanban columns are in expected display order."
+  (should (equal "in_progress" (caar ogent-issues-kanban-columns)))
+  (should (equal "open" (car (nth 1 ogent-issues-kanban-columns))))
+  (should (equal "blocked" (car (nth 2 ogent-issues-kanban-columns))))
+  (should (equal "closed" (car (nth 3 ogent-issues-kanban-columns)))))
+
+;;; Loading Frames Tests
+
+(ert-deftest ogent-issues-test-get-loading-frames-returns-list ()
+  "Test that get-loading-frames returns a list of 4 frames."
+  (let ((ogent-issues--loading-frames nil))
+    (let ((frames (ogent-issues--get-loading-frames)))
+      (should (listp frames))
+      (should (= 4 (length frames))))))
+
+;;; Loading Indicator Tests
+
+(ert-deftest ogent-issues-test-loading-indicator-nil-when-not-loading ()
+  "Test loading indicator returns nil when not loading."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (setq ogent-issues--loading nil)
+    (should-not (ogent-issues--loading-indicator))))
+
+(ert-deftest ogent-issues-test-loading-indicator-returns-string ()
+  "Test loading indicator returns string when loading."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (setq ogent-issues--loading t)
+    (setq ogent-issues--loading-frame 0)
+    (should (stringp (ogent-issues--loading-indicator)))))
+
+(ert-deftest ogent-issues-test-loading-indicator-cycles-frames ()
+  "Test loading indicator returns different frames."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (setq ogent-issues--loading t)
+    (setq ogent-issues--loading-frame 0)
+    (let ((frame0 (ogent-issues--loading-indicator)))
+      (setq ogent-issues--loading-frame 1)
+      (let ((frame1 (ogent-issues--loading-indicator)))
+        (should-not (equal frame0 frame1))))))
+
+;;; Header Line Additional Tests
+
+(ert-deftest ogent-issues-test-header-line-shows-ready-count ()
+  "Test header line includes ready count."
+  (ogent-issues-test-with-buffer
+   (let ((ogent-issues--current-view 'list)
+         (ogent-issues--issues
+          (list '(:id "t1" :status "open" :blocked_by nil)
+                '(:id "t2" :status "open" :blocked_by nil)
+                '(:id "t3" :status "closed" :blocked_by nil)))
+         (ogent-issues--filters nil))
+     (let ((header (ogent-issues--header-line)))
+       (should (string-match-p "2 ready" header))))))
+
+(ert-deftest ogent-issues-test-header-line-shows-blocked-count ()
+  "Test header line includes blocked count when > 0."
+  (ogent-issues-test-with-buffer
+   (let ((ogent-issues--current-view 'list)
+         (ogent-issues--issues
+          (list '(:id "t1" :status "blocked" :blocked_by ("x"))
+                '(:id "t2" :status "open" :blocked_by nil)))
+         (ogent-issues--filters nil))
+     (let ((header (ogent-issues--header-line)))
+       (should (string-match-p "1 blocked" header))))))
+
+(ert-deftest ogent-issues-test-header-line-view-name ()
+  "Test header line shows correct view name."
+  (ogent-issues-test-with-buffer
+   (let ((ogent-issues--current-view 'ready)
+         (ogent-issues--issues nil)
+         (ogent-issues--filters nil))
+     (let ((header (ogent-issues--header-line)))
+       (should (string-match-p "Ready" header))))))
+
+(ert-deftest ogent-issues-test-header-line-loading ()
+  "Test header line shows loading indicator when loading."
+  (ogent-issues-test-with-buffer
+   (setq ogent-issues--loading t)
+   (setq ogent-issues--loading-frame 0)
+   (let ((header (ogent-issues--header-line)))
+     (should (string-match-p "Loading" header)))
+   (setq ogent-issues--loading nil)))
+
+;;; Format Filters for Header Tests
+
+(ert-deftest ogent-issues-test-format-filters-for-header-empty ()
+  "Test format-filters-for-header with no filters."
+  (let ((ogent-issues--filters nil))
+    (should (string= "" (ogent-issues--format-filters-for-header)))))
+
+(ert-deftest ogent-issues-test-format-filters-for-header-status ()
+  "Test format-filters-for-header with status filter."
+  (let ((ogent-issues--filters '(:status "blocked")))
+    (let ((result (ogent-issues--format-filters-for-header)))
+      (should (string-match-p "blocked" result)))))
+
+(ert-deftest ogent-issues-test-format-filters-for-header-priority ()
+  "Test format-filters-for-header with priority filter."
+  (let ((ogent-issues--filters '(:priority 1)))
+    (let ((result (ogent-issues--format-filters-for-header)))
+      (should (string-match-p "P1" result)))))
+
+;;; Detail Header Formatting Tests
+
+(ert-deftest ogent-issues-test-format-detail-header-content ()
+  "Test detail header section includes title and status."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-header
+     '(:title "Test Title"
+       :status "open"
+       :priority 1
+       :issue_type "bug"
+       :blocked_by nil))
+    (should (string-match-p "Test Title" (buffer-string)))
+    (should (string-match-p "Open" (buffer-string)))
+    (should (string-match-p "BUG" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-detail-header-ready ()
+  "Test detail header shows ready indicator for ready issues."
+  (let ((ogent-issues-use-unicode t))
+    (with-temp-buffer
+      (ogent-issues--insert-detail-header
+       '(:title "Ready Issue"
+         :status "open"
+         :priority 0
+         :issue_type "task"
+         :blocked_by nil))
+      (should (string-match-p "ready" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-format-detail-header-not-ready ()
+  "Test detail header does not show ready for non-open issues."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-header
+     '(:title "In Progress Issue"
+       :status "in_progress"
+       :priority 0
+       :issue_type "task"
+       :blocked_by nil))
+    (should-not (string-match-p "ready" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-detail-header-nil-title ()
+  "Test detail header with nil title uses fallback."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-header
+     '(:title nil :status "open" :priority 2 :issue_type "task" :blocked_by nil))
+    (should (string-match-p "Untitled" (buffer-string)))))
+
+;;; Format Dependencies Tests
+
+(ert-deftest ogent-issues-test-format-dependencies-with-blocks ()
+  "Test dependency section shows blocking issues."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-dependencies
+     '(:blocks ("issue-A" "issue-B")
+       :blocked_by nil
+       :dependents nil))
+    (should (string-match-p "Dependencies" (buffer-string)))
+    (should (string-match-p "issue-A" (buffer-string)))
+    (should (string-match-p "issue-B" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-dependencies-with-blockers ()
+  "Test dependency section shows blocked-by."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-dependencies
+     '(:blocks nil
+       :blocked_by ("blocker-1")
+       :dependents nil))
+    (should (string-match-p "blocker-1" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-dependencies-none ()
+  "Test dependency section with no dependencies shows none."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-dependencies
+     '(:blocks nil :blocked_by nil :dependents nil))
+    (let ((content (buffer-string)))
+      (should (string-match-p "Dependencies" content))
+      ;; Should have "none" for both blocks and blocked-by
+      (should (>= (cl-count-if
+                   (lambda (start)
+                     (string-match-p "none" (substring content start)))
+                   (number-sequence 0 (1- (length content))))
+                  1)))))
+
+;;; Format Comments Tests
+
+(ert-deftest ogent-issues-test-format-comments-with-comments ()
+  "Test comments section with comment data."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-comments
+     '(:comments ((:author "alice" :created_at "2025-12-16T10:00:00Z" :text "Hello")
+                  (:author "bob" :created_at "2025-12-16T11:00:00Z" :text "World"))))
+    (should (string-match-p "Comments (2)" (buffer-string)))
+    (should (string-match-p "@alice" (buffer-string)))
+    (should (string-match-p "@bob" (buffer-string)))
+    (should (string-match-p "Hello" (buffer-string)))
+    (should (string-match-p "World" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-comments-empty ()
+  "Test comments section with no comments."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-comments '(:comments nil))
+    (should (string-match-p "Comments (0)" (buffer-string)))
+    (should (string-match-p "No comments" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-format-comment-unknown-author ()
+  "Test comment rendering with nil author uses unknown."
+  (with-temp-buffer
+    (ogent-issues--insert-comment '(:author nil :created_at nil :text "test"))
+    (should (string-match-p "@unknown" (buffer-string)))))
+
+;;; Interactive Filter Tests (Mock)
+
+(ert-deftest ogent-issues-test-filter-status-sets-filter ()
+  "Test filter-status sets the status filter and refreshes."
+  (ogent-issues-test-with-buffer
+   (should (null ogent-issues--filters))
+   (ogent-issues-filter-status "blocked")
+   (sit-for 0.01)
+   (should (equal "blocked" (plist-get ogent-issues--filters :status)))))
+
+(ert-deftest ogent-issues-test-filter-type-sets-filter ()
+  "Test filter-type sets the type filter and refreshes."
+  (ogent-issues-test-with-buffer
+   (ogent-issues-filter-type "bug")
+   (sit-for 0.01)
+   (should (equal "bug" (plist-get ogent-issues--filters :type)))))
+
+(ert-deftest ogent-issues-test-filter-priority-sets-filter ()
+  "Test filter-priority sets the priority filter and refreshes."
+  (ogent-issues-test-with-buffer
+   (ogent-issues-filter-priority 1)
+   (sit-for 0.01)
+   (should (equal 1 (plist-get ogent-issues--filters :priority)))))
+
+(ert-deftest ogent-issues-test-clear-filters-resets ()
+  "Test clear-filters resets all filters to nil."
+  (ogent-issues-test-with-buffer
+   (setq ogent-issues--filters '(:status "open" :type "bug" :priority 0))
+   (ogent-issues-clear-filters)
+   (sit-for 0.01)
+   (should (null ogent-issues--filters))))
+
+(ert-deftest ogent-issues-test-filter-combined-type-and-priority ()
+  "Test setting both type and priority filters."
+  (ogent-issues-test-with-buffer
+   (ogent-issues-filter-type "feature")
+   (sit-for 0.01)
+   (ogent-issues-filter-priority 0)
+   (sit-for 0.01)
+   (should (equal "feature" (plist-get ogent-issues--filters :type)))
+   (should (equal 0 (plist-get ogent-issues--filters :priority)))))
+
+;;; Detail Buffer Name Tests
+
+(ert-deftest ogent-issues-test-detail-buffer-name ()
+  "Test detail buffer name generation."
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-name)
+             (lambda () "my-project")))
+    (should (string= "*ogent-issue: my-project*"
+                     (ogent-issues--detail-buffer-name)))))
+
+(ert-deftest ogent-issues-test-detail-buffer-name-nil-project ()
+  "Test detail buffer name when project is nil."
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-name)
+             (lambda () nil)))
+    (should (string= "*ogent-issue: unknown*"
+                     (ogent-issues--detail-buffer-name)))))
+
+;;; Insert Header Section Tests
+
+(ert-deftest ogent-issues-test-insert-header-section-list ()
+  "Test header section for list view."
+  (with-temp-buffer
+    (let ((ogent-issues--current-view 'list))
+      (ogent-issues--insert-header-section)
+      (should (string-match-p "Issues" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-header-section-ready ()
+  "Test header section for ready view."
+  (with-temp-buffer
+    (let ((ogent-issues--current-view 'ready))
+      (ogent-issues--insert-header-section)
+      (should (string-match-p "Ready Work" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-header-section-kanban ()
+  "Test header section for kanban view."
+  (with-temp-buffer
+    (let ((ogent-issues--current-view 'kanban))
+      (ogent-issues--insert-header-section)
+      (should (string-match-p "Kanban" (buffer-string))))))
+
+;;; Markdown Rendering Edge Cases
+
+(ert-deftest ogent-issues-test-render-markdown-header ()
+  "Test markdown rendering of headers."
+  (let ((result (ogent-issues--render-markdown "## My Heading")))
+    (should (string-match-p "My Heading" result))
+    ;; Hash marks should be removed
+    (should-not (string-match-p "##" result))))
+
+(ert-deftest ogent-issues-test-render-markdown-underscore-bold ()
+  "Test markdown rendering of __bold__ syntax."
+  (let ((result (ogent-issues--render-markdown "This is __bold__ text")))
+    (should (string-match-p "bold" result))
+    ;; Underscores should be removed
+    (should-not (string-match-p "__" result))))
+
+(ert-deftest ogent-issues-test-render-markdown-empty-string ()
+  "Test markdown rendering of empty string."
+  (should (string= "" (ogent-issues--render-markdown ""))))
+
+;;; Indent Text Edge Cases
+
+(ert-deftest ogent-issues-test-indent-text-zero-indent ()
+  "Test text indentation with zero indent."
+  (let ((result (ogent-issues--indent-text "line1\nline2" 0)))
+    (should (string= "line1\nline2" result))))
+
+(ert-deftest ogent-issues-test-indent-text-single-line ()
+  "Test text indentation with single line."
+  (let ((result (ogent-issues--indent-text "hello" 3)))
+    (should (string= "   hello" result))))
+
+;;; Loading Animation Tests
+
+(ert-deftest ogent-issues-test-start-loading ()
+  "Test that start-loading sets loading state."
+  (let ((buf (get-buffer-create "*ogent-issues-loading-test*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-issues-mode)
+          (setq ogent-issues--loading nil)
+          (ogent-issues--start-loading)
+          (should ogent-issues--loading)
+          (should (= 0 ogent-issues--loading-frame))
+          (should ogent-issues--loading-timer)
+          ;; Clean up timer
+          (ogent-issues--stop-loading))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-stop-loading ()
+  "Test that stop-loading clears loading state."
+  (let ((buf (get-buffer-create "*ogent-issues-stop-loading-test*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-issues-mode)
+          (ogent-issues--start-loading)
+          (should ogent-issues--loading)
+          (ogent-issues--stop-loading)
+          (should-not ogent-issues--loading)
+          (should-not ogent-issues--loading-timer))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-stop-loading-timer-nil ()
+  "Test that stop-loading-timer handles nil timer gracefully."
+  (let ((buf (get-buffer-create "*ogent-issues-timer-nil-test*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-issues-mode)
+          (setq ogent-issues--loading-timer nil)
+          ;; Should not error
+          (ogent-issues--stop-loading-timer)
+          (should-not ogent-issues--loading-timer))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-animate-loading ()
+  "Test animate-loading advances frame."
+  (let ((buf (get-buffer-create "*ogent-issues-animate-test*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-issues-mode)
+          (setq ogent-issues--loading-frame 0)
+          (ogent-issues--animate-loading buf)
+          (should (= 1 ogent-issues--loading-frame))
+          (ogent-issues--animate-loading buf)
+          (should (= 2 ogent-issues--loading-frame))
+          (ogent-issues--animate-loading buf)
+          (should (= 3 ogent-issues--loading-frame))
+          ;; Wraps around
+          (ogent-issues--animate-loading buf)
+          (should (= 0 ogent-issues--loading-frame)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-animate-loading-dead-buffer ()
+  "Test animate-loading handles dead buffer gracefully."
+  (let ((buf (get-buffer-create "*ogent-issues-animate-dead-test*")))
+    (with-current-buffer buf
+      (ogent-issues-mode)
+      (setq ogent-issues--loading-frame 0))
+    (kill-buffer buf)
+    ;; Should not error on dead buffer
+    (ogent-issues--animate-loading buf)))
+
+(ert-deftest ogent-issues-test-start-loading-wrong-mode ()
+  "Test that start-loading does nothing in non-issues-mode buffers."
+  (with-temp-buffer
+    ;; Not in ogent-issues-mode
+    (ogent-issues--start-loading)
+    ;; Should not have set loading since we are not in the right mode
+    (should-not (and (boundp 'ogent-issues--loading)
+                     ogent-issues--loading))))
+
+(ert-deftest ogent-issues-test-cleanup-on-kill ()
+  "Test cleanup-on-kill cancels timers."
+  (let ((buf (get-buffer-create "*ogent-issues-cleanup-test*")))
+    (with-current-buffer buf
+      (ogent-issues-mode)
+      (ogent-issues--start-loading)
+      (should ogent-issues--loading-timer))
+    ;; Kill should clean up via the hook
+    (kill-buffer buf)
+    ;; Buffer is gone, timer should have been cleaned
+    (should-not (buffer-live-p buf))))
+
+;;; Insert Buffer Contents Dispatch Tests
+
+(ert-deftest ogent-issues-test-insert-buffer-contents-nil ()
+  "Test insert-buffer-contents with nil shows empty state."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--filters nil))
+      (ogent-issues--insert-buffer-contents nil)
+      (should (string-match-p "No issues found" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-buffer-contents-with-issues ()
+  "Test insert-buffer-contents with issues populates buffer."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t))
+      (ogent-issues--insert-buffer-contents
+       '((:id "t1" :title "Test" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)))
+      (should (string-match-p "t1" (buffer-string)))
+      (should (string-match-p "Test" (buffer-string))))))
+
+;;; Plain Rendering (fallback without magit-section) Tests
+
+(ert-deftest ogent-issues-test-insert-plain-groups-by-status ()
+  "Test plain rendering groups by status."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--current-view 'list)
+          (ogent-issues--magit-section-available nil))
+      (ogent-issues--insert-plain
+       '((:id "t1" :title "Open one" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)
+         (:id "t2" :title "Closed one" :status "closed"
+              :priority 2 :issue_type "bug" :dependency_count 0)))
+      (should (string-match-p "Open" (buffer-string)))
+      (should (string-match-p "Closed" (buffer-string)))
+      (should (string-match-p "t1" (buffer-string)))
+      (should (string-match-p "t2" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-plain-sets-text-properties ()
+  "Test plain rendering sets ogent-issue text properties."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--current-view 'list)
+          (ogent-issues--magit-section-available nil))
+      (ogent-issues--insert-plain
+       '((:id "t1" :title "Prop test" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)))
+      ;; Find the issue line and check for ogent-issue property
+      (goto-char (point-min))
+      (let ((found nil))
+        (while (and (not found) (not (eobp)))
+          (when (get-text-property (point) 'ogent-issue)
+            (setq found t))
+          (forward-char 1))
+        (should found)))))
+
+;;; Current Issue ID Tests
+
+(ert-deftest ogent-issues-test-current-issue-id-returns-id ()
+  "Test current-issue-id extracts ID from issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (ogent-issues--insert-plain
+       '((:id "abc-123" :title "Test" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)))
+      ;; Find line with the issue property
+      (goto-char (point-min))
+      (while (and (not (eobp))
+                  (not (get-text-property (point) 'ogent-issue)))
+        (forward-char 1))
+      (should (equal "abc-123" (ogent-issues--current-issue-id))))))
+
+(ert-deftest ogent-issues-test-current-issue-id-nil-no-issue ()
+  "Test current-issue-id returns nil when no issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "just text\n")
+      (goto-char (point-min))
+      (should-not (ogent-issues--current-issue-id)))))
+
+;;; Navigation Fallback Tests
+
+(ert-deftest ogent-issues-test-next-issue-fallback ()
+  "Test next-issue without magit-section uses text properties."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (ogent-issues--insert-plain
+       '((:id "t1" :title "First" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)
+         (:id "t2" :title "Second" :status "open"
+              :priority 2 :issue_type "bug" :dependency_count 0)))
+      (goto-char (point-min))
+      (ogent-issues-next-issue)
+      ;; Should have moved to first issue
+      (should (get-text-property (point) 'ogent-issue)))))
+
+(ert-deftest ogent-issues-test-prev-issue-fallback ()
+  "Test prev-issue without magit-section uses text properties."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (ogent-issues--insert-plain
+       '((:id "t1" :title "First" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)
+         (:id "t2" :title "Second" :status "open"
+              :priority 2 :issue_type "bug" :dependency_count 0)))
+      (goto-char (point-max))
+      (ogent-issues-prev-issue)
+      ;; Should have moved backward
+      (should (< (point) (point-max))))))
+
+(ert-deftest ogent-issues-test-next-issue-at-end ()
+  "Test next-issue when already at end of buffer."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "no issues here\n")
+      (goto-char (point-max))
+      (let ((pos (point)))
+        (ogent-issues-next-issue)
+        ;; Should stay at the same position (nowhere to go)
+        (should (= pos (point)))))))
+
+;;; Toggle/Cycle Section Fallback Tests
+
+(ert-deftest ogent-issues-test-toggle-section-no-magit ()
+  "Test toggle-section without magit-section shows message."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((ogent-issues--magit-section-available nil))
+      ;; Should not error, just message
+      (ogent-issues-toggle-section))))
+
+(ert-deftest ogent-issues-test-cycle-sections-no-magit ()
+  "Test cycle-sections without magit-section shows message."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((ogent-issues--magit-section-available nil))
+      ;; Should not error, just message
+      (ogent-issues-cycle-sections))))
+
+;;; Visit Tests
+
+(ert-deftest ogent-issues-test-visit-no-issue-at-point ()
+  "Test visit signals error when no issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "no issues here\n")
+      (goto-char (point-min))
+      (should-error (ogent-issues-visit) :type 'user-error))))
+
+;;; Detail View - Description Tests
+
+(ert-deftest ogent-issues-test-insert-detail-description ()
+  "Test description section rendering."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-description
+     '(:description "This is a **bold** description"))
+    (should (string-match-p "Description" (buffer-string)))
+    (should (string-match-p "bold" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-description-empty ()
+  "Test description section with nil description."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-description '(:description nil))
+    (should (string-match-p "No description" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-description-empty-string ()
+  "Test description section with empty string."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-description '(:description ""))
+    (should (string-match-p "No description" (buffer-string)))))
+
+;;; Detail View - Metadata Tests
+
+(ert-deftest ogent-issues-test-insert-detail-metadata ()
+  "Test metadata section rendering."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-metadata
+     '(:created_at "2025-12-16T10:00:00Z"
+       :updated_at "2025-12-16T14:30:00Z"
+       :parent_id nil
+       :labels nil))
+    (should (string-match-p "Metadata" (buffer-string)))
+    (should (string-match-p "Created" (buffer-string)))
+    (should (string-match-p "Updated" (buffer-string)))
+    (should (string-match-p "2025-12-16" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-metadata-with-parent ()
+  "Test metadata section with parent ID."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-metadata
+     '(:created_at "2025-12-16T10:00:00Z"
+       :updated_at "2025-12-16T14:30:00Z"
+       :parent_id "parent-001"
+       :labels nil))
+    (should (string-match-p "Parent" (buffer-string)))
+    (should (string-match-p "parent-001" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-metadata-with-labels ()
+  "Test metadata section with labels."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-metadata
+     '(:created_at "2025-12-16T10:00:00Z"
+       :updated_at "2025-12-16T14:30:00Z"
+       :parent_id nil
+       :labels ("backend" "urgent")))
+    (should (string-match-p "Labels" (buffer-string)))
+    (should (string-match-p "backend" (buffer-string)))
+    (should (string-match-p "urgent" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-metadata-string-labels ()
+  "Test metadata section with a string labels value."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-metadata
+     '(:created_at "2025-01-01T00:00:00Z"
+       :updated_at "2025-01-01T00:00:00Z"
+       :parent_id nil
+       :labels "single-label"))
+    (should (string-match-p "Labels" (buffer-string)))
+    (should (string-match-p "single-label" (buffer-string)))))
+
+;;; Detail View - Subtasks Tests
+
+(ert-deftest ogent-issues-test-insert-detail-subtasks ()
+  "Test subtask section rendering."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-subtasks
+     '(:dependents ((:id "sub-1" :title "Subtask one" :status "open"
+                     :priority 1 :issue_type "task"
+                     :dependency_type "parent-child")
+                    (:id "sub-2" :title "Subtask two" :status "closed"
+                     :priority 2 :issue_type "bug"
+                     :dependency_type "parent-child"))))
+    (should (string-match-p "Subtasks (2)" (buffer-string)))
+    (should (string-match-p "sub-1" (buffer-string)))
+    (should (string-match-p "sub-2" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-subtasks-none ()
+  "Test subtask section is omitted when no subtasks."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-subtasks '(:dependents nil))
+    (should (string-empty-p (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-subtasks-only-deps ()
+  "Test subtask section excludes non-parent-child dependencies."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-subtasks
+     '(:dependents ((:id "dep-1" :title "Blocker" :status "open"
+                     :priority 1 :issue_type "task"
+                     :dependency_type "blocks"))))
+    ;; Should be empty since no parent-child deps
+    (should (string-empty-p (buffer-string)))))
+
+;;; Detail View - Subtask Line Tests
+
+(ert-deftest ogent-issues-test-insert-subtask-line-open ()
+  "Test subtask line for open subtask."
+  (with-temp-buffer
+    (ogent-issues--insert-subtask-line
+     '(:id "sub-1" :title "Open subtask" :status "open"
+       :priority 1 :issue_type "task"))
+    (let ((content (buffer-string)))
+      (should (string-match-p "sub-1" content))
+      (should (string-match-p "Open subtask" content))
+      (should (string-match-p "\\[task\\]" content)))))
+
+(ert-deftest ogent-issues-test-insert-subtask-line-closed ()
+  "Test subtask line for closed subtask shows checkmark."
+  (let ((ogent-issues-use-unicode t))
+    (with-temp-buffer
+      (ogent-issues--insert-subtask-line
+       '(:id "sub-2" :title "Done subtask" :status "closed"
+         :priority 2 :issue_type "bug"))
+      (should (string-match-p "sub-2" (buffer-string))))))
+
+;;; Dependencies Section - Dependents Tests
+
+(ert-deftest ogent-issues-test-insert-detail-dependencies-with-other-deps ()
+  "Test dependency section shows non-parent-child dependents."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-dependencies
+     '(:blocks nil
+       :blocked_by nil
+       :dependents ((:id "dep-1" :dependency_type "blocks")
+                    (:id "dep-2" :dependency_type "blocks"))))
+    (should (string-match-p "Dependents" (buffer-string)))
+    (should (string-match-p "dep-1" (buffer-string)))
+    (should (string-match-p "dep-2" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-detail-dependencies-excludes-parent-child ()
+  "Test dependency section excludes parent-child from dependents."
+  (with-temp-buffer
+    (ogent-issues--insert-detail-dependencies
+     '(:blocks nil
+       :blocked_by nil
+       :dependents ((:id "child-1" :dependency_type "parent-child"))))
+    ;; Should NOT show Dependents since parent-child is filtered out
+    (should-not (string-match-p "Dependents" (buffer-string)))))
+
+;;; Markdown Rendering - Checkbox Tests
+
+(ert-deftest ogent-issues-test-render-markdown-unchecked-checkbox ()
+  "Test markdown rendering of unchecked checkbox."
+  (let ((ogent-issues-use-unicode t))
+    (let ((result (ogent-issues--render-markdown "- [ ] Not done")))
+      (should (string-match-p "☐" result)))))
+
+(ert-deftest ogent-issues-test-render-markdown-checked-checkbox ()
+  "Test markdown rendering of checked checkbox."
+  (let ((ogent-issues-use-unicode t))
+    (let ((result (ogent-issues--render-markdown "- [x] Done")))
+      (should (string-match-p "☑" result)))))
+
+(ert-deftest ogent-issues-test-render-markdown-checkbox-ascii ()
+  "Test markdown rendering of checkboxes in ASCII mode."
+  (let ((ogent-issues-use-unicode nil))
+    (let ((result (ogent-issues--render-markdown "- [ ] Not done")))
+      (should (string-match-p "\\[ \\]" result)))
+    (let ((result (ogent-issues--render-markdown "- [x] Done")))
+      (should (string-match-p "\\[x\\]" result)))))
+
+;;; Format Time - Error Path Tests
+
+(ert-deftest ogent-issues-test-format-time-invalid-returns-raw ()
+  "Test format-time with unparseable string returns it verbatim."
+  (should (string= "not-a-date" (ogent-issues--format-time "not-a-date"))))
+
+;;; Kanban Board Tests
+
+(ert-deftest ogent-issues-test-insert-kanban-board-with-issues ()
+  "Test kanban board rendering with issues."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t))
+      (ogent-issues--insert-kanban-board
+       '((:id "t1" :title "In progress" :status "in_progress"
+              :priority 1 :issue_type "task")
+         (:id "t2" :title "Open task" :status "open"
+              :priority 0 :issue_type "bug")))
+      (should (string-match-p "Kanban Board" (buffer-string)))
+      (should (string-match-p "In Progress" (buffer-string)))
+      (should (string-match-p "t1" (buffer-string)))
+      (should (string-match-p "t2" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-kanban-board-empty ()
+  "Test kanban board rendering with no issues."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t))
+      (ogent-issues--insert-kanban-board nil)
+      (should (string-match-p "Kanban Board" (buffer-string)))
+      (should (string-match-p "No issues" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-kanban-separator ()
+  "Test kanban separator rendering."
+  (with-temp-buffer
+    (ogent-issues--insert-kanban-separator 10)
+    (let ((content (buffer-string)))
+      (should (string-match-p "├" content))
+      (should (string-match-p "─" content))
+      (should (string-match-p "┤" content)))))
+
+(ert-deftest ogent-issues-test-insert-kanban-headers ()
+  "Test kanban headers rendering."
+  (with-temp-buffer
+    (let ((grouped '(("in_progress" . (1 2))
+                     ("open" . (3))
+                     ("blocked" . nil)
+                     ("closed" . nil))))
+      (ogent-issues--insert-kanban-headers 20 grouped)
+      (let ((content (buffer-string)))
+        (should (string-match-p "In Progress" content))
+        (should (string-match-p "Open" content))
+        (should (string-match-p "Blocked" content))
+        (should (string-match-p "Closed" content))
+        (should (string-match-p "┌" content))
+        (should (string-match-p "┐" content))))))
+
+(ert-deftest ogent-issues-test-insert-kanban-card ()
+  "Test kanban card rendering."
+  (with-temp-buffer
+    (let ((ogent-issues-use-unicode t))
+      (ogent-issues--insert-kanban-card
+       '(:id "t1" :title "Card title" :status "open" :priority 1)
+       30))
+    (let ((content (buffer-string)))
+      (should (string-match-p "t1" content))
+      ;; Card should have ogent-issue-id property
+      (should (get-text-property 0 'ogent-issue-id content)))))
+
+;;; Kanban Move Issue Tests
+
+(ert-deftest ogent-issues-test-kanban-move-no-issue ()
+  "Test kanban move when no issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "no issue here\n")
+      (goto-char (point-min))
+      ;; Should not error, just message
+      (ogent-issues--kanban-move-issue 1))))
+
+(ert-deftest ogent-issues-test-kanban-move-at-boundary ()
+  "Test kanban move at boundary (cannot move further)."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      ;; Put issue property on a line - last column (closed)
+      (insert "issue line\n")
+      (put-text-property (point-min) (1- (point-max))
+                         'ogent-issue '(:id "t1" :status "closed"))
+      (goto-char (point-min))
+      ;; Should not error when trying to move right from last column
+      (ogent-issues--kanban-move-issue 1))))
+
+;;; Restore Position Tests
+
+(ert-deftest ogent-issues-test-restore-position-nil ()
+  "Test restore-position with no last position."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil)
+          (ogent-issues--last-position nil))
+      (insert "some content\n")
+      (ogent-issues--restore-position)
+      ;; Should go to beginning
+      (should (= (point-min) (point))))))
+
+(ert-deftest ogent-issues-test-restore-position-not-found ()
+  "Test restore-position when issue is not found."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil)
+          (ogent-issues--last-position "nonexistent-id"))
+      (ogent-issues--insert-plain
+       '((:id "t1" :title "Test" :status "open"
+              :priority 1 :issue_type "task" :dependency_count 0)))
+      ;; Should not error; falls back to first issue
+      (ogent-issues--restore-position))))
+
+;;; Detail Help Test
+
+(ert-deftest ogent-issues-test-detail-help ()
+  "Test detail-help shows help message."
+  ;; Should not error
+  (ogent-issues-detail-help))
+
+;;; Detail Follow Link Tests
+
+(ert-deftest ogent-issues-test-detail-follow-link-no-link ()
+  "Test follow-link signals error when no link at point."
+  (with-temp-buffer
+    (ogent-issues-detail-mode)
+    (let ((inhibit-read-only t))
+      (insert "no links here\n")
+      (goto-char (point-min))
+      (should-error (ogent-issues-detail-follow-link) :type 'user-error))))
+
+;;; Empty State Content Tests
+
+(ert-deftest ogent-issues-test-empty-state-content-no-filters ()
+  "Test empty state content rendering without filters."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--filters nil))
+      (ogent-issues--insert-empty-state-content)
+      (should (string-match-p "No issues found" (buffer-string)))
+      (should (string-match-p "create" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-empty-state-content-with-filters ()
+  "Test empty state content rendering with active filters."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--filters '(:status "epic")))
+      (ogent-issues--insert-empty-state-content)
+      (should (string-match-p "No issues match current filters" (buffer-string)))
+      (should (string-match-p "clear" (buffer-string)))
+      (should (string-match-p "change" (buffer-string))))))
+
+;;; Refresh Tests
+
+(ert-deftest ogent-issues-test-refresh-renders-issues ()
+  "Test that refresh populates buffer with issues."
+  (ogent-issues-test-with-buffer
+   ;; Buffer should be populated after refresh in the macro
+   (should (> (buffer-size) 0))
+   (should (string-match-p "test-001" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-refresh-error-callback ()
+  "Test that refresh handles errors from bd-list."
+  (cl-letf (((symbol-function 'ogent-issues-bd-check-requirements)
+             (lambda () nil))
+            ((symbol-function 'ogent-issues-bd-list)
+             (lambda (_callback &optional _filters error-callback)
+               (when error-callback
+                 (funcall error-callback "mock error"))))
+            ((symbol-function 'ogent-issues-bd-project-name)
+             (lambda () "test-project")))
+    (let ((buf (get-buffer-create "*ogent-issues-refresh-err-test*")))
+      (unwind-protect
+          (with-current-buffer buf
+            (ogent-issues-mode)
+            ;; Should not error
+            (ogent-issues-refresh)
+            (sit-for 0.01))
+        (when (buffer-live-p buf)
+          (kill-buffer buf))))))
+
+(ert-deftest ogent-issues-test-refresh-force-invalidates-cache ()
+  "Test that refresh-force invalidates cache before refresh."
+  (let ((cache-invalidated nil))
+    (cl-letf (((symbol-function 'ogent-issues-bd-check-requirements)
+               (lambda () nil))
+              ((symbol-function 'ogent-issues-bd-cache-invalidate)
+               (lambda () (setq cache-invalidated t)))
+              ((symbol-function 'ogent-issues-bd-list)
+               (lambda (callback &optional _filters _error-callback)
+                 (funcall callback nil)))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda () "test-project")))
+      (let ((buf (get-buffer-create "*ogent-issues-force-test*")))
+        (unwind-protect
+            (with-current-buffer buf
+              (ogent-issues-mode)
+              (ogent-issues-refresh-force)
+              (sit-for 0.01)
+              (should cache-invalidated))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+;;; Detail View Render Tests
+
+(ert-deftest ogent-issues-test-render-detail-creates-buffer ()
+  "Test render-detail creates and populates detail buffer."
+  (let ((test-buf-name "*ogent-issue: render-test*"))
+    (cl-letf (((symbol-function 'pop-to-buffer) #'ignore)
+              ((symbol-function 'display-buffer) (lambda (_buf &rest _) nil))
+              ((symbol-function 'select-window) #'ignore)
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/render-test"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "render-test")))
+      (ogent-issues--render-detail
+       '(:id "det-1" :title "Detail Test" :status "open"
+         :priority 1 :issue_type "task" :description "desc"
+         :created_at "2025-01-01T00:00:00Z"
+         :updated_at "2025-01-01T00:00:00Z"
+         :blocks nil :blocked_by nil :dependents nil
+         :comments nil)
+       "/tmp/render-test"
+       test-buf-name)
+      (let ((buf (get-buffer test-buf-name)))
+        (unwind-protect
+            (with-current-buffer buf
+              (should (eq major-mode 'ogent-issues-detail-mode))
+              (should (string-match-p "Detail Test" (buffer-string)))
+              (should (string-match-p "desc" (buffer-string)))
+              (should (equal "det-1" (plist-get ogent-issues-detail--issue :id))))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+;;; Detail Refresh / Action Tests
+
+(ert-deftest ogent-issues-test-detail-refresh-no-issue ()
+  "Test detail-refresh does nothing when no issue is set."
+  (with-temp-buffer
+    (ogent-issues-detail-mode)
+    (setq ogent-issues-detail--issue nil)
+    ;; Should not error
+    (ogent-issues-detail-refresh)))
+
+;;; Comment Tests
+
+(ert-deftest ogent-issues-test-insert-comment-with-body-key ()
+  "Test comment rendering using :body instead of :text."
+  (with-temp-buffer
+    (ogent-issues--insert-comment
+     '(:author "tester" :created_at "2025-01-01T00:00:00Z" :body "Body text"))
+    (should (string-match-p "@tester" (buffer-string)))
+    (should (string-match-p "Body text" (buffer-string)))))
+
+(ert-deftest ogent-issues-test-insert-comment-nil-text ()
+  "Test comment rendering with nil text and body."
+  (with-temp-buffer
+    (ogent-issues--insert-comment
+     '(:author "tester" :created_at nil :text nil :body nil))
+    (should (string-match-p "@tester" (buffer-string)))
+    (should (string-match-p "unknown" (buffer-string)))))
+
+;;; Kanban Pad Edge Cases
+
+(ert-deftest ogent-issues-test-kanban-pad-empty-string ()
+  "Test padding an empty string."
+  (let ((result (ogent-issues--kanban-pad "" 10)))
+    (should (= 10 (length result)))))
+
+(ert-deftest ogent-issues-test-kanban-pad-width-1 ()
+  "Test padding to width 1."
+  (let ((result (ogent-issues--kanban-pad "X" 1)))
+    (should (= 1 (length result)))
+    (should (string= "X" result))))
+
+;;; View Deps Tests
+
+(ert-deftest ogent-issues-test-view-deps-current-no-issue ()
+  "Test view-deps-current signals error when no issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "no issue here\n")
+      (goto-char (point-min))
+      (should-error (ogent-issues-view-deps-current) :type 'user-error))))
+
+;;; Section Navigation without Magit
+
+(ert-deftest ogent-issues-test-next-section-no-magit ()
+  "Test next-section without magit-section does nothing."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((ogent-issues--magit-section-available nil))
+      ;; Should not error
+      (ogent-issues-next-section))))
+
+(ert-deftest ogent-issues-test-prev-section-no-magit ()
+  "Test prev-section without magit-section does nothing."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((ogent-issues--magit-section-available nil))
+      ;; Should not error
+      (ogent-issues-prev-section))))
+
+(ert-deftest ogent-issues-test-up-section-no-magit ()
+  "Test up-section without magit-section does nothing."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((ogent-issues--magit-section-available nil))
+      ;; Should not error
+      (ogent-issues-up-section))))
+
+;;; Link Map Tests
+
+(ert-deftest ogent-issues-test-link-map-defined ()
+  "Test that the issue link keymap is defined with expected bindings."
+  (should (keymapp ogent-issues-link-map))
+  (should (eq 'ogent-issues-detail-follow-link
+              (lookup-key ogent-issues-link-map (kbd "RET")))))
+
+;;; Kanban Column Width Edge Cases
+
+(ert-deftest ogent-issues-test-kanban-column-width-narrow-window ()
+  "Test kanban column width with extremely narrow window."
+  (cl-letf (((symbol-function 'window-width) (lambda () 10)))
+    (should (= 15 (ogent-issues--kanban-column-width)))))
+
+(ert-deftest ogent-issues-test-kanban-column-width-wide-window ()
+  "Test kanban column width with wide window."
+  (cl-letf (((symbol-function 'window-width) (lambda () 165)))
+    (should (= 40 (ogent-issues--kanban-column-width)))))
+
+;;; Entry Point Tests
+
+(ert-deftest ogent-issues-test-entry-point-no-project ()
+  "Test ogent-issues signals error when not in a beads project."
+  (cl-letf (((symbol-function 'ogent-issues-bd-project-root)
+             (lambda (&optional _) nil)))
+    (should-error (ogent-issues) :type 'user-error)))
+
+;;; Format Issue Line - Dependency Count Nil
+
+(ert-deftest ogent-issues-test-format-issue-line-nil-deps ()
+  "Test issue line with nil dependency_count."
+  (let ((issue '(:id "t1" :title "No dep count" :status "open"
+                 :priority 2 :issue_type "task" :dependency_count nil)))
+    (let ((line (ogent-issues--format-issue-line issue)))
+      (should (stringp line))
+      ;; Should not show parenthesized count
+      (should-not (string-match-p "([0-9])" line)))))
+
+;;; Detail Mode Variables
+
+(ert-deftest ogent-issues-test-detail-mode-settings ()
+  "Test that detail mode sets proper buffer-local settings."
+  (with-temp-buffer
+    (ogent-issues-detail-mode)
+    (should (eq major-mode 'ogent-issues-detail-mode))
+    (should-not truncate-lines)
+    (should word-wrap)))
+
+;;; Kanban Card Text Property Tests
+
+(ert-deftest ogent-issues-test-kanban-card-issue-property ()
+  "Test that kanban card sets ogent-issue text property."
+  (with-temp-buffer
+    (ogent-issues--insert-kanban-card
+     '(:id "kc-1" :title "Card" :status "open" :priority 0)
+     25)
+    ;; The card text should have the ogent-issue property
+    (goto-char (point-min))
+    (should (equal "kc-1" (get-text-property (point) 'ogent-issue-id)))))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here

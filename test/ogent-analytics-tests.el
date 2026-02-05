@@ -302,6 +302,252 @@
       ;; Should still track timing even when db disabled
       (should ogent-analytics--request-start-time))))
 
+;;; Project Root Tests
+
+(ert-deftest ogent-analytics-test-project-root-uses-project-el ()
+  "Test project root detection via project.el."
+  (cl-letf (((symbol-function 'project-current)
+             (lambda () '(vc Git "/home/user/myproject/")))
+            ((symbol-function 'project-root)
+             (lambda (proj) "/home/user/myproject/")))
+    (should (equal (ogent-analytics--project-root) "/home/user/myproject/"))))
+
+(ert-deftest ogent-analytics-test-project-root-git-fallback ()
+  "Test project root falls back to .git detection."
+  (cl-letf (((symbol-function 'project-current) (lambda () nil))
+            ((symbol-function 'locate-dominating-file)
+             (lambda (_dir _name) "/home/user/gitrepo/")))
+    (should (equal (ogent-analytics--project-root) "/home/user/gitrepo/"))))
+
+(ert-deftest ogent-analytics-test-project-root-default-directory ()
+  "Test project root falls back to default-directory when no project found."
+  (let ((default-directory "/tmp/fallback/"))
+    (cl-letf (((symbol-function 'project-current) (lambda () nil))
+              ((symbol-function 'locate-dominating-file) (lambda (_d _f) nil)))
+      (should (equal (ogent-analytics--project-root) "/tmp/fallback/")))))
+
+;;; Database Path Tests
+
+(ert-deftest ogent-analytics-test-db-path-uses-project-root ()
+  "Test db path is built from project root and db name."
+  (let ((ogent-analytics-db-name ".my-analytics.db"))
+    (cl-letf (((symbol-function 'ogent-analytics--project-root)
+               (lambda () "/home/user/project/")))
+      (should (equal (ogent-analytics--db-path)
+                     "/home/user/project/.my-analytics.db")))))
+
+(ert-deftest ogent-analytics-test-db-path-custom-name ()
+  "Test db path respects custom database name."
+  (let ((ogent-analytics-db-name "custom.db"))
+    (cl-letf (((symbol-function 'ogent-analytics--project-root)
+               (lambda () "/tmp/")))
+      (should (equal (ogent-analytics--db-path) "/tmp/custom.db")))))
+
+;;; Database Validity Tests
+
+(ert-deftest ogent-analytics-test-db-valid-p-nil ()
+  "Test db-valid-p returns nil for nil input."
+  (should-not (ogent-analytics--db-valid-p nil)))
+
+(ert-deftest ogent-analytics-test-db-valid-p-with-sqlitep ()
+  "Test db-valid-p uses sqlitep when available."
+  (let ((fake-db (make-symbol "fake-db")))
+    (cl-letf (((symbol-function 'sqlitep) (lambda (x) (eq x fake-db))))
+      (should (ogent-analytics--db-valid-p fake-db)))))
+
+(ert-deftest ogent-analytics-test-db-valid-p-non-db ()
+  "Test db-valid-p returns nil for non-db objects."
+  ;; A plain string is not a user-ptr
+  (cl-letf (((symbol-function 'sqlitep) (lambda (_x) nil))
+            ((symbol-function 'sqlite-p) (lambda (_x) nil)))
+    (should-not (ogent-analytics--db-valid-p "not-a-db"))))
+
+;;; Get DB Tests
+
+(ert-deftest ogent-analytics-test-get-db-disabled ()
+  "Test get-db returns nil when analytics is disabled."
+  (let ((ogent-analytics-enabled nil))
+    (should-not (ogent-analytics--get-db))))
+
+(ert-deftest ogent-analytics-test-get-db-no-sqlite ()
+  "Test get-db returns nil when sqlite is unavailable."
+  (let ((ogent-analytics-enabled t))
+    (cl-letf (((symbol-function 'sqlite-available-p) (lambda () nil)))
+      (should-not (ogent-analytics--get-db)))))
+
+(ert-deftest ogent-analytics-test-get-db-returns-cached ()
+  "Test get-db returns cached connection when valid."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--db-cache (make-hash-table :test 'equal))
+        (fake-db (make-symbol "cached-db")))
+    (cl-letf (((symbol-function 'sqlite-available-p) (lambda () t))
+              ((symbol-function 'ogent-analytics--db-path) (lambda () "/test/path.db"))
+              ((symbol-function 'ogent-analytics--db-valid-p)
+               (lambda (db) (eq db fake-db))))
+      (puthash "/test/path.db" fake-db ogent-analytics--db-cache)
+      (should (eq (ogent-analytics--get-db) fake-db)))))
+
+(ert-deftest ogent-analytics-test-get-db-opens-new ()
+  "Test get-db opens new connection when cache miss."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--db-cache (make-hash-table :test 'equal))
+        (fake-db (make-symbol "new-db"))
+        (schema-called nil))
+    (cl-letf (((symbol-function 'sqlite-available-p) (lambda () t))
+              ((symbol-function 'ogent-analytics--db-path) (lambda () "/test/new.db"))
+              ((symbol-function 'ogent-analytics--db-valid-p) (lambda (_db) nil))
+              ((symbol-function 'sqlite-open) (lambda (_path) fake-db))
+              ((symbol-function 'ogent-analytics--init-schema)
+               (lambda (_db) (setq schema-called t))))
+      (let ((result (ogent-analytics--get-db)))
+        (should (eq result fake-db))
+        (should schema-called)
+        (should (eq (gethash "/test/new.db" ogent-analytics--db-cache) fake-db))))))
+
+;;; Init Schema Tests
+
+(ert-deftest ogent-analytics-test-init-schema-executes-sql ()
+  "Test init-schema calls sqlite-execute for table and views."
+  (let ((executed-sqls '()))
+    (cl-letf (((symbol-function 'sqlite-execute)
+               (lambda (_db sql &rest _args)
+                 (push sql executed-sqls))))
+      (ogent-analytics--init-schema 'fake-db)
+      ;; Should have executed 3 statements: table + 2 views
+      (should (= (length executed-sqls) 3))
+      ;; Check that CREATE TABLE for completions was executed
+      (should (cl-some (lambda (sql) (string-match-p "CREATE TABLE IF NOT EXISTS completions" sql))
+                       executed-sqls))
+      ;; Check model_stats view
+      (should (cl-some (lambda (sql) (string-match-p "CREATE VIEW IF NOT EXISTS model_stats" sql))
+                       executed-sqls))
+      ;; Check daily_stats view
+      (should (cl-some (lambda (sql) (string-match-p "CREATE VIEW IF NOT EXISTS daily_stats" sql))
+                       executed-sqls)))))
+
+(ert-deftest ogent-analytics-test-init-schema-completions-columns ()
+  "Test init-schema creates completions table with expected columns."
+  (let ((table-sql nil))
+    (cl-letf (((symbol-function 'sqlite-execute)
+               (lambda (_db sql &rest _args)
+                 (when (string-match-p "CREATE TABLE" sql)
+                   (setq table-sql sql)))))
+      (ogent-analytics--init-schema 'fake-db)
+      (should table-sql)
+      (should (string-match-p "model TEXT NOT NULL" table-sql))
+      (should (string-match-p "prompt_tokens INTEGER" table-sql))
+      (should (string-match-p "response_tokens INTEGER" table-sql))
+      (should (string-match-p "outcome TEXT" table-sql))
+      (should (string-match-p "rating INTEGER" table-sql))
+      (should (string-match-p "time_to_first_token_ms INTEGER" table-sql)))))
+
+;;; Start Request Tests
+
+(ert-deftest ogent-analytics-test-start-request-sets-time ()
+  "Test start-request sets the request start time."
+  (let ((ogent-analytics--request-start-time nil)
+        (ogent-analytics--first-token-time '(12345 0 0 0)))
+    (ogent-analytics-start-request)
+    (should ogent-analytics--request-start-time)
+    ;; First token time should be cleared
+    (should-not ogent-analytics--first-token-time)))
+
+(ert-deftest ogent-analytics-test-start-request-resets-first-token ()
+  "Test start-request clears any previous first-token time."
+  (let ((ogent-analytics--request-start-time nil)
+        (ogent-analytics--first-token-time (current-time)))
+    (ogent-analytics-start-request)
+    (should-not ogent-analytics--first-token-time)
+    (should ogent-analytics--request-start-time)))
+
+;;; First Token Tests
+
+(ert-deftest ogent-analytics-test-first-token-sets-time ()
+  "Test first-token records the timestamp."
+  (let ((ogent-analytics--first-token-time nil))
+    (ogent-analytics-first-token)
+    (should ogent-analytics--first-token-time)))
+
+(ert-deftest ogent-analytics-test-first-token-idempotent ()
+  "Test first-token only sets time on first call."
+  (let* ((ogent-analytics--first-token-time nil))
+    (ogent-analytics-first-token)
+    (let ((first-time ogent-analytics--first-token-time))
+      (sleep-for 0.01)
+      (ogent-analytics-first-token)
+      (should (equal ogent-analytics--first-token-time first-time)))))
+
+;;; Insert Dashboard Tests
+
+(ert-deftest ogent-analytics-test-insert-dashboard-no-db ()
+  "Test dashboard insertion when no database is available."
+  (cl-letf (((symbol-function 'ogent-analytics--get-db) (lambda () nil))
+            ((symbol-function 'ogent-analytics--project-root) (lambda () "/test/project/")))
+    (with-temp-buffer
+      (ogent-analytics--insert-dashboard)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Ogent Analytics Dashboard" content))
+        (should (string-match-p "/test/project/" content))
+        (should (string-match-p "SQLite not available\\|not initialized" content))))))
+
+(ert-deftest ogent-analytics-test-insert-dashboard-empty-db ()
+  "Test dashboard insertion with empty database (no completions)."
+  (let ((fake-db (make-symbol "fake-db")))
+    (cl-letf (((symbol-function 'ogent-analytics--get-db) (lambda () fake-db))
+              ((symbol-function 'ogent-analytics--project-root) (lambda () "/test/"))
+              ((symbol-function 'sqlite-select)
+               (lambda (_db _sql &rest _args) nil)))
+      (with-temp-buffer
+        (ogent-analytics--insert-dashboard)
+        (let ((content (buffer-string)))
+          (should (string-match-p "Ogent Analytics Dashboard" content))
+          (should (string-match-p "Overall Statistics" content))
+          (should (string-match-p "No completions recorded" content))
+          (should (string-match-p "No model data available" content)))))))
+
+(ert-deftest ogent-analytics-test-insert-dashboard-with-data ()
+  "Test dashboard insertion with mock data."
+  (let ((fake-db (make-symbol "fake-db"))
+        (query-count 0))
+    (cl-letf (((symbol-function 'ogent-analytics--get-db) (lambda () fake-db))
+              ((symbol-function 'ogent-analytics--project-root) (lambda () "/test/"))
+              ((symbol-function 'sqlite-select)
+               (lambda (_db sql &rest _args)
+                 (setq query-count (1+ query-count))
+                 (cond
+                  ;; Overall stats query (multiline SQL - match single-line part)
+                  ((string-match-p "COUNT(\\*)" sql)
+                   '((10 7 3 70.0 5000 450 5 1)))
+                  ;; Model stats
+                  ((string-match-p "FROM model_stats" sql)
+                   '(("claude-3" 10 7 3 70.0 500 450 5 1)))
+                  ;; Daily stats
+                  ((string-match-p "FROM daily_stats" sql)
+                   '(("2024-01-15" 5 4 1 2500 400)))
+                  ;; Recent completions
+                  ((string-match-p "ORDER BY timestamp DESC" sql)
+                   '(("2024-01-15 14:30:00" "claude-3" "accepted" 1 500 400 "response preview")))
+                  (t nil)))))
+      (with-temp-buffer
+        (ogent-analytics--insert-dashboard)
+        (let ((content (buffer-string)))
+          (should (string-match-p "Total Completions" content))
+          (should (string-match-p "Model Comparison" content))
+          (should (string-match-p "claude-3" content))
+          (should (string-match-p "Recent Activity" content))
+          (should (string-match-p "2024-01-15" content)))))))
+
+(ert-deftest ogent-analytics-test-insert-dashboard-keybinding-help ()
+  "Test dashboard shows keybinding help."
+  (cl-letf (((symbol-function 'ogent-analytics--get-db) (lambda () nil))
+            ((symbol-function 'ogent-analytics--project-root) (lambda () "/test/")))
+    (with-temp-buffer
+      (ogent-analytics--insert-dashboard)
+      (let ((content (buffer-string)))
+        (should (string-match-p "g=refresh" content))
+        (should (string-match-p "e=export CSV" content))
+        (should (string-match-p "q=quit" content))))))
+
 (provide 'ogent-analytics-tests)
 
 ;;; ogent-analytics-tests.el ends here

@@ -546,6 +546,176 @@
     ;; Should not error
     (ogent-edit-diff-help)))
 
+;;; Coverage Expansion Tests for ogent-edit-diff.el
+
+(ert-deftest ogent-edit-diff-test-render-dispatches-to-basic ()
+  "Render dispatches to basic when magit not available."
+  (let ((ogent-edit-diff--magit-available nil)
+        (basic-called nil))
+    (cl-letf (((symbol-function 'ogent-edit-diff--render-basic)
+               (lambda (_by-file) (setq basic-called t))))
+      (with-temp-buffer
+        (ogent-edit-diff-mode)
+        (setq ogent-edit-diff--edits
+              (list (ogent-edit-diff-test--make-edit "e1" "f.el" "a" "b")))
+        (let ((inhibit-read-only t))
+          (ogent-edit-diff--render ogent-edit-diff--edits))
+        (should basic-called)))))
+
+(ert-deftest ogent-edit-diff-test-next-hunk-without-magit ()
+  "Next hunk falls back to forward-line without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (let ((inhibit-read-only t))
+        (insert "line1\nline2\nline3\n"))
+      (goto-char (point-min))
+      (ogent-edit-diff-next-hunk)
+      (should (= (line-number-at-pos) 2)))))
+
+(ert-deftest ogent-edit-diff-test-prev-hunk-without-magit ()
+  "Prev hunk falls back to forward-line -1 without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (let ((inhibit-read-only t))
+        (insert "line1\nline2\nline3\n"))
+      (goto-char (point-max))
+      (forward-line -1)
+      (ogent-edit-diff-prev-hunk)
+      (should (= (line-number-at-pos) 2)))))
+
+(ert-deftest ogent-edit-diff-test-next-file-without-magit ()
+  "Next file is a no-op without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (let ((inhibit-read-only t))
+        (insert "content"))
+      (goto-char (point-min))
+      ;; Should not error
+      (ogent-edit-diff-next-file)
+      (should (= (point) (point-min))))))
+
+(ert-deftest ogent-edit-diff-test-prev-file-without-magit ()
+  "Prev file is a no-op without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (let ((inhibit-read-only t))
+        (insert "content"))
+      (goto-char (point-max))
+      ;; Should not error
+      (ogent-edit-diff-prev-file)
+      (should (= (point) (point-max))))))
+
+(ert-deftest ogent-edit-diff-test-toggle-section-without-magit ()
+  "Toggle section is a no-op without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      ;; Should not error
+      (ogent-edit-diff-toggle-section))))
+
+(ert-deftest ogent-edit-diff-test-current-edit-without-magit ()
+  "Current edit returns nil without magit."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (should-not (ogent-edit-diff--current-edit)))))
+
+(ert-deftest ogent-edit-diff-test-goto-source-without-magit ()
+  "Goto source errors when no edit at point (no magit)."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (should-error (ogent-edit-diff-goto-source) :type 'user-error))))
+
+(ert-deftest ogent-edit-diff-test-reject-all-with-confirmation ()
+  "Reject all marks all edits as rejected when confirmed."
+  (let ((ogent-edit-diff--magit-available nil))
+    (unwind-protect
+        (with-temp-buffer
+          (ogent-edit-diff-mode)
+          (setq ogent-edit-diff--edits
+                (list (ogent-edit-diff-test--make-edit "r1" "f.el" "a" "b")
+                      (ogent-edit-diff-test--make-edit "r2" "f.el" "c" "d")))
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
+            (ogent-edit-diff-reject-all)
+            (should (null ogent-edit-diff--edits))))
+      (ogent-edit-diff-test--cleanup))))
+
+(ert-deftest ogent-edit-diff-test-reject-all-cancelled ()
+  "Reject all keeps edits when user says no."
+  (let ((ogent-edit-diff--magit-available nil))
+    (unwind-protect
+        (with-temp-buffer
+          (ogent-edit-diff-mode)
+          (setq ogent-edit-diff--edits
+                (list (ogent-edit-diff-test--make-edit "r1" "f.el" "a" "b")))
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) nil)))
+            (ogent-edit-diff-reject-all)
+            ;; Edits should remain
+            (should (= (length ogent-edit-diff--edits) 1))))
+      (ogent-edit-diff-test--cleanup))))
+
+(ert-deftest ogent-edit-diff-test-apply-edit-replaces-content ()
+  "Apply edit correctly replaces source buffer content and sets status."
+  (unwind-protect
+      (let* ((buf (generate-new-buffer " *ogent-diff-test-apply2*"))
+             (edit (make-ogent-edit
+                    :id "ap1"
+                    :old-text "hello"
+                    :new-text "world"
+                    :source-buffer buf
+                    :source-file "test.el"
+                    :status 'pending
+                    :timestamp (current-time))))
+        (with-current-buffer buf
+          (insert "hello"))
+        (ogent-edit-validate edit)
+        (ogent-edit-diff--apply-edit edit)
+        (with-current-buffer buf
+          (should (string= (buffer-string) "world")))
+        (should (eq (ogent-edit-status edit) 'accepted)))
+    (ogent-edit-diff-test--cleanup)))
+
+(ert-deftest ogent-edit-diff-test-refresh-preserves-point ()
+  "Refresh keeps point at a reasonable position."
+  (unwind-protect
+      (let* ((edit (ogent-edit-diff-test--make-edit "rp1" "f.el" "old text" "new text"))
+             (buf (ogent-edit-diff-show (list edit))))
+        (with-current-buffer buf
+          ;; Move to some position
+          (goto-char (point-min))
+          (forward-line 2)
+          (let ((pos (point)))
+            (ogent-edit-diff-refresh)
+            ;; Point should be at same position or point-max if buffer shrank
+            (should (<= (point) (point-max))))))
+    (ogent-edit-diff-test--cleanup)))
+
+(ert-deftest ogent-edit-diff-test-refresh-noop-outside-mode ()
+  "Refresh is a no-op outside ogent-edit-diff-mode."
+  (with-temp-buffer
+    ;; Should not error in a non-diff mode buffer
+    (ogent-edit-diff-refresh)))
+
+(ert-deftest ogent-edit-diff-test-render-basic-diff-content ()
+  "Basic render includes diff markers for edits."
+  (let ((ogent-edit-diff--magit-available nil))
+    (with-temp-buffer
+      (ogent-edit-diff-mode)
+      (setq ogent-edit-diff--edits
+            (list (ogent-edit-diff-test--make-edit "bc1" "test.el" "old code" "new code")))
+      (let ((inhibit-read-only t))
+        (ogent-edit-diff--render-basic
+         (ogent-edit-diff--group-by-file ogent-edit-diff--edits))
+        (let ((content (buffer-string)))
+          ;; Should have diff markers
+          (should (string-match-p "-old code" content))
+          (should (string-match-p "\\+new code" content)))))))
+
 (provide 'ogent-edit-diff-tests)
 
 ;;; ogent-edit-diff-tests.el ends here

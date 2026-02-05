@@ -2230,7 +2230,7 @@ Returns the parsed plist, or nil if parsing fails."
             (forward-line 0)
             (condition-case nil
                 (read (buffer-substring-no-properties args-start (point)))
-              (error nil)))))))))
+              (error nil))))))))
 
 (defun ogent-tool--replace-result-at-point (new-result)
   "Replace the result in the current tool drawer with NEW-RESULT."
@@ -2252,7 +2252,7 @@ Returns the parsed plist, or nil if parsing fails."
           (goto-char drawer-start)
           (forward-line 1)
           (when (re-search-forward "\\([○◐✓✗]\\)" (line-end-position) t)
-            (replace-match (ogent-ui--tool-status-icon 'success))))))))
+            (replace-match (ogent-ui--tool-status-icon 'success)))))))
 
 (defun ogent-ui--insert-reasoning-block (content)
   "Insert a reasoning block containing CONTENT.

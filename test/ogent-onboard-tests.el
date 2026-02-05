@@ -128,5 +128,320 @@
 			     (should model)
 			     (should (string-prefix-p "claude-sonnet-4-5" (plist-get model :id)))))))
 
+;;; Auth-source Integration Tests
+
+(ert-deftest ogent-onboard-get-api-key-found ()
+  "Test retrieving an API key from auth-source."
+  (cl-letf (((symbol-function 'auth-source-search)
+             (lambda (&rest _)
+               (list (list :host "api.test.com" :secret "sk-test-key")))))
+    (should (equal "sk-test-key"
+                   (ogent-onboard--get-api-key "api.test.com")))))
+
+(ert-deftest ogent-onboard-get-api-key-found-with-function ()
+  "Test retrieving API key when secret is a function."
+  (cl-letf (((symbol-function 'auth-source-search)
+             (lambda (&rest _)
+               (list (list :host "api.test.com"
+                           :secret (lambda () "sk-func-key"))))))
+    (should (equal "sk-func-key"
+                   (ogent-onboard--get-api-key "api.test.com")))))
+
+(ert-deftest ogent-onboard-get-api-key-not-found ()
+  "Test retrieving API key when none exists."
+  (cl-letf (((symbol-function 'auth-source-search)
+             (lambda (&rest _) nil)))
+    (should-not (ogent-onboard--get-api-key "api.test.com"))))
+
+;;; Save API Key Tests
+;;
+;; ogent-onboard--save-api-key uses C-level primitives (file-exists-p,
+;; insert-file-contents, write-region, expand-file-name) that cannot be
+;; safely mocked with cl-letf under native compilation. We test it by
+;; temporarily changing HOME to a temp directory.
+
+(ert-deftest ogent-onboard-save-api-key-writes-correctly ()
+  "Test save-api-key writes correct authinfo content."
+  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+         (authinfo (expand-file-name ".authinfo" temp-dir))
+         (orig-home (getenv "HOME")))
+    (unwind-protect
+        (progn
+          ;; Point HOME to temp dir so ~/.authinfo resolves there
+          (setenv "HOME" temp-dir)
+          (should (ogent-onboard--save-api-key "api.test.com" "sk-99999"))
+          (should (file-exists-p authinfo))
+          (let ((content (with-temp-buffer
+                           (insert-file-contents authinfo)
+                           (buffer-string))))
+            (should (string-match-p "machine api.test.com" content))
+            (should (string-match-p "login apikey" content))
+            (should (string-match-p "password sk-99999" content))))
+      ;; Restore HOME
+      (setenv "HOME" orig-home)
+      (when (file-exists-p authinfo)
+        (delete-file authinfo))
+      (when (file-directory-p temp-dir)
+        (delete-directory temp-dir)))))
+
+(ert-deftest ogent-onboard-save-api-key-appends-to-existing ()
+  "Test save-api-key appends to existing authinfo file."
+  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+         (authinfo (expand-file-name ".authinfo" temp-dir))
+         (orig-home (getenv "HOME")))
+    (unwind-protect
+        (progn
+          (setenv "HOME" temp-dir)
+          ;; Create existing authinfo with prior entry
+          (with-temp-file authinfo
+            (insert "machine existing.host login apikey password old-key\n"))
+          (ogent-onboard--save-api-key "api.new.com" "sk-new")
+          (let ((content (with-temp-buffer
+                           (insert-file-contents authinfo)
+                           (buffer-string))))
+            ;; Should contain both old and new entries
+            (should (string-match-p "machine existing.host" content))
+            (should (string-match-p "machine api.new.com" content))
+            (should (string-match-p "password sk-new" content))))
+      (setenv "HOME" orig-home)
+      (when (file-exists-p authinfo)
+        (delete-file authinfo))
+      (when (file-directory-p temp-dir)
+        (delete-directory temp-dir)))))
+
+(ert-deftest ogent-onboard-save-api-key-returns-t ()
+  "Test save-api-key returns t on success."
+  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+         (orig-home (getenv "HOME")))
+    (unwind-protect
+        (progn
+          (setenv "HOME" temp-dir)
+          (should (eq t (ogent-onboard--save-api-key "host" "key"))))
+      (setenv "HOME" orig-home)
+      (let ((f (expand-file-name ".authinfo" temp-dir)))
+        (when (file-exists-p f) (delete-file f)))
+      (when (file-directory-p temp-dir)
+        (delete-directory temp-dir)))))
+
+;;; Configure API Key Flow Tests
+
+(ert-deftest ogent-onboard-configure-api-key-existing-accepted ()
+  "Test configure-api-key uses existing key when user accepts."
+  (cl-letf (((symbol-function 'ogent-onboard--get-api-key)
+             (lambda (_h) "existing-key"))
+            ((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+    (let ((provider '(:host "api.test.com" :name "Test" :env-var nil)))
+      (should (equal "existing-key"
+                     (ogent-onboard--configure-api-key provider))))))
+
+(ert-deftest ogent-onboard-configure-api-key-existing-declined ()
+  "Test configure-api-key prompts for new key when user declines existing."
+  (cl-letf (((symbol-function 'ogent-onboard--get-api-key)
+             (lambda (_h) "existing-key"))
+            ((symbol-function 'y-or-n-p) (lambda (_prompt) nil))
+            ((symbol-function 'ogent-onboard--prompt-for-key)
+             (lambda (_p) "new-key")))
+    (let ((provider '(:host "api.test.com" :name "Test" :env-var nil)))
+      (should (equal "new-key"
+                     (ogent-onboard--configure-api-key provider))))))
+
+(ert-deftest ogent-onboard-configure-api-key-from-env ()
+  "Test configure-api-key finds key from environment variable."
+  (cl-letf (((symbol-function 'ogent-onboard--get-api-key)
+             (lambda (_h) nil))
+            ((symbol-function 'getenv)
+             (lambda (var) (when (equal var "TEST_KEY") "env-key")))
+            ((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+    (let ((provider '(:host "api.test.com" :name "Test" :env-var "TEST_KEY")))
+      (should (equal "env-key"
+                     (ogent-onboard--configure-api-key provider))))))
+
+(ert-deftest ogent-onboard-configure-api-key-none-found ()
+  "Test configure-api-key prompts when no existing key."
+  (cl-letf (((symbol-function 'ogent-onboard--get-api-key)
+             (lambda (_h) nil))
+            ((symbol-function 'getenv) (lambda (_v) nil))
+            ((symbol-function 'ogent-onboard--prompt-for-key)
+             (lambda (_p) "prompted-key")))
+    (let ((provider '(:host "api.test.com" :name "Test" :env-var "FOO")))
+      (should (equal "prompted-key"
+                     (ogent-onboard--configure-api-key provider))))))
+
+;;; OAuth Configuration Tests
+
+(ert-deftest ogent-onboard-configure-oauth-already-authenticated ()
+  "Test OAuth skips login when already authenticated and user doesn't re-auth."
+  (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+            ((symbol-function 'ogent-anthropic-oauth-authenticated-p)
+             (lambda () t))
+            ((symbol-function 'ogent-anthropic-oauth-mode)
+             (lambda () "max"))
+            ((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+    (let ((provider '(:name "Anthropic OAuth")))
+      (should (ogent-onboard--configure-oauth provider)))))
+
+(ert-deftest ogent-onboard-configure-oauth-re-authenticate ()
+  "Test OAuth re-authenticates when user wants to."
+  (let ((login-called nil))
+    (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+              ((symbol-function 'ogent-anthropic-oauth-authenticated-p)
+               (lambda () t))
+              ((symbol-function 'ogent-anthropic-oauth-mode)
+               (lambda () "max"))
+              ((symbol-function 'y-or-n-p) (lambda (_prompt) t))
+              ((symbol-function 'ogent-anthropic-login)
+               (lambda (_mode) (setq login-called t))))
+      (let ((provider '(:name "Anthropic OAuth")))
+        (ogent-onboard--configure-oauth provider)
+        (should login-called)))))
+
+(ert-deftest ogent-onboard-configure-oauth-not-authenticated ()
+  "Test OAuth starts login flow when not authenticated."
+  (let ((login-called nil))
+    (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+              ((symbol-function 'ogent-anthropic-oauth-authenticated-p)
+               (lambda () nil))
+              ((symbol-function 'y-or-n-p) (lambda (_prompt) t))
+              ((symbol-function 'ogent-anthropic-login)
+               (lambda (_mode) (setq login-called t))))
+      (let ((provider '(:name "Anthropic OAuth")))
+        (ogent-onboard--configure-oauth provider)
+        (should login-called)))))
+
+(ert-deftest ogent-onboard-configure-oauth-user-declines ()
+  "Test OAuth returns nil when user declines login."
+  (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+            ((symbol-function 'ogent-anthropic-oauth-authenticated-p)
+             (lambda () nil))
+            ((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+    (let ((provider '(:name "Anthropic OAuth")))
+      (should-not (ogent-onboard--configure-oauth provider)))))
+
+;;; Create Backend Tests
+
+(ert-deftest ogent-onboard-create-backend-unknown-creator ()
+  "Test create-backend returns nil for unknown backend creator."
+  (let ((provider '(:name "Unknown"
+                   :backend-creator some-unknown-creator
+                   :models ((:id "m1")))))
+    (should-not (ogent-onboard--create-backend provider "key"))))
+
+(ert-deftest ogent-onboard-create-backend-anthropic-with-key ()
+  "Test Anthropic backend uses provided key."
+  (let ((captured-key nil))
+    (cl-letf (((symbol-function 'gptel-make-anthropic)
+               (lambda (_name &rest args)
+                 (setq captured-key (plist-get args :key))
+                 'backend)))
+      (let ((provider '(:name "Anth"
+                        :backend-creator gptel-make-anthropic
+                        :models ((:id "m1")))))
+        (ogent-onboard--create-backend provider "real-key")
+        (should (equal "real-key" captured-key))))))
+
+(ert-deftest ogent-onboard-create-backend-anthropic-stream ()
+  "Test Anthropic backend enables streaming."
+  (let ((captured-stream nil))
+    (cl-letf (((symbol-function 'gptel-make-anthropic)
+               (lambda (_name &rest args)
+                 (setq captured-stream (plist-get args :stream))
+                 'backend)))
+      (let ((provider '(:name "Anth"
+                        :backend-creator gptel-make-anthropic
+                        :models ((:id "m1")))))
+        (ogent-onboard--create-backend provider "k")
+        (should captured-stream)))))
+
+;;; Verify Connection Tests
+
+(ert-deftest ogent-onboard-verify-connection-nil-backend ()
+  "Test verify fails when create-backend returns nil."
+  (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
+            ((symbol-function 'ogent-onboard--create-backend)
+             (lambda (&rest _) nil)))
+    (let ((provider '(:name "Test" :feature test-feat :backend test-var)))
+      (should-not (ogent-onboard--verify-connection provider "key" "m1")))))
+
+;;; Model Registry Tests
+
+(ert-deftest ogent-onboard-add-to-registry-existing-model ()
+  "Test adding a model that already exists does not duplicate."
+  (let ((ogent-model-registry '((:id "existing-model" :backend foo :description "Old"))))
+    (ogent-onboard--add-to-registry
+     '(:id anthropic :backend gptel-anthropic)
+     '(:id "existing-model" :description "New"))
+    ;; Should still have only one entry
+    (should (= 1 (length ogent-model-registry)))))
+
+(ert-deftest ogent-onboard-add-to-registry-returns-entry ()
+  "Test add-to-registry returns the constructed entry."
+  (let ((ogent-model-registry '((:id "placeholder" :backend foo))))
+    (let ((entry (ogent-onboard--add-to-registry
+                  '(:id test :backend gptel-test)
+                  '(:id "new-model" :description "New"))))
+      (should entry)
+      (should (equal "new-model" (plist-get entry :id)))
+      (should (eq t (plist-get entry :stream?))))))
+
+;;; Find Source Root Tests
+
+(ert-deftest ogent-onboard-find-source-root-custom ()
+  "Test find-source-root uses ogent-source-directory when set."
+  (let ((ogent-source-directory "/custom/ogent"))
+    (should (equal "/custom/ogent" (ogent-onboard--find-source-root)))))
+
+(ert-deftest ogent-onboard-find-source-root-nil-falls-back ()
+  "Test find-source-root falls back when ogent-source-directory is nil."
+  (let ((ogent-source-directory nil))
+    ;; It should return something non-nil (either straight.el path or load location)
+    (should (ogent-onboard--find-source-root))))
+
+;;; Provider Configuration Structure Tests
+
+(ert-deftest ogent-onboard-oauth-provider-has-auth-type ()
+  "Test OAuth provider has :auth-type oauth."
+  (let ((oauth-provider (seq-find (lambda (p)
+                                    (eq (plist-get p :id) 'anthropic-oauth))
+                                  ogent-onboard-providers)))
+    (should oauth-provider)
+    (should (eq 'oauth (plist-get oauth-provider :auth-type)))))
+
+(ert-deftest ogent-onboard-api-key-provider-has-env-var ()
+  "Test API key providers have :env-var set."
+  (dolist (provider ogent-onboard-providers)
+    (when (eq (plist-get provider :auth-type) 'api-key)
+      (should (plist-get provider :env-var)))))
+
+(ert-deftest ogent-onboard-providers-have-models ()
+  "Test every provider has at least one model."
+  (dolist (provider ogent-onboard-providers)
+    (should (> (length (plist-get provider :models)) 0))))
+
+(ert-deftest ogent-onboard-all-models-have-id-and-description ()
+  "Test every model in every provider has :id and :description."
+  (dolist (provider ogent-onboard-providers)
+    (dolist (model (plist-get provider :models))
+      (should (plist-get model :id))
+      (should (plist-get model :description)))))
+
+(ert-deftest ogent-onboard-providers-have-backend-creator ()
+  "Test every provider has a :backend-creator."
+  (dolist (provider ogent-onboard-providers)
+    (should (plist-get provider :backend-creator))))
+
+;;; Set Default Model Tests
+
+(ert-deftest ogent-onboard-set-default-model-changes-var ()
+  "Test set-default-model changes ogent-default-model."
+  (let ((ogent-default-model "old-model"))
+    (ogent-onboard--set-default-model "new-model")
+    (should (equal "new-model" ogent-default-model))))
+
+(ert-deftest ogent-onboard-set-default-model-nil ()
+  "Test set-default-model handles nil."
+  (let ((ogent-default-model "old"))
+    (ogent-onboard--set-default-model nil)
+    (should (null ogent-default-model))))
+
 (provide 'ogent-onboard-tests)
 ;;; ogent-onboard-tests.el ends here

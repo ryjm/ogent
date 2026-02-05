@@ -571,5 +571,271 @@ missing separator and end marker")
             (kill-buffer)))
       (delete-file temp-file))))
 
+;;; Coverage Expansion Tests for ogent-edit.el
+
+(ert-deftest ogent-edit-make-callback-accumulates-streaming ()
+  "The streaming callback accumulates text during streaming."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request nil))
+    (let ((callback (ogent-edit--make-callback)))
+      ;; Simulate streaming chunks -- info is non-nil to indicate "not done yet"
+      ;; Using (:status "streaming") to indicate an in-progress state
+      (funcall callback "chunk1" '(:status "streaming"))
+      (should (string= ogent-edit--streaming-response "chunk1"))
+      (funcall callback "chunk2" '(:status "streaming"))
+      (should (string= ogent-edit--streaming-response "chunk1chunk2")))))
+
+(ert-deftest ogent-edit-make-callback-handles-error ()
+  "The streaming callback handles error info."
+  (let ((ogent-edit--streaming-response "partial")
+        (ogent-edit--pending-request nil))
+    (let ((callback (ogent-edit--make-callback)))
+      (funcall callback nil '(:error "Request failed"))
+      ;; Response should be reset on error
+      (should (string= ogent-edit--streaming-response "")))))
+
+(ert-deftest ogent-edit-make-callback-processes-on-done ()
+  "The streaming callback processes response on :done."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; Accumulate some text first
+        (funcall callback "some response" nil)
+        ;; Then signal done
+        (funcall callback nil '(:done t))
+        (should (string= processed "some response"))
+        ;; Streaming response should be reset
+        (should (string= ogent-edit--streaming-response ""))))))
+
+(ert-deftest ogent-edit-make-callback-handles-processing-error ()
+  "The callback catches errors in ogent-edit--process-response."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer))))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (_response)
+                 (error "Processing exploded"))))
+      (let ((callback (ogent-edit--make-callback)))
+        (funcall callback "response text" nil)
+        ;; Should not signal -- error is caught
+        (funcall callback nil '(:done t))
+        ;; Response should be reset even after error
+        (should (string= ogent-edit--streaming-response ""))))))
+
+(ert-deftest ogent-edit-auto-apply-edit-success ()
+  "Auto-apply replaces text in buffer and marks accepted."
+  (let ((source-buffer (get-buffer-create "*test-auto-apply*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buffer
+            (insert "old code here"))
+          (let ((edit (make-ogent-edit
+                       :id "aa-001"
+                       :old-text "old code here"
+                       :new-text "new code here"
+                       :source-buffer source-buffer
+                       :status 'pending
+                       :timestamp (current-time))))
+            (ogent-edit-validate edit)
+            (should (ogent-edit-auto-apply-edit edit))
+            (should (eq (ogent-edit-status edit) 'accepted))
+            (with-current-buffer source-buffer
+              (should (string= (buffer-string) "new code here")))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-auto-apply-edit-not-pending ()
+  "Auto-apply returns nil for non-pending edits."
+  (let ((edit (make-ogent-edit
+               :id "aa-002"
+               :old-text "old"
+               :new-text "new"
+               :source-buffer (current-buffer)
+               :start-pos 1
+               :end-pos 4
+               :status 'accepted
+               :timestamp (current-time))))
+    (should-not (ogent-edit-auto-apply-edit edit))))
+
+(ert-deftest ogent-edit-auto-apply-edit-invalid ()
+  "Auto-apply returns nil for invalid edits (no positions)."
+  (let ((edit (make-ogent-edit
+               :id "aa-003"
+               :old-text "old"
+               :new-text "new"
+               :source-buffer (current-buffer)
+               :status 'pending
+               :timestamp (current-time))))
+    ;; No start-pos/end-pos -- not valid
+    (should-not (ogent-edit-auto-apply-edit edit))))
+
+(ert-deftest ogent-edit-auto-apply-all-multiple ()
+  "Auto-apply-all applies multiple edits in correct order."
+  (let ((source-buffer (get-buffer-create "*test-auto-apply-all*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buffer
+            (insert "AAA\nBBB\nCCC"))
+          (let ((edit1 (make-ogent-edit
+                        :id "aal-001"
+                        :old-text "AAA"
+                        :new-text "111"
+                        :source-buffer source-buffer
+                        :status 'pending
+                        :timestamp (current-time)))
+                (edit2 (make-ogent-edit
+                        :id "aal-002"
+                        :old-text "CCC"
+                        :new-text "333"
+                        :source-buffer source-buffer
+                        :status 'pending
+                        :timestamp (current-time))))
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            (let ((count (ogent-edit-auto-apply-all (list edit1 edit2))))
+              (should (= count 2))
+              (with-current-buffer source-buffer
+                (should (string= (buffer-string) "111\nBBB\n333"))))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-auto-apply-all-returns-zero-for-empty ()
+  "Auto-apply-all returns 0 for empty list."
+  (should (= 0 (ogent-edit-auto-apply-all nil))))
+
+(ert-deftest ogent-edit-process-response-auto-apply ()
+  "Process response in auto-apply mode directly applies edits."
+  (let ((source-buffer (get-buffer-create "*test-process-auto*"))
+        (ogent-edit-auto-apply t)
+        (ogent-edit-auto-display nil)
+        (ogent-edit-log-to-companion nil))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buffer
+            (insert "(defun foo () nil)"))
+          (let ((ogent-edit--pending-request
+                 (list :source-buffer source-buffer)))
+            (cl-letf (((symbol-function 'pop-to-buffer) #'ignore))
+              (let ((edits (ogent-edit--process-response
+                            "<<<<<<< SEARCH\n(defun foo () nil)\n=======\n(defun foo () t)\n>>>>>>> REPLACE")))
+                (should (= (length edits) 1))
+                ;; The edit should be applied
+                (with-current-buffer source-buffer
+                  (should (string= (buffer-string) "(defun foo () t)")))))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-process-response-no-valid-edits ()
+  "Process response with no valid edits shows message."
+  (let ((source-buffer (get-buffer-create "*test-process-empty*"))
+        (ogent-edit-auto-apply nil)
+        (ogent-edit-auto-display t)
+        (ogent-edit-log-to-companion nil))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buffer
+            (insert "nothing matches"))
+          (let ((ogent-edit--pending-request
+                 (list :source-buffer source-buffer)))
+            ;; Response with SEARCH text not found in buffer
+            (let ((edits (ogent-edit--process-response
+                          "<<<<<<< SEARCH\nnonexistent text\n=======\nreplacement\n>>>>>>> REPLACE")))
+              ;; Should have 1 edit but it's an error
+              (should (= (length edits) 1))
+              (should (ogent-edit-error-p (car edits))))))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-pending-count-smerge ()
+  "Pending count works for smerge display method."
+  (let ((ogent-edit-display-method 'smerge))
+    ;; Mock ogent-edit-count-pending
+    (cl-letf (((symbol-function 'ogent-edit-count-pending)
+               (lambda () 3)))
+      (should (= (ogent-edit--pending-count) 3)))))
+
+(ert-deftest ogent-edit-pending-count-overlay ()
+  "Pending count works for overlay display method."
+  (let ((ogent-edit-display-method 'overlay)
+        (ogent-edit--overlay-list '(ov1 ov2)))
+    (should (= (ogent-edit--pending-count) 2))))
+
+(ert-deftest ogent-edit-dispatch-functions-call-smerge-methods ()
+  "Dispatch functions route to smerge methods when display-method is smerge."
+  (let ((ogent-edit-display-method 'smerge)
+        (called nil))
+    ;; Test accept dispatch
+    (cl-letf (((symbol-function 'ogent-edit-accept-current)
+               (lambda () (setq called 'accept-current))))
+      (ogent-edit--accept-current-dispatch)
+      (should (eq called 'accept-current)))
+    ;; Test reject dispatch
+    (cl-letf (((symbol-function 'ogent-edit-reject-current)
+               (lambda () (setq called 'reject-current))))
+      (ogent-edit--reject-current-dispatch)
+      (should (eq called 'reject-current)))
+    ;; Test next dispatch
+    (cl-letf (((symbol-function 'smerge-next)
+               (lambda () (setq called 'smerge-next))))
+      (ogent-edit--next-dispatch)
+      (should (eq called 'smerge-next)))
+    ;; Test prev dispatch
+    (cl-letf (((symbol-function 'smerge-prev)
+               (lambda () (setq called 'smerge-prev))))
+      (ogent-edit--prev-dispatch)
+      (should (eq called 'smerge-prev)))
+    ;; Test accept all dispatch
+    (cl-letf (((symbol-function 'ogent-edit-accept-all)
+               (lambda () (setq called 'accept-all))))
+      (ogent-edit--accept-all-dispatch)
+      (should (eq called 'accept-all)))
+    ;; Test reject all dispatch
+    (cl-letf (((symbol-function 'ogent-edit-reject-all)
+               (lambda () (setq called 'reject-all))))
+      (ogent-edit--reject-all-dispatch)
+      (should (eq called 'reject-all)))))
+
+(ert-deftest ogent-edit-dispatch-functions-call-overlay-methods ()
+  "Dispatch functions route to overlay methods when display-method is overlay."
+  (let ((ogent-edit-display-method 'overlay)
+        (called nil))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-accept)
+               (lambda () (setq called 'ov-accept))))
+      (ogent-edit--accept-current-dispatch)
+      (should (eq called 'ov-accept)))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-reject)
+               (lambda () (setq called 'ov-reject))))
+      (ogent-edit--reject-current-dispatch)
+      (should (eq called 'ov-reject)))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-next)
+               (lambda () (setq called 'ov-next))))
+      (ogent-edit--next-dispatch)
+      (should (eq called 'ov-next)))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-previous)
+               (lambda () (setq called 'ov-prev))))
+      (ogent-edit--prev-dispatch)
+      (should (eq called 'ov-prev)))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-accept-all)
+               (lambda () (setq called 'ov-accept-all))))
+      (ogent-edit--accept-all-dispatch)
+      (should (eq called 'ov-accept-all)))
+    (cl-letf (((symbol-function 'ogent-edit-overlay-reject-all)
+               (lambda () (setq called 'ov-reject-all))))
+      (ogent-edit--reject-all-dispatch)
+      (should (eq called 'ov-reject-all)))))
+
+(ert-deftest ogent-edit-show-diff-buffer-errors-when-empty ()
+  "Show diff buffer errors when no pending edits."
+  (let ((ogent-edit--pending-edits nil))
+    (should-error (ogent-edit-show-diff-buffer) :type 'user-error)))
+
+(ert-deftest ogent-edit-ensure-gptel-errors-without-gptel ()
+  "Ensure gptel signals error when gptel not available."
+  (cl-letf (((symbol-function 'require)
+             (lambda (feature &optional _filename _noerror)
+               (when (eq feature 'gptel) nil))))
+    (should-error (ogent-edit--ensure-gptel) :type 'user-error)))
+
 (provide 'ogent-edit-tests)
 ;;; ogent-edit-tests.el ends here
