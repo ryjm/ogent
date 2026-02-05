@@ -179,6 +179,114 @@
                 (kill-buffer)))
           (delete-file temp-file))))))
 
+;;; Stats Refresh Tests
+
+(ert-deftest ogent-issues-transient-test-refresh-stats-counts ()
+  "Test refresh-stats counts issues by status."
+  (let ((ogent-issues--issues
+         (list '(:id "a" :status "open" :deps nil)
+               '(:id "b" :status "open" :deps nil)
+               '(:id "c" :status "in_progress")
+               '(:id "d" :status "blocked")
+               '(:id "e" :status "closed")))
+        (ogent-issues-transient--cached-stats nil))
+    (cl-letf (((symbol-function 'ogent-issues--issue-ready-p)
+               (lambda (issue) (equal (plist-get issue :status) "open"))))
+      (ogent-issues-transient--refresh-stats)
+      (should ogent-issues-transient--cached-stats)
+      (should (= (plist-get ogent-issues-transient--cached-stats :open) 2))
+      (should (= (plist-get ogent-issues-transient--cached-stats :in-progress) 1))
+      (should (= (plist-get ogent-issues-transient--cached-stats :blocked) 1))
+      (should (= (plist-get ogent-issues-transient--cached-stats :closed) 1))
+      (should (= (plist-get ogent-issues-transient--cached-stats :ready) 2))
+      (should (= (plist-get ogent-issues-transient--cached-stats :total) 5)))))
+
+(ert-deftest ogent-issues-transient-test-refresh-stats-nil-issues ()
+  "Test refresh-stats handles nil issues list."
+  (let ((ogent-issues--issues nil)
+        (ogent-issues-transient--cached-stats nil))
+    (ogent-issues-transient--refresh-stats)
+    ;; Should not have set stats
+    (should-not ogent-issues-transient--cached-stats)))
+
+(ert-deftest ogent-issues-transient-test-refresh-stats-no-blocked ()
+  "Test refresh-stats works with zero blocked issues."
+  (let ((ogent-issues--issues
+         (list '(:id "a" :status "open")
+               '(:id "b" :status "closed")))
+        (ogent-issues-transient--cached-stats nil))
+    (cl-letf (((symbol-function 'ogent-issues--issue-ready-p)
+               (lambda (_) nil)))
+      (ogent-issues-transient--refresh-stats)
+      (should (= (plist-get ogent-issues-transient--cached-stats :blocked) 0)))))
+
+;;; Create Submit Tests
+
+(ert-deftest ogent-issues-transient-test-create-submit-parses-content ()
+  "Test create-submit parses buffer content for title and type."
+  (let ((created-title nil)
+        (created-type nil))
+    (with-temp-buffer
+      (ogent-issues-create-mode)
+      (insert "# New Issue\n\n")
+      (insert "Title: My Test Issue\n")
+      (insert "Type: bug\n")
+      (insert "Priority: 1\n")
+      (insert "Labels: \n")
+      (insert "Parent: \n")
+      (insert "\n## Description\n\n")
+      (insert "A bug description\n\n")
+      (insert "<!-- C-c C-c to create, C-c C-k to cancel -->\n")
+      (cl-letf (((symbol-function 'ogent-issues-bd-create)
+                 (lambda (title callback &rest props)
+                   (setq created-title title)
+                   (setq created-type (plist-get props :type))
+                   (funcall callback '(:id "new-001"))))
+                ((symbol-function 'ogent-issues-bd-check-requirements)
+                 (lambda () nil))
+                ((symbol-function 'ogent-issues-refresh)
+                 (lambda () nil))
+                ((symbol-function 'message)
+                 (lambda (&rest _) nil)))
+        (ogent-issues-create-submit)
+        (should (equal created-title "My Test Issue"))
+        (should (equal created-type "bug"))))))
+
+(ert-deftest ogent-issues-transient-test-create-submit-empty-title ()
+  "Test create-submit errors on empty title."
+  (with-temp-buffer
+    (ogent-issues-create-mode)
+    (insert "# New Issue\n\nTitle: \nType: task\nPriority: 2\n")
+    (insert "Labels: \nParent: \n\n## Description\n\n\n\n<!-- end -->\n")
+    (should-error (ogent-issues-create-submit) :type 'user-error)))
+
+;;; Create Epic Test
+
+(ert-deftest ogent-issues-transient-test-create-epic-empty-title ()
+  "Test create-epic errors on empty title."
+  (cl-letf (((symbol-function 'read-string)
+             (lambda (_prompt &rest _) "")))
+    (should-error (ogent-issues-create-epic) :type 'user-error)))
+
+;;; Header Formatting with Stats
+
+(ert-deftest ogent-issues-transient-test-format-header-with-stats ()
+  "Test header formatting includes stats when available."
+  (let ((ogent-issues--issues
+         (list '(:id "a" :status "open")
+               '(:id "b" :status "in_progress")))
+        (ogent-issues--current-view 'list))
+    (cl-letf (((symbol-function 'ogent-issues--current-issue)
+               (lambda () nil))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda () "test-project"))
+              ((symbol-function 'ogent-issues--issue-ready-p)
+               (lambda (_) nil)))
+      (let ((header (ogent-issues-transient--format-header)))
+        ;; Should contain stats
+        (should (string-match-p "open" header))
+        (should (string-match-p "in-progress" header))))))
+
 (provide 'ogent-issues-transient-tests)
 
 ;;; ogent-issues-transient-tests.el ends here

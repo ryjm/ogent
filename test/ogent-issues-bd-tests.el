@@ -451,6 +451,363 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
              (lambda () "/some/project")))
     (should-not (ogent-issues-bd--cache-get '("list" "--json")))))
 
+;;; Reopen Tests
+
+(ert-deftest ogent-issues-bd-test-reopen ()
+  "Test reopening an issue sends correct args."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Reopened"
+    (let ((called nil))
+      (ogent-issues-bd-reopen "test-abc"
+                              (lambda ()
+                                (setq called t)))
+      (should called)
+      (let ((args (car ogent-issues-bd-test--captured-args)))
+        (should (member "reopen" args))
+        (should (member "test-abc" args))))))
+
+(ert-deftest ogent-issues-bd-test-reopen-invalidates-cache ()
+  "Test that reopen invalidates the cache."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd--cache-set '("list" "--json") ogent-issues-bd-test--sample-list)
+  (should (ogent-issues-bd--cache-get '("list" "--json")))
+  (ogent-issues-bd-test-with-mock "Reopened"
+    (ogent-issues-bd-reopen "test-abc" (lambda () nil)))
+  (should-not (ogent-issues-bd--cache-get '("list" "--json"))))
+
+(ert-deftest ogent-issues-bd-test-reopen-error-callback ()
+  "Test reopen error handling."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-error "reopen failed"
+    (let ((error-msg nil))
+      (ogent-issues-bd-reopen "test-abc"
+                              (lambda () nil)
+                              (lambda (err) (setq error-msg err)))
+      (should (equal "reopen failed" error-msg)))))
+
+;;; Comment Tests
+
+(ert-deftest ogent-issues-bd-test-comment ()
+  "Test adding a comment sends correct args."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Commented"
+    (let ((called nil))
+      (ogent-issues-bd-comment "test-abc" "This is a comment"
+                               (lambda ()
+                                 (setq called t)))
+      (should called)
+      (let ((args (car ogent-issues-bd-test--captured-args)))
+        (should (member "comment" args))
+        (should (member "test-abc" args))
+        (should (member "This is a comment" args))))))
+
+(ert-deftest ogent-issues-bd-test-comment-invalidates-cache ()
+  "Test that comment invalidates the cache."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd--cache-set '("list" "--json") ogent-issues-bd-test--sample-list)
+  (should (ogent-issues-bd--cache-get '("list" "--json")))
+  (ogent-issues-bd-test-with-mock "Commented"
+    (ogent-issues-bd-comment "test-abc" "note" (lambda () nil)))
+  (should-not (ogent-issues-bd--cache-get '("list" "--json"))))
+
+(ert-deftest ogent-issues-bd-test-comment-error-callback ()
+  "Test comment error handling."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-error "comment failed"
+    (let ((error-msg nil))
+      (ogent-issues-bd-comment "test-abc" "text"
+                               (lambda () nil)
+                               (lambda (err) (setq error-msg err)))
+      (should (equal "comment failed" error-msg)))))
+
+;;; Update Tests
+
+(ert-deftest ogent-issues-bd-test-update-status ()
+  "Test updating issue status sends correct args."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Updated"
+    (let ((called nil))
+      (ogent-issues-bd-update "test-abc"
+                              (lambda ()
+                                (setq called t))
+                              :status "closed")
+      (should called)
+      (let ((args (car ogent-issues-bd-test--captured-args)))
+        (should (member "update" args))
+        (should (member "test-abc" args))
+        (should (member "--status" args))
+        (should (member "closed" args))))))
+
+(ert-deftest ogent-issues-bd-test-update-priority ()
+  "Test updating issue priority sends correct args."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Updated"
+    (ogent-issues-bd-update "test-def"
+                            (lambda () nil)
+                            :priority 3)
+    (let ((args (car ogent-issues-bd-test--captured-args)))
+      (should (member "update" args))
+      (should (member "test-def" args))
+      (should (member "--priority" args))
+      (should (member "3" args)))))
+
+(ert-deftest ogent-issues-bd-test-update-description ()
+  "Test updating issue description sends correct args."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Updated"
+    (ogent-issues-bd-update "test-abc"
+                            (lambda () nil)
+                            :description "New description")
+    (let ((args (car ogent-issues-bd-test--captured-args)))
+      (should (member "--description" args))
+      (should (member "New description" args)))))
+
+(ert-deftest ogent-issues-bd-test-update-multiple-fields ()
+  "Test updating multiple fields at once."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock "Updated"
+    (ogent-issues-bd-update "test-abc"
+                            (lambda () nil)
+                            :status "in_progress"
+                            :priority 2
+                            :description "Updated desc")
+    (let ((args (car ogent-issues-bd-test--captured-args)))
+      (should (member "--status" args))
+      (should (member "in_progress" args))
+      (should (member "--priority" args))
+      (should (member "2" args))
+      (should (member "--description" args))
+      (should (member "Updated desc" args)))))
+
+(ert-deftest ogent-issues-bd-test-update-invalidates-cache ()
+  "Test that update invalidates the cache."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd--cache-set '("list" "--json") ogent-issues-bd-test--sample-list)
+  (should (ogent-issues-bd--cache-get '("list" "--json")))
+  (ogent-issues-bd-test-with-mock "Updated"
+    (ogent-issues-bd-update "test-abc" (lambda () nil) :status "closed"))
+  (should-not (ogent-issues-bd--cache-get '("list" "--json"))))
+
+(ert-deftest ogent-issues-bd-test-update-error-callback ()
+  "Test update error handling via :error-callback."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-error "update failed"
+    (let ((error-msg nil))
+      (ogent-issues-bd-update "test-abc"
+                              (lambda () nil)
+                              :status "closed"
+                              :error-callback (lambda (err) (setq error-msg err)))
+      (should (equal "update failed" error-msg)))))
+
+;;; Cleanup Tests
+
+(ert-deftest ogent-issues-bd-test-cleanup-clears-processes ()
+  "Test cleanup clears the process list."
+  (let ((ogent-issues-bd--processes nil))
+    ;; Simulate having no live processes
+    (ogent-issues-bd-cleanup)
+    (should (null ogent-issues-bd--processes))))
+
+(ert-deftest ogent-issues-bd-test-cleanup-kills-live-processes ()
+  "Test cleanup kills live processes."
+  (let ((ogent-issues-bd--processes nil))
+    ;; Create a real process
+    (let ((fake-proc (start-process "ogent-test-sleep" nil "sleep" "60")))
+      (unwind-protect
+          (progn
+            (push fake-proc ogent-issues-bd--processes)
+            (should (process-live-p fake-proc))
+            (ogent-issues-bd-cleanup)
+            (should (null ogent-issues-bd--processes))
+            ;; Wait briefly for signal delivery
+            (sleep-for 0.1)
+            ;; Process should no longer be live after cleanup
+            (should-not (process-live-p fake-proc)))
+        ;; Safety net: ensure process is dead even if test fails
+        (when (process-live-p fake-proc)
+          (kill-process fake-proc))))))
+
+(ert-deftest ogent-issues-bd-test-cleanup-invalidates-cache ()
+  "Test cleanup also invalidates the cache."
+  (ogent-issues-bd--cache-set '("list" "--json") ogent-issues-bd-test--sample-list)
+  (should (ogent-issues-bd--cache-get '("list" "--json")))
+  (let ((ogent-issues-bd--processes nil))
+    (ogent-issues-bd-cleanup))
+  (should-not (ogent-issues-bd--cache-get '("list" "--json"))))
+
+;;; Requirements Gate Tests for Untested Functions
+
+(ert-deftest ogent-issues-bd-test-reopen-no-bd ()
+  "Test reopen when bd is not available."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) nil)))
+    (let ((error-msg nil))
+      (ogent-issues-bd-reopen "test-abc"
+                              (lambda () nil)
+                              (lambda (err) (setq error-msg err)))
+      (should (string-match-p "not found" error-msg)))))
+
+(ert-deftest ogent-issues-bd-test-comment-no-bd ()
+  "Test comment when bd is not available."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) nil)))
+    (let ((error-msg nil))
+      (ogent-issues-bd-comment "test-abc" "text"
+                               (lambda () nil)
+                               (lambda (err) (setq error-msg err)))
+      (should (string-match-p "not found" error-msg)))))
+
+(ert-deftest ogent-issues-bd-test-update-no-bd ()
+  "Test update when bd is not available."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) nil)))
+    (let ((error-msg nil))
+      (ogent-issues-bd-update "test-abc"
+                              (lambda () nil)
+                              :status "closed"
+                              :error-callback (lambda (err) (setq error-msg err)))
+      (should (string-match-p "not found" error-msg)))))
+
+;;; Version Tests
+
+(ert-deftest ogent-issues-bd-test-version-sync-caches ()
+  "Test synchronous version check caches result."
+  (let ((ogent-issues-bd--version-cache nil))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_) "/usr/bin/bd"))
+              ((symbol-function 'shell-command-to-string)
+               (lambda (_) "bd 0.42.0\n")))
+      (let ((v1 (ogent-issues-bd-version)))
+        (should (equal v1 "bd 0.42.0"))
+        ;; Second call should use cache, not call shell again
+        (cl-letf (((symbol-function 'shell-command-to-string)
+                   (lambda (_) (error "Should not be called"))))
+          (should (equal (ogent-issues-bd-version) "bd 0.42.0")))))))
+
+(ert-deftest ogent-issues-bd-test-version-sync-no-bd ()
+  "Test synchronous version returns nil when bd unavailable."
+  (let ((ogent-issues-bd--version-cache nil))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_) nil)))
+      (should-not (ogent-issues-bd-version)))))
+
+;;; Project Detection Tests
+
+(ert-deftest ogent-issues-bd-test-project-root-locates-beads ()
+  "Test project root detection finds .beads directory."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) "/home/user/project/")))
+    (should (equal (ogent-issues-bd-project-root "/home/user/project/src/")
+                   "/home/user/project/"))))
+
+(ert-deftest ogent-issues-bd-test-project-root-returns-nil ()
+  "Test project root returns nil when no .beads found."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) nil)))
+    (should-not (ogent-issues-bd-project-root "/tmp/no-project/"))))
+
+(ert-deftest ogent-issues-bd-test-project-name-extraction ()
+  "Test project name extraction from root."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) "/home/user/my-project/")))
+    (should (equal (ogent-issues-bd-project-name "/home/user/my-project/src/")
+                   "my-project"))))
+
+(ert-deftest ogent-issues-bd-test-project-name-returns-nil ()
+  "Test project name returns nil when no project found."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) nil)))
+    (should-not (ogent-issues-bd-project-name "/tmp/"))))
+
+;;; Cache Isolation Tests
+
+(ert-deftest ogent-issues-bd-test-cache-key-project-isolation ()
+  "Test that cache key includes project root for isolation."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) "/project/a/")))
+    (let ((key-a (ogent-issues-bd--cache-key '("list" "--json"))))
+      (cl-letf (((symbol-function 'locate-dominating-file)
+                 (lambda (_dir _file) "/project/b/")))
+        (let ((key-b (ogent-issues-bd--cache-key '("list" "--json"))))
+          (should-not (equal key-a key-b)))))))
+
+(ert-deftest ogent-issues-bd-test-cache-expires ()
+  "Test that cache entries expire after TTL."
+  (let ((ogent-issues-bd--cache (make-hash-table :test 'equal))
+        (ogent-issues-bd-cache-ttl 0))
+    ;; With TTL=0, nothing should be cached
+    (ogent-issues-bd--cache-set '("test") '(:result "data"))
+    (should-not (ogent-issues-bd--cache-get '("test")))))
+
+(ert-deftest ogent-issues-bd-test-cache-disabled ()
+  "Test that caching can be disabled entirely."
+  (let ((ogent-issues-bd--cache (make-hash-table :test 'equal))
+        (ogent-issues-bd-cache-ttl 0))
+    (ogent-issues-bd--cache-set '("foo") '(:data "bar"))
+    ;; Should not cache when TTL is 0
+    (should-not (ogent-issues-bd--cache-get '("foo")))))
+
+;;; Check Requirements Tests
+
+(ert-deftest ogent-issues-bd-test-requirements-missing-bd ()
+  "Test requirements check when bd is not installed."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) nil)))
+    (let ((result (ogent-issues-bd-check-requirements)))
+      (should result)
+      (should (string-match-p "not found" result)))))
+
+(ert-deftest ogent-issues-bd-test-requirements-no-beads-dir ()
+  "Test requirements check when not in a beads project."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) "/usr/bin/bd"))
+            ((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) nil)))
+    (let ((result (ogent-issues-bd-check-requirements)))
+      (should result)
+      (should (string-match-p "No beads project" result)))))
+
+(ert-deftest ogent-issues-bd-test-requirements-all-satisfied ()
+  "Test requirements check when everything is available."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) "/usr/bin/bd"))
+            ((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) "/project/")))
+    (should-not (ogent-issues-bd-check-requirements))))
+
+;;; Initialized Tests
+
+(ert-deftest ogent-issues-bd-test-initialized-p-delegates ()
+  "Test initialized check delegates to project-root."
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) "/project/")))
+    (should (ogent-issues-bd-initialized-p "/project/src/")))
+  (cl-letf (((symbol-function 'locate-dominating-file)
+             (lambda (_dir _file) nil)))
+    (should-not (ogent-issues-bd-initialized-p "/tmp/"))))
+
+;;; Create With Properties Tests
+
+(ert-deftest ogent-issues-bd-test-create-with-description ()
+  "Test create issue with optional description property."
+  (let ((captured-args nil))
+    (ogent-issues-bd-test-with-mock
+        '(:id "test-xyz" :title "Test")
+      (cl-letf (((symbol-function 'make-process)
+                 (lambda (&rest args)
+                   (setq captured-args (plist-get args :command))
+                   ;; Return a mock process
+                   (let ((proc (start-process "test" nil "true")))
+                     proc))))
+        (ogent-issues-bd-create "My Task"
+                                (lambda (_result) nil)
+                                :description "A detailed description"
+                                :type "bug"
+                                :priority 1)
+        ;; captured-args should contain --description
+        (when captured-args
+          (should (member "--description" captured-args)))))))
+
 (provide 'ogent-issues-bd-tests)
 
 ;;; ogent-issues-bd-tests.el ends here

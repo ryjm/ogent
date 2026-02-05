@@ -155,9 +155,14 @@
   "Effective model should return nil when neither is set."
   (with-temp-buffer
     (setq-local ogent-project-model nil)
-    (when (boundp 'ogent-default-model)
-      (makunbound 'ogent-default-model))
-    (should (null (ogent-presets-effective-model)))))
+    (let ((had-binding (boundp 'ogent-default-model))
+          (old-val (and (boundp 'ogent-default-model) ogent-default-model)))
+      (when had-binding
+        (makunbound 'ogent-default-model))
+      (unwind-protect
+          (should (null (ogent-presets-effective-model)))
+        (when had-binding
+          (setq ogent-default-model old-val))))))
 
 (ert-deftest ogent-presets-effective-preset-returns-project-preset ()
   "Effective preset should return project preset."
@@ -513,6 +518,291 @@
   (should-not (memq 'eval-expression ogent-presets--allowed-variables))
   (should-not (memq 'load-path ogent-presets--allowed-variables))
   (should-not (memq 'exec-path ogent-presets--allowed-variables)))
+
+;;; Safe Read Edge Case Tests
+
+(ert-deftest ogent-presets--safe-read-rejects-non-list-form ()
+  "Safe read should reject a file whose top-level form is not a list."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "\"just-a-string\""))
+          (let ((result (ogent-presets--safe-read temp-file)))
+            (should (null result))))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-presets--safe-read-rejects-non-cons-entries ()
+  "Safe read should reject a list containing non-cons entries."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(ogent-project-model \"not-a-cons\")"))
+          (let ((result (ogent-presets--safe-read temp-file)))
+            (should (null result))))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-presets--safe-read-rejects-mixed-valid-invalid ()
+  "Safe read should reject file with mix of allowed and disallowed vars."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "((ogent-project-model . \"valid\")\n")
+            (insert " (evil-variable . \"bad\"))"))
+          (let ((result (ogent-presets--safe-read temp-file)))
+            (should (null result))))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-presets--safe-read-handles-nonexistent-file ()
+  "Safe read should return nil for a file that does not exist."
+  (let ((result (ogent-presets--safe-read "/tmp/ogent-nonexistent-file-xyz.el")))
+    (should (null result))))
+
+(ert-deftest ogent-presets--safe-read-accepts-single-entry ()
+  "Safe read should accept a file with a single valid entry."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "((ogent-project-system-prompt . \"Be helpful.\"))"))
+          (let ((result (ogent-presets--safe-read temp-file)))
+            (should (listp result))
+            (should (= 1 (length result)))
+            (should (equal "Be helpful."
+                           (cdr (assq 'ogent-project-system-prompt result))))))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-presets--safe-read-accepts-nil-values ()
+  "Safe read should accept allowed variables with nil values."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "((ogent-project-model . nil))"))
+          (let ((result (ogent-presets--safe-read temp-file)))
+            (should (listp result))
+            (should (= 1 (length result)))))
+      (delete-file temp-file))))
+
+;;; Effective Getter Edge Case Tests
+
+(ert-deftest ogent-presets-effective-model-prefers-local-over-global ()
+  "Effective model should prefer project model over global default."
+  (with-temp-buffer
+    (setq-local ogent-project-model "local-model")
+    (defvar ogent-default-model)
+    (let ((ogent-default-model "global-model"))
+      (should (equal (ogent-presets-effective-model) "local-model")))))
+
+(ert-deftest ogent-presets-effective-codemap-roots-returns-nil-when-both-unset ()
+  "Effective codemap roots should return nil when nothing is set."
+  (with-temp-buffer
+    (setq-local ogent-project-codemap-roots nil)
+    (let ((had-binding (boundp 'ogent-codemap-source-directories))
+          (old-val (and (boundp 'ogent-codemap-source-directories) ogent-codemap-source-directories)))
+      (when had-binding
+        (makunbound 'ogent-codemap-source-directories))
+      (unwind-protect
+          (should (null (ogent-presets-effective-codemap-roots)))
+        (when had-binding
+          (setq ogent-codemap-source-directories old-val))))))
+
+(ert-deftest ogent-presets-effective-tools-nil-when-nothing-bound ()
+  "Effective tools should return nil when no local or global is set."
+  (with-temp-buffer
+    ;; ogent-project-tools is buffer-local, default nil, not explicitly set
+    (let ((had-binding (boundp 'ogent-tools-enabled))
+          (old-val (and (boundp 'ogent-tools-enabled) ogent-tools-enabled)))
+      (when had-binding
+        (makunbound 'ogent-tools-enabled))
+      (unwind-protect
+          (should (null (ogent-presets-effective-tools)))
+        (when had-binding
+          (setq ogent-tools-enabled old-val))))))
+
+(ert-deftest ogent-presets-effective-preset-returns-symbol ()
+  "Effective preset should return a symbol when set."
+  (with-temp-buffer
+    (setq-local ogent-project-preset 'ogent-code-review)
+    (should (symbolp (ogent-presets-effective-preset)))
+    (should (eq 'ogent-code-review (ogent-presets-effective-preset)))))
+
+;;; Apply Settings Edge Case Tests
+
+(ert-deftest ogent-presets--apply-settings-sets-system-prompt ()
+  "Apply settings should set the system prompt variable."
+  (with-temp-buffer
+    (let ((settings '((ogent-project-system-prompt . "You are a helpful assistant."))))
+      (ogent-presets--apply-settings settings)
+      (should (equal ogent-project-system-prompt "You are a helpful assistant.")))))
+
+(ert-deftest ogent-presets--apply-settings-sets-tools-t ()
+  "Apply settings should handle tools set to t (enable all)."
+  (with-temp-buffer
+    (let ((settings '((ogent-project-tools . t))))
+      (ogent-presets--apply-settings settings)
+      (should (eq ogent-project-tools t)))))
+
+(ert-deftest ogent-presets--apply-settings-overwrites-previous ()
+  "Apply settings should overwrite previously set values."
+  (with-temp-buffer
+    (ogent-presets--apply-settings '((ogent-project-model . "first")))
+    (should (equal ogent-project-model "first"))
+    (ogent-presets--apply-settings '((ogent-project-model . "second")))
+    (should (equal ogent-project-model "second"))))
+
+;;; Project Root and Cache Tests
+
+(ert-deftest ogent-presets-project-root-caches-result ()
+  "Project root should cache the computed result."
+  (let ((ogent-presets--project-cache (make-hash-table :test 'equal))
+        (call-count 0))
+    (cl-letf (((symbol-function 'project-current)
+               (lambda (&rest _) nil))
+              ((symbol-function 'locate-dominating-file)
+               (lambda (dir _file)
+                 (cl-incf call-count)
+                 dir)))
+      (ogent-presets-project-root "/test/dir/")
+      (ogent-presets-project-root "/test/dir/")
+      ;; Second call should use cache, so locate-dominating-file
+      ;; should only be called once
+      (should (= 1 call-count)))))
+
+;;; Effective Value Tests
+
+(ert-deftest ogent-presets-effective-model-project-overrides ()
+  "Test effective model uses project setting when available."
+  (with-temp-buffer
+    (setq-local ogent-project-model "claude-3.5")
+    (should (equal (ogent-presets-effective-model) "claude-3.5"))))
+
+(ert-deftest ogent-presets-effective-model-falls-back ()
+  "Test effective model falls back to global default."
+  (with-temp-buffer
+    (setq-local ogent-project-model nil)
+    (let ((ogent-default-model "gpt-4o-mini"))
+      (should (equal (ogent-presets-effective-model) "gpt-4o-mini")))))
+
+(ert-deftest ogent-presets-effective-preset ()
+  "Test effective preset returns buffer-local setting."
+  (with-temp-buffer
+    (setq-local ogent-project-preset 'ogent-code-review)
+    (should (eq (ogent-presets-effective-preset) 'ogent-code-review)))
+  (with-temp-buffer
+    (should-not (ogent-presets-effective-preset))))
+
+(ert-deftest ogent-presets-effective-tools-local ()
+  "Test effective tools uses project setting when locally set."
+  (with-temp-buffer
+    (setq-local ogent-project-tools '(read-file write-file))
+    (should (equal (ogent-presets-effective-tools) '(read-file write-file)))))
+
+;;; Show Tests
+
+(ert-deftest ogent-presets-show-produces-output ()
+  "Test presets-show generates help buffer output."
+  (with-temp-buffer
+    (setq-local ogent-project-model "claude-3.5")
+    (setq-local ogent-project-preset 'ogent-code-review)
+    (setq-local ogent-project-context-files '("README.md"))
+    (cl-letf (((symbol-function 'ogent-presets-project-root)
+               (lambda (&optional _) "/test/project/"))
+              ((symbol-function 'ogent-presets-effective-codemap-roots)
+               (lambda () nil))
+              ((symbol-function 'file-exists-p)
+               (lambda (_) nil)))
+      (unwind-protect
+          (progn
+            (ogent-presets-show)
+            (let ((buf (get-buffer "*Ogent Presets*")))
+              (should buf)
+              (with-current-buffer buf
+                (should (string-match-p "Project Root" (buffer-string)))
+                (should (string-match-p "claude-3.5" (buffer-string)))
+                (should (string-match-p "ogent-code-review" (buffer-string)))
+                (should (string-match-p "README.md" (buffer-string))))))
+        (when (get-buffer "*Ogent Presets*")
+          (kill-buffer "*Ogent Presets*"))))))
+
+;;; Mode Toggle Tests
+
+(ert-deftest ogent-presets-mode-adds-hook ()
+  "Test presets-mode adds buffer-list-update-hook when enabled."
+  (unwind-protect
+      (progn
+        (ogent-presets-mode 1)
+        (should (memq #'ogent-presets--on-buffer-switch
+                      buffer-list-update-hook)))
+    (ogent-presets-mode -1)))
+
+(ert-deftest ogent-presets-mode-removes-hook ()
+  "Test presets-mode removes hook when disabled."
+  (ogent-presets-mode 1)
+  (ogent-presets-mode -1)
+  (should-not (memq #'ogent-presets--on-buffer-switch
+                    buffer-list-update-hook)))
+
+;;; Buffer Switch Hook Tests
+
+(ert-deftest ogent-presets-on-buffer-switch-calls-load ()
+  "Test buffer switch hook calls presets-load for file buffers."
+  (let ((load-called nil))
+    (cl-letf (((symbol-function 'ogent-presets-load)
+               (lambda (&optional _force) (setq load-called t)))
+              ((symbol-function 'buffer-file-name)
+               (lambda (&optional _buf) "/test/file.el")))
+      (let ((ogent-presets-auto-load t))
+        (ogent-presets--on-buffer-switch)
+        (should load-called)))))
+
+(ert-deftest ogent-presets-on-buffer-switch-skips-non-file ()
+  "Test buffer switch hook skips non-file buffers."
+  (let ((load-called nil))
+    (cl-letf (((symbol-function 'ogent-presets-load)
+               (lambda (&optional _force) (setq load-called t)))
+              ((symbol-function 'buffer-file-name)
+               (lambda (&optional _buf) nil)))
+      (let ((ogent-presets-auto-load t))
+        (ogent-presets--on-buffer-switch)
+        (should-not load-called)))))
+
+(ert-deftest ogent-presets-on-buffer-switch-respects-auto-load ()
+  "Test buffer switch hook respects auto-load setting."
+  (let ((load-called nil))
+    (cl-letf (((symbol-function 'ogent-presets-load)
+               (lambda (&optional _force) (setq load-called t)))
+              ((symbol-function 'buffer-file-name)
+               (lambda (&optional _buf) "/test/file.el")))
+      (let ((ogent-presets-auto-load nil))
+        (ogent-presets--on-buffer-switch)
+        (should-not load-called)))))
+
+;;; Include Context Tests
+
+(ert-deftest ogent-presets-include-context-returns-contents ()
+  "Test include-context reads and formats project files."
+  (with-temp-buffer
+    (setq-local ogent-project-context-files '("README.md"))
+    (cl-letf (((symbol-function 'ogent-presets-project-root)
+               (lambda (&optional _) "/test/project/"))
+              ((symbol-function 'file-readable-p)
+               (lambda (_) t))
+              ((symbol-function 'insert-file-contents)
+               (lambda (_file &rest _)
+                 (insert "# My Project\nThis is the readme."))))
+      (let ((result (ogent-presets-include-context)))
+        (should result)
+        (should (string-match-p "README.md" result))
+        (should (string-match-p "My Project" result))))))
+
+(ert-deftest ogent-presets-include-context-nil-no-files ()
+  "Test include-context returns nil when no context files."
+  (with-temp-buffer
+    (setq-local ogent-project-context-files nil)
+    (should-not (ogent-presets-include-context))))
 
 (provide 'ogent-presets-tests)
 ;;; ogent-presets-tests.el ends here

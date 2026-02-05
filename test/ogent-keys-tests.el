@@ -206,5 +206,72 @@
   (should (assq 'session-load ogent-action-registry))
   (should (assq 'session-list ogent-action-registry)))
 
+;;; Review Bindings Tests
+
+(ert-deftest ogent-keys-review-bindings-setup ()
+  "Test that review bindings are set up correctly."
+  (let ((map (make-sparse-keymap)))
+    (ogent-setup-review-bindings map)
+    ;; Check that review keys are bound under review prefix
+    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " n")))))
+    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " p")))))
+    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " a")))))
+    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " x")))))))
+
+(ert-deftest ogent-keys-review-registry-has-entries ()
+  "Test that review action registry has expected entries."
+  (should (assq 'review-next ogent-review-action-registry))
+  (should (assq 'review-prev ogent-review-action-registry))
+  (should (assq 'review-accept ogent-review-action-registry))
+  (should (assq 'review-reject ogent-review-action-registry)))
+
+;;; Setup All Bindings
+
+(ert-deftest ogent-keys-setup-all-bindings-comprehensive ()
+  "Test that setup-all-bindings configures vanilla and review bindings."
+  (let ((map (make-sparse-keymap)))
+    (cl-letf (((symbol-function 'ogent-setup-evil-bindings)
+               (lambda (_) nil)))
+      (ogent-setup-all-bindings map)
+      ;; Vanilla bindings should be set
+      (should (commandp (lookup-key map (kbd (concat ogent-vanilla-prefix " p")))))
+      ;; Review bindings should be set
+      (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " n"))))))))
+
+;;; Action Registry Properties
+
+(ert-deftest ogent-keys-action-get-works ()
+  "Test ogent-action-get retrieves properties."
+  (should (equal (ogent-action-get 'prompt-dispatch :key) "p"))
+  (should (equal (ogent-action-get 'prompt-dispatch :command) 'ogent-prompt-dispatch))
+  (should (equal (ogent-action-get 'request :visual) t)))
+
+(ert-deftest ogent-keys-action-get-nil-for-missing ()
+  "Test ogent-action-get returns nil for nonexistent action."
+  (should-not (ogent-action-get 'nonexistent :key)))
+
+;;; Which-Key Integration
+
+(ert-deftest ogent-keys-setup-which-key-no-error ()
+  "Test setup-which-key doesn't error when which-key not loaded."
+  ;; which-key is typically not loaded in test batch mode
+  (ogent-setup-which-key))
+
+;;; Describe Bindings
+
+(ert-deftest ogent-keys-describe-bindings-produces-output ()
+  "Test describe-bindings generates help buffer output."
+  (unwind-protect
+      (progn
+        (ogent-describe-bindings)
+        (let ((buf (get-buffer "*Ogent Bindings*")))
+          (should buf)
+          (with-current-buffer buf
+            (should (string-match-p "Ogent Keybindings" (buffer-string)))
+            (should (string-match-p "prompt-dispatch" (buffer-string)))
+            (should (string-match-p "Review Keybindings" (buffer-string))))))
+    (when (get-buffer "*Ogent Bindings*")
+      (kill-buffer "*Ogent Bindings*"))))
+
 (provide 'ogent-keys-tests)
 ;;; ogent-keys-tests.el ends here

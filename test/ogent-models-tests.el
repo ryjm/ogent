@@ -73,5 +73,77 @@
         (should (member "ogent-explain" names))
         (should (member "ogent-refactor" names))))))
 
+;;; Model IDs Tests
+
+(ert-deftest ogent-models-ids-returns-strings ()
+  "Test models-ids returns list of model ID strings."
+  (let ((ogent-model-registry '((:id "alpha" :backend foo)
+                                (:id "beta" :backend bar)
+                                (:id "gamma" :backend baz))))
+    (let ((ids (ogent-models-ids)))
+      (should (= (length ids) 3))
+      (should (member "alpha" ids))
+      (should (member "beta" ids))
+      (should (member "gamma" ids)))))
+
+(ert-deftest ogent-models-all-error-when-empty ()
+  "Test models-all signals error when registry is empty."
+  (let ((ogent-model-registry nil))
+    (should-error (ogent-models-all) :type 'user-error)))
+
+;;; All Presets Tests
+
+(ert-deftest ogent-all-presets-user-overrides ()
+  "Test user presets override defaults with same name."
+  (let ((ogent-preset-registry
+         '((:name ogent-code-review :spec (:description "custom cr")
+            :description "User custom"))))
+    (let ((all (ogent--all-presets)))
+      ;; Should find the user version
+      (let ((found (seq-find (lambda (p) (eq (plist-get p :name) 'ogent-code-review))
+                             all)))
+        (should found)
+        (should (equal (plist-get found :description) "User custom"))))))
+
+(ert-deftest ogent-all-presets-includes-defaults ()
+  "Test all-presets includes defaults when no user overrides."
+  (let ((ogent-preset-registry nil))
+    (let ((all (ogent--all-presets)))
+      (should (seq-find (lambda (p) (eq (plist-get p :name) 'ogent-code-review))
+                        all))
+      (should (seq-find (lambda (p) (eq (plist-get p :name) 'ogent-explain))
+                        all)))))
+
+;;; Tool Registry Tests
+
+(ert-deftest ogent-tools-enabled-list-nil ()
+  "Test tools-enabled-list returns nil when tools disabled."
+  (let ((ogent-tools-enabled nil))
+    (should-not (ogent-tools-enabled-list))))
+
+(ert-deftest ogent-tools-enabled-list-all ()
+  "Test tools-enabled-list returns all tools when enabled is t."
+  (let ((ogent-tools-enabled t)
+        (ogent--tools-registered '((read-file . mock-tool-1)
+                                    (write-file . mock-tool-2))))
+    (cl-letf (((symbol-function 'ogent-register-tools)
+               (lambda () ogent--tools-registered)))
+      (let ((tools (ogent-tools-enabled-list)))
+        (should (= (length tools) 2))))))
+
+(ert-deftest ogent-tool-spec-get-finds-entry ()
+  "Test tool-spec-get finds a tool spec by name."
+  (let ((ogent-tool-registry
+         '((:name read-file :function my-read :description "Read file"))))
+    (let ((spec (ogent-tool-spec-get 'read-file)))
+      (should spec)
+      (should (eq (plist-get spec :name) 'read-file))
+      (should (eq (plist-get spec :function) 'my-read)))))
+
+(ert-deftest ogent-tool-spec-get-nil-missing ()
+  "Test tool-spec-get returns nil for missing tool."
+  (let ((ogent-tool-registry nil))
+    (should-not (ogent-tool-spec-get 'nonexistent))))
+
 (provide 'ogent-models-tests)
 ;;; ogent-models-tests.el ends here

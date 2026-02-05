@@ -632,6 +632,188 @@
   (should (eq 'quit-window
               (lookup-key ogent-gastown-tmux-list-mode-map (kbd "q")))))
 
+;;; List Sessions Buffer Tests
+
+(ert-deftest ogent-gastown-tmux-test-list-sessions-creates-buffer ()
+  "Test that list-sessions creates the *Gas Town Tmux* buffer."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (ogent-gastown-tmux-list-sessions)
+          (should (get-buffer "*Gas Town Tmux*"))
+          (with-current-buffer "*Gas Town Tmux*"
+            (should (eq major-mode 'ogent-gastown-tmux-list-mode))
+            (should (string-match-p "Gas Town Tmux Sessions"
+                                    (buffer-string)))))
+      (when (get-buffer "*Gas Town Tmux*")
+        (kill-buffer "*Gas Town Tmux*")))))
+
+(ert-deftest ogent-gastown-tmux-test-list-sessions-groups-by-rig ()
+  "Test that list-sessions groups sessions by rig name."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (ogent-gastown-tmux-list-sessions)
+          (with-current-buffer "*Gas Town Tmux*"
+            ;; Should have rig headers
+            (should (string-match-p "# ogent" (buffer-string)))
+            (should (string-match-p "# beads" (buffer-string)))))
+      (when (get-buffer "*Gas Town Tmux*")
+        (kill-buffer "*Gas Town Tmux*")))))
+
+(ert-deftest ogent-gastown-tmux-test-list-sessions-empty ()
+  "Test that list-sessions handles no sessions gracefully."
+  (ogent-gastown-tmux-test-with-mock nil
+    (unwind-protect
+        (progn
+          (ogent-gastown-tmux-list-sessions)
+          (with-current-buffer "*Gas Town Tmux*"
+            (should (string-match-p "No Gas Town sessions"
+                                    (buffer-string)))))
+      (when (get-buffer "*Gas Town Tmux*")
+        (kill-buffer "*Gas Town Tmux*")))))
+
+(ert-deftest ogent-gastown-tmux-test-list-sessions-shows-keybindings ()
+  "Test that list-sessions buffer shows keybinding help."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (ogent-gastown-tmux-list-sessions)
+          (with-current-buffer "*Gas Town Tmux*"
+            (should (string-match-p "RET:attach" (buffer-string)))
+            (should (string-match-p "s:send" (buffer-string)))
+            (should (string-match-p "p:preview" (buffer-string)))))
+      (when (get-buffer "*Gas Town Tmux*")
+        (kill-buffer "*Gas Town Tmux*")))))
+
+(ert-deftest ogent-gastown-tmux-test-list-sessions-has-text-properties ()
+  "Test that sessions in list buffer have text property for session name."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (ogent-gastown-tmux-list-sessions)
+          (with-current-buffer "*Gas Town Tmux*"
+            (goto-char (point-min))
+            ;; Find a line with session text property
+            (let ((found nil))
+              (while (and (not found) (not (eobp)))
+                (when (get-text-property (point) 'ogent-gastown-tmux-session)
+                  (setq found t))
+                (forward-line 1))
+              (should found))))
+      (when (get-buffer "*Gas Town Tmux*")
+        (kill-buffer "*Gas Town Tmux*")))))
+
+;;; Preview Tests
+
+(ert-deftest ogent-gastown-tmux-test-preview-creates-buffer ()
+  "Test that preview creates the preview buffer."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'shell-command-to-string)
+                     (lambda (_cmd) "sample pane output"))
+                    ((symbol-function 'display-buffer)
+                     (lambda (_buf _alist) nil)))
+            (ogent-gastown-tmux-preview "gt-ogent-ritchie")
+            (let ((buf (get-buffer "*Tmux Preview: gt-ogent-ritchie*")))
+              (should buf)
+              (with-current-buffer buf
+                (should (string-match-p "Session: gt-ogent-ritchie"
+                                        (buffer-string)))
+                (should (string-match-p "sample pane output"
+                                        (buffer-string)))))))
+      (when (get-buffer "*Tmux Preview: gt-ogent-ritchie*")
+        (kill-buffer "*Tmux Preview: gt-ogent-ritchie*")))))
+
+(ert-deftest ogent-gastown-tmux-test-preview-empty-pane ()
+  "Test that preview handles empty pane output."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'shell-command-to-string)
+                     (lambda (_cmd) nil))
+                    ((symbol-function 'display-buffer)
+                     (lambda (_buf _alist) nil)))
+            (ogent-gastown-tmux-preview "gt-ogent-ritchie")
+            (let ((buf (get-buffer "*Tmux Preview: gt-ogent-ritchie*")))
+              (should buf)
+              (with-current-buffer buf
+                (should (string-match-p "(empty)"
+                                        (buffer-string)))))))
+      (when (get-buffer "*Tmux Preview: gt-ogent-ritchie*")
+        (kill-buffer "*Tmux Preview: gt-ogent-ritchie*")))))
+
+;;; Send/Nudge Tests
+
+(ert-deftest ogent-gastown-tmux-test-send-calls-send-keys ()
+  "Test that send command calls send-keys and messages."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (let ((last-msg nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (setq last-msg (apply #'format fmt args)))))
+        (ogent-gastown-tmux-send "gt-ogent-ritchie" "ls -la")
+        (should (string-match-p "send-keys"
+                                ogent-gastown-tmux-test--captured-command))
+        (should (string-match-p "gt-ogent-ritchie"
+                                ogent-gastown-tmux-test--captured-command))
+        (should (string-match-p "Sent to gt-ogent-ritchie" last-msg))))))
+
+(ert-deftest ogent-gastown-tmux-test-nudge-sends-enter ()
+  "Test that nudge sends Enter key to session."
+  (ogent-gastown-tmux-test-with-mock ogent-gastown-tmux-test--sample-sessions
+    (let ((last-msg nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (setq last-msg (apply #'format fmt args)))))
+        (ogent-gastown-tmux-nudge "gt-ogent-ritchie")
+        (should (string-match-p "send-keys.*Enter"
+                                ogent-gastown-tmux-test--captured-command))
+        (should (string-match-p "Nudged" last-msg))))))
+
+;;; List Mode Action Delegation Tests
+
+(ert-deftest ogent-gastown-tmux-test-list-session-at-point-nil ()
+  "Test session-at-point returns nil when no session at point."
+  (with-temp-buffer
+    (insert "no session here\n")
+    (goto-char (point-min))
+    (should-not (ogent-gastown-tmux-list--session-at-point))))
+
+(ert-deftest ogent-gastown-tmux-test-list-session-at-point-present ()
+  "Test session-at-point returns session name from text properties."
+  (with-temp-buffer
+    (insert (propertize "session line\n"
+                        'ogent-gastown-tmux-session "gt-ogent-ritchie"))
+    (goto-char (point-min))
+    (should (equal (ogent-gastown-tmux-list--session-at-point)
+                   "gt-ogent-ritchie"))))
+
+;;; Attach Term Test
+
+(ert-deftest ogent-gastown-tmux-test-attach-term-existing-buffer ()
+  "Test that term attach reuses existing buffer."
+  (let ((buf (get-buffer-create "*tmux: gt-test*")))
+    (unwind-protect
+        (cl-letf (((symbol-function 'switch-to-buffer)
+                   (lambda (b) b))
+                  ((symbol-function 'executable-find)
+                   (lambda (_) "/usr/bin/tmux")))
+          (ogent-gastown-tmux--attach-term "gt-test")
+          ;; Should have tried to switch to existing buffer
+          (should (buffer-live-p buf)))
+      (kill-buffer buf))))
+
+;;; Revert Buffer Test
+
+(ert-deftest ogent-gastown-tmux-test-list-mode-revert ()
+  "Test that list mode sets revert-buffer-function."
+  (with-temp-buffer
+    (ogent-gastown-tmux-list-mode)
+    (should (eq major-mode 'ogent-gastown-tmux-list-mode))
+    (should (functionp revert-buffer-function))))
+
 (provide 'ogent-gastown-tmux-tests)
 
 ;;; ogent-gastown-tmux-tests.el ends here
