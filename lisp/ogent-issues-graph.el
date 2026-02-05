@@ -277,7 +277,9 @@ MEMO caches results to avoid recomputation."
     (arrow-left . " ← ")
     (cycle . "⟲ ")
     (root . "◉ ")
-    (node . "○ "))
+    (node . "○ ")
+    (collapsed . "▸ ")
+    (expanded . "▾ "))
   "Unicode box-drawing characters for tree rendering.")
 
 (defconst ogent-issues-graph--box-chars-ascii
@@ -289,7 +291,9 @@ MEMO caches results to avoid recomputation."
     (arrow-left . " <- ")
     (cycle . "(C) ")
     (root . "[R] ")
-    (node . "[ ] "))
+    (node . "[ ] ")
+    (collapsed . "[+] ")
+    (expanded . "[-] "))
   "ASCII characters for tree rendering.")
 
 (defun ogent-issues-graph--char (key)
@@ -324,6 +328,9 @@ CYCLES is list of cycle ID sets."
                     (and (string= (car e) id)
                          (eq (caddr e) 'blocks)))
                   (ogent-dep-graph-edges graph)))
+         (has-children (> (length blocks) 0))
+         (is-collapsed (and ogent-issues-graph--collapsed-nodes
+                            (gethash id ogent-issues-graph--collapsed-nodes)))
          (connector (if is-last
                         (ogent-issues-graph--char 'last)
                       (ogent-issues-graph--char 'branch))))
@@ -333,14 +340,26 @@ CYCLES is list of cycle ID sets."
     (when (> depth 0)
       (insert (propertize connector 'face 'ogent-issues-graph-connector)))
 
-    ;; Insert node indicator
+    ;; Insert toggle indicator for nodes with children
     (cond
+     ;; Node has children - show toggle indicator
+     ((and has-children (not already-visited))
+      (insert (propertize (if is-collapsed
+                              (ogent-issues-graph--char 'collapsed)
+                            (ogent-issues-graph--char 'expanded))
+                          'face (cond
+                                 (in-cycle 'ogent-issues-graph-cycle)
+                                 (is-root 'ogent-issues-graph-root)
+                                 (t 'ogent-issues-graph-connector)))))
+     ;; Cycle indicator
      (in-cycle
       (insert (propertize (ogent-issues-graph--char 'cycle)
                           'face 'ogent-issues-graph-cycle)))
+     ;; Root indicator
      (is-root
       (insert (propertize (ogent-issues-graph--char 'root)
                           'face 'ogent-issues-graph-root)))
+     ;; Leaf node
      (t
       (insert (ogent-issues-graph--char 'node))))
 
@@ -354,8 +373,11 @@ CYCLES is list of cycle ID sets."
                           'face id-face
                           'ogent-issue-id id
                           'ogent-issue issue
+                          'ogent-has-children has-children
                           'mouse-face 'highlight
-                          'help-echo (format "Visit issue %s" id))))
+                          'help-echo (format "%s%s"
+                                             (if has-children "TAB:toggle " "")
+                                             (format "RET:visit %s" id)))))
 
     ;; Insert status if enabled
     (when ogent-issues-graph-show-status
@@ -368,14 +390,19 @@ CYCLES is list of cycle ID sets."
       (insert " ")
       (insert (truncate-string-to-width title 40 nil nil "…")))
 
+    ;; Show child count for collapsed nodes
+    (when (and has-children is-collapsed (not already-visited))
+      (insert (propertize (format " (%d hidden)" (length blocks))
+                          'face 'ogent-issues-graph-connector)))
+
     ;; Handle cycles and already-visited nodes
     (when already-visited
       (insert (propertize " (see above)" 'face 'ogent-issues-graph-connector)))
 
     (insert "\n")
 
-    ;; Don't recurse if already visited
-    (unless already-visited
+    ;; Don't recurse if already visited or collapsed
+    (unless (or already-visited is-collapsed)
       (puthash id t visited)
 
       ;; Recurse to children (issues this one blocks)
@@ -423,7 +450,9 @@ CYCLES is list of cycle ID sets."
 \\{ogent-issues-graph-mode-map}"
   :group 'ogent-issues-graph
   (setq-local truncate-lines t)
-  (setq-local buffer-read-only t))
+  (setq-local buffer-read-only t)
+  ;; Disable font-lock to prevent it from overriding our face text properties
+  (font-lock-mode -1))
 
 (defvar-local ogent-issues-graph--graph nil
   "The current graph being displayed.")
@@ -433,6 +462,10 @@ CYCLES is list of cycle ID sets."
 
 (defvar-local ogent-issues-graph--critical-path nil
   "Cached critical path for current graph.")
+
+(defvar-local ogent-issues-graph--collapsed-nodes nil
+  "Hash-table of collapsed node IDs.
+When a node ID is present in this table, its children are not rendered.")
 
 ;;; Commands
 
@@ -455,6 +488,11 @@ With prefix argument, prompts for issue ID to center on."
            (setq ogent-issues-graph--graph (ogent-issues-graph-build issues))
            (setq ogent-issues-graph--critical-path
                  (ogent-issues-graph-critical-path ogent-issues-graph--graph))
+           ;; Initialize collapsed-nodes hash-table if not already set
+           ;; (preserves state across refresh)
+           (unless ogent-issues-graph--collapsed-nodes
+             (setq ogent-issues-graph--collapsed-nodes
+                   (make-hash-table :test 'equal)))
            (ogent-issues-graph--render-buffer)
            (goto-char (point-min))))
        (pop-to-buffer buf)))))
@@ -485,7 +523,7 @@ With prefix argument, prompts for issue ID to center on."
       (insert "\n"))
 
     ;; Help hint
-    (insert (propertize "RET:visit  n/p:nav  c:cycles  C:critical path  ?:help"
+    (insert (propertize "RET:visit  TAB:toggle  n/p:nav  c:cycles  C:critical  ?:help"
                         'face 'shadow))
     (insert "\n\n")
 
@@ -566,9 +604,33 @@ With prefix argument, prompts for issue ID to center on."
       (message "Blocker %s not found in view" blocker-id))))
 
 (defun ogent-issues-graph-toggle-node ()
-  "Toggle expansion of current node (not yet implemented)."
+  "Toggle expansion of current node's dependency subtree.
+When collapsed, child nodes are hidden and a count is shown.
+When expanded, the full subtree is visible."
   (interactive)
-  (message "Node toggling not yet implemented"))
+  (let ((id (get-text-property (point) 'ogent-issue-id))
+        (has-children (get-text-property (point) 'ogent-has-children)))
+    (cond
+     ((not id)
+      (user-error "No issue at point"))
+     ((not has-children)
+      (message "%s has no children to collapse" id))
+     (t
+      ;; Toggle the collapsed state
+      (if (gethash id ogent-issues-graph--collapsed-nodes)
+          (progn
+            (remhash id ogent-issues-graph--collapsed-nodes)
+            (message "Expanded: %s" id))
+        (puthash id t ogent-issues-graph--collapsed-nodes)
+        (message "Collapsed: %s" id))
+      ;; Re-render the buffer, preserving position
+      (let ((current-id id)
+            (inhibit-read-only t))
+        (erase-buffer)
+        (ogent-issues-graph--render-buffer)
+        ;; Restore position to the toggled node
+        (goto-char (point-min))
+        (text-property-search-forward 'ogent-issue-id current-id #'equal))))))
 
 (defun ogent-issues-graph-show-cycles ()
   "Highlight all cycles in the graph."
@@ -598,7 +660,7 @@ With prefix argument, prompts for issue ID to center on."
 (defun ogent-issues-graph-help ()
   "Show help for graph view."
   (interactive)
-  (message "RET:visit n/p:navigate ^:up c:cycles C:critical g:refresh q:quit"))
+  (message "RET:visit TAB:toggle n/p:navigate ^:up c:cycles C:critical g:refresh q:quit"))
 
 ;;; Integration with ogent-issues
 
