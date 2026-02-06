@@ -31,6 +31,9 @@
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
+;; Declare Gas Town commands (defined in ogent-gastown.el)
+(declare-function ogent-gastown-dispatch "ogent-gastown")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
