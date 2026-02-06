@@ -537,7 +537,7 @@
 
 (ert-deftest ogent-tools-registry-has-all-tools ()
   "Default registry includes all expected tools."
-  (let ((names (mapcar (lambda (t) (plist-get t :name))
+  (let ((names (mapcar (lambda (tl) (plist-get tl :name))
                        ogent-tools-default-registry)))
     (should (memq 'read-file names))
     (should (memq 'glob names))
@@ -954,7 +954,7 @@
   "Bash, write-file, and edit-file require confirmation."
   (let ((confirm-tools '(bash write-file edit-file)))
     (dolist (name confirm-tools)
-      (let ((tool (seq-find (lambda (t) (eq (plist-get t :name) name))
+      (let ((tool (seq-find (lambda (tl) (eq (plist-get tl :name) name))
                             ogent-tools-default-registry)))
         (should tool)
         (should (plist-get tool :confirm))))))
@@ -963,7 +963,7 @@
   "Read-file, glob, and grep do not require confirmation."
   (let ((safe-tools '(read-file glob grep)))
     (dolist (name safe-tools)
-      (let ((tool (seq-find (lambda (t) (eq (plist-get t :name) name))
+      (let ((tool (seq-find (lambda (tl) (eq (plist-get tl :name) name))
                             ogent-tools-default-registry)))
         (should tool)
         (should-not (plist-get tool :confirm))))))
@@ -978,7 +978,7 @@
 (ert-deftest ogent-tools-registry-async-tools-have-async-functions ()
   "Grep and bash have :async-function and :async-callback-style."
   (dolist (name '(grep bash))
-    (let ((tool (seq-find (lambda (t) (eq (plist-get t :name) name))
+    (let ((tool (seq-find (lambda (tl) (eq (plist-get tl :name) name))
                           ogent-tools-default-registry)))
       (should tool)
       (should (plist-get tool :async-function))

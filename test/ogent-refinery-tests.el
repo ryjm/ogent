@@ -968,13 +968,21 @@
   "Test merge bumps priority when confirmed."
   (with-temp-buffer
     (ogent-refinery-mode)
-    (let ((refresh-called nil))
+    (let ((refresh-called nil)
+          (bump-id nil))
       (cl-letf (((symbol-function 'ogent-refinery--current-mr)
                  (lambda () '(:id "mr-789" :branch "feat/y")))
                 ((symbol-function 'yes-or-no-p) (lambda (_prompt) t))
+                ((symbol-function 'ogent-refinery--run-priority-bump)
+                 (lambda (id callback &optional _ecb)
+                   (setq bump-id id)
+                   (funcall callback)))
                 ((symbol-function 'ogent-refinery-refresh)
-                 (lambda (&rest _) (setq refresh-called t))))
+                 (lambda (&rest _) (setq refresh-called t)))
+                ((symbol-function 'ogent-refinery-cache-invalidate)
+                 #'ignore))
         (ogent-refinery-merge)
+        (should (equal bump-id "mr-789"))
         (should refresh-called)))))
 
 (ert-deftest ogent-refinery-test-merge-with-mr-declined ()
