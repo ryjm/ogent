@@ -76,6 +76,7 @@ Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
 - FSM status tracking is implemented via `ogent-tool-fsm.el`, with visual state indicators in the mode line.
 - Tool-call rendering is handled by `ogent-tool-render.el`, displaying reasoning and tool blocks inline.
 - Backend/preset configuration is documented in [docs/backends-and-presets.md](docs/backends-and-presets.md) and the `ogent-onboard` wizard.
+- Workspace presets allow per-project model and backend configuration via `.ogent-presets`.
 
 ## Backends, Models, and Presets
 - `docs/backends-and-presets.md` walks through backend switching (gptel backend selection), model registry configuration, preset definition, and troubleshooting.
