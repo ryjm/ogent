@@ -607,12 +607,11 @@ Other:
 ;;; Entry Point
 
 ;;;###autoload
-(defun ogent-convoy-inspect (convoy-id &optional workspace-root)
+(defun ogent-convoy-inspect (convoy-id &optional _workspace-root)
   "Open the convoy inspector for CONVOY-ID.
-WORKSPACE-ROOT is the Gas Town workspace root for gt commands.
-If nil, defaults to ~/gt."
-  (interactive
-   (list (read-string "Convoy ID: ")))
+Optional WORKSPACE-ROOT is accepted for forward compatibility but
+currently unused."
+  (interactive "sConvoy ID: ")
   (unless (and convoy-id (not (string-empty-p convoy-id)))
     (user-error "No convoy ID specified"))
   (let ((buffer (get-buffer-create

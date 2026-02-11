@@ -182,7 +182,10 @@ Display what's currently on your hook (your assignment).
 
 **`ogent-gastown-show-convoy`** (`SPC e G c`)
 
-Show active convoy status and progress.
+Open the convoy inspector.  Delegates to the magit-style convoy
+inspector (`ogent-convoy-inspect`) which shows detailed convoy
+metadata and tracked issues.  Falls back to a plain listing if
+the inspector is unavailable.
 
 ## Keybindings
 
@@ -197,7 +200,7 @@ All Gas Town commands are under `SPC e G`:
 | `h` | `ogent-gastown-show-hook` | Show current hook |
 | `m` | `ogent-gastown-show-mail` | Show inbox |
 | `M` | `ogent-gastown-send-mail` | Send mail |
-| `c` | `ogent-gastown-show-convoy` | Show convoy |
+| `c` | `ogent-gastown-show-convoy` | Inspect convoy |
 | `r` | `ogent-gastown-show-ready` | Ready issues |
 | `i` | `ogent-gastown-show-issue` | Show issue details |
 | `C` | `ogent-gastown-claim-issue` | Claim issue |
