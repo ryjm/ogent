@@ -102,6 +102,18 @@
   (let ((ogent-ops-use-unicode t))
     (should (string= (ogent-ops-activity-symbol 'unknown-state) "?"))))
 
+;;; Section symbols
+
+(ert-deftest ogent-ops-section-symbol-issues-unicode ()
+  "Issues section symbol returns Unicode glyph."
+  (let ((ogent-ops-use-unicode t))
+    (should (string= (ogent-ops-section-symbol 'issues) "◈"))))
+
+(ert-deftest ogent-ops-section-symbol-issues-ascii ()
+  "Issues section symbol returns ASCII fallback."
+  (let ((ogent-ops-use-unicode nil))
+    (should (string= (ogent-ops-section-symbol 'issues) "I"))))
+
 ;;; Section helpers
 
 (ert-deftest ogent-ops-section-prefix-unicode ()

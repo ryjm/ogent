@@ -2011,6 +2011,188 @@
   "Test ogent-gastown-section-heading face is defined."
   (should (facep 'ogent-gastown-section-heading)))
 
+(ert-deftest ogent-gts-test-face-section-heading-variants-exist ()
+  "Test section-specific heading faces are defined."
+  (dolist (face '(ogent-gastown-section-heading-hook
+                  ogent-gastown-section-heading-mail
+                  ogent-gastown-section-heading-convoy
+                  ogent-gastown-section-heading-workers
+                  ogent-gastown-section-heading-stats
+                  ogent-gastown-section-heading-deacon
+                  ogent-gastown-section-heading-witnesses
+                  ogent-gastown-section-heading-crew
+                  ogent-gastown-section-heading-polecats
+                  ogent-gastown-section-heading-rigs
+                  ogent-gastown-section-heading-issues))
+    (should (facep face))))
+
+(ert-deftest ogent-gts-test-face-section-heading-variants-declare-background ()
+  "Test section heading face specs declare background attributes."
+  (dolist (face '(ogent-gastown-section-heading
+                  ogent-gastown-section-heading-hook
+                  ogent-gastown-section-heading-mail
+                  ogent-gastown-section-heading-convoy
+                  ogent-gastown-section-heading-workers
+                  ogent-gastown-section-heading-stats
+                  ogent-gastown-section-heading-deacon
+                  ogent-gastown-section-heading-witnesses
+                  ogent-gastown-section-heading-crew
+                  ogent-gastown-section-heading-polecats
+                  ogent-gastown-section-heading-rigs
+                  ogent-gastown-section-heading-issues))
+    (let ((spec (get face 'face-defface-spec)))
+      (should spec)
+      (should (string-match-p ":background" (format "%S" spec))))))
+
+(ert-deftest ogent-gts-test-section-heading-face-map ()
+  "Test section heading face mapping returns the expected face."
+  (should (eq (ogent-gastown--section-heading-face 'hook)
+              'ogent-gastown-section-heading-hook))
+  (should (eq (ogent-gastown--section-heading-face 'mail)
+              'ogent-gastown-section-heading-mail))
+  (should (eq (ogent-gastown--section-heading-face 'convoy)
+              'ogent-gastown-section-heading-convoy))
+  (should (eq (ogent-gastown--section-heading-face 'workers)
+              'ogent-gastown-section-heading-workers))
+  (should (eq (ogent-gastown--section-heading-face 'stats)
+              'ogent-gastown-section-heading-stats))
+  (should (eq (ogent-gastown--section-heading-face 'deacon)
+              'ogent-gastown-section-heading-deacon))
+  (should (eq (ogent-gastown--section-heading-face 'witnesses)
+              'ogent-gastown-section-heading-witnesses))
+  (should (eq (ogent-gastown--section-heading-face 'crew)
+              'ogent-gastown-section-heading-crew))
+  (should (eq (ogent-gastown--section-heading-face 'polecats)
+              'ogent-gastown-section-heading-polecats))
+  (should (eq (ogent-gastown--section-heading-face 'rigs)
+              'ogent-gastown-section-heading-rigs))
+  (should (eq (ogent-gastown--section-heading-face 'issues)
+              'ogent-gastown-section-heading-issues))
+  (should (eq (ogent-gastown--section-heading-face 'unknown)
+              'ogent-gastown-section-heading)))
+
+(ert-deftest ogent-gts-test-section-heading-face-map-valid-override ()
+  "Test valid overrides replace section heading default faces."
+  (let ((ogent-gastown-section-heading-face-overrides '((issues . error))))
+    (should (eq (ogent-gastown--section-heading-face 'issues) 'error))))
+
+(ert-deftest ogent-gts-test-section-heading-face-map-invalid-override-falls-back ()
+  "Test invalid overrides fall back to section default faces."
+  (let ((ogent-gastown-section-heading-face-overrides '((crew . definitely-not-a-face))))
+    (should (eq (ogent-gastown--section-heading-face 'crew)
+                'ogent-gastown-section-heading-crew))))
+
+(ert-deftest ogent-gts-test-section-heading-helper-propertizes-label ()
+  "Test section heading helper applies mapped face to labels."
+  (let* ((label (ogent-gastown--section-heading 'crew "Crew"))
+         (face (get-text-property 0 'face label)))
+    (should (string= label "Crew"))
+    (should (eq face 'ogent-gastown-section-heading-crew))))
+
+(ert-deftest ogent-gts-test-compose-section-heading-shared-path ()
+  "Test Magit heading composition uses a shared section formatter."
+  (let ((ogent-gastown-use-unicode nil))
+    (let ((heading (ogent-gastown--compose-section-heading
+                    'crew
+                    "Crew"
+                    (propertize " (1/3 active)" 'face 'ogent-gastown-dimmed))))
+      (should (string= (substring-no-properties heading) "C Crew (1/3 active)"))
+      (should (eq (get-text-property 2 'face heading)
+                  'ogent-gastown-section-heading-crew)))))
+
+(ert-deftest ogent-gts-test-compose-plain-section-heading-shared-path ()
+  "Test plain heading composition uses section-specific plain prefixes."
+  (should (string= (ogent-gastown--compose-plain-section-heading
+                    'rigs "Rigs")
+                   "R Rigs\n"))
+  (should (string= (ogent-gastown--compose-plain-section-heading
+                    'issues "Issues")
+                   "I Issues\n"))
+  (should (string= (ogent-gastown--compose-plain-section-heading
+                    'workers "Workers" " [ogent]")
+                   "* Workers [ogent]\n")))
+
+(ert-deftest ogent-gts-test-compose-section-heading-uses-override-face ()
+  "Test Magit heading composition uses override face when configured."
+  (let ((ogent-gastown-use-unicode nil)
+        (ogent-gastown-section-heading-face-overrides '((issues . warning))))
+    (let ((heading (ogent-gastown--compose-section-heading 'issues "Issues:")))
+      (should (string= (substring-no-properties heading) "I Issues:"))
+      (should (eq (get-text-property 2 'face heading) 'warning)))))
+
+(ert-deftest ogent-gts-test-magit-crew-heading-uses-crew-face ()
+  "Test Magit Crew heading label uses the crew heading face."
+  (if (not ogent-gastown--magit-section-available)
+      (ert-skip "magit-section not available")
+    (with-temp-buffer
+      (ogent-gastown-status-mode)
+      (let ((inhibit-read-only t)
+            (ogent-gastown--crew-data nil)
+            (ogent-gastown--rigs-data '((:name "ogent")))
+            (ogent-gastown--selected-rig "ogent"))
+        (erase-buffer)
+        (ogent-gastown--insert-crew-section)
+        (goto-char (point-min))
+        (should (search-forward "Crew" nil t))
+        (let ((pos (- (point) (length "Crew"))))
+          (should (eq (get-text-property pos 'face)
+                      'ogent-gastown-section-heading-crew)))))))
+
+(ert-deftest ogent-gts-test-magit-workers-heading-uses-workers-face ()
+  "Test Magit Workers heading label uses the workers heading face."
+  (if (not ogent-gastown--magit-section-available)
+      (ert-skip "magit-section not available")
+    (with-temp-buffer
+      (ogent-gastown-status-mode)
+      (let ((inhibit-read-only t)
+            (ogent-gastown--workers-data nil)
+            (ogent-gastown--rigs-data '((:name "ogent")))
+            (ogent-gastown--selected-rig "ogent"))
+        (erase-buffer)
+        (ogent-gastown--insert-workers-section)
+        (goto-char (point-min))
+        (should (search-forward "Workers" nil t))
+        (let ((pos (- (point) (length "Workers"))))
+          (should (eq (get-text-property pos 'face)
+                      'ogent-gastown-section-heading-workers)))))))
+
+(ert-deftest ogent-gts-test-magit-polecats-heading-uses-polecats-face ()
+  "Test Magit Polecats heading label uses the polecats heading face."
+  (if (not ogent-gastown--magit-section-available)
+      (ert-skip "magit-section not available")
+    (with-temp-buffer
+      (ogent-gastown-status-mode)
+      (let ((inhibit-read-only t)
+            (ogent-gastown--polecat-data nil)
+            (ogent-gastown--rigs-data '((:name "ogent")))
+            (ogent-gastown--selected-rig "ogent"))
+        (erase-buffer)
+        (ogent-gastown--insert-polecat-section)
+        (goto-char (point-min))
+        (should (search-forward "Polecats" nil t))
+        (let ((pos (- (point) (length "Polecats"))))
+          (should (eq (get-text-property pos 'face)
+                      'ogent-gastown-section-heading-polecats)))))))
+
+(ert-deftest ogent-gts-test-insert-plain-crew-heading-uses-crew-face ()
+  "Test plain crew heading uses crew-specific heading face."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data nil)
+          (ogent-gastown--selected-rig "ogent"))
+      (ogent-gastown--insert-crew-section-plain)
+      (goto-char (point-min))
+      (should (eq (get-text-property (point) 'face)
+                  'ogent-gastown-section-heading-crew)))))
+
+(ert-deftest ogent-gts-test-insert-plain-rigs-heading-uses-rigs-face ()
+  "Test plain rigs heading uses rigs-specific heading face."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data nil))
+      (ogent-gastown--insert-rigs-section-plain)
+      (goto-char (point-min))
+      (should (eq (get-text-property (point) 'face)
+                  'ogent-gastown-section-heading-rigs)))))
+
 (ert-deftest ogent-gts-test-face-hook-active-exists ()
   "Test ogent-gastown-hook-active face is defined."
   (should (facep 'ogent-gastown-hook-active)))
@@ -3862,7 +4044,7 @@
     (ogent-gastown--insert-rig-beads-detail
      '(:ready 3 :in_progress 2 :blocked 1 :open 5 :closed 10 :total 21))
     (let ((content (buffer-string)))
-      (should (string-match-p "Beads:" content))
+      (should (string-match-p "Issues:" content))
       (should (string-match-p "Ready" content))
       (should (string-match-p "3" content))
       (should (string-match-p "In Progress" content))
@@ -3888,8 +4070,19 @@
     (ogent-gastown--insert-rig-beads-detail
      '(:ready 2 :in_progress 1 :open 3))
     (let ((content (buffer-string)))
-      (should (string-match-p "Beads:" content))
+      (should (string-match-p "Issues:" content))
       (should (string-match-p "Ready" content)))))
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-heading-uses-issues-face ()
+  "Test beads detail heading applies the issues section heading face."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail
+     '(:ready 1 :in_progress 0 :open 0 :total 1))
+    (goto-char (point-min))
+    (should (search-forward "Issues:" nil t))
+    (let ((pos (- (point) (length "Issues:"))))
+      (should (eq (get-text-property pos 'face)
+                  'ogent-gastown-section-heading-issues)))))
 
 ;;; --- Aggregate Beads Stats ---
 
