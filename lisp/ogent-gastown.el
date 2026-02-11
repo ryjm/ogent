@@ -1103,6 +1103,103 @@ to Gas Town commands."
   (ogent-gastown--stop-polling)
   (message "ogent-gastown: Cleaned up"))
 
+;;; Agent Assignment Mapping (for issues integration)
+
+(defvar ogent-gastown--agent-assignments-cache nil
+  "Cached hash table mapping bead-id to list of (agent-name . agent-type) pairs.
+Built from crew and polecat list data.")
+
+(defvar ogent-gastown--agent-assignments-timestamp nil
+  "Time when agent assignments were last fetched.")
+
+(defun ogent-gastown-agent-assignments ()
+  "Return the cached agent assignments hash table, or nil."
+  ogent-gastown--agent-assignments-cache)
+
+(defun ogent-gastown-agent-assignments-stale-p ()
+  "Return non-nil if agent assignments cache is stale or missing."
+  (or (null ogent-gastown--agent-assignments-cache)
+      (null ogent-gastown--agent-assignments-timestamp)
+      (> (- (float-time) ogent-gastown--agent-assignments-timestamp)
+         ogent-gastown--integration-cache-ttl)))
+
+(defun ogent-gastown-fetch-agent-assignments (callback)
+  "Fetch crew and polecat lists, build agent→bead mapping, call CALLBACK.
+CALLBACK receives the hash table mapping bead-id → list of
+\(agent-name . agent-type) pairs."
+  (unless (ogent-gastown-integration-active-p)
+    (when callback (funcall callback nil))
+    (cl-return-from ogent-gastown-fetch-agent-assignments nil))
+
+  (let* ((pending 2)
+         (results (make-hash-table :test #'equal))
+         (assignments (make-hash-table :test #'equal))
+         (finish
+          (lambda ()
+            (cl-decf pending)
+            (when (zerop pending)
+              ;; Build bead-id → agents mapping from crew data
+              (dolist (member (gethash 'crew results))
+                (let ((name (plist-get member :name))
+                      (hooked (or (plist-get member :hooked_work)
+                                  (plist-get member :issue))))
+                  (when (and name hooked (not (string-empty-p hooked)))
+                    (let ((existing (gethash hooked assignments)))
+                      (puthash hooked
+                               (cons (cons name "crew") existing)
+                               assignments)))))
+              ;; Build bead-id → agents mapping from polecat data
+              (dolist (polecat (gethash 'polecat results))
+                (let ((name (plist-get polecat :name))
+                      (hooked (or (plist-get polecat :hooked_work)
+                                  (plist-get polecat :issue)
+                                  (plist-get polecat :current_task))))
+                  (when (and name hooked (not (string-empty-p hooked)))
+                    (let ((existing (gethash hooked assignments)))
+                      (puthash hooked
+                               (cons (cons name "polecat") existing)
+                               assignments)))))
+              ;; Update cache
+              (setq ogent-gastown--agent-assignments-cache assignments)
+              (setq ogent-gastown--agent-assignments-timestamp (float-time))
+              (when callback (funcall callback assignments))))))
+
+    ;; Fetch crew list
+    (ogent-gastown--run-async
+     "crew" '("list" "--json")
+     (lambda (result)
+       (puthash 'crew (if (listp result) result nil) results)
+       (funcall finish))
+     (lambda (_err)
+       (puthash 'crew nil results)
+       (funcall finish)))
+
+    ;; Fetch polecat list
+    (ogent-gastown--run-async
+     "polecat" '("list" "--all" "--json")
+     (lambda (result)
+       (puthash 'polecat (if (listp result) result nil) results)
+       (funcall finish))
+     (lambda (_err)
+       (puthash 'polecat nil results)
+       (funcall finish)))))
+
+(defun ogent-gastown-lookup-agent-assignment (bead-id)
+  "Look up agent assignments for BEAD-ID in the cache.
+Returns a list of (agent-name . agent-type) pairs, or nil."
+  (when ogent-gastown--agent-assignments-cache
+    (gethash bead-id ogent-gastown--agent-assignments-cache)))
+
+(defun ogent-gastown-format-agent-assignment (bead-id)
+  "Return a formatted string for agents assigned to BEAD-ID, or nil.
+Format: \" → name\" for single agent, \" → name +N\" for multiple."
+  (when-let ((agents (ogent-gastown-lookup-agent-assignment bead-id)))
+    (let* ((first-name (car (car agents)))
+           (count (length agents)))
+      (if (= count 1)
+          (format " → %s" first-name)
+        (format " → %s +%d" first-name (1- count))))))
+
 (provide 'ogent-gastown)
 
 ;;; ogent-gastown.el ends here
