@@ -13,6 +13,8 @@
 (declare-function ogent-gastown-refresh-force "ogent-gastown-status")
 (declare-function ogent-gastown-next-item "ogent-gastown-status")
 (declare-function ogent-gastown-prev-item "ogent-gastown-status")
+(declare-function ogent-gastown-cycle-rig-prev "ogent-gastown-status")
+(declare-function ogent-gastown-cycle-rig-next "ogent-gastown-status")
 (declare-function ogent-gastown-toggle-section "ogent-gastown-status")
 (declare-function ogent-gastown-visit "ogent-gastown-status")
 (declare-function ogent-gastown-status-mail-read "ogent-gastown-status")
@@ -35,6 +37,8 @@
 (autoload 'ogent-gastown-refresh-force "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-next-item "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-prev-item "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-cycle-rig-prev "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-cycle-rig-next "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-toggle-section "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-visit "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-status-mail-read "ogent-gastown-status" nil t)
@@ -73,13 +77,15 @@
    ["Navigation"
     ("n" "Next item" ogent-gastown-next-item :transient t)
     ("p" "Previous item" ogent-gastown-prev-item :transient t)
+    ("H" "Prev rig" ogent-gastown-cycle-rig-prev :transient t)
+    ("L" "Next rig" ogent-gastown-cycle-rig-next :transient t)
     ("RET" "Visit item" ogent-gastown-visit)
     ("TAB" "Toggle section" ogent-gastown-toggle-section :transient t)]
    ["Mail"
     ("m" "Read mail" ogent-gastown-status-mail-read)
     ("M" "Compose" ogent-gastown-mail-compose)]
    ["Hook"
-    ("H" "Show hook" ogent-gastown-hook-show)
+    ("o" "Show hook" ogent-gastown-hook-show)
     ("a" "Attach work" ogent-gastown-hook-attach)]]
   [["Convoy"
     ("c" "Inspect convoy" ogent-gastown-convoy-status)
