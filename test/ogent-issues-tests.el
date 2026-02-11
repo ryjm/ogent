@@ -1754,6 +1754,102 @@
       ;; Should not error; falls back to first issue
       (ogent-issues--restore-position))))
 
+;;; Magit-section restore-position tests
+;;
+;; These tests exercise the real magit-section code path.
+;; They skip when magit-section is not available in the test environment.
+
+(ert-deftest ogent-issues-test-restore-position-magit-not-found ()
+  "Restore-position with magit-section doesn't error when issue is gone.
+Regression test: magit-section-forward signals (user-error \"No next
+section\") when iterating past the last section.  The old code let this
+propagate, crashing the render buffer with \"Error rendering issues\"."
+  (unless (require 'magit-section nil t)
+    (ert-skip "magit-section not available"))
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available t)
+          (ogent-issues--last-position "nonexistent-id"))
+      (ogent-issues--insert-buffer-contents
+       '((:id "t1" :title "Test" :status "open"
+               :priority 1 :issue_type "task" :dependency_count 0)))
+      ;; Must not signal user-error
+      (ogent-issues--restore-position)
+      ;; Should fall back to first issue
+      (should (equal "t1" (ogent-issues--current-issue-id))))))
+
+(ert-deftest ogent-issues-test-restore-position-magit-found ()
+  "Restore-position with magit-section finds the correct issue."
+  (unless (require 'magit-section nil t)
+    (ert-skip "magit-section not available"))
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available t)
+          (ogent-issues--last-position "t2"))
+      (ogent-issues--insert-buffer-contents
+       '((:id "t1" :title "First" :status "open"
+               :priority 1 :issue_type "task" :dependency_count 0)
+         (:id "t2" :title "Second" :status "open"
+               :priority 2 :issue_type "bug" :dependency_count 0)))
+      (ogent-issues--restore-position)
+      (should (equal "t2" (ogent-issues--current-issue-id))))))
+
+(ert-deftest ogent-issues-test-restore-position-magit-nil-position ()
+  "Restore-position with magit-section and nil last-position goes to top."
+  (unless (require 'magit-section nil t)
+    (ert-skip "magit-section not available"))
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available t)
+          (ogent-issues--last-position nil))
+      (ogent-issues--insert-buffer-contents
+       '((:id "t1" :title "Test" :status "open"
+               :priority 1 :issue_type "task" :dependency_count 0)))
+      (ogent-issues--restore-position)
+      (should (= (point) (point-min))))))
+
+(ert-deftest ogent-issues-test-render-buffer-magit-no-error ()
+  "Full render-buffer with magit-section doesn't show error message.
+End-to-end test: render issues, attempt restore for a missing issue,
+verify the buffer contains issue content and no error string."
+  (unless (require 'magit-section nil t)
+    (ert-skip "magit-section not available"))
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available t)
+          (ogent-issues--last-position "deleted-issue")
+          (ogent-issues--issues
+           '((:id "t1" :title "Surviving Issue" :status "open"
+                   :priority 1 :issue_type "task" :dependency_count 0)
+             (:id "t2" :title "Another Issue" :status "in_progress"
+                   :priority 2 :issue_type "bug" :dependency_count 0))))
+      (ogent-issues--render-buffer (current-buffer))
+      ;; Buffer should contain rendered issues, not error
+      (should (string-match-p "Surviving Issue" (buffer-string)))
+      (should-not (string-match-p "Error rendering issues" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-next-issue-magit-at-end ()
+  "next-issue with magit-section signals user-error at end of buffer.
+Verifies the underlying behavior that restore-position must handle."
+  (unless (require 'magit-section nil t)
+    (ert-skip "magit-section not available"))
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available t))
+      (ogent-issues--insert-buffer-contents
+       '((:id "t1" :title "Only Issue" :status "open"
+               :priority 1 :issue_type "task" :dependency_count 0)))
+      (goto-char (point-min))
+      (ogent-issues-next-issue)  ; move to t1
+      (should (equal "t1" (ogent-issues--current-issue-id)))
+      ;; Next call should signal - this is the error restore-position catches
+      (should-error (ogent-issues-next-issue) :type 'user-error))))
+
 ;;; Detail Help Test
 
 (ert-deftest ogent-issues-test-detail-help ()
