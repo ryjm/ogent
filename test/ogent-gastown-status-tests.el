@@ -1698,8 +1698,8 @@
         (ogent-gastown--fetch-all
          (lambda ()
            (setq callback-called t)))
-        ;; Should have called run-async 7 times (hook, mail, convoy, workers, town-status, crew, polecat)
-        (should (= call-count 7))
+        ;; Should have called run-async 6 times (hook, mail, convoy, workers, town-status, crew)
+        (should (= call-count 6))
         (should callback-called)))))
 
 (ert-deftest ogent-gts-test-fetch-all-handles-errors ()
@@ -1730,7 +1730,7 @@
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw)
                    ;; Return town-status for the status command
-                   (if (equal args '("status" "--json"))
+                   (if (equal args '("status" "--json" "--fast"))
                        (funcall callback
                                 '(:summary (:rig_count 2 :polecat_count 3)
                                   :agents ((:name "deacon" :running t :has_work nil))
@@ -2924,14 +2924,12 @@
                      (funcall callback (list '(:id "c1" :name "test"))))
                     ((equal args '("polecat" "list" "--all" "--json"))
                      (funcall callback (list '(:name "w1" :state "working"))))
-                    ((equal args '("status" "--json"))
+                    ((equal args '("status" "--json" "--fast"))
                      (funcall callback '(:summary (:rig_count 1)
                                          :agents ((:name "deacon" :running t))
                                          :rigs ((:name "r1" :has_witness t)))))
                     ((equal args '("crew" "list" "--json"))
-                     (funcall callback (list '(:name "c1" :rig "r1"))))
-                    ((equal args '("polecat" "list" "--json"))
-                     (funcall callback (list '(:name "p1" :rig "r1"))))))))
+                     (funcall callback (list '(:name "c1" :rig "r1"))))))))
         (ogent-gastown--fetch-all (lambda () (setq callback-called t)))
         (should callback-called)
         ;; All data should be populated
