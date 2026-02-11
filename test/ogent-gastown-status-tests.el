@@ -823,10 +823,10 @@
        '(:name "worker" :role "crew" :running t :has_work t :unread_mail 5))
       (let ((content (buffer-string)))
         (should (string-match-p "worker" content))
-        ;; Hook indicator (anchor emoji)
-        (should (string-match-p "⚓" content))
+        ;; Hook indicator
+        (should (string-match-p "»" content))
         ;; Mail indicator
-        (should (string-match-p "📬5" content))))))
+        (should (string-match-p "M:5" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-unknown-role ()
   "Test rig agent insertion for unknown role uses ? icon."
@@ -875,7 +875,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👁" content))))))
+        (should (string-match-p "◎" content))))))
 
 (ert-deftest ogent-gts-test-ascii-icons ()
   "Test that ASCII icons are used when unicode disabled."
@@ -885,7 +885,7 @@
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p "W" content))
-        (should-not (string-match-p "👁" content))))))
+        (should-not (string-match-p "◎" content))))))
 
 ;;; Mail Item Tests
 
@@ -1754,7 +1754,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "polecat1" :role "polecat" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "🐱" content))
+        (should (string-match-p "▷" content))
         (should (string-match-p "polecat1" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-no-hook-no-mail ()
@@ -1765,8 +1765,8 @@
        '(:name "clean" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p "clean" content))
-        (should-not (string-match-p "⚓" content))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "»" content))
+        (should-not (string-match-p "M:" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-ascii-hook ()
   "Test rig agent shows H for hook in ASCII mode."
@@ -2309,7 +2309,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "dev1" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👤" content))))))
+        (should (string-match-p "△" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-refinery-unicode ()
   "Test rig agent uses refinery unicode icon."
