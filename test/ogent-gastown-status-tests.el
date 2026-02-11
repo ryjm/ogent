@@ -9,6 +9,7 @@
 (require 'ert)
 (require 'ogent-test-helper)
 (require 'ogent-gastown-status)
+(require 'ogent-ops-style)
 
 ;;; Test Fixtures
 
@@ -852,10 +853,13 @@
        '(:name "worker" :role "crew" :running t :has_work t :unread_mail 5))
       (let ((content (buffer-string)))
         (should (string-match-p "worker" content))
-        ;; Hook indicator (anchor emoji)
-        (should (string-match-p "⚓" content))
-        ;; Mail indicator
-        (should (string-match-p "📬5" content))))))
+        ;; Hook indicator via ops-style helper
+        (should (string-match-p (regexp-quote (ogent-ops-section-prefix "⚓" "H"))
+                                content))
+        ;; Mail indicator via ops-style helper
+        (should (string-match-p (regexp-quote
+                                 (format "%s5" (ogent-ops-section-prefix "📬" "M:")))
+                                content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-unknown-role ()
   "Test rig agent insertion for unknown role uses ? icon."
@@ -904,7 +908,10 @@
       (ogent-gastown--insert-rig-agent
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👁" content))))))
+        (should (string-match-p
+                 (regexp-quote (let ((ogent-ops-use-unicode t))
+                                 (ogent-ops-section-prefix "👁" "W")))
+                 content))))))
 
 (ert-deftest ogent-gts-test-ascii-icons ()
   "Test that ASCII icons are used when unicode disabled."
@@ -913,8 +920,15 @@
       (ogent-gastown--insert-rig-agent
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "W" content))
-        (should-not (string-match-p "👁" content))))))
+        (should (string-match-p
+                 (regexp-quote (let ((ogent-ops-use-unicode nil))
+                                 (ogent-ops-section-prefix "👁" "W")))
+                 content))
+        ;; Unicode icon should NOT appear
+        (should-not (string-match-p
+                     (regexp-quote (let ((ogent-ops-use-unicode t))
+                                     (ogent-ops-section-prefix "👁" "W")))
+                     content))))))
 
 ;;; Mail Item Tests
 
@@ -1783,7 +1797,9 @@
       (ogent-gastown--insert-rig-agent
        '(:name "polecat1" :role "polecat" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "🐱" content))
+        (should (string-match-p
+                 (regexp-quote (ogent-ops-section-prefix "🐱" "P"))
+                 content))
         (should (string-match-p "polecat1" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-no-hook-no-mail ()
@@ -1794,8 +1810,14 @@
        '(:name "clean" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p "clean" content))
-        (should-not (string-match-p "⚓" content))
-        (should-not (string-match-p "📬" content))))))
+        ;; No hook indicator
+        (should-not (string-match-p
+                     (regexp-quote (ogent-ops-section-prefix "⚓" "H"))
+                     content))
+        ;; No mail indicator
+        (should-not (string-match-p
+                     (regexp-quote (ogent-ops-section-prefix "📬" "M:"))
+                     content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-ascii-hook ()
   "Test rig agent shows H for hook in ASCII mode."
@@ -4113,6 +4135,279 @@
         (should (string-match-p "Full Test" content))
         (should (string-match-p "Hook" content))
         (should (string-match-p "Workers" content))))))
+
+;;; --- Fetch Command Contract Tests ---
+
+(ert-deftest ogent-gts-test-fetch-contract-town-status-uses-fast ()
+  "Test fetch-all uses --fast flag for town status."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt")
+          (captured-args nil))
+      (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _error-callback _raw)
+                   (push args captured-args)
+                   (funcall callback nil))))
+        (ogent-gastown--fetch-all #'ignore)
+        ;; Town status MUST use --fast
+        (should (member '("status" "--json" "--fast") captured-args))
+        ;; Old contract without --fast MUST NOT appear
+        (should-not (member '("status" "--json") captured-args))))))
+
+(ert-deftest ogent-gts-test-fetch-contract-polecat-uses-all-flag ()
+  "Test fetch-all uses --all flag for polecat list."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt")
+          (captured-args nil))
+      (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _error-callback _raw)
+                   (push args captured-args)
+                   (funcall callback nil))))
+        (ogent-gastown--fetch-all #'ignore)
+        ;; Polecat list MUST use --all
+        (should (member '("polecat" "list" "--all" "--json") captured-args))
+        ;; Old contract without --all MUST NOT appear
+        (should-not (member '("polecat" "list" "--json") captured-args))))))
+
+(ert-deftest ogent-gts-test-fetch-contract-all-six-commands ()
+  "Test fetch-all dispatches exactly 6 commands with correct args."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt")
+          (captured-args nil))
+      (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _error-callback _raw)
+                   (push args captured-args)
+                   (funcall callback nil))))
+        (ogent-gastown--fetch-all #'ignore)
+        (should (= (length captured-args) 6))
+        (should (member '("hook" "--json") captured-args))
+        (should (member '("mail" "inbox" "--json") captured-args))
+        (should (member '("convoy" "list" "--json") captured-args))
+        (should (member '("polecat" "list" "--all" "--json") captured-args))
+        (should (member '("status" "--json" "--fast") captured-args))
+        (should (member '("crew" "list" "--json") captured-args))))))
+
+;;; --- Crew/Polecat/Worker Payload Normalization Tests ---
+
+(ert-deftest ogent-gts-test-crew-section-plain-nil-fields ()
+  "Test crew section renders safely with nil/missing fields."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name nil :rig nil :session_running nil))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Crew" content))
+        ;; Should render "???" for nil name
+        (should (string-match-p "\\?" content))))))
+
+(ert-deftest ogent-gts-test-crew-section-plain-active-member ()
+  "Test crew section shows [active] for running sessions."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name "stallman" :rig "ogent" :session_running t))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "stallman" content))
+        (should (string-match-p "\\[active\\]" content))))))
+
+(ert-deftest ogent-gts-test-crew-section-plain-inactive-member ()
+  "Test crew section omits [active] for non-running sessions."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name "knuth" :rig "beads" :session_running nil))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "knuth" content))
+        (should-not (string-match-p "\\[active\\]" content))))))
+
+(ert-deftest ogent-gts-test-polecat-section-plain-nil-fields ()
+  "Test polecat section renders safely with nil/missing fields."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name nil :rig nil :state nil :session_running nil))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Polecats" content))
+        ;; Should render "???" for nil name/rig
+        (should (string-match-p "\\?" content))
+        ;; Should render "unknown" for nil state
+        (should (string-match-p "unknown" content))))))
+
+(ert-deftest ogent-gts-test-polecat-section-plain-running-state ()
+  "Test polecat section shows running indicator."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name "alpha" :rig "ogent" :state "working"
+                   :session_running t))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "alpha" content))
+        (should (string-match-p "working" content))
+        (should (string-match-p "running" content))))))
+
+(ert-deftest ogent-gts-test-worker-item-uses-ops-activity-symbol ()
+  "Test worker item renders ops-style activity symbols, not hardcoded icons."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode t))
+      (ogent-gastown--insert-worker-item
+       '(:name "alpha" :state "working" :session_running t))
+      (let ((content (buffer-string)))
+        (should (string-match-p
+                 (regexp-quote (let ((ogent-ops-use-unicode t))
+                                 (ogent-ops-activity-symbol 'active)))
+                 content)))))
+  ;; ASCII mode
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "beta" :state "idle" :session_running nil))
+      (let ((content (buffer-string)))
+        (should (string-match-p
+                 (regexp-quote (let ((ogent-ops-use-unicode nil))
+                                 (ogent-ops-activity-symbol 'idle)))
+                 content))))))
+
+(ert-deftest ogent-gts-test-workers-section-plain-empty ()
+  "Test workers section renders empty state."
+  (with-temp-buffer
+    (let ((ogent-gastown--workers-data nil))
+      (ogent-gastown--insert-workers-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Workers" content))
+        (should (string-match-p "No workers" content))))))
+
+;;; --- Section-Level Error/Nil Data Rendering Tests ---
+
+(ert-deftest ogent-gts-test-fetch-all-partial-failure ()
+  "Test fetch-all populates data for successful fetches, nil for failures."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown--hook-data nil)
+          (ogent-gastown--mail-data nil)
+          (ogent-gastown--convoy-data nil)
+          (ogent-gastown--workers-data nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--stats-data nil)
+          (ogent-gastown--deacon-data nil)
+          (ogent-gastown--witness-data nil)
+          (ogent-gastown--rigs-data nil)
+          (callback-called nil))
+      (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional error-callback _raw)
+                   (cond
+                    ;; Hook and mail succeed
+                    ((equal args '("hook" "--json"))
+                     (funcall callback '(:has_work t :role "mayor")))
+                    ((equal args '("mail" "inbox" "--json"))
+                     (funcall callback (list '(:id "m1" :from "a" :read nil))))
+                    ;; Everything else fails
+                    (t (when error-callback
+                         (funcall error-callback "timeout")))))))
+        (ogent-gastown--fetch-all (lambda () (setq callback-called t)))
+        ;; Callback fires despite partial failure
+        (should callback-called)
+        ;; Successful fetches populate data
+        (should ogent-gastown--hook-data)
+        (should ogent-gastown--mail-data)
+        ;; Failed fetches leave data nil
+        (should-not ogent-gastown--convoy-data)
+        (should-not ogent-gastown--stats-data)
+        (should-not ogent-gastown--rigs-data)))))
+
+(ert-deftest ogent-gts-test-plain-buffer-renders-with-all-nil-data ()
+  "Test full plain buffer renders without error when all data is nil."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data nil)
+          (ogent-gastown--deacon-data nil)
+          (ogent-gastown--witness-data nil)
+          (ogent-gastown--hook-data nil)
+          (ogent-gastown--mail-data nil)
+          (ogent-gastown--convoy-data nil)
+          (ogent-gastown--rigs-data nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--workers-data nil)
+          (ogent-gastown--magit-section-available nil))
+      (ogent-gastown--insert-plain)
+      (let ((content (buffer-string)))
+        ;; All section headings should still appear
+        (should (string-match-p "Hook" content))
+        (should (string-match-p "Mail" content))
+        (should (string-match-p "Convoys" content))
+        (should (string-match-p "Workers" content))
+        (should (string-match-p "Crew" content))
+        (should (string-match-p "Polecats" content))
+        ;; Empty state indicators should appear
+        (should (string-match-p "No workers" content))
+        (should (string-match-p "No crew" content))
+        (should (string-match-p "No polecats" content))))))
+
+(ert-deftest ogent-gts-test-hook-section-plain-nil-data ()
+  "Test hook section renders empty state with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data nil))
+      (ogent-gastown--insert-hook-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Hook" content))
+        (should (string-match-p "No work hooked" content))))))
+
+(ert-deftest ogent-gts-test-mail-section-plain-nil-data ()
+  "Test mail section renders empty state with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data nil))
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Mail" content))
+        (should (string-match-p "No messages" content))))))
+
+(ert-deftest ogent-gts-test-crew-section-plain-nil-data ()
+  "Test crew section renders empty state with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data nil))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Crew" content))
+        (should (string-match-p "No crew" content))))))
+
+(ert-deftest ogent-gts-test-polecat-section-plain-nil-data ()
+  "Test polecat section renders empty state with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data nil))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Polecats" content))
+        (should (string-match-p "No polecats" content))))))
+
+(ert-deftest ogent-gts-test-rigs-section-plain-nil-data ()
+  "Test rigs section renders empty state with nil data."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data nil))
+      (ogent-gastown--insert-rigs-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Rigs" content))
+        (should (string-match-p "No rigs" content))))))
+
+;;; --- Rig Agent Role Icon Contract Tests ---
+
+(ert-deftest ogent-gts-test-rig-agent-role-icons-ops-style ()
+  "Test all role icons use ogent-ops-section-prefix consistently."
+  (let ((ogent-gastown-use-unicode t))
+    ;; Each role should produce its ops-style icon
+    (dolist (role-spec '(("witness"  "👁" "W")
+                         ("refinery" "⚙" "R")
+                         ("polecat"  "🐱" "P")
+                         ("crew"     "👤" "C")))
+      (let ((role (nth 0 role-spec))
+            (unicode (nth 1 role-spec))
+            (ascii (nth 2 role-spec)))
+        (with-temp-buffer
+          (ogent-gastown--insert-rig-agent
+           (list :name (format "test-%s" role) :role role
+                 :running nil :has_work nil :unread_mail 0))
+          (let ((content (buffer-string)))
+            (should (string-match-p
+                     (regexp-quote (ogent-ops-section-prefix unicode ascii))
+                     content))))))))
 
 (provide 'ogent-gastown-status-tests)
 
