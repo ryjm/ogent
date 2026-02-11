@@ -46,14 +46,11 @@ Captured at load time so sibling requires remain robust.")
 (declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
 (autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
 
-;; Gas Town integration (conditional)
-(declare-function ogent-gastown-integration-active-p "ogent-gastown" () t)
-(declare-function ogent-gastown-status "ogent-gastown-status" () t)
-(declare-function ogent-gastown-mail-compose "ogent-gastown-status"
-  (&optional initial-recipient initial-subject initial-body) t)
+;; Gas Town integration (soft dependency)
+(declare-function ogent-gastown-integration-active-p "ogent-gastown" nil)
+(declare-function ogent-gastown--run-async "ogent-gastown" (command args callback &optional error-callback raw-output))
 (autoload 'ogent-gastown-integration-active-p "ogent-gastown" nil nil)
-(autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
-(autoload 'ogent-gastown-mail-compose "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown--run-async "ogent-gastown" nil nil)
 
 ;;; Customization
 
@@ -439,45 +436,12 @@ The inherited `value' slot holds the issue plist.")))
     
     ;; Sync (like magit push/pull)
     (define-key map "S" #'ogent-issues-sync)
-
-    ;; Gas Town integration
-    (define-key map "T" #'ogent-issues-goto-gastown)
-    (define-key map "M" #'ogent-issues-sling-issue)
-
+    
     ;; Quit
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-issues-mode'.")
 
-
-;;; Gas Town Integration Commands
-
-(defun ogent-issues-goto-gastown ()
-  "Jump to the Gas Town status buffer.
-Requires Gas Town integration to be active."
-  (interactive)
-  (unless (and (fboundp 'ogent-gastown-integration-active-p)
-               (ogent-gastown-integration-active-p))
-    (user-error "Gas Town integration is not active"))
-  (ogent-gastown-status))
-
-(defun ogent-issues-sling-issue ()
-  "Compose a mail to an agent with the current issue context pre-filled.
-Pre-populates the subject with \"[ISSUE-ID] title\" and the body with
-the issue description.  Requires Gas Town integration to be active."
-  (interactive)
-  (unless (and (fboundp 'ogent-gastown-integration-active-p)
-               (ogent-gastown-integration-active-p))
-    (user-error "Gas Town integration is not active"))
-  (let* ((issue (ogent-issues--current-issue))
-         (id (when issue (plist-get issue :id)))
-         (title (when issue (plist-get issue :title)))
-         (desc (when issue (plist-get issue :description))))
-    (unless issue
-      (user-error "No issue at point"))
-    (ogent-gastown-mail-compose nil
-                                (format "[%s] %s" id title)
-                                (or desc ""))))
 
 
 ;;; Mode Definition
@@ -518,10 +482,6 @@ Views:
   \\[ogent-issues-view-list]    List view
   \\[ogent-issues-view-ready]    Ready work
   \\[ogent-issues-view-kanban]    Kanban board
-
-Gas Town (when active):
-  \\[ogent-issues-goto-gastown]     Jump to Gas Town status
-  \\[ogent-issues-sling-issue]     Sling issue to agent
 
 Other:
   \\[ogent-issues-refresh]     Refresh
@@ -1086,6 +1046,11 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
 (defvar-local ogent-issues-detail--issue nil
   "The issue being displayed in this detail buffer.")
 
+(defvar-local ogent-issues-detail--gastown-agents nil
+  "List of agents working on the current detail issue.
+Each element is a plist with :name, :type (\"crew\" or \"polecat\"),
+:rig, and :state.")
+
 (defun ogent-issues--show-detail (issue)
   "Show detailed view for ISSUE in a dedicated buffer.
 Renders immediately with available data for instant feedback.
@@ -1136,9 +1101,12 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
         (ogent-issues--insert-detail-description issue)
         (ogent-issues--insert-detail-subtasks issue)
         (ogent-issues--insert-detail-metadata issue)
+        (ogent-issues--insert-detail-gastown issue)
         (ogent-issues--insert-detail-dependencies issue)
         (ogent-issues--insert-detail-comments issue)
         (goto-char (point-min))
+        ;; Kick off async gastown agent fetch (will re-render when done)
+        (ogent-issues--fetch-gastown-agents (plist-get issue :id) buf)
         (setq header-line-format
               (concat
                " "
@@ -1234,6 +1202,117 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
                 labels))
       (insert "\n"))
     (insert "\n")))
+
+(defun ogent-issues--insert-detail-gastown (issue)
+  "Insert Gas Town agent assignment section for ISSUE.
+Shows which agents (crew/polecats) have this bead hooked.
+Only displayed when `ogent-gastown-integration-active-p' returns non-nil."
+  (when (and (fboundp 'ogent-gastown-integration-active-p)
+             (ogent-gastown-integration-active-p))
+    (let ((agents ogent-issues-detail--gastown-agents))
+      (insert (propertize "Gas Town" 'face 'ogent-issues-section-heading))
+      (insert "\n")
+      (cond
+       ;; Agents found for this bead
+       (agents
+        (dolist (agent agents)
+          (let* ((name (plist-get agent :name))
+                 (agent-type (plist-get agent :type))
+                 (rig (plist-get agent :rig))
+                 (state (plist-get agent :state))
+                 (running (plist-get agent :running))
+                 (icon (if running "●" "○"))
+                 (face (if running 'ogent-issues-status-in-progress
+                         'ogent-issues-dimmed)))
+            (insert (propertize "Assigned " 'face 'ogent-issues-dimmed))
+            (insert (propertize icon 'face face))
+            (insert " ")
+            (insert (propertize (or name "???") 'face face))
+            (when rig
+              (insert (propertize (format " (%s/%s)" agent-type rig)
+                                  'face 'ogent-issues-dimmed)))
+            (when (and state (not running))
+              (insert (propertize (format " [%s]" state)
+                                  'face 'ogent-issues-dimmed)))
+            (insert "\n"))))
+       ;; No agents - show minimal message
+       (t
+        (insert (propertize "         " 'face 'ogent-issues-dimmed))
+        (insert (propertize "No agent currently working on this issue"
+                            'face 'ogent-issues-dimmed))
+        (insert "\n")))
+      (insert "\n"))))
+
+(defun ogent-issues--fetch-gastown-agents (issue-id buffer)
+  "Fetch Gas Town agent data and update BUFFER with agents for ISSUE-ID.
+Fetches both crew and polecat lists, finds agents with this bead hooked,
+and re-renders the detail view."
+  (when (and (fboundp 'ogent-gastown--run-async)
+             (fboundp 'ogent-gastown-integration-active-p)
+             (ogent-gastown-integration-active-p))
+    (let* ((pending 2)
+           (crew-agents nil)
+           (polecat-agents nil)
+           (check-done
+            (lambda ()
+              (cl-decf pending)
+              (when (zerop pending)
+                (let ((all-agents (append crew-agents polecat-agents)))
+                  (when (buffer-live-p buffer)
+                    (with-current-buffer buffer
+                      (when (and ogent-issues-detail--issue
+                                 (equal (plist-get ogent-issues-detail--issue :id)
+                                        issue-id))
+                        ;; Only re-render if agent data changed
+                        (unless (equal ogent-issues-detail--gastown-agents all-agents)
+                          (setq ogent-issues-detail--gastown-agents all-agents)
+                          (let ((inhibit-read-only t)
+                                (pos (point)))
+                            (erase-buffer)
+                            (ogent-issues--insert-detail-header ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-description ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-subtasks ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-metadata ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-gastown ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-dependencies ogent-issues-detail--issue)
+                            (ogent-issues--insert-detail-comments ogent-issues-detail--issue)
+                            (goto-char (min pos (point-max)))))))))))))
+      ;; Fetch crew members
+      (ogent-gastown--run-async
+       "crew" '("list" "--json")
+       (lambda (result)
+         (when (listp result)
+           (dolist (member result)
+             (let ((hooked (plist-get member :hooked_work)))
+               (when (and hooked (stringp hooked)
+                          (string= hooked issue-id))
+                 (push (list :name (plist-get member :name)
+                             :type "crew"
+                             :rig (plist-get member :rig)
+                             :state nil
+                             :running (plist-get member :session_running))
+                       crew-agents)))))
+         (funcall check-done))
+       (lambda (_err) (funcall check-done)))
+      ;; Fetch polecats
+      (ogent-gastown--run-async
+       "polecat" '("list" "--all" "--json")
+       (lambda (result)
+         (when (listp result)
+           (dolist (polecat result)
+             (let ((hooked (or (plist-get polecat :issue)
+                               (plist-get polecat :hooked_work)
+                               (plist-get polecat :current_task))))
+               (when (and hooked (stringp hooked)
+                          (string= hooked issue-id))
+                 (push (list :name (plist-get polecat :name)
+                             :type "polecat"
+                             :rig (plist-get polecat :rig)
+                             :state (plist-get polecat :state)
+                             :running (plist-get polecat :session_running))
+                       polecat-agents)))))
+         (funcall check-done))
+       (lambda (_err) (funcall check-done))))))
 
 (defun ogent-issues--insert-detail-subtasks (issue)
   "Insert subtasks section for ISSUE (child issues)."
