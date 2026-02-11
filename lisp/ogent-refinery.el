@@ -829,69 +829,24 @@ MR is the merge request plist, STATUS-TYPE is the display context."
     (user-error "No merge request at point")))
 
 (defun ogent-refinery-merge ()
-  "Bump priority of MR at point to merge next.
-Sets the MR priority to P0 (critical) so it will be processed ahead of
-other items in the merge queue."
+  "Merge the MR at point.
+Sends the merge request to the refinery for immediate processing
+via `gt mq merge'."
   (interactive)
   (if-let ((mr (ogent-refinery--current-mr)))
       (let ((id (plist-get mr :id))
-            (current-priority (or (plist-get mr :priority) "P2")))
-        (when (yes-or-no-p (format "Bump %s from %s to P0 (merge next)? " id current-priority))
-          (message "Bumping priority of %s to P0..." id)
-          (ogent-refinery--run-priority-bump
-           id
-           (lambda ()
-             (message "Priority bumped: %s is now P0 (will merge next)" id)
+            (branch (or (plist-get mr :branch) (plist-get mr :name) "")))
+        (when (yes-or-no-p (format "Merge %s (%s)? " id branch))
+          (message "Merging: %s..." id)
+          (ogent-refinery--run-async
+           (list "mq" "merge" id)
+           (lambda (_)
+             (message "Merge initiated for %s" id)
              (ogent-refinery-cache-invalidate)
              (ogent-refinery-refresh))
            (lambda (err)
-             (message "Failed to bump priority: %s" err)))))
+             (message "Merge failed: %s" err)))))
     (user-error "No merge request at point")))
-
-(defun ogent-refinery--run-priority-bump (id callback &optional error-callback)
-  "Bump priority of MR ID to P0, call CALLBACK on success.
-ERROR-CALLBACK receives error message on failure."
-  (let* ((default-directory (expand-file-name "~/gt"))
-         (buffer (generate-new-buffer " *ogent-refinery-bd*"))
-         (stderr-buffer (generate-new-buffer " *ogent-refinery-bd-stderr*"))
-         (proc nil))
-    (setq proc
-          (make-process
-           :name "ogent-refinery-bd-priority"
-           :buffer buffer
-           :stderr stderr-buffer
-           :command (list "bd" "update" id "--priority" "0")
-           :sentinel
-           (lambda (process event)
-             (cond
-              ((string= event "finished\n")
-               (funcall callback)
-               (when (buffer-live-p (process-buffer process))
-                 (kill-buffer (process-buffer process)))
-               (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer)))
-
-              ((string-match "exited abnormally" event)
-               (let ((stderr-content
-                      (when (buffer-live-p stderr-buffer)
-                        (with-current-buffer stderr-buffer
-                          (string-trim (buffer-string))))))
-                 (if error-callback
-                     (funcall error-callback
-                              (or stderr-content
-                                  (format "bd update failed: %s" event)))
-                   (message "ogent-refinery bd error: %s" (or stderr-content event))))
-               (when (buffer-live-p (process-buffer process))
-                 (kill-buffer (process-buffer process)))
-               (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer)))
-
-              (t
-               (when (buffer-live-p (process-buffer process))
-                 (kill-buffer (process-buffer process)))
-               (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer)))))))
-    proc))
 
 (defun ogent-refinery-retry ()
   "Retry the failed MR at point."
