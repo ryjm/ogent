@@ -986,8 +986,12 @@
               'ogent-gastown-status-dispatch)))
 
 (ert-deftest ogent-gts-test-keybindings-hook ()
-  "Hook actions use magit-style bindings."
+  "Hook and rig cycle actions use expected bindings."
   (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "H"))
+              'ogent-gastown-cycle-rig-prev))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "L"))
+              'ogent-gastown-cycle-rig-next))
+  (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "o"))
               'ogent-gastown-hook-show))
   (should (eq (lookup-key ogent-gastown-status-mode-map (kbd "a"))
               'ogent-gastown-hook-attach)))
@@ -2965,13 +2969,13 @@
                      (funcall callback (list '(:id "m1" :from "a" :read nil))))
                     ((equal args '("convoy" "list" "--json"))
                      (funcall callback (list '(:id "c1" :name "test"))))
-                    ((equal args '("polecat" "list" "--all" "--json"))
+                    ((equal args '("polecat" "list" "r1" "--json"))
                      (funcall callback (list '(:name "w1" :state "working"))))
                     ((equal args '("status" "--json" "--fast"))
                      (funcall callback '(:summary (:rig_count 1)
                                          :agents ((:name "deacon" :running t))
                                          :rigs ((:name "r1" :has_witness t)))))
-                    ((equal args '("crew" "list" "--json"))
+                    ((equal args '("crew" "list" "--rig" "r1" "--json"))
                      (funcall callback (list '(:name "c1" :rig "r1"))))))))
         (ogent-gastown--fetch-all (lambda () (setq callback-called t)))
         (should callback-called)
@@ -4277,7 +4281,7 @@
         (should (member '("convoy" "list" "--json") captured-args))
         (should (member '("polecat" "list" "--all" "--json") captured-args))
         (should (member '("status" "--json" "--fast") captured-args))
-        (should (member '("crew" "list" "--json") captured-args))))))
+        (should (member '("crew" "list" "--all" "--json") captured-args))))))
 
 ;;; --- Crew/Polecat/Worker Payload Normalization Tests ---
 

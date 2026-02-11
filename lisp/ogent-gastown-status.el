@@ -452,6 +452,9 @@ Accepts both real gt output (:running) and canonical keys
 (defvar-local ogent-gastown--rigs-data nil
   "Cached rigs list data.")
 
+(defvar-local ogent-gastown--selected-rig nil
+  "Rig name currently selected for rig-scoped detail sections.")
+
 (defvar-local ogent-gastown--fetch-errors (make-hash-table :test 'eq)
   "Hash table mapping section keys to error messages.
 Keys are symbols like `hook', `mail', `convoy', `workers', `town-status',
@@ -760,7 +763,7 @@ Resolution order:
     (define-key map "M" #'ogent-gastown-mail-compose)
 
     ;; Hook actions
-    (define-key map "H" #'ogent-gastown-hook-show)
+    (define-key map "o" #'ogent-gastown-hook-show)
     (define-key map "a" #'ogent-gastown-hook-attach)
 
     ;; Convoy actions
@@ -779,6 +782,8 @@ Resolution order:
     (define-key map "P" #'ogent-gastown-polecat-status)
 
     ;; Rig actions
+    (define-key map "H" #'ogent-gastown-cycle-rig-prev)
+    (define-key map "L" #'ogent-gastown-cycle-rig-next)
     (define-key map "r" #'ogent-gastown-rig-status)
     (define-key map "f" #'ogent-gastown-refinery-status)
 
@@ -809,6 +814,8 @@ Navigation:
   \\[ogent-gastown-prev-item]     Move to previous item
   \\[ogent-gastown-next-section]   Move to next section
   \\[ogent-gastown-prev-section]   Move to previous section
+  \\[ogent-gastown-cycle-rig-prev]   Select previous rig
+  \\[ogent-gastown-cycle-rig-next]   Select next rig
   \\[ogent-gastown-visit]   Visit item details
   \\[ogent-gastown-toggle-section]   Toggle section visibility
   \\[ogent-gastown-cycle-sections]   Cycle all section visibility
@@ -922,12 +929,65 @@ Other:
      (propertize "WS:" 'face 'ogent-gastown-dimmed)
      (propertize workspace 'face 'ogent-gastown-rig-name))))
 
+(defun ogent-gastown--rig-names ()
+  "Return rig names from cached rig data."
+  (delq nil (mapcar (lambda (rig) (plist-get rig :name))
+                    ogent-gastown--rigs-data)))
+
+(defun ogent-gastown--sync-selected-rig ()
+  "Ensure `ogent-gastown--selected-rig' points to a valid rig.
+When unavailable, clear it; when unset, pick the first known rig."
+  (let ((rig-names (ogent-gastown--rig-names)))
+    (cond
+     ((null rig-names)
+      (setq ogent-gastown--selected-rig nil))
+     ((member ogent-gastown--selected-rig rig-names)
+      ogent-gastown--selected-rig)
+     (t
+      (setq ogent-gastown--selected-rig (car rig-names))))))
+
+(defun ogent-gastown--selected-rig-heading ()
+  "Return a formatted selected-rig heading suffix."
+  (if-let ((rig (ogent-gastown--sync-selected-rig)))
+      (format " [%s]" rig)
+    " [all rigs]"))
+
+(defun ogent-gastown--header-rig-segment ()
+  "Return selected rig segment for the header line, or nil."
+  (when-let ((rig (ogent-gastown--sync-selected-rig)))
+    (concat
+     (propertize "  " 'face 'ogent-gastown-dimmed)
+     (propertize "Rig:" 'face 'ogent-gastown-dimmed)
+     (propertize rig 'face 'ogent-gastown-rig-name)
+     (propertize " (H/L)" 'face 'ogent-gastown-dimmed))))
+
+(defun ogent-gastown--filter-items-for-selected-rig (items)
+  "Return ITEMS scoped to the selected rig when possible."
+  (if-let ((rig (ogent-gastown--sync-selected-rig)))
+      (seq-filter (lambda (item)
+                    (equal (plist-get item :rig) rig))
+                  items)
+    items))
+
+(defun ogent-gastown--crew-list-args (&optional rig-name)
+  "Return `gt crew list' args scoped to RIG-NAME when provided."
+  (if (and rig-name (not (string-empty-p rig-name)))
+      (list "crew" "list" "--rig" rig-name "--json")
+    '("crew" "list" "--all" "--json")))
+
+(defun ogent-gastown--polecat-list-args (&optional rig-name)
+  "Return `gt polecat list' args scoped to RIG-NAME when provided."
+  (if (and rig-name (not (string-empty-p rig-name)))
+      (list "polecat" "list" rig-name "--json")
+    '("polecat" "list" "--all" "--json")))
+
 ;;; Header Line
 
 (defun ogent-gastown--header-line ()
   "Generate header line for Gas Town buffer."
   (let ((loading-indicator (ogent-gastown--loading-indicator))
         (workspace-segment (ogent-gastown--header-workspace-segment))
+        (rig-segment (ogent-gastown--header-rig-segment))
         (mail-count (length (seq-filter
                              (lambda (m) (not (plist-get m :read)))
                              ogent-gastown--mail-data)))
@@ -938,6 +998,7 @@ Other:
      (propertize " " 'face 'ogent-gastown-header-line)
      (propertize "Gas Town" 'face 'ogent-gastown-header-line)
      (or workspace-segment "")
+     (or rig-segment "")
      (if loading-indicator
          (concat (propertize "  " 'face 'ogent-gastown-dimmed)
                  (propertize loading-indicator 'face 'ogent-gastown-hook-active)
@@ -994,7 +1055,8 @@ DEFERRED-CALLBACK runs after each deferred section update."
                     (setq ogent-gastown--witness-data
                           (ogent-gastown--extract-witnesses town-status))
                     (setq ogent-gastown--rigs-data
-                          (plist-get town-status :rigs)))
+                          (plist-get town-status :rigs))
+                    (ogent-gastown--sync-selected-rig))
                   ;; Keep the same hash table so deferred updates mutate in place.
                   (setq ogent-gastown--fetch-errors errors)
                   (funcall callback))))))
@@ -1018,7 +1080,35 @@ DEFERRED-CALLBACK runs after each deferred section update."
                          (ogent-gastown--normalize-convoy-list value))))
                 (setq ogent-gastown--fetch-errors errors)
                 (when deferred-callback
-                  (funcall deferred-callback slot value err)))))))
+                  (funcall deferred-callback slot value err))))))
+         (fetch-rig-scoped
+          (lambda (rig-name)
+            (ogent-gastown--run-async-cached
+             (ogent-gastown--crew-list-args rig-name)
+             (lambda (result)
+               (puthash 'crew result results)
+               (remhash 'crew errors)
+               (funcall check-core-done))
+             (lambda (err)
+               (puthash 'crew nil results)
+               (puthash 'crew err errors)
+               (funcall check-core-done)))
+
+            ;; Reuse polecat payload for workers and polecat sections.
+            (ogent-gastown--run-async-cached
+             (ogent-gastown--polecat-list-args rig-name)
+             (lambda (result)
+               (puthash 'workers result results)
+               (puthash 'polecat result results)
+               (remhash 'workers errors)
+               (remhash 'polecat errors)
+               (funcall check-core-done))
+             (lambda (err)
+               (puthash 'workers nil results)
+               (puthash 'polecat nil results)
+               (puthash 'workers err errors)
+               (puthash 'polecat err errors)
+               (funcall check-core-done))))))
 
     (setq ogent-gastown--hook-loading t
           ogent-gastown--mail-loading t
@@ -1034,37 +1124,22 @@ DEFERRED-CALLBACK runs after each deferred section update."
      (lambda (result)
        (puthash 'town-status result results)
        (remhash 'town-status errors)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           (setq ogent-gastown--rigs-data (plist-get result :rigs))
+           (ogent-gastown--sync-selected-rig)))
+       (let ((selected-rig (and (buffer-live-p buf)
+                                (with-current-buffer buf ogent-gastown--selected-rig))))
+         (funcall fetch-rig-scoped selected-rig))
        (funcall check-core-done))
      (lambda (err)
        (puthash 'town-status nil results)
        (puthash 'town-status err errors)
-       (funcall check-core-done)))
-
-    (ogent-gastown--run-async-cached
-     '("crew" "list" "--json")
-     (lambda (result)
-       (puthash 'crew result results)
-       (remhash 'crew errors)
-       (funcall check-core-done))
-     (lambda (err)
-       (puthash 'crew nil results)
-       (puthash 'crew err errors)
-       (funcall check-core-done)))
-
-    ;; Reuse all-polecats payload for workers and polecat sections.
-    (ogent-gastown--run-async-cached
-     '("polecat" "list" "--all" "--json")
-     (lambda (result)
-       (puthash 'workers result results)
-       (puthash 'polecat result results)
-       (remhash 'workers errors)
-       (remhash 'polecat errors)
-       (funcall check-core-done))
-     (lambda (err)
-       (puthash 'workers nil results)
-       (puthash 'polecat nil results)
-       (puthash 'workers err errors)
-       (puthash 'polecat err errors)
+       (let ((selected-rig (and (buffer-live-p buf)
+                                (with-current-buffer buf
+                                  (ogent-gastown--sync-selected-rig)
+                                  ogent-gastown--selected-rig))))
+         (funcall fetch-rig-scoped selected-rig))
        (funcall check-core-done)))
 
     ;; Deferred: load slower sections in the background.
@@ -1398,7 +1473,8 @@ CONVOY should be a normalized plist with canonical keys."
 
 (defun ogent-gastown--insert-workers-section ()
   "Insert workers overview section with magit-section."
-  (let ((workers ogent-gastown--workers-data)
+  (let ((workers (ogent-gastown--filter-items-for-selected-rig
+                  ogent-gastown--workers-data))
         (running-count 0))
     (dolist (w workers)
       (when (plist-get w :session_running)
@@ -1409,6 +1485,8 @@ CONVOY should be a normalized plist with canonical keys."
          (ogent-ops-section-symbol 'workers)
          " "
          (propertize "Workers" 'face 'ogent-gastown-section-heading)
+         (propertize (ogent-gastown--selected-rig-heading)
+                     'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d running)"
                              running-count (length workers))
                      'face 'ogent-gastown-dimmed)))
@@ -1416,18 +1494,13 @@ CONVOY should be a normalized plist with canonical keys."
        ((ogent-gastown--section-fetch-error 'workers)
         (ogent-gastown--insert-fetch-error 'workers))
        ((null workers)
-        (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed)))
+        (insert (propertize
+                 (format "  No workers for %s\n"
+                         (or (ogent-gastown--sync-selected-rig) "selected rig"))
+                 'face 'ogent-gastown-dimmed)))
        (t
-        ;; Group by rig
-        (let ((by-rig (seq-group-by (lambda (w) (plist-get w :rig)) workers)))
-          (dolist (rig-group by-rig)
-            (let ((rig (car rig-group))
-                  (rig-workers (cdr rig-group)))
-              (insert "  ")
-              (insert (propertize rig 'face 'ogent-gastown-section-heading))
-              (insert ":\n")
-              (dolist (worker rig-workers)
-                (ogent-gastown--insert-worker-item worker))))))))))
+        (dolist (worker workers)
+          (ogent-gastown--insert-worker-item worker)))))))
 
 (defun ogent-gastown--insert-worker-item (worker)
   "Insert a single WORKER as a line."
@@ -1456,21 +1529,27 @@ CONVOY should be a normalized plist with canonical keys."
 
 (defun ogent-gastown--insert-workers-section-plain ()
   "Insert workers section (plain)."
-  (let ((workers ogent-gastown--workers-data))
-    (insert (propertize "* Workers\n" 'face 'ogent-gastown-section-heading))
+  (let ((workers (ogent-gastown--filter-items-for-selected-rig
+                  ogent-gastown--workers-data)))
+    (insert (propertize
+             (format "* Workers%s\n" (ogent-gastown--selected-rig-heading))
+             'face 'ogent-gastown-section-heading))
     (cond
      ((ogent-gastown--section-fetch-error 'workers)
       (ogent-gastown--insert-fetch-error 'workers))
      ((null workers)
-      (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed)))
+      (insert (propertize
+               (format "  No workers for %s\n"
+                       (or (ogent-gastown--sync-selected-rig) "selected rig"))
+               'face 'ogent-gastown-dimmed)))
      (t
       (dolist (worker workers)
         (insert "  ")
-        (insert (plist-get worker :rig))
+        (insert (or (plist-get worker :rig) "???"))
         (insert "/")
-        (insert (plist-get worker :name))
+        (insert (or (plist-get worker :name) "???"))
         (insert " [")
-        (insert (plist-get worker :state))
+        (insert (or (plist-get worker :state) "unknown"))
         (insert "]\n"))))))
 
 ;;; Stats Section
@@ -1682,7 +1761,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 
 (defun ogent-gastown--insert-crew-section ()
   "Insert crew status section with magit-section."
-  (let ((crew ogent-gastown--crew-data)
+  (let ((crew (ogent-gastown--filter-items-for-selected-rig
+               ogent-gastown--crew-data))
         (active-count 0))
     (dolist (member crew)
       (when (plist-get member :session_running)
@@ -1693,6 +1773,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (ogent-ops-section-symbol 'crew)
          " "
          (propertize "Crew" 'face 'ogent-gastown-section-heading)
+         (propertize (ogent-gastown--selected-rig-heading)
+                     'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d active)"
                              active-count (length crew))
                      'face 'ogent-gastown-dimmed)))
@@ -1700,18 +1782,13 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
        ((ogent-gastown--section-fetch-error 'crew)
         (ogent-gastown--insert-fetch-error 'crew))
        ((null crew)
-        (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed)))
+        (insert (propertize
+                 (format "  No crew members for %s\n"
+                         (or (ogent-gastown--sync-selected-rig) "selected rig"))
+                 'face 'ogent-gastown-dimmed)))
        (t
-        ;; Group by rig
-        (let ((by-rig (seq-group-by (lambda (m) (plist-get m :rig)) crew)))
-          (dolist (rig-group by-rig)
-            (let ((rig (car rig-group))
-                  (rig-crew (cdr rig-group)))
-              (insert "  ")
-              (insert (propertize (or rig "unknown") 'face 'ogent-gastown-section-heading))
-              (insert ":\n")
-              (dolist (member rig-crew)
-                (ogent-gastown--insert-crew-item member))))))))))
+        (dolist (member crew)
+          (ogent-gastown--insert-crew-item member)))))))
 
 (defun ogent-gastown--insert-crew-item (member)
   "Insert a single crew MEMBER as a line."
@@ -1756,13 +1833,19 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 
 (defun ogent-gastown--insert-crew-section-plain ()
   "Insert crew section (plain)."
-  (let ((crew ogent-gastown--crew-data))
-    (insert (propertize "C Crew\n" 'face 'ogent-gastown-section-heading))
+  (let ((crew (ogent-gastown--filter-items-for-selected-rig
+               ogent-gastown--crew-data)))
+    (insert (propertize
+             (format "C Crew%s\n" (ogent-gastown--selected-rig-heading))
+             'face 'ogent-gastown-section-heading))
     (cond
      ((ogent-gastown--section-fetch-error 'crew)
       (ogent-gastown--insert-fetch-error 'crew))
      ((null crew)
-      (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed)))
+      (insert (propertize
+               (format "  No crew members for %s\n"
+                       (or (ogent-gastown--sync-selected-rig) "selected rig"))
+               'face 'ogent-gastown-dimmed)))
      (t
       (dolist (member crew)
         (insert "  ")
@@ -1777,7 +1860,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 
 (defun ogent-gastown--insert-polecat-section ()
   "Insert polecat status section with magit-section."
-  (let ((polecats ogent-gastown--polecat-data)
+  (let ((polecats (ogent-gastown--filter-items-for-selected-rig
+                   ogent-gastown--polecat-data))
         (running-count 0))
     (dolist (p polecats)
       (when (plist-get p :session_running)
@@ -1788,6 +1872,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (ogent-ops-section-symbol 'polecats)
          " "
          (propertize "Polecats" 'face 'ogent-gastown-section-heading)
+         (propertize (ogent-gastown--selected-rig-heading)
+                     'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d running)"
                              running-count (length polecats))
                      'face 'ogent-gastown-dimmed)))
@@ -1795,18 +1881,13 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
        ((ogent-gastown--section-fetch-error 'polecat)
         (ogent-gastown--insert-fetch-error 'polecat))
        ((null polecats)
-        (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed)))
+        (insert (propertize
+                 (format "  No polecats for %s\n"
+                         (or (ogent-gastown--sync-selected-rig) "selected rig"))
+                 'face 'ogent-gastown-dimmed)))
        (t
-        ;; Group by rig
-        (let ((by-rig (seq-group-by (lambda (p) (plist-get p :rig)) polecats)))
-          (dolist (rig-group by-rig)
-            (let ((rig (car rig-group))
-                  (rig-polecats (cdr rig-group)))
-              (insert "  ")
-              (insert (propertize (or rig "unknown") 'face 'ogent-gastown-section-heading))
-              (insert ":\n")
-              (dolist (polecat rig-polecats)
-                (ogent-gastown--insert-polecat-item polecat))))))))))
+        (dolist (polecat polecats)
+          (ogent-gastown--insert-polecat-item polecat)))))))
 
 (defun ogent-gastown--insert-polecat-item (polecat)
   "Insert a single POLECAT as a line."
@@ -1855,13 +1936,19 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 
 (defun ogent-gastown--insert-polecat-section-plain ()
   "Insert polecat section (plain)."
-  (let ((polecats ogent-gastown--polecat-data))
-    (insert (propertize "P Polecats\n" 'face 'ogent-gastown-section-heading))
+  (let ((polecats (ogent-gastown--filter-items-for-selected-rig
+                   ogent-gastown--polecat-data)))
+    (insert (propertize
+             (format "P Polecats%s\n" (ogent-gastown--selected-rig-heading))
+             'face 'ogent-gastown-section-heading))
     (cond
      ((ogent-gastown--section-fetch-error 'polecat)
       (ogent-gastown--insert-fetch-error 'polecat))
      ((null polecats)
-      (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed)))
+      (insert (propertize
+               (format "  No polecats for %s\n"
+                       (or (ogent-gastown--sync-selected-rig) "selected rig"))
+               'face 'ogent-gastown-dimmed)))
      (t
       (dolist (polecat polecats)
         (insert "  ")
@@ -2088,6 +2175,37 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
   (interactive)
   (when ogent-gastown--magit-section-available
     (magit-section-backward-sibling)))
+
+(defun ogent-gastown--cycle-rig (delta)
+  "Move selected rig by DELTA and refresh the status buffer."
+  (let* ((rigs (ogent-gastown--rig-names))
+         (count (length rigs)))
+    (cond
+     ((zerop count)
+      (user-error "No rigs available"))
+     ((= count 1)
+      (setq ogent-gastown--selected-rig (car rigs))
+      (message "Only one rig available: %s" ogent-gastown--selected-rig))
+     (t
+      (let* ((current (or (ogent-gastown--sync-selected-rig) (car rigs)))
+             (idx (or (cl-position current rigs :test #'string=) 0))
+             (next-idx (mod (+ idx delta) count)))
+        (setq ogent-gastown--selected-rig (nth next-idx rigs))
+        (message "Selected rig: %s (%d/%d)"
+                 ogent-gastown--selected-rig
+                 (1+ next-idx)
+                 count))))
+    (ogent-gastown-refresh)))
+
+(defun ogent-gastown-cycle-rig-prev ()
+  "Select the previous rig and refresh scoped sections."
+  (interactive)
+  (ogent-gastown--cycle-rig -1))
+
+(defun ogent-gastown-cycle-rig-next ()
+  "Select the next rig and refresh scoped sections."
+  (interactive)
+  (ogent-gastown--cycle-rig 1))
 
 (defun ogent-gastown-up-section ()
   "Move to the parent section."
@@ -2335,13 +2453,16 @@ prompts with `completing-read' from the current convoy list."
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-crew-item-section)
-                         (plist-get (oref section value) :name))))))
+                         (plist-get (oref section value) :name)))))
+        (rig-name (ogent-gastown--sync-selected-rig)))
     (if crew-name
         (ogent-gastown-status--run-shell-command
          (list "crew" "status" crew-name)
          "*gt crew*")
       (ogent-gastown-status--run-shell-command
-       '("crew" "list")
+       (if rig-name
+           (list "crew" "list" "--rig" rig-name)
+         '("crew" "list" "--all"))
        "*gt crew*"))))
 
 (defun ogent-gastown-polecat-status ()
@@ -2351,13 +2472,16 @@ prompts with `completing-read' from the current convoy list."
                         (let ((section (magit-current-section)))
                           (when (eq (eieio-object-class-name section)
                                     'ogent-gastown-polecat-item-section)
-                            (plist-get (oref section value) :name))))))
+                            (plist-get (oref section value) :name)))))
+        (rig-name (ogent-gastown--sync-selected-rig)))
     (if polecat-name
         (ogent-gastown-status--run-shell-command
          (list "polecat" "status" polecat-name)
          "*gt polecat*")
       (ogent-gastown-status--run-shell-command
-       '("polecat" "list")
+       (if rig-name
+           (list "polecat" "list" rig-name)
+         '("polecat" "list" "--all"))
        "*gt polecat*"))))
 
 (defun ogent-gastown-rig-status ()
@@ -2466,7 +2590,8 @@ Displays available keybindings and actions."
     (message
      (concat
       "n/p:item  M-n/M-p:section  TAB:toggle  "
-      "g:refresh  m:mail  h:hook  c:convoy  "
+      "g:refresh  m:mail  o:hook  c:convoy  "
+      "H/L:cycle-rig  "
       "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit"
       "  Workspace:" workspace
       "  Reopen from a town directory or set GT_ROOT/GT_TOWN"))))
@@ -2540,6 +2665,8 @@ convoys, crew members, and polecats."
       (with-current-buffer buf
         (unless (eq major-mode 'ogent-gastown-status-mode)
           (ogent-gastown-status-mode))
+        (unless (equal ogent-gastown--town-root workspace-dir)
+          (setq-local ogent-gastown--selected-rig nil))
         (setq-local ogent-gastown--town-root workspace-dir)
         (setq-local default-directory workspace-dir)
         (ogent-gastown-refresh))
