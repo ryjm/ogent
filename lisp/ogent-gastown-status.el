@@ -31,6 +31,9 @@
 (autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
 
+;; Load ogent-convoy for convoy inspector navigation
+(autoload 'ogent-convoy-inspect "ogent-convoy" nil t)
+
 ;; Declare magit functions to avoid byte-compile warnings
 (declare-function magit-insert-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -679,7 +682,7 @@ Hook:
   \\[ogent-gastown-hook-attach]     Attach work to hook
 
 Convoy:
-  \\[ogent-gastown-convoy-status]     Show convoy status
+  \\[ogent-gastown-convoy-status]     Inspect convoy
   \\[ogent-gastown-convoy-create]     Create new convoy
 
 Status:
@@ -1810,11 +1813,20 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
     (message "Section cycling requires magit-section")))
 
 (defun ogent-gastown-visit ()
-  "Visit the item at point."
+  "Visit the item at point.
+On convoy items, opens the convoy inspector.
+On mail items, reads the message.
+On other sections, toggles visibility."
   (interactive)
   (when ogent-gastown--magit-section-available
     (let ((section (magit-current-section)))
       (cond
+       ((eq (eieio-object-class-name section) 'ogent-gastown-convoy-item-section)
+        (let* ((convoy (oref section value))
+               (id (plist-get convoy :id)))
+          (if id
+              (ogent-convoy-inspect id (ogent-gastown--active-workspace-root))
+            (user-error "No convoy ID at point"))))
        ((eq (eieio-object-class-name section) 'ogent-gastown-mail-item-section)
         (let* ((msg (oref section value))
                (id (plist-get msg :id)))
@@ -1952,20 +1964,30 @@ pre-fills that recipient."
      t)))
 
 (defun ogent-gastown-convoy-status ()
-  "Show convoy status."
+  "Inspect convoy at point, or prompt for a convoy ID.
+Opens the dedicated convoy inspector buffer.  When point is on a
+convoy item section, inspects that convoy directly.  Otherwise,
+prompts with `completing-read' from the current convoy list."
   (interactive)
   (let ((convoy-id (when ogent-gastown--magit-section-available
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-convoy-item-section)
                          (plist-get (oref section value) :id))))))
-    (if convoy-id
-        (ogent-gastown-status--run-shell-command
-         (list "convoy" "status" convoy-id)
-         "*gt convoy*")
-      (ogent-gastown-status--run-shell-command
-       '("convoy" "list")
-       "*gt convoy*"))))
+    (unless convoy-id
+      (let ((candidates (mapcar (lambda (c)
+                                  (let ((id (plist-get c :id))
+                                        (title (plist-get c :title)))
+                                    (cons (format "%s  %s" (or id "?") (or title ""))
+                                          id)))
+                                ogent-gastown--convoy-data)))
+        (if candidates
+            (let ((choice (completing-read "Inspect convoy: " candidates nil t)))
+              (setq convoy-id (cdr (assoc choice candidates))))
+          (setq convoy-id (read-string "Convoy ID: ")))))
+    (if (and convoy-id (not (string-empty-p convoy-id)))
+        (ogent-convoy-inspect convoy-id (ogent-gastown--active-workspace-root))
+      (user-error "No convoy specified"))))
 
 (defun ogent-gastown-convoy-create ()
   "Create a new convoy."
