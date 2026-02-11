@@ -463,11 +463,17 @@ Invalid face symbols are ignored and default faces are used."
 
 (defun ogent-gastown--compose-section-heading (section title &rest suffixes)
   "Compose a Magit section heading for SECTION using TITLE and SUFFIXES."
-  (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
-    (concat (ogent-ops-section-symbol section)
-            " "
-            (ogent-gastown--section-heading section title)
-            (apply #'concat (delq nil suffixes)))))
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (heading-face (ogent-gastown--section-heading-face section))
+         (heading
+          (concat (ogent-ops-section-symbol section)
+                  " "
+                  (ogent-gastown--section-heading section title)
+                  (apply #'concat (delq nil suffixes)))))
+    ;; Keep one background treatment across the full heading line while
+    ;; preserving any suffix-specific faces (e.g., dimmed counters).
+    (add-face-text-property 0 (length heading) heading-face 'append heading)
+    heading))
 
 (defun ogent-gastown--compose-plain-section-heading (section title &optional suffix)
   "Compose a plain-mode heading line for SECTION and TITLE with SUFFIX."
