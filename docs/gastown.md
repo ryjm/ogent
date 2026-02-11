@@ -28,9 +28,9 @@ Gas Town integration requires:
 To verify your setup:
 
 ```bash
-which gt     # Should return path to gt executable
-which bd     # Should return path to bd executable
-gt status    # Should show town status (run from town root)
+which gt                    # Should return path to gt executable
+which bd                    # Should return path to bd executable
+gt status --json --fast     # Fast town snapshot (run from town root)
 ```
 
 ## Quick Start
@@ -111,12 +111,38 @@ Opens a magit-style buffer showing:
 - Current hook status
 - Unread mail count
 - Active convoy progress
-- Worker states (polecats)
+- Rig details with inline beads stats (ready/in-progress/blocked counts)
+- Worker states (polecats and crew)
 - Active workspace indicator (`WS:<path>`) in the header line
 
 The buffer is interactive - press `TAB` to expand sections, `RET` to act on items.
 The workspace indicator is intentionally strict. If you need to retarget, reopen
 status from the desired town directory (or set `GT_ROOT`/`GT_TOWN` first).
+
+#### Fetch Architecture
+
+The status buffer runs six parallel async fetches on every refresh:
+
+| Section | Command | Data |
+|---------|---------|------|
+| Hook | `gt hook --json` | Current hook assignment |
+| Mail | `gt mail inbox --json` | Inbox messages |
+| Convoy | `gt convoy list --json` | Active convoys |
+| Workers | `gt polecat list --all --json` | Polecat states |
+| Town Status | `gt status --json --fast` | Rig list, beads stats, deacon, witnesses |
+| Crew | `gt crew list --json` | Crew worker list |
+
+The town status fetch uses `--fast` by default. The `--fast` flag skips expensive
+operations (overseer mail counts, hook discovery per-rig, merge queue summaries)
+while keeping the data needed for the status buffer display. Rig-level details like
+beads stats come from preloaded agent beads rather than per-rig lookups.
+
+Each fetch is independent. If one fails (timeout or error), the others continue and
+the buffer still renders the sections that succeeded. Failed sections display
+placeholder text (e.g., "No messages", "No work hooked") rather than error messages.
+The default timeout is 30 seconds per fetch.
+
+Use `g` to refresh and `G` to force-refresh (clears cache first).
 
 ### Mail Commands
 
@@ -265,14 +291,79 @@ Globally enables `ogent-gastown-mode` in all buffers. Add to your config:
 3. If working across multiple towns, set `GT_ROOT` or `GT_TOWN` before opening status
 4. Check that the town structure exists (`.beads/` directories)
 
-### Status buffer empty
+### Status buffer empty or showing placeholder text
 
-**Problem:** Status buffer shows no data.
+**Problem:** Status buffer shows "No work hooked", "No messages", or other placeholder
+text where you expect real data.
+
+This can mean either (a) the data genuinely doesn't exist, or (b) the underlying
+fetch failed silently. The status buffer converts fetch failures to `nil`, which
+renders the same placeholder text as legitimately empty data.
+
+**Diagnosing:**
+
+1. Test each fetch command individually in a terminal to isolate which one is failing:
+
+   ```bash
+   # Fast town snapshot (rig list, stats, deacon, witnesses)
+   timeout 12 gt status --json --fast
+
+   # Hook status
+   timeout 12 gt hook --json
+
+   # Mail inbox
+   timeout 12 gt mail inbox --json
+
+   # Convoy list
+   timeout 12 gt convoy list --json
+
+   # Worker list
+   timeout 12 gt polecat list --all --json
+
+   # Crew list
+   timeout 12 gt crew list --json
+   ```
+
+2. If a command hangs (no output before timeout), it's likely blocking on a
+   slow operation. The status buffer uses a 30-second timeout (configurable via
+   `ogent-gastown-timeout`).
+
+3. If a command returns an error or invalid JSON, the status buffer silently
+   drops that section's data.
+
+4. Check `*Messages*` in Emacs for any process-level errors.
+
+**Quick fix:** Run `ogent-gastown-refresh` (`g` in the status buffer) to retry
+all fetches. Use `ogent-gastown-refresh-force` (`G`) to also clear the cache.
+
+### Diagnosing stalled gt commands
+
+**Problem:** A `gt` subcommand hangs or takes too long, causing status sections
+to appear empty.
 
 **Solution:**
-1. Run `ogent-gastown-prime` to sync state
-2. Check `gt status` works in terminal
-3. Verify you're in the correct rig
+
+1. Compare fast vs regular status to isolate the slow path:
+
+   ```bash
+   time timeout 12 gt status --json --fast   # Should be quick
+   time timeout 12 gt status --json          # Includes expensive lookups
+   ```
+
+   If `--fast` works but regular doesn't, the bottleneck is in mail lookups,
+   hook discovery, or merge queue summaries (all skipped by `--fast`).
+
+2. Test individual section commands (see list above) to find which one hangs.
+
+3. Check for workspace issues:
+
+   ```bash
+   gt doctor        # Run health checks
+   gt whoami        # Verify identity resolution
+   ```
+
+4. If `gt status --json --fast` itself fails, verify you're running from
+   within a valid town directory or that `GT_ROOT`/`GT_TOWN` is set correctly.
 
 ### Mail not sending
 
