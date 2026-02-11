@@ -46,7 +46,7 @@ Captured at load time so sibling requires remain robust.")
 (declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
 (autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
 
-;; Gas Town integration (conditional)
+;; Gas Town integration (soft dependency)
 (declare-function ogent-gastown-integration-active-p "ogent-gastown" () t)
 (declare-function ogent-gastown-status "ogent-gastown-status" () t)
 (declare-function ogent-gastown-mail-compose "ogent-gastown-status"

@@ -4409,6 +4409,224 @@
                      (regexp-quote (ogent-ops-section-prefix unicode ascii))
                      content))))))))
 
+;;; Fetch Error Tests
+
+(ert-deftest ogent-gts-test-fetch-error-face-exists ()
+  "Test that the fetch error face is defined."
+  (should (facep 'ogent-gastown-fetch-error)))
+
+(ert-deftest ogent-gts-test-section-fetch-error-returns-error ()
+  "Test section-fetch-error returns error message for failed section."
+  (with-temp-buffer
+    (let ((ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'mail "connection refused" ogent-gastown--fetch-errors)
+      (should (equal "connection refused"
+                     (ogent-gastown--section-fetch-error 'mail)))
+      (should-not (ogent-gastown--section-fetch-error 'hook)))))
+
+(ert-deftest ogent-gts-test-insert-fetch-error-renders-message ()
+  "Test insert-fetch-error inserts a formatted error line."
+  (with-temp-buffer
+    (let ((ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'convoy "timeout" ogent-gastown--fetch-errors)
+      (should (ogent-gastown--insert-fetch-error 'convoy))
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed: timeout" content))))))
+
+(ert-deftest ogent-gts-test-insert-fetch-error-returns-nil-no-error ()
+  "Test insert-fetch-error returns nil when no error exists."
+  (with-temp-buffer
+    (let ((ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (should-not (ogent-gastown--insert-fetch-error 'convoy))
+      (should (string-empty-p (buffer-string))))))
+
+(ert-deftest ogent-gts-test-mail-section-plain-shows-fetch-error ()
+  "Test mail plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'mail "gt command failed: exited abnormally" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Mail Inbox" content))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No messages" content))))))
+
+(ert-deftest ogent-gts-test-mail-section-plain-no-error-shows-empty ()
+  "Test mail plain section shows empty message when no data and no error."
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "No messages" content))
+        (should-not (string-match-p "Fetch failed" content))))))
+
+(ert-deftest ogent-gts-test-convoy-section-plain-shows-fetch-error ()
+  "Test convoy plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--convoy-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'convoy "timeout" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-convoy-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No convoys" content))))))
+
+(ert-deftest ogent-gts-test-workers-section-plain-shows-fetch-error ()
+  "Test workers plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--workers-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'workers "permission denied" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-workers-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No workers" content))))))
+
+(ert-deftest ogent-gts-test-stats-section-plain-shows-fetch-error ()
+  "Test stats plain section shows error when town-status fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'town-status "no such command" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-stats-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No stats" content))))))
+
+(ert-deftest ogent-gts-test-deacon-section-plain-shows-fetch-error ()
+  "Test deacon plain section shows error when town-status fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--deacon-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'town-status "connection refused" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-deacon-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "Status:" content))))))
+
+(ert-deftest ogent-gts-test-witness-section-plain-shows-fetch-error ()
+  "Test witness plain section shows error when town-status fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--witness-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'town-status "gt not found" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-witness-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No rig data" content))))))
+
+(ert-deftest ogent-gts-test-crew-section-plain-shows-fetch-error ()
+  "Test crew plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'crew "parse error" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No crew" content))))))
+
+(ert-deftest ogent-gts-test-polecat-section-plain-shows-fetch-error ()
+  "Test polecat plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'polecat "JSON parse error: unexpected eof" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No polecats" content))))))
+
+(ert-deftest ogent-gts-test-rigs-section-plain-shows-fetch-error ()
+  "Test rigs plain section shows error when town-status fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'town-status "command not found" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-rigs-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))
+        (should-not (string-match-p "No rigs" content))))))
+
+(ert-deftest ogent-gts-test-hook-section-plain-shows-fetch-error ()
+  "Test hook plain section shows error when fetch failed."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data nil)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'hook "gt hook failed" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-hook-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Fetch failed:" content))))))
+
+(ert-deftest ogent-gts-test-successful-fetch-clears-errors ()
+  "Test that a successful fetch doesn't show errors from prior cycle."
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data ogent-gts-test--sample-mail)
+          (ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      ;; No error in hash for mail - simulates successful fetch
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should-not (string-match-p "Fetch failed" content))
+        (should (string-match-p "witness" content))))))
+
+(ert-deftest ogent-gts-test-fetch-error-hash-table-initially-empty ()
+  "Test that fetch errors hash table starts empty."
+  (with-temp-buffer
+    (ogent-gastown-status-mode)
+    (should (hash-table-p ogent-gastown--fetch-errors))
+    (should (= 0 (hash-table-count ogent-gastown--fetch-errors)))))
+
+(ert-deftest ogent-gts-test-all-plain-sections-render-with-errors ()
+  "Test that insert-plain renders all sections with fetch errors."
+  (with-temp-buffer
+    (let ((ogent-gastown--fetch-errors (make-hash-table :test 'eq))
+          (ogent-gastown--hook-data nil)
+          (ogent-gastown--mail-data nil)
+          (ogent-gastown--convoy-data nil)
+          (ogent-gastown--workers-data nil)
+          (ogent-gastown--stats-data nil)
+          (ogent-gastown--deacon-data nil)
+          (ogent-gastown--witness-data nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--rigs-data nil)
+          (ogent-gastown--magit-section-available nil))
+      (puthash 'hook "err1" ogent-gastown--fetch-errors)
+      (puthash 'mail "err2" ogent-gastown--fetch-errors)
+      (puthash 'convoy "err3" ogent-gastown--fetch-errors)
+      (puthash 'workers "err4" ogent-gastown--fetch-errors)
+      (puthash 'town-status "err5" ogent-gastown--fetch-errors)
+      (puthash 'crew "err6" ogent-gastown--fetch-errors)
+      (puthash 'polecat "err7" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-plain)
+      (let ((content (buffer-string)))
+        ;; All sections should show fetch errors, not empty-state messages
+        (should (string-match-p "Fetch failed: err1" content))
+        (should (string-match-p "Fetch failed: err2" content))
+        (should (string-match-p "Fetch failed: err3" content))
+        (should (string-match-p "Fetch failed: err4" content))
+        (should (string-match-p "Fetch failed: err5" content))
+        (should (string-match-p "Fetch failed: err6" content))
+        (should (string-match-p "Fetch failed: err7" content))
+        ;; None of the empty-state messages should appear
+        (should-not (string-match-p "No messages" content))
+        (should-not (string-match-p "No convoys" content))
+        (should-not (string-match-p "No workers" content))
+        (should-not (string-match-p "No polecats" content))))))
+
+(ert-deftest ogent-gts-test-fetch-error-uses-correct-face ()
+  "Test that fetch error text uses the ogent-gastown-fetch-error face."
+  (with-temp-buffer
+    (let ((ogent-gastown--fetch-errors (make-hash-table :test 'eq)))
+      (puthash 'mail "test error" ogent-gastown--fetch-errors)
+      (ogent-gastown--insert-fetch-error 'mail)
+      (goto-char (point-min))
+      (search-forward "Fetch failed")
+      (should (eq (get-text-property (1- (point)) 'face)
+                  'ogent-gastown-fetch-error)))))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here
