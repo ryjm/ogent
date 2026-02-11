@@ -853,12 +853,17 @@
        '(:name "worker" :role "crew" :running t :has_work t :unread_mail 5))
       (let ((content (buffer-string)))
         (should (string-match-p "worker" content))
-        ;; Hook indicator via ops-style helper
-        (should (string-match-p (regexp-quote (ogent-ops-section-prefix "⚓" "H"))
-                                content))
-        ;; Mail indicator via ops-style helper
+        ;; Hook indicator via ops badge helper.
+        (should (string-match-p
+                 (regexp-quote
+                  (let ((ogent-ops-use-unicode t))
+                    (ogent-ops-badge-symbol 'hook)))
+                 content))
+        ;; Mail indicator via ops badge helper.
         (should (string-match-p (regexp-quote
-                                 (format "%s5" (ogent-ops-section-prefix "📬" "M:")))
+                                 (format "%s5"
+                                         (let ((ogent-ops-use-unicode t))
+                                           (ogent-ops-badge-symbol 'mail))))
                                 content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-unknown-role ()
@@ -910,7 +915,7 @@
       (let ((content (buffer-string)))
         (should (string-match-p
                  (regexp-quote (let ((ogent-ops-use-unicode t))
-                                 (ogent-ops-section-prefix "👁" "W")))
+                                 (ogent-ops-role-symbol 'witness)))
                  content))))))
 
 (ert-deftest ogent-gts-test-ascii-icons ()
@@ -1625,7 +1630,7 @@
           (start-loading-called nil)
           (stop-loading-called nil))
       (cl-letf (((symbol-function 'ogent-gastown--fetch-all)
-                 (lambda (callback)
+                 (lambda (callback &optional _deferred-callback)
                    (setq fetch-called t)
                    ;; Simulate immediate callback
                    (funcall callback)))
@@ -1702,6 +1707,7 @@
   "Test fetch-all calls callback after all fetches complete."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (callback-called nil)
           (call-count 0))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
@@ -1720,6 +1726,7 @@
   "Test fetch-all handles errors gracefully and still calls callback."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (callback-called nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (_args _callback &optional error-callback _raw)
@@ -1736,6 +1743,7 @@
   "Test fetch-all extracts stats, deacon, witnesses from town-status."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (callback-called nil)
           (ogent-gastown--stats-data nil)
           (ogent-gastown--deacon-data nil)
@@ -1798,7 +1806,8 @@
        '(:name "polecat1" :role "polecat" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p
-                 (regexp-quote (ogent-ops-section-prefix "🐱" "P"))
+                 (regexp-quote (let ((ogent-ops-use-unicode t))
+                                 (ogent-ops-role-symbol 'polecat)))
                  content))
         (should (string-match-p "polecat1" content))))))
 
@@ -1812,11 +1821,15 @@
         (should (string-match-p "clean" content))
         ;; No hook indicator
         (should-not (string-match-p
-                     (regexp-quote (ogent-ops-section-prefix "⚓" "H"))
+                     (regexp-quote
+                      (let ((ogent-ops-use-unicode t))
+                        (ogent-ops-badge-symbol 'hook)))
                      content))
         ;; No mail indicator
         (should-not (string-match-p
-                     (regexp-quote (ogent-ops-section-prefix "📬" "M:"))
+                     (regexp-quote
+                      (let ((ogent-ops-use-unicode t))
+                        (ogent-ops-badge-symbol 'mail)))
                      content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-ascii-hook ()
@@ -2364,7 +2377,11 @@
       (ogent-gastown--insert-rig-agent
        '(:name "dev1" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👤" content))))))
+        (should (string-match-p
+                 (regexp-quote
+                  (let ((ogent-ops-use-unicode t))
+                    (ogent-ops-role-symbol 'crew)))
+                 content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-refinery-unicode ()
   "Test rig agent uses refinery unicode icon."
@@ -2373,7 +2390,11 @@
       (ogent-gastown--insert-rig-agent
        '(:name "ref1" :role "refinery" :running nil :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "⚙" content))))))
+        (should (string-match-p
+                 (regexp-quote
+                  (let ((ogent-ops-use-unicode t))
+                    (ogent-ops-role-symbol 'refinery)))
+                 content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-nil-name ()
   "Test rig agent with nil name renders ???."
@@ -2586,7 +2607,7 @@
                 (ogent-gastown--loading-timer nil)
                 (ogent-gastown--loading-frame 0))
             (cl-letf (((symbol-function 'ogent-gastown--fetch-all)
-                       (lambda (callback)
+                       (lambda (callback &optional _deferred-callback)
                          (funcall callback)))
                       ((symbol-function 'ogent-gastown--start-loading)
                        #'ignore)
@@ -4211,6 +4232,7 @@
   "Test fetch-all uses --fast flag for town status."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw)
@@ -4226,6 +4248,7 @@
   "Test fetch-all uses --all flag for polecat list."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw)
@@ -4241,6 +4264,7 @@
   "Test fetch-all dispatches exactly 6 commands with correct args."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw)
@@ -4350,6 +4374,7 @@
   "Test fetch-all populates data for successful fetches, nil for failures."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
           (ogent-gastown--hook-data nil)
           (ogent-gastown--mail-data nil)
           (ogent-gastown--convoy-data nil)
@@ -4459,23 +4484,23 @@
 ;;; --- Rig Agent Role Icon Contract Tests ---
 
 (ert-deftest ogent-gts-test-rig-agent-role-icons-ops-style ()
-  "Test all role icons use ogent-ops-section-prefix consistently."
+  "Test all role icons use `ogent-ops-role-symbol' consistently."
   (let ((ogent-gastown-use-unicode t))
-    ;; Each role should produce its ops-style icon
-    (dolist (role-spec '(("witness"  "👁" "W")
-                         ("refinery" "⚙" "R")
-                         ("polecat"  "🐱" "P")
-                         ("crew"     "👤" "C")))
-      (let ((role (nth 0 role-spec))
-            (unicode (nth 1 role-spec))
-            (ascii (nth 2 role-spec)))
+    ;; Each role should render through the role-symbol helper.
+    (dolist (role-spec '((witness "witness")
+                         (refinery "refinery")
+                         (polecat "polecat")
+                         (crew "crew")))
+      (let ((role-key (nth 0 role-spec))
+            (role-name (nth 1 role-spec)))
         (with-temp-buffer
           (ogent-gastown--insert-rig-agent
-           (list :name (format "test-%s" role) :role role
+           (list :name (format "test-%s" role-name) :role role-name
                  :running nil :has_work nil :unread_mail 0))
           (let ((content (buffer-string)))
             (should (string-match-p
-                     (regexp-quote (ogent-ops-section-prefix unicode ascii))
+                     (regexp-quote (let ((ogent-ops-use-unicode t))
+                                     (ogent-ops-role-symbol role-key)))
                      content))))))))
 
 ;;; Fetch Error Tests
