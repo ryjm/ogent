@@ -1336,6 +1336,241 @@
     (should (string-match-p "out" result))
     (should (string-match-p "err" result))))
 
+;;; ================================================================
+;;; Streaming Edge Case Tests
+;;; ================================================================
+
+;;; --- Stream Output Edge Cases ---
+
+(ert-deftest ogent-tools-stream-output-empty-data ()
+  "Stream output with empty string data does not alter counters."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 10 :lines 2 :start-time (current-time)))
+        (ogent-tools-stream-callback nil))
+    (ogent-tools--stream-output 'test 'stdout "")
+    (should (equal 10 (plist-get ogent-tools--progress-state :bytes)))
+    (should (equal 2 (plist-get ogent-tools--progress-state :lines)))))
+
+(ert-deftest ogent-tools-stream-output-only-newlines ()
+  "Stream output with only newlines counts lines but minimal bytes."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (ogent-tools-stream-callback nil))
+    (ogent-tools--stream-output 'test 'stdout "\n\n\n")
+    (should (equal 3 (plist-get ogent-tools--progress-state :bytes)))
+    (should (equal 3 (plist-get ogent-tools--progress-state :lines)))))
+
+(ert-deftest ogent-tools-stream-output-callback-receives-empty-data ()
+  "Stream output callback is called even with empty data."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (captured-data nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool _type data)
+             (setq captured-data data))))
+      (ogent-tools--stream-output 'test 'stdout "")
+      (should (equal "" captured-data)))))
+
+(ert-deftest ogent-tools-stream-output-large-chunk ()
+  "Stream output handles a very large data chunk."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (ogent-tools-stream-callback nil)
+        (big-data (concat (make-string 100000 ?x) "\n")))
+    (ogent-tools--stream-output 'test 'stdout big-data)
+    (should (equal 100001 (plist-get ogent-tools--progress-state :bytes)))
+    (should (equal 1 (plist-get ogent-tools--progress-state :lines)))))
+
+;;; --- Stream Start Edge Cases ---
+
+(ert-deftest ogent-tools-stream-start-info-plist-passed ()
+  "Stream start passes info plist to callback."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools--progress-timer nil)
+        (captured-data nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool _type data)
+             (setq captured-data data))))
+      (ogent-tools--stream-start 'grep (list :pattern "test" :directory "/tmp"))
+      (should (equal "test" (plist-get captured-data :pattern)))
+      (should (equal "/tmp" (plist-get captured-data :directory))))
+    (setq ogent-tools--progress-state nil)))
+
+(ert-deftest ogent-tools-stream-start-nil-info ()
+  "Stream start with nil info does not crash callback."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools--progress-timer nil)
+        (callback-called nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool type _data)
+             (setq callback-called type))))
+      (ogent-tools--stream-start 'test nil)
+      (should (equal 'start callback-called)))
+    (setq ogent-tools--progress-state nil)))
+
+(ert-deftest ogent-tools-stream-start-resets-counters ()
+  "Stream start resets byte and line counters from prior state."
+  (let ((ogent-tools--progress-state
+         (list :tool 'old :bytes 999 :lines 50 :start-time (current-time)))
+        (ogent-tools-show-progress nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-stream-callback nil))
+    (ogent-tools--stream-start 'new-tool)
+    (should (equal 0 (plist-get ogent-tools--progress-state :bytes)))
+    (should (equal 0 (plist-get ogent-tools--progress-state :lines)))
+    (should (equal 'new-tool (plist-get ogent-tools--progress-state :tool)))
+    (setq ogent-tools--progress-state nil)))
+
+;;; --- Rapid Lifecycle Tests ---
+
+(ert-deftest ogent-tools-stream-rapid-start-done-cycle ()
+  "Rapid stream start/done cycle leaves clean state."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil))
+    ;; Rapidly cycle start/done 5 times
+    (dotimes (_ 5)
+      (ogent-tools--stream-start 'rapid-tool)
+      (ogent-tools--stream-done 'rapid-tool 0))
+    ;; State should be clean after all cycles
+    (should-not ogent-tools--progress-state)
+    (should-not ogent-tools--progress-timer)))
+
+(ert-deftest ogent-tools-stream-start-done-with-output ()
+  "Full lifecycle: start, multiple outputs, done - state is clean."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress nil)
+        (events nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (tool type _data)
+             (push (list tool type) events))))
+      (ogent-tools--stream-start 'lifecycle-test)
+      (ogent-tools--stream-output 'lifecycle-test 'stdout "line1\n")
+      (ogent-tools--stream-output 'lifecycle-test 'stderr "warn\n")
+      (ogent-tools--stream-output 'lifecycle-test 'stdout "line2\n")
+      (ogent-tools--stream-done 'lifecycle-test 0)
+      ;; Verify all events were emitted
+      (should (cl-find '(lifecycle-test start) events :test #'equal))
+      (should (cl-find '(lifecycle-test done) events :test #'equal))
+      ;; 2 stdout + 1 stderr = 3 output events
+      (should (= 2 (cl-count 'stdout events :key #'cadr)))
+      (should (= 1 (cl-count 'stderr events :key #'cadr)))
+      ;; State should be clean
+      (should-not ogent-tools--progress-state))))
+
+(ert-deftest ogent-tools-stream-start-error-cycle ()
+  "Lifecycle: start, output, error - state is clean."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (events nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (tool type _data)
+             (push (list tool type) events))))
+      (ogent-tools--stream-start 'error-test)
+      (ogent-tools--stream-output 'error-test 'stdout "partial\n")
+      (ogent-tools--stream-error 'error-test "segfault")
+      ;; Should have start, stdout, and error events
+      (should (cl-find '(error-test start) events :test #'equal))
+      (should (cl-find '(error-test error) events :test #'equal))
+      ;; State should be clean
+      (should-not ogent-tools--progress-state))))
+
+;;; --- Stream Error Edge Cases ---
+
+(ert-deftest ogent-tools-stream-error-nil-callback ()
+  "Stream error with nil callback does not crash."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-stream-callback nil))
+    ;; Should not error
+    (ogent-tools--stream-error 'test "some error")
+    (should-not ogent-tools--progress-state)))
+
+(ert-deftest ogent-tools-stream-error-nil-state-nil-callback ()
+  "Stream error with nil state and nil callback does not crash."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-stream-callback nil))
+    ;; Should not error even with everything nil
+    (ogent-tools--stream-error 'test "error with nil state")))
+
+(ert-deftest ogent-tools-stream-error-preserves-message ()
+  "Stream error callback receives the exact error message."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (captured-msg nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool _type data)
+             (setq captured-msg data))))
+      (ogent-tools--stream-error 'test "exact error message: code 42")
+      (should (equal "exact error message: code 42" captured-msg)))))
+
+;;; --- Stream Done Edge Cases ---
+
+(ert-deftest ogent-tools-stream-done-non-zero-exit ()
+  "Stream done with non-zero exit code propagates to callback."
+  (let ((ogent-tools--progress-state
+         (list :tool 'bash :bytes 0 :lines 0 :start-time (current-time)))
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress nil)
+        (captured nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool _type data)
+             (setq captured data))))
+      (ogent-tools--stream-done 'bash 127)
+      (should (equal 127 (plist-get captured :exit-code))))))
+
+(ert-deftest ogent-tools-stream-done-message-includes-tool-name ()
+  "Stream done message includes the tool name when show-progress is on."
+  (let ((ogent-tools--progress-state
+         (list :tool 'my-tool :bytes 0 :lines 0 :start-time (current-time)))
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress t)
+        (ogent-tools-stream-callback nil)
+        (last-message nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq last-message (apply #'format fmt args)))))
+      (ogent-tools--stream-done 'my-tool 1)
+      (should (string-match-p "my-tool" last-message))
+      (should (string-match-p "exit 1" last-message)))))
+
+;;; --- Progress Update Edge Cases ---
+
+(ert-deftest ogent-tools-progress-update-spinner-wraps ()
+  "Progress update spinner wraps around after cycling through all frames."
+  (let ((ogent-tools-show-progress t)
+        (ogent-tools--spinner-index 0)
+        (ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (frame-count (length ogent-tools--spinner-frames)))
+    (cl-letf (((symbol-function 'message) (lambda (&rest _) nil)))
+      ;; Cycle through all frames + 1 more
+      (dotimes (_ (1+ frame-count))
+        (ogent-tools--progress-update))
+      ;; Should wrap to 1 (0 + frame-count+1 mod frame-count = 1)
+      (should (equal 1 ogent-tools--spinner-index)))))
+
+(ert-deftest ogent-tools-progress-update-includes-elapsed-time ()
+  "Progress update message includes elapsed time."
+  (let ((ogent-tools-show-progress t)
+        (ogent-tools--spinner-index 0)
+        (ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0
+               :start-time (time-subtract (current-time) 5)))
+        (last-message nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq last-message (apply #'format fmt args)))))
+      (ogent-tools--progress-update)
+      ;; Should show approximately 5.0s
+      (should (string-match-p "[45]\\." last-message)))))
+
 (provide 'ogent-tools-tests)
 
 ;;; ogent-tools-tests.el ends here
