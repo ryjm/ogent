@@ -3753,6 +3753,118 @@
         (should (string-match-p "rig2/b" content))
         (should (string-match-p "rig3/c" content))))))
 
+;;; --- Beads Stats Detail (Expandable Rig Sub-section) ---
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-nil ()
+  "Test beads detail does nothing when stats are nil."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail nil)
+    (should (string= "" (buffer-string)))))
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-all-zeros ()
+  "Test beads detail does nothing when all counts are zero."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail
+     '(:ready 0 :in_progress 0 :blocked 0 :open 0 :closed 0 :total 0))
+    (should (string= "" (buffer-string)))))
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-with-data ()
+  "Test beads detail renders non-zero counts."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail
+     '(:ready 3 :in_progress 2 :blocked 1 :open 5 :closed 10 :total 21))
+    (let ((content (buffer-string)))
+      (should (string-match-p "Beads:" content))
+      (should (string-match-p "Ready" content))
+      (should (string-match-p "3" content))
+      (should (string-match-p "In Progress" content))
+      (should (string-match-p "2" content))
+      (should (string-match-p "Blocked" content))
+      (should (string-match-p "1" content))
+      (should (string-match-p "Total" content))
+      (should (string-match-p "21" content)))))
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-skips-zero-lines ()
+  "Test beads detail skips lines where value is zero."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail
+     '(:ready 5 :in_progress 0 :blocked 0 :open 0 :closed 0 :total 5))
+    (let ((content (buffer-string)))
+      (should (string-match-p "Ready" content))
+      (should-not (string-match-p "In Progress" content))
+      (should-not (string-match-p "Blocked" content)))))
+
+(ert-deftest ogent-gts-test-insert-rig-beads-detail-total-fallback ()
+  "Test beads detail shows when total is missing but other counts > 0."
+  (with-temp-buffer
+    (ogent-gastown--insert-rig-beads-detail
+     '(:ready 2 :in_progress 1 :open 3))
+    (let ((content (buffer-string)))
+      (should (string-match-p "Beads:" content))
+      (should (string-match-p "Ready" content)))))
+
+;;; --- Aggregate Beads Stats ---
+
+(ert-deftest ogent-gts-test-aggregate-beads-stats-nil-rigs ()
+  "Test aggregate returns nil when no rigs data."
+  (let ((ogent-gastown--rigs-data nil))
+    (should (null (ogent-gastown--aggregate-beads-stats)))))
+
+(ert-deftest ogent-gts-test-aggregate-beads-stats-no-beads ()
+  "Test aggregate returns nil when rigs have no beads_stats."
+  (let ((ogent-gastown--rigs-data
+         (list '(:name "rig1" :polecat_count 1)
+               '(:name "rig2" :polecat_count 2))))
+    (should (null (ogent-gastown--aggregate-beads-stats)))))
+
+(ert-deftest ogent-gts-test-aggregate-beads-stats-sums-correctly ()
+  "Test aggregate sums beads stats across rigs."
+  (let ((ogent-gastown--rigs-data
+         (list '(:name "rig1" :beads_stats (:ready 3 :in_progress 2 :open 5))
+               '(:name "rig2" :beads_stats (:ready 1 :in_progress 0 :open 2))
+               '(:name "rig3"))))
+    (let ((agg (ogent-gastown--aggregate-beads-stats)))
+      (should agg)
+      (should (= 4 (plist-get agg :ready)))
+      (should (= 2 (plist-get agg :in_progress)))
+      (should (= 7 (plist-get agg :open))))))
+
+(ert-deftest ogent-gts-test-aggregate-beads-stats-all-zeros ()
+  "Test aggregate returns nil when all sums are zero."
+  (let ((ogent-gastown--rigs-data
+         (list '(:name "rig1" :beads_stats (:ready 0 :in_progress 0 :open 0)))))
+    (should (null (ogent-gastown--aggregate-beads-stats)))))
+
+;;; --- Stats Section with Beads Aggregates ---
+
+(ert-deftest ogent-gts-test-stats-section-plain-with-beads ()
+  "Test plain stats section includes aggregate beads line."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data
+           '(:rig_count 2 :polecat_count 3 :crew_count 1
+             :witness_count 2 :refinery_count 1 :active_hooks 1))
+          (ogent-gastown--rigs-data
+           (list '(:name "rig1" :beads_stats (:ready 5 :in_progress 2 :open 3))
+                 '(:name "rig2" :beads_stats (:ready 1 :in_progress 1 :open 0)))))
+      (ogent-gastown--insert-stats-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Rigs: 2" content))
+        (should (string-match-p "+Ready: 6" content))
+        (should (string-match-p "\\*Active: 3" content))))))
+
+(ert-deftest ogent-gts-test-stats-section-plain-no-beads ()
+  "Test plain stats section omits beads line when no beads data."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data
+           '(:rig_count 1 :polecat_count 1 :crew_count 0
+             :witness_count 0 :refinery_count 0 :active_hooks 0))
+          (ogent-gastown--rigs-data
+           (list '(:name "rig1"))))
+      (ogent-gastown--insert-stats-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Rigs: 1" content))
+        (should-not (string-match-p "Ready" content))))))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here
