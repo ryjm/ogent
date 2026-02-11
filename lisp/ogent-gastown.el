@@ -587,35 +587,43 @@ This syncs beads and submits to the merge queue."
 
 ;;;###autoload
 (defun ogent-gastown-show-convoy ()
-  "Show convoy status in a buffer."
+  "Show convoy status, delegating to the convoy inspector.
+When the Gas Town status buffer is available, uses
+`ogent-gastown-convoy-status' which opens the magit-style convoy
+inspector.  Falls back to a plain listing buffer when the status
+buffer infrastructure is unavailable."
   (interactive)
-  (ogent-gastown-convoy-refresh
-   (lambda (convoys)
-     (let ((buf (get-buffer-create "*Gas Town Convoys*")))
-       (with-current-buffer buf
-         (let ((inhibit-read-only t))
-           (erase-buffer)
-           (insert (propertize "Active Convoys\n" 'face 'ogent-gastown-section-heading))
-           (insert (make-string 40 ?=) "\n\n")
-           (if (null convoys)
-               (insert "No active convoys.\n")
-             (dolist (c convoys)
-               (let ((id (plist-get c :id))
-                     (name (plist-get c :name))
-                     (status (plist-get c :status))
-                     (progress (plist-get c :progress)))
-                 (insert (propertize (or id "?") 'face 'ogent-gastown-id))
-                 (insert " ")
-                 (insert (propertize (or name "unnamed") 'face 'ogent-gastown-convoy-active))
-                 (insert " [")
-                 (insert (or status "unknown"))
-                 (insert "]")
-                 (when progress
-                   (insert (format " %d%%" progress)))
-                 (insert "\n"))))
-           (goto-char (point-min))
-           (view-mode 1)))
-       (display-buffer buf)))))
+  (if (fboundp 'ogent-gastown-convoy-status)
+      (call-interactively #'ogent-gastown-convoy-status)
+    ;; Plain fallback for environments without the status buffer.
+    (ogent-gastown-convoy-refresh
+     (lambda (convoys)
+       (let ((buf (get-buffer-create "*Gas Town Convoys*")))
+         (with-current-buffer buf
+           (let ((inhibit-read-only t))
+             (erase-buffer)
+             (insert (propertize "Active Convoys\n" 'face 'ogent-gastown-section-heading))
+             (insert (make-string 40 ?=) "\n\n")
+             (if (null convoys)
+                 (insert "No active convoys.\n")
+               (dolist (c convoys)
+                 (let ((id (plist-get c :id))
+                       (name (or (plist-get c :title)
+                                 (plist-get c :name)))
+                       (status (plist-get c :status))
+                       (progress (plist-get c :progress)))
+                   (insert (propertize (or id "?") 'face 'ogent-gastown-id))
+                   (insert " ")
+                   (insert (propertize (or name "unnamed") 'face 'ogent-gastown-convoy-active))
+                   (insert " [")
+                   (insert (or status "unknown"))
+                   (insert "]")
+                   (when progress
+                     (insert (format " %d%%" progress)))
+                   (insert "\n"))))
+             (goto-char (point-min))
+             (view-mode 1)))
+         (display-buffer buf))))))
 
 ;;; Mail Mode
 
@@ -1013,7 +1021,7 @@ If CALLBACK is provided, call it with the issues list when done."
     ("M" "Refresh mail" ogent-gastown-mail-refresh)]
 
    ["Convoy"
-    ("v" "Show convoys" ogent-gastown-show-convoy)
+    ("v" "Inspect convoy" ogent-gastown-show-convoy)
     ("V" "Refresh convoys" ogent-gastown-convoy-refresh)]
 
    ["Beads"
