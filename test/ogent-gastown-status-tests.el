@@ -2477,15 +2477,21 @@
 ;;; Convoy Status Tests (without magit)
 
 (ert-deftest ogent-gts-test-convoy-status-no-magit-lists ()
-  "Test convoy-status lists all convoys when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
+  "Test convoy-status uses completing-read when magit unavailable."
+  (let ((inspected-id nil))
+    (cl-letf (((symbol-function 'ogent-convoy-inspect)
+               (lambda (id &optional _root)
+                 (setq inspected-id id)))
+              ((symbol-function 'ogent-gastown--active-workspace-root)
+               (lambda () "/tmp/test"))
+              ((symbol-function 'completing-read)
+               (lambda (_prompt candidates &rest _)
+                 (caar candidates))))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--convoy-data
+             (list '(:id "c1" :title "Test convoy"))))
         (ogent-gastown-convoy-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt convoy list" (caar commands)))))))
+        (should (equal inspected-id "c1"))))))
 
 ;;; Mail Read Tests (without magit)
 
@@ -3427,15 +3433,19 @@
 ;;; --- Convoy Status with Explicit ID ---
 
 (ert-deftest ogent-gts-test-convoy-status-without-id ()
-  "Test convoy-status runs convoy list when no specific convoy."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
+  "Test convoy-status prompts for ID when no convoys available."
+  (let ((inspected-id nil))
+    (cl-letf (((symbol-function 'ogent-convoy-inspect)
+               (lambda (id &optional _root)
+                 (setq inspected-id id)))
+              ((symbol-function 'ogent-gastown--active-workspace-root)
+               (lambda () "/tmp/test"))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "manual-convoy")))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--convoy-data nil))
         (ogent-gastown-convoy-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "convoy list" (caar commands)))))))
+        (should (equal inspected-id "manual-convoy"))))))
 
 ;;; --- Visit Bead Error Path ---
 
