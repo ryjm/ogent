@@ -2599,6 +2599,74 @@
       (goto-char (point-min))
       (should (equal test-issue (ogent-issues--current-issue))))))
 
+;;; Gas Town Integration Tests
+
+(ert-deftest ogent-issues-test-goto-gastown-defined ()
+  "Test that ogent-issues-goto-gastown is defined."
+  (should (fboundp 'ogent-issues-goto-gastown)))
+
+(ert-deftest ogent-issues-test-sling-issue-defined ()
+  "Test that ogent-issues-sling-issue is defined."
+  (should (fboundp 'ogent-issues-sling-issue)))
+
+(ert-deftest ogent-issues-test-goto-gastown-errors-without-integration ()
+  "Test that goto-gastown errors when integration is not active."
+  (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+             (lambda () nil)))
+    (should-error (ogent-issues-goto-gastown) :type 'user-error)))
+
+(ert-deftest ogent-issues-test-sling-issue-errors-without-integration ()
+  "Test that sling-issue errors when integration is not active."
+  (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+             (lambda () nil)))
+    (should-error (ogent-issues-sling-issue) :type 'user-error)))
+
+(ert-deftest ogent-issues-test-sling-issue-errors-without-issue ()
+  "Test that sling-issue errors when no issue at point."
+  (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+             (lambda () t))
+            ((symbol-function 'ogent-issues--current-issue)
+             (lambda () nil)))
+    (should-error (ogent-issues-sling-issue) :type 'user-error)))
+
+(ert-deftest ogent-issues-test-sling-issue-calls-mail-compose ()
+  "Test that sling-issue calls mail-compose with correct context."
+  (let (compose-args)
+    (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+               (lambda () t))
+              ((symbol-function 'ogent-issues--current-issue)
+               (lambda () '(:id "test-99" :title "Fix the bug" :description "Details here")))
+              ((symbol-function 'ogent-gastown-mail-compose)
+               (lambda (&optional recipient subject body)
+                 (setq compose-args (list recipient subject body)))))
+      (ogent-issues-sling-issue)
+      (should (equal compose-args
+                     '(nil "[test-99] Fix the bug" "Details here"))))))
+
+(ert-deftest ogent-issues-test-sling-issue-nil-description ()
+  "Test that sling-issue handles nil description gracefully."
+  (let (compose-args)
+    (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+               (lambda () t))
+              ((symbol-function 'ogent-issues--current-issue)
+               (lambda () '(:id "test-100" :title "No desc" :description nil)))
+              ((symbol-function 'ogent-gastown-mail-compose)
+               (lambda (&optional recipient subject body)
+                 (setq compose-args (list recipient subject body)))))
+      (ogent-issues-sling-issue)
+      (should (equal compose-args
+                     '(nil "[test-100] No desc" ""))))))
+
+(ert-deftest ogent-issues-test-keymap-T-bound ()
+  "Test that T is bound to ogent-issues-goto-gastown."
+  (should (eq (lookup-key ogent-issues-mode-map "T")
+              'ogent-issues-goto-gastown)))
+
+(ert-deftest ogent-issues-test-keymap-M-bound ()
+  "Test that M is bound to ogent-issues-sling-issue."
+  (should (eq (lookup-key ogent-issues-mode-map "M")
+              'ogent-issues-sling-issue)))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here
