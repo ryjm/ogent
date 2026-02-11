@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'eieio)
 (require 'json)
+(require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section
 (eval-and-compile
@@ -662,10 +663,7 @@ Other:
 
 ;;; Loading Animation
 
-(defconst ogent-gastown--loading-frames
-  (if (display-graphic-p)
-      '("" "" "" "")
-    '("|" "/" "-" "\\"))
+(defconst ogent-gastown--loading-frames (ogent-ops-loading-frames)
   "Animation frames for loading spinner.")
 
 (defun ogent-gastown--start-loading ()
@@ -963,9 +961,8 @@ Other:
          (next-action (plist-get data :next_action)))
     (magit-insert-section (ogent-gastown-hook-section data)
       (magit-insert-heading
-        (concat
-         (if ogent-gastown-use-unicode "" "#")
-         " "
+        (ogent-ops-section-heading
+         (ogent-ops-section-prefix "" "#")
          (propertize "Hook Status" 'face 'ogent-gastown-section-heading)))
       (insert "  ")
       (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
@@ -1007,7 +1004,7 @@ Other:
     (magit-insert-section (ogent-gastown-mail-section mail nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "" "@")
+         (ogent-ops-section-prefix "" "@")
          " "
          (propertize "Mail Inbox" 'face 'ogent-gastown-section-heading)
          (when (> unread-count 0)
@@ -1068,7 +1065,7 @@ Other:
     (magit-insert-section (ogent-gastown-convoy-section convoys nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "" ">")
+         (ogent-ops-section-prefix "" ">")
          " "
          (propertize "Convoys" 'face 'ogent-gastown-section-heading)
          (when convoys
@@ -1121,7 +1118,7 @@ Other:
     (magit-insert-section (ogent-gastown-workers-section workers nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "" "*")
+         (ogent-ops-section-prefix "" "*")
          " "
          (propertize "Workers" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d running)"
@@ -1149,10 +1146,11 @@ Other:
                       (running 'ogent-gastown-worker-running)
                       ((string= state "working") 'ogent-gastown-worker-working)
                       (t 'ogent-gastown-worker-done)))
-         (icon (cond
-                (running (if ogent-gastown-use-unicode "" ">"))
-                ((string= state "working") (if ogent-gastown-use-unicode "" "*"))
-                (t (if ogent-gastown-use-unicode "" "-")))))
+         (icon (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+                 (cond
+                  (running (ogent-ops-activity-symbol 'active))
+                  ((string= state "working") (ogent-ops-activity-symbol 'working))
+                  (t (ogent-ops-activity-symbol 'idle))))))
     (insert "    ")
     (insert (propertize icon 'face state-face))
     (insert " ")
@@ -1187,7 +1185,7 @@ Other:
     (magit-insert-section (ogent-gastown-stats-section stats)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "📊" "#")
+         (ogent-ops-section-prefix "📊" "#")
          " "
          (propertize "Town Stats" 'face 'ogent-gastown-section-heading)))
       (if (null stats)
@@ -1238,7 +1236,7 @@ Other:
     (magit-insert-section (ogent-gastown-deacon-section data)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "👁" "D")
+         (ogent-ops-section-prefix "👁" "D")
          " "
          (propertize "Deacon" 'face 'ogent-gastown-section-heading)
          " "
@@ -1280,7 +1278,7 @@ Other:
     (magit-insert-section (ogent-gastown-witness-section witnesses nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "🔭" "W")
+         (ogent-ops-section-prefix "🔭" "W")
          " "
          (propertize "Witnesses" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d active)"
@@ -1297,9 +1295,10 @@ Other:
          (has-witness (plist-get witness :has_witness))
          (polecat-count (or (plist-get witness :polecat_count) 0))
          (crew-count (or (plist-get witness :crew_count) 0))
-         (icon (if has-witness
-                   (if ogent-gastown-use-unicode "●" "+")
-                 (if ogent-gastown-use-unicode "○" "-")))
+         (icon (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+                 (if has-witness
+                     (ogent-ops-activity-symbol 'active)
+                   (ogent-ops-activity-symbol 'idle))))
          (face (if has-witness
                    'ogent-gastown-witness-healthy
                  'ogent-gastown-witness-unhealthy)))
@@ -1341,7 +1340,7 @@ Other:
     (magit-insert-section (ogent-gastown-crew-section crew nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "👤" "C")
+         (ogent-ops-section-prefix "👤" "C")
          " "
          (propertize "Crew" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d active)"
@@ -1369,9 +1368,10 @@ Other:
          (running (plist-get member :session_running))
          (mail-count (plist-get member :unread_mail))
          (state-face (if running 'ogent-gastown-crew-active 'ogent-gastown-crew-idle))
-         (icon (if running
-                   (if ogent-gastown-use-unicode "●" ">")
-                 (if ogent-gastown-use-unicode "○" "-"))))
+         (icon (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+                 (if running
+                     (ogent-ops-activity-symbol 'active)
+                   (ogent-ops-activity-symbol 'idle)))))
     (magit-insert-section (ogent-gastown-crew-item-section member)
       (insert "    ")
       (insert (propertize icon 'face state-face))
@@ -1427,7 +1427,7 @@ Other:
     (magit-insert-section (ogent-gastown-polecat-section polecats nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "🔧" "P")
+         (ogent-ops-section-prefix "🔧" "P")
          " "
          (propertize "Polecats" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d running)"
@@ -1458,10 +1458,11 @@ Other:
                       (running 'ogent-gastown-polecat-active)
                       ((string= state "working") 'ogent-gastown-worker-working)
                       (t 'ogent-gastown-polecat-idle)))
-         (icon (cond
-                (running (if ogent-gastown-use-unicode "●" ">"))
-                ((string= state "working") (if ogent-gastown-use-unicode "◐" "*"))
-                (t (if ogent-gastown-use-unicode "○" "-")))))
+         (icon (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+                 (cond
+                  (running (ogent-ops-activity-symbol 'active))
+                  ((string= state "working") (ogent-ops-activity-symbol 'working))
+                  (t (ogent-ops-activity-symbol 'idle))))))
     (magit-insert-section (ogent-gastown-polecat-item-section polecat)
       (insert "    ")
       (insert (propertize icon 'face state-face))
@@ -1516,7 +1517,7 @@ Other:
     (magit-insert-section (ogent-gastown-rigs-section rigs nil)
       (magit-insert-heading
         (concat
-         (if ogent-gastown-use-unicode "🏭" "R")
+         (ogent-ops-section-prefix "🏭" "R")
          " "
          (propertize "Rigs" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d)" (length rigs))
@@ -1563,10 +1564,10 @@ Other:
          (has-work (plist-get agent :has_work))
          (unread (or (plist-get agent :unread_mail) 0))
          (role-icon (pcase role
-                      ("witness" (if ogent-gastown-use-unicode "👁" "W"))
-                      ("refinery" (if ogent-gastown-use-unicode "⚙" "R"))
-                      ("polecat" (if ogent-gastown-use-unicode "🐱" "P"))
-                      ("crew" (if ogent-gastown-use-unicode "👤" "C"))
+                      ("witness" (ogent-ops-section-prefix "👁" "W"))
+                      ("refinery" (ogent-ops-section-prefix "⚙" "R"))
+                      ("polecat" (ogent-ops-section-prefix "🐱" "P"))
+                      ("crew" (ogent-ops-section-prefix "👤" "C"))
                       (_ "?"))))
     (insert "    ")
     (insert role-icon)
@@ -1575,11 +1576,11 @@ Other:
                         'face (if running 'ogent-gastown-worker-running 'ogent-gastown-dimmed)))
     (when has-work
       (insert " ")
-      (insert (propertize (if ogent-gastown-use-unicode "⚓" "H") 'face 'ogent-gastown-hook-active)))
+      (insert (propertize (ogent-ops-section-prefix "⚓" "H") 'face 'ogent-gastown-hook-active)))
     (when (> unread 0)
       (insert " ")
       (insert (propertize (format "%s%d"
-                                  (if ogent-gastown-use-unicode "📬" "M:")
+                                  (ogent-ops-section-prefix "📬" "M:")
                                   unread)
                           'face 'ogent-gastown-mail-unread)))
     (insert "\n")))
