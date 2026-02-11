@@ -857,5 +857,128 @@
     (should (search-forward "* Response 2" nil t))
     (should (search-forward "Second answer" nil t))))
 
+;;; Streaming Edge Case Tests for ogent-ask callback
+
+(ert-deftest ogent-ask-callback-completes-on-final-marker ()
+  "ogent-ask callback should handle :final completion marker."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback "Complete " nil)
+        (funcall callback "via final" nil)
+        (funcall callback nil '(:final t))
+        (should (equal displayed "Complete via final"))))))
+
+(ert-deftest ogent-ask-callback-completes-on-status-success ()
+  "ogent-ask callback should handle :status \"success\" completion marker."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback "Status " nil)
+        (funcall callback "success" nil)
+        (funcall callback nil '(:status "success"))
+        (should (equal displayed "Status success"))))))
+
+(ert-deftest ogent-ask-callback-non-streaming-completion ()
+  "ogent-ask callback should detect non-streaming completion (text + nil info)."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming nil)  ; Non-streaming mode
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        ;; Non-streaming: single response, info is nil
+        (funcall callback "Full response at once" nil)
+        (should (equal displayed "Full response at once"))))))
+
+(ert-deftest ogent-ask-callback-streaming-ignores-nil-info-text ()
+  "In streaming mode, text with nil info should NOT trigger completion."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        ;; In streaming mode, chunks arrive as (text nil) - should only accumulate
+        (funcall callback "chunk1" nil)
+        (should-not displayed)  ; Not done yet
+        (should (equal ogent-ask--streaming-response "chunk1"))))))
+
+(ert-deftest ogent-ask-callback-empty-response-on-done ()
+  "ogent-ask callback should not call display when response is empty at completion."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        ;; Signal done without any accumulated text
+        (funcall callback nil '(:done t))
+        ;; Display should not be called for empty response
+        (should-not displayed)))))
+
+(ert-deftest ogent-ask-callback-nil-text-chunks ()
+  "ogent-ask callback should handle nil text chunks gracefully."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback "real " nil)
+        ;; nil text shouldn't crash or corrupt accumulator
+        (funcall callback nil nil)
+        (funcall callback "data" nil)
+        (funcall callback nil '(:done t))
+        (should (equal displayed "real data"))))))
+
+(ert-deftest ogent-ask-callback-error-then-retry-accumulates-fresh ()
+  "After error resets accumulator, subsequent streaming starts fresh."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        ;; First attempt: partial data then error
+        (funcall callback "stale data" nil)
+        (funcall callback nil '(:error "Connection lost"))
+        (should (equal ogent-ask--streaming-response ""))
+        ;; Second attempt: fresh accumulation
+        (funcall callback "fresh data" nil)
+        (funcall callback nil '(:done t))
+        ;; Should display only fresh data, not stale
+        (should (equal displayed "fresh data"))))))
+
+(ert-deftest ogent-ask-callback-error-message-contains-details ()
+  "ogent-ask callback error message should include the error string."
+  (setq ogent-ask--streaming-response "")
+  (let ((message-log nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq message-log (apply #'format fmt args)))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback nil '(:error "rate limit exceeded"))
+        (should (string-match-p "rate limit exceeded" message-log))))))
+
+(ert-deftest ogent-ask-callback-streaming-done-with-t-text ()
+  "Streaming done with text=t and info plist should trigger completion."
+  (setq ogent-ask--streaming-response "")
+  (setq ogent-ask--is-streaming t)
+  (let ((displayed nil))
+    (cl-letf (((symbol-value 'ogent-ask-display-function)
+               (lambda (text) (setq displayed text))))
+      (let ((callback (ogent-ask--make-callback)))
+        (funcall callback "accumulated" nil)
+        ;; Some backends send t as text with info plist on done
+        (funcall callback t '(:done t))
+        (should (equal displayed "accumulated"))))))
+
 (provide 'ogent-core-tests)
 ;;; ogent-core-tests.el ends here
