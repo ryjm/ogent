@@ -52,10 +52,14 @@ Captured at load time so sibling requires remain robust.")
 (declare-function ogent-gastown-mail-compose "ogent-gastown-status"
   (&optional initial-recipient initial-subject initial-body) t)
 (declare-function ogent-gastown--run-async "ogent-gastown" (command args callback &optional error-callback raw-output))
+(declare-function ogent-gastown-fetch-agent-assignments "ogent-gastown" (callback))
+(declare-function ogent-gastown-format-agent-assignment "ogent-gastown" (bead-id))
 (autoload 'ogent-gastown-integration-active-p "ogent-gastown" nil nil)
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-mail-compose "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown--run-async "ogent-gastown" nil nil)
+(autoload 'ogent-gastown-fetch-agent-assignments "ogent-gastown" nil nil)
+(autoload 'ogent-gastown-format-agent-assignment "ogent-gastown" nil nil)
 
 ;;; Customization
 
@@ -352,6 +356,10 @@ Used to detect project switches and clear stale state.")
 
 (defvar-local ogent-issues--loading-frame 0
   "Current animation frame index (0-3).")
+
+(defvar-local ogent-issues--agent-assignments nil
+  "Hash table mapping bead-id to agent assignment info.
+Populated from Gas Town crew/polecat data when integration is active.")
 
 (defvar ogent-issues--loading-frames nil
   "Animation frames for loading spinner.
@@ -745,6 +753,17 @@ An issue is ready if it's open, not blocked, and has no blockers."
          (or (null blocked-by)
              (= (length blocked-by) 0)))))
 
+(defun ogent-issues--format-agent-indicator (bead-id)
+  "Return a propertized agent assignment string for BEAD-ID, or nil."
+  (when-let ((agents (and ogent-issues--agent-assignments
+                          (gethash bead-id ogent-issues--agent-assignments))))
+    (let* ((first-name (car (car agents)))
+           (count (length agents)))
+      (propertize (if (= count 1)
+                      (format " → %s" first-name)
+                    (format " → %s +%d" first-name (1- count)))
+                  'face 'ogent-issues-dimmed))))
+
 (defun ogent-issues--format-issue-line (issue)
   "Format ISSUE as a single line for the list view."
   (let* ((id (plist-get issue :id))
@@ -777,7 +796,12 @@ An issue is ready if it's open, not blocked, and has no blockers."
      (propertize truncated-title 'face (ogent-issues--status-face status))
      ;; Dependencies count (if any)
      (when (and deps (> deps 0))
-       (propertize (format " (%d)" deps) 'face 'ogent-issues-dimmed)))))
+       (propertize (format " (%d)" deps) 'face 'ogent-issues-dimmed))
+     ;; Agent assignment (from Gas Town integration)
+     (when-let ((agent-str (and ogent-issues--agent-assignments
+                                id
+                                (ogent-issues--format-agent-indicator id))))
+       agent-str))))
 
 ;;; Section Insertion
 
@@ -1565,6 +1589,23 @@ and re-renders the detail view."
 
 ;;; Refresh
 
+(defun ogent-issues--render-buffer (buf)
+  "Re-render the issues buffer BUF from cached data."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (condition-case err
+            (progn
+              (ogent-issues--insert-buffer-contents ogent-issues--issues)
+              (ogent-issues--restore-position))
+          (error
+           (insert (propertize
+                    (format "\n  Error rendering issues: %s\n\n"
+                            (error-message-string err))
+                    'face 'error))
+           (insert "  Press 'g' to retry refresh.\n")))))))
+
 (defun ogent-issues-refresh (&optional _ignore-auto _noconfirm)
   "Refresh the issues buffer."
   (interactive)
@@ -1576,7 +1617,18 @@ and re-renders the detail view."
   (let ((buf (current-buffer)))
     ;; Start loading animation
     (ogent-issues--start-loading)
-    ;; Fetch and render
+    ;; Fire gastown agent assignment fetch in parallel (if integration active)
+    (when (and (fboundp 'ogent-gastown-integration-active-p)
+               (ogent-gastown-integration-active-p))
+      (ogent-gastown-fetch-agent-assignments
+       (lambda (assignments)
+         (when (buffer-live-p buf)
+           (with-current-buffer buf
+             (setq ogent-issues--agent-assignments assignments)
+             ;; Re-render if issues are already loaded
+             (when ogent-issues--issues
+               (ogent-issues--render-buffer buf)))))))
+    ;; Fetch and render issues
     (ogent-issues-bd-list
      (lambda (issues)
        (when (buffer-live-p buf)
@@ -1584,18 +1636,7 @@ and re-renders the detail view."
            ;; Stop loading animation
            (ogent-issues--stop-loading)
            (setq ogent-issues--issues (ogent-issues--apply-filters issues))
-           (let ((inhibit-read-only t))
-             (erase-buffer)
-             (condition-case err
-                 (progn
-                   (ogent-issues--insert-buffer-contents ogent-issues--issues)
-                   (ogent-issues--restore-position))
-               (error
-                (insert (propertize
-                         (format "\n  Error rendering issues: %s\n\n"
-                                 (error-message-string err))
-                         'face 'error))
-                (insert "  Press 'g' to retry refresh.\n")))))))
+           (ogent-issues--render-buffer buf))))
      ogent-issues--filters
      (lambda (err)
        (when (buffer-live-p buf)
