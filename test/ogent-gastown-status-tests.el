@@ -2100,6 +2100,24 @@
       (should (eq (get-text-property 2 'face heading)
                   'ogent-gastown-section-heading-crew)))))
 
+(ert-deftest ogent-gts-test-compose-section-heading-applies-face-to-full-line ()
+  "Test Magit heading background face extends across icon and suffix text."
+  (let ((ogent-gastown-use-unicode nil))
+    (let* ((heading (ogent-gastown--compose-section-heading
+                     'crew
+                     "Crew"
+                     (propertize " (1/3 active)" 'face 'ogent-gastown-dimmed)))
+           (prefix-face (get-text-property 0 'face heading))
+           (suffix-pos (string-match-p "(1/3 active)" heading))
+           (suffix-face (and suffix-pos (get-text-property suffix-pos 'face heading))))
+      (should (memq 'ogent-gastown-section-heading-crew
+                    (if (listp prefix-face) prefix-face (list prefix-face))))
+      (should suffix-pos)
+      (should (memq 'ogent-gastown-section-heading-crew
+                    (if (listp suffix-face) suffix-face (list suffix-face))))
+      (should (memq 'ogent-gastown-dimmed
+                    (if (listp suffix-face) suffix-face (list suffix-face)))))))
+
 (ert-deftest ogent-gts-test-compose-plain-section-heading-shared-path ()
   "Test plain heading composition uses section-specific plain prefixes."
   (should (string= (ogent-gastown--compose-plain-section-heading
