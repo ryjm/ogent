@@ -1726,23 +1726,23 @@
 ;;; Worker Item with Unicode Tests
 
 (ert-deftest ogent-gts-test-insert-worker-item-unicode-running ()
-  "Test worker item uses unicode icons when enabled and running."
+  "Test worker item uses active activity symbol when running."
   (with-temp-buffer
     (let ((ogent-gastown-use-unicode t))
       (ogent-gastown--insert-worker-item
        '(:name "alpha" :state "working" :session_running t))
       (let ((content (buffer-string)))
         (should (string-match-p "alpha" content))
-        (should (string-match-p "" content))))))
+        (should (string-match-p "●" content))))))
 
 (ert-deftest ogent-gts-test-insert-worker-item-unicode-idle ()
-  "Test worker item uses correct unicode icon for idle state."
+  "Test worker item uses idle activity symbol when not running."
   (with-temp-buffer
     (let ((ogent-gastown-use-unicode t))
       (ogent-gastown--insert-worker-item
        '(:name "beta" :state "idle" :session_running nil))
       (let ((content (buffer-string)))
-        (should (string-match-p "" content))))))
+        (should (string-match-p "○" content))))))
 
 ;;; Rig Agent Tests - Extended
 
@@ -2223,22 +2223,22 @@
         (should (string-match-p "-" content))))))
 
 (ert-deftest ogent-gts-test-insert-worker-item-unicode-working-not-running ()
-  "Test worker item uses working unicode icon when state is working but not running."
+  "Test worker item uses working activity symbol when not running."
   (with-temp-buffer
     (let ((ogent-gastown-use-unicode t))
       (ogent-gastown--insert-worker-item
        '(:name "worker3" :state "working" :session_running nil))
       (let ((content (buffer-string)))
-        (should (string-match-p "" content))))))
+        (should (string-match-p "◐" content))))))
 
 (ert-deftest ogent-gts-test-insert-worker-item-unicode-done ()
-  "Test worker item uses done unicode icon."
+  "Test worker item uses idle activity symbol for done state."
   (with-temp-buffer
     (let ((ogent-gastown-use-unicode t))
       (ogent-gastown--insert-worker-item
        '(:name "worker4" :state "done" :session_running nil))
       (let ((content (buffer-string)))
-        (should (string-match-p "" content))))))
+        (should (string-match-p "○" content))))))
 
 ;;; Stat Item Extended Tests
 
@@ -2367,7 +2367,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "nomail" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "M:" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-nil-unread ()
   "Test rig agent with nil unread mail defaults to 0, no indicator."
@@ -2376,7 +2376,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "nilmail" :role "crew" :running t :has_work nil :unread_mail nil))
       (let ((content (buffer-string)))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "M:" content))))))
 
 ;;; Process List Tests
 
@@ -3751,6 +3751,94 @@
         (should (string-match-p "rig1/a" content))
         (should (string-match-p "rig2/b" content))
         (should (string-match-p "rig3/c" content))))))
+
+;;; Anti-Emoji Regression Tests
+
+(defun ogent-gts-test--contains-emoji-p (str)
+  "Return non-nil if STR contains any emoji codepoints (U+1F300+)."
+  (let ((found nil))
+    (dotimes (i (length str))
+      (when (>= (aref str i) #x1F300)
+        (setq found t)))
+    found))
+
+(ert-deftest ogent-gts-test-no-emoji-in-worker-item ()
+  "Anti-emoji regression: worker item rendering contains no emoji."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode t))
+      (ogent-gastown--insert-worker-item
+       '(:name "w1" :state "working" :session_running t))
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string))))))
+
+(ert-deftest ogent-gts-test-no-emoji-in-rig-agent ()
+  "Anti-emoji regression: rig agent rendering contains no emoji."
+  (dolist (role '("witness" "refinery" "polecat" "crew"))
+    (with-temp-buffer
+      (let ((ogent-gastown-use-unicode t))
+        (ogent-gastown--insert-rig-agent
+         (list :name "a1" :role role :running t :has_work t :unread_mail 5))
+        (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))))
+
+(ert-deftest ogent-gts-test-no-emoji-in-plain-sections ()
+  "Anti-emoji regression: all plain section renderers contain no emoji."
+  ;; Mail plain
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data
+           (list '(:id "m1" :from "s" :subject "S" :read nil))))
+      (ogent-gastown--insert-mail-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Workers plain
+  (with-temp-buffer
+    (let ((ogent-gastown--workers-data
+           (list '(:name "w" :rig "r" :state "idle"))))
+      (ogent-gastown--insert-workers-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Deacon plain
+  (with-temp-buffer
+    (let ((ogent-gastown--deacon-data '(:running t :has_work nil)))
+      (ogent-gastown--insert-deacon-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Witness plain
+  (with-temp-buffer
+    (let ((ogent-gastown--witness-data
+           (list '(:rig "r1" :has_witness t))))
+      (ogent-gastown--insert-witness-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Crew plain
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name "c" :rig "r" :session_running t))))
+      (ogent-gastown--insert-crew-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Polecat plain
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name "p" :rig "r" :state "idle" :session_running nil))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string)))))
+  ;; Rigs plain
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "r1" :polecat_count 1 :crew_count 2))))
+      (ogent-gastown--insert-rigs-section-plain)
+      (should-not (ogent-gts-test--contains-emoji-p (buffer-string))))))
+
+(ert-deftest ogent-gts-test-mail-item-semantic-symbols ()
+  "Test mail read/unread uses ops-style status symbols via plain section."
+  ;; Unread uses open symbol
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data
+           (list '(:id "m1" :from "sender" :subject "Unread" :read nil))))
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "\\*" content)))))
+  ;; Read uses space (no marker)
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data
+           (list '(:id "m2" :from "sender" :subject "Read" :read t))))
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should-not (string-match-p "\\*" content))))))
 
 (provide 'ogent-gastown-status-tests)
 
