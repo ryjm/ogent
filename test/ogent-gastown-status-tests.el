@@ -4015,6 +4015,141 @@
         (should (string-match-p "Modern one" content))
         (should (string-match-p "Legacy one" content))))))
 
+;;; --- Crew Normalization Tests ---
+
+(ert-deftest ogent-gts-test-normalize-crew-canonical-passthrough ()
+  "Canonical crew keys pass through unchanged."
+  (let ((result (ogent-gastown--normalize-crew-member
+                 '(:name "ritchie" :rig "ogent" :branch "master"
+                   :session_running t :dirty t :hooked_work "og-123"
+                   :unread_mail 3))))
+    (should (equal (plist-get result :name) "ritchie"))
+    (should (equal (plist-get result :session_running) t))
+    (should (equal (plist-get result :dirty) t))
+    (should (equal (plist-get result :hooked_work) "og-123"))
+    (should (equal (plist-get result :unread_mail) 3))))
+
+(ert-deftest ogent-gts-test-normalize-crew-gt-output ()
+  "Real gt crew list output is normalized to canonical keys."
+  (let ((result (ogent-gastown--normalize-crew-member
+                 '(:name "ritchie" :rig "ogent" :branch "master"
+                   :path "/Users/jake/gt/ogent/crew/ritchie"
+                   :has_session t :git_clean nil))))
+    (should (equal (plist-get result :session_running) t))
+    (should (equal (plist-get result :dirty) t))
+    (should (equal (plist-get result :unread_mail) 0))))
+
+(ert-deftest ogent-gts-test-normalize-crew-git-clean-true ()
+  "git_clean=true maps to dirty=nil."
+  (let ((result (ogent-gastown--normalize-crew-member
+                 '(:name "torvalds" :rig "ogent" :branch "master"
+                   :has_session t :git_clean t))))
+    (should-not (plist-get result :dirty))))
+
+(ert-deftest ogent-gts-test-normalize-crew-nil ()
+  "Normalizing nil crew member returns nil."
+  (should-not (ogent-gastown--normalize-crew-member nil)))
+
+(ert-deftest ogent-gts-test-normalize-crew-list-mixed ()
+  "Normalize list with both canonical and gt-output shapes."
+  (let* ((crew (list '(:name "a" :rig "r" :session_running t :dirty nil)
+                     '(:name "b" :rig "r" :has_session nil :git_clean t)))
+         (result (ogent-gastown--normalize-crew-list crew)))
+    (should (= (length result) 2))
+    (should (equal (plist-get (car result) :session_running) t))
+    (should-not (plist-get (cadr result) :session_running))
+    (should-not (plist-get (cadr result) :dirty))))
+
+(ert-deftest ogent-gts-test-normalize-crew-list-nil ()
+  "Normalizing nil crew list returns nil."
+  (should-not (ogent-gastown--normalize-crew-list nil)))
+
+(ert-deftest ogent-gts-test-normalize-crew-missing-optional-fields ()
+  "Missing optional fields get defaults without error."
+  (let ((result (ogent-gastown--normalize-crew-member
+                 '(:name "minimal" :rig "r"))))
+    (should (equal (plist-get result :name) "minimal"))
+    (should-not (plist-get result :session_running))
+    (should-not (plist-get result :dirty))
+    (should-not (plist-get result :hooked_work))
+    (should (equal (plist-get result :unread_mail) 0))))
+
+;;; --- Polecat Normalization Tests ---
+
+(ert-deftest ogent-gts-test-normalize-polecat-canonical-passthrough ()
+  "Canonical polecat keys pass through unchanged."
+  (let ((result (ogent-gastown--normalize-polecat
+                 '(:name "alpha" :rig "ogent" :state "working"
+                   :session_running t :current_task "og-abc"
+                   :session_started "2026-01-22T10:00:00Z"))))
+    (should (equal (plist-get result :name) "alpha"))
+    (should (equal (plist-get result :session_running) t))
+    (should (equal (plist-get result :current_task) "og-abc"))
+    (should (equal (plist-get result :session_started) "2026-01-22T10:00:00Z"))))
+
+(ert-deftest ogent-gts-test-normalize-polecat-gt-output ()
+  "Real gt status agent output is normalized to canonical keys."
+  (let ((result (ogent-gastown--normalize-polecat
+                 '(:name "furiosa" :rig "ogent" :state "working"
+                   :running t :has_work t :hook_bead "og-75up"
+                   :work_title "Stabilize fetch"))))
+    (should (equal (plist-get result :session_running) t))
+    (should (equal (plist-get result :current_task) "og-75up"))
+    (should (equal (plist-get result :hooked_work) "og-75up"))))
+
+(ert-deftest ogent-gts-test-normalize-polecat-nil ()
+  "Normalizing nil polecat returns nil."
+  (should-not (ogent-gastown--normalize-polecat nil)))
+
+(ert-deftest ogent-gts-test-normalize-polecat-list-mixed ()
+  "Normalize list with canonical and gt-output shapes."
+  (let* ((polecats (list '(:name "a" :rig "r" :state "working"
+                            :session_running t :current_task "og-1")
+                         '(:name "b" :rig "r" :state "idle"
+                            :running nil :hook_bead nil)))
+         (result (ogent-gastown--normalize-polecat-list polecats)))
+    (should (= (length result) 2))
+    (should (equal (plist-get (car result) :current_task) "og-1"))
+    (should-not (plist-get (cadr result) :session_running))))
+
+(ert-deftest ogent-gts-test-normalize-polecat-list-nil ()
+  "Normalizing nil polecat list returns nil."
+  (should-not (ogent-gastown--normalize-polecat-list nil)))
+
+(ert-deftest ogent-gts-test-normalize-polecat-hooked-work-fallback ()
+  "hooked_work is used when current_task is nil."
+  (let ((result (ogent-gastown--normalize-polecat
+                 '(:name "beta" :rig "r" :state "working"
+                   :session_running t :hooked_work "og-xyz"))))
+    (should (equal (plist-get result :current_task) "og-xyz"))
+    (should (equal (plist-get result :hooked_work) "og-xyz"))))
+
+;;; --- Worker Normalization Tests ---
+
+(ert-deftest ogent-gts-test-normalize-worker-canonical-passthrough ()
+  "Canonical worker keys pass through unchanged."
+  (let ((result (ogent-gastown--normalize-worker
+                 '(:name "alpha" :rig "ogent" :state "working"
+                   :session_running t))))
+    (should (equal (plist-get result :name) "alpha"))
+    (should (equal (plist-get result :session_running) t))
+    (should (equal (plist-get result :state) "working"))))
+
+(ert-deftest ogent-gts-test-normalize-worker-gt-output ()
+  "Real gt output with :running is normalized."
+  (let ((result (ogent-gastown--normalize-worker
+                 '(:name "beta" :rig "ogent" :state "idle"
+                   :running nil))))
+    (should-not (plist-get result :session_running))))
+
+(ert-deftest ogent-gts-test-normalize-worker-nil ()
+  "Normalizing nil worker returns nil."
+  (should-not (ogent-gastown--normalize-worker nil)))
+
+(ert-deftest ogent-gts-test-normalize-worker-list-nil ()
+  "Normalizing nil worker list returns nil."
+  (should-not (ogent-gastown--normalize-worker-list nil)))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here

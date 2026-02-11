@@ -320,6 +320,102 @@ Returns \"COMPLETED/TOTAL\" or nil if data is missing."
     (when (and completed total)
       (format "%s/%s" completed total))))
 
+;;; Crew / Polecat / Worker Normalization
+;;
+;; Real `gt` command output uses field names that differ from the
+;; canonical keys assumed by the rendering code.  These helpers map
+;; incoming payloads to the internal schema at the fetch boundary so
+;; render functions never need to know about transport variants.
+
+(defun ogent-gastown--normalize-crew-member (member)
+  "Normalize crew MEMBER plist to canonical keys.
+Accepts both real gt output (:has_session, :git_clean) and the
+canonical internal keys (:session_running, :dirty).  Returns a plist
+with canonical keys: :name, :rig, :branch, :session_running, :dirty,
+:hooked_work, :unread_mail."
+  (when member
+    (let ((name (plist-get member :name))
+          (rig (plist-get member :rig))
+          (branch (plist-get member :branch))
+          ;; session: accept :session_running or :has_session
+          (running (if (plist-member member :session_running)
+                       (plist-get member :session_running)
+                     (plist-get member :has_session)))
+          ;; dirty: accept :dirty or invert :git_clean
+          (dirty (if (plist-member member :dirty)
+                     (plist-get member :dirty)
+                   (when (plist-member member :git_clean)
+                     (not (plist-get member :git_clean)))))
+          (hooked-work (plist-get member :hooked_work))
+          (unread-mail (or (plist-get member :unread_mail) 0)))
+      (list :name name
+            :rig rig
+            :branch branch
+            :session_running running
+            :dirty dirty
+            :hooked_work hooked-work
+            :unread_mail unread-mail))))
+
+(defun ogent-gastown--normalize-crew-list (crew)
+  "Normalize a list of CREW members to canonical shape."
+  (delq nil (mapcar #'ogent-gastown--normalize-crew-member crew)))
+
+(defun ogent-gastown--normalize-polecat (polecat)
+  "Normalize POLECAT plist to canonical keys.
+Accepts both real gt output (:running, :hook_bead, :has_work,
+:work_title) and canonical keys (:session_running, :current_task,
+:hooked_work).  Returns a plist with canonical keys: :name, :rig,
+:state, :session_running, :current_task, :hooked_work,
+:session_started."
+  (when polecat
+    (let ((name (plist-get polecat :name))
+          (rig (plist-get polecat :rig))
+          (state (plist-get polecat :state))
+          ;; session: accept :session_running or :running
+          (running (if (plist-member polecat :session_running)
+                       (plist-get polecat :session_running)
+                     (plist-get polecat :running)))
+          ;; task: accept :current_task, :hooked_work, or :hook_bead
+          (task (or (plist-get polecat :current_task)
+                    (plist-get polecat :hooked_work)
+                    (plist-get polecat :hook_bead)))
+          (hooked-work (or (plist-get polecat :hooked_work)
+                           (plist-get polecat :hook_bead)))
+          (started (plist-get polecat :session_started)))
+      (list :name name
+            :rig rig
+            :state state
+            :session_running running
+            :current_task task
+            :hooked_work hooked-work
+            :session_started started))))
+
+(defun ogent-gastown--normalize-polecat-list (polecats)
+  "Normalize a list of POLECATS to canonical shape."
+  (delq nil (mapcar #'ogent-gastown--normalize-polecat polecats)))
+
+(defun ogent-gastown--normalize-worker (worker)
+  "Normalize WORKER plist to canonical keys.
+Accepts both real gt output (:running) and canonical keys
+\(:session_running).  Returns a plist with canonical keys:
+:name, :rig, :state, :session_running."
+  (when worker
+    (let ((name (plist-get worker :name))
+          (rig (plist-get worker :rig))
+          (state (plist-get worker :state))
+          ;; session: accept :session_running or :running
+          (running (if (plist-member worker :session_running)
+                       (plist-get worker :session_running)
+                     (plist-get worker :running))))
+      (list :name name
+            :rig rig
+            :state state
+            :session_running running))))
+
+(defun ogent-gastown--normalize-worker-list (workers)
+  "Normalize a list of WORKERS to canonical shape."
+  (delq nil (mapcar #'ogent-gastown--normalize-worker workers)))
+
 (defvar-local ogent-gastown--workers-data nil
   "Cached workers list data.")
 
@@ -846,9 +942,15 @@ Other:
                   (setq ogent-gastown--convoy-data
                           (ogent-gastown--normalize-convoy-list
                            (gethash 'convoy results)))
-                  (setq ogent-gastown--workers-data (gethash 'workers results))
-                  (setq ogent-gastown--crew-data (gethash 'crew results))
-                  (setq ogent-gastown--polecat-data (gethash 'polecat results))
+                  (setq ogent-gastown--workers-data
+                          (ogent-gastown--normalize-worker-list
+                           (gethash 'workers results)))
+                  (setq ogent-gastown--crew-data
+                          (ogent-gastown--normalize-crew-list
+                           (gethash 'crew results)))
+                  (setq ogent-gastown--polecat-data
+                          (ogent-gastown--normalize-polecat-list
+                           (gethash 'polecat results)))
                   ;; Extract stats, deacon, witnesses, and rigs from town status
                   (let ((town-status (gethash 'town-status results)))
                     (setq ogent-gastown--stats-data
