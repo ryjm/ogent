@@ -4086,6 +4086,7 @@
         (should (string-match-p "Full Test" content))
         (should (string-match-p "Hook" content))
         (should (string-match-p "Workers" content))))))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here
