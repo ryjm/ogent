@@ -2494,6 +2494,64 @@ OUTPUT should be a plist or list that will be returned."
     (ogent-gastown-integration-invalidate)
     (should-not ogent-gastown--integration-cache)))
 
+;;; Agent Assignment Tests
+
+(ert-deftest ogent-gastown-test-agent-assignments-nil-by-default ()
+  "Test agent assignments cache is nil by default."
+  (let ((ogent-gastown--agent-assignments-cache nil))
+    (should-not (ogent-gastown-agent-assignments))))
+
+(ert-deftest ogent-gastown-test-agent-assignments-stale-when-nil ()
+  "Test agent assignments are stale when cache is nil."
+  (let ((ogent-gastown--agent-assignments-cache nil)
+        (ogent-gastown--agent-assignments-timestamp nil))
+    (should (ogent-gastown-agent-assignments-stale-p))))
+
+(ert-deftest ogent-gastown-test-agent-assignments-stale-when-old ()
+  "Test agent assignments are stale when timestamp is old."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal))
+        (ogent-gastown--agent-assignments-timestamp (- (float-time) 10.0)))
+    (should (ogent-gastown-agent-assignments-stale-p))))
+
+(ert-deftest ogent-gastown-test-agent-assignments-fresh ()
+  "Test agent assignments are not stale when recently cached."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal))
+        (ogent-gastown--agent-assignments-timestamp (float-time)))
+    (should-not (ogent-gastown-agent-assignments-stale-p))))
+
+(ert-deftest ogent-gastown-test-lookup-agent-assignment ()
+  "Test looking up agent assignments by bead ID."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal)))
+    (puthash "og-abc" '(("ritchie" . "crew")) ogent-gastown--agent-assignments-cache)
+    (should (equal '(("ritchie" . "crew"))
+                   (ogent-gastown-lookup-agent-assignment "og-abc")))
+    (should-not (ogent-gastown-lookup-agent-assignment "og-xyz"))))
+
+(ert-deftest ogent-gastown-test-lookup-nil-cache ()
+  "Test lookup returns nil when cache is nil."
+  (let ((ogent-gastown--agent-assignments-cache nil))
+    (should-not (ogent-gastown-lookup-agent-assignment "og-abc"))))
+
+(ert-deftest ogent-gastown-test-format-agent-assignment-single ()
+  "Test formatting agent assignment for single agent."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal)))
+    (puthash "og-abc" '(("ritchie" . "crew")) ogent-gastown--agent-assignments-cache)
+    (should (string= " → ritchie"
+                     (ogent-gastown-format-agent-assignment "og-abc")))))
+
+(ert-deftest ogent-gastown-test-format-agent-assignment-multiple ()
+  "Test formatting agent assignment for multiple agents."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal)))
+    (puthash "og-abc" '(("toast" . "polecat") ("ritchie" . "crew"))
+             ogent-gastown--agent-assignments-cache)
+    (should (string= " → toast +1"
+                     (ogent-gastown-format-agent-assignment "og-abc")))))
+
+(ert-deftest ogent-gastown-test-format-agent-assignment-none ()
+  "Test formatting returns nil when no agent assigned."
+  (let ((ogent-gastown--agent-assignments-cache (make-hash-table :test #'equal)))
+    (should-not (ogent-gastown-format-agent-assignment "og-xyz"))))
+
 (provide 'ogent-gastown-tests)
 
 ;;; ogent-gastown-tests.el ends here
