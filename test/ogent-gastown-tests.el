@@ -2422,6 +2422,54 @@ OUTPUT should be a plist or list that will be returned."
   (let ((ogent-gastown--hook-cache nil))
     (should-not (ogent-gastown-hook-title))))
 
+;;; Integration Active Predicate Tests
+
+(ert-deftest ogent-gastown-test-integration-active-when-all-conditions-met ()
+  "Test integration-active-p returns t when flag is t and in town."
+  (let ((ogent-gastown-integration t)
+        (ogent-gastown--integration-cache nil))
+    (cl-letf (((symbol-function 'ogent-gastown-available-p) (lambda () t))
+              ((symbol-function 'ogent-gastown-in-town-p) (lambda () t)))
+      (should (ogent-gastown-integration-active-p)))))
+
+(ert-deftest ogent-gastown-test-integration-active-nil-when-flag-disabled ()
+  "Test integration-active-p returns nil when flag is nil."
+  (let ((ogent-gastown-integration nil)
+        (ogent-gastown--integration-cache nil))
+    (cl-letf (((symbol-function 'ogent-gastown-available-p) (lambda () t))
+              ((symbol-function 'ogent-gastown-in-town-p) (lambda () t)))
+      (should-not (ogent-gastown-integration-active-p)))))
+
+(ert-deftest ogent-gastown-test-integration-active-nil-when-gt-not-in-path ()
+  "Test integration-active-p returns nil when gt not available."
+  (let ((ogent-gastown-integration t)
+        (ogent-gastown--integration-cache nil))
+    (cl-letf (((symbol-function 'ogent-gastown-available-p) (lambda () nil))
+              ((symbol-function 'ogent-gastown-in-town-p) (lambda () t)))
+      (should-not (ogent-gastown-integration-active-p)))))
+
+(ert-deftest ogent-gastown-test-integration-active-nil-when-not-in-town ()
+  "Test integration-active-p returns nil when not in a town workspace."
+  (let ((ogent-gastown-integration t)
+        (ogent-gastown--integration-cache nil))
+    (cl-letf (((symbol-function 'ogent-gastown-available-p) (lambda () t))
+              ((symbol-function 'ogent-gastown-in-town-p) (lambda () nil)))
+      (should-not (ogent-gastown-integration-active-p)))))
+
+(ert-deftest ogent-gastown-test-integration-active-uses-cache ()
+  "Test integration-active-p returns cached result within TTL."
+  (let ((ogent-gastown--integration-cache (cons (float-time) t)))
+    (cl-letf (((symbol-function 'ogent-gastown-available-p) (lambda () nil))
+              ((symbol-function 'ogent-gastown-in-town-p) (lambda () nil)))
+      ;; Should return cached t even though conditions are now nil
+      (should (ogent-gastown-integration-active-p)))))
+
+(ert-deftest ogent-gastown-test-integration-invalidate-clears-cache ()
+  "Test integration-invalidate clears the cached result."
+  (let ((ogent-gastown--integration-cache (cons (float-time) t)))
+    (ogent-gastown-integration-invalidate)
+    (should-not ogent-gastown--integration-cache)))
+
 (provide 'ogent-gastown-tests)
 
 ;;; ogent-gastown-tests.el ends here
