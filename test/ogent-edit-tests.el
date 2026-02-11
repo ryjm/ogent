@@ -837,5 +837,127 @@ missing separator and end marker")
                (when (eq feature 'gptel) nil))))
     (should-error (ogent-edit--ensure-gptel) :type 'user-error)))
 
+;;; Streaming Edge Case Tests for ogent-edit callback
+
+(ert-deftest ogent-edit-callback-completes-on-final-marker ()
+  "Edit callback should trigger processing on :final marker."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        (funcall callback "response via final" nil)
+        (funcall callback nil '(:final t))
+        (should (equal processed "response via final"))
+        (should (string= ogent-edit--streaming-response ""))))))
+
+(ert-deftest ogent-edit-callback-completes-on-status-success ()
+  "Edit callback should trigger processing on :status \"success\"."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        (funcall callback "status complete" nil)
+        (funcall callback nil '(:status "success"))
+        (should (equal processed "status complete"))))))
+
+(ert-deftest ogent-edit-callback-non-streaming-single-response ()
+  "Edit callback should handle non-streaming mode (text + nil info)."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; Non-streaming: full response with nil info triggers completion
+        (funcall callback "full edit response" nil)
+        (should (equal processed "full edit response"))))))
+
+(ert-deftest ogent-edit-callback-empty-response-on-done ()
+  "Edit callback should skip processing when response is empty at completion."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; Done with no accumulated content
+        (funcall callback nil '(:done t))
+        (should-not processed)))))
+
+(ert-deftest ogent-edit-callback-error-resets-then-fresh-accumulation ()
+  "After error resets accumulator, subsequent streaming processes fresh data."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (setq processed response))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; First: partial + error
+        (funcall callback "stale" nil)
+        (funcall callback nil '(:error "timeout"))
+        (should (string= ogent-edit--streaming-response ""))
+        ;; Second: fresh data
+        (funcall callback "fresh" nil)
+        (funcall callback nil '(:done t))
+        (should (equal processed "fresh"))))))
+
+(ert-deftest ogent-edit-callback-nil-text-during-streaming ()
+  "Edit callback handles nil text chunks without corruption."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (processed-list nil))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (response)
+                 (push response processed-list))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; In non-streaming mode, each (text nil) triggers processing.
+        ;; nil text should not trigger processing or corrupt state.
+        (funcall callback "part1" nil)
+        ;; nil text shouldn't trigger processing
+        (funcall callback nil nil)
+        (funcall callback "part2" nil)
+        ;; Both text chunks triggered processing individually
+        (should (member "part1" processed-list))
+        (should (member "part2" processed-list))
+        ;; nil text did not produce a spurious processing call
+        (should (= 2 (length processed-list)))))))
+
+(ert-deftest ogent-edit-callback-multiple-processing-errors ()
+  "Edit callback gracefully handles repeated processing errors."
+  (let ((ogent-edit--streaming-response "")
+        (ogent-edit--pending-request
+         (list :source-buffer (current-buffer)))
+        (error-count 0))
+    (cl-letf (((symbol-function 'ogent-edit--process-response)
+               (lambda (_response)
+                 (setq error-count (1+ error-count))
+                 (error "Parse error #%d" error-count))))
+      (let ((callback (ogent-edit--make-callback)))
+        ;; First attempt
+        (funcall callback "data1" nil)
+        (funcall callback nil '(:done t))
+        (should (= error-count 1))
+        (should (string= ogent-edit--streaming-response ""))
+        ;; Second attempt - should also handle gracefully
+        (funcall callback "data2" nil)
+        (funcall callback nil '(:done t))
+        (should (= error-count 2))
+        (should (string= ogent-edit--streaming-response ""))))))
+
 (provide 'ogent-edit-tests)
 ;;; ogent-edit-tests.el ends here
