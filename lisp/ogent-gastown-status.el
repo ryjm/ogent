@@ -272,7 +272,45 @@
   "Cached mail inbox data.")
 
 (defvar-local ogent-gastown--convoy-data nil
-  "Cached convoy list data.")
+  "Cached convoy list data (normalized).")
+
+(defun ogent-gastown--normalize-convoy (convoy)
+  "Normalize CONVOY plist to canonical keys.
+Accepts both modern payload shape (:title, :completed, :total, :tracked)
+and legacy shape (:name, :progress).  Returns a plist with canonical keys:
+:id, :title, :status, :completed, :total, :tracked."
+  (let* ((id (plist-get convoy :id))
+         (title (or (plist-get convoy :title)
+                    (plist-get convoy :name)))
+         (status (plist-get convoy :status))
+         (completed (plist-get convoy :completed))
+         (total (plist-get convoy :total))
+         (tracked (plist-get convoy :tracked))
+         (progress (plist-get convoy :progress)))
+    ;; Parse legacy :progress "N/M" when :completed/:total absent
+    (when (and progress (not completed) (not total)
+               (stringp progress)
+               (string-match "\\`\\([0-9]+\\)/\\([0-9]+\\)\\'" progress))
+      (setq completed (string-to-number (match-string 1 progress)))
+      (setq total (string-to-number (match-string 2 progress))))
+    (list :id id
+          :title title
+          :status status
+          :completed completed
+          :total total
+          :tracked tracked)))
+
+(defun ogent-gastown--normalize-convoy-list (convoys)
+  "Normalize a list of CONVOYS to canonical shape."
+  (mapcar #'ogent-gastown--normalize-convoy convoys))
+
+(defun ogent-gastown--convoy-progress-string (convoy)
+  "Format progress string from normalized CONVOY.
+Returns \"COMPLETED/TOTAL\" or nil if data is missing."
+  (let ((completed (plist-get convoy :completed))
+        (total (plist-get convoy :total)))
+    (when (and completed total)
+      (format "%s/%s" completed total))))
 
 (defvar-local ogent-gastown--workers-data nil
   "Cached workers list data.")
@@ -793,7 +831,9 @@ Other:
                 (with-current-buffer buf
                   (setq ogent-gastown--hook-data (gethash 'hook results))
                   (setq ogent-gastown--mail-data (gethash 'mail results))
-                  (setq ogent-gastown--convoy-data (gethash 'convoy results))
+                  (setq ogent-gastown--convoy-data
+                          (ogent-gastown--normalize-convoy-list
+                           (gethash 'convoy results)))
                   (setq ogent-gastown--workers-data (gethash 'workers results))
                   (setq ogent-gastown--crew-data (gethash 'crew results))
                   (setq ogent-gastown--polecat-data (gethash 'polecat results))
@@ -1089,16 +1129,17 @@ Other:
           (ogent-gastown--insert-convoy-item convoy))))))
 
 (defun ogent-gastown--insert-convoy-item (convoy)
-  "Insert a single CONVOY as a section."
+  "Insert a single CONVOY as a section.
+CONVOY should be a normalized plist with canonical keys."
   (let* ((id (plist-get convoy :id))
-         (name (plist-get convoy :name))
+         (title (plist-get convoy :title))
          (status (plist-get convoy :status))
-         (progress (plist-get convoy :progress)))
+         (progress (ogent-gastown--convoy-progress-string convoy)))
     (magit-insert-section (ogent-gastown-convoy-item-section convoy)
       (insert "  ")
       (insert (propertize (or id "???") 'face 'ogent-gastown-dimmed))
       (insert " ")
-      (insert (propertize (or name "(unnamed)")
+      (insert (propertize (or title "(unnamed)")
                           'face (if (string= status "complete")
                                     'ogent-gastown-convoy-complete
                                   'ogent-gastown-convoy-active)))
@@ -1115,7 +1156,7 @@ Other:
         (insert (propertize "  No active convoys\n" 'face 'ogent-gastown-dimmed))
       (dolist (convoy convoys)
         (insert "  ")
-        (insert (or (plist-get convoy :name) "(unnamed)"))
+        (insert (or (plist-get convoy :title) "(unnamed)"))
         (insert "\n")))))
 
 ;;; Workers Section
