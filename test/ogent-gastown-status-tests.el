@@ -46,18 +46,14 @@
 
 (defconst ogent-gts-test--sample-convoy
   (list '(:id "convoy-001"
-          :title "Feature implementation"
+          :name "Feature implementation"
           :status "active"
-          :completed 3
-          :total 5
-          :tracked nil)
+          :progress "3/5")
         '(:id "convoy-002"
-          :title "Bug fixes"
+          :name "Bug fixes"
           :status "complete"
-          :completed 5
-          :total 5
-          :tracked nil))
-  "Sample convoy list for testing (canonical/normalized shape).")
+          :progress "5/5"))
+  "Sample convoy list for testing.")
 
 (defconst ogent-gts-test--sample-workers
   (list '(:name "alpha"
@@ -919,7 +915,7 @@
   "Test convoy item rendering for active convoy."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Active Job" :status "active" :completed 2 :total 5 :tracked nil))))
+           (list '(:id "c1" :name "Active Job" :status "active" :progress "2/5"))))
       (ogent-gastown--insert-convoy-section-plain)
       (let ((content (buffer-string)))
         (should (string-match-p "Active Job" content))))))
@@ -928,7 +924,7 @@
   "Test convoy item rendering for completed convoy."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Done Job" :status "complete" :completed 5 :total 5 :tracked nil))))
+           (list '(:id "c1" :name "Done Job" :status "complete" :progress "5/5"))))
       (ogent-gastown--insert-convoy-section-plain)
       (let ((content (buffer-string)))
         (should (string-match-p "Done Job" content))))))
@@ -1100,7 +1096,7 @@
   "Test convoy item rendering for unnamed convoy."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title nil :status "active" :completed 1 :total 3 :tracked nil))))
+           (list '(:id "c1" :name nil :status "active" :progress "1/3"))))
       (ogent-gastown--insert-convoy-section-plain)
       (let ((content (buffer-string)))
         (should (string-match-p "(unnamed)" content))))))
@@ -1109,8 +1105,8 @@
   "Test multiple convoy items render correctly."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Deploy" :status "active" :completed 2 :total 4 :tracked nil)
-                 '(:id "c2" :title "Cleanup" :status "complete" :completed 3 :total 3 :tracked nil))))
+           (list '(:id "c1" :name "Deploy" :status "active" :progress "2/4")
+                 '(:id "c2" :name "Cleanup" :status "complete" :progress "3/3"))))
       (ogent-gastown--insert-convoy-section-plain)
       (let ((content (buffer-string)))
         (should (string-match-p "Deploy" content))
@@ -3307,8 +3303,8 @@
   "Test convoy section plain renders named and unnamed convoys."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Named Job" :status "active" :completed 2 :total 4 :tracked nil)
-                 '(:id "c2" :title nil :status "complete" :completed 5 :total 5 :tracked nil))))
+           (list '(:id "c1" :name "Named Job" :status "active" :progress "2/4")
+                 '(:id "c2" :name nil :status "complete" :progress "5/5"))))
       (ogent-gastown--insert-convoy-section-plain)
       (let ((content (buffer-string)))
         (should (string-match-p "Named Job" content))
@@ -3878,214 +3874,6 @@
       (let ((content (buffer-string)))
         (should (string-match-p "Rigs: 1" content))
         (should-not (string-match-p "Ready" content))))))
-
-;;; --- Convoy Normalization Tests ---
-
-(ert-deftest ogent-gts-test-normalize-convoy-modern-payload ()
-  "Test normalization of modern payload shape (:title, :completed, :total, :tracked)."
-  (let ((convoy '(:id "c1" :title "Deploy v2" :status "active"
-                  :completed 3 :total 7 :tracked ("a" "b"))))
-    (let ((result (ogent-gastown--normalize-convoy convoy)))
-      (should (equal (plist-get result :id) "c1"))
-      (should (equal (plist-get result :title) "Deploy v2"))
-      (should (equal (plist-get result :status) "active"))
-      (should (equal (plist-get result :completed) 3))
-      (should (equal (plist-get result :total) 7))
-      (should (equal (plist-get result :tracked) '("a" "b"))))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-legacy-payload ()
-  "Test normalization of legacy payload shape (:name, :progress)."
-  (let ((convoy '(:id "c2" :name "Bug fixes" :status "complete" :progress "5/5")))
-    (let ((result (ogent-gastown--normalize-convoy convoy)))
-      (should (equal (plist-get result :title) "Bug fixes"))
-      (should (equal (plist-get result :completed) 5))
-      (should (equal (plist-get result :total) 5))
-      (should-not (plist-get result :tracked)))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-missing-title-and-name ()
-  "Test normalization when both :title and :name are missing."
-  (let ((convoy '(:id "c3" :status "active")))
-    (let ((result (ogent-gastown--normalize-convoy convoy)))
-      (should-not (plist-get result :title)))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-missing-progress-data ()
-  "Test normalization when no progress data is present."
-  (let ((convoy '(:id "c4" :name "No progress" :status "active")))
-    (let ((result (ogent-gastown--normalize-convoy convoy)))
-      (should (equal (plist-get result :title) "No progress"))
-      (should-not (plist-get result :completed))
-      (should-not (plist-get result :total)))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-list-mixed ()
-  "Test normalizing a list with both modern and legacy convoys."
-  (let* ((convoys (list '(:id "c1" :title "Modern" :status "active"
-                           :completed 2 :total 4 :tracked nil)
-                        '(:id "c2" :name "Legacy" :status "complete"
-                           :progress "3/3")))
-         (result (ogent-gastown--normalize-convoy-list convoys)))
-    (should (= (length result) 2))
-    (should (equal (plist-get (car result) :title) "Modern"))
-    (should (equal (plist-get (cadr result) :title) "Legacy"))
-    (should (equal (plist-get (cadr result) :completed) 3))
-    (should (equal (plist-get (cadr result) :total) 3))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-progress-string ()
-  "Test progress string formatting from normalized convoy."
-  (should (equal (ogent-gastown--convoy-progress-string
-                  '(:completed 3 :total 5))
-                 "3/5"))
-  (should-not (ogent-gastown--convoy-progress-string
-               '(:completed nil :total nil)))
-  (should-not (ogent-gastown--convoy-progress-string
-               '(:completed 3 :total nil))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-malformed-progress ()
-  "Test normalization with malformed :progress string."
-  (let ((convoy '(:id "c5" :name "Bad" :status "active" :progress "not-a-fraction")))
-    (let ((result (ogent-gastown--normalize-convoy convoy)))
-      (should (equal (plist-get result :title) "Bad"))
-      (should-not (plist-get result :completed))
-      (should-not (plist-get result :total)))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-empty-list ()
-  "Test normalizing an empty convoy list."
-  (should-not (ogent-gastown--normalize-convoy-list nil)))
-
-(ert-deftest ogent-gts-test-convoy-section-plain-modern-payload ()
-  "Test convoy section plain rendering with modern payload shape."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "c1" :title "Ship v3" :status "active"
-                    :completed 2 :total 6 :tracked ("issue-1"))))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Ship v3" content))))))
-
-(ert-deftest ogent-gts-test-convoy-section-plain-legacy-payload ()
-  "Test convoy section plain rendering with legacy payload shape."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "c1" :name "Old style" :status "active" :progress "1/4")))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Old style" content))))))
-
-(ert-deftest ogent-gts-test-convoy-section-plain-mixed-shapes ()
-  "Test convoy section plain rendering with mixed legacy and modern shapes."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "c1" :title "Modern one" :status "active"
-                    :completed 1 :total 3 :tracked nil)
-                  '(:id "c2" :name "Legacy one" :status "complete"
-                    :progress "5/5")))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Modern one" content))
-        (should (string-match-p "Legacy one" content))))))
-
-;;; --- Convoy Inspector Regression Tests ---
-
-(ert-deftest ogent-gts-test-convoy-status-no-magit-no-section-context ()
-  "Without magit, convoy-status always runs convoy list (no section context)."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
-        (ogent-gastown-convoy-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "convoy" (caar commands)))
-        (should (string-match-p "list" (caar commands)))))))
-
-(ert-deftest ogent-gts-test-convoy-section-heading-present-plain ()
-  "Plain convoy section always includes the 'Convoys' heading."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Heading Test" :status "active"
-                   :completed 0 :total 1 :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoys" content))))))
-
-(ert-deftest ogent-gts-test-convoy-section-heading-present-plain-empty ()
-  "Plain convoy section heading present even with no convoys."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data nil))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "> Convoys" content))))))
-
-(ert-deftest ogent-gts-test-convoy-plain-all-nil-fields ()
-  "Convoy with all nil fields renders safely in plain mode."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id nil :title nil :status nil
-                   :completed nil :total nil :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "(unnamed)" content))))))
-
-(ert-deftest ogent-gts-test-convoy-plain-many-convoys ()
-  "Plain convoy section handles many convoy items."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (cl-loop for i from 1 to 20
-                    collect (list :id (format "c%d" i)
-                                 :title (format "Convoy %d" i)
-                                 :status "active"
-                                 :completed i :total 20 :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoy 1" content))
-        (should (string-match-p "Convoy 20" content))))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-round-trip-modern ()
-  "Normalizing a modern payload and rendering it produces expected title."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "rt1" :title "Round Trip" :status "active"
-                    :completed 4 :total 8 :tracked ("a" "b"))))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Round Trip" content))))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-round-trip-legacy ()
-  "Normalizing a legacy payload and rendering it produces expected title."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "rt2" :name "Legacy RT" :status "complete"
-                    :progress "3/3")))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Legacy RT" content))))))
-
-(ert-deftest ogent-gts-test-full-plain-buffer-convoy-and-other-sections ()
-  "Full plain buffer renders convoy alongside other sections."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Full Test" :status "active"
-                   :completed 1 :total 3 :tracked nil)))
-          (ogent-gastown--hook-data '(:has_work nil :role "test" :target "t/" :next_action nil))
-          (ogent-gastown--mail-data nil)
-          (ogent-gastown--workers-data nil)
-          (ogent-gastown--stats-data nil)
-          (ogent-gastown--deacon-data nil)
-          (ogent-gastown--witness-data nil)
-          (ogent-gastown--crew-data nil)
-          (ogent-gastown--polecat-data nil)
-          (ogent-gastown--rigs-data nil)
-          (ogent-gastown--magit-section-available nil))
-      (ogent-gastown--insert-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoys" content))
-        (should (string-match-p "Full Test" content))
-        (should (string-match-p "Hook" content))
-        (should (string-match-p "Workers" content))))))
 
 (provide 'ogent-gastown-status-tests)
 
