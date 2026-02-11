@@ -59,6 +59,11 @@
   :type 'string
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-default-town-root "~/gt"
+  "Default Gas Town root used when workspace detection cannot infer one."
+  :type 'directory
+  :group 'ogent-gastown)
+
 (defcustom ogent-gastown-timeout 30
   "Timeout in seconds for gt commands."
   :type 'integer
@@ -395,10 +400,12 @@ Returns \"COMPLETED/TOTAL\" or nil if data is missing."
   "Resolve a Gas Town workspace root from DIR, or nil."
   (let* ((expanded (and dir (expand-file-name dir)))
          (marker-root (and expanded (locate-dominating-file expanded ".gastown")))
-         (home-root (file-name-as-directory (expand-file-name "~/gt"))))
+         (default-root
+          (file-name-as-directory
+           (expand-file-name ogent-gastown-default-town-root))))
     (or (ogent-gastown--normalize-dir marker-root)
-        (when (and expanded (string-prefix-p home-root (file-name-as-directory expanded)))
-          home-root))))
+        (when (and expanded (string-prefix-p default-root (file-name-as-directory expanded)))
+          default-root))))
 
 (defun ogent-gastown--active-workspace-root ()
   "Return the active workspace root for status commands, or nil."
@@ -519,11 +526,13 @@ Resolution order:
 1) `GT_ROOT' environment variable
 2) `GT_TOWN' environment variable
 3) `.gastown' marker from `default-directory' upward
-4) parent `~/gt/' workspace when current directory is under it."
+4) parent `ogent-gastown-default-town-root' when current directory is under it
+5) `ogent-gastown-default-town-root' fallback."
   (let ((env-root (or (ogent-gastown--normalize-dir (getenv "GT_ROOT"))
                       (ogent-gastown--normalize-dir (getenv "GT_TOWN")))))
     (or env-root
-        (ogent-gastown--workspace-root-from-dir default-directory))))
+        (ogent-gastown--workspace-root-from-dir default-directory)
+        (ogent-gastown--normalize-dir ogent-gastown-default-town-root))))
 
 (defun ogent-gastown--in-town-p ()
   "Return non-nil if gt is available and workspace root is resolvable."
@@ -2234,7 +2243,7 @@ convoys, crew members, and polecats."
       (user-error "Gas Town CLI (gt) not found in PATH"))
     (unless workspace-root
       (user-error
-       "Not in a Gas Town workspace (set GT_ROOT/GT_TOWN or open from a town directory)"))
+       "No Gas Town workspace found (set GT_ROOT/GT_TOWN, open from a town directory, or set ogent-gastown-default-town-root)"))
     (let ((buf (get-buffer-create ogent-gastown-buffer-name))
           (workspace-dir (file-name-as-directory (expand-file-name workspace-root))))
       (with-current-buffer buf
