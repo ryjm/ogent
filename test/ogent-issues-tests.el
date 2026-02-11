@@ -2667,6 +2667,7 @@
   (should (eq (lookup-key ogent-issues-mode-map "M")
               'ogent-issues-sling-issue)))
 
+<<<<<<< HEAD
 ;;; Gas Town Detail Section Tests
 
 (ert-deftest ogent-issues-test-gastown-section-hidden-when-integration-inactive ()
