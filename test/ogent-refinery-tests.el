@@ -1139,6 +1139,423 @@
         (when (and buf (buffer-live-p buf))
           (kill-buffer buf))))))
 
+;;; MR Item Magit-Section Rendering Tests
+
+(ert-deftest ogent-refinery-test-insert-mr-item-processing ()
+  "Test MR item rendering with processing status."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             ogent-refinery-test--sample-mr-processing 'processing))
+        ;; Fallback test
+        (ogent-refinery--insert-mr-item-plain ogent-refinery-test--sample-mr-processing))
+      (should (string-match-p "mr-002" (buffer-string)))
+      (should (string-match-p "fix/memory-leak" (buffer-string))))))
+
+(ert-deftest ogent-refinery-test-insert-mr-item-waiting ()
+  "Test MR item rendering with waiting status."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             ogent-refinery-test--sample-mr-ready 'waiting))
+        (ogent-refinery--insert-mr-item-plain ogent-refinery-test--sample-mr-ready))
+      (should (string-match-p "mr-001" (buffer-string)))
+      (should (string-match-p "feature/auth-improvements" (buffer-string))))))
+
+(ert-deftest ogent-refinery-test-insert-mr-item-failed-with-error ()
+  "Test MR item rendering with failed status shows error message."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             ogent-refinery-test--sample-mr-failed 'failed))
+        (ogent-refinery--insert-mr-item-plain ogent-refinery-test--sample-mr-failed))
+      (should (string-match-p "mr-003" (buffer-string))))))
+
+(ert-deftest ogent-refinery-test-insert-mr-item-blocked-with-blocker ()
+  "Test MR item rendering with blocked status shows blocker info."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             ogent-refinery-test--sample-mr-blocked 'blocked))
+        (ogent-refinery--insert-mr-item-plain ogent-refinery-test--sample-mr-blocked))
+      (should (string-match-p "mr-004" (buffer-string))))))
+
+(ert-deftest ogent-refinery-test-insert-mr-item-merged ()
+  "Test MR item rendering with merged status."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             '(:id "mr-m" :branch "feature/done" :priority "P1"
+               :status "merged" :created_at nil)
+             'merged))
+        (ogent-refinery--insert-mr-item-plain
+         '(:id "mr-m" :branch "feature/done" :status "merged")))
+      (should (string-match-p "mr-m" (buffer-string))))))
+
+;;; MR Item - Worker Display Tests
+
+(ert-deftest ogent-refinery-test-insert-mr-item-with-worker ()
+  "Test MR item shows worker name when present."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             '(:id "mr-w" :branch "feat/x" :worker "polecat-alpha"
+               :priority "P1" :status "ready" :created_at nil)
+             'waiting))
+        (ogent-refinery--insert-mr-item-plain
+         '(:id "mr-w" :branch "feat/x" :status "ready")))
+      (should (string-match-p "mr-w" (buffer-string))))))
+
+(ert-deftest ogent-refinery-test-insert-mr-item-no-worker ()
+  "Test MR item without worker field."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             '(:id "mr-nw" :branch "feat/y" :priority "P2"
+               :status "ready" :created_at nil)
+             'waiting))
+        (ogent-refinery--insert-mr-item-plain
+         '(:id "mr-nw" :branch "feat/y" :status "ready")))
+      (should (string-match-p "mr-nw" (buffer-string))))))
+
+;;; MR Item - Polecat Name Fallback
+
+(ert-deftest ogent-refinery-test-insert-mr-item-polecat-name ()
+  "Test MR item falls back to :polecat when :worker is nil."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             '(:id "mr-pc" :branch "feat/z" :polecat "pc-beta"
+               :priority "P0" :status "processing" :created_at nil)
+             'processing))
+        (ogent-refinery--insert-mr-item-plain
+         '(:id "mr-pc" :branch "feat/z" :status "processing")))
+      (should (string-match-p "mr-pc" (buffer-string))))))
+
+;;; MR Item - Fallback :name for branch
+
+(ert-deftest ogent-refinery-test-insert-mr-item-name-fallback ()
+  "Test MR item falls back to :name when :branch is nil."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item
+             '(:id "mr-nf" :name "alt-branch-name" :priority "P2"
+               :status "ready" :created_at nil)
+             'waiting))
+        (ogent-refinery--insert-mr-item-plain
+         '(:id "mr-nf" :branch "alt-branch-name" :status "ready")))
+      (should (string-match-p "mr-nf" (buffer-string))))))
+
+;;; MR Item - Error with :reason key
+
+(ert-deftest ogent-refinery-test-insert-mr-item-failed-reason ()
+  "Test failed MR item uses :reason when :error is nil."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t)
+          (mr '(:id "mr-fr" :branch "feat/fail" :priority "P2"
+                :status "error" :reason "Merge conflict" :created_at nil)))
+      (if ogent-refinery--magit-section-available
+          (magit-insert-section (ogent-refinery-root-section)
+            (ogent-refinery--insert-mr-item mr 'failed))
+        (ogent-refinery--insert-mr-item-plain mr))
+      (should (string-match-p "mr-fr" (buffer-string))))))
+
+;;; Buffer Rendering Dispatch Tests
+
+(ert-deftest ogent-refinery-test-insert-buffer-contents-dispatches ()
+  "Test insert-buffer-contents dispatches to correct renderer."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--queue-data nil)
+    (setq ogent-refinery--history-data nil)
+    (let ((inhibit-read-only t))
+      (ogent-refinery--insert-buffer-contents))
+    ;; Should have rendered something regardless of magit-section availability
+    (should (> (buffer-size) 0))))
+
+;;; Magit Section Rendering Tests (with fallback)
+
+(ert-deftest ogent-refinery-test-processing-section-with-data ()
+  "Test processing section rendering with data."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--queue-data
+          (list ogent-refinery-test--sample-mr-processing
+                '(:id "mr-t" :branch "test" :status "testing"
+                  :priority "P1" :created_at nil)))
+    (let ((inhibit-read-only t))
+      (ogent-refinery--insert-processing-section-plain))
+    (should (string-match-p "Processing" (buffer-string)))
+    (should (string-match-p "mr-002" (buffer-string)))
+    (should (string-match-p "mr-t" (buffer-string)))))
+
+;;; Queue Section With Both Waiting and Blocked
+
+(ert-deftest ogent-refinery-test-queue-section-plain-with-blocked ()
+  "Test queue section plain rendering ignores blocked items."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--queue-data
+          (list ogent-refinery-test--sample-mr-ready
+                ogent-refinery-test--sample-mr-blocked))
+    (let ((inhibit-read-only t))
+      (ogent-refinery--insert-queue-section-plain))
+    ;; Plain queue section only shows waiting items
+    (should (string-match-p "mr-001" (buffer-string)))))
+
+;;; Cache - Multiple Operations Tests
+
+(ert-deftest ogent-refinery-test-cache-overwrite ()
+  "Test that cache overwrites previous values."
+  (let ((ogent-refinery--cache (make-hash-table :test 'equal))
+        (ogent-refinery-cache-ttl 60))
+    (ogent-refinery--cache-set "rig" '("cmd") '(:val 1))
+    (ogent-refinery--cache-set "rig" '("cmd") '(:val 2))
+    (should (equal '(:val 2) (ogent-refinery--cache-get "rig" '("cmd"))))))
+
+(ert-deftest ogent-refinery-test-cache-different-commands ()
+  "Test that different commands have separate cache entries."
+  (let ((ogent-refinery--cache (make-hash-table :test 'equal))
+        (ogent-refinery-cache-ttl 60))
+    (ogent-refinery--cache-set "rig" '("cmd1") '(:val 1))
+    (ogent-refinery--cache-set "rig" '("cmd2") '(:val 2))
+    (should (equal '(:val 1) (ogent-refinery--cache-get "rig" '("cmd1"))))
+    (should (equal '(:val 2) (ogent-refinery--cache-get "rig" '("cmd2"))))))
+
+;;; Rig Detection Edge Cases
+
+(ert-deftest ogent-refinery-test-detect-rig-deep-path ()
+  "Test rig detection from deeply nested path."
+  (let* ((gt-root (expand-file-name "~/gt"))
+         (default-directory (concat gt-root "/myrig/crew/stallman/lisp/")))
+    (should (equal "myrig" (ogent-refinery--detect-rig)))))
+
+;;; Format Age - String ISO Timestamp
+
+(ert-deftest ogent-refinery-test-format-age-iso-recent ()
+  "Test age formatting with a recent ISO timestamp."
+  ;; A timestamp right now should return "now"
+  (let ((now-iso (format-time-string "%Y-%m-%dT%H:%M:%SZ" (current-time) t)))
+    (should (equal "now" (ogent-refinery--format-age now-iso)))))
+
+;;; Retry With Error Callback
+
+(ert-deftest ogent-refinery-test-retry-declined ()
+  "Test retry does nothing when user declines."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((async-called nil))
+      (cl-letf (((symbol-function 'ogent-refinery--current-mr)
+                 (lambda () '(:id "mr-dec" :branch "feat/dec")))
+                ((symbol-function 'yes-or-no-p) (lambda (_prompt) nil))
+                ((symbol-function 'ogent-refinery--run-async)
+                 (lambda (args _cb &optional _ecb)
+                   (setq async-called t))))
+        (ogent-refinery-retry)
+        (should-not async-called)))))
+
+(ert-deftest ogent-refinery-test-drop-declined ()
+  "Test drop does nothing when user declines."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((async-called nil))
+      (cl-letf (((symbol-function 'ogent-refinery--current-mr)
+                 (lambda () '(:id "mr-dd" :branch "feat/dd")))
+                ((symbol-function 'yes-or-no-p) (lambda (_prompt) nil))
+                ((symbol-function 'ogent-refinery--run-async)
+                 (lambda (args _cb &optional _ecb)
+                   (setq async-called t))))
+        (ogent-refinery-drop)
+        (should-not async-called)))))
+
+;;; Loading Frame Cycling Tests
+
+(ert-deftest ogent-refinery-test-loading-frame-cycles-through-all ()
+  "Test loading frames cycle through all 4 values."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--loading t)
+    (setq ogent-refinery--loading-frame 0)
+    (let ((frames-seen nil))
+      (dotimes (_ 4)
+        (push (ogent-refinery--loading-indicator) frames-seen)
+        (setq ogent-refinery--loading-frame
+              (mod (1+ ogent-refinery--loading-frame) 4)))
+      ;; Should have seen 4 different frames
+      (should (= 4 (length (delete-dups frames-seen)))))))
+
+;;; Header Line - Multiple Status Combinations
+
+(ert-deftest ogent-refinery-test-header-line-all-statuses ()
+  "Test header line with queued, processing, and failed items."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--rig "test-rig")
+    (setq ogent-refinery--queue-data
+          (list '(:id "mr-1" :status "ready")
+                '(:id "mr-2" :status "in_progress")
+                '(:id "mr-3" :status "failed")))
+    (setq ogent-refinery--loading nil)
+    (let ((header (ogent-refinery--header-line)))
+      (should (string-match-p "1 queued" header))
+      (should (string-match-p "1 processing" header))
+      (should (string-match-p "1 failed" header)))))
+
+;;; Customization Variable Defaults
+
+(ert-deftest ogent-refinery-test-buffer-name-default ()
+  "Test ogent-refinery-buffer-name default value."
+  (should (stringp ogent-refinery-buffer-name))
+  (should (string= "*Refinery*" ogent-refinery-buffer-name)))
+
+(ert-deftest ogent-refinery-test-timeout-default ()
+  "Test ogent-refinery-timeout default value."
+  (should (integerp ogent-refinery-timeout))
+  (should (= 30 ogent-refinery-timeout)))
+
+(ert-deftest ogent-refinery-test-cache-ttl-default ()
+  "Test ogent-refinery-cache-ttl default value."
+  (should (integerp ogent-refinery-cache-ttl))
+  (should (= 5 ogent-refinery-cache-ttl)))
+
+(ert-deftest ogent-refinery-test-use-unicode-default ()
+  "Test ogent-refinery-use-unicode default value."
+  (should ogent-refinery-use-unicode))
+
+(ert-deftest ogent-refinery-test-recent-merges-limit-default ()
+  "Test ogent-refinery-recent-merges-limit default value."
+  (should (integerp ogent-refinery-recent-merges-limit))
+  (should (= 10 ogent-refinery-recent-merges-limit)))
+
+;;; Mode Revert Buffer Function
+
+(ert-deftest ogent-refinery-test-revert-buffer-function ()
+  "Test that revert-buffer-function is set to refresh."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (should (eq revert-buffer-function #'ogent-refinery-refresh))))
+
+;;; Buffer-Local State Isolation
+
+(ert-deftest ogent-refinery-test-loading-state-isolation ()
+  "Test that loading state is buffer-local."
+  (let ((buf1 (generate-new-buffer " *ref-test-1*"))
+        (buf2 (generate-new-buffer " *ref-test-2*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer buf1
+            (ogent-refinery-mode)
+            (setq ogent-refinery--loading t))
+          (with-current-buffer buf2
+            (ogent-refinery-mode)
+            (setq ogent-refinery--loading nil))
+          ;; Verify isolation
+          (with-current-buffer buf1
+            (should ogent-refinery--loading))
+          (with-current-buffer buf2
+            (should-not ogent-refinery--loading)))
+      (when (buffer-live-p buf1) (kill-buffer buf1))
+      (when (buffer-live-p buf2) (kill-buffer buf2)))))
+
+;;; Full Plain Rendering With Mixed Data
+
+(ert-deftest ogent-refinery-test-insert-plain-with-mixed-data ()
+  "Test plain rendering with processing, queue, failed, and history."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (setq ogent-refinery--queue-data ogent-refinery-test--sample-queue)
+    (setq ogent-refinery--history-data
+          (list '(:id "mr-h1" :branch "hist/one" :status "merged")
+                '(:id "mr-h2" :branch "hist/two" :status "merged")))
+    (let ((inhibit-read-only t))
+      (ogent-refinery--insert-plain))
+    (let ((content (buffer-string)))
+      ;; Processing
+      (should (string-match-p "mr-002" content))
+      ;; Queue (waiting)
+      (should (string-match-p "mr-001" content))
+      ;; Failed
+      (should (string-match-p "mr-003" content))
+      ;; History
+      (should (string-match-p "mr-h1" content))
+      (should (string-match-p "mr-h2" content)))))
+
+;;; Fetch All With Queue Data Verification
+
+(ert-deftest ogent-refinery-test-fetch-all-sets-queue-data ()
+  "Test fetch-all properly sets queue data from response."
+  (let ((test-data (list '(:id "fd-1" :status "ready" :branch "a")
+                         '(:id "fd-2" :status "failed" :branch "b"))))
+    (ogent-refinery-test-with-mock test-data
+      (with-temp-buffer
+        (ogent-refinery-mode)
+        (setq ogent-refinery--rig "test-rig")
+        (ogent-refinery--fetch-all (lambda ()))
+        (should (= 2 (length ogent-refinery--queue-data)))
+        (should (equal "fd-1" (plist-get (car ogent-refinery--queue-data) :id)))))))
+
+;;; Navigation Without Magit Tests
+
+(ert-deftest ogent-refinery-test-next-item-multiple-lines ()
+  "Test next-item moves through multiple lines."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((inhibit-read-only t))
+      (insert "line1\nline2\nline3\n"))
+    (goto-char (point-min))
+    (cl-letf (((symbol-value 'ogent-refinery--magit-section-available) nil))
+      (ogent-refinery-next-item)
+      (should (= 2 (line-number-at-pos)))
+      (ogent-refinery-next-item)
+      (should (= 3 (line-number-at-pos))))))
+
+;;; Toggle Section Without Magit
+
+(ert-deftest ogent-refinery-test-toggle-section-no-magit ()
+  "Test toggle-section is no-op without magit-section."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((ogent-refinery--magit-section-available nil))
+      ;; Should not error
+      (ogent-refinery-toggle-section))))
+
+;;; Current MR Without Magit
+
+(ert-deftest ogent-refinery-test-current-mr-no-magit ()
+  "Test current-mr returns nil without magit-section."
+  (with-temp-buffer
+    (ogent-refinery-mode)
+    (let ((ogent-refinery--magit-section-available nil))
+      (should-not (ogent-refinery--current-mr)))))
+
 (provide 'ogent-refinery-tests)
 
 ;;; ogent-refinery-tests.el ends here

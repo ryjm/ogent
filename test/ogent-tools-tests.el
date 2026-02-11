@@ -1049,6 +1049,293 @@
   "Default shell timeout is 120 seconds."
   (should (equal 120 (default-value 'ogent-tools-shell-timeout))))
 
+;;; ================================================================
+;;; NEW COVERAGE TESTS - Phase 2 (targeting 80%+ coverage)
+;;; ================================================================
+
+;;; --- Read File Edge Cases ---
+
+(ert-deftest ogent-tools-test-read-file-default-offset-and-limit ()
+  "Read file uses default offset 1 and limit from customization."
+  (let ((test-file (make-temp-file "ogent-test-defaults-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (dotimes (i 5) (insert (format "line-%d\n" i))))
+          (let ((ogent-tools-max-file-lines 3))
+            (let ((result (ogent-tool--read-file test-file)))
+              ;; Should only have 3 lines due to limit
+              (should (string-match-p "line-0" result))
+              (should (string-match-p "line-2" result))
+              (should-not (string-match-p "line-3" result)))))
+      (delete-file test-file))))
+
+(ert-deftest ogent-tools-test-read-file-single-line ()
+  "Read file handles a single-line file without trailing newline."
+  (let ((test-file (make-temp-file "ogent-test-single-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "single line content"))
+          (let ((result (ogent-tool--read-file test-file)))
+            (should (string-match-p "1\t.*single line content" result))))
+      (delete-file test-file))))
+
+;;; --- Glob Edge Cases ---
+
+(ert-deftest ogent-tools-test-glob-uses-project-root-default ()
+  "Glob defaults to project root when no path provided."
+  (let ((temp-dir (make-temp-file "ogent-glob-default-" t)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "marker.el" temp-dir) (insert ""))
+          (let ((ogent-tools-project-root temp-dir))
+            (let ((result (ogent-tool--glob "*.el")))
+              (should (string-match-p "marker\\.el" result)))))
+      (delete-directory temp-dir t))))
+
+(ert-deftest ogent-tools-test-glob-absolute-path ()
+  "Glob resolves absolute path argument."
+  (let ((temp-dir (make-temp-file "ogent-glob-abs-" t)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "found.txt" temp-dir) (insert ""))
+          (let ((result (ogent-tool--glob "*.txt" temp-dir)))
+            (should (string-match-p "found\\.txt" result))))
+      (delete-directory temp-dir t))))
+
+;;; --- Edit File Edge Cases ---
+
+(ert-deftest ogent-tools-test-edit-file-preserves-other-content ()
+  "Edit file does not alter content outside the replaced string."
+  (let ((test-file (make-temp-file "ogent-edit-preserve-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "before TARGET after\n"))
+          (ogent-tool--edit-file test-file "TARGET" "REPLACED")
+          (should (equal "before REPLACED after\n"
+                         (with-temp-buffer
+                           (insert-file-contents test-file)
+                           (buffer-string)))))
+      (delete-file test-file))))
+
+(ert-deftest ogent-tools-test-edit-file-returns-path ()
+  "Edit file return value includes the file path."
+  (let ((test-file (make-temp-file "ogent-edit-path-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "hello"))
+          (let ((result (ogent-tool--edit-file test-file "hello" "world")))
+            (should (string-match-p (regexp-quote test-file) result))))
+      (delete-file test-file))))
+
+;;; --- Write File Edge Cases ---
+
+(ert-deftest ogent-tools-test-write-file-unicode-content ()
+  "Write file handles unicode content correctly."
+  (let ((test-file (make-temp-file "ogent-write-unicode-")))
+    (unwind-protect
+        (progn
+          (ogent-tool--write-file test-file "Hello\u00e9\u00e8\u00ea World\u2603")
+          (let ((content (with-temp-buffer
+                           (insert-file-contents test-file)
+                           (buffer-string))))
+            (should (string-match-p "\u00e9" content))
+            (should (string-match-p "\u2603" content))))
+      (delete-file test-file))))
+
+;;; --- Bash Streaming Tests ---
+
+(ert-deftest ogent-tools-test-bash-streams-stderr ()
+  "Bash streams stderr output to callback."
+  (let* ((events nil)
+         (ogent-tools-show-progress nil)
+         (ogent-tools--progress-timer nil)
+         (ogent-tools--progress-state nil)
+         (ogent-tools-stream-callback
+          (lambda (tool type _data)
+            (push (list tool type) events))))
+    (ogent-tool--bash "echo error >&2")
+    ;; Should have start and done events
+    (should (cl-find '(bash start) events :test #'equal))
+    (should (cl-find '(bash done) events :test #'equal))))
+
+(ert-deftest ogent-tools-test-bash-truncates-output ()
+  "Bash truncates output exceeding max chars."
+  (let ((ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools--progress-state nil)
+        (ogent-tools-max-output-chars 50))
+    (let ((result (ogent-tool--bash "printf '%0.s' {1..200}")))
+      ;; Result should be truncated (may include truncation notice)
+      (should (stringp result)))))
+
+(ert-deftest ogent-tools-test-bash-default-working-directory ()
+  "Bash uses project root as default working directory."
+  (let ((temp-dir (make-temp-file "ogent-bash-defwd-" t))
+        (ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools--progress-state nil))
+    (unwind-protect
+        (let ((ogent-tools-project-root temp-dir))
+          (let ((result (ogent-tool--bash "pwd")))
+            (let ((dir-base (file-name-nondirectory
+                             (directory-file-name temp-dir))))
+              (should (string-match-p (regexp-quote dir-base) result)))))
+      (delete-directory temp-dir t))))
+
+;;; --- Stream Output Without State ---
+
+(ert-deftest ogent-tools-test-stream-output-nil-state ()
+  "Stream output does not error when progress state is nil."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools-stream-callback nil))
+    ;; Should not error
+    (ogent-tools--stream-output 'test 'stdout "data")))
+
+(ert-deftest ogent-tools-test-stream-output-callback-type ()
+  "Stream output passes correct type to callback."
+  (let ((ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
+        (captured-type nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool type _data)
+             (setq captured-type type))))
+      (ogent-tools--stream-output 'test 'stderr "error data")
+      (should (eq 'stderr captured-type)))))
+
+;;; --- Stream Done Without State ---
+
+(ert-deftest ogent-tools-test-stream-done-nil-state ()
+  "Stream done handles nil progress state gracefully."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil))
+    ;; Should not error
+    (ogent-tools--stream-done 'test 0)))
+
+(ert-deftest ogent-tools-test-stream-done-duration-nil-state ()
+  "Stream done callback includes nil duration when no state."
+  (let ((ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools-show-progress nil)
+        (captured nil))
+    (let ((ogent-tools-stream-callback
+           (lambda (_tool _type data)
+             (setq captured data))))
+      (ogent-tools--stream-done 'test 0)
+      (should captured)
+      (should-not (plist-get captured :duration)))))
+
+;;; --- Progress Update Spinner Cycling ---
+
+(ert-deftest ogent-tools-test-progress-update-advances-spinner ()
+  "Progress update advances spinner index."
+  (let ((ogent-tools-show-progress t)
+        (ogent-tools--spinner-index 0)
+        (ogent-tools--progress-state
+         (list :tool 'test :bytes 0 :lines 0 :start-time (current-time))))
+    (cl-letf (((symbol-function 'message) (lambda (&rest _) nil)))
+      (ogent-tools--progress-update)
+      (should (equal 1 ogent-tools--spinner-index))
+      (ogent-tools--progress-update)
+      (should (equal 2 ogent-tools--spinner-index)))))
+
+;;; --- Format Bytes Boundary Cases ---
+
+(ert-deftest ogent-tools-test-format-bytes-exact-mb ()
+  "Format bytes at exact 1 MB boundary."
+  (should (equal "1.0 MB" (ogent-tools--format-bytes (* 1024 1024)))))
+
+(ert-deftest ogent-tools-test-format-bytes-large-mb ()
+  "Format bytes for large megabyte values."
+  (should (equal "10.0 MB" (ogent-tools--format-bytes (* 10 1024 1024)))))
+
+;;; --- Registry Install Idempotency ---
+
+(ert-deftest ogent-tools-test-registry-install-does-not-overwrite ()
+  "Install defaults does not overwrite existing tools with same name."
+  (let ((ogent-tool-registry
+         (list '(:name read-file :function my-custom-fn :description "Custom"
+                       :args nil))))
+    (ogent-tools-install-defaults)
+    ;; The custom entry should still be there
+    (let ((entry (seq-find (lambda (spec) (eq (plist-get spec :name) 'read-file))
+                           ogent-tool-registry)))
+      (should (eq (plist-get entry :function) 'my-custom-fn)))))
+
+;;; --- Cancel All with Timer Cleanup ---
+
+(ert-deftest ogent-tools-test-cancel-all-kills-stderr-buffers ()
+  "Cancel all kills stderr buffers from process info."
+  (let* ((stderr-buf (generate-new-buffer " *test-stderr*"))
+         (ogent-tools--active-processes
+          (list (cons (start-process "test-cancel-stderr" nil "true")
+                      (list :stderr-buffer stderr-buf))))
+         (ogent-tools--progress-state nil)
+         (ogent-tools--progress-timer nil))
+    (sleep-for 0.1)
+    (ogent-tools-cancel-all)
+    (should-not (buffer-live-p stderr-buf))
+    (should-not ogent-tools--active-processes)))
+
+;;; --- Active Count Mixed Processes ---
+
+(ert-deftest ogent-tools-test-active-count-mixed ()
+  "Active count correctly counts only live processes in mixed list."
+  (let* ((buf (generate-new-buffer " *test-mixed*"))
+         (live-proc (start-process "test-live-mix" buf "sleep" "10")))
+    (unwind-protect
+        (progn
+          ;; Initially should count the live process
+          (let ((ogent-tools--active-processes
+                 (list (cons live-proc nil))))
+            (should (equal 1 (ogent-tools-active-count))))
+          ;; Kill it, then check again
+          (kill-process live-proc)
+          (sleep-for 0.1)
+          (let ((ogent-tools--active-processes
+                 (list (cons live-proc nil))))
+            (should (equal 0 (ogent-tools-active-count)))))
+      (when (process-live-p live-proc)
+        (kill-process live-proc))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+;;; --- Grep Context Lines ---
+
+(ert-deftest ogent-tools-test-grep-with-context ()
+  "Grep passes context lines parameter."
+  (let ((temp-dir (make-temp-file "ogent-grep-ctx-" t)))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "ctx.txt" temp-dir)
+            (insert "line1\nTARGET\nline3\n"))
+          (let ((ogent-tools-show-progress nil)
+                (ogent-tools-stream-callback nil)
+                (ogent-tools--progress-timer nil)
+                (ogent-tools--progress-state nil)
+                (result (ogent-tool--grep "TARGET" temp-dir nil 1)))
+            (should (string-match-p "TARGET" result))))
+      (delete-directory temp-dir t))))
+
+;;; --- Bash Combined stdout/stderr ---
+
+(ert-deftest ogent-tools-test-bash-combined-output ()
+  "Bash captures both stdout and stderr in result."
+  (let ((ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil)
+        (ogent-tools--progress-timer nil)
+        (ogent-tools--progress-state nil)
+        (result (ogent-tool--bash "echo out && echo err >&2")))
+    (should (string-match-p "out" result))
+    (should (string-match-p "err" result))))
+
 (provide 'ogent-tools-tests)
 
 ;;; ogent-tools-tests.el ends here

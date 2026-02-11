@@ -952,5 +952,167 @@
   "ogent-completions-fold-others defaults to t."
   (should (eq ogent-completions-fold-others t)))
 
+;;; Cycling Multiple Completions Tests
+
+(ert-deftest ogent-completions-next-cycles-through-multiple ()
+  "ogent-completion-next cycles forward through multiple completions."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response 1\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nFirst\n** Response 2\n:PROPERTIES:\n:RESPONSE-INDEX: 2\n:END:\nSecond\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil))
+      (ogent-completion-next)
+      ;; Index should now be 1 (second completion)
+      (let* ((question-marker (ogent-completions--find-question-marker))
+             (key (marker-position question-marker))
+             (idx (gethash key ogent-completions--current-index)))
+        (should (= idx 1))))))
+
+(ert-deftest ogent-completions-prev-cycles-backward ()
+  "ogent-completion-prev cycles backward wrapping around."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response 1\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nFirst\n** Response 2\n:PROPERTIES:\n:RESPONSE-INDEX: 2\n:END:\nSecond\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil))
+      (ogent-completion-prev)
+      ;; Index should wrap to last (1)
+      (let* ((question-marker (ogent-completions--find-question-marker))
+             (key (marker-position question-marker))
+             (idx (gethash key ogent-completions--current-index)))
+        (should (= idx 1))))))
+
+;;; Accept/Reject with y-or-n-p Tests
+
+(ert-deftest ogent-completions-accept-single-no-confirm ()
+  "ogent-completion-accept with single completion does not confirm."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nContent\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil)
+          (confirm-called nil))
+      (cl-letf (((symbol-function 'y-or-n-p)
+                 (lambda (_prompt) (setq confirm-called t) t)))
+        (ogent-completion-accept))
+      ;; With single completion, y-or-n-p should NOT be called
+      (should-not confirm-called))))
+
+(ert-deftest ogent-completions-accept-cancelled ()
+  "ogent-completion-accept cancelled by user raises user-error."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response 1\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nFirst\n** Response 2\n:PROPERTIES:\n:RESPONSE-INDEX: 2\n:END:\nSecond\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+        (should-error (ogent-completion-accept) :type 'user-error)))))
+
+(ert-deftest ogent-completions-reject-cancelled ()
+  "ogent-completion-reject cancelled by user raises user-error."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nContent\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+        (should-error (ogent-completion-reject) :type 'user-error)))))
+
+(ert-deftest ogent-completions-review-accept-cancelled ()
+  "ogent-review-accept cancelled by user raises user-error."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Response 1\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nFirst\n** Response 2\n:PROPERTIES:\n:RESPONSE-INDEX: 2\n:END:\nSecond\n")
+    (goto-char (point-min))
+    (let ((ogent-completions-fold-others nil))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+        (should-error (ogent-review-accept) :type 'user-error)))))
+
+;;; No Completions Error Tests
+
+(ert-deftest ogent-completions-accept-no-completions-errors ()
+  "ogent-completion-accept errors when no completions found."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Other heading\nNot a response\n")
+    (goto-char (point-min))
+    (should-error (ogent-completion-accept) :type 'user-error)))
+
+(ert-deftest ogent-completions-reject-no-completions-errors ()
+  "ogent-completion-reject errors when no completions found."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Other heading\nNot a response\n")
+    (goto-char (point-min))
+    (should-error (ogent-completion-reject) :type 'user-error)))
+
+(ert-deftest ogent-completions-review-accept-no-completions-errors ()
+  "ogent-review-accept errors when no completions found."
+  (with-temp-buffer
+    (org-mode)
+    (setq ogent-completions--registry (make-hash-table :test 'equal))
+    (setq ogent-completions--current-index (make-hash-table :test 'equal))
+    (insert "** Question\nPrompt\n** Other heading\nNot a response\n")
+    (goto-char (point-min))
+    (should-error (ogent-review-accept) :type 'user-error)))
+
+;;; Make Overlay Edge Cases
+
+(ert-deftest ogent-completions-make-overlay-nil-start-marker ()
+  "ogent-completions--make-overlay returns nil with nil start marker."
+  (let ((completion (make-ogent-completion
+                      :id 1 :model "test"
+                      :marker nil
+                      :end-marker nil
+                      :status 'pending :overlay nil)))
+    (should-not (ogent-completions--make-overlay completion))))
+
+(ert-deftest ogent-completions-make-overlay-different-buffers ()
+  "ogent-completions--make-overlay returns nil when markers are in different buffers."
+  (let* ((buf1 (generate-new-buffer " *test1*"))
+         (buf2 (generate-new-buffer " *test2*"))
+         (m1 (with-current-buffer buf1
+               (insert "content1")
+               (point-marker)))
+         (m2 (with-current-buffer buf2
+               (insert "content2")
+               (point-marker)))
+         (completion (make-ogent-completion
+                       :id 1 :model "test"
+                       :marker m1 :end-marker m2
+                       :status 'pending :overlay nil)))
+    (unwind-protect
+        (should-not (ogent-completions--make-overlay completion))
+      (kill-buffer buf1)
+      (kill-buffer buf2))))
+
+;;; Get Response Model Dead Buffer
+
+(ert-deftest ogent-completions-get-response-model-dead-buffer ()
+  "ogent-completions--get-response-model returns nil for dead buffer marker."
+  (let ((marker (with-temp-buffer
+                  (org-mode)
+                  (insert "* Response\nContent\n")
+                  (goto-char (point-min))
+                  (point-marker))))
+    ;; Buffer is now dead
+    (should-not (ogent-completions--get-response-model marker))))
+
 (provide 'ogent-completions-tests)
 ;;; ogent-completions-tests.el ends here
