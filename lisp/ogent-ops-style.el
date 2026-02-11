@@ -111,7 +111,8 @@ STATE is one of `active', `working', or `idle'."
     (witnesses . "◎")
     (crew      . "◇")
     (polecats  . "▸")
-    (rigs      . "▣"))
+    (rigs      . "▣")
+    (issues    . "◈"))
   "Unicode section heading symbols for operational buffers.")
 
 (defconst ogent-ops--section-symbols-ascii
@@ -124,7 +125,8 @@ STATE is one of `active', `working', or `idle'."
     (witnesses . "W")
     (crew      . "C")
     (polecats  . "P")
-    (rigs      . "R"))
+    (rigs      . "R")
+    (issues    . "I"))
   "ASCII fallback section heading symbols.")
 
 (defun ogent-ops-section-symbol (section)

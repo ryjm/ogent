@@ -84,6 +84,26 @@
   :type 'integer
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-section-heading-face-overrides nil
+  "Optional per-section heading face overrides.
+When non-nil, this should be an alist of (SECTION . FACE), where SECTION is
+one of `hook', `mail', `convoy', `workers', `stats', `deacon',
+`witnesses', `crew', `polecats', `rigs', or `issues'. FACE must name an existing face.
+Invalid face symbols are ignored and default faces are used."
+  :type '(alist :key-type (choice (const hook)
+                                  (const mail)
+                                  (const convoy)
+                                  (const workers)
+                                  (const stats)
+                                  (const deacon)
+                                  (const witnesses)
+                                  (const crew)
+                                  (const polecats)
+                                  (const rigs)
+                                  (const issues))
+                :value-type face)
+  :group 'ogent-gastown)
+
 ;;; Faces
 
 (defgroup ogent-gastown-faces nil
@@ -92,9 +112,133 @@
   :group 'faces)
 
 (defface ogent-gastown-section-heading
-  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold))
-  "Face for section headings."
+  '((((class color) (background light))
+     :foreground "#37474f" :background "#eceff1" :weight bold :extend t)
+    (((class color) (background dark))
+     :foreground "#eceff4" :background "#3b4252" :weight bold :extend t)
+    (t :weight bold))
+  "Base face for section headings."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-hook
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#4527a0" :background "#ede7f6")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#b48ead" :background "#3a2f4a")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Hook section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-mail
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#0d47a1" :background "#e3f2fd")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#88c0d0" :background "#2a3f5f")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Mail section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-convoy
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#6a1b9a" :background "#f3e5f5")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#b48ead" :background "#4a345a")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Convoys section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-workers
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#1b5e20" :background "#e8f5e9")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#a3be8c" :background "#2f4f3e")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Workers section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-stats
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#1e3a8a" :background "#dbeafe")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#88c0d0" :background "#243447")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Town Stats section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-deacon
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#1b5e20" :background "#e8f5e9")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#a3be8c" :background "#2f4f3e")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Deacon section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-witnesses
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#bf360c" :background "#fff3e0")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#d08770" :background "#4b3b2e")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Witnesses section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-crew
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#1a237e" :background "#e8f0fe")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#81a1c1" :background "#33415e")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Crew section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-polecats
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#bf360c" :background "#fbe9e7")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#d08770" :background "#5a3a34")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Polecats section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-rigs
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#37474f" :background "#f5f5f5")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#d8dee9" :background "#434c5e")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for the Rigs section heading."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-section-heading-issues
+  '((((class color) (background light))
+     :inherit ogent-gastown-section-heading
+     :foreground "#4e342e" :background "#efebe9")
+    (((class color) (background dark))
+     :inherit ogent-gastown-section-heading
+     :foreground "#ebcb8b" :background "#4b3f33")
+    (t :inherit ogent-gastown-section-heading))
+  "Face for per-rig issues detail headings."
   :group 'ogent-gastown-faces)
 
 (defface ogent-gastown-hook-active
@@ -276,6 +420,62 @@
      :background "#2e3440" :foreground "#b48ead" :weight bold))
   "Face for keybindings in header line."
   :group 'ogent-gastown-faces)
+
+(defun ogent-gastown--section-heading-face (section)
+  "Return heading face for SECTION."
+  (let ((default-face
+          (pcase section
+            ('hook 'ogent-gastown-section-heading-hook)
+            ('mail 'ogent-gastown-section-heading-mail)
+            ('convoy 'ogent-gastown-section-heading-convoy)
+            ('workers 'ogent-gastown-section-heading-workers)
+            ('stats 'ogent-gastown-section-heading-stats)
+            ('deacon 'ogent-gastown-section-heading-deacon)
+            ('witnesses 'ogent-gastown-section-heading-witnesses)
+            ('crew 'ogent-gastown-section-heading-crew)
+            ('polecats 'ogent-gastown-section-heading-polecats)
+            ('rigs 'ogent-gastown-section-heading-rigs)
+            ('issues 'ogent-gastown-section-heading-issues)
+            (_ 'ogent-gastown-section-heading))))
+    (if-let ((override (alist-get section ogent-gastown-section-heading-face-overrides)))
+        (if (facep override) override default-face)
+      default-face)))
+
+(defun ogent-gastown--section-heading (section label)
+  "Return LABEL propertized for SECTION heading."
+  (propertize label 'face (ogent-gastown--section-heading-face section)))
+
+(defun ogent-gastown--plain-section-prefix (section)
+  "Return plain-mode prefix symbol for SECTION."
+  (pcase section
+    ('hook "#")
+    ('mail "@")
+    ('convoy ">")
+    ('workers "*")
+    ('stats "#")
+    ('deacon "D")
+    ('witnesses "W")
+    ('crew "C")
+    ('polecats "P")
+    ('rigs "R")
+    ('issues "I")
+    (_ "?")))
+
+(defun ogent-gastown--compose-section-heading (section title &rest suffixes)
+  "Compose a Magit section heading for SECTION using TITLE and SUFFIXES."
+  (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+    (concat (ogent-ops-section-symbol section)
+            " "
+            (ogent-gastown--section-heading section title)
+            (apply #'concat (delq nil suffixes)))))
+
+(defun ogent-gastown--compose-plain-section-heading (section title &optional suffix)
+  "Compose a plain-mode heading line for SECTION and TITLE with SUFFIX."
+  (concat (ogent-gastown--plain-section-prefix section)
+          " "
+          title
+          (or suffix "")
+          "\n"))
 
 ;;; Buffer-local State
 
@@ -1275,10 +1475,9 @@ Returns non-nil if an error was inserted."
          (next-action (plist-get data :next_action)))
     (magit-insert-section (ogent-gastown-hook-section data)
       (magit-insert-heading
-       (concat
-        (ogent-ops-section-heading
-         (ogent-ops-section-symbol 'hook)
-         (propertize "Hook Status" 'face 'ogent-gastown-section-heading))
+       (ogent-gastown--compose-section-heading
+        'hook
+        "Hook Status"
         (when loading
           (propertize " (loading...)" 'face 'ogent-gastown-dimmed))))
       (cond
@@ -1289,7 +1488,7 @@ Returns non-nil if an error was inserted."
        (t
         (insert "  ")
         (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
-        (insert (propertize role 'face 'ogent-gastown-section-heading))
+        (insert (propertize role 'face 'ogent-gastown-rig-name))
         (insert "  ")
         (insert (propertize "Target: " 'face 'ogent-gastown-dimmed))
         (insert target)
@@ -1311,7 +1510,8 @@ Returns non-nil if an error was inserted."
          (loading ogent-gastown--hook-loading)
          (has-work (plist-get data :has_work))
          (role (or (plist-get data :role) "unknown")))
-    (insert (propertize "# Hook Status\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'hook "Hook Status")
+                        'face (ogent-gastown--section-heading-face 'hook)))
     (cond
      ((and loading (null data))
       (insert (propertize "  Loading hook...\n" 'face 'ogent-gastown-dimmed)))
@@ -1334,10 +1534,9 @@ Returns non-nil if an error was inserted."
          (unread-count (length (seq-filter (lambda (m) (not (plist-get m :read))) mail))))
     (magit-insert-section (ogent-gastown-mail-section mail nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'mail)
-         " "
-         (propertize "Mail Inbox" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'mail
+         "Mail Inbox"
          (when loading
            (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
          (when (> unread-count 0)
@@ -1383,7 +1582,8 @@ Returns non-nil if an error was inserted."
   "Insert mail section (plain)."
   (let ((mail ogent-gastown--mail-data)
         (loading ogent-gastown--mail-loading))
-    (insert (propertize "@ Mail Inbox\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'mail "Mail Inbox")
+                        'face (ogent-gastown--section-heading-face 'mail)))
     (cond
      ((and loading (null mail))
       (insert (propertize "  Loading mail...\n" 'face 'ogent-gastown-dimmed)))
@@ -1411,10 +1611,9 @@ Returns non-nil if an error was inserted."
         (loading ogent-gastown--convoy-loading))
     (magit-insert-section (ogent-gastown-convoy-section convoys nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'convoy)
-         " "
-         (propertize "Convoys" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'convoy
+         "Convoys"
          (when loading
            (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
          (when convoys
@@ -1455,7 +1654,8 @@ CONVOY should be a normalized plist with canonical keys."
   "Insert convoy section (plain)."
   (let ((convoys ogent-gastown--convoy-data)
         (loading ogent-gastown--convoy-loading))
-    (insert (propertize "> Convoys\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'convoy "Convoys")
+                        'face (ogent-gastown--section-heading-face 'convoy)))
     (cond
      ((and loading (null convoys))
       (insert (propertize "  Loading convoys...\n" 'face 'ogent-gastown-dimmed)))
@@ -1481,10 +1681,9 @@ CONVOY should be a normalized plist with canonical keys."
         (cl-incf running-count)))
     (magit-insert-section (ogent-gastown-workers-section workers nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'workers)
-         " "
-         (propertize "Workers" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'workers
+         "Workers"
          (propertize (ogent-gastown--selected-rig-heading)
                      'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d running)"
@@ -1532,8 +1731,9 @@ CONVOY should be a normalized plist with canonical keys."
   (let ((workers (ogent-gastown--filter-items-for-selected-rig
                   ogent-gastown--workers-data)))
     (insert (propertize
-             (format "* Workers%s\n" (ogent-gastown--selected-rig-heading))
-             'face 'ogent-gastown-section-heading))
+             (ogent-gastown--compose-plain-section-heading
+              'workers "Workers" (ogent-gastown--selected-rig-heading))
+             'face (ogent-gastown--section-heading-face 'workers)))
     (cond
      ((ogent-gastown--section-fetch-error 'workers)
       (ogent-gastown--insert-fetch-error 'workers))
@@ -1559,10 +1759,7 @@ CONVOY should be a normalized plist with canonical keys."
   (let ((stats ogent-gastown--stats-data))
     (magit-insert-section (ogent-gastown-stats-section stats)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'stats)
-         " "
-         (propertize "Town Stats" 'face 'ogent-gastown-section-heading)))
+        (ogent-gastown--compose-section-heading 'stats "Town Stats"))
       (cond
        ((and (null stats) (ogent-gastown--section-fetch-error 'town-status))
         (ogent-gastown--insert-fetch-error 'town-status))
@@ -1617,7 +1814,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 (defun ogent-gastown--insert-stats-section-plain ()
   "Insert stats section (plain)."
   (let ((stats ogent-gastown--stats-data))
-    (insert (propertize "# Town Stats\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'stats "Town Stats")
+                        'face (ogent-gastown--section-heading-face 'stats)))
     (cond
      ((and (null stats) (ogent-gastown--section-fetch-error 'town-status))
       (ogent-gastown--insert-fetch-error 'town-status))
@@ -1648,10 +1846,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (address (plist-get data :address)))
     (magit-insert-section (ogent-gastown-deacon-section data)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'deacon)
-         " "
-         (propertize "Deacon" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'deacon
+         "Deacon"
          " "
          (if running
              (propertize "[running]" 'face 'ogent-gastown-deacon-running)
@@ -1678,7 +1875,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert deacon section (plain)."
   (let* ((data ogent-gastown--deacon-data)
          (running (plist-get data :running)))
-    (insert (propertize "D Deacon\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'deacon "Deacon")
+                        'face (ogent-gastown--section-heading-face 'deacon)))
     (cond
      ((and (null data) (ogent-gastown--section-fetch-error 'town-status))
       (ogent-gastown--insert-fetch-error 'town-status))
@@ -1698,10 +1896,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
                                 witnesses))))
     (magit-insert-section (ogent-gastown-witness-section witnesses nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'witnesses)
-         " "
-         (propertize "Witnesses" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'witnesses
+         "Witnesses"
          (propertize (format " (%d/%d active)"
                              active-count (length witnesses))
                      'face 'ogent-gastown-dimmed)))
@@ -1741,7 +1938,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 (defun ogent-gastown--insert-witness-section-plain ()
   "Insert witness section (plain)."
   (let ((witnesses ogent-gastown--witness-data))
-    (insert (propertize "W Witnesses\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'witnesses "Witnesses")
+                        'face (ogent-gastown--section-heading-face 'witnesses)))
     (cond
      ((and (null witnesses) (ogent-gastown--section-fetch-error 'town-status))
       (ogent-gastown--insert-fetch-error 'town-status))
@@ -1769,10 +1967,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (cl-incf active-count)))
     (magit-insert-section (ogent-gastown-crew-section crew nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'crew)
-         " "
-         (propertize "Crew" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'crew
+         "Crew"
          (propertize (ogent-gastown--selected-rig-heading)
                      'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d active)"
@@ -1836,8 +2033,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   (let ((crew (ogent-gastown--filter-items-for-selected-rig
                ogent-gastown--crew-data)))
     (insert (propertize
-             (format "C Crew%s\n" (ogent-gastown--selected-rig-heading))
-             'face 'ogent-gastown-section-heading))
+             (ogent-gastown--compose-plain-section-heading
+              'crew "Crew" (ogent-gastown--selected-rig-heading))
+             'face (ogent-gastown--section-heading-face 'crew)))
     (cond
      ((ogent-gastown--section-fetch-error 'crew)
       (ogent-gastown--insert-fetch-error 'crew))
@@ -1868,10 +2066,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (cl-incf running-count)))
     (magit-insert-section (ogent-gastown-polecat-section polecats nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'polecats)
-         " "
-         (propertize "Polecats" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'polecats
+         "Polecats"
          (propertize (ogent-gastown--selected-rig-heading)
                      'face 'ogent-gastown-rig-name)
          (propertize (format " (%d/%d running)"
@@ -1939,8 +2136,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   (let ((polecats (ogent-gastown--filter-items-for-selected-rig
                    ogent-gastown--polecat-data)))
     (insert (propertize
-             (format "P Polecats%s\n" (ogent-gastown--selected-rig-heading))
-             'face 'ogent-gastown-section-heading))
+             (ogent-gastown--compose-plain-section-heading
+              'polecats "Polecats" (ogent-gastown--selected-rig-heading))
+             'face (ogent-gastown--section-heading-face 'polecats)))
     (cond
      ((ogent-gastown--section-fetch-error 'polecat)
       (ogent-gastown--insert-fetch-error 'polecat))
@@ -1969,10 +2167,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   (let ((rigs ogent-gastown--rigs-data))
     (magit-insert-section (ogent-gastown-rigs-section rigs nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-symbol 'rigs)
-         " "
-         (propertize "Rigs" 'face 'ogent-gastown-section-heading)
+        (ogent-gastown--compose-section-heading
+         'rigs
+         "Rigs"
          (propertize (format " (%d)" (length rigs))
                      'face 'ogent-gastown-dimmed)))
       (cond
@@ -2055,7 +2252,9 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                       (or (plist-get beads-stats :in_progress) 0)
                       (or (plist-get beads-stats :closed) 0)))
                0)
-        (insert "    " (propertize "Beads:" 'face 'ogent-gastown-section-heading) "\n")
+        (insert "    "
+                (ogent-gastown--compose-section-heading 'issues "Issues:")
+                "\n")
         (dolist (p pairs)
           (let ((label (nth 0 p))
                 (value (nth 1 p))
@@ -2099,7 +2298,8 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 (defun ogent-gastown--insert-rigs-section-plain ()
   "Insert rigs section (plain)."
   (let ((rigs ogent-gastown--rigs-data))
-    (insert (propertize "R Rigs\n" 'face 'ogent-gastown-section-heading))
+    (insert (propertize (ogent-gastown--compose-plain-section-heading 'rigs "Rigs")
+                        'face (ogent-gastown--section-heading-face 'rigs)))
     (cond
      ((and (null rigs) (ogent-gastown--section-fetch-error 'town-status))
       (ogent-gastown--insert-fetch-error 'town-status))
