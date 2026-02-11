@@ -120,6 +120,14 @@ Set to 0 to disable automatic polling."
   :type 'boolean
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-integration t
+  "Whether to enable Gas Town integration in ogent buffers.
+When non-nil and Gas Town is available (gt in PATH, inside a town
+workspace), ogent features like issues and header-line can show
+Gas Town context such as agent assignments and convoy status."
+  :type 'boolean
+  :group 'ogent-gastown)
+
 ;;; Internal State
 
 (defvar ogent-gastown--hook-cache nil
@@ -157,6 +165,43 @@ with `ogent-gastown-status'."
 (defun ogent-gastown-in-town-p ()
   "Return non-nil if current directory is within a Gas Town workspace."
   (not (null (ogent-gastown-town-root))))
+
+(defvar ogent-gastown--integration-cache nil
+  "Cached result of `ogent-gastown-integration-active-p'.
+A cons of (TIME . RESULT) where TIME is from `float-time'.
+Invalidated by `ogent-gastown-integration-invalidate' or after 5 seconds.")
+
+(defconst ogent-gastown--integration-cache-ttl 5.0
+  "Seconds to cache `ogent-gastown-integration-active-p' result.")
+
+;;;###autoload
+(defun ogent-gastown-integration-active-p ()
+  "Return non-nil when Gas Town integration is fully available.
+Checks three conditions:
+1. `ogent-gastown-integration' customization is non-nil
+2. The gt executable is found in PATH
+3. The current directory is inside a Gas Town workspace
+
+The result is cached for `ogent-gastown--integration-cache-ttl'
+seconds to avoid repeated `executable-find' calls during
+header-line redisplay."
+  (let ((now (float-time)))
+    (if (and ogent-gastown--integration-cache
+             (< (- now (car ogent-gastown--integration-cache))
+                ogent-gastown--integration-cache-ttl))
+        (cdr ogent-gastown--integration-cache)
+      (let ((result (and ogent-gastown-integration
+                         (ogent-gastown-available-p)
+                         (ogent-gastown-in-town-p)
+                         t)))
+        (setq ogent-gastown--integration-cache (cons now result))
+        result))))
+
+(defun ogent-gastown-integration-invalidate ()
+  "Invalidate the cached integration-active-p result.
+Call this after changing `ogent-gastown-integration' or when the
+environment changes (e.g., entering/leaving a Gas Town workspace)."
+  (setq ogent-gastown--integration-cache nil))
 
 ;;; Core Async Execution
 
