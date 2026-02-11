@@ -1018,7 +1018,8 @@ Other:
 
 (defun ogent-gastown--insert-mail-item (msg)
   "Insert a single mail MSG as a section."
-  (let* ((id (plist-get msg :id))
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (id (plist-get msg :id))
          (from (plist-get msg :from))
          (subject (plist-get msg :subject))
          (read (plist-get msg :read))
@@ -1027,8 +1028,10 @@ Other:
     (magit-insert-section (ogent-gastown-mail-item-section msg)
       (insert "  ")
       (insert (if read
-                  (propertize "" 'face 'ogent-gastown-mail-read)
-                (propertize "" 'face 'ogent-gastown-mail-unread)))
+                  (propertize (ogent-ops-status-symbol 'closed)
+                              'face 'ogent-gastown-mail-read)
+                (propertize (ogent-ops-status-symbol 'open)
+                            'face 'ogent-gastown-mail-unread)))
       (insert " ")
       (insert (propertize id 'face 'ogent-gastown-dimmed))
       (insert " ")
@@ -1158,9 +1161,6 @@ Other:
     (insert (propertize name 'face state-face))
     (insert " ")
     (insert (propertize (format "[%s]" state) 'face 'ogent-gastown-dimmed))
-    (when running
-      (insert " ")
-      (insert (propertize "running" 'face 'ogent-gastown-worker-running)))
     (insert "\n")))
 
 (defun ogent-gastown--insert-workers-section-plain ()
@@ -1230,7 +1230,8 @@ Other:
 
 (defun ogent-gastown--insert-deacon-section ()
   "Insert deacon status section with magit-section."
-  (let* ((data ogent-gastown--deacon-data)
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (data ogent-gastown--deacon-data)
          (running (plist-get data :running))
          (has-work (plist-get data :has_work))
          (address (plist-get data :address)))
@@ -1242,8 +1243,10 @@ Other:
          (propertize "Deacon" 'face 'ogent-gastown-section-heading)
          " "
          (if running
-             (propertize "[running]" 'face 'ogent-gastown-deacon-running)
-           (propertize "[stopped]" 'face 'ogent-gastown-deacon-stopped))))
+             (propertize (ogent-ops-activity-symbol 'active)
+                         'face 'ogent-gastown-deacon-running)
+           (propertize (ogent-ops-activity-symbol 'idle)
+                       'face 'ogent-gastown-deacon-stopped))))
       (if (null data)
           (insert (propertize "  No deacon info available\n" 'face 'ogent-gastown-dimmed))
         (insert "  ")
@@ -1530,7 +1533,8 @@ Other:
 
 (defun ogent-gastown--insert-rig-item (rig)
   "Insert a single RIG as a section."
-  (let* ((name (plist-get rig :name))
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (name (plist-get rig :name))
          (polecat-count (or (plist-get rig :polecat_count) 0))
          (crew-count (or (plist-get rig :crew_count) 0))
          (has-witness (plist-get rig :has_witness))
@@ -1545,8 +1549,10 @@ Other:
                           'face 'ogent-gastown-dimmed))
       (insert " ")
       (if any-running
-          (insert (propertize "[running]" 'face 'ogent-gastown-rig-running))
-        (insert (propertize "[stopped]" 'face 'ogent-gastown-rig-stopped)))
+          (insert (propertize (ogent-ops-activity-symbol 'active)
+                              'face 'ogent-gastown-rig-running))
+        (insert (propertize (ogent-ops-activity-symbol 'idle)
+                            'face 'ogent-gastown-rig-stopped)))
       (when has-witness
         (insert (propertize " W" 'face 'ogent-gastown-witness-healthy)))
       (when has-refinery

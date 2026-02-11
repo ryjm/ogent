@@ -740,8 +740,7 @@
        '(:name "alpha" :state "working" :session_running t))
       (let ((content (buffer-string)))
         (should (string-match-p "alpha" content))
-        (should (string-match-p "\\[working\\]" content))
-        (should (string-match-p "running" content))))))
+        (should (string-match-p "\\[working\\]" content))))))
 
 (ert-deftest ogent-gts-test-insert-worker-item-idle ()
   "Test worker item insertion for idle worker."
