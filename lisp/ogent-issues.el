@@ -1206,9 +1206,11 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
          (priority (or (plist-get subtask :priority) 2))
          (type (or (plist-get subtask :issue_type) "task"))
          (closed-p (string= status "closed"))
-         (status-indicator (if closed-p
-                               (propertize "✓" 'face 'ogent-issues-status-closed)
-                             (propertize "○" 'face 'ogent-issues-status-open))))
+         (ogent-ops-use-unicode ogent-issues-use-unicode)
+         (status-indicator (propertize
+                            (ogent-ops-status-symbol (if closed-p 'closed 'open))
+                            'face (if closed-p 'ogent-issues-status-closed
+                                    'ogent-issues-status-open))))
     (insert "  ")
     (insert status-indicator)
     (insert " ")
@@ -1792,13 +1794,8 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
          (title (plist-get issue :title))
          (priority (or (plist-get issue :priority) 2))
          (status (plist-get issue :status))
-         (priority-str (if ogent-issues-use-unicode
-                           (pcase priority
-                             (0 "●")
-                             (1 "◐")
-                             (2 "○")
-                             (_ "◌"))
-                         (format "P%d" priority)))
+         (ogent-ops-use-unicode ogent-issues-use-unicode)
+         (priority-str (ogent-ops-priority-symbol priority))
          ;; Reserve space for: priority + space + id + space + title
          (available (- col-width (length priority-str) 1 (length id) 1))
          (truncated-title (truncate-string-to-width (or title "") (max 1 available) nil nil "…"))
