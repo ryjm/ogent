@@ -1214,7 +1214,32 @@ Other:
         (ogent-gastown--insert-stat-item "Refineries" (plist-get stats :refinery_count))
         (insert "  ")
         (ogent-gastown--insert-stat-item "Hooks" (plist-get stats :active_hooks))
+        ;; Aggregate beads stats from per-rig data
+        (let ((agg (ogent-gastown--aggregate-beads-stats)))
+          (when agg
+            (insert "\n  ")
+            (ogent-gastown--insert-stat-item
+             (concat (ogent-ops-section-prefix "◆" "+") "Ready")
+             (plist-get agg :ready))
+            (insert "  ")
+            (ogent-gastown--insert-stat-item
+             (concat (ogent-ops-section-prefix "●" "*") "Active")
+             (plist-get agg :in_progress))))
         (insert "\n")))))
+
+(defun ogent-gastown--aggregate-beads-stats ()
+  "Compute aggregate beads stats from per-rig data.
+Returns a plist with :ready, :in_progress, :open, or nil if no data."
+  (let ((rigs ogent-gastown--rigs-data)
+        (ready 0) (in-prog 0) (open 0))
+    (when rigs
+      (dolist (rig rigs)
+        (when-let* ((bs (plist-get rig :beads_stats)))
+          (setq ready (+ ready (or (plist-get bs :ready) 0)))
+          (setq in-prog (+ in-prog (or (plist-get bs :in_progress) 0)))
+          (setq open (+ open (or (plist-get bs :open) 0)))))
+      (when (> (+ ready in-prog open) 0)
+        (list :ready ready :in_progress in-prog :open open)))))
 
 (defun ogent-gastown--insert-stat-item (label value)
   "Insert a stat LABEL: VALUE pair."
@@ -1235,7 +1260,12 @@ Other:
       (insert (format "  Witnesses: %d  Refineries: %d  Hooks: %d\n"
                       (or (plist-get stats :witness_count) 0)
                       (or (plist-get stats :refinery_count) 0)
-                      (or (plist-get stats :active_hooks) 0))))))
+                      (or (plist-get stats :active_hooks) 0)))
+      (let ((agg (ogent-gastown--aggregate-beads-stats)))
+        (when agg
+          (insert (format "  +Ready: %d  *Active: %d\n"
+                          (or (plist-get agg :ready) 0)
+                          (or (plist-get agg :in_progress) 0))))))))
 
 ;;; Deacon Section
 
@@ -1589,7 +1619,36 @@ Other:
       ;; Insert agents if expanded
       (when agents
         (dolist (agent agents)
-          (ogent-gastown--insert-rig-agent agent))))))
+          (ogent-gastown--insert-rig-agent agent)))
+      ;; Insert beads stats detail if expanded
+      (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats)))))
+
+(defun ogent-gastown--insert-rig-beads-detail (beads-stats)
+  "Insert beads stats detail lines for an expanded rig section.
+BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :total."
+  (when beads-stats
+    (let ((pairs `(("Ready"       ,(or (plist-get beads-stats :ready) 0)       ogent-gastown-beads-ready)
+                   ("In Progress" ,(or (plist-get beads-stats :in_progress) 0) ogent-gastown-beads-in-progress)
+                   ("Blocked"     ,(or (plist-get beads-stats :blocked) 0)     warning)
+                   ("Open"        ,(or (plist-get beads-stats :open) 0)        ogent-gastown-dimmed)
+                   ("Closed"      ,(or (plist-get beads-stats :closed) 0)      ogent-gastown-dimmed)
+                   ("Total"       ,(or (plist-get beads-stats :total) 0)       default))))
+      ;; Only show if there are any issues at all
+      (when (> (or (plist-get beads-stats :total)
+                   (+ (or (plist-get beads-stats :open) 0)
+                      (or (plist-get beads-stats :in_progress) 0)
+                      (or (plist-get beads-stats :closed) 0)))
+               0)
+        (insert "    " (propertize "Beads:" 'face 'ogent-gastown-section-heading) "\n")
+        (dolist (p pairs)
+          (let ((label (nth 0 p))
+                (value (nth 1 p))
+                (face (nth 2 p)))
+            (when (> value 0)
+              (insert "      "
+                      (propertize (format "%-12s" label) 'face 'ogent-gastown-dimmed)
+                      (propertize (format "%d" value) 'face face)
+                      "\n"))))))))
 
 (defun ogent-gastown--insert-rig-agent (agent)
   "Insert a single AGENT line within a rig section."
