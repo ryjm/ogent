@@ -35,6 +35,9 @@
 (declare-function ogent-issues-view-ready "ogent-issues")
 (declare-function ogent-issues-view-kanban "ogent-issues")
 (declare-function ogent-issues-view-deps "ogent-issues")
+(declare-function ogent-issues-goto-gastown "ogent-issues")
+(declare-function ogent-issues-sling-issue "ogent-issues")
+(declare-function ogent-gastown-integration-active-p "ogent-gastown")
 
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)
@@ -174,6 +177,10 @@ Returns a plist with :file, :line, :function, and :formatted keys."
     ("g" "Refresh" ogent-issues-refresh :transient t)
     ("G" "Force refresh" ogent-issues-refresh-force :transient t)
     ("S" "Sync to git" ogent-issues-sync)]
+   [:description "Gas Town"
+    :if ogent-gastown-integration-active-p
+    ("T" "Gas Town status" ogent-issues-goto-gastown)
+    ("M" "Sling issue" ogent-issues-sling-issue)]
    ["Quit"
     ("q" "Quit menu" transient-quit-one)
     ("Q" "Quit buffer" quit-window)]])
