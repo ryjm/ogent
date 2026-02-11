@@ -112,8 +112,11 @@ Opens a magit-style buffer showing:
 - Unread mail count
 - Active convoy progress
 - Worker states (polecats)
+- Active workspace indicator (`WS:<path>`) in the header line
 
 The buffer is interactive - press `TAB` to expand sections, `RET` to act on items.
+The workspace indicator is intentionally strict. If you need to retarget, reopen
+status from the desired town directory (or set `GT_ROOT`/`GT_TOWN` first).
 
 ### Mail Commands
 
@@ -256,7 +259,8 @@ Globally enables `ogent-gastown-mode` in all buffers. Add to your config:
 **Solution:**
 1. Navigate to a directory within a Gas Town town
 2. Verify with `gt status` in terminal
-3. Check that the town structure exists (`.beads/` directories)
+3. If working across multiple towns, set `GT_ROOT` or `GT_TOWN` before opening status
+4. Check that the town structure exists (`.beads/` directories)
 
 ### Status buffer empty
 

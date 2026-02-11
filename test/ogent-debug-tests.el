@@ -895,6 +895,8 @@
 
 ;;; Setup/Teardown Hooks Tests
 
+(defvar gptel-log-level nil
+  "Test stub for gptel-log-level.")
 (defvar gptel-pre-request-hook nil
   "Test stub for gptel-pre-request-hook.")
 (defvar gptel-post-response-hook nil
@@ -1196,6 +1198,336 @@
               ;; Should contain truncation
               (should (string-match-p "\\.\\.\\." content)))))
       (delete-file export-file))))
+
+;;; ================================================================
+;;; NEW COVERAGE TESTS - Phase 2 (targeting 80%+ coverage)
+;;; ================================================================
+
+;;; --- Debug Log Properties Formatting ---
+
+(ert-deftest ogent-debug-test-log-multiple-props ()
+  "Test ogent-debug-log formats multiple properties correctly."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-multiprops*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log 'test "Multi-prop message"
+                     :key1 "val1" :key2 42 :key3 t)
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (let ((content (buffer-string)))
+        (should (string-match-p "key1=" content))
+        (should (string-match-p "key2=" content))
+        (should (string-match-p "key3=" content))
+        (should (string-match-p "|" content))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- Debug Macro Compile-away Behavior ---
+
+(ert-deftest ogent-debug-test-debug-macro-nil-when-disabled ()
+  "Test ogent-debug macro expands to nil when debug is disabled."
+  (let ((ogent-debug-enabled nil))
+    ;; The macro should expand to nil when disabled
+    (should-not (macroexpand '(ogent-debug "test %s" "arg")))))
+
+;;; --- Context Logging Tests ---
+
+(ert-deftest ogent-debug-test-log-context-with-flag-and-level ()
+  "Test context logging works when both flag and level are set."
+  (let ((ogent-debug-log-level 'debug)
+        (ogent-debug-log-context t)
+        (ogent-debug-buffer "*ogent-debug-ctx-test*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-context "building context" :files 3 :tokens 1500)
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (let ((content (buffer-string)))
+        (should (string-match-p "CONTEXT" content))
+        (should (string-match-p "building context" content))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-test-log-context-nil-level ()
+  "Test context logging does nothing when level is nil."
+  (let ((ogent-debug-log-level nil)
+        (ogent-debug-log-context t)
+        (ogent-debug-buffer "*ogent-debug-ctx-nil*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-context "should not log")
+    (should-not (get-buffer ogent-debug-buffer))))
+
+;;; --- Validation Logging Tests ---
+
+(ert-deftest ogent-debug-test-log-validation-nil-details ()
+  "Test validation logging with nil details."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-val-nil*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-validation "path" "ok")
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "VALIDATION" (buffer-string)))
+      (should (string-match-p "path validation: ok" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+(ert-deftest ogent-debug-test-log-validation-nil-level ()
+  "Test validation logging does nothing when level is nil."
+  (let ((ogent-debug-log-level nil)
+        (ogent-debug-buffer "*ogent-debug-val-nolevel*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-validation "syntax" "failed")
+    (should-not (get-buffer ogent-debug-buffer))))
+
+;;; --- Tool History Max Behavior ---
+
+(ert-deftest ogent-debug-test-history-max-exact ()
+  "Test that history at exact max size does not trim."
+  (let ((ogent-debug-tool-history nil)
+        (ogent-debug-tool-history-max 5))
+    (dotimes (i 5)
+      (ogent-debug-log-tool-call
+       (list :id (format "exact-%d" i) :name 'tool :args nil)
+       "result" 0.1))
+    (should (= 5 (length ogent-debug-tool-history)))))
+
+(ert-deftest ogent-debug-test-history-max-one ()
+  "Test that max of 1 keeps only the latest entry."
+  (let ((ogent-debug-tool-history nil)
+        (ogent-debug-tool-history-max 1))
+    (ogent-debug-log-tool-call
+     '(:id "first" :name tool1 :args nil) "r1" 0.1)
+    (ogent-debug-log-tool-call
+     '(:id "second" :name tool2 :args nil) "r2" 0.2)
+    (should (= 1 (length ogent-debug-tool-history)))
+    (should (equal "second" (plist-get (car ogent-debug-tool-history) :id)))))
+
+;;; --- Debug Mode gptel Integration ---
+
+(ert-deftest ogent-debug-test-mode-sets-gptel-log-level ()
+  "Test that enabling debug mode sets gptel-log-level."
+  (let ((ogent-debug-mode nil)
+        (ogent-debug-log-level nil)
+        (ogent-debug-enabled nil)
+        (gptel-log-level nil)
+        (gptel-pre-request-hook nil)
+        (gptel-post-response-hook nil))
+    (ogent-debug-mode 1)
+    (should (eq gptel-log-level ogent-debug-log-level))
+    (ogent-debug-mode -1)
+    (should-not gptel-log-level)))
+
+(ert-deftest ogent-debug-test-mode-preserves-existing-log-level ()
+  "Test that enabling debug mode preserves existing log level if set."
+  (let ((ogent-debug-mode nil)
+        (ogent-debug-log-level 'debug)
+        (ogent-debug-enabled nil)
+        (gptel-log-level nil)
+        (gptel-pre-request-hook nil)
+        (gptel-post-response-hook nil))
+    (ogent-debug-mode 1)
+    ;; Should use the existing debug level
+    (should (eq 'debug ogent-debug-log-level))
+    (ogent-debug-mode -1)))
+
+;;; --- Debug Log Insert Tests ---
+
+(ert-deftest ogent-debug-test-insert-log-multiple ()
+  "Test inserting multiple log lines preserves order."
+  (let ((ogent-debug-buffer "*ogent-debug-multi-insert*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug--insert-log "AAA first")
+    (ogent-debug--insert-log "BBB second")
+    (ogent-debug--insert-log "CCC third")
+    (with-current-buffer ogent-debug-buffer
+      (let ((content (buffer-string)))
+        (should (< (string-match "AAA" content)
+                   (string-match "BBB" content)))
+        (should (< (string-match "BBB" content)
+                   (string-match "CCC" content)))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- Debug Log Function with Multiple Args ---
+
+(ert-deftest ogent-debug-test-debug-log-multiple-format-args ()
+  "Test ogent-debug--log with multiple format arguments."
+  (let ((ogent-debug-buffer "*ogent-debug-multi-args*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug--log 'my-func "x=%d y=%s z=%S" 42 "hello" '(a b))
+    (with-current-buffer ogent-debug-buffer
+      (let ((content (buffer-string)))
+        (should (string-match-p "x=42" content))
+        (should (string-match-p "y=hello" content))
+        (should (string-match-p "z=(a b)" content))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- Tool History Buffer With Nil Result ---
+
+(ert-deftest ogent-debug-test-history-buffer-nil-result ()
+  "Test history buffer handles entry with nil result."
+  (let ((ogent-debug-tool-history nil))
+    (ogent-debug-log-tool-call
+     '(:id "nil-res" :name some-tool :args nil)
+     nil
+     0.1)
+    (ogent-debug-tool-history-buffer)
+    (with-current-buffer "*ogent-tool-history*"
+      (goto-char (point-min))
+      (should (search-forward "SUCCESS" nil t))
+      ;; Should not have a Result: line since result is nil
+      (goto-char (point-min))
+      (should-not (search-forward "Result:" nil t))
+      (kill-buffer))))
+
+(ert-deftest ogent-debug-test-history-buffer-non-string-result ()
+  "Test history buffer formats non-string results."
+  (let ((ogent-debug-tool-history nil))
+    (ogent-debug-log-tool-call
+     '(:id "plist-res" :name some-tool :args nil)
+     '(:key "value" :num 42)
+     0.1)
+    (ogent-debug-tool-history-buffer)
+    (with-current-buffer "*ogent-tool-history*"
+      (goto-char (point-min))
+      (should (search-forward "Result:" nil t))
+      (kill-buffer))))
+
+;;; --- Export Text Long Result ---
+
+(ert-deftest ogent-debug-test-export-text-truncates-long-result ()
+  "Test text export truncates long result strings."
+  (let ((ogent-debug-tool-history nil)
+        (export-file (make-temp-file "ogent-export-long-res-" nil ".txt")))
+    (unwind-protect
+        (progn
+          (ogent-debug-log-tool-call
+           '(:id "long-r" :name tool :args nil)
+           (make-string 1000 ?r)
+           0.1)
+          (ogent-debug-export-tool-history-text export-file)
+          (with-temp-buffer
+            (insert-file-contents export-file)
+            (should (string-match-p "\\.\\.\\." (buffer-string)))))
+      (delete-file export-file))))
+
+;;; --- Export Text With Nil Args ---
+
+(ert-deftest ogent-debug-test-export-text-nil-args ()
+  "Test text export handles entry with nil args."
+  (let ((ogent-debug-tool-history nil)
+        (export-file (make-temp-file "ogent-export-nilargs-" nil ".txt")))
+    (unwind-protect
+        (progn
+          (ogent-debug-log-tool-call
+           '(:id "nil-a" :name tool :args nil)
+           "ok"
+           0.1)
+          (ogent-debug-export-tool-history-text export-file)
+          (with-temp-buffer
+            (insert-file-contents export-file)
+            (let ((content (buffer-string)))
+              ;; Should not have Args: section
+              (should (string-match-p "SUCCESS" content))
+              (should-not (string-match-p "Args:" content)))))
+      (delete-file export-file))))
+
+;;; --- Post Response with Elapsed Calculation ---
+
+(ert-deftest ogent-debug-test-log-post-response-elapsed ()
+  "Test post response calculates elapsed time correctly."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-elapsed*")
+        (ogent-debug--request-start-time
+         (time-subtract (current-time) (seconds-to-time 2))))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug--log-post-response 1 101)
+    (with-current-buffer ogent-debug-buffer
+      (let ((content (buffer-string)))
+        ;; Should show ~2 seconds elapsed
+        (should (string-match-p "elapsed=" content))
+        (should (string-match-p "length=100" content))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- Edit Parse Logging Edge Cases ---
+
+(ert-deftest ogent-debug-test-log-edit-parse-empty-result-list ()
+  "Test edit parse logging with empty result list."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-empty-edits*"))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    (ogent-debug-log-edit-parse "source text" nil)
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "edits=0" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- Pre-Request Logging Without Model/Backend ---
+
+(ert-deftest ogent-debug-test-log-pre-request-no-model ()
+  "Test pre-request logging when gptel-model is unbound."
+  (let ((ogent-debug-log-level 'info)
+        (ogent-debug-buffer "*ogent-debug-nomodel*")
+        (ogent-debug--request-start-time nil))
+    (when (get-buffer ogent-debug-buffer)
+      (kill-buffer ogent-debug-buffer))
+    ;; Make sure gptel-model and gptel-backend are nil/unbound
+    (let ((gptel-model nil)
+          (gptel-backend nil))
+      (cl-letf (((symbol-function 'gptel-backend-name)
+                 (lambda (_b) nil)))
+        (ogent-debug--log-pre-request)))
+    (should ogent-debug--request-start-time)
+    (should (get-buffer ogent-debug-buffer))
+    (with-current-buffer ogent-debug-buffer
+      (should (string-match-p "REQUEST STARTED" (buffer-string))))
+    (kill-buffer ogent-debug-buffer)))
+
+;;; --- History Buffer Args Rendering ---
+
+(ert-deftest ogent-debug-test-history-buffer-short-args ()
+  "Test history buffer renders short args without truncation."
+  (let ((ogent-debug-tool-history nil))
+    (ogent-debug-log-tool-call
+     '(:id "short-a" :name test :args (:x 1))
+     "ok"
+     0.1)
+    (ogent-debug-tool-history-buffer)
+    (with-current-buffer "*ogent-tool-history*"
+      (goto-char (point-min))
+      (should (search-forward "Args:" nil t))
+      ;; Short args should NOT have truncation
+      (goto-char (point-min))
+      ;; The full (:x 1) should be present
+      (should (search-forward ":x 1" nil t))
+      (kill-buffer))))
+
+;;; --- Tool History Entry Ordering Verification ---
+
+(ert-deftest ogent-debug-test-history-buffer-reverse-display ()
+  "Test history buffer displays entries in chronological order."
+  (let ((ogent-debug-tool-history nil))
+    (ogent-debug-log-tool-call
+     '(:id "older" :name tool-old :args nil) "r1" 0.1)
+    (ogent-debug-log-tool-call
+     '(:id "newer" :name tool-new :args nil) "r2" 0.1)
+    (ogent-debug-tool-history-buffer)
+    (with-current-buffer "*ogent-tool-history*"
+      (goto-char (point-min))
+      ;; Entries are displayed in chronological order (reversed from internal list)
+      ;; So "older" should appear before "newer"
+      (let ((old-pos (search-forward "tool-old" nil t))
+            (new-pos (progn (goto-char (point-min))
+                            (search-forward "tool-new" nil t))))
+        (should old-pos)
+        (should new-pos)
+        (should (< old-pos new-pos)))
+      (kill-buffer))))
 
 (provide 'ogent-debug-tests)
 

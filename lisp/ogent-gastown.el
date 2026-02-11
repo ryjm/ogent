@@ -26,6 +26,7 @@
 
 ;; Load faces from gastown-status
 (require 'ogent-gastown-status)
+(declare-function ogent-gastown--find-town-root "ogent-gastown-status")
 
 ;;; Additional Faces (supplement ogent-gastown-status faces)
 
@@ -147,20 +148,11 @@ Set to 0 to disable automatic polling."
 
 (defun ogent-gastown-town-root ()
   "Find the Gas Town root directory.
-Returns the town root path or nil if not in a Gas Town workspace."
+Returns the town root path or nil if not in a Gas Town workspace.
+Uses `ogent-gastown--find-town-root' so workspace rules stay in sync
+with `ogent-gastown-status'."
   (or ogent-gastown--town-root
-      (setq ogent-gastown--town-root
-            (let ((dir default-directory))
-              ;; Look for ~/gt or a .gastown marker
-              (cond
-               ;; Check if we're under ~/gt
-               ((string-prefix-p (expand-file-name "~/gt/") (expand-file-name dir))
-                (expand-file-name "~/gt/"))
-               ;; Check for .gastown marker up the tree
-               ((locate-dominating-file dir ".gastown"))
-               ;; Check GT_TOWN environment variable
-               ((getenv "GT_TOWN"))
-               (t nil))))))
+      (setq ogent-gastown--town-root (ogent-gastown--find-town-root))))
 
 (defun ogent-gastown-in-town-p ()
   "Return non-nil if current directory is within a Gas Town workspace."

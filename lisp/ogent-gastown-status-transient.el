@@ -8,6 +8,7 @@
 (require 'transient)
 
 (declare-function ogent-gastown--in-town-p "ogent-gastown-status")
+(declare-function ogent-gastown--workspace-root-display "ogent-gastown-status")
 (declare-function ogent-gastown-refresh "ogent-gastown-status")
 (declare-function ogent-gastown-refresh-force "ogent-gastown-status")
 (declare-function ogent-gastown-next-item "ogent-gastown-status")
@@ -54,12 +55,16 @@
 (defun ogent-gastown-status-transient--format-header ()
   "Format header for the Gas Town status transient menu."
   (let* ((connected (ignore-errors (ogent-gastown--in-town-p)))
+         (workspace (ignore-errors (ogent-gastown--workspace-root-display)))
          (state (if connected "connected" "not in town"))
          (face (if connected 'success 'warning)))
     (concat
      (propertize "Gas Town" 'face 'transient-heading)
      " "
-     (propertize state 'face face))))
+     (propertize state 'face face)
+     (if workspace
+         (concat " · " (propertize workspace 'face 'shadow))
+       ""))))
 
 ;;;###autoload (autoload 'ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
 (transient-define-prefix ogent-gastown-status-dispatch ()

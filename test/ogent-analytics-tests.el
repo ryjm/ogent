@@ -548,6 +548,133 @@
         (should (string-match-p "e=export CSV" content))
         (should (string-match-p "q=quit" content))))))
 
+;;; Additional Coverage Tests
+
+(ert-deftest ogent-analytics-test-record-completion-with-timing ()
+  "Test record-completion captures timing data."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--request-start-time (current-time))
+        (ogent-analytics--first-token-time nil)
+        (ogent-analytics--pending-completion nil)
+        (ogent-analytics-chars-per-token 4.0)
+        (save-called nil))
+    ;; Set first token time after start
+    (sleep-for 0.01)
+    (setq ogent-analytics--first-token-time (current-time))
+    (cl-letf (((symbol-function 'ogent-analytics--save-completion)
+               (lambda (c) (setq save-called t))))
+      (let ((result (ogent-analytics-record-completion
+                     "claude-3" "prompt text" "response text" "template-1")))
+        (should result)
+        (should save-called)
+        (should (equal (ogent-analytics-completion-model result) "claude-3"))
+        (should (equal (ogent-analytics-completion-prompt-template result) "template-1"))
+        (should (ogent-analytics-completion-ttft-ms result))
+        (should (> (ogent-analytics-completion-ttft-ms result) 0))
+        (should (ogent-analytics-completion-latency-ms result))
+        (should (> (ogent-analytics-completion-latency-ms result) 0))
+        (should (eq (ogent-analytics-completion-outcome result) 'pending))
+        (should (= (ogent-analytics-completion-rating result) 0))
+        ;; Pending should be set
+        (should (eq ogent-analytics--pending-completion result))
+        ;; Timing should be reset
+        (should-not ogent-analytics--request-start-time)
+        (should-not ogent-analytics--first-token-time)))))
+
+(ert-deftest ogent-analytics-test-record-completion-disabled ()
+  "Test record-completion returns nil when disabled."
+  (let ((ogent-analytics-enabled nil)
+        (ogent-analytics--request-start-time (current-time)))
+    (should-not (ogent-analytics-record-completion
+                 "model" "prompt" "response"))))
+
+(ert-deftest ogent-analytics-test-record-completion-no-start-time ()
+  "Test record-completion with nil start time produces nil ttft and latency."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--request-start-time nil)
+        (ogent-analytics--first-token-time nil)
+        (ogent-analytics--pending-completion nil))
+    (cl-letf (((symbol-function 'ogent-analytics--save-completion) #'ignore))
+      (let ((result (ogent-analytics-record-completion "m" "p" "r")))
+        (should result)
+        (should-not (ogent-analytics-completion-ttft-ms result))
+        (should-not (ogent-analytics-completion-latency-ms result))))))
+
+(ert-deftest ogent-analytics-test-record-completion-sets-previews ()
+  "Test record-completion truncates question and response previews."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--request-start-time (current-time))
+        (ogent-analytics--first-token-time nil)
+        (ogent-analytics--pending-completion nil)
+        (long-prompt (make-string 300 ?x))
+        (long-response (make-string 300 ?y)))
+    (cl-letf (((symbol-function 'ogent-analytics--save-completion) #'ignore))
+      (let ((result (ogent-analytics-record-completion "m" long-prompt long-response)))
+        (should (= (length (ogent-analytics-completion-question-preview result)) 200))
+        (should (= (length (ogent-analytics-completion-response-preview result)) 200))))))
+
+(ert-deftest ogent-analytics-test-mark-accepted-nil-pending ()
+  "Test mark-accepted with nil pending does nothing."
+  (let ((ogent-analytics--pending-completion nil))
+    ;; Should not error
+    (ogent-analytics-mark-accepted)
+    (should-not ogent-analytics--pending-completion)))
+
+(ert-deftest ogent-analytics-test-mark-rejected-nil-pending ()
+  "Test mark-rejected with nil pending does nothing."
+  (let ((ogent-analytics--pending-completion nil))
+    ;; Should not error
+    (ogent-analytics-mark-rejected)
+    (should-not ogent-analytics--pending-completion)))
+
+(ert-deftest ogent-analytics-test-pre-request-hook-enabled ()
+  "Test pre-request hook calls start-request when enabled."
+  (let ((ogent-analytics-enabled t)
+        (ogent-analytics--request-start-time nil)
+        (ogent-analytics--first-token-time '(1 2 3 4)))
+    (ogent-analytics--pre-request-hook)
+    (should ogent-analytics--request-start-time)
+    (should-not ogent-analytics--first-token-time)))
+
+(ert-deftest ogent-analytics-test-pre-request-hook-disabled ()
+  "Test pre-request hook does nothing when disabled."
+  (let ((ogent-analytics-enabled nil)
+        (ogent-analytics--request-start-time nil))
+    (ogent-analytics--pre-request-hook)
+    (should-not ogent-analytics--request-start-time)))
+
+(ert-deftest ogent-analytics-test-dashboard-mode-derives-special ()
+  "Test dashboard mode derives from special-mode."
+  (with-temp-buffer
+    (ogent-analytics-dashboard-mode)
+    (should (derived-mode-p 'special-mode))
+    (should truncate-lines)))
+
+(ert-deftest ogent-analytics-test-format-number-zero ()
+  "Test format-number with zero."
+  (should (equal (ogent-analytics--format-number 0) "0"))
+  (should (equal (ogent-analytics--format-number 0.0) "0.0")))
+
+(ert-deftest ogent-analytics-test-completion-struct-session-id ()
+  "Test completion struct stores session-id correctly."
+  (let ((comp (make-ogent-analytics-completion
+               :session-id "sess-123"
+               :model "test"
+               :outcome 'pending
+               :rating 0)))
+    (should (equal (ogent-analytics-completion-session-id comp) "sess-123"))
+    ;; Test setf
+    (setf (ogent-analytics-completion-outcome comp) 'accepted)
+    (should (eq (ogent-analytics-completion-outcome comp) 'accepted))))
+
+(ert-deftest ogent-analytics-test-dashboard-refresh-calls-dashboard ()
+  "Test dashboard-refresh calls dashboard."
+  (let ((dashboard-called nil))
+    (cl-letf (((symbol-function 'ogent-analytics-dashboard)
+               (lambda () (setq dashboard-called t))))
+      (ogent-analytics-dashboard-refresh)
+      (should dashboard-called))))
+
 (provide 'ogent-analytics-tests)
 
 ;;; ogent-analytics-tests.el ends here

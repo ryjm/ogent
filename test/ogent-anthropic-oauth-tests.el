@@ -795,6 +795,146 @@
         (ogent-anthropic-oauth--mode 'console))
     (should-not (ogent-anthropic-oauth-using-bearer-p))))
 
+;;; Additional Coverage Tests
+
+(ert-deftest ogent-oauth-test-status-no-created-at ()
+  "Test status display when created-at is nil."
+  (let ((ogent-anthropic-oauth--tokens
+         (list :mode 'console :type 'auth/token :api-key "key"))
+        (last-msg nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq last-msg (apply #'format fmt args)))))
+      (ogent-anthropic-status)
+      (should (string-match-p "console" last-msg))
+      (should (string-match-p "API key active" last-msg))
+      ;; Should NOT contain "created" since created-at is nil
+      (should-not (string-match-p "created" last-msg)))))
+
+(ert-deftest ogent-oauth-test-logout-confirmed ()
+  "Test logout clears tokens when user confirms."
+  (let* ((tmp-dir (make-temp-file "ogent-logout-" t))
+         (ogent-anthropic-oauth-tokens-dir tmp-dir)
+         (ogent-anthropic-oauth--token-file nil)
+         (ogent-anthropic-oauth--tokens '(:mode max :api-key "test"))
+         (ogent-anthropic-oauth--mode 'max)
+         (ogent-anthropic-oauth--known-token-paths nil))
+    (unwind-protect
+        (progn
+          ;; Save tokens to disk
+          (ogent-anthropic-oauth--save-tokens ogent-anthropic-oauth--tokens)
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
+            (ogent-anthropic-logout)
+            (should-not ogent-anthropic-oauth--tokens)
+            (should-not ogent-anthropic-oauth--mode)))
+      (when (file-directory-p tmp-dir)
+        (delete-directory tmp-dir t)))))
+
+(ert-deftest ogent-oauth-test-logout-cancelled ()
+  "Test logout does not clear tokens when user declines."
+  (let ((ogent-anthropic-oauth--tokens '(:mode max :api-key "test"))
+        (ogent-anthropic-oauth--mode 'max))
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) nil)))
+      (ogent-anthropic-logout)
+      ;; Tokens should still be there
+      (should ogent-anthropic-oauth--tokens)
+      (should (eq ogent-anthropic-oauth--mode 'max)))))
+
+(ert-deftest ogent-oauth-test-ensure-tokens-loaded-resets-file ()
+  "Test ensure-tokens-loaded resets token-file when file does not exist."
+  (let ((ogent-anthropic-oauth--tokens nil)
+        (ogent-anthropic-oauth--mode nil)
+        (ogent-anthropic-oauth--token-file "/nonexistent/path/tokens.el")
+        (ogent-anthropic-oauth--known-token-paths nil)
+        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-reset-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-anthropic-oauth--restore-tokens)
+                   (lambda () nil)))
+          (ogent-anthropic-oauth--ensure-tokens-loaded)
+          ;; token-file should have been reset since the old path didn't exist
+          (should-not (equal ogent-anthropic-oauth--token-file
+                             "/nonexistent/path/tokens.el")))
+      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+
+(ert-deftest ogent-oauth-test-exchange-code-no-hash ()
+  "Test exchange-code handles code without # separator."
+  (let ((received-data nil))
+    (cl-letf (((symbol-function 'ogent-anthropic-oauth--url-retrieve-sync)
+               (lambda (_url _method _headers data)
+                 (setq received-data data)
+                 (list :access_token "tok"
+                       :refresh_token "ref"
+                       :expires_in 3600))))
+      (ogent-anthropic-oauth--exchange-code "plaincode" "verifier")
+      ;; :code should be "plaincode", :state should be nil
+      (should (equal (plist-get received-data :code) "plaincode"))
+      (should-not (plist-get received-data :state)))))
+
+(ert-deftest ogent-oauth-test-refresh-token-default-expires ()
+  "Test refresh-token defaults expires-in to 3600."
+  (cl-letf (((symbol-function 'ogent-anthropic-oauth--url-retrieve-sync)
+             (lambda (_url _method _headers _data)
+               (list :access_token "new-tok"
+                     :refresh_token "new-ref"))))
+    (let ((result (ogent-anthropic-oauth--refresh-token "old-ref")))
+      (should (numberp (plist-get result :expires-at)))
+      ;; Should be roughly now + 3600 (default)
+      (should (> (plist-get result :expires-at) (floor (float-time)))))))
+
+(ert-deftest ogent-oauth-test-get-headers-includes-anthropic-version ()
+  "Test headers include anthropic-version for both modes."
+  ;; Max mode
+  (let ((ogent-anthropic-oauth--tokens
+         (list :type 'auth/oauth :api-key "tok"
+               :expires-at (+ (floor (float-time)) 3600))))
+    (let ((headers (ogent-anthropic-oauth-get-headers)))
+      (should (equal (cdr (assoc "anthropic-version" headers)) "2023-06-01"))))
+  ;; Console mode
+  (let ((ogent-anthropic-oauth--tokens
+         (list :type 'auth/token :api-key "sk-key")))
+    (let ((headers (ogent-anthropic-oauth-get-headers)))
+      (should (equal (cdr (assoc "anthropic-version" headers)) "2023-06-01")))))
+
+(ert-deftest ogent-oauth-test-install-curl-advice-when-available ()
+  "Test install-curl-advice adds advice when gptel-curl--get-args exists."
+  (let ((advice-added nil))
+    (cl-letf (((symbol-function 'gptel-curl--get-args) (lambda (&rest _) nil))
+              ((symbol-function 'advice-member-p) (lambda (_adv _fn) nil))
+              ((symbol-function 'advice-add)
+               (lambda (_fn _how _advice) (setq advice-added t))))
+      (ogent-anthropic-oauth--install-curl-advice)
+      (should advice-added))))
+
+(ert-deftest ogent-oauth-test-install-request-advice-when-available ()
+  "Test install-request-advice adds advice when gptel--request-data exists."
+  (let ((advice-added nil)
+        (ogent-anthropic-oauth-debug nil))
+    (cl-letf (((symbol-function 'gptel--request-data) (lambda (&rest _) nil))
+              ((symbol-function 'advice-member-p) (lambda (_adv _fn) nil))
+              ((symbol-function 'advice-add)
+               (lambda (_fn _how _advice) (setq advice-added t))))
+      (ogent-anthropic-oauth--install-request-advice)
+      (should advice-added))))
+
+(ert-deftest ogent-oauth-test-save-tokens-creates-directory ()
+  "Test save-tokens creates the directory if it doesn't exist."
+  (let* ((tmp-dir (make-temp-file "ogent-save-" t))
+         (sub-dir (expand-file-name "subdir" tmp-dir))
+         (ogent-anthropic-oauth-tokens-dir sub-dir)
+         (ogent-anthropic-oauth--token-file nil)
+         (ogent-anthropic-oauth--known-token-paths nil))
+    (unwind-protect
+        (progn
+          (should-not (file-directory-p sub-dir))
+          (ogent-anthropic-oauth--save-tokens '(:mode max :api-key "test"))
+          ;; Directory should have been created
+          (should (file-directory-p sub-dir))
+          ;; Token file should exist
+          (let ((token-file (expand-file-name "tokens.el" sub-dir)))
+            (should (file-exists-p token-file))))
+      (when (file-directory-p tmp-dir)
+        (delete-directory tmp-dir t)))))
+
 (provide 'ogent-anthropic-oauth-tests)
 
 ;;; ogent-anthropic-oauth-tests.el ends here
