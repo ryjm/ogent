@@ -27,3 +27,7 @@ state.json
 
 # Beads temp files
 *.jsonl.new
+
+# Gas Town (added by gt)
+.claude/
+.logs/
