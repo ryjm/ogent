@@ -263,6 +263,12 @@
   "Face for the header line."
   :group 'ogent-gastown-faces)
 
+(defface ogent-gastown-fetch-error
+  '((((class color) (background light)) :foreground "#c62828")
+    (((class color) (background dark)) :foreground "#bf616a"))
+  "Face for fetch error messages in sections."
+  :group 'ogent-gastown-faces)
+
 (defface ogent-gastown-header-line-key
   '((((class color) (background light))
      :background "grey90" :foreground "#5e35b1" :weight bold)
@@ -340,6 +346,11 @@ Returns \"COMPLETED/TOTAL\" or nil if data is missing."
 
 (defvar-local ogent-gastown--rigs-data nil
   "Cached rigs list data.")
+
+(defvar-local ogent-gastown--fetch-errors (make-hash-table :test 'eq)
+  "Hash table mapping section keys to error messages.
+Keys are symbols like `hook', `mail', `convoy', `workers', `town-status',
+`crew', `polecat'.  Values are error message strings, or absent if no error.")
 
 (defvar-local ogent-gastown--loading nil
   "Non-nil when a gt command is in progress.")
@@ -832,6 +843,7 @@ Other:
   "Fetch all data for the status buffer, call CALLBACK when done."
   (let* ((pending 7)
          (results (make-hash-table))
+         (errors (make-hash-table :test 'eq))
          (buf (current-buffer))
          ;; Use let-bound lambda instead of cl-flet to avoid bytecode issues
          ;; with async callbacks in certain Emacs versions
@@ -859,6 +871,8 @@ Other:
                           (ogent-gastown--extract-witnesses town-status))
                     (setq ogent-gastown--rigs-data
                           (plist-get town-status :rigs)))
+                  ;; Replace fetch errors atomically
+                  (setq ogent-gastown--fetch-errors errors)
                   (funcall callback)))))))
 
     ;; Fetch hook status
@@ -867,8 +881,9 @@ Other:
      (lambda (result)
        (puthash 'hook result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'hook nil results)
+       (puthash 'hook err errors)
        (funcall check-done)))
 
     ;; Fetch mail
@@ -877,8 +892,9 @@ Other:
      (lambda (result)
        (puthash 'mail result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'mail nil results)
+       (puthash 'mail err errors)
        (funcall check-done)))
 
     ;; Fetch convoys
@@ -887,8 +903,9 @@ Other:
      (lambda (result)
        (puthash 'convoy result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'convoy nil results)
+       (puthash 'convoy err errors)
        (funcall check-done)))
 
     ;; Fetch workers
@@ -897,8 +914,9 @@ Other:
      (lambda (result)
        (puthash 'workers result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'workers nil results)
+       (puthash 'workers err errors)
        (funcall check-done)))
 
     ;; Fetch town status (for stats, deacon, witnesses)
@@ -907,8 +925,9 @@ Other:
      (lambda (result)
        (puthash 'town-status result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'town-status nil results)
+       (puthash 'town-status err errors)
        (funcall check-done)))
 
     ;; Fetch crew members
@@ -917,8 +936,9 @@ Other:
      (lambda (result)
        (puthash 'crew result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'crew nil results)
+       (puthash 'crew err errors)
        (funcall check-done)))
 
     ;; Fetch polecats
@@ -927,8 +947,9 @@ Other:
      (lambda (result)
        (puthash 'polecat result results)
        (funcall check-done))
-     (lambda (_err)
+     (lambda (err)
        (puthash 'polecat nil results)
+       (puthash 'polecat err errors)
        (funcall check-done)))))
 
 (defun ogent-gastown--extract-deacon (town-status)
@@ -960,6 +981,22 @@ Other:
     (define-key map [mouse-1] #'ogent-gastown-visit-bead)
     map)
   "Keymap for clickable bead IDs in Gas Town buffer.")
+
+;;; Fetch Error Helpers
+
+(defun ogent-gastown--section-fetch-error (key)
+  "Return the fetch error string for section KEY, or nil."
+  (gethash key ogent-gastown--fetch-errors))
+
+(defun ogent-gastown--insert-fetch-error (key)
+  "Insert a concise error line for section KEY if a fetch error exists.
+Returns non-nil if an error was inserted."
+  (when-let* ((err (ogent-gastown--section-fetch-error key)))
+    (insert "  ")
+    (insert (propertize (format "Fetch failed: %s" err)
+                        'face 'ogent-gastown-fetch-error))
+    (insert "\n")
+    t))
 
 ;;; Buffer Rendering
 
@@ -1028,23 +1065,25 @@ Other:
         (ogent-ops-section-heading
          (ogent-ops-section-prefix "" "#")
          (propertize "Hook Status" 'face 'ogent-gastown-section-heading)))
-      (insert "  ")
-      (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
-      (insert (propertize role 'face 'ogent-gastown-section-heading))
-      (insert "  ")
-      (insert (propertize "Target: " 'face 'ogent-gastown-dimmed))
-      (insert target)
-      (insert "\n")
-      (insert "  ")
-      (if has-work
-          (insert (propertize "Work hooked - ready to execute"
-                              'face 'ogent-gastown-hook-active))
-        (progn
-          (insert (propertize "No work hooked" 'face 'ogent-gastown-hook-empty))
-          (when next-action
-            (insert "\n  ")
-            (insert (propertize next-action 'face 'ogent-gastown-dimmed)))))
-      (insert "\n"))))
+      (if (and (null data) (ogent-gastown--section-fetch-error 'hook))
+          (ogent-gastown--insert-fetch-error 'hook)
+        (insert "  ")
+        (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
+        (insert (propertize role 'face 'ogent-gastown-section-heading))
+        (insert "  ")
+        (insert (propertize "Target: " 'face 'ogent-gastown-dimmed))
+        (insert target)
+        (insert "\n")
+        (insert "  ")
+        (if has-work
+            (insert (propertize "Work hooked - ready to execute"
+                                'face 'ogent-gastown-hook-active))
+          (progn
+            (insert (propertize "No work hooked" 'face 'ogent-gastown-hook-empty))
+            (when next-action
+              (insert "\n  ")
+              (insert (propertize next-action 'face 'ogent-gastown-dimmed)))))
+        (insert "\n")))))
 
 (defun ogent-gastown--insert-hook-section-plain ()
   "Insert hook status section (plain)."
@@ -1052,12 +1091,14 @@ Other:
          (has-work (plist-get data :has_work))
          (role (or (plist-get data :role) "unknown")))
     (insert (propertize "# Hook Status\n" 'face 'ogent-gastown-section-heading))
-    (insert "  Role: " role "\n")
-    (insert "  ")
-    (if has-work
-        (insert (propertize "Work hooked" 'face 'ogent-gastown-hook-active))
-      (insert (propertize "No work hooked" 'face 'ogent-gastown-hook-empty)))
-    (insert "\n")))
+    (if (and (null data) (ogent-gastown--section-fetch-error 'hook))
+        (ogent-gastown--insert-fetch-error 'hook)
+      (insert "  Role: " role "\n")
+      (insert "  ")
+      (if has-work
+          (insert (propertize "Work hooked" 'face 'ogent-gastown-hook-active))
+        (insert (propertize "No work hooked" 'face 'ogent-gastown-hook-empty)))
+      (insert "\n"))))
 
 ;;; Mail Section
 
@@ -1074,10 +1115,14 @@ Other:
          (when (> unread-count 0)
            (propertize (format " (%d unread)" unread-count)
                        'face 'ogent-gastown-mail-unread))))
-      (if (null mail)
-          (insert (propertize "  No messages\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'mail)
+        (ogent-gastown--insert-fetch-error 'mail))
+       ((null mail)
+        (insert (propertize "  No messages\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (dolist (msg mail)
-          (ogent-gastown--insert-mail-item msg))))))
+          (ogent-gastown--insert-mail-item msg)))))))
 
 (defun ogent-gastown--insert-mail-item (msg)
   "Insert a single mail MSG as a section."
@@ -1108,8 +1153,12 @@ Other:
   "Insert mail section (plain)."
   (let ((mail ogent-gastown--mail-data))
     (insert (propertize "@ Mail Inbox\n" 'face 'ogent-gastown-section-heading))
-    (if (null mail)
-        (insert (propertize "  No messages\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((ogent-gastown--section-fetch-error 'mail)
+      (ogent-gastown--insert-fetch-error 'mail))
+     ((null mail)
+      (insert (propertize "  No messages\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (msg mail)
         (let* ((from (plist-get msg :from))
                (subject (plist-get msg :subject))
@@ -1119,7 +1168,7 @@ Other:
           (insert (or from "unknown"))
           (insert " - ")
           (insert (or subject "(no subject)"))
-          (insert "\n"))))))
+          (insert "\n")))))))
 
 ;;; Convoy Section
 
@@ -1135,10 +1184,14 @@ Other:
          (when convoys
            (propertize (format " (%d)" (length convoys))
                        'face 'ogent-gastown-dimmed))))
-      (if (null convoys)
-          (insert (propertize "  No active convoys\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'convoy)
+        (ogent-gastown--insert-fetch-error 'convoy))
+       ((null convoys)
+        (insert (propertize "  No active convoys\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (dolist (convoy convoys)
-          (ogent-gastown--insert-convoy-item convoy))))))
+          (ogent-gastown--insert-convoy-item convoy)))))))
 
 (defun ogent-gastown--insert-convoy-item (convoy)
   "Insert a single CONVOY as a section.
@@ -1164,12 +1217,16 @@ CONVOY should be a normalized plist with canonical keys."
   "Insert convoy section (plain)."
   (let ((convoys ogent-gastown--convoy-data))
     (insert (propertize "> Convoys\n" 'face 'ogent-gastown-section-heading))
-    (if (null convoys)
-        (insert (propertize "  No active convoys\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((ogent-gastown--section-fetch-error 'convoy)
+      (ogent-gastown--insert-fetch-error 'convoy))
+     ((null convoys)
+      (insert (propertize "  No active convoys\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (convoy convoys)
         (insert "  ")
         (insert (or (plist-get convoy :title) "(unnamed)"))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 ;;; Workers Section
 
@@ -1189,8 +1246,12 @@ CONVOY should be a normalized plist with canonical keys."
          (propertize (format " (%d/%d running)"
                              running-count (length workers))
                      'face 'ogent-gastown-dimmed)))
-      (if (null workers)
-          (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'workers)
+        (ogent-gastown--insert-fetch-error 'workers))
+       ((null workers)
+        (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed)))
+       (t
         ;; Group by rig
         (let ((by-rig (seq-group-by (lambda (w) (plist-get w :rig)) workers)))
           (dolist (rig-group by-rig)
@@ -1200,7 +1261,7 @@ CONVOY should be a normalized plist with canonical keys."
               (insert (propertize rig 'face 'ogent-gastown-section-heading))
               (insert ":\n")
               (dolist (worker rig-workers)
-                (ogent-gastown--insert-worker-item worker)))))))))
+                (ogent-gastown--insert-worker-item worker))))))))))
 
 (defun ogent-gastown--insert-worker-item (worker)
   "Insert a single WORKER as a line."
@@ -1231,8 +1292,12 @@ CONVOY should be a normalized plist with canonical keys."
   "Insert workers section (plain)."
   (let ((workers ogent-gastown--workers-data))
     (insert (propertize "* Workers\n" 'face 'ogent-gastown-section-heading))
-    (if (null workers)
-        (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((ogent-gastown--section-fetch-error 'workers)
+      (ogent-gastown--insert-fetch-error 'workers))
+     ((null workers)
+      (insert (propertize "  No workers\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (worker workers)
         (insert "  ")
         (insert (plist-get worker :rig))
@@ -1240,7 +1305,7 @@ CONVOY should be a normalized plist with canonical keys."
         (insert (plist-get worker :name))
         (insert " [")
         (insert (plist-get worker :state))
-        (insert "]\n")))))
+        (insert "]\n"))))))
 
 ;;; Stats Section
 
@@ -1253,8 +1318,12 @@ CONVOY should be a normalized plist with canonical keys."
          (ogent-ops-section-prefix "📊" "#")
          " "
          (propertize "Town Stats" 'face 'ogent-gastown-section-heading)))
-      (if (null stats)
-          (insert (propertize "  No stats available\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((and (null stats) (ogent-gastown--section-fetch-error 'town-status))
+        (ogent-gastown--insert-fetch-error 'town-status))
+       ((null stats)
+        (insert (propertize "  No stats available\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (insert "  ")
         (ogent-gastown--insert-stat-item "Rigs" (plist-get stats :rig_count))
         (insert "  ")
@@ -1278,7 +1347,7 @@ CONVOY should be a normalized plist with canonical keys."
             (ogent-gastown--insert-stat-item
              (concat (ogent-ops-section-prefix "●" "*") "Active")
              (plist-get agg :in_progress))))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 (defun ogent-gastown--aggregate-beads-stats ()
   "Compute aggregate beads stats from per-rig data.
@@ -1304,8 +1373,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert stats section (plain)."
   (let ((stats ogent-gastown--stats-data))
     (insert (propertize "# Town Stats\n" 'face 'ogent-gastown-section-heading))
-    (if (null stats)
-        (insert (propertize "  No stats available\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((and (null stats) (ogent-gastown--section-fetch-error 'town-status))
+      (ogent-gastown--insert-fetch-error 'town-status))
+     ((null stats)
+      (insert (propertize "  No stats available\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (insert (format "  Rigs: %d  Polecats: %d  Crew: %d\n"
                       (or (plist-get stats :rig_count) 0)
                       (or (plist-get stats :polecat_count) 0)
@@ -1318,7 +1391,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (when agg
           (insert (format "  +Ready: %d  *Active: %d\n"
                           (or (plist-get agg :ready) 0)
-                          (or (plist-get agg :in_progress) 0))))))))
+                          (or (plist-get agg :in_progress) 0)))))))))
 
 ;;; Deacon Section
 
@@ -1338,8 +1411,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (if running
              (propertize "[running]" 'face 'ogent-gastown-deacon-running)
            (propertize "[stopped]" 'face 'ogent-gastown-deacon-stopped))))
-      (if (null data)
-          (insert (propertize "  No deacon info available\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((and (null data) (ogent-gastown--section-fetch-error 'town-status))
+        (ogent-gastown--insert-fetch-error 'town-status))
+       ((null data)
+        (insert (propertize "  No deacon info available\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (insert "  ")
         (insert (propertize "Address: " 'face 'ogent-gastown-dimmed))
         (insert (or address "deacon/"))
@@ -1350,17 +1427,21 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
                 (insert (propertize "Has work on hook" 'face 'ogent-gastown-hook-active))
               (insert (propertize "Patrolling (no hooked work)" 'face 'ogent-gastown-deacon-running)))
           (insert (propertize "Not running - start with: gt deacon start" 'face 'ogent-gastown-dimmed)))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 (defun ogent-gastown--insert-deacon-section-plain ()
   "Insert deacon section (plain)."
   (let* ((data ogent-gastown--deacon-data)
          (running (plist-get data :running)))
     (insert (propertize "D Deacon\n" 'face 'ogent-gastown-section-heading))
-    (insert "  Status: ")
-    (if running
-        (insert (propertize "running\n" 'face 'ogent-gastown-deacon-running))
-      (insert (propertize "stopped\n" 'face 'ogent-gastown-deacon-stopped)))))
+    (cond
+     ((and (null data) (ogent-gastown--section-fetch-error 'town-status))
+      (ogent-gastown--insert-fetch-error 'town-status))
+     (t
+      (insert "  Status: ")
+      (if running
+          (insert (propertize "running\n" 'face 'ogent-gastown-deacon-running))
+        (insert (propertize "stopped\n" 'face 'ogent-gastown-deacon-stopped)))))))
 
 ;;; Witness Section
 
@@ -1379,10 +1460,14 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (propertize (format " (%d/%d active)"
                              active-count (length witnesses))
                      'face 'ogent-gastown-dimmed)))
-      (if (null witnesses)
-          (insert (propertize "  No rig data available\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((and (null witnesses) (ogent-gastown--section-fetch-error 'town-status))
+        (ogent-gastown--insert-fetch-error 'town-status))
+       ((null witnesses)
+        (insert (propertize "  No rig data available\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (dolist (witness witnesses)
-          (ogent-gastown--insert-witness-item witness))))))
+          (ogent-gastown--insert-witness-item witness)))))))
 
 (defun ogent-gastown--insert-witness-item (witness)
   "Insert a single rig WITNESS status as a line."
@@ -1412,8 +1497,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert witness section (plain)."
   (let ((witnesses ogent-gastown--witness-data))
     (insert (propertize "W Witnesses\n" 'face 'ogent-gastown-section-heading))
-    (if (null witnesses)
-        (insert (propertize "  No rig data available\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((and (null witnesses) (ogent-gastown--section-fetch-error 'town-status))
+      (ogent-gastown--insert-fetch-error 'town-status))
+     ((null witnesses)
+      (insert (propertize "  No rig data available\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (witness witnesses)
         (let* ((rig (plist-get witness :rig))
                (has-witness (plist-get witness :has_witness)))
@@ -1421,7 +1510,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
           (insert (if has-witness "+" "-"))
           (insert " ")
           (insert rig)
-          (insert "\n"))))))
+          (insert "\n")))))))
 
 ;;; Crew Section
 
@@ -1441,8 +1530,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (propertize (format " (%d/%d active)"
                              active-count (length crew))
                      'face 'ogent-gastown-dimmed)))
-      (if (null crew)
-          (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'crew)
+        (ogent-gastown--insert-fetch-error 'crew))
+       ((null crew)
+        (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed)))
+       (t
         ;; Group by rig
         (let ((by-rig (seq-group-by (lambda (m) (plist-get m :rig)) crew)))
           (dolist (rig-group by-rig)
@@ -1452,7 +1545,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
               (insert (propertize (or rig "unknown") 'face 'ogent-gastown-section-heading))
               (insert ":\n")
               (dolist (member rig-crew)
-                (ogent-gastown--insert-crew-item member)))))))))
+                (ogent-gastown--insert-crew-item member))))))))))
 
 (defun ogent-gastown--insert-crew-item (member)
   "Insert a single crew MEMBER as a line."
@@ -1499,8 +1592,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert crew section (plain)."
   (let ((crew ogent-gastown--crew-data))
     (insert (propertize "C Crew\n" 'face 'ogent-gastown-section-heading))
-    (if (null crew)
-        (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((ogent-gastown--section-fetch-error 'crew)
+      (ogent-gastown--insert-fetch-error 'crew))
+     ((null crew)
+      (insert (propertize "  No crew members\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (member crew)
         (insert "  ")
         (insert (or (plist-get member :rig) "???"))
@@ -1508,7 +1605,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (insert (or (plist-get member :name) "???"))
         (when (plist-get member :session_running)
           (insert " [active]"))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 ;;; Polecat Section
 
@@ -1528,8 +1625,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (propertize (format " (%d/%d running)"
                              running-count (length polecats))
                      'face 'ogent-gastown-dimmed)))
-      (if (null polecats)
-          (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'polecat)
+        (ogent-gastown--insert-fetch-error 'polecat))
+       ((null polecats)
+        (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed)))
+       (t
         ;; Group by rig
         (let ((by-rig (seq-group-by (lambda (p) (plist-get p :rig)) polecats)))
           (dolist (rig-group by-rig)
@@ -1539,7 +1640,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
               (insert (propertize (or rig "unknown") 'face 'ogent-gastown-section-heading))
               (insert ":\n")
               (dolist (polecat rig-polecats)
-                (ogent-gastown--insert-polecat-item polecat)))))))))
+                (ogent-gastown--insert-polecat-item polecat))))))))))
 
 (defun ogent-gastown--insert-polecat-item (polecat)
   "Insert a single POLECAT as a line."
@@ -1590,8 +1691,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert polecat section (plain)."
   (let ((polecats ogent-gastown--polecat-data))
     (insert (propertize "P Polecats\n" 'face 'ogent-gastown-section-heading))
-    (if (null polecats)
-        (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((ogent-gastown--section-fetch-error 'polecat)
+      (ogent-gastown--insert-fetch-error 'polecat))
+     ((null polecats)
+      (insert (propertize "  No polecats\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (polecat polecats)
         (insert "  ")
         (insert (or (plist-get polecat :rig) "???"))
@@ -1602,7 +1707,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (insert "]")
         (when (plist-get polecat :session_running)
           (insert " running"))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 ;;; Rigs Section
 
@@ -1617,10 +1722,14 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (propertize "Rigs" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d)" (length rigs))
                      'face 'ogent-gastown-dimmed)))
-      (if (null rigs)
-          (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed))
+      (cond
+       ((and (null rigs) (ogent-gastown--section-fetch-error 'town-status))
+        (ogent-gastown--insert-fetch-error 'town-status))
+       ((null rigs)
+        (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed)))
+       (t
         (dolist (rig rigs)
-          (ogent-gastown--insert-rig-item rig))))))
+          (ogent-gastown--insert-rig-item rig)))))))
 
 (defun ogent-gastown--insert-rig-item (rig)
   "Insert a single RIG as a section."
@@ -1738,8 +1847,12 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
   "Insert rigs section (plain)."
   (let ((rigs ogent-gastown--rigs-data))
     (insert (propertize "R Rigs\n" 'face 'ogent-gastown-section-heading))
-    (if (null rigs)
-        (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed))
+    (cond
+     ((and (null rigs) (ogent-gastown--section-fetch-error 'town-status))
+      (ogent-gastown--insert-fetch-error 'town-status))
+     ((null rigs)
+      (insert (propertize "  No rigs configured\n" 'face 'ogent-gastown-dimmed)))
+     (t
       (dolist (rig rigs)
         (let* ((name (plist-get rig :name))
                (polecat-count (or (plist-get rig :polecat_count) 0))
@@ -1755,7 +1868,7 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                   (open (or (plist-get bs :open) 0)))
               (when (> (+ in-prog ready open) 0)
                 (insert (format "  *%d +%d o%d" in-prog ready open)))))
-          (insert "\n"))))))
+          (insert "\n")))))))
 
 ;;; Utilities
 
