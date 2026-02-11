@@ -754,7 +754,7 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
       ;; Check hook indicator appears
-      (should (search-forward "⚓" nil t)))))
+      (should (search-forward "⊙" nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-with-mail ()
   "Test rig agent with unread mail shows mail indicator."
@@ -768,7 +768,7 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
       ;; Check mail indicator appears
-      (should (search-forward "📬5" nil t)))))
+      (should (search-forward "▷5" nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-no-mail ()
   "Test rig agent with no unread mail does not show mail indicator."
@@ -782,7 +782,7 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown--insert-rig-agent agent)
       (let ((content (buffer-string)))
         ;; Should NOT have mail indicator
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "▷" content))))))
 
 (ert-deftest ogent-gastown-test-rig-agent-role-icons ()
   "Test that different roles get different icons."
@@ -2235,7 +2235,7 @@ OUTPUT should be a plist or list that will be returned."
         (ogent-gastown--mail-cache (list '(:id "m1" :read t))))
     (let ((header (ogent-gastown--format-header-line)))
       ;; Should not contain mail indicator
-      (should-not (string-match-p "📬" header)))))
+      (should-not (string-match-p "▷" header)))))
 
 ;;; --- Cleanup Process Handling ---
 

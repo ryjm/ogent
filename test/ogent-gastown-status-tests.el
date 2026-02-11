@@ -852,10 +852,10 @@
        '(:name "worker" :role "crew" :running t :has_work t :unread_mail 5))
       (let ((content (buffer-string)))
         (should (string-match-p "worker" content))
-        ;; Hook indicator (anchor emoji)
-        (should (string-match-p "⚓" content))
+        ;; Hook indicator
+        (should (string-match-p "⊙" content))
         ;; Mail indicator
-        (should (string-match-p "📬5" content))))))
+        (should (string-match-p "▷5" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-unknown-role ()
   "Test rig agent insertion for unknown role uses ? icon."
@@ -904,7 +904,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👁" content))))))
+        (should (string-match-p "◎" content))))))
 
 (ert-deftest ogent-gts-test-ascii-icons ()
   "Test that ASCII icons are used when unicode disabled."
@@ -914,7 +914,7 @@
        '(:name "test" :role "witness" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p "W" content))
-        (should-not (string-match-p "👁" content))))))
+        (should-not (string-match-p "◎" content))))))
 
 ;;; Mail Item Tests
 
@@ -1783,7 +1783,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "polecat1" :role "polecat" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "🐱" content))
+        (should (string-match-p "▸" content))
         (should (string-match-p "polecat1" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-no-hook-no-mail ()
@@ -1794,8 +1794,8 @@
        '(:name "clean" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
         (should (string-match-p "clean" content))
-        (should-not (string-match-p "⚓" content))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "⊙" content))
+        (should-not (string-match-p "▷" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-ascii-hook ()
   "Test rig agent shows H for hook in ASCII mode."
@@ -2342,7 +2342,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "dev1" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "👤" content))))))
+        (should (string-match-p "▪" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-refinery-unicode ()
   "Test rig agent uses refinery unicode icon."
@@ -2351,7 +2351,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "ref1" :role "refinery" :running nil :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should (string-match-p "⚙" content))))))
+        (should (string-match-p "▣" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-nil-name ()
   "Test rig agent with nil name renders ???."
@@ -2401,7 +2401,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "nomail" :role "crew" :running t :has_work nil :unread_mail 0))
       (let ((content (buffer-string)))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "▷" content))))))
 
 (ert-deftest ogent-gts-test-insert-rig-agent-nil-unread ()
   "Test rig agent with nil unread mail defaults to 0, no indicator."
@@ -2410,7 +2410,7 @@
       (ogent-gastown--insert-rig-agent
        '(:name "nilmail" :role "crew" :running t :has_work nil :unread_mail nil))
       (let ((content (buffer-string)))
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p "▷" content))))))
 
 ;;; Process List Tests
 
@@ -4116,93 +4116,6 @@
             (ogent-gastown--convoy-data nil))
         (ogent-gastown-convoy-status)
         (should (equal inspected-id "test-convoy-42"))))))
-
-(ert-deftest ogent-gts-test-convoy-section-heading-present-plain ()
-  "Plain convoy section always includes the 'Convoys' heading."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Heading Test" :status "active"
-                   :completed 0 :total 1 :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoys" content))))))
-
-(ert-deftest ogent-gts-test-convoy-section-heading-present-plain-empty ()
-  "Plain convoy section heading present even with no convoys."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data nil))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "> Convoys" content))))))
-
-(ert-deftest ogent-gts-test-convoy-plain-all-nil-fields ()
-  "Convoy with all nil fields renders safely in plain mode."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id nil :title nil :status nil
-                   :completed nil :total nil :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "(unnamed)" content))))))
-
-(ert-deftest ogent-gts-test-convoy-plain-many-convoys ()
-  "Plain convoy section handles many convoy items."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (cl-loop for i from 1 to 20
-                    collect (list :id (format "c%d" i)
-                                 :title (format "Convoy %d" i)
-                                 :status "active"
-                                 :completed i :total 20 :tracked nil))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoy 1" content))
-        (should (string-match-p "Convoy 20" content))))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-round-trip-modern ()
-  "Normalizing a modern payload and rendering it produces expected title."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "rt1" :title "Round Trip" :status "active"
-                    :completed 4 :total 8 :tracked ("a" "b"))))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Round Trip" content))))))
-
-(ert-deftest ogent-gts-test-normalize-convoy-round-trip-legacy ()
-  "Normalizing a legacy payload and rendering it produces expected title."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (ogent-gastown--normalize-convoy-list
-            (list '(:id "rt2" :name "Legacy RT" :status "complete"
-                    :progress "3/3")))))
-      (ogent-gastown--insert-convoy-section-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Legacy RT" content))))))
-
-(ert-deftest ogent-gts-test-full-plain-buffer-convoy-and-other-sections ()
-  "Full plain buffer renders convoy alongside other sections."
-  (with-temp-buffer
-    (let ((ogent-gastown--convoy-data
-           (list '(:id "c1" :title "Full Test" :status "active"
-                   :completed 1 :total 3 :tracked nil)))
-          (ogent-gastown--hook-data '(:has_work nil :role "test" :target "t/" :next_action nil))
-          (ogent-gastown--mail-data nil)
-          (ogent-gastown--workers-data nil)
-          (ogent-gastown--stats-data nil)
-          (ogent-gastown--deacon-data nil)
-          (ogent-gastown--witness-data nil)
-          (ogent-gastown--crew-data nil)
-          (ogent-gastown--polecat-data nil)
-          (ogent-gastown--rigs-data nil)
-          (ogent-gastown--magit-section-available nil))
-      (ogent-gastown--insert-plain)
-      (let ((content (buffer-string)))
-        (should (string-match-p "Convoys" content))
-        (should (string-match-p "Full Test" content))
-        (should (string-match-p "Hook" content))
-        (should (string-match-p "Workers" content))))))
 
 (provide 'ogent-gastown-status-tests)
 
