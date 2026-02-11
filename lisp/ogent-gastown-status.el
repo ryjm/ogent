@@ -830,7 +830,7 @@ Other:
 
 (defun ogent-gastown--fetch-all (callback)
   "Fetch all data for the status buffer, call CALLBACK when done."
-  (let* ((pending 7)
+  (let* ((pending 6)
          (results (make-hash-table))
          (buf (current-buffer))
          ;; Use let-bound lambda instead of cl-flet to avoid bytecode issues
@@ -848,7 +848,7 @@ Other:
                            (gethash 'convoy results)))
                   (setq ogent-gastown--workers-data (gethash 'workers results))
                   (setq ogent-gastown--crew-data (gethash 'crew results))
-                  (setq ogent-gastown--polecat-data (gethash 'polecat results))
+                  (setq ogent-gastown--polecat-data (gethash 'workers results))
                   ;; Extract stats, deacon, witnesses, and rigs from town status
                   (let ((town-status (gethash 'town-status results)))
                     (setq ogent-gastown--stats-data
@@ -903,7 +903,7 @@ Other:
 
     ;; Fetch town status (for stats, deacon, witnesses)
     (ogent-gastown-status--run-async
-     '("status" "--json")
+     '("status" "--json" "--fast")
      (lambda (result)
        (puthash 'town-status result results)
        (funcall check-done))
@@ -921,15 +921,7 @@ Other:
        (puthash 'crew nil results)
        (funcall check-done)))
 
-    ;; Fetch polecats
-    (ogent-gastown-status--run-async
-     '("polecat" "list" "--json")
-     (lambda (result)
-       (puthash 'polecat result results)
-       (funcall check-done))
-     (lambda (_err)
-       (puthash 'polecat nil results)
-       (funcall check-done)))))
+    ))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
