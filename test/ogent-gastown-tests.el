@@ -1282,34 +1282,53 @@ OUTPUT should be a plist or list that will be returned."
 
 ;;; Interactive Command Tests - ogent-gastown-show-convoy
 
-(ert-deftest ogent-gastown-test-show-convoy-creates-buffer ()
-  "Test show-convoy creates a buffer with convoy data."
-  (ogent-gastown-test-with-mock ogent-gastown-test--sample-convoy
-    (cl-letf (((symbol-function 'display-buffer) #'ignore))
+(ert-deftest ogent-gastown-test-show-convoy-delegates-to-inspector ()
+  "Test show-convoy delegates to convoy-status when available."
+  (let ((called nil))
+    (cl-letf (((symbol-function 'ogent-gastown-convoy-status)
+               (lambda () (interactive) (setq called t))))
       (ogent-gastown-show-convoy)
-      (let ((buf (get-buffer "*Gas Town Convoys*")))
-        (unwind-protect
-            (progn
-              (should buf)
-              (with-current-buffer buf
-                (should (string-match-p "Active Convoys" (buffer-string)))
-                (should (string-match-p "convoy-001" (buffer-string)))
-                (should (string-match-p "Feature implementation" (buffer-string)))
-                (should (string-match-p "75%" (buffer-string)))))
-          (when buf (kill-buffer buf)))))))
+      (should called))))
+
+(ert-deftest ogent-gastown-test-show-convoy-plain-fallback ()
+  "Test show-convoy falls back to plain buffer when inspector unavailable."
+  (ogent-gastown-test-with-mock ogent-gastown-test--sample-convoy
+    (cl-letf (((symbol-function 'display-buffer) #'ignore)
+              ((symbol-function 'ogent-gastown-convoy-status) nil))
+      (fmakunbound 'ogent-gastown-convoy-status)
+      (unwind-protect
+          (progn
+            (ogent-gastown-show-convoy)
+            (let ((buf (get-buffer "*Gas Town Convoys*")))
+              (unwind-protect
+                  (progn
+                    (should buf)
+                    (with-current-buffer buf
+                      (should (string-match-p "Active Convoys" (buffer-string)))
+                      (should (string-match-p "convoy-001" (buffer-string)))
+                      (should (string-match-p "Feature implementation" (buffer-string)))
+                      (should (string-match-p "75%" (buffer-string)))))
+                (when buf (kill-buffer buf)))))
+        ;; Restore the function
+        (autoload 'ogent-gastown-convoy-status "ogent-gastown-status" nil t)))))
 
 (ert-deftest ogent-gastown-test-show-convoy-empty ()
-  "Test show-convoy displays empty message when no convoys."
+  "Test show-convoy plain fallback with no convoys."
   (ogent-gastown-test-with-mock nil
-    (cl-letf (((symbol-function 'display-buffer) #'ignore))
-      (ogent-gastown-show-convoy)
-      (let ((buf (get-buffer "*Gas Town Convoys*")))
-        (unwind-protect
-            (progn
-              (should buf)
-              (with-current-buffer buf
-                (should (string-match-p "No active convoys" (buffer-string)))))
-          (when buf (kill-buffer buf)))))))
+    (cl-letf (((symbol-function 'display-buffer) #'ignore)
+              ((symbol-function 'ogent-gastown-convoy-status) nil))
+      (fmakunbound 'ogent-gastown-convoy-status)
+      (unwind-protect
+          (progn
+            (ogent-gastown-show-convoy)
+            (let ((buf (get-buffer "*Gas Town Convoys*")))
+              (unwind-protect
+                  (progn
+                    (should buf)
+                    (with-current-buffer buf
+                      (should (string-match-p "No active convoys" (buffer-string)))))
+                (when buf (kill-buffer buf)))))
+        (autoload 'ogent-gastown-convoy-status "ogent-gastown-status" nil t)))))
 
 ;;; Interactive Command Tests - ogent-gastown-claim-issue
 
@@ -1793,10 +1812,10 @@ OUTPUT should be a plist or list that will be returned."
       (should (string-match-p "No messages" (buffer-string))))))
 
 (ert-deftest ogent-gastown-test-insert-convoy-section-plain-with-data ()
-  "Test convoy section plain rendering with convoys."
+  "Test convoy section plain rendering with normalized convoys."
   (with-temp-buffer
     (let ((ogent-gastown--convoy-data
-           (list '(:name "Deploy v2" :status "active"))))
+           (list '(:id "convoy-001" :title "Deploy v2" :status "active"))))
       (ogent-gastown--insert-convoy-section-plain)
       (should (string-match-p "Convoys" (buffer-string)))
       (should (string-match-p "Deploy v2" (buffer-string))))))
@@ -2110,20 +2129,25 @@ OUTPUT should be a plist or list that will be returned."
 ;;; --- Show Convoy with Progress ---
 
 (ert-deftest ogent-gastown-test-show-convoy-no-progress ()
-  "Test show-convoy handles convoy without progress."
+  "Test show-convoy plain fallback handles convoy without progress."
   (ogent-gastown-test-with-mock
       (list '(:id "c1" :name "Small job" :status "active" :progress nil))
-    (cl-letf (((symbol-function 'display-buffer) #'ignore))
-      (ogent-gastown-show-convoy)
-      (let ((buf (get-buffer "*Gas Town Convoys*")))
-        (unwind-protect
-            (progn
-              (should buf)
-              (with-current-buffer buf
-                (should (string-match-p "Small job" (buffer-string)))
-                ;; No percent sign since no progress
-                (should-not (string-match-p "%" (buffer-string)))))
-          (when buf (kill-buffer buf)))))))
+    (cl-letf (((symbol-function 'display-buffer) #'ignore)
+              ((symbol-function 'ogent-gastown-convoy-status) nil))
+      (fmakunbound 'ogent-gastown-convoy-status)
+      (unwind-protect
+          (progn
+            (ogent-gastown-show-convoy)
+            (let ((buf (get-buffer "*Gas Town Convoys*")))
+              (unwind-protect
+                  (progn
+                    (should buf)
+                    (with-current-buffer buf
+                      (should (string-match-p "Small job" (buffer-string)))
+                      ;; No percent sign since no progress
+                      (should-not (string-match-p "%" (buffer-string)))))
+                (when buf (kill-buffer buf)))))
+        (autoload 'ogent-gastown-convoy-status "ogent-gastown-status" nil t)))))
 
 ;;; ====================================================================
 ;;; NEW COVERAGE TESTS - Phase 2 (targeting 80%+ coverage)
