@@ -17,6 +17,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'eieio)
+(require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section - check at both compile and load time
 ;; to ensure classes are properly defined for macro expansion
@@ -343,10 +344,7 @@ Initialized lazily to avoid issues during byte-compilation.")
 (defun ogent-issues--get-loading-frames ()
   "Return loading frames, initializing if needed."
   (or ogent-issues--loading-frames
-      (setq ogent-issues--loading-frames
-            (if (display-graphic-p)
-                '("◐" "◑" "◒" "◓")
-              '("|" "/" "-" "\\")))))
+      (setq ogent-issues--loading-frames (ogent-ops-loading-frames))))
 
 ;;; Section Classes (when magit-section available)
 ;; Use eval-and-compile to ensure classes exist at macro-expansion time
@@ -484,8 +482,7 @@ Other:
        (setq-local truncate-lines t)
        (setq-local buffer-read-only t)
        (setq header-line-format '(:eval (ogent-issues--header-line)))
-       ;; Disable font-lock to prevent it from overriding our face text properties
-       (font-lock-mode -1)
+       (ogent-ops-protect-face-properties)
        ;; Configure magit-section if we're derived from it
        (when (bound-and-true-p ogent-issues--magit-section-available)
          (setq-local magit-section-visibility-indicator
@@ -682,16 +679,10 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
 
 (defun ogent-issues--priority-indicator (priority)
   "Return formatted priority indicator for PRIORITY."
-  (let ((p (or priority 2)))
-    (propertize
-     (if ogent-issues-use-unicode
-         (pcase p
-           (0 "●")
-           (1 "◐")
-           (2 "○")
-           (_ "◌"))
-       (format "P%d" p))
-     'face (ogent-issues--priority-face p))))
+  (let ((p (or priority 2))
+        (ogent-ops-use-unicode ogent-issues-use-unicode))
+    (propertize (ogent-ops-priority-symbol p)
+                'face (ogent-issues--priority-face p))))
 
 (defun ogent-issues--status-face (status)
   "Return face for STATUS."
@@ -713,24 +704,20 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
 
 (defun ogent-issues--status-icon (status)
   "Return icon for STATUS."
-  (if ogent-issues-use-unicode
-      (pcase status
-        ("open" "○")
-        ("in_progress" "◐")
-        ("blocked" "✗")
-        ("closed" "●")
-        (_ "?"))
-    (pcase status
-      ("open" "o")
-      ("in_progress" ">")
-      ("blocked" "x")
-      ("closed" "*")
-      (_ "?"))))
+  (let ((ogent-ops-use-unicode ogent-issues-use-unicode))
+    (ogent-ops-status-symbol
+     (pcase status
+       ("open" 'open)
+       ("in_progress" 'in-progress)
+       ("blocked" 'blocked)
+       ("closed" 'closed)
+       (_ nil)))))
 
 (defun ogent-issues--ready-indicator ()
   "Return the ready indicator string."
-  (propertize (if ogent-issues-use-unicode "»" "!")
-              'face 'ogent-issues-ready))
+  (let ((ogent-ops-use-unicode ogent-issues-use-unicode))
+    (propertize (ogent-ops-status-symbol 'ready)
+                'face 'ogent-issues-ready)))
 
 (defun ogent-issues--issue-ready-p (issue)
   "Return non-nil if ISSUE is ready (unblocked and actionable).
@@ -1042,8 +1029,7 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
   :group 'ogent-issues
   (setq-local truncate-lines nil)
   (setq-local word-wrap t)
-  ;; Disable font-lock to prevent it from overriding our face text properties
-  (font-lock-mode -1))
+  (ogent-ops-protect-face-properties))
 
 (defvar-local ogent-issues-detail--issue nil
   "The issue being displayed in this detail buffer.")

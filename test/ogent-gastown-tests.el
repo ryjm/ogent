@@ -151,14 +151,18 @@ OUTPUT should be a plist or list that will be returned."
     (should-not (ogent-gastown-available-p))))
 
 (ert-deftest ogent-gastown-test-town-root-from-env ()
-  "Test town root detection from GT_TOWN environment variable."
+  "Test town root detection from GT_ROOT environment variable."
   (let ((ogent-gastown--town-root nil)
-        (default-directory "/some/random/dir/"))
-    (cl-letf (((symbol-function 'getenv)
-               (lambda (var)
-                 (when (equal var "GT_TOWN")
-                   "/home/user/gt/"))))
-      (should (equal "/home/user/gt/" (ogent-gastown-town-root))))))
+        (default-directory "/some/random/dir/")
+        (root (make-temp-file "ogent-town-root-env-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (var)
+                     (when (equal var "GT_ROOT")
+                       root))))
+          (should (equal (file-name-as-directory (expand-file-name root))
+                         (ogent-gastown-town-root))))
+      (delete-directory root))))
 
 (ert-deftest ogent-gastown-test-in-town-p ()
   "Test in-town detection."
@@ -1423,6 +1427,13 @@ OUTPUT should be a plist or list that will be returned."
   (let ((ogent-gastown--town-root "/cached/gt/"))
     (should (equal "/cached/gt/" (ogent-gastown-town-root)))))
 
+(ert-deftest ogent-gastown-test-town-root-delegates-to-shared-finder ()
+  "Test town-root delegates workspace discovery to shared status helper."
+  (let ((ogent-gastown--town-root nil))
+    (cl-letf (((symbol-function 'ogent-gastown--find-town-root)
+               (lambda () "/shared/root/")))
+      (should (equal "/shared/root/" (ogent-gastown-town-root))))))
+
 (ert-deftest ogent-gastown-test-town-root-from-gt-prefix ()
   "Test town root detection when under ~/gt/ directory."
   (let ((ogent-gastown--town-root nil)
@@ -1438,14 +1449,18 @@ OUTPUT should be a plist or list that will be returned."
 (ert-deftest ogent-gastown-test-town-root-from-gastown-marker ()
   "Test town root detection from .gastown marker file."
   (let ((ogent-gastown--town-root nil)
-        (default-directory "/some/other/dir/"))
-    (cl-letf (((symbol-function 'locate-dominating-file)
-               (lambda (_dir file)
-                 (when (equal file ".gastown")
-                   "/found/town/")))
-              ((symbol-function 'getenv)
-               (lambda (_var) nil)))
-      (should (equal "/found/town/" (ogent-gastown-town-root))))))
+        (default-directory "/some/other/dir/")
+        (marker-root (make-temp-file "ogent-town-root-marker-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'locate-dominating-file)
+                   (lambda (_dir file)
+                     (when (equal file ".gastown")
+                       marker-root)))
+                  ((symbol-function 'getenv)
+                   (lambda (_var) nil)))
+          (should (equal (file-name-as-directory (expand-file-name marker-root))
+                         (ogent-gastown-town-root))))
+      (delete-directory marker-root))))
 
 (ert-deftest ogent-gastown-test-town-root-nil-when-not-found ()
   "Test town root returns nil when not in any Gas Town workspace."
@@ -1955,29 +1970,59 @@ OUTPUT should be a plist or list that will be returned."
 
 (ert-deftest ogent-gastown-test-find-town-root-from-env ()
   "Test status find-town-root uses GT_ROOT env var."
-  (cl-letf (((symbol-function 'getenv)
-             (lambda (var)
-               (when (equal var "GT_ROOT")
-                 "/custom/gt/root"))))
-    (should (equal "/custom/gt/root" (ogent-gastown--find-town-root)))))
+  (let ((root (make-temp-file "ogent-gt-root-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (var)
+                     (when (equal var "GT_ROOT")
+                       root))))
+          (should (equal (file-name-as-directory (expand-file-name root))
+                         (ogent-gastown--find-town-root))))
+      (delete-directory root))))
 
-(ert-deftest ogent-gastown-test-find-town-root-default ()
-  "Test status find-town-root falls back to ~/gt."
-  (cl-letf (((symbol-function 'getenv)
-             (lambda (_var) nil)))
-    (should (equal (expand-file-name "~/gt")
-                   (ogent-gastown--find-town-root)))))
+(ert-deftest ogent-gastown-test-find-town-root-from-gt-town-env ()
+  "Test status find-town-root uses GT_TOWN when GT_ROOT is unset."
+  (let ((root (make-temp-file "ogent-gt-town-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (var)
+                     (pcase var
+                       ("GT_ROOT" nil)
+                       ("GT_TOWN" root)
+                       (_ nil)))))
+          (should (equal (file-name-as-directory (expand-file-name root))
+                         (ogent-gastown--find-town-root))))
+      (delete-directory root))))
+
+(ert-deftest ogent-gastown-test-find-town-root-nil-outside-town ()
+  "Test status find-town-root returns nil outside workspace."
+  (let ((default-directory "/tmp/not-a-town/"))
+    (cl-letf (((symbol-function 'getenv)
+               (lambda (_var) nil))
+              ((symbol-function 'locate-dominating-file)
+               (lambda (_dir _marker) nil)))
+      (should-not (ogent-gastown--find-town-root)))))
 
 ;;; --- In Town Check (status) Tests ---
 
 (ert-deftest ogent-gastown-test-status-in-town-p ()
-  "Test status in-town-p checks executable."
+  "Test status in-town-p requires executable and workspace."
   (cl-letf (((symbol-function 'executable-find)
-             (lambda (_) "/usr/local/bin/gt")))
+             (lambda (_) "/usr/local/bin/gt"))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () "/workspace/")))
     (should (ogent-gastown--in-town-p)))
 
   (cl-letf (((symbol-function 'executable-find)
-             (lambda (_) nil)))
+             (lambda (_) nil))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () "/workspace/")))
+    (should-not (ogent-gastown--in-town-p)))
+
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_) "/usr/local/bin/gt"))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () nil)))
     (should-not (ogent-gastown--in-town-p))))
 
 ;;; --- Stat Item Rendering ---
@@ -2079,6 +2124,303 @@ OUTPUT should be a plist or list that will be returned."
                 ;; No percent sign since no progress
                 (should-not (string-match-p "%" (buffer-string)))))
           (when buf (kill-buffer buf)))))))
+
+;;; ====================================================================
+;;; NEW COVERAGE TESTS - Phase 2 (targeting 80%+ coverage)
+;;; ====================================================================
+
+;;; --- Polling Timer Tests ---
+
+(ert-deftest ogent-gastown-test-start-polling-stops-existing ()
+  "Test that start-polling stops any existing timer first."
+  (let ((ogent-gastown--poll-timer 'old-timer)
+        (ogent-gastown-poll-interval 60)
+        (cancelled nil))
+    (cl-letf (((symbol-function 'cancel-timer)
+               (lambda (timer)
+                 (when (eq timer 'old-timer)
+                   (setq cancelled t))))
+              ((symbol-function 'run-at-time)
+               (lambda (_time _repeat _fn)
+                 'new-timer)))
+      (ogent-gastown--start-polling)
+      (should cancelled)
+      (should (eq 'new-timer ogent-gastown--poll-timer)))))
+
+(ert-deftest ogent-gastown-test-stop-polling-nil-timer ()
+  "Test that stop-polling handles nil timer gracefully."
+  (let ((ogent-gastown--poll-timer nil))
+    ;; Should not error
+    (ogent-gastown--stop-polling)
+    (should-not ogent-gastown--poll-timer)))
+
+;;; --- Mode-line String Tests ---
+
+(ert-deftest ogent-gastown-test-update-mode-line-has-help-echo ()
+  "Test mode line includes help-echo property."
+  (let ((ogent-gastown--hook-cache '(:id "xyz" :title "Help text here")))
+    (ogent-gastown--update-mode-line)
+    (should (stringp ogent-gastown--mode-line-string))
+    (should (get-text-property 0 'help-echo ogent-gastown--mode-line-string))
+    (should (equal "Help text here"
+                   (get-text-property 0 'help-echo ogent-gastown--mode-line-string)))))
+
+(ert-deftest ogent-gastown-test-update-mode-line-has-face ()
+  "Test mode line string has ogent-gastown-hook-active face."
+  (let ((ogent-gastown--hook-cache '(:id "test-id" :title "Work")))
+    (ogent-gastown--update-mode-line)
+    (should (eq 'ogent-gastown-hook-active
+                (get-text-property 0 'face ogent-gastown--mode-line-string)))))
+
+;;; --- Header Line Edge Cases ---
+
+(ert-deftest ogent-gastown-test-header-line-no-title ()
+  "Test header line handles hook with nil title."
+  (let ((ogent-gastown--hook-cache '(:id "no-title-hook"))
+        (ogent-gastown--mail-cache nil))
+    (let ((header (ogent-gastown--format-header-line)))
+      (should (string-match-p "no-title-hook" header))
+      (should (string-match-p "Gas Town" header)))))
+
+(ert-deftest ogent-gastown-test-header-line-zero-unread ()
+  "Test header line does not show mail count when zero unread."
+  (let ((ogent-gastown--hook-cache '(:id "x" :title "Work"))
+        (ogent-gastown--mail-cache (list '(:id "m1" :read t))))
+    (let ((header (ogent-gastown--format-header-line)))
+      ;; Should not contain mail indicator
+      (should-not (string-match-p "📬" header)))))
+
+;;; --- Cleanup Process Handling ---
+
+(ert-deftest ogent-gastown-test-cleanup-kills-gt-processes ()
+  "Test cleanup kills live gt processes."
+  (let* ((buf (generate-new-buffer " *test-gt-proc*"))
+         (proc (start-process "test-gt" buf "sleep" "10"))
+         (ogent-gastown--processes (list proc))
+         (ogent-gastown--bd-processes nil)
+         (ogent-gastown--hook-cache '(:id "x"))
+         (ogent-gastown--mail-cache nil)
+         (ogent-gastown--convoy-cache nil)
+         (ogent-gastown--bd-ready-cache nil)
+         (ogent-gastown--town-root "/test/")
+         (ogent-gastown--poll-timer nil))
+    (unwind-protect
+        (progn
+          (should (process-live-p proc))
+          (ogent-gastown-cleanup)
+          (sleep-for 0.1)
+          (should-not (process-live-p proc))
+          (should-not ogent-gastown--processes))
+      (when (process-live-p proc)
+        (kill-process proc))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-gastown-test-cleanup-kills-bd-processes ()
+  "Test cleanup kills live bd processes."
+  (let* ((buf (generate-new-buffer " *test-bd-proc*"))
+         (proc (start-process "test-bd" buf "sleep" "10"))
+         (ogent-gastown--processes nil)
+         (ogent-gastown--bd-processes (list proc))
+         (ogent-gastown--hook-cache nil)
+         (ogent-gastown--mail-cache nil)
+         (ogent-gastown--convoy-cache nil)
+         (ogent-gastown--bd-ready-cache nil)
+         (ogent-gastown--town-root "/test/")
+         (ogent-gastown--poll-timer nil))
+    (unwind-protect
+        (progn
+          (should (process-live-p proc))
+          (ogent-gastown-cleanup)
+          (sleep-for 0.1)
+          (should-not (process-live-p proc))
+          (should-not ogent-gastown--bd-processes))
+      (when (process-live-p proc)
+        (kill-process proc))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+;;; --- Mode Enable with Mode-line Tests ---
+
+(ert-deftest ogent-gastown-test-mode-adds-to-mode-line-info ()
+  "Test that enabling mode adds hook status to mode-line-misc-info."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/mock/gt/")
+          (ogent-gastown-show-hook-in-modeline t)
+          (ogent-gastown--hook-cache '(:id "test" :title "Work"))
+          (mode-line-misc-info nil))
+      (cl-letf (((symbol-function 'ogent-gastown-in-town-p)
+                 (lambda () nil))
+                ((symbol-function 'ogent-gastown--start-polling)
+                 (lambda () nil))
+                ((symbol-function 'ogent-gastown--stop-polling)
+                 (lambda () nil)))
+        (ogent-gastown-mode 1)
+        ;; mode-line-misc-info should contain the eval form
+        (should (member '(:eval ogent-gastown--mode-line-string)
+                        mode-line-misc-info))
+        (ogent-gastown-mode -1)
+        ;; Should be removed
+        (should-not (member '(:eval ogent-gastown--mode-line-string)
+                            mode-line-misc-info))))))
+
+(ert-deftest ogent-gastown-test-mode-no-mode-line-when-disabled ()
+  "Test that mode does not add to mode-line when show-hook-in-modeline is nil."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/mock/gt/")
+          (ogent-gastown-show-hook-in-modeline nil)
+          (mode-line-misc-info nil))
+      (cl-letf (((symbol-function 'ogent-gastown-in-town-p)
+                 (lambda () nil))
+                ((symbol-function 'ogent-gastown--start-polling)
+                 (lambda () nil))
+                ((symbol-function 'ogent-gastown--stop-polling)
+                 (lambda () nil)))
+        (ogent-gastown-mode 1)
+        (should-not (member '(:eval ogent-gastown--mode-line-string)
+                            mode-line-misc-info))
+        (ogent-gastown-mode -1)))))
+
+;;; --- Mail Mode Tests ---
+
+(ert-deftest ogent-gastown-test-mail-mode-derived-from-special ()
+  "Test that GT-Mail mode is derived from special-mode."
+  (with-temp-buffer
+    (ogent-gastown-mail-mode)
+    (should (derived-mode-p 'special-mode))
+    (should (eq major-mode 'ogent-gastown-mail-mode))))
+
+(ert-deftest ogent-gastown-test-mail-mode-has-revert-function ()
+  "Test that GT-Mail mode sets revert-buffer-function."
+  (with-temp-buffer
+    (ogent-gastown-mail-mode)
+    (should revert-buffer-function)))
+
+;;; --- BD Ready Mode Tests ---
+
+(ert-deftest ogent-gastown-test-bd-ready-mode-derived-from-special ()
+  "Test that BD-Ready mode is derived from special-mode."
+  (with-temp-buffer
+    (ogent-gastown-bd-ready-mode)
+    (should (derived-mode-p 'special-mode))
+    (should (eq major-mode 'ogent-gastown-bd-ready-mode))))
+
+(ert-deftest ogent-gastown-test-bd-issue-mode-derived-from-special ()
+  "Test that BD-Issue mode is derived from special-mode."
+  (with-temp-buffer
+    (ogent-gastown-bd-issue-mode)
+    (should (derived-mode-p 'special-mode))
+    (should (eq major-mode 'ogent-gastown-bd-issue-mode))))
+
+;;; --- Run Async Not Available Tests ---
+
+(ert-deftest ogent-gastown-test-gt-not-available-returns-nil ()
+  "Test that available-p returns nil when gt is not in PATH."
+  (let ((ogent-gastown-gt-executable "gt-nonexistent-test"))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_) nil)))
+      (should-not (ogent-gastown-available-p)))))
+
+(ert-deftest ogent-gastown-test-bd-not-available-returns-nil ()
+  "Test that bd-available-p returns nil when bd is not in PATH."
+  (let ((ogent-gastown-bd-executable "bd-nonexistent-test"))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_) nil)))
+      (should-not (ogent-gastown-bd-available-p)))))
+
+;;; --- Navigation Functions ---
+
+(ert-deftest ogent-gastown-test-toggle-section-plain ()
+  "Test toggle-section does not error without magit."
+  (with-temp-buffer
+    (insert "Section Header\nContent\n")
+    (goto-char (point-min))
+    (let ((ogent-gastown--magit-section-available nil))
+      ;; Should not error
+      (ogent-gastown-toggle-section))))
+
+(ert-deftest ogent-gastown-test-next-section-plain ()
+  "Test next-section falls back to search without magit."
+  (with-temp-buffer
+    (insert "--- Section 1 ---\n")
+    (insert "content\n")
+    (insert "--- Section 2 ---\n")
+    (goto-char (point-min))
+    (let ((ogent-gastown--magit-section-available nil))
+      ;; Should not error, just move
+      (ogent-gastown-next-section))))
+
+(ert-deftest ogent-gastown-test-prev-section-plain ()
+  "Test prev-section falls back without magit."
+  (with-temp-buffer
+    (insert "--- Section 1 ---\n")
+    (insert "content\n")
+    (insert "--- Section 2 ---\n")
+    (goto-char (point-max))
+    (let ((ogent-gastown--magit-section-available nil))
+      (ogent-gastown-prev-section))))
+
+;;; --- Show Issue with Created At ---
+
+(ert-deftest ogent-gastown-test-show-issue-without-created-at ()
+  "Test show-issue handles missing created_at field."
+  (let ((issue-no-date '(:id "no-date" :title "Timeless" :status "open"
+                          :priority 2 :issue_type "task")))
+    (ogent-gastown-test-bd-with-mock issue-no-date
+      (cl-letf (((symbol-function 'display-buffer) #'ignore))
+        (ogent-gastown-show-issue "no-date")
+        (let ((buf (get-buffer "*Beads: no-date*")))
+          (unwind-protect
+              (progn
+                (should buf)
+                (with-current-buffer buf
+                  (should (string-match-p "Timeless" (buffer-string)))
+                  (should-not (string-match-p "Created:" (buffer-string)))))
+            (when buf (kill-buffer buf))))))))
+
+(ert-deftest ogent-gastown-test-show-issue-without-description ()
+  "Test show-issue handles missing description field."
+  (let ((issue-no-desc '(:id "no-desc" :title "Simple" :status "open"
+                          :priority 1 :issue_type "bug")))
+    (ogent-gastown-test-bd-with-mock issue-no-desc
+      (cl-letf (((symbol-function 'display-buffer) #'ignore))
+        (ogent-gastown-show-issue "no-desc")
+        (let ((buf (get-buffer "*Beads: no-desc*")))
+          (unwind-protect
+              (progn
+                (should buf)
+                (with-current-buffer buf
+                  (should-not (string-match-p "Description:" (buffer-string)))))
+            (when buf (kill-buffer buf))))))))
+
+;;; --- Convoy Active Tests ---
+
+(ert-deftest ogent-gastown-test-convoy-active-empty ()
+  "Test convoy-active returns nil when no cache."
+  (let ((ogent-gastown--convoy-cache nil))
+    (should-not (ogent-gastown-convoy-active))))
+
+(ert-deftest ogent-gastown-test-convoy-active-returns-cache ()
+  "Test convoy-active returns the cached convoy list."
+  (let ((ogent-gastown--convoy-cache '((:id "c1") (:id "c2"))))
+    (should (equal 2 (length (ogent-gastown-convoy-active))))))
+
+;;; --- Hook Status with No Cache ---
+
+(ert-deftest ogent-gastown-test-hook-status-nil ()
+  "Test hook-status returns nil when no cache."
+  (let ((ogent-gastown--hook-cache nil))
+    (should-not (ogent-gastown-hook-status))))
+
+(ert-deftest ogent-gastown-test-hook-id-nil ()
+  "Test hook-id returns nil when no cache."
+  (let ((ogent-gastown--hook-cache nil))
+    (should-not (ogent-gastown-hook-id))))
+
+(ert-deftest ogent-gastown-test-hook-title-nil ()
+  "Test hook-title returns nil when no cache."
+  (let ((ogent-gastown--hook-cache nil))
+    (should-not (ogent-gastown-hook-title))))
 
 (provide 'ogent-gastown-tests)
 

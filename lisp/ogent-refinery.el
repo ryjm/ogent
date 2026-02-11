@@ -13,6 +13,7 @@
 (require 'subr-x)
 (require 'eieio)
 (require 'json)
+(require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section
 (eval-and-compile
@@ -419,10 +420,7 @@ Other:
 
 ;;; Loading Animation
 
-(defconst ogent-refinery--loading-frames
-  (if (display-graphic-p)
-      '("◐" "◑" "◒" "◓")
-    '("|" "/" "-" "\\"))
+(defconst ogent-refinery--loading-frames (ogent-ops-loading-frames)
   "Animation frames for loading spinner.")
 
 (defun ogent-refinery--start-loading ()
@@ -576,7 +574,7 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
     (magit-insert-section (ogent-refinery-processing-section processing)
       (magit-insert-heading
         (concat
-         (if ogent-refinery-use-unicode "⚙" "*")
+         (ogent-ops-section-prefix "⚙" "*")
          " "
          (propertize "Processing" 'face 'ogent-refinery-section-heading)
          (when processing
@@ -605,7 +603,7 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
     (magit-insert-section (ogent-refinery-queue-section waiting nil)
       (magit-insert-heading
         (concat
-         (if ogent-refinery-use-unicode "⏳" "#")
+         (ogent-ops-section-prefix "⏳" "#")
          " "
          (propertize "Queue" 'face 'ogent-refinery-section-heading)
          (when waiting
@@ -639,7 +637,7 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
     (magit-insert-section (ogent-refinery-failed-section failed nil)
       (magit-insert-heading
         (concat
-         (if ogent-refinery-use-unicode "✗" "!")
+         (ogent-ops-section-prefix "✗" "!")
          " "
          (propertize "Failed" 'face 'ogent-refinery-section-heading)
          (when failed
@@ -667,7 +665,7 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
     (magit-insert-section (ogent-refinery-history-section history nil)
       (magit-insert-heading
         (concat
-         (if ogent-refinery-use-unicode "✓" "+")
+         (ogent-ops-section-prefix "✓" "+")
          " "
          (propertize "Recent Merges" 'face 'ogent-refinery-section-heading)
          (when history
@@ -698,21 +696,8 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 
 (defun ogent-refinery--status-icon (status-type)
   "Return icon for STATUS-TYPE."
-  (if ogent-refinery-use-unicode
-      (pcase status-type
-        ('processing "⚙")
-        ('waiting "○")
-        ('blocked "◌")
-        ('failed "✗")
-        ('merged "✓")
-        (_ "·"))
-    (pcase status-type
-        ('processing "*")
-        ('waiting "o")
-        ('blocked "-")
-        ('failed "x")
-        ('merged "+")
-        (_ "."))))
+  (let ((ogent-ops-use-unicode ogent-refinery-use-unicode))
+    (ogent-ops-status-symbol status-type)))
 
 (defun ogent-refinery--format-age (timestamp)
   "Format TIMESTAMP as relative age string."

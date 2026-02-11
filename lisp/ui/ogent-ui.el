@@ -2237,22 +2237,25 @@ Returns the parsed plist, or nil if parsing fails."
   (save-excursion
     ;; Find drawer boundaries
     (when (re-search-backward "^:TOOL:$" nil t)
-      (let ((_drawer-start (point)))
-          ;; Find and replace result block content
-          (when (re-search-forward "#\\+begin_src.*:result" nil t)
-            (forward-line 1)
-            (let ((result-start (point)))
-              (when (re-search-forward "#\\+end_src" nil t)
-                (forward-line 0)
-                (delete-region result-start (point))
-                (goto-char result-start)
-                (insert (if (stringp new-result) new-result (pp-to-string new-result)))
-                (unless (bolp) (insert "\n")))))
-          ;; Update status icon in header (now on second line)
-          (goto-char drawer-start)
+      (let ((drawer-start (point)))
+        ;; Find and replace result block content
+        (when (re-search-forward "#\\+begin_src.*:result" nil t)
           (forward-line 1)
-          (when (re-search-forward "\\([○◐✓✗]\\)" (line-end-position) t)
-            (replace-match (ogent-ui--tool-status-icon 'success)))))))
+          (let ((result-start (point)))
+            (when (re-search-forward "#\\+end_src" nil t)
+              (forward-line 0)
+              (delete-region result-start (point))
+              (goto-char result-start)
+              (insert (if (stringp new-result)
+                          new-result
+                        (pp-to-string new-result)))
+              (unless (bolp)
+                (insert "\n")))))
+        ;; Update status icon in header (now on second line)
+        (goto-char drawer-start)
+        (forward-line 1)
+        (when (re-search-forward "\\([○◐✓✗]\\)" (line-end-position) t)
+          (replace-match (ogent-ui--tool-status-icon 'success)))))))
 
 (defun ogent-ui--insert-reasoning-block (content)
   "Insert a reasoning block containing CONTENT.

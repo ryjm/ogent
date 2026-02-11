@@ -225,5 +225,169 @@
     (dolist (prompt (ogent-prompt-list))
       (should (> (length (ogent-prompt-content prompt)) 0)))))
 
+;;; ogent-prompt-ids Tests
+
+(ert-deftest ogent-prompt-ids-returns-all-ids ()
+  "ogent-prompt-ids returns all registered prompt IDs."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "alpha" :title "A" :content "A")
+    (ogent-prompt-register "beta" :title "B" :content "B")
+    (ogent-prompt-register "gamma" :title "G" :content "G")
+    (let ((ids (ogent-prompt-ids)))
+      (should (= 3 (length ids)))
+      (should (member "alpha" ids))
+      (should (member "beta" ids))
+      (should (member "gamma" ids)))))
+
+(ert-deftest ogent-prompt-ids-empty-registry ()
+  "ogent-prompt-ids returns nil for empty registry."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (should (null (ogent-prompt-ids)))))
+
+;;; ogent-prompt-compose-from-string Tests
+
+(ert-deftest ogent-prompt-compose-from-string-basic ()
+  "ogent-prompt-compose-from-string parses and composes."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "code-review" :title "CR" :content "Review code.")
+    (ogent-prompt-register "testing" :title "T" :content "Write tests.")
+    (let ((result (ogent-prompt-compose-from-string "@code-review+@testing")))
+      (should (string-match-p "Review code" result))
+      (should (string-match-p "Write tests" result)))))
+
+;;; ogent-prompt--param-value Tests
+
+(ert-deftest ogent-prompt--param-value-alist-string-keys ()
+  "ogent-prompt--param-value handles alist with string keys."
+  (should (equal "val" (ogent-prompt--param-value "foo" '(("foo" . "val"))))))
+
+(ert-deftest ogent-prompt--param-value-alist-symbol-keys ()
+  "ogent-prompt--param-value handles alist with symbol keys."
+  (should (equal "val" (ogent-prompt--param-value "foo" '((foo . "val"))))))
+
+(ert-deftest ogent-prompt--param-value-plist-keyword-keys ()
+  "ogent-prompt--param-value handles plist with keyword keys."
+  (should (equal "val" (ogent-prompt--param-value "foo" '(:foo "val")))))
+
+(ert-deftest ogent-prompt--param-value-nil-params ()
+  "ogent-prompt--param-value returns nil for nil params."
+  (should-not (ogent-prompt--param-value "foo" nil)))
+
+;;; ogent-prompt--collect-params Tests
+
+(ert-deftest ogent-prompt--collect-params-merges-multiple ()
+  "ogent-prompt--collect-params merges params from multiple prompts."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "a" :title "A" :content "Hello {{name}}")
+    (ogent-prompt-register "b" :title "B" :content "Project {{project:ogent}}")
+    (let ((params (ogent-prompt--collect-params '("a" "b"))))
+      (should (= 2 (length params)))
+      (should (cl-find-if (lambda (p) (equal (plist-get p :name) "name")) params))
+      (should (cl-find-if (lambda (p) (equal (plist-get p :name) "project")) params)))))
+
+(ert-deftest ogent-prompt--collect-params-deduplicates ()
+  "ogent-prompt--collect-params deduplicates same-name params."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "a" :title "A" :content "{{name}} is {{name}}")
+    (ogent-prompt-register "b" :title "B" :content "Also {{name}}")
+    (let ((params (ogent-prompt--collect-params '("a" "b"))))
+      (should (= 1 (length params))))))
+
+;;; ogent-prompt-render Edge Cases
+
+(ert-deftest ogent-prompt-render-non-string-value ()
+  "ogent-prompt-render formats non-string values with format."
+  (should (equal "Count: 42"
+                 (ogent-prompt-render "Count: {{n}}" '(("n" . 42))))))
+
+(ert-deftest ogent-prompt-render-uses-default-when-no-value ()
+  "ogent-prompt-render uses default when value missing."
+  (should (equal "Hi default"
+                 (ogent-prompt-render "Hi {{name:default}}" nil))))
+
+(ert-deftest ogent-prompt-render-empty-when-no-value-no-default ()
+  "ogent-prompt-render returns empty string for missing param without default."
+  (should (equal "Hi "
+                 (ogent-prompt-render "Hi {{name}}" nil))))
+
+;;; ogent-prompt-validate-composition Tests
+
+(ert-deftest ogent-prompt-validate-composition-aggregates-missing ()
+  "ogent-prompt-validate-composition aggregates missing context from all prompts."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "a" :title "A" :content "A"
+                           :required-context '(code))
+    (ogent-prompt-register "b" :title "B" :content "B"
+                           :required-context '(tests))
+    (let ((result (ogent-prompt-validate-composition '("a" "b") nil)))
+      (should-not (plist-get result :valid))
+      (should (member 'code (plist-get result :missing)))
+      (should (member 'tests (plist-get result :missing))))))
+
+(ert-deftest ogent-prompt-validate-composition-deduplicates-missing ()
+  "ogent-prompt-validate-composition deduplicates missing context."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "a" :title "A" :content "A"
+                           :required-context '(code))
+    (ogent-prompt-register "b" :title "B" :content "B"
+                           :required-context '(code))
+    (let ((result (ogent-prompt-validate-composition '("a" "b") nil)))
+      ;; code should appear only once (delete-dups)
+      (should (= 1 (length (plist-get result :missing)))))))
+
+(ert-deftest ogent-prompt-validate-composition-valid-when-all-present ()
+  "ogent-prompt-validate-composition is valid when all context present."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "a" :title "A" :content "A"
+                           :required-context '(code))
+    (ogent-prompt-register "b" :title "B" :content "B"
+                           :required-context '(tests))
+    (let ((result (ogent-prompt-validate-composition
+                   '("a" "b") '(:code "c" :tests "t"))))
+      (should (plist-get result :valid))
+      (should (null (plist-get result :missing))))))
+
+;;; ogent-prompt-apply-overrides Edge Cases
+
+(ert-deftest ogent-prompt-apply-overrides-title-and-order ()
+  "ogent-prompt-apply-overrides can override title and compose-order."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal))
+        (ogent-prompt-overrides '(("my-prompt" . (:title "New Title"
+                                                  :compose-order 5)))))
+    (ogent-prompt-register "my-prompt" :title "Old" :content "C" :compose-order 50)
+    (ogent-prompt-apply-overrides)
+    (let ((prompt (ogent-prompt-get "my-prompt")))
+      (should (equal "New Title" (ogent-prompt-title prompt)))
+      (should (equal 5 (ogent-prompt-compose-order prompt))))))
+
+(ert-deftest ogent-prompt-apply-overrides-skips-unknown-prompt ()
+  "ogent-prompt-apply-overrides skips overrides for unregistered prompts."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal))
+        (ogent-prompt-overrides '(("nonexistent" . (:content "X")))))
+    ;; Should not error
+    (ogent-prompt-apply-overrides)
+    (should (null (ogent-prompt-get "nonexistent")))))
+
+;;; ogent-prompt-compose-with-params Tests
+
+(ert-deftest ogent-prompt-compose-with-params-uses-provided-params ()
+  "ogent-prompt-compose-with-params uses explicitly provided params."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "tpl" :title "T" :content "Hello {{name}}")
+    (let ((result (ogent-prompt-compose-with-params
+                   '("tpl") '(("name" . "World")))))
+      (should (equal "Hello World" result)))))
+
+;;; ogent-prompt-compose-rendered Tests
+
+(ert-deftest ogent-prompt-compose-rendered-sorts-by-order ()
+  "ogent-prompt-compose-rendered sorts templates by compose-order."
+  (let ((ogent-prompt-registry (make-hash-table :test 'equal)))
+    (ogent-prompt-register "late" :title "L" :content "LATE" :compose-order 90)
+    (ogent-prompt-register "early" :title "E" :content "EARLY" :compose-order 5)
+    (let ((result (ogent-prompt-compose-rendered '("late" "early") nil)))
+      (should (< (string-match "EARLY" result)
+                 (string-match "LATE" result))))))
+
 (provide 'ogent-prompts-tests)
 ;;; ogent-prompts-tests.el ends here

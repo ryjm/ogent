@@ -273,5 +273,132 @@
     (when (get-buffer "*Ogent Bindings*")
       (kill-buffer "*Ogent Bindings*"))))
 
+;;; Review Prefix Customization Tests
+
+(ert-deftest ogent-keys-review-prefix-customizable-var ()
+  "ogent-review-prefix is a customizable variable."
+  (should (custom-variable-p 'ogent-review-prefix)))
+
+(ert-deftest ogent-keys-review-bindings-custom-prefix ()
+  "Review bindings respect custom prefix."
+  (let ((map (make-sparse-keymap))
+        (ogent-review-prefix "C-c r"))
+    (ogent-setup-review-bindings map)
+    ;; Should use custom prefix
+    (should (commandp (lookup-key map (kbd "C-c r n"))))
+    (should (commandp (lookup-key map (kbd "C-c r p"))))
+    ;; Default prefix should not be bound
+    (should-not (eq (lookup-key map (kbd "C-c o n")) 'ogent-completion-next))))
+
+;;; Review Action Registry Validation Tests
+
+(ert-deftest ogent-keys-review-registry-entries-valid ()
+  "All review registry entries have required properties."
+  (dolist (entry ogent-review-action-registry)
+    (let ((name (car entry))
+          (props (cdr entry)))
+      (should (symbolp name))
+      (should (plist-get props :key))
+      (should (plist-get props :command))
+      (should (plist-get props :desc))
+      (should (stringp (plist-get props :key)))
+      (should (symbolp (plist-get props :command)))
+      (should (stringp (plist-get props :desc))))))
+
+(ert-deftest ogent-keys-review-registry-unique-keys ()
+  "All keys in review registry are unique."
+  (let ((keys (mapcar (lambda (entry)
+                        (plist-get (cdr entry) :key))
+                      ogent-review-action-registry)))
+    (should (= (length keys) (length (delete-dups (copy-sequence keys)))))))
+
+(ert-deftest ogent-keys-review-registry-unique-names ()
+  "All action names in review registry are unique."
+  (let ((names (mapcar #'car ogent-review-action-registry)))
+    (should (= (length names) (length (delete-dups (copy-sequence names)))))))
+
+;;; Which-Key No-Op Tests
+
+(ert-deftest ogent-keys-setup-which-key-noop-without-which-key ()
+  "setup-which-key does nothing when which-key not loaded."
+  ;; which-key is typically not loaded in batch mode
+  ;; Should not error
+  (ogent-setup-which-key))
+
+;;; Describe Bindings Review Section Tests
+
+(ert-deftest ogent-keys-describe-bindings-shows-review-prefix ()
+  "ogent-describe-bindings shows review prefix info."
+  (unwind-protect
+      (progn
+        (ogent-describe-bindings)
+        (with-current-buffer "*Ogent Bindings*"
+          (should (string-match-p "Review prefix" (buffer-string)))
+          (should (string-match-p "C-c o" (buffer-string)))))
+    (when (get-buffer "*Ogent Bindings*")
+      (kill-buffer "*Ogent Bindings*"))))
+
+(ert-deftest ogent-keys-describe-bindings-shows-review-actions ()
+  "ogent-describe-bindings lists all review actions."
+  (unwind-protect
+      (progn
+        (ogent-describe-bindings)
+        (with-current-buffer "*Ogent Bindings*"
+          (let ((content (buffer-string)))
+            (dolist (entry ogent-review-action-registry)
+              (let ((name (symbol-name (car entry))))
+                (should (string-match-p name content)))))))
+    (when (get-buffer "*Ogent Bindings*")
+      (kill-buffer "*Ogent Bindings*"))))
+
+;;; Action-Get Edge Case Tests
+
+(ert-deftest ogent-keys-action-get-returns-nil-for-missing-prop ()
+  "ogent-action-get returns nil for missing property on valid action."
+  (should-not (ogent-action-get 'prompt-dispatch :nonexistent-prop)))
+
+(ert-deftest ogent-keys-action-get-visual-flag-on-ask ()
+  "ogent-action-get returns visual flag for ask action."
+  (should (ogent-action-get 'ask :visual)))
+
+(ert-deftest ogent-keys-action-get-desc-content ()
+  "ogent-action-get retrieves non-empty desc for all actions."
+  (dolist (entry ogent-action-registry)
+    (let ((name (car entry)))
+      (should (> (length (ogent-action-get name :desc)) 0)))))
+
+;;; Comprehensive Setup-All Bindings Tests
+
+(ert-deftest ogent-keys-setup-all-bindings-includes-review ()
+  "setup-all-bindings sets up both vanilla and review bindings."
+  (let ((map (make-sparse-keymap))
+        (ogent-vanilla-prefix "C-c .")
+        (ogent-review-prefix "C-c o"))
+    (cl-letf (((symbol-function 'ogent-setup-evil-bindings)
+               (lambda (_) nil)))
+      (ogent-setup-all-bindings map)
+      ;; Vanilla bindings
+      (should (eq (lookup-key map (kbd "C-c . p")) 'ogent-prompt-dispatch))
+      (should (eq (lookup-key map (kbd "C-c . r")) 'ogent-request))
+      ;; Review bindings
+      (should (eq (lookup-key map (kbd "C-c o n")) 'ogent-completion-next))
+      (should (eq (lookup-key map (kbd "C-c o p")) 'ogent-completion-prev))
+      (should (eq (lookup-key map (kbd "C-c o a")) 'ogent-review-accept))
+      (should (eq (lookup-key map (kbd "C-c o x")) 'ogent-completion-reject)))))
+
+(ert-deftest ogent-keys-setup-all-bindings-all-registry-actions ()
+  "setup-all-bindings binds every action from registry."
+  (let ((map (make-sparse-keymap))
+        (ogent-vanilla-prefix "C-c ."))
+    (cl-letf (((symbol-function 'ogent-setup-evil-bindings)
+               (lambda (_) nil)))
+      (ogent-setup-all-bindings map)
+      ;; Every action should be bound
+      (dolist (entry ogent-action-registry)
+        (let* ((key (plist-get (cdr entry) :key))
+               (cmd (plist-get (cdr entry) :command))
+               (full-key (kbd (concat "C-c . " key))))
+          (should (eq (lookup-key map full-key) cmd)))))))
+
 (provide 'ogent-keys-tests)
 ;;; ogent-keys-tests.el ends here
