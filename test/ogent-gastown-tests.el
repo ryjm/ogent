@@ -1481,15 +1481,20 @@ OUTPUT should be a plist or list that will be returned."
                          (ogent-gastown-town-root))))
       (delete-directory marker-root))))
 
-(ert-deftest ogent-gastown-test-town-root-nil-when-not-found ()
-  "Test town root returns nil when not in any Gas Town workspace."
-  (let ((ogent-gastown--town-root nil)
-        (default-directory "/tmp/random/"))
-    (cl-letf (((symbol-function 'locate-dominating-file)
-               (lambda (_dir _file) nil))
-              ((symbol-function 'getenv)
-               (lambda (_var) nil)))
-      (should-not (ogent-gastown-town-root)))))
+(ert-deftest ogent-gastown-test-town-root-falls-back-to-default-root ()
+  "Test town root falls back to configured default root when no marker is found."
+  (let ((root (make-temp-file "ogent-town-root-default-fallback-" t)))
+    (unwind-protect
+        (let ((ogent-gastown--town-root nil)
+              (default-directory "/tmp/random/")
+              (ogent-gastown-default-town-root root))
+          (cl-letf (((symbol-function 'locate-dominating-file)
+                     (lambda (_dir _file) nil))
+                    ((symbol-function 'getenv)
+                     (lambda (_var) nil)))
+            (should (equal (file-name-as-directory (expand-file-name root))
+                           (ogent-gastown-town-root)))))
+      (delete-directory root t))))
 
 ;;; --- Mode Line Update Tests ---
 
@@ -2013,9 +2018,27 @@ OUTPUT should be a plist or list that will be returned."
                          (ogent-gastown--find-town-root))))
       (delete-directory root))))
 
-(ert-deftest ogent-gastown-test-find-town-root-nil-outside-town ()
-  "Test status find-town-root returns nil outside workspace."
-  (let ((default-directory "/tmp/not-a-town/"))
+(ert-deftest ogent-gastown-test-find-town-root-falls-back-to-default-root ()
+  "Test status find-town-root falls back to configured default root."
+  (let ((root (make-temp-file "ogent-gt-default-root-fallback-" t)))
+    (unwind-protect
+        (let ((default-directory "/tmp/not-a-town/")
+              (ogent-gastown-default-town-root root))
+          (cl-letf (((symbol-function 'getenv)
+                     (lambda (_var) nil))
+                    ((symbol-function 'locate-dominating-file)
+                     (lambda (_dir _marker) nil)))
+            (should (equal (file-name-as-directory (expand-file-name root))
+                           (ogent-gastown--find-town-root)))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-gastown-test-find-town-root-nil-when-default-root-missing ()
+  "Test status find-town-root returns nil when default root does not exist."
+  (let ((default-directory "/tmp/not-a-town/")
+        (ogent-gastown-default-town-root
+         (make-temp-name
+          (expand-file-name "ogent-gt-missing-default-root-"
+                            temporary-file-directory))))
     (cl-letf (((symbol-function 'getenv)
                (lambda (_var) nil))
               ((symbol-function 'locate-dominating-file)
