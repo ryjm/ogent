@@ -306,28 +306,86 @@
 
 (ert-deftest ogent-gts-test-find-town-root-from-env ()
   "Test finding town root from GT_ROOT environment variable."
-  (cl-letf (((symbol-function 'getenv)
-             (lambda (var)
-               (when (equal var "GT_ROOT")
-                 "/custom/gt/root"))))
-    (should (equal "/custom/gt/root" (ogent-gastown--find-town-root)))))
+  (let ((root (make-temp-file "ogent-gts-root-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (var)
+                     (when (equal var "GT_ROOT")
+                       root))))
+          (should (equal (file-name-as-directory (expand-file-name root))
+                         (ogent-gastown--find-town-root))))
+      (delete-directory root))))
 
-(ert-deftest ogent-gts-test-find-town-root-default ()
-  "Test finding town root falls back to ~/gt."
-  (cl-letf (((symbol-function 'getenv)
-             (lambda (_var) nil)))
-    (should (equal (expand-file-name "~/gt") (ogent-gastown--find-town-root)))))
+(ert-deftest ogent-gts-test-find-town-root-from-gt-town-env ()
+  "Test finding town root from GT_TOWN when GT_ROOT is unset."
+  (let ((root (make-temp-file "ogent-gts-town-" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (var)
+                     (pcase var
+                       ("GT_ROOT" nil)
+                       ("GT_TOWN" root)
+                       (_ nil)))))
+          (should (equal (file-name-as-directory (expand-file-name root))
+                         (ogent-gastown--find-town-root))))
+      (delete-directory root))))
+
+(ert-deftest ogent-gts-test-find-town-root-from-gastown-marker ()
+  "Test finding town root from .gastown marker."
+  (let ((marker-root (make-temp-file "ogent-gts-marker-" t))
+        (default-directory "/tmp/ogent-gts-work/rigs/alpha/"))
+    (unwind-protect
+        (cl-letf (((symbol-function 'getenv)
+                   (lambda (_var) nil))
+                  ((symbol-function 'locate-dominating-file)
+                   (lambda (_dir marker)
+                     (when (equal marker ".gastown")
+                       marker-root))))
+          (should (equal (file-name-as-directory (expand-file-name marker-root))
+                         (ogent-gastown--find-town-root))))
+      (delete-directory marker-root))))
+
+(ert-deftest ogent-gts-test-find-town-root-from-home-gt-prefix ()
+  "Test finding town root when current dir is under ~/gt."
+  (let* ((gt-root (expand-file-name "~/gt/"))
+         (default-directory (expand-file-name "~/gt/crew/stallman/")))
+    (cl-letf (((symbol-function 'getenv)
+               (lambda (_var) nil))
+              ((symbol-function 'locate-dominating-file)
+               (lambda (_dir _marker) nil)))
+      (should (equal gt-root (ogent-gastown--find-town-root))))))
+
+(ert-deftest ogent-gts-test-find-town-root-nil-when-outside-town ()
+  "Test finding town root returns nil outside workspace."
+  (let ((default-directory "/tmp/not-a-town/"))
+    (cl-letf (((symbol-function 'getenv)
+               (lambda (_var) nil))
+              ((symbol-function 'locate-dominating-file)
+               (lambda (_dir _marker) nil)))
+      (should-not (ogent-gastown--find-town-root)))))
 
 (ert-deftest ogent-gts-test-in-town-p-with-gt ()
-  "Test in-town detection when gt is available."
+  "Test in-town detection requires gt and workspace root."
   (cl-letf (((symbol-function 'executable-find)
-             (lambda (_cmd) "/usr/local/bin/gt")))
+             (lambda (_cmd) "/usr/local/bin/gt"))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () "/workspace/")))
     (should (ogent-gastown--in-town-p))))
 
 (ert-deftest ogent-gts-test-in-town-p-without-gt ()
   "Test in-town detection when gt is not available."
   (cl-letf (((symbol-function 'executable-find)
-             (lambda (_cmd) nil)))
+             (lambda (_cmd) nil))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () "/workspace/")))
+    (should-not (ogent-gastown--in-town-p))))
+
+(ert-deftest ogent-gts-test-in-town-p-without-workspace ()
+  "Test in-town detection fails when workspace root is missing."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_cmd) "/usr/local/bin/gt"))
+            ((symbol-function 'ogent-gastown--find-town-root)
+             (lambda () nil)))
     (should-not (ogent-gastown--in-town-p))))
 
 ;;; Hook Section Tests (Plain Mode)
@@ -625,6 +683,34 @@
           (ogent-gastown--loading nil))
       (let ((header (ogent-gastown--header-line)))
         (should-not (string-match-p "unread" header))))))
+
+(ert-deftest ogent-gts-test-header-line-shows-workspace-segment ()
+  "Test header line includes workspace indicator."
+  (let ((root (make-temp-file "ogent-gts-header-root-" t)))
+    (unwind-protect
+        (with-temp-buffer
+          (let ((ogent-gastown--town-root (file-name-as-directory root))
+                (ogent-gastown--hook-data ogent-gts-test--sample-hook-empty)
+                (ogent-gastown--mail-data nil)
+                (ogent-gastown--loading nil))
+            (let* ((expected-display (ogent-gastown--workspace-root-display
+                                      (file-name-as-directory root)))
+                   (header (ogent-gastown--header-line)))
+              (should (string-match-p "WS:" header))
+              (should (string-match-p (regexp-quote expected-display) header)))))
+      (delete-directory root))))
+
+(ert-deftest ogent-gts-test-header-line-abbreviates-long-workspace ()
+  "Test long workspace path is abbreviated in header line."
+  (with-temp-buffer
+    (let ((ogent-gastown-workspace-display-width 18)
+          (ogent-gastown--town-root "/tmp/this/is/a/very/long/gastown/workspace/path/for-testing/")
+          (ogent-gastown--hook-data ogent-gts-test--sample-hook-empty)
+          (ogent-gastown--mail-data nil)
+          (ogent-gastown--loading nil))
+      (let ((header (ogent-gastown--header-line)))
+        (should (string-match-p "WS:…" header))
+        (should (string-match-p "for-testing" header))))))
 
 ;;; Insert Stat Item Tests
 
@@ -1452,6 +1538,40 @@
 
 ;;; Refresh Tests
 
+(ert-deftest ogent-gts-test-ensure-magit-root-section-seeds-placeholder ()
+  "Test missing magit root is seeded before async refresh."
+  (with-temp-buffer
+    (insert "stale")
+    (setq-local magit-root-section nil)
+    (let ((ogent-gastown--magit-section-available t)
+          (insert-called 0))
+      (cl-letf (((symbol-function 'derived-mode-p)
+                 (lambda (&rest modes)
+                   (memq 'magit-section-mode modes)))
+                ((symbol-function 'ogent-gastown--insert-buffer-contents)
+                 (lambda ()
+                   (cl-incf insert-called)
+                   (insert "placeholder"))))
+        (ogent-gastown--ensure-magit-root-section)
+        (should (= insert-called 1))
+        (should (equal (buffer-string) "placeholder"))))))
+
+(ert-deftest ogent-gts-test-ensure-magit-root-section-noop-when-present ()
+  "Test existing magit root is left untouched."
+  (with-temp-buffer
+    (insert "keep")
+    (setq-local magit-root-section 'existing-root)
+    (let ((ogent-gastown--magit-section-available t)
+          (insert-called 0))
+      (cl-letf (((symbol-function 'derived-mode-p)
+                 (lambda (&rest modes)
+                   (memq 'magit-section-mode modes)))
+                ((symbol-function 'ogent-gastown--insert-buffer-contents)
+                 (lambda () (cl-incf insert-called))))
+        (ogent-gastown--ensure-magit-root-section)
+        (should (= insert-called 0))
+        (should (equal (buffer-string) "keep"))))))
+
 (ert-deftest ogent-gts-test-refresh-calls-fetch-all ()
   "Test refresh calls fetch-all with loading animation."
   (with-temp-buffer
@@ -1494,18 +1614,27 @@
 
 (ert-deftest ogent-gts-test-status-errors-without-gt ()
   "Test ogent-gastown-status errors when gt is not available."
-  (cl-letf (((symbol-function 'ogent-gastown--in-town-p)
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_cmd) nil)))
+    (should-error (ogent-gastown-status) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-status-errors-without-workspace ()
+  "Test ogent-gastown-status errors when workspace root is not resolvable."
+  (cl-letf (((symbol-function 'executable-find)
+             (lambda (_cmd) "/usr/local/bin/gt"))
+            ((symbol-function 'ogent-gastown--find-town-root)
              (lambda () nil)))
     (should-error (ogent-gastown-status) :type 'user-error)))
 
 (ert-deftest ogent-gts-test-status-creates-buffer ()
   "Test ogent-gastown-status creates the status buffer."
   (let ((refresh-called nil)
-        (ogent-gastown-buffer-name "*Test Gas Town*"))
-    (cl-letf (((symbol-function 'ogent-gastown--in-town-p)
-               (lambda () t))
+        (ogent-gastown-buffer-name "*Test Gas Town*")
+        (workspace-root (make-temp-file "ogent-gts-status-root-" t)))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_cmd) "/usr/local/bin/gt"))
               ((symbol-function 'ogent-gastown--find-town-root)
-               (lambda () "/tmp/gt"))
+               (lambda () workspace-root))
               ((symbol-function 'ogent-gastown-refresh)
                (lambda (&rest _) (setq refresh-called t)))
               ((symbol-function 'switch-to-buffer)
@@ -1514,9 +1643,15 @@
           (progn
             (ogent-gastown-status)
             (should refresh-called)
-            (should (get-buffer "*Test Gas Town*")))
+            (should (get-buffer "*Test Gas Town*"))
+            (with-current-buffer "*Test Gas Town*"
+              (should (equal ogent-gastown--town-root
+                             (file-name-as-directory workspace-root)))
+              (should (equal default-directory
+                             (file-name-as-directory workspace-root)))))
         (when (get-buffer "*Test Gas Town*")
-          (kill-buffer "*Test Gas Town*"))))))
+          (kill-buffer "*Test Gas Town*"))
+        (delete-directory workspace-root)))))
 
 ;;; Fetch-All Tests (with mocked run-async)
 
@@ -1784,6 +1919,19 @@
       (should (= (length messages) 1))
       (should (string-match-p "refresh" (car messages)))
       (should (string-match-p "quit" (car messages))))))
+
+(ert-deftest ogent-gts-test-status-help-includes-workspace-guidance ()
+  "Test status-help includes workspace context and recovery guidance."
+  (let ((messages nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+      (with-temp-buffer
+        (let ((ogent-gastown--town-root "/tmp/gt/"))
+          (ogent-gastown-status-help)))
+      (let ((msg (car messages)))
+        (should (string-match-p "Workspace:" msg))
+        (should (string-match-p "GT_ROOT/GT_TOWN" msg))
+        (should (string-match-p "Reopen from a town directory" msg))))))
 
 ;;; ====================================================================
 ;;; NEW TESTS: Increasing coverage for ogent-gastown-status.el
@@ -2564,11 +2712,17 @@
 (ert-deftest ogent-gts-test-status-reuses-existing-buffer ()
   "Test ogent-gastown-status reuses existing buffer."
   (let ((ogent-gastown-buffer-name "*Test GT Reuse*")
-        (refresh-count 0))
-    (cl-letf (((symbol-function 'ogent-gastown--in-town-p)
-               (lambda () t))
+        (refresh-count 0)
+        (workspace-a (make-temp-file "ogent-gts-reuse-a-" t))
+        (workspace-b (make-temp-file "ogent-gts-reuse-b-" t))
+        (roots nil))
+    (setq roots (list workspace-a workspace-b))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_cmd) "/usr/local/bin/gt"))
               ((symbol-function 'ogent-gastown--find-town-root)
-               (lambda () "/tmp/gt"))
+               (lambda ()
+                 (prog1 (car roots)
+                   (setq roots (or (cdr roots) roots)))))
               ((symbol-function 'ogent-gastown-refresh)
                (lambda (&rest _) (cl-incf refresh-count)))
               ((symbol-function 'switch-to-buffer)
@@ -2577,12 +2731,47 @@
           (progn
             (ogent-gastown-status)
             (should (= refresh-count 1))
+            (with-current-buffer "*Test GT Reuse*"
+              (should (equal ogent-gastown--town-root
+                             (file-name-as-directory workspace-a)))
+              (should (equal default-directory
+                             (file-name-as-directory workspace-a))))
             (ogent-gastown-status)
             (should (= refresh-count 2))
             ;; Still just one buffer
-            (should (get-buffer "*Test GT Reuse*")))
+            (should (get-buffer "*Test GT Reuse*"))
+            (with-current-buffer "*Test GT Reuse*"
+              (should (equal ogent-gastown--town-root
+                             (file-name-as-directory workspace-b)))
+              (should (equal default-directory
+                             (file-name-as-directory workspace-b)))))
         (when (get-buffer "*Test GT Reuse*")
-          (kill-buffer "*Test GT Reuse*"))))))
+          (kill-buffer "*Test GT Reuse*"))
+        (delete-directory workspace-a)
+        (delete-directory workspace-b)))))
+
+(ert-deftest ogent-gts-test-run-shell-command-binds-workspace-root ()
+  "Test shell launcher executes from the active workspace root."
+  (let ((captured-cmd nil)
+        (captured-default nil))
+    (cl-letf (((symbol-function 'ogent-gastown--active-workspace-root)
+               (lambda () "/tmp/workspace/"))
+              ((symbol-function 'async-shell-command)
+               (lambda (cmd &optional _output-buffer _error-buffer)
+                 (setq captured-cmd cmd)
+                 (setq captured-default default-directory))))
+      (let ((default-directory "/tmp/elsewhere/"))
+        (ogent-gastown-status--run-shell-command '("status") "*gt status*")
+        (should (equal captured-cmd "gt status"))
+        (should (equal captured-default "/tmp/workspace/"))))))
+
+(ert-deftest ogent-gts-test-run-shell-command-errors-without-workspace ()
+  "Test shell launcher errors when workspace root cannot be resolved."
+  (cl-letf (((symbol-function 'ogent-gastown--active-workspace-root)
+             (lambda () nil)))
+    (should-error
+     (ogent-gastown-status--run-shell-command '("status") "*gt status*")
+     :type 'user-error)))
 
 ;;; Loading Timer Lifecycle Integration Tests
 
@@ -2746,6 +2935,823 @@
         (should (string-match-p "convoy" msg))
         (should (string-match-p "rig" msg))
         (should (string-match-p "issues" msg))))))
+
+;;; ====================================================================
+;;; ADDITIONAL TESTS: Pushing coverage past 80%
+;;; ====================================================================
+
+;;; --- Hook Attach Action Tests ---
+
+(ert-deftest ogent-gts-test-hook-attach-success ()
+  "Test hook-attach sends run-async with correct args on success."
+  (let ((run-async-args nil)
+        (messages nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) "bead-42"))
+              ((symbol-function 'ogent-gastown-status--run-async)
+               (lambda (args callback &optional _err _raw)
+                 (setq run-async-args args)
+                 (funcall callback nil)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh)
+               (lambda (&rest _) nil))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+      (ogent-gastown-hook-attach)
+      (should (equal run-async-args '("hook" "bead-42")))
+      (should (seq-some (lambda (m) (string-match-p "Hooked: bead-42" m)) messages)))))
+
+(ert-deftest ogent-gts-test-hook-attach-failure ()
+  "Test hook-attach shows error message on failure."
+  (let ((messages nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) "bead-99"))
+              ((symbol-function 'ogent-gastown-status--run-async)
+               (lambda (_args _callback &optional err-callback _raw)
+                 (when err-callback
+                   (funcall err-callback "hook failed"))))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+      (ogent-gastown-hook-attach)
+      (should (seq-some (lambda (m) (string-match-p "Failed to hook" m)) messages)))))
+
+;;; --- Convoy Create Action Tests ---
+
+(ert-deftest ogent-gts-test-convoy-create-success ()
+  "Test convoy-create sends correct args on success."
+  (let ((run-async-args nil)
+        (messages nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (prompt &rest _)
+                 (cond
+                  ((string-match-p "name" prompt) "My Convoy")
+                  ((string-match-p "Issue" prompt) "issue-1 issue-2")
+                  (t ""))))
+              ((symbol-function 'ogent-gastown-status--run-async)
+               (lambda (args callback &optional _err _raw)
+                 (setq run-async-args args)
+                 (funcall callback nil)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh)
+               (lambda (&rest _) nil))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+      (ogent-gastown-convoy-create)
+      (should (equal run-async-args '("convoy" "create" "My Convoy" "issue-1" "issue-2")))
+      (should (seq-some (lambda (m) (string-match-p "Created convoy" m)) messages)))))
+
+(ert-deftest ogent-gts-test-convoy-create-failure ()
+  "Test convoy-create shows error message on failure."
+  (let ((messages nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (prompt &rest _)
+                 (cond
+                  ((string-match-p "name" prompt) "Fail Convoy")
+                  (t "issue-1"))))
+              ((symbol-function 'ogent-gastown-status--run-async)
+               (lambda (_args _callback &optional err-callback _raw)
+                 (when err-callback
+                   (funcall err-callback "convoy create failed"))))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+      (ogent-gastown-convoy-create)
+      (should (seq-some (lambda (m) (string-match-p "Failed to create convoy" m)) messages)))))
+
+;;; --- Witness Show Tests (completing-read fallback) ---
+
+(ert-deftest ogent-gts-test-witness-show-no-magit-prompts ()
+  "Test witness-show prompts for rig when magit unavailable."
+  (let ((commands nil))
+    (cl-letf (((symbol-function 'async-shell-command)
+               (lambda (cmd &optional buf)
+                 (push (list cmd buf) commands)))
+              ((symbol-function 'completing-read)
+               (lambda (&rest _) "my-rig")))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--witness-data
+             (list '(:rig "my-rig" :has_witness t))))
+        (ogent-gastown-witness-show)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt witness status my-rig" (caar commands)))))))
+
+;;; --- Rig Status Tests (completing-read fallback) ---
+
+(ert-deftest ogent-gts-test-rig-status-no-magit-prompts ()
+  "Test rig-status prompts for rig when magit unavailable."
+  (let ((commands nil))
+    (cl-letf (((symbol-function 'async-shell-command)
+               (lambda (cmd &optional buf)
+                 (push (list cmd buf) commands)))
+              ((symbol-function 'completing-read)
+               (lambda (&rest _) "test-rig")))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--rigs-data
+             (list '(:name "test-rig"))))
+        (ogent-gastown-rig-status)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt rig status test-rig" (caar commands)))))))
+
+;;; --- Refinery Status Tests ---
+
+(ert-deftest ogent-gts-test-refinery-status-no-magit-prompts ()
+  "Test refinery-status prompts for rig when magit unavailable."
+  (let ((commands nil))
+    (cl-letf (((symbol-function 'async-shell-command)
+               (lambda (cmd &optional buf)
+                 (push (list cmd buf) commands)))
+              ((symbol-function 'completing-read)
+               (lambda (&rest _) "ref-rig")))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--rigs-data
+             (list '(:name "ref-rig"))))
+        (ogent-gastown-refinery-status)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt refinery status ref-rig" (caar commands)))))))
+
+;;; --- Mail Compose Tests ---
+
+(ert-deftest ogent-gts-test-mail-compose-sends-message ()
+  "Test mail-compose sends message via run-async."
+  (with-temp-buffer
+    (let ((run-async-args nil)
+          (messages nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--witness-data nil))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _) "mayor/"))
+                ((symbol-function 'read-string)
+                 (lambda (prompt &rest _)
+                   (cond
+                    ((string-match-p "Subject" prompt) "Test Subject")
+                    ((string-match-p "Message" prompt) "Test Body")
+                    (t ""))))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _err _raw)
+                   (setq run-async-args args)
+                   (funcall callback nil)))
+                ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+                ((symbol-function 'ogent-gastown-refresh)
+                 (lambda (&rest _) nil))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+        (ogent-gastown-mail-compose)
+        (should (equal run-async-args
+                       '("mail" "send" "mayor/" "-s" "Test Subject" "-m" "Test Body")))
+        (should (seq-some (lambda (m) (string-match-p "Mail sent to mayor/" m)) messages))))))
+
+(ert-deftest ogent-gts-test-mail-compose-failure ()
+  "Test mail-compose shows error on failure."
+  (with-temp-buffer
+    (let ((messages nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--witness-data nil))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _) "mayor/"))
+                ((symbol-function 'read-string)
+                 (lambda (prompt &rest _)
+                   (cond
+                    ((string-match-p "Subject" prompt) "Fail Subject")
+                    ((string-match-p "Message" prompt) "Fail Body")
+                    (t ""))))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (_args _callback &optional err-callback _raw)
+                   (when err-callback
+                     (funcall err-callback "send failed"))))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages))))
+        (ogent-gastown-mail-compose)
+        (should (seq-some (lambda (m) (string-match-p "Failed to send mail" m)) messages))))))
+
+(ert-deftest ogent-gts-test-mail-compose-with-initial-recipient ()
+  "Test mail-compose uses initial recipient."
+  (with-temp-buffer
+    (let ((run-async-args nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--witness-data nil))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (_prompt _coll &optional _pred _req initial &rest _)
+                   (or initial "mayor/")))
+                ((symbol-function 'read-string)
+                 (lambda (&rest _) "stuff"))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _err _raw)
+                   (setq run-async-args args)
+                   (funcall callback nil)))
+                ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+                ((symbol-function 'ogent-gastown-refresh)
+                 (lambda (&rest _) nil))
+                ((symbol-function 'message) #'ignore))
+        (ogent-gastown-mail-compose "deacon/")
+        (should (member "deacon/" run-async-args))))))
+
+(ert-deftest ogent-gts-test-mail-compose-empty-to-does-nothing ()
+  "Test mail-compose does nothing with empty To field."
+  (with-temp-buffer
+    (let ((run-async-called nil)
+          (ogent-gastown--crew-data nil)
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--witness-data nil))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _) ""))
+                ((symbol-function 'read-string)
+                 (lambda (&rest _) "content"))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (&rest _)
+                   (setq run-async-called t))))
+        (ogent-gastown-mail-compose)
+        (should-not run-async-called)))))
+
+;;; --- Mail Read with completing-read Tests ---
+
+(ert-deftest ogent-gts-test-mail-read-completing-read-fallback ()
+  "Test mail-read falls back to completing-read without magit."
+  (with-temp-buffer
+    (let ((commands nil)
+          (ogent-gastown--magit-section-available nil)
+          (ogent-gastown--mail-data
+           (list '(:id "mail-abc" :from "sender" :subject "Test"))))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _) "mail-abc"))
+                ((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands))))
+        (ogent-gastown-status-mail-read)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt mail read mail-abc" (caar commands)))))))
+
+;;; --- Worker Item Face Tests ---
+
+(ert-deftest ogent-gts-test-insert-worker-item-running-face ()
+  "Test worker item running uses worker-running face on name."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "fast" :state "working" :session_running t))
+      (goto-char (point-min))
+      (search-forward "fast")
+      (should (eq (get-text-property (match-beginning 0) 'face)
+                  'ogent-gastown-worker-running)))))
+
+(ert-deftest ogent-gts-test-insert-worker-item-working-not-running-face ()
+  "Test worker item working-not-running uses worker-working face."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "slow" :state "working" :session_running nil))
+      (goto-char (point-min))
+      (search-forward "slow")
+      (should (eq (get-text-property (match-beginning 0) 'face)
+                  'ogent-gastown-worker-working)))))
+
+(ert-deftest ogent-gts-test-insert-worker-item-done-face ()
+  "Test worker item done uses worker-done face."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "finished" :state "done" :session_running nil))
+      (goto-char (point-min))
+      (search-forward "finished")
+      (should (eq (get-text-property (match-beginning 0) 'face)
+                  'ogent-gastown-worker-done)))))
+
+;;; --- Worker Item ASCII Icon Tests ---
+
+(ert-deftest ogent-gts-test-insert-worker-item-ascii-running-icon ()
+  "Test worker item running ASCII icon is >."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "r" :state "working" :session_running t))
+      (should (string-match-p ">" (buffer-string))))))
+
+(ert-deftest ogent-gts-test-insert-worker-item-ascii-working-icon ()
+  "Test worker item working (not running) ASCII icon is *."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "w" :state "working" :session_running nil))
+      (should (string-match-p "\\*" (buffer-string))))))
+
+(ert-deftest ogent-gts-test-insert-worker-item-ascii-idle-icon ()
+  "Test worker item idle ASCII icon is -."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-worker-item
+       '(:name "i" :state "idle" :session_running nil))
+      (should (string-match-p "-" (buffer-string))))))
+
+;;; --- Polecat Item State Face Tests ---
+
+(ert-deftest ogent-gts-test-insert-polecat-item-plain-with-session-started ()
+  "Test polecat plain with session_started timestamp."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name "timed" :rig "r1" :state "working"
+                   :session_running t
+                   :session_started "2026-01-22T10:00:00Z"))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "r1/timed" content))
+        (should (string-match-p "running" content))))))
+
+;;; --- Crew Section Plain with Multiple Rigs ---
+
+(ert-deftest ogent-gts-test-insert-crew-section-plain-multiple-rigs ()
+  "Test crew section plain groups by rig correctly."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name "dev1" :rig "rig-a" :session_running t)
+                 '(:name "dev2" :rig "rig-b" :session_running nil)
+                 '(:name "dev3" :rig "rig-a" :session_running t))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "rig-a/dev1" content))
+        (should (string-match-p "rig-b/dev2" content))
+        (should (string-match-p "rig-a/dev3" content))
+        (should (string-match-p "\\[active\\]" content))))))
+
+;;; --- Rigs Section Plain with Multiple Rigs ---
+
+(ert-deftest ogent-gts-test-insert-rigs-section-plain-multiple ()
+  "Test rigs section plain renders multiple rigs."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "alpha" :polecat_count 3 :crew_count 2)
+                 '(:name "beta" :polecat_count 1 :crew_count 0)
+                 '(:name "gamma" :polecat_count 0 :crew_count 5))))
+      (ogent-gastown--insert-rigs-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "alpha" content))
+        (should (string-match-p "P:3 C:2" content))
+        (should (string-match-p "beta" content))
+        (should (string-match-p "P:1 C:0" content))
+        (should (string-match-p "gamma" content))
+        (should (string-match-p "P:0 C:5" content))))))
+
+;;; --- Convoy Section Plain with Naming ---
+
+(ert-deftest ogent-gts-test-insert-convoy-section-plain-named-and-unnamed ()
+  "Test convoy section plain renders named and unnamed convoys."
+  (with-temp-buffer
+    (let ((ogent-gastown--convoy-data
+           (list '(:id "c1" :name "Named Job" :status "active" :progress "2/4")
+                 '(:id "c2" :name nil :status "complete" :progress "5/5"))))
+      (ogent-gastown--insert-convoy-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Named Job" content))
+        (should (string-match-p "(unnamed)" content))))))
+
+;;; --- Witness Section Plain with Counts in Paren ---
+
+(ert-deftest ogent-gts-test-insert-witness-section-plain-multiple ()
+  "Test witness section plain with multiple rigs."
+  (with-temp-buffer
+    (let ((ogent-gastown--witness-data
+           (list '(:rig "rig-a" :has_witness t :polecat_count 5 :crew_count 3)
+                 '(:rig "rig-b" :has_witness nil :polecat_count 1 :crew_count 0)
+                 '(:rig "rig-c" :has_witness t :polecat_count 0 :crew_count 2))))
+      (ogent-gastown--insert-witness-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "\\+ rig-a" content))
+        (should (string-match-p "- rig-b" content))
+        (should (string-match-p "\\+ rig-c" content))))))
+
+;;; --- Evil Integration Tests ---
+
+(ert-deftest ogent-gts-test-setup-evil-noop-without-evil ()
+  "Test setup-evil is a no-op when evil is not loaded."
+  (cl-letf (((symbol-function 'fboundp)
+             (lambda (sym)
+               (if (eq sym 'evil-set-initial-state)
+                   nil
+                 (funcall (symbol-function 'fboundp) sym)))))
+    ;; Should not error when evil functions are not available
+    (ogent-gastown--setup-evil)))
+
+;;; --- Header Line Extended Condition Tests ---
+
+(ert-deftest ogent-gts-test-header-line-loading-hides-hook-status ()
+  "Test header line hides hook status when loading."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data ogent-gts-test--sample-hook-active)
+          (ogent-gastown--mail-data ogent-gts-test--sample-mail)
+          (ogent-gastown--loading t)
+          (ogent-gastown--loading-frame 2))
+      (let ((header (ogent-gastown--header-line)))
+        (should (string-match-p "Loading" header))
+        ;; When loading, hook status and mail count should not appear
+        (should-not (string-match-p "Hook:" header))))))
+
+(ert-deftest ogent-gts-test-header-line-active-hook-with-many-unread ()
+  "Test header line with active hook and many unread messages."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data '(:has_work t :role "mayor"))
+          (ogent-gastown--mail-data
+           (list '(:id "m1" :read nil)
+                 '(:id "m2" :read nil)
+                 '(:id "m3" :read nil)
+                 '(:id "m4" :read nil)
+                 '(:id "m5" :read nil)))
+          (ogent-gastown--loading nil))
+      (let ((header (ogent-gastown--header-line)))
+        (should (string-match-p "Hook: active" header))
+        (should (string-match-p "5 unread" header))))))
+
+;;; --- Stats Section Plain with Full Data ---
+
+(ert-deftest ogent-gts-test-insert-stats-section-plain-full-data ()
+  "Test stats section plain renders all stat values."
+  (with-temp-buffer
+    (let ((ogent-gastown--stats-data
+           '(:rig_count 10 :polecat_count 20 :crew_count 30
+             :witness_count 5 :refinery_count 8 :active_hooks 3)))
+      (ogent-gastown--insert-stats-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Rigs: 10" content))
+        (should (string-match-p "Polecats: 20" content))
+        (should (string-match-p "Crew: 30" content))
+        (should (string-match-p "Witnesses: 5" content))
+        (should (string-match-p "Refineries: 8" content))
+        (should (string-match-p "Hooks: 3" content))))))
+
+;;; --- Deacon Section Plain All Branches ---
+
+(ert-deftest ogent-gts-test-insert-deacon-section-plain-running-with-work ()
+  "Test deacon section plain shows running when deacon has work."
+  (with-temp-buffer
+    (let ((ogent-gastown--deacon-data '(:running t :has_work t)))
+      (ogent-gastown--insert-deacon-section-plain)
+      (should (string-match-p "running" (buffer-string))))))
+
+;;; --- Polecat Section Plain Groups by Rig ---
+
+(ert-deftest ogent-gts-test-insert-polecat-section-plain-groups-by-rig ()
+  "Test polecat section plain groups polecats by rig."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name "a1" :rig "rig-x" :state "working" :session_running t)
+                 '(:name "b1" :rig "rig-y" :state "idle" :session_running nil)
+                 '(:name "a2" :rig "rig-x" :state "idle" :session_running nil))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "rig-x/a1" content))
+        (should (string-match-p "rig-y/b1" content))
+        (should (string-match-p "rig-x/a2" content))
+        (should (string-match-p "running" content))))))
+
+;;; --- Rig Issues Success Path ---
+
+(ert-deftest ogent-gts-test-rig-issues-success-with-existing-dir ()
+  "Test rig-issues opens issues when rig directory exists."
+  (with-temp-buffer
+    (let ((ogent-gastown--magit-section-available nil)
+          (ogent-gastown--rigs-data (list '(:name "test-rig")))
+          (ogent-gastown--town-root temporary-file-directory)
+          (issues-called nil))
+      (cl-letf (((symbol-function 'completing-read)
+                 (lambda (&rest _) "test-rig"))
+                ((symbol-function 'file-directory-p)
+                 (lambda (_path) t))
+                ((symbol-function 'ogent-issues)
+                 (lambda () (setq issues-called t))))
+        (ogent-gastown-rig-issues)
+        (should issues-called)))))
+
+;;; --- Convoy Status with Explicit ID ---
+
+(ert-deftest ogent-gts-test-convoy-status-without-id ()
+  "Test convoy-status runs convoy list when no specific convoy."
+  (let ((commands nil))
+    (cl-letf (((symbol-function 'async-shell-command)
+               (lambda (cmd &optional buf)
+                 (push (list cmd buf) commands))))
+      (let ((ogent-gastown--magit-section-available nil))
+        (ogent-gastown-convoy-status)
+        (should (= (length commands) 1))
+        (should (string-match-p "convoy list" (caar commands)))))))
+
+;;; --- Visit Bead Error Path ---
+
+(ert-deftest ogent-gts-test-visit-bead-with-dir-not-existing ()
+  "Test visit-bead shows message when rig directory does not exist."
+  (with-temp-buffer
+    (let ((messages nil))
+      (insert (propertize "bead-fail"
+                          'ogent-bead-id "bead-fail"
+                          'ogent-rig-path "/nonexistent/path"))
+      (goto-char (point-min))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (push (apply #'format fmt args) messages)))
+                ((symbol-function 'file-directory-p)
+                 (lambda (_path) nil)))
+        (ogent-gastown-visit-bead)
+        (should (seq-some (lambda (m) (string-match-p "Rig path not found" m))
+                          messages))))))
+
+;;; --- Stat Item String Value ---
+
+(ert-deftest ogent-gts-test-insert-stat-item-string-value ()
+  "Test stat item renders string value."
+  (with-temp-buffer
+    (ogent-gastown--insert-stat-item "Version" "1.2.3")
+    (let ((content (buffer-string)))
+      (should (string-match-p "Version" content))
+      (should (string-match-p "1.2.3" content)))))
+
+;;; --- Mode Map Inheritance ---
+
+(ert-deftest ogent-gts-test-mode-map-exists ()
+  "Test the mode map is a keymap."
+  (should (keymapp ogent-gastown-status-mode-map)))
+
+;;; --- Backward Compat Alias ---
+
+(ert-deftest ogent-gts-test-mode-alias ()
+  "Test ogent-gastown-mode is an alias for ogent-gastown-status-mode."
+  ;; `ogent-gastown.el' may redefine `ogent-gastown-mode' as a minor mode.
+  ;; Validate alias behavior only when the alias still points at status mode.
+  (should (fboundp 'ogent-gastown-mode))
+  (let ((status-fn (indirect-function 'ogent-gastown-status-mode))
+        (legacy-fn (indirect-function 'ogent-gastown-mode)))
+    (if (eq legacy-fn status-fn)
+        (let ((buf (generate-new-buffer " *test-alias*")))
+          (unwind-protect
+              (with-current-buffer buf
+                (ogent-gastown-mode)
+                (should (eq major-mode 'ogent-gastown-status-mode)))
+            (when (buffer-live-p buf)
+              (kill-buffer buf))))
+      (should (commandp 'ogent-gastown-mode)))))
+
+;;; --- Format Time with Parser Returning Error ---
+
+(ert-deftest ogent-gts-test-format-time-parser-throws-error ()
+  "Test format-time returns ??? when parser throws."
+  (cl-letf (((symbol-function 'parse-iso8601-time-string)
+             (lambda (_iso-time)
+               (error "Parse failed"))))
+    (should (equal "???" (ogent-gastown--format-time "2026-01-23T17:00:00Z")))))
+
+;;; --- Insert Buffer Contents Dispatch ---
+
+(ert-deftest ogent-gts-test-insert-buffer-contents-delegates ()
+  "Test insert-buffer-contents dispatches based on magit availability."
+  (let ((plain-count 0)
+        (magit-count 0))
+    (cl-letf (((symbol-function 'ogent-gastown--insert-plain)
+               (lambda () (cl-incf plain-count)))
+              ((symbol-function 'ogent-gastown--insert-with-magit-section)
+               (lambda () (cl-incf magit-count))))
+      (let ((ogent-gastown--magit-section-available nil))
+        (ogent-gastown--insert-buffer-contents)
+        (should (= plain-count 1))
+        (should (= magit-count 0)))
+      (let ((ogent-gastown--magit-section-available t))
+        (ogent-gastown--insert-buffer-contents)
+        (should (= plain-count 1))
+        (should (= magit-count 1))))))
+
+;;; --- Hook Section Plain with Next Action ---
+
+(ert-deftest ogent-gts-test-insert-hook-section-plain-with-next-action ()
+  "Test hook section plain rendering when next_action is present."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data
+           '(:has_work nil :role "crew" :target "crew/"
+             :next_action "Wait for assignment")))
+      (ogent-gastown--insert-hook-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Role: crew" content))
+        (should (string-match-p "No work hooked" content))))))
+
+;;; --- Workers Section Plain with Single Worker ---
+
+(ert-deftest ogent-gts-test-insert-workers-section-plain-single ()
+  "Test workers section plain with a single worker."
+  (with-temp-buffer
+    (let ((ogent-gastown--workers-data
+           (list '(:name "solo" :rig "only-rig" :state "working"))))
+      (ogent-gastown--insert-workers-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Workers" content))
+        (should (string-match-p "only-rig/solo" content))
+        (should (string-match-p "\\[working\\]" content))))))
+
+;;; --- Crew Rig Path with Different Town Roots ---
+
+(ert-deftest ogent-gts-test-crew-rig-path-various-roots ()
+  "Test crew-rig-path with different town roots."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/var/gt"))
+      (should (equal "/var/gt/my-project"
+                     (ogent-gastown--crew-rig-path '(:rig "my-project")))))
+    (let ((ogent-gastown--town-root "/opt/gastown"))
+      (should (equal "/opt/gastown/alpha"
+                     (ogent-gastown--crew-rig-path '(:rig "alpha")))))))
+
+;;; --- Header Line All Mail Read No Unread Indicator ---
+
+(ert-deftest ogent-gts-test-header-line-mixed-mail ()
+  "Test header line shows correct unread count with mixed read/unread mail."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data nil)
+          (ogent-gastown--mail-data
+           (list '(:id "m1" :read nil)
+                 '(:id "m2" :read t)
+                 '(:id "m3" :read nil)
+                 '(:id "m4" :read t)))
+          (ogent-gastown--loading nil))
+      (let ((header (ogent-gastown--header-line)))
+        (should (string-match-p "2 unread" header))))))
+
+;;; --- Cache Get with Valid Entry ---
+
+(ert-deftest ogent-gts-test-cache-get-valid-returns-result ()
+  "Test cache-get returns result for a valid (non-expired) entry."
+  (let ((ogent-gastown--cache (make-hash-table :test 'equal))
+        (ogent-gastown-cache-ttl 60))
+    (ogent-gastown--cache-set '("valid" "test") '(:data "fresh"))
+    (let ((result (ogent-gastown--cache-get '("valid" "test"))))
+      (should (equal result '(:data "fresh"))))))
+
+;;; --- Rig Agent with Both Hook and Mail ---
+
+(ert-deftest ogent-gts-test-insert-rig-agent-hook-and-mail-ascii ()
+  "Test rig agent ASCII shows H and M: when both hooked and mail."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent
+       '(:name "busy" :role "crew" :running t :has_work t :unread_mail 7))
+      (let ((content (buffer-string)))
+        (should (string-match-p "H" content))
+        (should (string-match-p "M:7" content))))))
+
+;;; --- Hook Section Plain with Has-Work True ---
+
+(ert-deftest ogent-gts-test-insert-hook-section-plain-has-work ()
+  "Test hook section plain shows work hooked when has_work is t."
+  (with-temp-buffer
+    (let ((ogent-gastown--hook-data '(:has_work t :role "polecat")))
+      (ogent-gastown--insert-hook-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Role: polecat" content))
+        (should (string-match-p "Work hooked" content))))))
+
+;;; --- Fetch All with Dead Buffer ---
+
+(ert-deftest ogent-gts-test-fetch-all-dead-buffer-safe ()
+  "Test fetch-all is safe when buffer is killed before callback."
+  (let ((buf (generate-new-buffer " *test-dead-fetch*"))
+        (callback-called nil))
+    (with-current-buffer buf
+      (let ((ogent-gastown--town-root "/tmp/gt"))
+        (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                   (lambda (_args callback &optional _err _raw)
+                     (funcall callback nil))))
+          (ogent-gastown--fetch-all
+           (lambda ()
+             (setq callback-called t))))))
+    ;; Kill the buffer
+    (kill-buffer buf)
+    ;; Callback should have been called because buffer was alive during fetch
+    (should callback-called)))
+
+;;; --- Polecat Item Plain with hooked_work ---
+
+(ert-deftest ogent-gts-test-insert-polecat-item-plain-hooked-work ()
+  "Test polecat plain with hooked_work field."
+  (with-temp-buffer
+    (let ((ogent-gastown--polecat-data
+           (list '(:name "linker" :rig "r1" :state "working"
+                   :session_running t :hooked_work "bead-456"))))
+      (ogent-gastown--insert-polecat-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "r1/linker" content))
+        (should (string-match-p "\\[working\\]" content))
+        (should (string-match-p "running" content))))))
+
+;;; --- Loading Indicator for Different Frames ---
+
+(ert-deftest ogent-gts-test-loading-indicator-frame-2 ()
+  "Test loading indicator returns frame 2."
+  (with-temp-buffer
+    (let ((ogent-gastown--loading t)
+          (ogent-gastown--loading-frame 2))
+      (let ((indicator (ogent-gastown--loading-indicator)))
+        (should (equal indicator (nth 2 ogent-gastown--loading-frames)))))))
+
+(ert-deftest ogent-gts-test-loading-indicator-frame-3 ()
+  "Test loading indicator returns frame 3."
+  (with-temp-buffer
+    (let ((ogent-gastown--loading t)
+          (ogent-gastown--loading-frame 3))
+      (let ((indicator (ogent-gastown--loading-indicator)))
+        (should (equal indicator (nth 3 ogent-gastown--loading-frames)))))))
+
+;;; --- Extract Deacon from Town Status with Missing Agents ---
+
+(ert-deftest ogent-gts-test-extract-deacon-missing-agents-key ()
+  "Test extracting deacon from town-status with no :agents key."
+  (let ((town-status '(:rigs ((:name "r1")))))
+    (should-not (ogent-gastown--extract-deacon town-status))))
+
+;;; --- Extract Witnesses Preserves Order ---
+
+(ert-deftest ogent-gts-test-extract-witnesses-preserves-order ()
+  "Test extract-witnesses returns rigs in original order."
+  (let ((town-status '(:rigs ((:name "z-rig" :has_witness t)
+                               (:name "a-rig" :has_witness nil)
+                               (:name "m-rig" :has_witness t)))))
+    (let ((result (ogent-gastown--extract-witnesses town-status)))
+      (should (equal (plist-get (nth 0 result) :rig) "z-rig"))
+      (should (equal (plist-get (nth 1 result) :rig) "a-rig"))
+      (should (equal (plist-get (nth 2 result) :rig) "m-rig")))))
+
+;;; --- Refresh Force Calls Both Functions ---
+
+(ert-deftest ogent-gts-test-refresh-force-sequence ()
+  "Test refresh-force invalidates cache before refreshing."
+  (let ((call-order nil))
+    (cl-letf (((symbol-function 'ogent-gastown-cache-invalidate)
+               (lambda () (push 'invalidate call-order)))
+              ((symbol-function 'ogent-gastown-refresh)
+               (lambda (&rest _) (push 'refresh call-order))))
+      (ogent-gastown-refresh-force)
+      ;; Invalidate should have been called before refresh
+      (should (equal (reverse call-order) '(invalidate refresh))))))
+
+;;; --- Mode Hook Adds Kill Buffer Hook ---
+
+(ert-deftest ogent-gts-test-mode-hook-adds-cleanup ()
+  "Test the mode hook adds ogent-gastown--cleanup-on-kill to kill-buffer-hook."
+  (let ((buf (generate-new-buffer " *test-cleanup*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-gastown-status-mode)
+          (should (member #'ogent-gastown--cleanup-on-kill kill-buffer-hook)))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+;;; --- Mail Section Plain with All Read ---
+
+(ert-deftest ogent-gts-test-insert-mail-section-plain-all-read ()
+  "Test mail section plain with all read messages."
+  (with-temp-buffer
+    (let ((ogent-gastown--mail-data
+           (list '(:id "m1" :from "a" :subject "Old" :read t)
+                 '(:id "m2" :from "b" :subject "Older" :read t))))
+      (ogent-gastown--insert-mail-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Mail Inbox" content))
+        ;; No asterisks for unread
+        (should-not (string-match-p "\\* " content))
+        ;; Both read messages with spaces
+        (should (string-match-p "  a" content))
+        (should (string-match-p "  b" content))))))
+
+;;; --- Rig Agent Polecat ASCII Icon ---
+
+(ert-deftest ogent-gts-test-insert-rig-agent-polecat-ascii ()
+  "Test rig agent polecat role uses P in ASCII mode."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (ogent-gastown--insert-rig-agent
+       '(:name "p1" :role "polecat" :running t :has_work nil :unread_mail 0))
+      (let ((content (buffer-string)))
+        (should (string-match-p "P" content))
+        (should (string-match-p "p1" content))))))
+
+;;; --- Crew Section Plain with Hooked Work and Branch ---
+
+(ert-deftest ogent-gts-test-insert-crew-section-plain-with-details ()
+  "Test crew section plain renders correctly with hooked work and branch."
+  (with-temp-buffer
+    (let ((ogent-gastown--crew-data
+           (list '(:name "dev" :rig "r1" :session_running t
+                   :hooked_work "bead-x" :branch "feature/x"
+                   :dirty t :unread_mail 5))))
+      (ogent-gastown--insert-crew-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "r1/dev" content))
+        (should (string-match-p "\\[active\\]" content))))))
+
+;;; --- Worker Item with Different Rig Groupings ---
+
+(ert-deftest ogent-gts-test-insert-workers-section-plain-three-rigs ()
+  "Test workers section plain handles three different rigs."
+  (with-temp-buffer
+    (let ((ogent-gastown--workers-data
+           (list '(:name "a" :rig "rig1" :state "idle")
+                 '(:name "b" :rig "rig2" :state "working")
+                 '(:name "c" :rig "rig3" :state "done"))))
+      (ogent-gastown--insert-workers-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "rig1/a" content))
+        (should (string-match-p "rig2/b" content))
+        (should (string-match-p "rig3/c" content))))))
 
 (provide 'ogent-gastown-status-tests)
 

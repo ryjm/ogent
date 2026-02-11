@@ -70,6 +70,11 @@
   :type 'boolean
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-workspace-display-width 36
+  "Maximum width for workspace path display in the status header."
+  :type 'integer
+  :group 'ogent-gastown)
+
 ;;; Faces
 
 (defgroup ogent-gastown-faces nil
@@ -327,13 +332,37 @@
 (defvar ogent-gastown--processes nil
   "List of active gt processes.")
 
+(defun ogent-gastown--normalize-dir (dir)
+  "Return DIR as an absolute directory path, or nil."
+  (when (and dir (not (string-empty-p dir)) (file-directory-p dir))
+    (file-name-as-directory (expand-file-name dir))))
+
+(defun ogent-gastown--workspace-root-from-dir (dir)
+  "Resolve a Gas Town workspace root from DIR, or nil."
+  (let* ((expanded (and dir (expand-file-name dir)))
+         (marker-root (and expanded (locate-dominating-file expanded ".gastown")))
+         (home-root (file-name-as-directory (expand-file-name "~/gt"))))
+    (or (ogent-gastown--normalize-dir marker-root)
+        (when (and expanded (string-prefix-p home-root (file-name-as-directory expanded)))
+          home-root))))
+
+(defun ogent-gastown--active-workspace-root ()
+  "Return the active workspace root for status commands, or nil."
+  (or (ogent-gastown--normalize-dir ogent-gastown--town-root)
+      (ogent-gastown--find-town-root)))
+
 (defun ogent-gastown-status--run-async (args callback &optional error-callback raw-output)
   "Run gt with ARGS asynchronously, call CALLBACK with result.
 ERROR-CALLBACK receives error message on failure.
 If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
-  (let* ((default-directory (or ogent-gastown--town-root
-                                (ogent-gastown--find-town-root)
-                                default-directory))
+  (let* ((workspace-root (ogent-gastown--active-workspace-root)))
+    (unless workspace-root
+      (if error-callback
+          (funcall error-callback "Not in a Gas Town workspace")
+        (message "ogent-gt error: Not in a Gas Town workspace"))
+      (cl-return-from ogent-gastown-status--run-async nil))
+
+    (let* ((default-directory workspace-root)
          (buffer (generate-new-buffer " *ogent-gt*"))
          (stderr-buffer (generate-new-buffer " *ogent-gt-stderr*"))
          (proc nil)
@@ -413,18 +442,39 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
                    (kill-buffer stderr-buffer))))))))
 
     (push proc ogent-gastown--processes)
-    proc))
+    proc)))
+
+(defun ogent-gastown-status--run-shell-command (args output-buffer)
+  "Run `gt` command ARGS in OUTPUT-BUFFER from the active workspace root."
+  (let ((workspace-root (ogent-gastown--active-workspace-root)))
+    (unless workspace-root
+      (user-error "Not in a Gas Town workspace"))
+    (let ((default-directory workspace-root))
+      (async-shell-command
+       (string-join
+        (mapcar #'shell-quote-argument
+                (cons ogent-gastown-gt-executable args))
+        " ")
+       output-buffer))))
 
 ;;; Town Detection
 
 (defun ogent-gastown--find-town-root ()
-  "Find the Gas Town root directory."
-  (or (getenv "GT_ROOT")
-      (expand-file-name "~/gt")))
+  "Find the current Gas Town workspace root, or nil.
+Resolution order:
+1) `GT_ROOT' environment variable
+2) `GT_TOWN' environment variable
+3) `.gastown' marker from `default-directory' upward
+4) parent `~/gt/' workspace when current directory is under it."
+  (let ((env-root (or (ogent-gastown--normalize-dir (getenv "GT_ROOT"))
+                      (ogent-gastown--normalize-dir (getenv "GT_TOWN")))))
+    (or env-root
+        (ogent-gastown--workspace-root-from-dir default-directory))))
 
 (defun ogent-gastown--in-town-p ()
-  "Return non-nil if gt is available."
-  (executable-find ogent-gastown-gt-executable))
+  "Return non-nil if gt is available and workspace root is resolvable."
+  (and (executable-find ogent-gastown-gt-executable)
+       (ogent-gastown--find-town-root)))
 
 ;;; Section Classes (when magit-section available)
 
@@ -652,11 +702,40 @@ Other:
   (when ogent-gastown--loading
     (nth ogent-gastown--loading-frame ogent-gastown--loading-frames)))
 
+(defun ogent-gastown--workspace-root-for-display ()
+  "Return workspace root for UI display, preferring buffer-local binding."
+  (or (and (stringp ogent-gastown--town-root)
+           (not (string-empty-p ogent-gastown--town-root))
+           ogent-gastown--town-root)
+      (ogent-gastown--find-town-root)))
+
+(defun ogent-gastown--workspace-root-display (&optional root)
+  "Return abbreviated workspace ROOT for compact UI display."
+  (let* ((workspace-root (or root (ogent-gastown--workspace-root-for-display)))
+         (trimmed (and workspace-root
+                       (let ((p (directory-file-name (file-name-as-directory workspace-root))))
+                         (if (string-empty-p p) "/" p))))
+         (display (and trimmed (abbreviate-file-name trimmed)))
+         (max-width (max 8 ogent-gastown-workspace-display-width)))
+    (when display
+      (if (> (length display) max-width)
+          (concat "…" (substring display (- (length display) (1- max-width))))
+        display))))
+
+(defun ogent-gastown--header-workspace-segment ()
+  "Return formatted workspace segment for the status header, or nil."
+  (when-let ((workspace (ogent-gastown--workspace-root-display)))
+    (concat
+     (propertize "  " 'face 'ogent-gastown-dimmed)
+     (propertize "WS:" 'face 'ogent-gastown-dimmed)
+     (propertize workspace 'face 'ogent-gastown-rig-name))))
+
 ;;; Header Line
 
 (defun ogent-gastown--header-line ()
   "Generate header line for Gas Town buffer."
   (let ((loading-indicator (ogent-gastown--loading-indicator))
+        (workspace-segment (ogent-gastown--header-workspace-segment))
         (mail-count (length (seq-filter
                              (lambda (m) (not (plist-get m :read)))
                              ogent-gastown--mail-data)))
@@ -665,6 +744,7 @@ Other:
     (concat
      (propertize " " 'face 'ogent-gastown-header-line)
      (propertize "Gas Town" 'face 'ogent-gastown-header-line)
+     (or workspace-segment "")
      (if loading-indicator
          (concat (propertize "  " 'face 'ogent-gastown-dimmed)
                  (propertize loading-indicator 'face 'ogent-gastown-hook-active)
@@ -1610,12 +1690,13 @@ Other:
                          (when (eq (eieio-object-class-name section)
                                    'ogent-gastown-mail-item-section)
                            (plist-get (oref section value) :id))))
-                     (completing-read "Mail ID: "
-                                      (mapcar (lambda (m) (plist-get m :id))
+                    (completing-read "Mail ID: "
+                                     (mapcar (lambda (m) (plist-get m :id))
                                               ogent-gastown--mail-data)))))
     (when mail-id
-      (let ((cmd (format "%s mail read %s" ogent-gastown-gt-executable mail-id)))
-        (async-shell-command cmd "*gt mail*")))))
+      (ogent-gastown-status--run-shell-command
+       (list "mail" "read" mail-id)
+       "*gt mail*"))))
 
 (defun ogent-gastown--get-mail-recipients ()
   "Get list of available mail recipients for completion.
@@ -1711,7 +1792,7 @@ pre-fills that recipient."
 (defun ogent-gastown-hook-show ()
   "Show hook details."
   (interactive)
-  (async-shell-command (format "%s hook" ogent-gastown-gt-executable) "*gt hook*"))
+  (ogent-gastown-status--run-shell-command '("hook") "*gt hook*"))
 
 (defun ogent-gastown-hook-attach ()
   "Attach work to hook."
@@ -1736,11 +1817,11 @@ pre-fills that recipient."
                                  'ogent-gastown-convoy-item-section)
                          (plist-get (oref section value) :id))))))
     (if convoy-id
-        (async-shell-command
-         (format "%s convoy status %s" ogent-gastown-gt-executable convoy-id)
+        (ogent-gastown-status--run-shell-command
+         (list "convoy" "status" convoy-id)
          "*gt convoy*")
-      (async-shell-command
-       (format "%s convoy list" ogent-gastown-gt-executable)
+      (ogent-gastown-status--run-shell-command
+       '("convoy" "list")
        "*gt convoy*"))))
 
 (defun ogent-gastown-convoy-create ()
@@ -1761,16 +1842,12 @@ pre-fills that recipient."
 (defun ogent-gastown-stats-show ()
   "Show detailed town statistics."
   (interactive)
-  (async-shell-command
-   (format "%s status" ogent-gastown-gt-executable)
-   "*gt status*"))
+  (ogent-gastown-status--run-shell-command '("status") "*gt status*"))
 
 (defun ogent-gastown-deacon-show ()
   "Show deacon status and controls."
   (interactive)
-  (async-shell-command
-   (format "%s deacon status" ogent-gastown-gt-executable)
-   "*gt deacon*"))
+  (ogent-gastown-status--run-shell-command '("deacon" "status") "*gt deacon*"))
 
 (defun ogent-gastown-witness-show ()
   "Show witness status for the selected rig."
@@ -1779,18 +1856,18 @@ pre-fills that recipient."
                (let ((section (magit-current-section)))
                  (when (eq (eieio-object-class-name section)
                            'ogent-gastown-witness-item-section)
-                   (plist-get (oref section value) :rig))))))
+                         (plist-get (oref section value) :rig))))))
     (if rig
-        (async-shell-command
-         (format "%s witness status %s" ogent-gastown-gt-executable rig)
+        (ogent-gastown-status--run-shell-command
+         (list "witness" "status" rig)
          "*gt witness*")
       ;; No rig selected, prompt
       (let ((rig-name (completing-read
                        "Rig: "
                        (mapcar (lambda (w) (plist-get w :rig))
                                ogent-gastown--witness-data))))
-        (async-shell-command
-         (format "%s witness status %s" ogent-gastown-gt-executable rig-name)
+        (ogent-gastown-status--run-shell-command
+         (list "witness" "status" rig-name)
          "*gt witness*")))))
 
 (defun ogent-gastown-crew-status ()
@@ -1802,11 +1879,11 @@ pre-fills that recipient."
                                  'ogent-gastown-crew-item-section)
                          (plist-get (oref section value) :name))))))
     (if crew-name
-        (async-shell-command
-         (format "%s crew status %s" ogent-gastown-gt-executable crew-name)
+        (ogent-gastown-status--run-shell-command
+         (list "crew" "status" crew-name)
          "*gt crew*")
-      (async-shell-command
-       (format "%s crew list" ogent-gastown-gt-executable)
+      (ogent-gastown-status--run-shell-command
+       '("crew" "list")
        "*gt crew*"))))
 
 (defun ogent-gastown-polecat-status ()
@@ -1818,11 +1895,11 @@ pre-fills that recipient."
                                     'ogent-gastown-polecat-item-section)
                             (plist-get (oref section value) :name))))))
     (if polecat-name
-        (async-shell-command
-         (format "%s polecat status %s" ogent-gastown-gt-executable polecat-name)
+        (ogent-gastown-status--run-shell-command
+         (list "polecat" "status" polecat-name)
          "*gt polecat*")
-      (async-shell-command
-       (format "%s polecat list" ogent-gastown-gt-executable)
+      (ogent-gastown-status--run-shell-command
+       '("polecat" "list")
        "*gt polecat*"))))
 
 (defun ogent-gastown-rig-status ()
@@ -1839,8 +1916,8 @@ pre-fills that recipient."
                       (mapcar (lambda (r) (plist-get r :name))
                               ogent-gastown--rigs-data))))
     (when rig-name
-      (async-shell-command
-       (format "%s rig status %s" ogent-gastown-gt-executable rig-name)
+      (ogent-gastown-status--run-shell-command
+       (list "rig" "status" rig-name)
        "*gt rig*"))))
 
 (defun ogent-gastown-refinery-status ()
@@ -1857,8 +1934,8 @@ pre-fills that recipient."
                       (mapcar (lambda (r) (plist-get r :name))
                               ogent-gastown--rigs-data))))
     (when rig-name
-      (async-shell-command
-       (format "%s refinery status %s" ogent-gastown-gt-executable rig-name)
+      (ogent-gastown-status--run-shell-command
+       (list "refinery" "status" rig-name)
        "*gt refinery*"))))
 
 ;;; Rig → Issues Navigation
@@ -1926,17 +2003,37 @@ Works when point is on a rig, crew member, or polecat."
   "Show help for Gas Town status buffer.
 Displays available keybindings and actions."
   (interactive)
-  (message (concat
-            "n/p:item  M-n/M-p:section  TAB:toggle  "
-            "g:refresh  m:mail  h:hook  c:convoy  "
-            "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit")))
+  (let ((workspace (or (ogent-gastown--workspace-root-display)
+                       "unresolved")))
+    (message
+     (concat
+      "n/p:item  M-n/M-p:section  TAB:toggle  "
+      "g:refresh  m:mail  h:hook  c:convoy  "
+      "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit"
+      "  Workspace:" workspace
+      "  Reopen from a town directory or set GT_ROOT/GT_TOWN"))))
 
 ;;; Refresh
+
+(defun ogent-gastown--ensure-magit-root-section ()
+  "Ensure magit buffers have a root section before async refresh work.
+Without this, `magit-section-post-command-hook' can run against a status
+buffer that has no root section yet and signal type errors."
+  (when (and ogent-gastown--magit-section-available
+             (derived-mode-p 'magit-section-mode)
+             (boundp 'magit-root-section)
+             (null magit-root-section))
+    (let ((inhibit-read-only t)
+          (pos (point)))
+      (erase-buffer)
+      (ogent-gastown--insert-buffer-contents)
+      (goto-char (min pos (point-max))))))
 
 (defun ogent-gastown-refresh (&optional _ignore-auto _noconfirm)
   "Refresh the Gas Town status buffer."
   (interactive)
   (let ((buf (current-buffer)))
+    (ogent-gastown--ensure-magit-root-section)
     (ogent-gastown--start-loading)
     (ogent-gastown--fetch-all
      (lambda ()
@@ -1964,15 +2061,21 @@ Like `magit-status', this shows a comprehensive view of your
 Gas Town multi-agent workspace including hook status, mail,
 convoys, crew members, and polecats."
   (interactive)
-  (unless (ogent-gastown--in-town-p)
-    (user-error "Gas Town CLI (gt) not found in PATH"))
-  (let ((buf (get-buffer-create ogent-gastown-buffer-name)))
-    (with-current-buffer buf
-      (unless (eq major-mode 'ogent-gastown-status-mode)
-        (ogent-gastown-status-mode))
-      (setq ogent-gastown--town-root (ogent-gastown--find-town-root))
-      (ogent-gastown-refresh))
-    (switch-to-buffer buf)))
+  (let ((workspace-root (ogent-gastown--find-town-root)))
+    (unless (executable-find ogent-gastown-gt-executable)
+      (user-error "Gas Town CLI (gt) not found in PATH"))
+    (unless workspace-root
+      (user-error
+       "Not in a Gas Town workspace (set GT_ROOT/GT_TOWN or open from a town directory)"))
+    (let ((buf (get-buffer-create ogent-gastown-buffer-name))
+          (workspace-dir (file-name-as-directory (expand-file-name workspace-root))))
+      (with-current-buffer buf
+        (unless (eq major-mode 'ogent-gastown-status-mode)
+          (ogent-gastown-status-mode))
+        (setq-local ogent-gastown--town-root workspace-dir)
+        (setq-local default-directory workspace-dir)
+        (ogent-gastown-refresh))
+      (switch-to-buffer buf))))
 
 ;;; Cleanup
 
