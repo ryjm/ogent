@@ -1901,16 +1901,19 @@ Builds list from:
                 (format "%s/witness/" rig))))
            (t nil)))))))
 
-(defun ogent-gastown-mail-compose (&optional initial-recipient)
+(defun ogent-gastown-mail-compose (&optional initial-recipient
+                                            initial-subject initial-body)
   "Compose a new mail message.
 With INITIAL-RECIPIENT, pre-fill the To field.
+With INITIAL-SUBJECT, pre-fill the Subject prompt.
+With INITIAL-BODY, pre-fill the Message prompt.
 When called interactively with point on a crew/polecat item,
 pre-fills that recipient."
   (interactive (list (ogent-gastown--recipient-at-point)))
   (let* ((recipients (ogent-gastown--get-mail-recipients))
          (to (completing-read "To: " recipients nil nil initial-recipient))
-         (subject (read-string "Subject: "))
-         (body (read-string "Message: ")))
+         (subject (read-string "Subject: " initial-subject))
+         (body (read-string "Message: " initial-body)))
     (when (and to (not (string-empty-p to)))
       (ogent-gastown-status--run-async
        (list "mail" "send" to "-s" subject "-m" body)
