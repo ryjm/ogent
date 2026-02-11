@@ -634,8 +634,10 @@ Opens the issue in the ogent-issues viewer if available."
 ;;; Entry Point
 
 ;;;###autoload
-(defun ogent-convoy-inspect (convoy-id)
-  "Open the convoy inspector for CONVOY-ID."
+(defun ogent-convoy-inspect (convoy-id &optional _workspace-root)
+  "Open the convoy inspector for CONVOY-ID.
+Optional WORKSPACE-ROOT is accepted for forward compatibility but
+currently unused."
   (interactive "sConvoy ID: ")
   (unless (and convoy-id (not (string-empty-p convoy-id)))
     (user-error "No convoy ID specified"))
