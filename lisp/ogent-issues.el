@@ -6,12 +6,18 @@
 
 ;;; Code:
 
-;; Ensure sibling files (ogent-issues-bd, ogent-issues-graph, etc.) can be found
-;; This handles cases where ogent-issues is loaded directly without going through
-;; a package manager that sets up load-path automatically
-(let ((this-dir (file-name-directory (or load-file-name buffer-file-name))))
-  (when (and this-dir (not (member this-dir load-path)))
-    (add-to-list 'load-path this-dir)))
+;; Persist the source directory so sibling files (ogent-issues-bd,
+;; ogent-issues-graph, etc.) can always be found, even if load-path
+;; is modified after initial load (e.g., by package manager rebuilds)
+(defvar ogent-issues--source-directory
+  (when-let ((file (or load-file-name buffer-file-name)))
+    (file-name-directory file))
+  "Directory containing ogent-issues and sibling .el files.
+Captured at load time so sibling requires remain robust.")
+
+(when (and ogent-issues--source-directory
+           (not (member ogent-issues--source-directory load-path)))
+  (add-to-list 'load-path ogent-issues--source-directory))
 
 (require 'cl-lib)
 (require 'seq)
@@ -1864,9 +1870,17 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 				(ogent-issues-refresh))
 			      :status new-status)))))
 
+(defun ogent-issues--ensure-sibling-loadpath ()
+  "Ensure the directory containing ogent-issues sibling files is in `load-path'.
+This guards against load-path modifications after initial load."
+  (when (and ogent-issues--source-directory
+             (not (member ogent-issues--source-directory load-path)))
+    (add-to-list 'load-path ogent-issues--source-directory)))
+
 (defun ogent-issues-view-deps ()
   "Switch to dependency graph view."
   (interactive)
+  (ogent-issues--ensure-sibling-loadpath)
   (require 'ogent-issues-graph)
   (if-let ((id (ogent-issues--current-issue-id)))
       (ogent-issues-graph-view id)
@@ -1875,6 +1889,7 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
 (defun ogent-issues-view-deps-current ()
   "View dependency graph centered on current issue."
   (interactive)
+  (ogent-issues--ensure-sibling-loadpath)
   (require 'ogent-issues-graph)
   (if-let ((id (ogent-issues--current-issue-id)))
       (ogent-issues-graph-view id)
