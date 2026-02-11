@@ -3989,16 +3989,16 @@
 ;;; --- Convoy Inspector Regression Tests ---
 
 (ert-deftest ogent-gts-test-convoy-status-no-magit-no-section-context ()
-  "Without magit, convoy-status always runs convoy list (no section context)."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
+  "Without magit, convoy-status prompts for convoy ID and opens inspector."
+  (let ((inspected-id nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (_prompt &rest _) "test-convoy-42"))
+              ((symbol-function 'ogent-convoy-inspect)
+               (lambda (id &rest _) (setq inspected-id id))))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--convoy-data nil))
         (ogent-gastown-convoy-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "convoy" (caar commands)))
-        (should (string-match-p "list" (caar commands)))))))
+        (should (equal inspected-id "test-convoy-42"))))))
 
 (ert-deftest ogent-gts-test-convoy-section-heading-present-plain ()
   "Plain convoy section always includes the 'Convoys' heading."
