@@ -1,10 +1,9 @@
-;;; ogent-convoy.el --- Magit-style convoy inspector -*- lexical-binding: t; -*-
+;;; ogent-convoy.el --- Magit-style convoy inspector mode -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Provides a magit-section based buffer for viewing and inspecting convoy
-;; status.  Displays convoy header metadata and tracked issue sections.
-;; Designed to feel native to magit users with familiar keybindings,
-;; mirroring ogent-issues and ogent-refinery interaction patterns.
+;; Provides a dedicated magit-section based buffer for inspecting a single
+;; convoy. Displays convoy header metadata and tracked-issue sections with
+;; keyboard-driven drilldown (g, TAB, RET, q).
 
 ;;; Code:
 
@@ -14,7 +13,6 @@
 (require 'eieio)
 (require 'json)
 (require 'ogent-ops-style)
-(require 'ogent-gastown-status)
 
 ;; Soft dependency on magit-section
 (eval-and-compile
@@ -32,6 +30,14 @@
 (declare-function magit-section-toggle "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
 
+;; Autoload the normalizer from gastown-status
+(autoload 'ogent-gastown--normalize-convoy "ogent-gastown-status" nil nil)
+(autoload 'ogent-gastown--convoy-progress-string "ogent-gastown-status" nil nil)
+
+;; Autoload ogent-issues for tracked issue navigation
+(autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
+
 ;;; Customization
 
 (defgroup ogent-convoy nil
@@ -39,8 +45,9 @@
   :group 'ogent
   :prefix "ogent-convoy-")
 
-(defcustom ogent-convoy-buffer-name "*Convoy*"
-  "Name of the Convoy inspector buffer."
+(defcustom ogent-convoy-buffer-name-format "*Convoy: %s*"
+  "Format string for convoy inspector buffer names.
+%s is replaced with the convoy ID."
   :type 'string
   :group 'ogent-convoy)
 
@@ -59,11 +66,6 @@
   :type 'integer
   :group 'ogent-convoy)
 
-(defcustom ogent-convoy-use-unicode t
-  "Whether to use Unicode characters for icons."
-  :type 'boolean
-  :group 'ogent-convoy)
-
 ;;; Faces
 
 (defgroup ogent-convoy-faces nil
@@ -78,96 +80,94 @@
   "Face for section headings."
   :group 'ogent-convoy-faces)
 
-(defface ogent-convoy-active
-  '((((class color) (background light)) :foreground "#1565c0" :weight bold)
-    (((class color) (background dark)) :foreground "#88c0d0" :weight bold)
-    (t :weight bold :inherit font-lock-function-name-face))
-  "Face for active convoy title."
+(defface ogent-convoy-header-line
+  '((((class color) (background light)) :foreground "#37474f" :weight bold)
+    (((class color) (background dark)) :foreground "#d8dee9" :weight bold)
+    (t :weight bold))
+  "Face for the header line."
   :group 'ogent-convoy-faces)
 
-(defface ogent-convoy-complete
+(defface ogent-convoy-id
+  '((((class color) (background light)) :foreground "#5d4037")
+    (((class color) (background dark)) :foreground "#d08770"))
+  "Face for convoy ID."
+  :group 'ogent-convoy-faces)
+
+(defface ogent-convoy-title
+  '((((class color) (background light)) :foreground "#1b5e20" :weight bold)
+    (((class color) (background dark)) :foreground "#a3be8c" :weight bold)
+    (t :weight bold))
+  "Face for convoy title."
+  :group 'ogent-convoy-faces)
+
+(defface ogent-convoy-status-active
+  '((((class color) (background light)) :foreground "#ff8f00" :weight bold)
+    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+    (t :weight bold))
+  "Face for active convoy status."
+  :group 'ogent-convoy-faces)
+
+(defface ogent-convoy-status-complete
   '((((class color) (background light)) :foreground "#2e7d32")
-    (((class color) (background dark)) :foreground "#a3be8c")
-    (t :inherit success))
-  "Face for completed convoy title."
-  :group 'ogent-convoy-faces)
-
-(defface ogent-convoy-progress
-  '((((class color) (background light)) :foreground "#ff8f00")
-    (((class color) (background dark)) :foreground "#ebcb8b")
-    (t :inherit font-lock-keyword-face))
-  "Face for progress indicator."
+    (((class color) (background dark)) :foreground "#a3be8c"))
+  "Face for completed convoy status."
   :group 'ogent-convoy-faces)
 
 (defface ogent-convoy-dimmed
   '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#4c566a")
-    (t :inherit shadow))
-  "Face for less important text."
+    (((class color) (background dark)) :foreground "#4c566a"))
+  "Face for dimmed/secondary text."
   :group 'ogent-convoy-faces)
 
-(defface ogent-convoy-issue-id
-  '((((class color) (background light)) :foreground "#6a1b9a")
-    (((class color) (background dark)) :foreground "#b48ead")
-    (t :inherit font-lock-type-face))
+(defface ogent-convoy-tracked-issue
+  '((((class color) (background light)) :foreground "#37474f")
+    (((class color) (background dark)) :foreground "#d8dee9"))
   "Face for tracked issue IDs."
   :group 'ogent-convoy-faces)
 
-(defface ogent-convoy-issue-title
-  '((t :inherit default))
-  "Face for tracked issue titles."
-  :group 'ogent-convoy-faces)
-
-(defface ogent-convoy-header-line
-  '((((class color) (background light))
-     :background "grey90" :foreground "grey20"
-     :weight bold :box (:line-width 2 :color "grey90"))
-    (((class color) (background dark))
-     :background "#2e3440" :foreground "#eceff4"
-     :weight bold :box (:line-width 2 :color "#2e3440"))
-    (t :weight bold :inherit mode-line))
-  "Face for the header line."
-  :group 'ogent-convoy-faces)
-
 (defface ogent-convoy-header-line-key
-  '((((class color) (background light))
-     :background "grey90" :foreground "#5e35b1" :weight bold)
-    (((class color) (background dark))
-     :background "#2e3440" :foreground "#b48ead" :weight bold)
-    (t :weight bold :inherit mode-line))
-  "Face for keybindings in header line."
+  '((((class color) (background light)) :foreground "#d32f2f" :weight bold)
+    (((class color) (background dark)) :foreground "#bf616a" :weight bold)
+    (t :weight bold))
+  "Face for header line key hints."
   :group 'ogent-convoy-faces)
 
-;;; Buffer-local State
+;;; Buffer-local state
+
+(defvar-local ogent-convoy--id nil
+  "The convoy ID being inspected.")
 
 (defvar-local ogent-convoy--data nil
-  "Cached convoy data (normalized).")
+  "Cached convoy data plist (normalized).")
 
 (defvar-local ogent-convoy--loading nil
-  "Non-nil when a gt command is in progress.")
-
-(defvar-local ogent-convoy--loading-timer nil
-  "Timer for animating the loading spinner.")
+  "Non-nil when a fetch is in progress.")
 
 (defvar-local ogent-convoy--loading-frame 0
-  "Current animation frame index.")
+  "Current frame index for the loading animation.")
 
-(defvar-local ogent-convoy--convoy-id nil
-  "Convoy ID for this inspector buffer.")
+(defvar-local ogent-convoy--loading-timer nil
+  "Timer for the loading animation.")
+
+(defvar-local ogent-convoy--processes nil
+  "List of active async processes.")
+
+(defvar-local ogent-convoy--workspace-root nil
+  "Workspace root for gt commands.")
 
 ;;; Cache
 
 (defvar ogent-convoy--cache (make-hash-table :test 'equal)
-  "Cache for gt command results.")
+  "Cache for convoy fetch results.")
 
-(defun ogent-convoy--cache-key (convoy-id args)
-  "Generate cache key from CONVOY-ID and ARGS."
-  (format "%s:%S" convoy-id args))
+(defun ogent-convoy--cache-key (convoy-id)
+  "Generate cache key from CONVOY-ID."
+  (format "convoy:%s" convoy-id))
 
-(defun ogent-convoy--cache-get (convoy-id args)
-  "Get cached result for CONVOY-ID and ARGS if valid."
+(defun ogent-convoy--cache-get (convoy-id)
+  "Get cached result for CONVOY-ID if valid."
   (when (> ogent-convoy-cache-ttl 0)
-    (let* ((key (ogent-convoy--cache-key convoy-id args))
+    (let* ((key (ogent-convoy--cache-key convoy-id))
            (entry (gethash key ogent-convoy--cache)))
       (when entry
         (let ((timestamp (car entry))
@@ -178,25 +178,24 @@
             (remhash key ogent-convoy--cache)
             nil))))))
 
-(defun ogent-convoy--cache-set (convoy-id args result)
-  "Cache RESULT for CONVOY-ID and ARGS."
+(defun ogent-convoy--cache-set (convoy-id result)
+  "Cache RESULT for CONVOY-ID."
   (when (> ogent-convoy-cache-ttl 0)
-    (let ((key (ogent-convoy--cache-key convoy-id args)))
-      (puthash key (cons (current-time) result) ogent-convoy--cache))))
+    (puthash (ogent-convoy--cache-key convoy-id)
+             (cons (current-time) result)
+             ogent-convoy--cache)))
 
 (defun ogent-convoy-cache-invalidate ()
   "Invalidate all cached results."
   (clrhash ogent-convoy--cache))
 
-;;; Async Execution
-
-(defvar ogent-convoy--processes nil
-  "List of active gt processes.")
+;;; Async execution
 
 (defun ogent-convoy--run-async (args callback &optional error-callback)
   "Run gt with ARGS asynchronously, call CALLBACK with parsed JSON result.
 ERROR-CALLBACK receives error message on failure."
-  (let* ((default-directory (expand-file-name "~/gt"))
+  (let* ((default-directory (or ogent-convoy--workspace-root
+                                (expand-file-name "~/gt")))
          (buffer (generate-new-buffer " *ogent-convoy-gt*"))
          (stderr-buffer (generate-new-buffer " *ogent-convoy-gt-stderr*"))
          (proc nil)
@@ -289,7 +288,7 @@ ERROR-CALLBACK receives error message on failure."
     (defclass ogent-convoy-tracked-section (magit-section) ()
       "Section for tracked issues list.")
 
-    (defclass ogent-convoy-issue-section (magit-section) ()
+    (defclass ogent-convoy-tracked-item-section (magit-section) ()
       "Section for a single tracked issue.")))
 
 ;;; Keymap
@@ -308,7 +307,7 @@ ERROR-CALLBACK receives error message on failure."
     (define-key map "n" #'ogent-convoy-next-item)
     (define-key map "p" #'ogent-convoy-prev-item)
     (define-key map (kbd "TAB") #'ogent-convoy-toggle-section)
-    (define-key map (kbd "RET") #'ogent-convoy-visit)
+    (define-key map (kbd "RET") #'ogent-convoy-visit-tracked)
 
     ;; Quit
     (define-key map "q" #'quit-window)
@@ -324,13 +323,13 @@ ERROR-CALLBACK receives error message on failure."
                     'magit-section-mode
                   'special-mode)))
     `(define-derived-mode ogent-convoy-mode ,parent "Convoy"
-       "Major mode for inspecting convoy status.
+       "Major mode for inspecting a convoy.
 
 \\<ogent-convoy-mode-map>
 Navigation:
   \\[ogent-convoy-next-item]     Move to next item
   \\[ogent-convoy-prev-item]     Move to previous item
-  \\[ogent-convoy-visit]   Visit tracked issue
+  \\[ogent-convoy-visit-tracked]   Visit tracked issue at point
   \\[ogent-convoy-toggle-section]   Toggle section visibility
 
 Other:
@@ -389,23 +388,18 @@ Other:
 ;;; Header Line
 
 (defun ogent-convoy--header-line ()
-  "Generate header line for Convoy inspector buffer."
-  (let* ((loading-indicator (ogent-convoy--loading-indicator))
-         (convoy ogent-convoy--data)
-         (title (when convoy (plist-get convoy :title)))
-         (progress (when convoy (ogent-gastown--convoy-progress-string convoy))))
+  "Generate header line for convoy inspector buffer."
+  (let ((loading-indicator (ogent-convoy--loading-indicator))
+        (id (or ogent-convoy--id "?")))
     (concat
      (propertize " " 'face 'ogent-convoy-header-line)
-     (propertize (format "Convoy: %s" (or title ogent-convoy--convoy-id "?"))
+     (propertize (format "Convoy: %s" id)
                  'face 'ogent-convoy-header-line)
      (if loading-indicator
          (concat (propertize "  " 'face 'ogent-convoy-dimmed)
-                 (propertize loading-indicator 'face 'ogent-convoy-progress)
+                 (propertize loading-indicator 'face 'ogent-convoy-status-active)
                  (propertize " Loading..." 'face 'ogent-convoy-dimmed))
        (concat
-        (when progress
-          (concat (propertize "  " 'face 'ogent-convoy-dimmed)
-                  (propertize progress 'face 'ogent-convoy-progress)))
         (propertize "  " 'face 'ogent-convoy-dimmed)
         (propertize "g" 'face 'ogent-convoy-header-line-key)
         (propertize ":refresh " 'face 'ogent-convoy-dimmed)
@@ -414,29 +408,36 @@ Other:
 
 ;;; Data Fetching
 
-(defun ogent-convoy--fetch (callback)
-  "Fetch convoy data, call CALLBACK when done."
-  (let ((buf (current-buffer))
-        (convoy-id ogent-convoy--convoy-id))
-    (ogent-convoy--run-async
-     (list "convoy" "status" convoy-id "--json")
-     (lambda (result)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (setq ogent-convoy--data
-                 (when result
-                   (ogent-gastown--normalize-convoy result)))
-           (funcall callback))))
-     (lambda (_err)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (setq ogent-convoy--data nil)
-           (funcall callback)))))))
+(defun ogent-convoy--fetch (convoy-id callback)
+  "Fetch convoy data for CONVOY-ID, call CALLBACK when done."
+  (let ((cached (ogent-convoy--cache-get convoy-id))
+        (buf (current-buffer)))
+    (if cached
+        (progn
+          (setq ogent-convoy--data cached)
+          (funcall callback))
+      (ogent-convoy--run-async
+       (list "convoy" "status" convoy-id "--json")
+       (lambda (result)
+         (when (buffer-live-p buf)
+           (with-current-buffer buf
+             (let ((normalized (if result
+                                   (ogent-gastown--normalize-convoy result)
+                                 nil)))
+               (setq ogent-convoy--data normalized)
+               (ogent-convoy--cache-set convoy-id normalized)
+               (funcall callback)))))
+       (lambda (err)
+         (when (buffer-live-p buf)
+           (with-current-buffer buf
+             (setq ogent-convoy--data nil)
+             (funcall callback)
+             (message "Failed to fetch convoy %s: %s" convoy-id err))))))))
 
-;;; Buffer Rendering
+;;; Buffer Content Rendering
 
 (defun ogent-convoy--insert-buffer-contents ()
-  "Insert all sections into the buffer."
+  "Insert all sections into the convoy inspector buffer."
   (if ogent-convoy--magit-section-available
       (ogent-convoy--insert-with-magit-section)
     (ogent-convoy--insert-plain)))
@@ -448,128 +449,105 @@ Other:
     (insert "\n")
     (ogent-convoy--insert-tracked-section)))
 
-(defun ogent-convoy--insert-plain ()
-  "Insert content without magit-section (fallback)."
-  (ogent-convoy--insert-header-section-plain)
-  (insert "\n")
-  (ogent-convoy--insert-tracked-section-plain))
-
-;;; Header Section
-
 (defun ogent-convoy--insert-header-section ()
-  "Insert convoy header metadata section with magit-section."
-  (let ((convoy ogent-convoy--data))
-    (magit-insert-section (ogent-convoy-header-section convoy)
+  "Insert convoy header metadata section."
+  (let ((data ogent-convoy--data))
+    (magit-insert-section (ogent-convoy-header-section data nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "\u25B6" ">")
+         (ogent-ops-section-prefix "" ">")
          " "
          (propertize "Convoy" 'face 'ogent-convoy-section-heading)))
-      (if (null convoy)
-          (insert (propertize "  No convoy data\n" 'face 'ogent-convoy-dimmed))
-        (ogent-convoy--insert-header-fields convoy)))))
-
-(defun ogent-convoy--insert-header-section-plain ()
-  "Insert header section (plain)."
-  (let ((convoy ogent-convoy--data))
-    (insert (propertize "> Convoy\n" 'face 'ogent-convoy-section-heading))
-    (if (null convoy)
-        (insert (propertize "  No convoy data\n" 'face 'ogent-convoy-dimmed))
-      (ogent-convoy--insert-header-fields convoy))))
-
-(defun ogent-convoy--insert-header-fields (convoy)
-  "Insert header metadata fields for CONVOY."
-  (let* ((id (plist-get convoy :id))
-         (title (plist-get convoy :title))
-         (status (plist-get convoy :status))
-         (progress (ogent-gastown--convoy-progress-string convoy))
-         (title-face (if (equal status "complete")
-                         'ogent-convoy-complete
-                       'ogent-convoy-active)))
-    (insert "  ")
-    (insert (propertize "Title:    " 'face 'ogent-convoy-dimmed))
-    (insert (propertize (or title "(unnamed)") 'face title-face))
-    (insert "\n")
-    (when id
-      (insert "  ")
-      (insert (propertize "ID:       " 'face 'ogent-convoy-dimmed))
-      (insert (propertize id 'face 'ogent-convoy-dimmed))
-      (insert "\n"))
-    (when status
-      (insert "  ")
-      (insert (propertize "Status:   " 'face 'ogent-convoy-dimmed))
-      (insert (propertize status 'face (if (equal status "complete")
-                                           'ogent-convoy-complete
-                                         'ogent-convoy-active)))
-      (insert "\n"))
-    (when progress
-      (insert "  ")
-      (insert (propertize "Progress: " 'face 'ogent-convoy-dimmed))
-      (insert (propertize progress 'face 'ogent-convoy-progress))
-      (insert "\n"))))
-
-;;; Tracked Issues Section
+      (if (null data)
+          (insert (propertize "  Convoy not found\n" 'face 'ogent-convoy-dimmed))
+        (let ((id (plist-get data :id))
+              (title (plist-get data :title))
+              (status (plist-get data :status))
+              (progress (ogent-gastown--convoy-progress-string data)))
+          (insert "  ")
+          (insert (propertize "ID:     " 'face 'ogent-convoy-dimmed))
+          (insert (propertize (or id "?") 'face 'ogent-convoy-id))
+          (insert "\n")
+          (insert "  ")
+          (insert (propertize "Title:  " 'face 'ogent-convoy-dimmed))
+          (insert (propertize (or title "(unnamed)") 'face 'ogent-convoy-title))
+          (insert "\n")
+          (insert "  ")
+          (insert (propertize "Status: " 'face 'ogent-convoy-dimmed))
+          (insert (propertize (or status "unknown")
+                              'face (if (equal status "complete")
+                                        'ogent-convoy-status-complete
+                                      'ogent-convoy-status-active)))
+          (insert "\n")
+          (when progress
+            (insert "  ")
+            (insert (propertize "Progress: " 'face 'ogent-convoy-dimmed))
+            (insert (propertize progress 'face 'ogent-convoy-dimmed))
+            (insert "\n")))))))
 
 (defun ogent-convoy--insert-tracked-section ()
-  "Insert tracked issues section with magit-section."
-  (let* ((convoy ogent-convoy--data)
-         (tracked (when convoy (plist-get convoy :tracked))))
-    (magit-insert-section (ogent-convoy-tracked-section tracked)
+  "Insert tracked issues section."
+  (let* ((data ogent-convoy--data)
+         (tracked (when data (plist-get data :tracked))))
+    (magit-insert-section (ogent-convoy-tracked-section tracked nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "\u2261" "#")
+         (ogent-ops-section-prefix "" "#")
          " "
          (propertize "Tracked Issues" 'face 'ogent-convoy-section-heading)
          (when tracked
            (propertize (format " (%d)" (length tracked))
                        'face 'ogent-convoy-dimmed))))
-      (if (null tracked)
+      (if (or (null data) (null tracked))
           (insert (propertize "  No tracked issues\n" 'face 'ogent-convoy-dimmed))
-        (dolist (issue tracked)
-          (ogent-convoy--insert-issue-item issue))))))
+        (dolist (issue-id tracked)
+          (ogent-convoy--insert-tracked-item issue-id))))))
 
-(defun ogent-convoy--insert-tracked-section-plain ()
+(defun ogent-convoy--insert-tracked-item (issue-id)
+  "Insert a single tracked ISSUE-ID as a section."
+  (magit-insert-section (ogent-convoy-tracked-item-section issue-id)
+    (insert "  ")
+    (insert (propertize (ogent-ops-status-symbol 'open) 'face 'ogent-convoy-dimmed))
+    (insert " ")
+    (insert (propertize (if (stringp issue-id) issue-id (format "%s" issue-id))
+                        'face 'ogent-convoy-tracked-issue))
+    (insert "\n")))
+
+;;; Plain-text fallback rendering
+
+(defun ogent-convoy--insert-plain ()
+  "Insert convoy content without magit-section."
+  (ogent-convoy--insert-header-plain)
+  (insert "\n")
+  (ogent-convoy--insert-tracked-plain))
+
+(defun ogent-convoy--insert-header-plain ()
+  "Insert convoy header (plain)."
+  (let ((data ogent-convoy--data))
+    (insert (propertize "> Convoy\n" 'face 'ogent-convoy-section-heading))
+    (if (null data)
+        (insert (propertize "  Convoy not found\n" 'face 'ogent-convoy-dimmed))
+      (let ((id (plist-get data :id))
+            (title (plist-get data :title))
+            (status (plist-get data :status))
+            (progress (ogent-gastown--convoy-progress-string data)))
+        (insert (format "  ID:     %s\n" (or id "?")))
+        (insert (format "  Title:  %s\n" (or title "(unnamed)")))
+        (insert (format "  Status: %s\n" (or status "unknown")))
+        (when progress
+          (insert (format "  Progress: %s\n" progress)))))))
+
+(defun ogent-convoy--insert-tracked-plain ()
   "Insert tracked issues section (plain)."
-  (let* ((convoy ogent-convoy--data)
-         (tracked (when convoy (plist-get convoy :tracked))))
+  (let* ((data ogent-convoy--data)
+         (tracked (when data (plist-get data :tracked))))
     (insert (propertize "# Tracked Issues\n" 'face 'ogent-convoy-section-heading))
-    (if (null tracked)
+    (if (or (null data) (null tracked))
         (insert (propertize "  No tracked issues\n" 'face 'ogent-convoy-dimmed))
-      (dolist (issue tracked)
-        (ogent-convoy--insert-issue-item-plain issue)))))
-
-(defun ogent-convoy--insert-issue-item (issue)
-  "Insert a single tracked ISSUE as a magit-section."
-  (let* ((id (or (plist-get issue :id) "???"))
-         (title (or (plist-get issue :title) "(untitled)"))
-         (status (plist-get issue :status))
-         (assignee (plist-get issue :assignee))
-         (issue-type (plist-get issue :type))
-         (status-sym (when status
-                       (ogent-ops-status-symbol
-                        (intern (replace-regexp-in-string "_" "-" status))))))
-    (magit-insert-section (ogent-convoy-issue-section issue)
-      (insert "  ")
-      (when status-sym
-        (insert (propertize status-sym 'face 'ogent-convoy-dimmed))
-        (insert " "))
-      (insert (propertize id 'face 'ogent-convoy-issue-id))
-      (insert " ")
-      (insert (propertize title 'face 'ogent-convoy-issue-title))
-      (when issue-type
-        (insert " ")
-        (insert (propertize (format "[%s]" issue-type) 'face 'ogent-convoy-dimmed)))
-      (when assignee
-        (insert " ")
-        (insert (propertize assignee 'face 'ogent-convoy-dimmed)))
-      (insert "\n"))))
-
-(defun ogent-convoy--insert-issue-item-plain (issue)
-  "Insert a single tracked ISSUE as plain text."
-  (let* ((id (or (plist-get issue :id) "???"))
-         (title (or (plist-get issue :title) "(untitled)"))
-         (status (plist-get issue :status)))
-    (insert (format "  %s %s [%s]\n" id title (or status "?")))))
+      (dolist (issue-id tracked)
+        (insert (format "  %s %s\n"
+                        (ogent-ops-status-symbol 'open)
+                        (if (stringp issue-id) issue-id (format "%s" issue-id))))))))
 
 ;;; Interactive Commands
 
@@ -579,6 +557,7 @@ Other:
   (when (derived-mode-p 'ogent-convoy-mode)
     (ogent-convoy--start-loading)
     (ogent-convoy--fetch
+     ogent-convoy--id
      (lambda ()
        (ogent-convoy--stop-loading)
        (let ((inhibit-read-only t)
@@ -613,37 +592,37 @@ Other:
   (when ogent-convoy--magit-section-available
     (magit-section-toggle (magit-current-section))))
 
-(defun ogent-convoy--current-issue ()
-  "Get the tracked issue at point."
-  (when ogent-convoy--magit-section-available
-    (when-let ((section (magit-current-section)))
-      (when (eq (eieio-object-class-name section) 'ogent-convoy-issue-section)
-        (oref section value)))))
-
-(defun ogent-convoy-visit ()
-  "Visit the tracked issue at point.
-Opens the issue in the ogent-issues viewer if available."
+(defun ogent-convoy-visit-tracked ()
+  "Visit the tracked issue at point."
   (interactive)
-  (if-let ((issue (ogent-convoy--current-issue)))
-      (let ((id (plist-get issue :id)))
-        (when id
-          (message "Viewing issue: %s" id)
-          (shell-command (format "bd show %s" (shell-quote-argument id)))))
+  (if ogent-convoy--magit-section-available
+      (let ((section (magit-current-section)))
+        (if (eq (eieio-object-class-name section)
+                'ogent-convoy-tracked-item-section)
+            (let ((issue-id (oref section value)))
+              (message "Visiting issue: %s" issue-id))
+          (magit-section-toggle section)))
     (user-error "No tracked issue at point")))
 
 ;;; Entry Point
 
 ;;;###autoload
-(defun ogent-convoy-inspect (convoy-id)
-  "Open the convoy inspector for CONVOY-ID."
-  (interactive "sConvoy ID: ")
+(defun ogent-convoy-inspect (convoy-id &optional workspace-root)
+  "Open the convoy inspector for CONVOY-ID.
+WORKSPACE-ROOT is the Gas Town workspace root for gt commands.
+If nil, defaults to ~/gt."
+  (interactive
+   (list (read-string "Convoy ID: ")))
   (unless (and convoy-id (not (string-empty-p convoy-id)))
     (user-error "No convoy ID specified"))
-  (let ((buffer (get-buffer-create (format "*Convoy: %s*" convoy-id))))
+  (let ((buffer (get-buffer-create
+                 (format ogent-convoy-buffer-name-format convoy-id))))
     (with-current-buffer buffer
       (unless (derived-mode-p 'ogent-convoy-mode)
         (ogent-convoy-mode))
-      (setq ogent-convoy--convoy-id convoy-id)
+      (setq ogent-convoy--id convoy-id)
+      (setq ogent-convoy--workspace-root
+            (or workspace-root (expand-file-name "~/gt")))
       (ogent-convoy-refresh))
     (pop-to-buffer-same-window buffer)))
 
