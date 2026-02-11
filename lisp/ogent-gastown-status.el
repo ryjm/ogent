@@ -1706,7 +1706,8 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 
 (defun ogent-gastown--insert-rig-agent (agent)
   "Insert a single AGENT line within a rig section."
-  (let* ((name (plist-get agent :name))
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (name (plist-get agent :name))
          (role (plist-get agent :role))
          (running (plist-get agent :running))
          (has-work (plist-get agent :has_work))
