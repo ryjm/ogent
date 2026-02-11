@@ -787,16 +787,17 @@
 
 ;;; --- No-Magit Fallback Tests ---
 
-(ert-deftest ogent-convoy-test-no-magit-convoy-status-calls-list ()
-  "When magit unavailable, convoy-status runs `gt convoy list`."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
+(ert-deftest ogent-convoy-test-no-magit-convoy-status-prompts ()
+  "When magit unavailable, convoy-status prompts for a convoy ID."
+  (let ((inspected-id nil))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (_prompt &rest _) "test-convoy-123"))
+              ((symbol-function 'ogent-convoy-inspect)
+               (lambda (id &rest _) (setq inspected-id id))))
+      (let ((ogent-gastown--magit-section-available nil)
+            (ogent-gastown--convoy-data nil))
         (ogent-gastown-convoy-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "convoy list" (caar commands)))))))
+        (should (equal inspected-id "test-convoy-123"))))))
 
 (ert-deftest ogent-convoy-test-no-magit-convoy-create-success ()
   "When magit unavailable, convoy-create sends correct args."
