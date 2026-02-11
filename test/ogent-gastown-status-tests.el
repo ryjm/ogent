@@ -170,6 +170,7 @@
           :crew_count 2
           :has_witness t
           :has_refinery t
+          :beads_stats (:total 150 :open 42 :in_progress 5 :closed 95 :blocked 8 :ready 34)
           :agents ((:name "witness"
                     :role "witness"
                     :running t
@@ -185,6 +186,7 @@
           :crew_count 1
           :has_witness nil
           :has_refinery t
+          :beads_stats (:total 80 :open 20 :in_progress 0 :closed 55 :blocked 3 :ready 17)
           :agents nil))
   "Sample rigs list for testing.")
 
