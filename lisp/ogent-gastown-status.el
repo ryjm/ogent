@@ -282,11 +282,20 @@
 (defvar-local ogent-gastown--hook-data nil
   "Cached hook status data.")
 
+(defvar-local ogent-gastown--hook-loading nil
+  "Non-nil while hook data is loading.")
+
 (defvar-local ogent-gastown--mail-data nil
   "Cached mail inbox data.")
 
+(defvar-local ogent-gastown--mail-loading nil
+  "Non-nil while mail data is loading.")
+
 (defvar-local ogent-gastown--convoy-data nil
   "Cached convoy list data (normalized).")
+
+(defvar-local ogent-gastown--convoy-loading nil
+  "Non-nil while convoy data is loading.")
 
 (defun ogent-gastown--normalize-convoy (convoy)
   "Normalize CONVOY plist to canonical keys.
@@ -612,6 +621,22 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (push proc ogent-gastown--processes)
     proc)))
 
+(defun ogent-gastown--run-async-cached (args callback &optional error-callback raw-output)
+  "Run gt with ARGS asynchronously and cache JSON responses.
+CALLBACK receives the parsed result.  ERROR-CALLBACK is invoked on failure.
+When RAW-OUTPUT is non-nil, skip caching and return raw output."
+  (if raw-output
+      (ogent-gastown-status--run-async args callback error-callback raw-output)
+    (let ((cached (ogent-gastown--cache-get args)))
+      (if cached
+          (funcall callback cached)
+        (ogent-gastown-status--run-async
+         args
+         (lambda (result)
+           (ogent-gastown--cache-set args result)
+           (funcall callback result))
+         error-callback)))))
+
 (defun ogent-gastown-status--run-shell-command (args output-buffer)
   "Run `gt` command ARGS in OUTPUT-BUFFER from the active workspace root."
   (let ((workspace-root (ogent-gastown--active-workspace-root)))
@@ -906,6 +931,7 @@ Other:
         (mail-count (length (seq-filter
                              (lambda (m) (not (plist-get m :read)))
                              ogent-gastown--mail-data)))
+        (hook-loading ogent-gastown--hook-loading)
         (hook-active (and ogent-gastown--hook-data
                           (plist-get ogent-gastown--hook-data :has_work))))
     (concat
@@ -918,9 +944,11 @@ Other:
                  (propertize " Loading..." 'face 'ogent-gastown-dimmed))
        (concat
         (propertize "  " 'face 'ogent-gastown-dimmed)
-        (if hook-active
-            (propertize "Hook: active" 'face 'ogent-gastown-hook-active)
-          (propertize "Hook: empty" 'face 'ogent-gastown-hook-empty))
+        (if hook-loading
+            (propertize "Hook: loading" 'face 'ogent-gastown-dimmed)
+          (if hook-active
+              (propertize "Hook: active" 'face 'ogent-gastown-hook-active)
+            (propertize "Hook: empty" 'face 'ogent-gastown-hook-empty)))
         (when (> mail-count 0)
           (concat (propertize "  " 'face 'ogent-gastown-dimmed)
                   (propertize (format "%d unread" mail-count)
@@ -935,35 +963,29 @@ Other:
 
 ;;; Data Fetching
 
-(defun ogent-gastown--fetch-all (callback)
-  "Fetch all data for the status buffer, call CALLBACK when done."
-  (let* ((pending 6)
-         (results (make-hash-table))
+(defun ogent-gastown--fetch-all (callback &optional deferred-callback)
+  "Fetch status data for the status buffer.
+CALLBACK runs once core sections are ready.
+DEFERRED-CALLBACK runs after each deferred section update."
+  (let* ((core-pending 3)
+         (results (make-hash-table :test 'eq))
          (errors (make-hash-table :test 'eq))
          (buf (current-buffer))
-         ;; Use let-bound lambda instead of cl-flet to avoid bytecode issues
-         ;; with async callbacks in certain Emacs versions
-         (check-done
+         (check-core-done
           (lambda ()
-            (cl-decf pending)
-            (when (zerop pending)
+            (cl-decf core-pending)
+            (when (zerop core-pending)
               (when (buffer-live-p buf)
                 (with-current-buffer buf
-                  (setq ogent-gastown--hook-data (gethash 'hook results))
-                  (setq ogent-gastown--mail-data (gethash 'mail results))
-                  (setq ogent-gastown--convoy-data
-                          (ogent-gastown--normalize-convoy-list
-                           (gethash 'convoy results)))
                   (setq ogent-gastown--workers-data
-                          (ogent-gastown--normalize-worker-list
-                           (gethash 'workers results)))
+                        (ogent-gastown--normalize-worker-list
+                         (gethash 'workers results)))
                   (setq ogent-gastown--crew-data
-                          (ogent-gastown--normalize-crew-list
-                           (gethash 'crew results)))
+                        (ogent-gastown--normalize-crew-list
+                         (gethash 'crew results)))
                   (setq ogent-gastown--polecat-data
-                          (ogent-gastown--normalize-polecat-list
-                           (gethash 'polecat results)))
-                  ;; Extract stats, deacon, witnesses, and rigs from town status
+                        (ogent-gastown--normalize-polecat-list
+                         (gethash 'polecat results)))
                   (let ((town-status (gethash 'town-status results)))
                     (setq ogent-gastown--stats-data
                           (plist-get town-status :summary))
@@ -973,86 +995,99 @@ Other:
                           (ogent-gastown--extract-witnesses town-status))
                     (setq ogent-gastown--rigs-data
                           (plist-get town-status :rigs)))
-                  ;; Replace fetch errors atomically
+                  ;; Keep the same hash table so deferred updates mutate in place.
                   (setq ogent-gastown--fetch-errors errors)
-                  (funcall callback)))))))
+                  (funcall callback))))))
+         (update-deferred
+          (lambda (slot value &optional err)
+            (when (buffer-live-p buf)
+              (with-current-buffer buf
+                (if err
+                    (puthash slot err errors)
+                  (remhash slot errors))
+                (pcase slot
+                  ('hook
+                   (setq ogent-gastown--hook-loading nil)
+                   (setq ogent-gastown--hook-data value))
+                  ('mail
+                   (setq ogent-gastown--mail-loading nil)
+                   (setq ogent-gastown--mail-data value))
+                  ('convoy
+                   (setq ogent-gastown--convoy-loading nil)
+                   (setq ogent-gastown--convoy-data
+                         (ogent-gastown--normalize-convoy-list value))))
+                (setq ogent-gastown--fetch-errors errors)
+                (when deferred-callback
+                  (funcall deferred-callback slot value err)))))))
 
-    ;; Fetch hook status
-    (ogent-gastown-status--run-async
-     '("hook" "--json")
-     (lambda (result)
-       (puthash 'hook result results)
-       (funcall check-done))
-     (lambda (err)
-       (puthash 'hook nil results)
-       (puthash 'hook err errors)
-       (funcall check-done)))
+    (setq ogent-gastown--hook-loading t
+          ogent-gastown--mail-loading t
+          ogent-gastown--convoy-loading t
+          ogent-gastown--hook-data nil
+          ogent-gastown--mail-data nil
+          ogent-gastown--convoy-data nil
+          ogent-gastown--fetch-errors errors)
 
-    ;; Fetch mail
-    (ogent-gastown-status--run-async
-     '("mail" "inbox" "--json")
-     (lambda (result)
-       (puthash 'mail result results)
-       (funcall check-done))
-     (lambda (err)
-       (puthash 'mail nil results)
-       (puthash 'mail err errors)
-       (funcall check-done)))
-
-    ;; Fetch convoys
-    (ogent-gastown-status--run-async
-     '("convoy" "list" "--json")
-     (lambda (result)
-       (puthash 'convoy result results)
-       (funcall check-done))
-     (lambda (err)
-       (puthash 'convoy nil results)
-       (puthash 'convoy err errors)
-       (funcall check-done)))
-
-    ;; Fetch workers
-    (ogent-gastown-status--run-async
-     '("polecat" "list" "--all" "--json")
-     (lambda (result)
-       (puthash 'workers result results)
-       (funcall check-done))
-     (lambda (err)
-       (puthash 'workers nil results)
-       (puthash 'workers err errors)
-       (funcall check-done)))
-
-    ;; Fetch town status (for stats, deacon, witnesses)
-    (ogent-gastown-status--run-async
+    ;; Core: fast first paint.
+    (ogent-gastown--run-async-cached
      '("status" "--json" "--fast")
      (lambda (result)
        (puthash 'town-status result results)
-       (funcall check-done))
+       (remhash 'town-status errors)
+       (funcall check-core-done))
      (lambda (err)
        (puthash 'town-status nil results)
        (puthash 'town-status err errors)
-       (funcall check-done)))
+       (funcall check-core-done)))
 
-    ;; Fetch crew members
-    (ogent-gastown-status--run-async
+    (ogent-gastown--run-async-cached
      '("crew" "list" "--json")
      (lambda (result)
        (puthash 'crew result results)
-       (funcall check-done))
+       (remhash 'crew errors)
+       (funcall check-core-done))
      (lambda (err)
        (puthash 'crew nil results)
        (puthash 'crew err errors)
-       (funcall check-done)))
+       (funcall check-core-done)))
 
-    ;; Fetch polecats
-    (ogent-gastown-status--run-async
-     '("polecat" "list" "--json")
+    ;; Reuse all-polecats payload for workers and polecat sections.
+    (ogent-gastown--run-async-cached
+     '("polecat" "list" "--all" "--json")
      (lambda (result)
+       (puthash 'workers result results)
        (puthash 'polecat result results)
-       (funcall check-done))
+       (remhash 'workers errors)
+       (remhash 'polecat errors)
+       (funcall check-core-done))
      (lambda (err)
+       (puthash 'workers nil results)
        (puthash 'polecat nil results)
+       (puthash 'workers err errors)
        (puthash 'polecat err errors)
-       (funcall check-done)))))
+       (funcall check-core-done)))
+
+    ;; Deferred: load slower sections in the background.
+    (ogent-gastown--run-async-cached
+     '("hook" "--json")
+     (lambda (result)
+       (funcall update-deferred 'hook result nil))
+     (lambda (err)
+       (funcall update-deferred 'hook nil err)))
+
+    (ogent-gastown--run-async-cached
+     '("mail" "inbox" "--json")
+     (lambda (result)
+       (funcall update-deferred 'mail result nil))
+     (lambda (err)
+       (funcall update-deferred 'mail nil err)))
+
+    (ogent-gastown--run-async-cached
+     '("convoy" "list" "--json")
+     (lambda (result)
+       (funcall update-deferred 'convoy result nil))
+     (lambda (err)
+       (funcall update-deferred 'convoy nil err)))))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
@@ -1158,17 +1193,25 @@ Returns non-nil if an error was inserted."
 (defun ogent-gastown--insert-hook-section ()
   "Insert hook status section with magit-section."
   (let* ((data ogent-gastown--hook-data)
+         (loading ogent-gastown--hook-loading)
          (has-work (plist-get data :has_work))
          (role (or (plist-get data :role) "unknown"))
          (target (or (plist-get data :target) "unknown"))
          (next-action (plist-get data :next_action)))
     (magit-insert-section (ogent-gastown-hook-section data)
       (magit-insert-heading
+       (concat
         (ogent-ops-section-heading
          (ogent-ops-section-symbol 'hook)
-         (propertize "Hook Status" 'face 'ogent-gastown-section-heading)))
-      (if (and (null data) (ogent-gastown--section-fetch-error 'hook))
-          (ogent-gastown--insert-fetch-error 'hook)
+         (propertize "Hook Status" 'face 'ogent-gastown-section-heading))
+        (when loading
+          (propertize " (loading...)" 'face 'ogent-gastown-dimmed))))
+      (cond
+       ((and loading (null data))
+        (insert (propertize "  Loading hook...\n" 'face 'ogent-gastown-dimmed)))
+       ((and (null data) (ogent-gastown--section-fetch-error 'hook))
+        (ogent-gastown--insert-fetch-error 'hook))
+       (t
         (insert "  ")
         (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
         (insert (propertize role 'face 'ogent-gastown-section-heading))
@@ -1185,28 +1228,34 @@ Returns non-nil if an error was inserted."
             (when next-action
               (insert "\n  ")
               (insert (propertize next-action 'face 'ogent-gastown-dimmed)))))
-        (insert "\n")))))
+        (insert "\n"))))))
 
 (defun ogent-gastown--insert-hook-section-plain ()
   "Insert hook status section (plain)."
   (let* ((data ogent-gastown--hook-data)
+         (loading ogent-gastown--hook-loading)
          (has-work (plist-get data :has_work))
          (role (or (plist-get data :role) "unknown")))
     (insert (propertize "# Hook Status\n" 'face 'ogent-gastown-section-heading))
-    (if (and (null data) (ogent-gastown--section-fetch-error 'hook))
-        (ogent-gastown--insert-fetch-error 'hook)
+    (cond
+     ((and loading (null data))
+      (insert (propertize "  Loading hook...\n" 'face 'ogent-gastown-dimmed)))
+     ((and (null data) (ogent-gastown--section-fetch-error 'hook))
+      (ogent-gastown--insert-fetch-error 'hook))
+     (t
       (insert "  Role: " role "\n")
       (insert "  ")
       (if has-work
           (insert (propertize "Work hooked" 'face 'ogent-gastown-hook-active))
         (insert (propertize "No work hooked" 'face 'ogent-gastown-hook-empty)))
-      (insert "\n"))))
+      (insert "\n")))))
 
 ;;; Mail Section
 
 (defun ogent-gastown--insert-mail-section ()
   "Insert mail inbox section with magit-section."
   (let* ((mail ogent-gastown--mail-data)
+         (loading ogent-gastown--mail-loading)
          (unread-count (length (seq-filter (lambda (m) (not (plist-get m :read))) mail))))
     (magit-insert-section (ogent-gastown-mail-section mail nil)
       (magit-insert-heading
@@ -1214,10 +1263,14 @@ Returns non-nil if an error was inserted."
          (ogent-ops-section-symbol 'mail)
          " "
          (propertize "Mail Inbox" 'face 'ogent-gastown-section-heading)
+         (when loading
+           (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
          (when (> unread-count 0)
            (propertize (format " (%d unread)" unread-count)
                        'face 'ogent-gastown-mail-unread))))
       (cond
+       ((and loading (null mail))
+        (insert (propertize "  Loading mail...\n" 'face 'ogent-gastown-dimmed)))
        ((ogent-gastown--section-fetch-error 'mail)
         (ogent-gastown--insert-fetch-error 'mail))
        ((null mail)
@@ -1253,9 +1306,12 @@ Returns non-nil if an error was inserted."
 
 (defun ogent-gastown--insert-mail-section-plain ()
   "Insert mail section (plain)."
-  (let ((mail ogent-gastown--mail-data))
+  (let ((mail ogent-gastown--mail-data)
+        (loading ogent-gastown--mail-loading))
     (insert (propertize "@ Mail Inbox\n" 'face 'ogent-gastown-section-heading))
     (cond
+     ((and loading (null mail))
+      (insert (propertize "  Loading mail...\n" 'face 'ogent-gastown-dimmed)))
      ((ogent-gastown--section-fetch-error 'mail)
       (ogent-gastown--insert-fetch-error 'mail))
      ((null mail)
@@ -1276,17 +1332,22 @@ Returns non-nil if an error was inserted."
 
 (defun ogent-gastown--insert-convoy-section ()
   "Insert convoy status section with magit-section."
-  (let ((convoys ogent-gastown--convoy-data))
+  (let ((convoys ogent-gastown--convoy-data)
+        (loading ogent-gastown--convoy-loading))
     (magit-insert-section (ogent-gastown-convoy-section convoys nil)
       (magit-insert-heading
         (concat
          (ogent-ops-section-symbol 'convoy)
          " "
          (propertize "Convoys" 'face 'ogent-gastown-section-heading)
+         (when loading
+           (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
          (when convoys
            (propertize (format " (%d)" (length convoys))
                        'face 'ogent-gastown-dimmed))))
       (cond
+       ((and loading (null convoys))
+        (insert (propertize "  Loading convoys...\n" 'face 'ogent-gastown-dimmed)))
        ((ogent-gastown--section-fetch-error 'convoy)
         (ogent-gastown--insert-fetch-error 'convoy))
        ((null convoys)
@@ -1317,9 +1378,12 @@ CONVOY should be a normalized plist with canonical keys."
 
 (defun ogent-gastown--insert-convoy-section-plain ()
   "Insert convoy section (plain)."
-  (let ((convoys ogent-gastown--convoy-data))
+  (let ((convoys ogent-gastown--convoy-data)
+        (loading ogent-gastown--convoy-loading))
     (insert (propertize "> Convoys\n" 'face 'ogent-gastown-section-heading))
     (cond
+     ((and loading (null convoys))
+      (insert (propertize "  Loading convoys...\n" 'face 'ogent-gastown-dimmed)))
      ((ogent-gastown--section-fetch-error 'convoy)
       (ogent-gastown--insert-fetch-error 'convoy))
      ((null convoys)
@@ -2423,6 +2487,14 @@ buffer that has no root section yet and signal type errors."
       (ogent-gastown--insert-buffer-contents)
       (goto-char (min pos (point-max))))))
 
+(defun ogent-gastown--render-buffer ()
+  "Render status sections while preserving point."
+  (let ((inhibit-read-only t)
+        (pos (point)))
+    (erase-buffer)
+    (ogent-gastown--insert-buffer-contents)
+    (goto-char (min pos (point-max)))))
+
 (defun ogent-gastown-refresh (&optional _ignore-auto _noconfirm)
   "Refresh the Gas Town status buffer."
   (interactive)
@@ -2434,11 +2506,13 @@ buffer that has no root section yet and signal type errors."
        (when (buffer-live-p buf)
          (with-current-buffer buf
            (ogent-gastown--stop-loading)
-           (let ((inhibit-read-only t)
-                 (pos (point)))
-             (erase-buffer)
-             (ogent-gastown--insert-buffer-contents)
-             (goto-char (min pos (point-max))))))))))
+           (ogent-gastown--render-buffer))))
+     (lambda (_slot _value _err)
+       (when (buffer-live-p buf)
+         (with-current-buffer buf
+           ;; Deferred updates repaint only after first paint has completed.
+           (unless ogent-gastown--loading
+             (ogent-gastown--render-buffer))))))))
 
 (defun ogent-gastown-refresh-force ()
   "Force refresh, clearing cache."
