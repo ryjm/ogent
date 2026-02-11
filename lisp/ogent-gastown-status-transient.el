@@ -82,7 +82,7 @@
     ("H" "Show hook" ogent-gastown-hook-show)
     ("a" "Attach work" ogent-gastown-hook-attach)]]
   [["Convoy"
-    ("c" "Convoy status" ogent-gastown-convoy-status)
+    ("c" "Inspect convoy" ogent-gastown-convoy-status)
     ("C" "Create convoy" ogent-gastown-convoy-create)]
    ["Status"
     ("s" "Town stats" ogent-gastown-stats-show)
