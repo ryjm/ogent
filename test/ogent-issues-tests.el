@@ -2756,6 +2756,67 @@
         ;; Should return nil and not start any processes
         (should-not (ogent-issues--fetch-gastown-agents "test-1" buf))))))
 
+;;; Agent Assignment Integration Tests
+
+(ert-deftest ogent-issues-test-format-agent-indicator-single ()
+  "Test formatting agent indicator for single agent on issue line."
+  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
+    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
+    (let ((result (ogent-issues--format-agent-indicator "test-001")))
+      (should result)
+      (should (string= " → ritchie" (substring-no-properties result))))))
+
+(ert-deftest ogent-issues-test-format-agent-indicator-multiple ()
+  "Test formatting agent indicator for multiple agents."
+  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
+    (puthash "test-001" '(("toast" . "polecat") ("ritchie" . "crew"))
+             ogent-issues--agent-assignments)
+    (let ((result (ogent-issues--format-agent-indicator "test-001")))
+      (should result)
+      (should (string= " → toast +1" (substring-no-properties result))))))
+
+(ert-deftest ogent-issues-test-format-agent-indicator-none ()
+  "Test formatting returns nil when no agent assigned."
+  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
+    (should-not (ogent-issues--format-agent-indicator "test-xyz"))))
+
+(ert-deftest ogent-issues-test-format-agent-indicator-nil-cache ()
+  "Test formatting returns nil when assignments cache is nil."
+  (let ((ogent-issues--agent-assignments nil))
+    (should-not (ogent-issues--format-agent-indicator "test-001"))))
+
+(ert-deftest ogent-issues-test-format-issue-line-with-agent ()
+  "Test that issue line includes agent assignment when available."
+  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal))
+        (ogent-issues-use-unicode t))
+    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
+    (let ((line (ogent-issues--format-issue-line
+                 '(:id "test-001" :title "Test issue" :priority 1
+                   :issue_type "task" :status "open" :dependency_count 0))))
+      (should (string-match-p "→ ritchie" line)))))
+
+(ert-deftest ogent-issues-test-format-issue-line-without-agent ()
+  "Test that issue line omits agent when no assignment."
+  (let ((ogent-issues--agent-assignments nil)
+        (ogent-issues-use-unicode t))
+    (let ((line (ogent-issues--format-issue-line
+                 '(:id "test-001" :title "Test issue" :priority 1
+                   :issue_type "task" :status "open" :dependency_count 0))))
+      (should-not (string-match-p "→" line)))))
+
+(ert-deftest ogent-issues-test-format-issue-line-agent-has-dimmed-face ()
+  "Test that agent indicator uses dimmed face."
+  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal))
+        (ogent-issues-use-unicode t))
+    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
+    (let ((line (ogent-issues--format-issue-line
+                 '(:id "test-001" :title "Test issue" :priority 1
+                   :issue_type "task" :status "open" :dependency_count 0))))
+      ;; Find the agent indicator and check its face
+      (let ((pos (string-match "→ ritchie" line)))
+        (should pos)
+        (should (eq 'ogent-issues-dimmed (get-text-property pos 'face line)))))))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here
