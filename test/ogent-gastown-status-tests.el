@@ -170,6 +170,7 @@
           :crew_count 2
           :has_witness t
           :has_refinery t
+          :beads_stats (:total 150 :open 42 :in_progress 5 :closed 95 :blocked 8 :ready 34)
           :agents ((:name "witness"
                     :role "witness"
                     :running t
@@ -185,6 +186,7 @@
           :crew_count 1
           :has_witness nil
           :has_refinery t
+          :beads_stats (:total 80 :open 20 :in_progress 0 :closed 55 :blocked 3 :ready 17)
           :agents nil))
   "Sample rigs list for testing.")
 
@@ -349,19 +351,42 @@
                          (ogent-gastown--find-town-root))))
       (delete-directory marker-root))))
 
-(ert-deftest ogent-gts-test-find-town-root-from-home-gt-prefix ()
-  "Test finding town root when current dir is under ~/gt."
-  (let* ((gt-root (expand-file-name "~/gt/"))
-         (default-directory (expand-file-name "~/gt/crew/stallman/")))
-    (cl-letf (((symbol-function 'getenv)
-               (lambda (_var) nil))
-              ((symbol-function 'locate-dominating-file)
-               (lambda (_dir _marker) nil)))
-      (should (equal gt-root (ogent-gastown--find-town-root))))))
+(ert-deftest ogent-gts-test-find-town-root-from-default-root-prefix ()
+  "Test finding town root when current dir is under default town root."
+  (let ((root (make-temp-file "ogent-gts-default-root-prefix-" t)))
+    (unwind-protect
+        (let* ((default-directory (expand-file-name "crew/stallman/" root))
+               (ogent-gastown-default-town-root root))
+          (make-directory default-directory t)
+          (cl-letf (((symbol-function 'getenv)
+                     (lambda (_var) nil))
+                    ((symbol-function 'locate-dominating-file)
+                     (lambda (_dir _marker) nil)))
+            (should (equal (file-name-as-directory (expand-file-name root))
+                           (ogent-gastown--find-town-root)))))
+      (delete-directory root t))))
 
-(ert-deftest ogent-gts-test-find-town-root-nil-when-outside-town ()
-  "Test finding town root returns nil outside workspace."
-  (let ((default-directory "/tmp/not-a-town/"))
+(ert-deftest ogent-gts-test-find-town-root-falls-back-to-default-root ()
+  "Test finding town root falls back to configured default root."
+  (let ((root (make-temp-file "ogent-gts-default-root-fallback-" t)))
+    (unwind-protect
+        (let ((default-directory "/tmp/not-a-town/")
+              (ogent-gastown-default-town-root root))
+          (cl-letf (((symbol-function 'getenv)
+                     (lambda (_var) nil))
+                    ((symbol-function 'locate-dominating-file)
+                     (lambda (_dir _marker) nil)))
+            (should (equal (file-name-as-directory (expand-file-name root))
+                           (ogent-gastown--find-town-root)))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-gts-test-find-town-root-nil-when-default-root-missing ()
+  "Test finding town root returns nil when default root does not exist."
+  (let ((default-directory "/tmp/not-a-town/")
+        (ogent-gastown-default-town-root
+         (make-temp-name
+          (expand-file-name "ogent-gts-missing-default-root-"
+                            temporary-file-directory))))
     (cl-letf (((symbol-function 'getenv)
                (lambda (_var) nil))
               ((symbol-function 'locate-dominating-file)
@@ -1673,8 +1698,8 @@
         (ogent-gastown--fetch-all
          (lambda ()
            (setq callback-called t)))
-        ;; Should have called run-async 7 times (hook, mail, convoy, workers, town-status, crew, polecat)
-        (should (= call-count 7))
+        ;; Should have called run-async 6 times (hook, mail, convoy, workers, town-status, crew)
+        (should (= call-count 6))
         (should callback-called)))))
 
 (ert-deftest ogent-gts-test-fetch-all-handles-errors ()
@@ -1705,7 +1730,7 @@
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw)
                    ;; Return town-status for the status command
-                   (if (equal args '("status" "--json"))
+                   (if (equal args '("status" "--json" "--fast"))
                        (funcall callback
                                 '(:summary (:rig_count 2 :polecat_count 3)
                                   :agents ((:name "deacon" :running t :has_work nil))
@@ -2068,6 +2093,10 @@
 (ert-deftest ogent-gts-test-custom-gt-executable-default ()
   "Test default gt executable is gt."
   (should (equal ogent-gastown-gt-executable "gt")))
+
+(ert-deftest ogent-gts-test-custom-default-town-root-default ()
+  "Test default town root is ~/gt."
+  (should (equal ogent-gastown-default-town-root "~/gt")))
 
 (ert-deftest ogent-gts-test-custom-timeout-default ()
   "Test default timeout is 30."
@@ -2895,14 +2924,12 @@
                      (funcall callback (list '(:id "c1" :name "test"))))
                     ((equal args '("polecat" "list" "--all" "--json"))
                      (funcall callback (list '(:name "w1" :state "working"))))
-                    ((equal args '("status" "--json"))
+                    ((equal args '("status" "--json" "--fast"))
                      (funcall callback '(:summary (:rig_count 1)
                                          :agents ((:name "deacon" :running t))
                                          :rigs ((:name "r1" :has_witness t)))))
                     ((equal args '("crew" "list" "--json"))
-                     (funcall callback (list '(:name "c1" :rig "r1"))))
-                    ((equal args '("polecat" "list" "--json"))
-                     (funcall callback (list '(:name "p1" :rig "r1"))))))))
+                     (funcall callback (list '(:name "c1" :rig "r1"))))))))
         (ogent-gastown--fetch-all (lambda () (setq callback-called t)))
         (should callback-called)
         ;; All data should be populated

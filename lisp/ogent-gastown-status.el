@@ -59,6 +59,11 @@
   :type 'string
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-default-town-root "~/gt"
+  "Default Gas Town root used when workspace detection cannot infer one."
+  :type 'directory
+  :group 'ogent-gastown)
+
 (defcustom ogent-gastown-timeout 30
   "Timeout in seconds for gt commands."
   :type 'integer
@@ -395,10 +400,12 @@ Returns \"COMPLETED/TOTAL\" or nil if data is missing."
   "Resolve a Gas Town workspace root from DIR, or nil."
   (let* ((expanded (and dir (expand-file-name dir)))
          (marker-root (and expanded (locate-dominating-file expanded ".gastown")))
-         (home-root (file-name-as-directory (expand-file-name "~/gt"))))
+         (default-root
+          (file-name-as-directory
+           (expand-file-name ogent-gastown-default-town-root))))
     (or (ogent-gastown--normalize-dir marker-root)
-        (when (and expanded (string-prefix-p home-root (file-name-as-directory expanded)))
-          home-root))))
+        (when (and expanded (string-prefix-p default-root (file-name-as-directory expanded)))
+          default-root))))
 
 (defun ogent-gastown--active-workspace-root ()
   "Return the active workspace root for status commands, or nil."
@@ -519,11 +526,13 @@ Resolution order:
 1) `GT_ROOT' environment variable
 2) `GT_TOWN' environment variable
 3) `.gastown' marker from `default-directory' upward
-4) parent `~/gt/' workspace when current directory is under it."
+4) parent `ogent-gastown-default-town-root' when current directory is under it
+5) `ogent-gastown-default-town-root' fallback."
   (let ((env-root (or (ogent-gastown--normalize-dir (getenv "GT_ROOT"))
                       (ogent-gastown--normalize-dir (getenv "GT_TOWN")))))
     (or env-root
-        (ogent-gastown--workspace-root-from-dir default-directory))))
+        (ogent-gastown--workspace-root-from-dir default-directory)
+        (ogent-gastown--normalize-dir ogent-gastown-default-town-root))))
 
 (defun ogent-gastown--in-town-p ()
   "Return non-nil if gt is available and workspace root is resolvable."
@@ -821,7 +830,7 @@ Other:
 
 (defun ogent-gastown--fetch-all (callback)
   "Fetch all data for the status buffer, call CALLBACK when done."
-  (let* ((pending 7)
+  (let* ((pending 6)
          (results (make-hash-table))
          (buf (current-buffer))
          ;; Use let-bound lambda instead of cl-flet to avoid bytecode issues
@@ -839,7 +848,7 @@ Other:
                            (gethash 'convoy results)))
                   (setq ogent-gastown--workers-data (gethash 'workers results))
                   (setq ogent-gastown--crew-data (gethash 'crew results))
-                  (setq ogent-gastown--polecat-data (gethash 'polecat results))
+                  (setq ogent-gastown--polecat-data (gethash 'workers results))
                   ;; Extract stats, deacon, witnesses, and rigs from town status
                   (let ((town-status (gethash 'town-status results)))
                     (setq ogent-gastown--stats-data
@@ -894,7 +903,7 @@ Other:
 
     ;; Fetch town status (for stats, deacon, witnesses)
     (ogent-gastown-status--run-async
-     '("status" "--json")
+     '("status" "--json" "--fast")
      (lambda (result)
        (puthash 'town-status result results)
        (funcall check-done))
@@ -912,15 +921,7 @@ Other:
        (puthash 'crew nil results)
        (funcall check-done)))
 
-    ;; Fetch polecats
-    (ogent-gastown-status--run-async
-     '("polecat" "list" "--json")
-     (lambda (result)
-       (puthash 'polecat result results)
-       (funcall check-done))
-     (lambda (_err)
-       (puthash 'polecat nil results)
-       (funcall check-done)))))
+    ))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
@@ -1621,7 +1622,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (has-witness (plist-get rig :has_witness))
          (has-refinery (plist-get rig :has_refinery))
          (agents (plist-get rig :agents))
-         (any-running (seq-some (lambda (a) (plist-get a :running)) agents)))
+         (any-running (seq-some (lambda (a) (plist-get a :running)) agents))
+         (beads-stats (plist-get rig :beads_stats)))
     (magit-insert-section (ogent-gastown-rig-item-section rig t)
       (insert "  ")
       (insert (propertize name 'face 'ogent-gastown-rig-name))
@@ -1696,7 +1698,8 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 
 (defun ogent-gastown--insert-rig-agent (agent)
   "Insert a single AGENT line within a rig section."
-  (let* ((name (plist-get agent :name))
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (name (plist-get agent :name))
          (role (plist-get agent :role))
          (running (plist-get agent :running))
          (has-work (plist-get agent :has_work))
@@ -2234,7 +2237,7 @@ convoys, crew members, and polecats."
       (user-error "Gas Town CLI (gt) not found in PATH"))
     (unless workspace-root
       (user-error
-       "Not in a Gas Town workspace (set GT_ROOT/GT_TOWN or open from a town directory)"))
+       "No Gas Town workspace found (set GT_ROOT/GT_TOWN, open from a town directory, or set ogent-gastown-default-town-root)"))
     (let ((buf (get-buffer-create ogent-gastown-buffer-name))
           (workspace-dir (file-name-as-directory (expand-file-name workspace-root))))
       (with-current-buffer buf

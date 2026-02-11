@@ -1700,10 +1700,14 @@ and re-renders the detail view."
                     (setq prev-pos cur-pos)))
         (if (equal (ogent-issues--current-issue-id) ogent-issues--last-position)
             (setq found t)
-          (ogent-issues-next-issue)))
+          (condition-case nil
+              (ogent-issues-next-issue)
+            (user-error nil))))
       (unless found
         (goto-char (point-min))
-        (ogent-issues-next-issue)))))
+        (condition-case nil
+            (ogent-issues-next-issue)
+          (user-error nil))))))
 
 ;;; Filtering
 
