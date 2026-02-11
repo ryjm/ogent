@@ -46,7 +46,7 @@ Captured at load time so sibling requires remain robust.")
 (declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
 (autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
 
-;; Gas Town integration (conditional)
+;; Gas Town integration (soft dependency)
 (declare-function ogent-gastown-integration-active-p "ogent-gastown" () t)
 (declare-function ogent-gastown-status "ogent-gastown-status" () t)
 (declare-function ogent-gastown-mail-compose "ogent-gastown-status"
@@ -441,45 +441,12 @@ The inherited `value' slot holds the issue plist.")))
     
     ;; Sync (like magit push/pull)
     (define-key map "S" #'ogent-issues-sync)
-
-    ;; Gas Town integration
-    (define-key map "T" #'ogent-issues-goto-gastown)
-    (define-key map "M" #'ogent-issues-sling-issue)
-
+    
     ;; Quit
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-issues-mode'.")
 
-
-;;; Gas Town Integration Commands
-
-(defun ogent-issues-goto-gastown ()
-  "Jump to the Gas Town status buffer.
-Requires Gas Town integration to be active."
-  (interactive)
-  (unless (and (fboundp 'ogent-gastown-integration-active-p)
-               (ogent-gastown-integration-active-p))
-    (user-error "Gas Town integration is not active"))
-  (ogent-gastown-status))
-
-(defun ogent-issues-sling-issue ()
-  "Compose a mail to an agent with the current issue context pre-filled.
-Pre-populates the subject with \"[ISSUE-ID] title\" and the body with
-the issue description.  Requires Gas Town integration to be active."
-  (interactive)
-  (unless (and (fboundp 'ogent-gastown-integration-active-p)
-               (ogent-gastown-integration-active-p))
-    (user-error "Gas Town integration is not active"))
-  (let* ((issue (ogent-issues--current-issue))
-         (id (when issue (plist-get issue :id)))
-         (title (when issue (plist-get issue :title)))
-         (desc (when issue (plist-get issue :description))))
-    (unless issue
-      (user-error "No issue at point"))
-    (ogent-gastown-mail-compose nil
-                                (format "[%s] %s" id title)
-                                (or desc ""))))
 
 
 ;;; Mode Definition
@@ -520,10 +487,6 @@ Views:
   \\[ogent-issues-view-list]    List view
   \\[ogent-issues-view-ready]    Ready work
   \\[ogent-issues-view-kanban]    Kanban board
-
-Gas Town (when active):
-  \\[ogent-issues-goto-gastown]     Jump to Gas Town status
-  \\[ogent-issues-sling-issue]     Sling issue to agent
 
 Other:
   \\[ogent-issues-refresh]     Refresh
