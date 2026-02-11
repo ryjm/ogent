@@ -4062,5 +4062,125 @@ produces this:
   </html>
 #+END_SRC
 
+* Operational Buffer Style Contract                         :ogent:style:
+:PROPERTIES:
+:CUSTOM_ID: operational-buffer-style-contract
+:END:
+
+Ogent's operational buffers (Gastown Status, Issues, Refinery) share a
+visual style contract defined in =ogent-ops-style.el=.  All status
+indicators, section headings, and loading animations route through this
+shared module so the buffers stay visually synchronized.
+
+** Symbol Families
+
+Status, priority, and activity indicators use a closed set of semantic
+symbols.  Each family has Unicode and ASCII variants controlled by
+=ogent-ops-use-unicode=.
+
+*** Status Symbols (=ogent-ops-status-symbol=)
+
+| Status      | Unicode | ASCII |
+|-------------+---------+-------|
+| open        | ○       | o     |
+| in-progress | ◐       | >     |
+| blocked     | ✗       | x     |
+| closed      | ●       | *     |
+| ready       | »       | !     |
+| waiting     | ○       | o     |
+| processing  | ⚙       | *     |
+| failed      | ✗       | x     |
+| merged      | ✓       | +     |
+| /unknown/   | ?       | ?     |
+
+*** Priority Symbols (=ogent-ops-priority-symbol=)
+
+| Priority | Unicode | ASCII |
+|----------+---------+-------|
+| 0        | ●       | P0    |
+| 1        | ◐       | P1    |
+| 2        | ○       | P2    |
+| 3+       | ◌       | P<n>  |
+| nil      | ○       | P2    |
+
+*** Activity Symbols (=ogent-ops-activity-symbol=)
+
+| State   | Unicode | ASCII |
+|---------+---------+-------|
+| active  | ●       | >     |
+| working | ◐       | *     |
+| idle    | ○       | -     |
+
+** Emoji Policy
+
+*No emoji codepoints (U+1F300 and above) in operational buffer output.*
+
+Emoji were removed because they render inconsistently across terminal
+emulators and Emacs builds, cause alignment problems in fixed-width
+columns, and conflate decoration with semantics.  Tests enforce this
+via =ogent-gts-test--contains-emoji-p=.
+
+** Section Headings
+
+Use =ogent-ops-section-prefix= and =ogent-ops-section-heading= for
+section headers.  Each buffer defines its own icon/label pairs but
+routes through the shared helpers:
+
+#+BEGIN_SRC elisp
+  ;; Section prefix respects the module's unicode setting
+  (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+    (ogent-ops-section-prefix "◆" "*"))
+
+  ;; Full heading with optional count
+  (ogent-ops-section-heading icon label count)
+#+END_SRC
+
+** Unicode Bridge Pattern
+
+Each buffer module has its own =use-unicode= customization variable
+(=ogent-gastown-use-unicode=, =ogent-issues-use-unicode=,
+=ogent-refinery-use-unicode=).  The shared contract reads
+=ogent-ops-use-unicode=.  Bridge them with a =let= binding:
+
+#+BEGIN_SRC elisp
+  (let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+    (ogent-ops-status-symbol 'open))
+#+END_SRC
+
+** Font-Lock Protection
+
+Operational buffers apply faces via =propertize= with the ='face=
+property.  Call =ogent-ops-protect-face-properties= in each mode's
+initialization to prevent =font-lock-mode= from stripping those faces.
+
+** Loading Animation
+
+Use =ogent-ops-loading-frames= for spinner animation.  Returns 4-frame
+list appropriate for the current display (Unicode in GUI, ASCII in
+terminal).
+
+** Contributor Checklist
+
+When adding a new status section to an operational buffer:
+
+1. Route all status/priority/activity indicators through the shared
+   helpers in =ogent-ops-style.el=
+2. Bridge the module's =use-unicode= variable via =let= binding
+3. Use =ogent-ops-section-prefix= / =ogent-ops-section-heading= for
+   headings
+4. Call =ogent-ops-protect-face-properties= in the mode init
+5. Add anti-emoji regression tests using =ogent-gts-test--contains-emoji-p=
+   or equivalent
+6. Verify both Unicode and ASCII rendering paths
+
+** Non-Goals
+
+- The contract does /not/ prescribe faces or colors.  Each buffer
+  defines its own face set to fit its domain.
+- The contract does /not/ manage section ordering, keybindings, or
+  data fetching.  Those remain buffer-specific.
+- The contract does /not/ enforce magit-section usage.  Buffers choose
+  their own rendering strategy (magit-section, plain text, etc.).
+
 
 

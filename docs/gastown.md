@@ -289,6 +289,37 @@ Globally enables `ogent-gastown-mode` in all buffers. Add to your config:
 2. Check `gt hook` in terminal
 3. Verify beads sync: `bd sync --status`
 
+## Operational Buffer Style Contract
+
+The status buffers (Gastown Status, Issues, Refinery) share a visual style contract defined in `lisp/ogent-ops-style.el`. This ensures consistent status indicators, section headings, and loading animations across all operational views.
+
+### Key Helpers
+
+| Function | Purpose |
+|---|---|
+| `ogent-ops-status-symbol` | Status indicator (open/closed/blocked/etc.) |
+| `ogent-ops-priority-symbol` | Priority indicator (P0-P3) |
+| `ogent-ops-activity-symbol` | Worker/agent activity (active/idle) |
+| `ogent-ops-section-prefix` | Unicode/ASCII section icon dispatch |
+| `ogent-ops-section-heading` | Formatted section heading with optional count |
+| `ogent-ops-loading-frames` | Spinner animation frames |
+| `ogent-ops-protect-face-properties` | Prevent font-lock from stripping propertized faces |
+
+### Unicode Bridge
+
+Each buffer has its own `use-unicode` setting. Bridge to the shared contract with:
+
+```elisp
+(let ((ogent-ops-use-unicode ogent-gastown-use-unicode))
+  (ogent-ops-status-symbol 'open))  ;; => "○" or "o"
+```
+
+### Emoji Policy
+
+No emoji codepoints (U+1F300+) in operational buffer output. Tests enforce this with anti-regression checks. Use semantic Unicode symbols from the contract instead.
+
+See `specs/style-guide.org` (Operational Buffer Style Contract section) for the full symbol tables and contributor checklist.
+
 ## Integration with ogent
 
 Gas Town commands integrate with the rest of ogent:
