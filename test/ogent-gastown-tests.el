@@ -9,6 +9,7 @@
 (require 'ogent-test-helper)
 (require 'ogent-gastown)
 (require 'ogent-gastown-status)
+(require 'ogent-ops-style)
 
 ;;; Test Fixtures
 
@@ -753,8 +754,8 @@ OUTPUT should be a plist or list that will be returned."
           (ogent-gastown-use-unicode t))
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
-      ;; Check hook indicator appears
-      (should (search-forward "⚓" nil t)))))
+      ;; Check hook indicator appears (via ops-style helper)
+      (should (search-forward (ogent-ops-section-prefix "⚓" "H") nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-with-mail ()
   "Test rig agent with unread mail shows mail indicator."
@@ -767,8 +768,10 @@ OUTPUT should be a plist or list that will be returned."
           (ogent-gastown-use-unicode t))
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
-      ;; Check mail indicator appears
-      (should (search-forward "📬5" nil t)))))
+      ;; Check mail indicator appears (via ops-style helper)
+      (should (search-forward
+               (format "%s5" (ogent-ops-section-prefix "📬" "M:"))
+               nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-no-mail ()
   "Test rig agent with no unread mail does not show mail indicator."
@@ -782,7 +785,9 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown--insert-rig-agent agent)
       (let ((content (buffer-string)))
         ;; Should NOT have mail indicator
-        (should-not (string-match-p "📬" content))))))
+        (should-not (string-match-p
+                     (regexp-quote (ogent-ops-section-prefix "📬" "M:"))
+                     content))))))
 
 (ert-deftest ogent-gastown-test-rig-agent-role-icons ()
   "Test that different roles get different icons."
@@ -2235,7 +2240,9 @@ OUTPUT should be a plist or list that will be returned."
         (ogent-gastown--mail-cache (list '(:id "m1" :read t))))
     (let ((header (ogent-gastown--format-header-line)))
       ;; Should not contain mail indicator
-      (should-not (string-match-p "📬" header)))))
+      (should-not (string-match-p
+                   (regexp-quote (ogent-ops-section-prefix "📬" "M:"))
+                   header)))))
 
 ;;; --- Cleanup Process Handling ---
 
