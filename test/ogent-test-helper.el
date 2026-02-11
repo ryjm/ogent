@@ -24,6 +24,33 @@
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
 
+;; Auto-detect magit-section from Doom Emacs straight builds.
+;; magit-section requires dash and compat on load-path.
+;; Pick the highest-versioned build dir available (exact version may not match).
+(unless (featurep 'magit-section)
+  (let* ((straight-dir (expand-file-name
+                        ".local/share/doom/straight/"
+                        (getenv "HOME")))
+         (build-dir
+          (when (file-directory-p straight-dir)
+            (car (last (sort
+                        (seq-filter
+                         (lambda (d)
+                           (and (string-match-p "^build-[0-9]" d)
+                                (not (string-match-p "\\.el$" d))
+                                (file-directory-p
+                                 (expand-file-name d straight-dir))))
+                         (directory-files straight-dir))
+                        #'string<)))))
+         (doom-build (when build-dir
+                       (expand-file-name build-dir straight-dir)))
+         (deps '("compat" "dash" "seq" "magit-section")))
+    (when doom-build
+      (dolist (dep deps)
+        (let ((dep-dir (expand-file-name dep doom-build)))
+          (when (file-directory-p dep-dir)
+            (add-to-list 'load-path dep-dir)))))))
+
 (unless (featurep 'gptel)
   (provide 'gptel))
 
