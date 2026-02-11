@@ -414,6 +414,7 @@ Other:
        (setq-local revert-buffer-function #'ogent-refinery-refresh)
        (setq-local truncate-lines t)
        (setq-local buffer-read-only t)
+       (ogent-ops-protect-face-properties)
        (setq header-line-format '(:eval (ogent-refinery--header-line))))))
 
 (ogent-refinery--define-mode)
@@ -587,8 +588,10 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 
 (defun ogent-refinery--insert-processing-section-plain ()
   "Insert processing section (plain)."
-  (let ((processing (ogent-refinery--filter-queue-status 'processing)))
-    (insert (propertize "* Processing\n" 'face 'ogent-refinery-section-heading))
+  (let ((ogent-ops-use-unicode ogent-refinery-use-unicode)
+        (processing (ogent-refinery--filter-queue-status 'processing)))
+    (insert (propertize (format "%s Processing\n" (ogent-ops-section-prefix "⚙" "*"))
+                        'face 'ogent-refinery-section-heading))
     (if (null processing)
         (insert (propertize "  No active processing\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr processing)
@@ -622,8 +625,10 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 
 (defun ogent-refinery--insert-queue-section-plain ()
   "Insert queue section (plain)."
-  (let ((waiting (ogent-refinery--filter-queue-status 'waiting)))
-    (insert (propertize "# Queue\n" 'face 'ogent-refinery-section-heading))
+  (let ((ogent-ops-use-unicode ogent-refinery-use-unicode)
+        (waiting (ogent-refinery--filter-queue-status 'waiting)))
+    (insert (propertize (format "%s Queue\n" (ogent-ops-section-prefix "⏳" "#"))
+                        'face 'ogent-refinery-section-heading))
     (if (null waiting)
         (insert (propertize "  Queue is empty\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr waiting)
@@ -650,8 +655,10 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 
 (defun ogent-refinery--insert-failed-section-plain ()
   "Insert failed section (plain)."
-  (let ((failed (ogent-refinery--filter-queue-status 'failed)))
-    (insert (propertize "! Failed\n" 'face 'ogent-refinery-section-heading))
+  (let ((ogent-ops-use-unicode ogent-refinery-use-unicode)
+        (failed (ogent-refinery--filter-queue-status 'failed)))
+    (insert (propertize (format "%s Failed\n" (ogent-ops-section-prefix "✗" "!"))
+                        'face 'ogent-refinery-section-heading))
     (if (null failed)
         (insert (propertize "  No failures\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr failed)
@@ -678,8 +685,10 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 
 (defun ogent-refinery--insert-history-section-plain ()
   "Insert history section (plain)."
-  (let ((history ogent-refinery--history-data))
-    (insert (propertize "+ Recent Merges\n" 'face 'ogent-refinery-section-heading))
+  (let ((ogent-ops-use-unicode ogent-refinery-use-unicode)
+        (history ogent-refinery--history-data))
+    (insert (propertize (format "%s Recent Merges\n" (ogent-ops-section-prefix "✓" "+"))
+                        'face 'ogent-refinery-section-heading))
     (if (null history)
         (insert (propertize "  No recent merges\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr history)

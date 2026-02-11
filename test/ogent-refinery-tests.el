@@ -294,20 +294,20 @@
   (let ((ogent-refinery-use-unicode t))
     (should (equal "⚙" (ogent-refinery--status-icon 'processing)))
     (should (equal "○" (ogent-refinery--status-icon 'waiting)))
-    (should (equal "◌" (ogent-refinery--status-icon 'blocked)))
+    (should (equal "✗" (ogent-refinery--status-icon 'blocked)))
     (should (equal "✗" (ogent-refinery--status-icon 'failed)))
     (should (equal "✓" (ogent-refinery--status-icon 'merged)))
-    (should (equal "·" (ogent-refinery--status-icon 'unknown)))))
+    (should (equal "?" (ogent-refinery--status-icon 'unknown)))))
 
 (ert-deftest ogent-refinery-test-status-icon-ascii ()
   "Test status icons with Unicode disabled."
   (let ((ogent-refinery-use-unicode nil))
     (should (equal "*" (ogent-refinery--status-icon 'processing)))
     (should (equal "o" (ogent-refinery--status-icon 'waiting)))
-    (should (equal "-" (ogent-refinery--status-icon 'blocked)))
+    (should (equal "x" (ogent-refinery--status-icon 'blocked)))
     (should (equal "x" (ogent-refinery--status-icon 'failed)))
     (should (equal "+" (ogent-refinery--status-icon 'merged)))
-    (should (equal "." (ogent-refinery--status-icon 'unknown)))))
+    (should (equal "?" (ogent-refinery--status-icon 'unknown)))))
 
 ;;; Age Formatting Tests
 
@@ -654,9 +654,9 @@
 (ert-deftest ogent-refinery-test-status-icon-nil ()
   "Test status icon with nil status type."
   (let ((ogent-refinery-use-unicode t))
-    (should (equal "·" (ogent-refinery--status-icon nil))))
+    (should (equal "?" (ogent-refinery--status-icon nil))))
   (let ((ogent-refinery-use-unicode nil))
-    (should (equal "." (ogent-refinery--status-icon nil)))))
+    (should (equal "?" (ogent-refinery--status-icon nil)))))
 
 ;;; Filter Queue Status Additional Tests
 
