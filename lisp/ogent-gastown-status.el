@@ -233,6 +233,18 @@
   "Face for stopped rig indicator."
   :group 'ogent-gastown-faces)
 
+(defface ogent-gastown-beads-in-progress
+  '((((class color) (background light)) :foreground "#ff8f00" :weight bold)
+    (((class color) (background dark)) :foreground "#e5c07b" :weight bold))
+  "Face for in-progress beads count on rig lines."
+  :group 'ogent-gastown-faces)
+
+(defface ogent-gastown-beads-ready
+  '((((class color) (background light)) :foreground "#2e7d32" :weight bold)
+    (((class color) (background dark)) :foreground "#98c379" :weight bold))
+  "Face for ready beads count on rig lines."
+  :group 'ogent-gastown-faces)
+
 (defface ogent-gastown-header-line
   '((((class color) (background light))
      :background "grey90" :foreground "grey20"
@@ -1550,6 +1562,29 @@ Other:
         (insert (propertize " W" 'face 'ogent-gastown-witness-healthy)))
       (when has-refinery
         (insert (propertize " R" 'face 'ogent-gastown-convoy-active)))
+      (when-let* ((bs (plist-get rig :beads_stats)))
+        (let ((ready (or (plist-get bs :ready) 0))
+              (in-prog (or (plist-get bs :in_progress) 0))
+              (open (or (plist-get bs :open) 0)))
+          (when (> (+ in-prog ready open) 0)
+            (insert "  ")
+            (when (> in-prog 0)
+              (insert (propertize (format "%s%d"
+                                         (ogent-ops-section-prefix "●" "*")
+                                         in-prog)
+                                  'face 'ogent-gastown-beads-in-progress)))
+            (when (> ready 0)
+              (when (> in-prog 0) (insert " "))
+              (insert (propertize (format "%s%d"
+                                         (ogent-ops-section-prefix "◆" "+")
+                                         ready)
+                                  'face 'ogent-gastown-beads-ready)))
+            (when (> open 0)
+              (when (> (+ in-prog ready) 0) (insert " "))
+              (insert (propertize (format "%s%d"
+                                         (ogent-ops-section-prefix "○" "o")
+                                         open)
+                                  'face 'ogent-gastown-dimmed))))))
       (insert "\n")
       ;; Insert agents if expanded
       (when agents
@@ -1594,11 +1629,18 @@ Other:
       (dolist (rig rigs)
         (let* ((name (plist-get rig :name))
                (polecat-count (or (plist-get rig :polecat_count) 0))
-               (crew-count (or (plist-get rig :crew_count) 0)))
+               (crew-count (or (plist-get rig :crew_count) 0))
+               (bs (plist-get rig :beads_stats)))
           (insert "  ")
           (insert (or name "???"))
           (insert " ")
           (insert (format "P:%d C:%d" polecat-count crew-count))
+          (when bs
+            (let ((ready (or (plist-get bs :ready) 0))
+                  (in-prog (or (plist-get bs :in_progress) 0))
+                  (open (or (plist-get bs :open) 0)))
+              (when (> (+ in-prog ready open) 0)
+                (insert (format "  *%d +%d o%d" in-prog ready open)))))
           (insert "\n"))))))
 
 ;;; Utilities
