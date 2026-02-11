@@ -99,6 +99,86 @@ STATE is one of `active', `working', or `idle'."
                  ogent-ops--activity-symbols-ascii)))
     (or (alist-get state table) "?")))
 
+;;;; Section heading symbols
+
+(defconst ogent-ops--section-symbols-unicode
+  '((hook      . "⊙")
+    (mail      . "▷")
+    (convoy    . "▶")
+    (workers   . "◆")
+    (stats     . "≡")
+    (deacon    . "◎")
+    (witnesses . "◎")
+    (crew      . "◇")
+    (polecats  . "▸")
+    (rigs      . "▣"))
+  "Unicode section heading symbols for operational buffers.")
+
+(defconst ogent-ops--section-symbols-ascii
+  '((hook      . "#")
+    (mail      . "@")
+    (convoy    . ">")
+    (workers   . "*")
+    (stats     . "#")
+    (deacon    . "D")
+    (witnesses . "W")
+    (crew      . "C")
+    (polecats  . "P")
+    (rigs      . "R"))
+  "ASCII fallback section heading symbols.")
+
+(defun ogent-ops-section-symbol (section)
+  "Return the display symbol for SECTION.
+SECTION is a symbol like `hook', `mail', `stats', `rigs', etc."
+  (let ((table (if ogent-ops-use-unicode
+                   ogent-ops--section-symbols-unicode
+                 ogent-ops--section-symbols-ascii)))
+    (or (alist-get section table) "?")))
+
+;;;; Role symbols
+
+(defconst ogent-ops--role-symbols-unicode
+  '((witness  . "◎")
+    (refinery . "▣")
+    (polecat  . "▸")
+    (crew     . "▪"))
+  "Unicode role symbols for agent listings.")
+
+(defconst ogent-ops--role-symbols-ascii
+  '((witness  . "W")
+    (refinery . "R")
+    (polecat  . "P")
+    (crew     . "C"))
+  "ASCII fallback role symbols.")
+
+(defun ogent-ops-role-symbol (role)
+  "Return the display symbol for agent ROLE.
+ROLE is a symbol like `witness', `refinery', `polecat', or `crew'."
+  (let ((table (if ogent-ops-use-unicode
+                   ogent-ops--role-symbols-unicode
+                 ogent-ops--role-symbols-ascii)))
+    (or (alist-get role table) "?")))
+
+;;;; Badge symbols
+
+(defconst ogent-ops--badge-symbols-unicode
+  '((mail . "▷")
+    (hook . "⊙"))
+  "Unicode badge symbols for inline indicators.")
+
+(defconst ogent-ops--badge-symbols-ascii
+  '((mail . "M:")
+    (hook . "H"))
+  "ASCII fallback badge symbols.")
+
+(defun ogent-ops-badge-symbol (badge)
+  "Return the display symbol for BADGE.
+BADGE is a symbol like `mail' or `hook'."
+  (let ((table (if ogent-ops-use-unicode
+                   ogent-ops--badge-symbols-unicode
+                 ogent-ops--badge-symbols-ascii)))
+    (or (alist-get badge table) "?")))
+
 ;;;; Section heading helpers
 
 (defun ogent-ops-section-prefix (unicode-icon ascii-icon)

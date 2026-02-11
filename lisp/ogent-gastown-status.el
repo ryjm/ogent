@@ -1018,7 +1018,7 @@ Other:
     (magit-insert-section (ogent-gastown-hook-section data)
       (magit-insert-heading
         (ogent-ops-section-heading
-         (ogent-ops-section-prefix "" "#")
+         (ogent-ops-section-symbol 'hook)
          (propertize "Hook Status" 'face 'ogent-gastown-section-heading)))
       (insert "  ")
       (insert (propertize "Role: " 'face 'ogent-gastown-dimmed))
@@ -1060,7 +1060,7 @@ Other:
     (magit-insert-section (ogent-gastown-mail-section mail nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "" "@")
+         (ogent-ops-section-symbol 'mail)
          " "
          (propertize "Mail Inbox" 'face 'ogent-gastown-section-heading)
          (when (> unread-count 0)
@@ -1121,7 +1121,7 @@ Other:
     (magit-insert-section (ogent-gastown-convoy-section convoys nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "" ">")
+         (ogent-ops-section-symbol 'convoy)
          " "
          (propertize "Convoys" 'face 'ogent-gastown-section-heading)
          (when convoys
@@ -1175,7 +1175,7 @@ CONVOY should be a normalized plist with canonical keys."
     (magit-insert-section (ogent-gastown-workers-section workers nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "" "*")
+         (ogent-ops-section-symbol 'workers)
          " "
          (propertize "Workers" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d running)"
@@ -1242,7 +1242,7 @@ CONVOY should be a normalized plist with canonical keys."
     (magit-insert-section (ogent-gastown-stats-section stats)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "📊" "#")
+         (ogent-ops-section-symbol 'stats)
          " "
          (propertize "Town Stats" 'face 'ogent-gastown-section-heading)))
       (if (null stats)
@@ -1323,7 +1323,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
     (magit-insert-section (ogent-gastown-deacon-section data)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "👁" "D")
+         (ogent-ops-section-symbol 'deacon)
          " "
          (propertize "Deacon" 'face 'ogent-gastown-section-heading)
          " "
@@ -1365,7 +1365,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
     (magit-insert-section (ogent-gastown-witness-section witnesses nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "🔭" "W")
+         (ogent-ops-section-symbol 'witnesses)
          " "
          (propertize "Witnesses" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d active)"
@@ -1427,7 +1427,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
     (magit-insert-section (ogent-gastown-crew-section crew nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "👤" "C")
+         (ogent-ops-section-symbol 'crew)
          " "
          (propertize "Crew" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d active)"
@@ -1484,7 +1484,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
       ;; Mail count
       (when (and mail-count (> mail-count 0))
         (insert " ")
-        (insert (propertize (format "📬%d" mail-count) 'face 'ogent-gastown-mail-unread)))
+        (insert (propertize (format "%s%d" (ogent-ops-badge-symbol 'mail) mail-count) 'face 'ogent-gastown-mail-unread)))
       (insert "\n"))))
 
 (defun ogent-gastown--insert-crew-section-plain ()
@@ -1514,7 +1514,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
     (magit-insert-section (ogent-gastown-polecat-section polecats nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "🔧" "P")
+         (ogent-ops-section-symbol 'polecats)
          " "
          (propertize "Polecats" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d/%d running)"
@@ -1604,7 +1604,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
     (magit-insert-section (ogent-gastown-rigs-section rigs nil)
       (magit-insert-heading
         (concat
-         (ogent-ops-section-prefix "🏭" "R")
+         (ogent-ops-section-symbol 'rigs)
          " "
          (propertize "Rigs" 'face 'ogent-gastown-section-heading)
          (propertize (format " (%d)" (length rigs))
@@ -1705,10 +1705,10 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
          (has-work (plist-get agent :has_work))
          (unread (or (plist-get agent :unread_mail) 0))
          (role-icon (pcase role
-                      ("witness" (ogent-ops-section-prefix "👁" "W"))
-                      ("refinery" (ogent-ops-section-prefix "⚙" "R"))
-                      ("polecat" (ogent-ops-section-prefix "🐱" "P"))
-                      ("crew" (ogent-ops-section-prefix "👤" "C"))
+                      ("witness" (ogent-ops-role-symbol 'witness))
+                      ("refinery" (ogent-ops-role-symbol 'refinery))
+                      ("polecat" (ogent-ops-role-symbol 'polecat))
+                      ("crew" (ogent-ops-role-symbol 'crew))
                       (_ "?"))))
     (insert "    ")
     (insert role-icon)
@@ -1717,11 +1717,11 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                         'face (if running 'ogent-gastown-worker-running 'ogent-gastown-dimmed)))
     (when has-work
       (insert " ")
-      (insert (propertize (ogent-ops-section-prefix "⚓" "H") 'face 'ogent-gastown-hook-active)))
+      (insert (propertize (ogent-ops-badge-symbol 'hook) 'face 'ogent-gastown-hook-active)))
     (when (> unread 0)
       (insert " ")
       (insert (propertize (format "%s%d"
-                                  (ogent-ops-section-prefix "📬" "M:")
+                                  (ogent-ops-badge-symbol 'mail)
                                   unread)
                           'face 'ogent-gastown-mail-unread)))
     (insert "\n")))
