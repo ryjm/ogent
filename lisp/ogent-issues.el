@@ -143,15 +143,76 @@ Set to nil for fastest possible display with no background activity."
 
 ;; Section headings - like magit-section-heading
 (defface ogent-issues-section-heading
-  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+  '((((class color) (background light))
+     :foreground "#37474f" :background "#eceff1" :weight bold :extend t)
+    (((class color) (background dark))
+     :foreground "#eceff4" :background "#3b4252" :weight bold :extend t)
     (t :weight bold))
   "Face for section headings."
   :group 'ogent-issues-faces)
 
+(defface ogent-issues-section-heading-view
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#4e342e" :background "#efebe9")
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#e5c07b" :background "#4a4037")
+    (t :inherit ogent-issues-section-heading))
+  "Face for primary Issues view headings."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-section-heading-in-progress
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#4a148c" :background "#ede7f6")
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#caa1ff" :background "#3f3158")
+    (t :inherit ogent-issues-section-heading))
+  "Face for the in-progress status section heading."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-section-heading-open
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#0d47a1" :background "#e3f2fd")
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#8cc7ff" :background "#2f435e")
+    (t :inherit ogent-issues-section-heading))
+  "Face for the open status section heading."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-section-heading-blocked
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#b71c1c" :background "#ffebee")
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#ff9aa2" :background "#5a3338")
+    (t :inherit ogent-issues-section-heading))
+  "Face for the blocked status section heading."
+  :group 'ogent-issues-faces)
+
+(defface ogent-issues-section-heading-closed
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#37474f" :background "#eceff1")
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#c0c5ce" :background "#323b4a")
+    (t :inherit ogent-issues-section-heading))
+  "Face for the closed status section heading."
+  :group 'ogent-issues-faces)
+
 (defface ogent-issues-section-heading-selection
-  '((((class color) (background light)) :foreground "#bf360c" :weight bold)
-    (((class color) (background dark)) :foreground "#d08770" :weight bold)
+  '((((class color) (background light))
+     :inherit ogent-issues-section-heading
+     :foreground "#bf360c" :background "#ffe0b2" :weight bold)
+    (((class color) (background dark))
+     :inherit ogent-issues-section-heading
+     :foreground "#d08770" :background "#5a3f33" :weight bold)
     (t :weight bold :underline t))
   "Face for selected section headings."
   :group 'ogent-issues-faces)
@@ -738,6 +799,41 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
        ("closed" 'closed)
        (_ nil)))))
 
+(defun ogent-issues--section-heading-face (section)
+  "Return heading face for SECTION."
+  (pcase section
+    ('view 'ogent-issues-section-heading-view)
+    ("in_progress" 'ogent-issues-section-heading-in-progress)
+    ("open" 'ogent-issues-section-heading-open)
+    ("blocked" 'ogent-issues-section-heading-blocked)
+    ("closed" 'ogent-issues-section-heading-closed)
+    (_ 'ogent-issues-section-heading)))
+
+(defun ogent-issues--compose-view-heading (title)
+  "Compose top-level heading TITLE for the current Issues view."
+  (let* ((face (ogent-issues--section-heading-face 'view))
+         (heading (propertize title 'face face)))
+    (add-face-text-property 0 (length heading) face 'append heading)
+    heading))
+
+(defun ogent-issues--compose-status-heading (status count)
+  "Compose a status heading for STATUS with COUNT items."
+  (let* ((icon (ogent-issues--status-icon status))
+         (label (ogent-issues--status-label status))
+         (count-suffix (when ogent-issues-show-counts
+                         (format " (%d)" (or count 0))))
+         (heading-face (ogent-issues--section-heading-face status))
+         (heading (concat icon " " label (or count-suffix "")))
+         (count-start (+ (length icon) 1 (length label))))
+    (add-face-text-property 0 (length heading) heading-face 'append heading)
+    (add-face-text-property 0 (length icon)
+                            (ogent-issues--status-face status)
+                            'append
+                            heading)
+    (when count-suffix
+      (add-face-text-property count-start (length heading) 'ogent-issues-dimmed 'append heading))
+    heading))
+
 (defun ogent-issues--ready-indicator ()
   "Return the ready indicator string."
   (let ((ogent-ops-use-unicode ogent-issues-use-unicode))
@@ -856,12 +952,8 @@ errors in `magit-section-post-command-hook'."
   (let ((grouped (ogent-issues--group-by-status issues)))
     (dolist (status '("in_progress" "open" "blocked" "closed"))
       (when-let ((group (alist-get status grouped nil nil #'string=)))
-        (insert (propertize
-                 (format "%s %s (%d)\n"
-                         (ogent-issues--status-icon status)
-                         (ogent-issues--status-label status)
-                         (length group))
-                 'face 'ogent-issues-section-heading))
+        (insert (ogent-issues--compose-status-heading status (length group)))
+        (insert "\n")
         (dolist (issue group)
           (insert (ogent-issues--format-issue-line issue) "\n")
           (put-text-property (line-beginning-position 0)
@@ -876,23 +968,16 @@ errors in `magit-section-post-command-hook'."
                      ('ready "Ready Work")
                      ('kanban "Kanban")
                      (_ "Issues"))))
-    (insert (propertize view-name 'face 'ogent-issues-section-heading))
+    (insert (ogent-issues--compose-view-heading view-name))
     (insert "\n")))
 
 (defun ogent-issues--insert-status-section (status issues)
   "Insert a section for STATUS containing ISSUES."
   (let ((collapsed (member status ogent-issues-collapsed-statuses))
-        (icon (ogent-issues--status-icon status))
-        (label (ogent-issues--status-label status))
         (count (length issues)))
     (magit-insert-section (ogent-issues-status-section status collapsed)
 			  (magit-insert-heading
-			   (concat
-			    (propertize icon 'face (ogent-issues--status-face status))
-			    " "
-			    (propertize label 'face 'ogent-issues-section-heading)
-			    (when ogent-issues-show-counts
-			      (propertize (format " (%d)" count) 'face 'ogent-issues-dimmed))))
+                           (ogent-issues--compose-status-heading status count))
 			  (dolist (issue issues)
 			    (ogent-issues--insert-issue issue))
 			  (insert "\n"))))

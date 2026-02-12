@@ -76,10 +76,56 @@
   :group 'faces)
 
 (defface ogent-refinery-section-heading
-  '((((class color) (background light)) :foreground "#5d4037" :weight bold)
-    (((class color) (background dark)) :foreground "#ebcb8b" :weight bold)
+  '((((class color) (background light))
+     :foreground "#37474f" :background "#eceff1" :weight bold :extend t)
+    (((class color) (background dark))
+     :foreground "#eceff4" :background "#3b4252" :weight bold :extend t)
     (t :weight bold))
   "Face for section headings."
+  :group 'ogent-refinery-faces)
+
+(defface ogent-refinery-section-heading-processing
+  '((((class color) (background light))
+     :inherit ogent-refinery-section-heading
+     :foreground "#6f4e37" :background "#fff3e0")
+    (((class color) (background dark))
+     :inherit ogent-refinery-section-heading
+     :foreground "#f4d9b3" :background "#4b3d2f")
+    (t :inherit ogent-refinery-section-heading))
+  "Face for the processing section heading."
+  :group 'ogent-refinery-faces)
+
+(defface ogent-refinery-section-heading-queue
+  '((((class color) (background light))
+     :inherit ogent-refinery-section-heading
+     :foreground "#0d47a1" :background "#e3f2fd")
+    (((class color) (background dark))
+     :inherit ogent-refinery-section-heading
+     :foreground "#9ed0ff" :background "#2f435f")
+    (t :inherit ogent-refinery-section-heading))
+  "Face for the queue section heading."
+  :group 'ogent-refinery-faces)
+
+(defface ogent-refinery-section-heading-failed
+  '((((class color) (background light))
+     :inherit ogent-refinery-section-heading
+     :foreground "#b71c1c" :background "#ffebee")
+    (((class color) (background dark))
+     :inherit ogent-refinery-section-heading
+     :foreground "#ff9aa2" :background "#5a3338")
+    (t :inherit ogent-refinery-section-heading))
+  "Face for the failed section heading."
+  :group 'ogent-refinery-faces)
+
+(defface ogent-refinery-section-heading-history
+  '((((class color) (background light))
+     :inherit ogent-refinery-section-heading
+     :foreground "#1b5e20" :background "#e8f5e9")
+    (((class color) (background dark))
+     :inherit ogent-refinery-section-heading
+     :foreground "#b7e3a1" :background "#304a38")
+    (t :inherit ogent-refinery-section-heading))
+  "Face for the history section heading."
   :group 'ogent-refinery-faces)
 
 (defface ogent-refinery-queue-ready
@@ -573,13 +619,13 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
   (let ((processing (ogent-refinery--filter-queue-status 'processing)))
     (magit-insert-section (ogent-refinery-processing-section processing)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-prefix "⚙" "*")
-         " "
-         (propertize "Processing" 'face 'ogent-refinery-section-heading)
-         (when processing
-           (propertize (format " (%d)" (length processing))
-                       'face 'ogent-refinery-dimmed))))
+       (ogent-refinery--compose-section-heading
+        'processing
+        (ogent-ops-section-prefix "⚙" "*")
+        "Processing"
+        (when processing
+          (propertize (format " (%d)" (length processing))
+                      'face 'ogent-refinery-dimmed))))
       (if (null processing)
           (insert (propertize "  No active processing\n" 'face 'ogent-refinery-dimmed))
         (dolist (mr processing)
@@ -588,7 +634,8 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 (defun ogent-refinery--insert-processing-section-plain ()
   "Insert processing section (plain)."
   (let ((processing (ogent-refinery--filter-queue-status 'processing)))
-    (insert (propertize "* Processing\n" 'face 'ogent-refinery-section-heading))
+    (insert (propertize "* Processing\n"
+                        'face (ogent-refinery--section-heading-face 'processing)))
     (if (null processing)
         (insert (propertize "  No active processing\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr processing)
@@ -602,16 +649,16 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
         (blocked (ogent-refinery--filter-queue-status 'blocked)))
     (magit-insert-section (ogent-refinery-queue-section waiting nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-prefix "⏳" "#")
-         " "
-         (propertize "Queue" 'face 'ogent-refinery-section-heading)
-         (when waiting
-           (propertize (format " (%d waiting)" (length waiting))
-                       'face 'ogent-refinery-queue-ready))
-         (when blocked
-           (propertize (format " (%d blocked)" (length blocked))
-                       'face 'ogent-refinery-queue-blocked))))
+       (ogent-refinery--compose-section-heading
+        'queue
+        (ogent-ops-section-prefix "⏳" "#")
+        "Queue"
+        (when waiting
+          (propertize (format " (%d waiting)" (length waiting))
+                      'face 'ogent-refinery-queue-ready))
+        (when blocked
+          (propertize (format " (%d blocked)" (length blocked))
+                      'face 'ogent-refinery-queue-blocked))))
       (if (and (null waiting) (null blocked))
           (insert (propertize "  Queue is empty\n" 'face 'ogent-refinery-dimmed))
         (progn
@@ -623,7 +670,8 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 (defun ogent-refinery--insert-queue-section-plain ()
   "Insert queue section (plain)."
   (let ((waiting (ogent-refinery--filter-queue-status 'waiting)))
-    (insert (propertize "# Queue\n" 'face 'ogent-refinery-section-heading))
+    (insert (propertize "# Queue\n"
+                        'face (ogent-refinery--section-heading-face 'queue)))
     (if (null waiting)
         (insert (propertize "  Queue is empty\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr waiting)
@@ -636,13 +684,13 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
   (let ((failed (ogent-refinery--filter-queue-status 'failed)))
     (magit-insert-section (ogent-refinery-failed-section failed nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-prefix "✗" "!")
-         " "
-         (propertize "Failed" 'face 'ogent-refinery-section-heading)
-         (when failed
-           (propertize (format " (%d)" (length failed))
-                       'face 'ogent-refinery-queue-failed))))
+       (ogent-refinery--compose-section-heading
+        'failed
+        (ogent-ops-section-prefix "✗" "!")
+        "Failed"
+        (when failed
+          (propertize (format " (%d)" (length failed))
+                      'face 'ogent-refinery-queue-failed))))
       (if (null failed)
           (insert (propertize "  No failures\n" 'face 'ogent-refinery-dimmed))
         (dolist (mr failed)
@@ -651,7 +699,8 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 (defun ogent-refinery--insert-failed-section-plain ()
   "Insert failed section (plain)."
   (let ((failed (ogent-refinery--filter-queue-status 'failed)))
-    (insert (propertize "! Failed\n" 'face 'ogent-refinery-section-heading))
+    (insert (propertize "! Failed\n"
+                        'face (ogent-refinery--section-heading-face 'failed)))
     (if (null failed)
         (insert (propertize "  No failures\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr failed)
@@ -664,13 +713,13 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
   (let ((history ogent-refinery--history-data))
     (magit-insert-section (ogent-refinery-history-section history nil)
       (magit-insert-heading
-        (concat
-         (ogent-ops-section-prefix "✓" "+")
-         " "
-         (propertize "Recent Merges" 'face 'ogent-refinery-section-heading)
-         (when history
-           (propertize (format " (%d)" (length history))
-                       'face 'ogent-refinery-dimmed))))
+       (ogent-refinery--compose-section-heading
+        'history
+        (ogent-ops-section-prefix "✓" "+")
+        "Recent Merges"
+        (when history
+          (propertize (format " (%d)" (length history))
+                      'face 'ogent-refinery-dimmed))))
       (if (null history)
           (insert (propertize "  No recent merges\n" 'face 'ogent-refinery-dimmed))
         (dolist (mr history)
@@ -679,7 +728,8 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
 (defun ogent-refinery--insert-history-section-plain ()
   "Insert history section (plain)."
   (let ((history ogent-refinery--history-data))
-    (insert (propertize "+ Recent Merges\n" 'face 'ogent-refinery-section-heading))
+    (insert (propertize "+ Recent Merges\n"
+                        'face (ogent-refinery--section-heading-face 'history)))
     (if (null history)
         (insert (propertize "  No recent merges\n" 'face 'ogent-refinery-dimmed))
       (dolist (mr history)
@@ -698,6 +748,30 @@ STATUS can be `waiting', `processing', `failed', or `blocked'."
   "Return icon for STATUS-TYPE."
   (let ((ogent-ops-use-unicode ogent-refinery-use-unicode))
     (ogent-ops-status-symbol status-type)))
+
+(defun ogent-refinery--section-heading-face (section)
+  "Return heading face for SECTION."
+  (pcase section
+    ('processing 'ogent-refinery-section-heading-processing)
+    ('queue 'ogent-refinery-section-heading-queue)
+    ('failed 'ogent-refinery-section-heading-failed)
+    ('history 'ogent-refinery-section-heading-history)
+    (_ 'ogent-refinery-section-heading)))
+
+(defun ogent-refinery--section-heading (section label)
+  "Return LABEL propertized for SECTION heading."
+  (propertize label 'face (ogent-refinery--section-heading-face section)))
+
+(defun ogent-refinery--compose-section-heading (section prefix title &rest suffixes)
+  "Compose a section heading for SECTION using PREFIX, TITLE, and SUFFIXES."
+  (let* ((heading-face (ogent-refinery--section-heading-face section))
+         (heading
+          (concat prefix
+                  " "
+                  (ogent-refinery--section-heading section title)
+                  (apply #'concat (delq nil suffixes)))))
+    (add-face-text-property 0 (length heading) heading-face 'append heading)
+    heading))
 
 (defun ogent-refinery--format-age (timestamp)
   "Format TIMESTAMP as relative age string."

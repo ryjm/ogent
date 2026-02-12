@@ -309,6 +309,39 @@
     (should (equal "+" (ogent-refinery--status-icon 'merged)))
     (should (equal "." (ogent-refinery--status-icon 'unknown)))))
 
+(ert-deftest ogent-refinery-test-section-heading-face-map ()
+  "Test section heading face lookup."
+  (should (eq 'ogent-refinery-section-heading-processing
+              (ogent-refinery--section-heading-face 'processing)))
+  (should (eq 'ogent-refinery-section-heading-queue
+              (ogent-refinery--section-heading-face 'queue)))
+  (should (eq 'ogent-refinery-section-heading-failed
+              (ogent-refinery--section-heading-face 'failed)))
+  (should (eq 'ogent-refinery-section-heading-history
+              (ogent-refinery--section-heading-face 'history)))
+  (should (eq 'ogent-refinery-section-heading
+              (ogent-refinery--section-heading-face 'unknown))))
+
+(ert-deftest ogent-refinery-test-compose-section-heading-layers-faces ()
+  "Test composed section heading keeps base and suffix-specific faces."
+  (let* ((heading (ogent-refinery--compose-section-heading
+                   'queue
+                   "#"
+                   "Queue"
+                   (propertize " (2 waiting)" 'face 'ogent-refinery-queue-ready)))
+         (label-pos (string-match-p "Queue" heading))
+         (suffix-pos (string-match-p "(2 waiting)" heading))
+         (label-face (and label-pos (get-text-property label-pos 'face heading)))
+         (suffix-face (and suffix-pos (get-text-property suffix-pos 'face heading))))
+    (should label-pos)
+    (should suffix-pos)
+    (should (memq 'ogent-refinery-section-heading-queue
+                  (if (listp label-face) label-face (list label-face))))
+    (should (memq 'ogent-refinery-section-heading-queue
+                  (if (listp suffix-face) suffix-face (list suffix-face))))
+    (should (memq 'ogent-refinery-queue-ready
+                  (if (listp suffix-face) suffix-face (list suffix-face))))))
+
 ;;; Age Formatting Tests
 
 (ert-deftest ogent-refinery-test-format-age-now ()
