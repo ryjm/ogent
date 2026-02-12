@@ -140,6 +140,44 @@
   (should (eq 'ogent-issues-status-blocked (ogent-issues--status-face "blocked")))
   (should (eq 'ogent-issues-status-closed (ogent-issues--status-face "closed"))))
 
+(ert-deftest ogent-issues-test-section-heading-face ()
+  "Test status section heading face lookup."
+  (should (eq 'ogent-issues-section-heading-view
+              (ogent-issues--section-heading-face 'view)))
+  (should (eq 'ogent-issues-section-heading-in-progress
+              (ogent-issues--section-heading-face "in_progress")))
+  (should (eq 'ogent-issues-section-heading-open
+              (ogent-issues--section-heading-face "open")))
+  (should (eq 'ogent-issues-section-heading-blocked
+              (ogent-issues--section-heading-face "blocked")))
+  (should (eq 'ogent-issues-section-heading-closed
+              (ogent-issues--section-heading-face "closed")))
+  (should (eq 'ogent-issues-section-heading
+              (ogent-issues--section-heading-face "mystery"))))
+
+(ert-deftest ogent-issues-test-compose-status-heading-layers-faces ()
+  "Test composed status heading keeps section background and status/count overlays."
+  (let* ((ogent-issues-use-unicode nil)
+         (ogent-issues-show-counts t)
+         (heading (ogent-issues--compose-status-heading "in_progress" 3))
+         (label-pos (string-match-p "In Progress" heading))
+         (icon-face (get-text-property 0 'face heading))
+         (label-face (and label-pos (get-text-property label-pos 'face heading)))
+         (count-pos (string-match-p "(3)" heading))
+         (count-face (and count-pos (get-text-property count-pos 'face heading))))
+    (should label-pos)
+    (should count-pos)
+    (should (memq 'ogent-issues-section-heading-in-progress
+                  (if (listp icon-face) icon-face (list icon-face))))
+    (should (memq 'ogent-issues-status-in-progress
+                  (if (listp icon-face) icon-face (list icon-face))))
+    (should (memq 'ogent-issues-section-heading-in-progress
+                  (if (listp label-face) label-face (list label-face))))
+    (should (memq 'ogent-issues-section-heading-in-progress
+                  (if (listp count-face) count-face (list count-face))))
+    (should (memq 'ogent-issues-dimmed
+                  (if (listp count-face) count-face (list count-face))))))
+
 (ert-deftest ogent-issues-test-status-label ()
   "Test status label formatting."
   (should (string= "Open" (ogent-issues--status-label "open")))
@@ -1153,6 +1191,16 @@
     (let ((ogent-issues--current-view 'list))
       (ogent-issues--insert-header-section)
       (should (string-match-p "Issues" (buffer-string))))))
+
+(ert-deftest ogent-issues-test-insert-header-section-uses-view-face ()
+  "Test header section applies the view heading face."
+  (with-temp-buffer
+    (let ((ogent-issues--current-view 'list))
+      (ogent-issues--insert-header-section)
+      (goto-char (point-min))
+      (let ((face (get-text-property (point) 'face)))
+        (should (memq 'ogent-issues-section-heading-view
+                      (if (listp face) face (list face))))))))
 
 (ert-deftest ogent-issues-test-insert-header-section-ready ()
   "Test header section for ready view."
