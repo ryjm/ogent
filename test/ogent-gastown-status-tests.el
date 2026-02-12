@@ -193,9 +193,8 @@
 
 ;;; Time Formatting Tests
 
-;; Note: parse-iso8601-time-string may not be available in all Emacs versions.
-;; We test the error handling paths when the parser isn't available, and
-;; conditionally test the success paths when it is.
+;; Time formatting uses iso8601-parse + encode-time.
+;; We mock iso8601-parse to return decoded time values for deterministic tests.
 
 (ert-deftest ogent-gts-test-format-time-nil ()
   "Test formatting nil time returns ???."
@@ -220,33 +219,33 @@
 (ert-deftest ogent-gts-test-format-time-just-now-mocked ()
   "Test formatting time within last minute (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 30))))
+                 (decode-time (time-subtract now 30)))))
       (should (equal "just now" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-minutes-ago-mocked ()
   "Test formatting time in minutes (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 5 60)))))
+                 (decode-time (time-subtract now (* 5 60))))))
       (should (string-match-p "5m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-hours-ago-mocked ()
   "Test formatting time in hours (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 3 3600)))))
+                 (decode-time (time-subtract now (* 3 3600))))))
       (should (string-match-p "3h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-days-ago-mocked ()
   "Test formatting time in days shows date format (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 2 86400)))))
+                 (decode-time (time-subtract now (* 2 86400))))))
       ;; Should show date format like "Jan 21" instead of relative time
       (let ((result (ogent-gastown--format-time "2026-01-23T17:00:00Z")))
         (should-not (string-match-p "ago" result))
@@ -2447,49 +2446,49 @@
 (ert-deftest ogent-gts-test-format-time-boundary-59-seconds ()
   "Test formatting time at exactly 59 seconds shows just now."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 59))))
+                 (decode-time (time-subtract now 59)))))
       (should (equal "just now" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-60-seconds ()
   "Test formatting time at exactly 60 seconds shows 1m ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 60))))
+                 (decode-time (time-subtract now 60)))))
       (should (string-match-p "1m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-3599-seconds ()
   "Test formatting time at 3599 seconds shows 59m ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 3599))))
+                 (decode-time (time-subtract now 3599)))))
       (should (string-match-p "59m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-3600-seconds ()
   "Test formatting time at exactly 3600 seconds shows 1h ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 3600))))
+                 (decode-time (time-subtract now 3600)))))
       (should (string-match-p "1h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-23-hours ()
   "Test formatting time at 23 hours shows 23h ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 23 3600)))))
+                 (decode-time (time-subtract now (* 23 3600))))))
       (should (string-match-p "23h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-24-hours ()
   "Test formatting time at 24 hours shows date format."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 24 3600)))))
+                 (decode-time (time-subtract now (* 24 3600))))))
       (let ((result (ogent-gastown--format-time "2026-01-23T17:00:00Z")))
         (should-not (string-match-p "ago" result))
         (should-not (equal "???" result))))))
@@ -3801,7 +3800,7 @@
 
 (ert-deftest ogent-gts-test-format-time-parser-throws-error ()
   "Test format-time returns ??? when parser throws."
-  (cl-letf (((symbol-function 'parse-iso8601-time-string)
+  (cl-letf (((symbol-function 'iso8601-parse)
              (lambda (_iso-time)
                (error "Parse failed"))))
     (should (equal "???" (ogent-gastown--format-time "2026-01-23T17:00:00Z")))))

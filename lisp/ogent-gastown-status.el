@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'eieio)
 (require 'json)
+(require 'iso8601)
 (require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section
@@ -2237,8 +2238,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (has-witness (plist-get rig :has_witness))
          (has-refinery (plist-get rig :has_refinery))
          (agents (plist-get rig :agents))
-         (any-running (seq-some (lambda (a) (plist-get a :running)) agents))
-         (beads-stats (plist-get rig :beads_stats)))
+         (any-running (seq-some (lambda (a) (plist-get a :running)) agents)))
     (magit-insert-section (ogent-gastown-rig-item-section rig t)
       (insert "  ")
       (insert (propertize name 'face 'ogent-gastown-rig-name))
@@ -2377,7 +2377,7 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
   "Format ISO-TIME as relative time string."
   (if (and iso-time (stringp iso-time) (not (string-empty-p iso-time)))
       (condition-case nil
-          (let* ((time (parse-iso8601-time-string iso-time))
+          (let* ((time (encode-time (iso8601-parse iso-time)))
                  (diff (float-time (time-subtract (current-time) time))))
             (cond
              ((< diff 60) "just now")
