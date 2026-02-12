@@ -15,12 +15,28 @@
 (require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section
-(eval-and-compile
-  (defvar ogent-gastown--magit-section-available
-    (require 'magit-section nil t)
-    "Non-nil if magit-section is available.")
-  (when ogent-gastown--magit-section-available
-    (require 'magit-section)))
+(defvar ogent-gastown--magit-section-available
+  (require 'magit-section nil t)
+  "Non-nil if magit-section is available.")
+
+(defun ogent-gastown--magit-usable-p ()
+  "Return non-nil when magit-section APIs are available for this session."
+  (and ogent-gastown--magit-section-available
+       (fboundp 'magit-section-mode)
+       (fboundp 'magit-insert-section)
+       (fboundp 'magit-insert-heading)))
+
+(defun ogent-gastown--refresh-magit-availability ()
+  "Refresh magit-section availability from current load-path."
+  (setq ogent-gastown--magit-section-available
+        (or ogent-gastown--magit-section-available
+            (require 'magit-section nil t)))
+  (when (and ogent-gastown--magit-section-available
+             (not (featurep 'magit-section)))
+    (require 'magit-section))
+  (when (ogent-gastown--magit-usable-p)
+    (ogent-gastown--define-magit-section-classes))
+  (ogent-gastown--magit-usable-p))
 
 ;; Load transient help menu if available
 (declare-function ogent-gastown-status-dispatch "ogent-gastown-status-transient" nil t)
@@ -882,70 +898,70 @@ Resolution order:
 
 ;;; Section Classes (when magit-section available)
 
-(eval-and-compile
-  (when (bound-and-true-p ogent-gastown--magit-section-available)
-    (defclass ogent-gastown-root-section (magit-section) ()
-      "Root section for Gas Town status buffer.")
+(defun ogent-gastown--define-magit-section-classes ()
+  "Define EIEIO section classes used by magit-section rendering."
+  (when (ogent-gastown--magit-usable-p)
+    (unless (fboundp 'ogent-gastown-root-section)
+      (defclass ogent-gastown-root-section (magit-section) ()
+        "Root section for Gas Town status buffer."))
+    (unless (fboundp 'ogent-gastown-hook-section)
+      (defclass ogent-gastown-hook-section (magit-section) ()
+        "Section for hook status."))
+    (unless (fboundp 'ogent-gastown-mail-section)
+      (defclass ogent-gastown-mail-section (magit-section) ()
+        "Section for mail inbox."))
+    (unless (fboundp 'ogent-gastown-mail-item-section)
+      (defclass ogent-gastown-mail-item-section (magit-section) ()
+        "Section for a single mail message."))
+    (unless (fboundp 'ogent-gastown-convoy-section)
+      (defclass ogent-gastown-convoy-section (magit-section) ()
+        "Section for convoy status."))
+    (unless (fboundp 'ogent-gastown-convoy-item-section)
+      (defclass ogent-gastown-convoy-item-section (magit-section) ()
+        "Section for a single convoy."))
+    (unless (fboundp 'ogent-gastown-workers-section)
+      (defclass ogent-gastown-workers-section (magit-section) ()
+        "Section for workers overview."))
+    (unless (fboundp 'ogent-gastown-worker-section)
+      (defclass ogent-gastown-worker-section (magit-section) ()
+        "Section for a single worker."))
+    (unless (fboundp 'ogent-gastown-stats-section)
+      (defclass ogent-gastown-stats-section (magit-section) ()
+        "Section for town statistics."))
+    (unless (fboundp 'ogent-gastown-deacon-section)
+      (defclass ogent-gastown-deacon-section (magit-section) ()
+        "Section for deacon status."))
+    (unless (fboundp 'ogent-gastown-witness-section)
+      (defclass ogent-gastown-witness-section (magit-section) ()
+        "Section for witness status overview."))
+    (unless (fboundp 'ogent-gastown-witness-item-section)
+      (defclass ogent-gastown-witness-item-section (magit-section) ()
+        "Section for a single rig witness."))
+    (unless (fboundp 'ogent-gastown-crew-section)
+      (defclass ogent-gastown-crew-section (magit-section) ()
+        "Section for crew members."))
+    (unless (fboundp 'ogent-gastown-crew-item-section)
+      (defclass ogent-gastown-crew-item-section (magit-section) ()
+        "Section for a single crew member."))
+    (unless (fboundp 'ogent-gastown-polecat-section)
+      (defclass ogent-gastown-polecat-section (magit-section) ()
+        "Section for polecats."))
+    (unless (fboundp 'ogent-gastown-polecat-item-section)
+      (defclass ogent-gastown-polecat-item-section (magit-section) ()
+        "Section for a single polecat."))
+    (unless (fboundp 'ogent-gastown-rigs-section)
+      (defclass ogent-gastown-rigs-section (magit-section) ()
+        "Section for rigs overview."))
+    (unless (fboundp 'ogent-gastown-rig-item-section)
+      (defclass ogent-gastown-rig-item-section (magit-section) ()
+        "Section for a single rig."))))
 
-    (defclass ogent-gastown-hook-section (magit-section) ()
-      "Section for hook status.")
-
-    (defclass ogent-gastown-mail-section (magit-section) ()
-      "Section for mail inbox.")
-
-    (defclass ogent-gastown-mail-item-section (magit-section) ()
-      "Section for a single mail message.")
-
-    (defclass ogent-gastown-convoy-section (magit-section) ()
-      "Section for convoy status.")
-
-    (defclass ogent-gastown-convoy-item-section (magit-section) ()
-      "Section for a single convoy.")
-
-    (defclass ogent-gastown-workers-section (magit-section) ()
-      "Section for workers overview.")
-
-    (defclass ogent-gastown-worker-section (magit-section) ()
-      "Section for a single worker.")
-
-    (defclass ogent-gastown-stats-section (magit-section) ()
-      "Section for town statistics.")
-
-    (defclass ogent-gastown-deacon-section (magit-section) ()
-      "Section for deacon status.")
-
-    (defclass ogent-gastown-witness-section (magit-section) ()
-      "Section for witness status overview.")
-
-    (defclass ogent-gastown-witness-item-section (magit-section) ()
-      "Section for a single rig witness.")
-
-    (defclass ogent-gastown-crew-section (magit-section) ()
-      "Section for crew members.")
-
-    (defclass ogent-gastown-crew-item-section (magit-section) ()
-      "Section for a single crew member.")
-
-    (defclass ogent-gastown-polecat-section (magit-section) ()
-      "Section for polecats.")
-
-    (defclass ogent-gastown-polecat-item-section (magit-section) ()
-      "Section for a single polecat.")
-
-    (defclass ogent-gastown-rigs-section (magit-section) ()
-      "Section for rigs overview.")
-
-    (defclass ogent-gastown-rig-item-section (magit-section) ()
-      "Section for a single rig.")))
+(ogent-gastown--define-magit-section-classes)
 
 ;;; Keymap
 
 (defvar ogent-gastown-status-mode-map
   (let ((map (make-sparse-keymap)))
-    (when (and ogent-gastown--magit-section-available
-               (boundp 'magit-section-mode-map))
-      (set-keymap-parent map magit-section-mode-map))
-
     ;; Refresh
     (define-key map "g" #'ogent-gastown-refresh)
     (define-key map "G" #'ogent-gastown-refresh-force)
@@ -1004,13 +1020,8 @@ Resolution order:
 
 ;;; Mode Definition
 
-(defmacro ogent-gastown--define-status-mode ()
-  "Define `ogent-gastown-status-mode' with appropriate parent mode."
-  (let ((parent (if (bound-and-true-p ogent-gastown--magit-section-available)
-                    'magit-section-mode
-                  'special-mode)))
-    `(define-derived-mode ogent-gastown-status-mode ,parent "Gas Town"
-       "Major mode for viewing Gas Town status.
+(defconst ogent-gastown--status-mode-doc
+  "Major mode for viewing Gas Town status.
 
 Like `magit-status' but for your Gas Town multi-agent workspace.
 
@@ -1054,14 +1065,45 @@ Other:
   \\[quit-window]     Quit
 
 \\{ogent-gastown-status-mode-map}"
-       :group 'ogent-gastown
-       (setq-local revert-buffer-function #'ogent-gastown-refresh)
-       (setq-local truncate-lines t)
-       (setq-local buffer-read-only t)
-       (setq header-line-format '(:eval (ogent-gastown--header-line)))
-       (when (bound-and-true-p ogent-gastown--magit-section-available)
-         (setq-local magit-section-visibility-indicator
-                     (if ogent-gastown-use-unicode '("…" . t) '("..." . t)))))))
+  "Docstring for `ogent-gastown-status-mode'.")
+
+(defun ogent-gastown--status-mode-parent ()
+  "Return the parent mode for `ogent-gastown-status-mode'."
+  (if (ogent-gastown--magit-usable-p)
+      'magit-section-mode
+    'special-mode))
+
+(defun ogent-gastown--status-mode-setup ()
+  "Initialize local state for `ogent-gastown-status-mode'."
+  (setq-local revert-buffer-function #'ogent-gastown-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (setq header-line-format '(:eval (ogent-gastown--header-line)))
+  (if (and (ogent-gastown--magit-usable-p)
+           (boundp 'magit-section-mode-map))
+      (progn
+        (set-keymap-parent ogent-gastown-status-mode-map magit-section-mode-map)
+        (setq-local magit-section-visibility-indicator
+                    (if ogent-gastown-use-unicode
+                        '("…" . t)
+                      '("..." . t))))
+    (set-keymap-parent ogent-gastown-status-mode-map nil)))
+
+(defun ogent-gastown--define-status-mode ()
+  "Define `ogent-gastown-status-mode' using the current magit availability."
+  (let ((parent (ogent-gastown--status-mode-parent)))
+    (eval
+     `(define-derived-mode ogent-gastown-status-mode ,parent "Gas Town"
+        ,ogent-gastown--status-mode-doc
+        :group 'ogent-gastown
+        (ogent-gastown--status-mode-setup)))))
+
+(defun ogent-gastown--ensure-status-mode-definition ()
+  "Ensure `ogent-gastown-status-mode' parent matches current capabilities."
+  (let ((expected-parent (ogent-gastown--status-mode-parent))
+        (actual-parent (get 'ogent-gastown-status-mode 'derived-mode-parent)))
+    (unless (eq expected-parent actual-parent)
+      (ogent-gastown--define-status-mode))))
 
 (ogent-gastown--define-status-mode)
 
@@ -1420,7 +1462,7 @@ Returns non-nil if an error was inserted."
 
 (defun ogent-gastown--insert-buffer-contents ()
   "Insert all sections into the buffer."
-  (if ogent-gastown--magit-section-available
+  (if (ogent-gastown--magit-usable-p)
       (ogent-gastown--insert-with-magit-section)
     (ogent-gastown--insert-plain)))
 
@@ -2350,21 +2392,21 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 (defun ogent-gastown-next-item ()
   "Move to the next item."
   (interactive)
-  (if ogent-gastown--magit-section-available
+  (if (ogent-gastown--magit-usable-p)
       (magit-section-forward)
     (forward-line)))
 
 (defun ogent-gastown-prev-item ()
   "Move to the previous item."
   (interactive)
-  (if ogent-gastown--magit-section-available
+  (if (ogent-gastown--magit-usable-p)
       (magit-section-backward)
     (forward-line -1)))
 
 (defun ogent-gastown-toggle-section ()
   "Toggle the current section."
   (interactive)
-  (if ogent-gastown--magit-section-available
+  (if (ogent-gastown--magit-usable-p)
       (if-let ((section (magit-current-section)))
           (magit-section-toggle section)
         (message "No section at point"))
@@ -2373,13 +2415,13 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 (defun ogent-gastown-next-section ()
   "Move to the next sibling section."
   (interactive)
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (magit-section-forward-sibling)))
 
 (defun ogent-gastown-prev-section ()
   "Move to the previous sibling section."
   (interactive)
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (magit-section-backward-sibling)))
 
 (defun ogent-gastown--cycle-rig (delta)
@@ -2416,13 +2458,13 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 (defun ogent-gastown-up-section ()
   "Move to the parent section."
   (interactive)
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (magit-section-up)))
 
 (defun ogent-gastown-cycle-sections ()
   "Cycle visibility of all sections."
   (interactive)
-  (if ogent-gastown--magit-section-available
+  (if (ogent-gastown--magit-usable-p)
       (magit-section-cycle-global)
     (message "Section cycling requires magit-section")))
 
@@ -2432,7 +2474,7 @@ On convoy items, opens the convoy inspector.
 On mail items, reads the message.
 On other sections, toggles visibility."
   (interactive)
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (let ((section (magit-current-section)))
       (cond
        ((eq (eieio-object-class-name section) 'ogent-gastown-convoy-item-section)
@@ -2454,7 +2496,7 @@ On other sections, toggles visibility."
   "Read mail message ID."
   (interactive)
   (let ((mail-id (or id
-                     (when ogent-gastown--magit-section-available
+                     (when (ogent-gastown--magit-usable-p)
                        (let ((section (magit-current-section)))
                          (when (eq (eieio-object-class-name section)
                                    'ogent-gastown-mail-item-section)
@@ -2501,7 +2543,7 @@ Builds list from:
 
 (defun ogent-gastown--recipient-at-point ()
   "Get mail recipient address for item at point, or nil."
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (let ((section (magit-current-section)))
       (when section
         (let ((class (eieio-object-class-name section))
@@ -2586,7 +2628,7 @@ Opens the dedicated convoy inspector buffer.  When point is on a
 convoy item section, inspects that convoy directly.  Otherwise,
 prompts with `completing-read' from the current convoy list."
   (interactive)
-  (let ((convoy-id (when ogent-gastown--magit-section-available
+  (let ((convoy-id (when (ogent-gastown--magit-usable-p)
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-convoy-item-section)
@@ -2634,7 +2676,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown-witness-show ()
   "Show witness status for the selected rig."
   (interactive)
-  (let ((rig (when ogent-gastown--magit-section-available
+  (let ((rig (when (ogent-gastown--magit-usable-p)
                (let ((section (magit-current-section)))
                  (when (eq (eieio-object-class-name section)
                            'ogent-gastown-witness-item-section)
@@ -2655,7 +2697,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown-crew-status ()
   "Show crew member status."
   (interactive)
-  (let ((crew-name (when ogent-gastown--magit-section-available
+  (let ((crew-name (when (ogent-gastown--magit-usable-p)
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-crew-item-section)
@@ -2674,7 +2716,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown-polecat-status ()
   "Show polecat status."
   (interactive)
-  (let ((polecat-name (when ogent-gastown--magit-section-available
+  (let ((polecat-name (when (ogent-gastown--magit-usable-p)
                         (let ((section (magit-current-section)))
                           (when (eq (eieio-object-class-name section)
                                     'ogent-gastown-polecat-item-section)
@@ -2693,7 +2735,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown-rig-status ()
   "Show rig status."
   (interactive)
-  (let ((rig-name (when ogent-gastown--magit-section-available
+  (let ((rig-name (when (ogent-gastown--magit-usable-p)
                     (let ((section (magit-current-section)))
                       (when (eq (eieio-object-class-name section)
                                 'ogent-gastown-rig-item-section)
@@ -2711,7 +2753,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown-refinery-status ()
   "Show refinery/merge-queue status."
   (interactive)
-  (let ((rig-name (when ogent-gastown--magit-section-available
+  (let ((rig-name (when (ogent-gastown--magit-usable-p)
                     (let ((section (magit-current-section)))
                       (when (eq (eieio-object-class-name section)
                                 'ogent-gastown-rig-item-section)
@@ -2731,7 +2773,7 @@ prompts with `completing-read' from the current convoy list."
 (defun ogent-gastown--rig-at-point ()
   "Return rig name from section at point.
 Works on rig sections, crew sections, and polecat sections."
-  (when ogent-gastown--magit-section-available
+  (when (ogent-gastown--magit-usable-p)
     (let ((section (magit-current-section)))
       (when section
         (pcase (eieio-object-class-name section)
@@ -2808,7 +2850,7 @@ Displays available keybindings and actions."
   "Ensure magit buffers have a root section before async refresh work.
 Without this, `magit-section-post-command-hook' can run against a status
 buffer that has no root section yet and signal type errors."
-  (when (and ogent-gastown--magit-section-available
+  (when (and (ogent-gastown--magit-usable-p)
              (derived-mode-p 'magit-section-mode)
              (boundp 'magit-root-section)
              (null magit-root-section))
@@ -2860,6 +2902,8 @@ Like `magit-status', this shows a comprehensive view of your
 Gas Town multi-agent workspace including hook status, mail,
 convoys, crew members, and polecats."
   (interactive)
+  (ogent-gastown--refresh-magit-availability)
+  (ogent-gastown--ensure-status-mode-definition)
   (let ((workspace-root (ogent-gastown--find-town-root)))
     (unless (executable-find ogent-gastown-gt-executable)
       (user-error "Gas Town CLI (gt) not found in PATH"))

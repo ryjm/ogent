@@ -2353,6 +2353,29 @@
   (let ((parent (get 'ogent-gastown-status-mode 'derived-mode-parent)))
     (should (memq parent '(magit-section-mode special-mode)))))
 
+(ert-deftest ogent-gts-test-status-mode-parent-follows-magit-usable ()
+  "Test status mode parent selection follows runtime magit capability."
+  (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+             (lambda () t)))
+    (should (eq (ogent-gastown--status-mode-parent) 'magit-section-mode)))
+  (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+             (lambda () nil)))
+    (should (eq (ogent-gastown--status-mode-parent) 'special-mode))))
+
+(ert-deftest ogent-gts-test-ensure-status-mode-definition-redefines-on-mismatch ()
+  "Test status mode is redefined when parent mode no longer matches runtime."
+  (let ((original-parent (get 'ogent-gastown-status-mode 'derived-mode-parent))
+        (redefined nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-gastown--status-mode-parent)
+                   (lambda () 'special-mode))
+                  ((symbol-function 'ogent-gastown--define-status-mode)
+                   (lambda () (setq redefined t))))
+          (put 'ogent-gastown-status-mode 'derived-mode-parent 'magit-section-mode)
+          (ogent-gastown--ensure-status-mode-definition)
+          (should redefined))
+      (put 'ogent-gastown-status-mode 'derived-mode-parent original-parent))))
+
 (ert-deftest ogent-gts-test-mode-sets-buffer-read-only ()
   "Test mode sets buffer-read-only."
   (let ((buf (generate-new-buffer " *test-mode*")))
