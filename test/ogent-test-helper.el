@@ -11,6 +11,11 @@
 
 (setq load-prefer-newer t)
 
+;; Prefer source files for project code during tests so stale local .elc
+;; artifacts do not change runtime semantics (notably macro expansion).
+(setq load-suffixes
+      (cons ".el" (delete ".el" (copy-sequence load-suffixes))))
+
 (defconst ogent-test-root
   (file-name-directory (or load-file-name buffer-file-name))
   "Absolute path to the ogent/test directory.")
