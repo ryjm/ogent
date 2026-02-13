@@ -2896,43 +2896,55 @@ prompts with `completing-read' from the current convoy list."
          (list "witness" "status" rig-name)
          "*gt witness*")))))
 
-(defun ogent-gastown-crew-status ()
-  "Show crew member status."
-  (interactive)
+(autoload 'ogent-agent-detail-inspect "ogent-agent-detail" nil t)
+
+(defun ogent-gastown-crew-status (&optional raw)
+  "Show crew member status.
+With prefix arg RAW (\\[universal-argument]), show raw shell output."
+  (interactive "P")
   (let ((crew-name (when (ogent-gastown--magit-usable-p)
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-crew-item-section)
                          (plist-get (oref section value) :name)))))
         (rig-name (ogent-gastown--sync-selected-rig)))
-    (if crew-name
-        (ogent-gastown-status--run-shell-command
-         (list "crew" "status" crew-name)
-         "*gt crew*")
+    (cond
+     ((and crew-name (not raw))
+      (ogent-agent-detail-inspect crew-name 'crew rig-name))
+     (crew-name
+      (ogent-gastown-status--run-shell-command
+       (list "crew" "status" crew-name)
+       "*gt crew*"))
+     (t
       (ogent-gastown-status--run-shell-command
        (if rig-name
            (list "crew" "list" "--rig" rig-name)
          '("crew" "list" "--all"))
-       "*gt crew*"))))
+       "*gt crew*")))))
 
-(defun ogent-gastown-polecat-status ()
-  "Show polecat status."
-  (interactive)
+(defun ogent-gastown-polecat-status (&optional raw)
+  "Show polecat status.
+With prefix arg RAW (\\[universal-argument]), show raw shell output."
+  (interactive "P")
   (let ((polecat-name (when (ogent-gastown--magit-usable-p)
                         (let ((section (magit-current-section)))
                           (when (eq (eieio-object-class-name section)
                                     'ogent-gastown-polecat-item-section)
                             (plist-get (oref section value) :name)))))
         (rig-name (ogent-gastown--sync-selected-rig)))
-    (if polecat-name
-        (ogent-gastown-status--run-shell-command
-         (list "polecat" "status" polecat-name)
-         "*gt polecat*")
+    (cond
+     ((and polecat-name (not raw))
+      (ogent-agent-detail-inspect polecat-name 'polecat rig-name))
+     (polecat-name
+      (ogent-gastown-status--run-shell-command
+       (list "polecat" "status" polecat-name)
+       "*gt polecat*"))
+     (t
       (ogent-gastown-status--run-shell-command
        (if rig-name
            (list "polecat" "list" rig-name)
          '("polecat" "list" "--all"))
-       "*gt polecat*"))))
+       "*gt polecat*")))))
 
 (defun ogent-gastown-rig-status ()
   "Show rig status."
