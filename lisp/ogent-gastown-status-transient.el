@@ -39,6 +39,7 @@
 (declare-function ogent-gastown-issue-block "ogent-gastown-status")
 (declare-function ogent-gastown-bead-create "ogent-gastown-status")
 (declare-function ogent-gastown-sling "ogent-gastown-status")
+(declare-function ogent-gastown-auto-refresh-mode "ogent-gastown-status")
 
 ;; Autoloads
 (autoload 'ogent-gastown--in-town-p "ogent-gastown-status" nil nil)
@@ -70,6 +71,7 @@
 (autoload 'ogent-gastown-issue-block "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-bead-create "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-sling "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-auto-refresh-mode "ogent-gastown-status" nil t)
 
 (defun ogent-gastown-status-transient--format-header ()
   "Format header for the Gas Town status transient menu."
@@ -124,6 +126,7 @@
    ["Refresh"
     ("g" "Refresh" ogent-gastown-refresh :transient t)
     ("G" "Force refresh" ogent-gastown-refresh-force :transient t)
+    ("A" "Auto-refresh" ogent-gastown-auto-refresh-mode :transient t)
     ("q" "Quit menu" transient-quit-one)
     ("Q" "Quit buffer" quit-window)]])
 
