@@ -114,16 +114,6 @@ Only effective when `ogent-gastown-auto-refresh-mode' is active."
   :type 'integer
   :group 'ogent-gastown)
 
-(defcustom ogent-gastown-auto-refresh-interval 30
-  "Seconds between auto-refreshes in `ogent-gastown-auto-refresh-mode'."
-  :type 'integer
-  :group 'ogent-gastown)
-
-(defcustom ogent-gastown-change-highlight-duration 5
-  "Duration in seconds for change-highlight overlays before they fade."
-  :type 'integer
-  :group 'ogent-gastown)
-
 (defcustom ogent-gastown-section-heading-face-overrides nil
   "Optional per-section heading face overrides.
 When non-nil, this should be an alist of (SECTION . FACE), where SECTION is
@@ -1079,9 +1069,6 @@ Resolution order:
     (define-key map "!" #'ogent-gastown-issue-prioritize)
     (define-key map "X" #'ogent-gastown-issue-claim)
     (define-key map "b" #'ogent-gastown-issue-block)
-
-    ;; Auto-refresh toggle
-    (define-key map "A" #'ogent-gastown-auto-refresh-mode)
 
     ;; Quit
     (define-key map "q" #'quit-window)
@@ -3422,7 +3409,7 @@ Returns an alist of (KEY . FINGERPRINT) pairs."
                  (ov (make-overlay section-start section-end)))
             (overlay-put ov 'face 'ogent-gastown-changed)
             (overlay-put ov 'ogent-gastown-change t)
-            (let ((timer (run-at-time ogent-gastown-change-highlight-duration nil
+            (let ((timer (run-at-time ogent-gastown-auto-refresh-highlight-duration nil
                                       (lambda ()
                                         (when (overlay-buffer ov)
                                           (delete-overlay ov))))))
@@ -3520,176 +3507,6 @@ active."
 (add-hook 'ogent-gastown-status-mode-hook
           (lambda ()
             (add-hook 'kill-buffer-hook #'ogent-gastown--cleanup-on-kill nil t)))
-
-;;; Auto-Refresh Mode
-
-(defun ogent-gastown--auto-refresh-snapshot-data ()
-  "Capture a snapshot of key status data for change detection.
-Returns an alist with comparable representations of each section."
-  (list
-   (cons 'mail-count (length ogent-gastown--mail-data))
-   (cons 'unread-count (length (seq-filter
-                                (lambda (m) (not (plist-get m :read)))
-                                ogent-gastown--mail-data)))
-   (cons 'mail-ids (sort (mapcar (lambda (m) (plist-get m :id))
-                                 ogent-gastown--mail-data)
-                         #'string<))
-   (cons 'hook-active (and ogent-gastown--hook-data
-                           (plist-get ogent-gastown--hook-data :has_work)))
-   (cons 'convoy-states (mapcar (lambda (c)
-                                  (cons (plist-get c :id)
-                                        (plist-get c :completed)))
-                                ogent-gastown--convoy-data))
-   (cons 'crew-states (mapcar (lambda (m)
-                                (cons (plist-get m :name)
-                                      (plist-get m :session_running)))
-                              ogent-gastown--crew-data))
-   (cons 'polecat-states (mapcar (lambda (p)
-                                   (cons (plist-get p :name)
-                                         (list (plist-get p :state)
-                                               (plist-get p :current_task))))
-                                 ogent-gastown--polecat-data))))
-
-(defun ogent-gastown--auto-refresh-diff (old new)
-  "Compare OLD and NEW snapshots, returning list of changed section keys."
-  (let ((changed nil))
-    (dolist (new-entry new)
-      (let* ((key (car new-entry))
-             (new-val (cdr new-entry))
-             (old-entry (assq key old))
-             (old-val (and old-entry (cdr old-entry))))
-        (unless (equal old-val new-val)
-          (push key changed))))
-    (nreverse changed)))
-
-(defun ogent-gastown--changed-section-names (changed-keys)
-  "Map CHANGED-KEYS from snapshot diff to section heading patterns."
-  (let ((names nil))
-    (dolist (key changed-keys)
-      (pcase key
-        ((or 'mail-count 'unread-count 'mail-ids)
-         (cl-pushnew "Mail" names :test #'equal))
-        ('hook-active
-         (cl-pushnew "Hook" names :test #'equal))
-        ('convoy-states
-         (cl-pushnew "Convoy" names :test #'equal))
-        ('crew-states
-         (cl-pushnew "Crew" names :test #'equal))
-        ('polecat-states
-         (cl-pushnew "Polecat" names :test #'equal))))
-    names))
-
-(defun ogent-gastown--highlight-changed-sections (section-names)
-  "Apply transient highlight overlays to lines matching SECTION-NAMES."
-  (ogent-gastown--clear-change-overlays)
-  (when section-names
-    (save-excursion
-      (goto-char (point-min))
-      (while (not (eobp))
-        (let ((line (buffer-substring-no-properties
-                     (line-beginning-position) (line-end-position))))
-          (when (cl-some (lambda (name)
-                           (string-match-p (regexp-quote name) line))
-                         section-names)
-            (let ((ov (make-overlay (line-beginning-position)
-                                    (min (1+ (line-end-position)) (point-max)))))
-              (overlay-put ov 'face 'ogent-gastown-changed)
-              (overlay-put ov 'ogent-gastown-change t)
-              (push ov ogent-gastown--change-overlays))))
-        (forward-line 1)))
-    (when ogent-gastown--change-overlays
-      (run-at-time ogent-gastown-auto-refresh-highlight-duration nil
-                   #'ogent-gastown--clear-change-overlays-in
-                   (current-buffer)))))
-
-(defun ogent-gastown--clear-change-overlays ()
-  "Remove all change-highlight overlays in the current buffer."
-  (dolist (ov ogent-gastown--change-overlays)
-    (when (overlay-buffer ov)
-      (delete-overlay ov)))
-  (setq ogent-gastown--change-overlays nil))
-
-(defun ogent-gastown--clear-change-overlays-in (buffer)
-  "Remove change-highlight overlays in BUFFER if it is still alive."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (ogent-gastown--clear-change-overlays))))
-
-(defun ogent-gastown--auto-refresh-visible-p ()
-  "Return non-nil if the status buffer is visible in a window."
-  (get-buffer-window (current-buffer) t))
-
-(defvar ogent-gastown-auto-refresh-mode) ; forward-declare for byte-compiler
-
-(defun ogent-gastown--auto-refresh-tick (buffer)
-  "Timer callback: auto-refresh BUFFER if conditions are met."
-  (when (buffer-live-p buffer)
-    (with-current-buffer buffer
-      (when (and ogent-gastown-auto-refresh-mode
-                 (ogent-gastown--auto-refresh-visible-p)
-                 (not (minibufferp (window-buffer (selected-window))))
-                 (not ogent-gastown--loading))
-        ;; Snapshot before refresh
-        (setq ogent-gastown--auto-refresh-snapshot
-              (ogent-gastown--auto-refresh-snapshot-data))
-        ;; Invalidate cache so we get fresh data
-        (ogent-gastown-cache-invalidate)
-        (let ((buf buffer))
-          (ogent-gastown--start-loading)
-          (ogent-gastown--fetch-all
-           (lambda ()
-             (when (buffer-live-p buf)
-               (with-current-buffer buf
-                 (ogent-gastown--stop-loading)
-                 (let* ((new-snapshot (ogent-gastown--auto-refresh-snapshot-data))
-                        (changed (ogent-gastown--auto-refresh-diff
-                                  ogent-gastown--auto-refresh-snapshot new-snapshot)))
-                   (ogent-gastown--render-buffer)
-                   (unless ogent-gastown--auto-refresh-first-load
-                     (when changed
-                       (ogent-gastown--highlight-changed-sections
-                        (ogent-gastown--changed-section-names changed))))
-                   (setq ogent-gastown--auto-refresh-first-load nil)))))
-           (lambda (_slot _value _err)
-             (when (buffer-live-p buf)
-               (with-current-buffer buf
-                 (unless ogent-gastown--loading
-                   (ogent-gastown--render-buffer)))))))))))
-
-(defun ogent-gastown--auto-refresh-start ()
-  "Start the auto-refresh timer."
-  (ogent-gastown--auto-refresh-stop)
-  (setq ogent-gastown--auto-refresh-first-load t)
-  (setq ogent-gastown--auto-refresh-timer
-        (run-at-time ogent-gastown-auto-refresh-interval
-                     ogent-gastown-auto-refresh-interval
-                     #'ogent-gastown--auto-refresh-tick
-                     (current-buffer))))
-
-(defun ogent-gastown--auto-refresh-stop ()
-  "Stop the auto-refresh timer and clean up overlays."
-  (when ogent-gastown--auto-refresh-timer
-    (cancel-timer ogent-gastown--auto-refresh-timer)
-    (setq ogent-gastown--auto-refresh-timer nil))
-  (ogent-gastown--clear-change-overlays))
-
-;;;###autoload
-(define-minor-mode ogent-gastown-auto-refresh-mode
-  "Auto-refresh the Gas Town status buffer periodically.
-When enabled, refreshes the buffer every
-`ogent-gastown-auto-refresh-interval' seconds and highlights
-items that changed since the last refresh with a transient
-visual pulse.
-
-Refresh is suppressed when:
-- The status buffer is not visible in any window
-- The minibuffer is active (user is mid-prompt)
-- A refresh is already in progress"
-  :lighter " AR"
-  :group 'ogent-gastown
-  (if ogent-gastown-auto-refresh-mode
-      (ogent-gastown--auto-refresh-start)
-    (ogent-gastown--auto-refresh-stop)))
 
 ;;; Evil Integration
 ;; When evil is loaded, set up proper evil keybindings.

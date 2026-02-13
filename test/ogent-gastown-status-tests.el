@@ -5138,65 +5138,69 @@
                 '((:id "m1" :read nil) (:id "m2" :read t)))
     (setq-local ogent-gastown--hook-data '(:has_work t))
     (setq-local ogent-gastown--convoy-data
-                '((:id "c1" :completed 3)))
+                '((:id "c1" :completed 3 :total 5)))
+    (setq-local ogent-gastown--workers-data nil)
     (setq-local ogent-gastown--crew-data
-                '((:name "alice" :session_running t)))
+                '((:name "alice" :session_running t :hooked_work "og-2")))
     (setq-local ogent-gastown--polecat-data
-                '((:name "opal" :state "active" :current_task "og-1")))
+                '((:name "opal" :state "active" :session_running t :hooked_work "og-1")))
     (let ((snap (ogent-gastown--auto-refresh-snapshot-data)))
       (should (equal (alist-get 'mail-count snap) 2))
-      (should (equal (alist-get 'unread-count snap) 1))
-      (should (equal (alist-get 'hook-active snap) t))
-      (should (equal (alist-get 'convoy-states snap) '(("c1" . 3))))
-      (should (equal (alist-get 'crew-states snap) '(("alice" . t))))
+      (should (equal (alist-get 'mail-ids snap) '("m1" "m2")))
+      (should (equal (alist-get 'hook-data snap) t))
+      (should (equal (alist-get 'convoy-progress snap) '(("c1" . "3/5"))))
+      (should (equal (alist-get 'crew-states snap) '(("alice" t "og-2"))))
       (should (equal (alist-get 'polecat-states snap)
-                     '(("opal" "active" "og-1")))))))
+                     '(("opal" "active" t "og-1")))))))
 
 (ert-deftest ogent-gts-test-auto-refresh-diff-detects-changes ()
-  "Diff correctly identifies which keys changed between snapshots."
-  (let ((old '((mail-count . 2) (unread-count . 1) (hook-active . t)))
-        (new '((mail-count . 3) (unread-count . 1) (hook-active . nil))))
+  "Diff correctly identifies which section keys changed between snapshots."
+  (let ((old '((mail-count . 2) (mail-ids "m1" "m2") (hook-data . t)
+               (convoy-progress) (worker-states) (polecat-states) (crew-states)))
+        (new '((mail-count . 3) (mail-ids "m1" "m2" "m3") (hook-data . nil)
+               (convoy-progress) (worker-states) (polecat-states) (crew-states))))
     (let ((changed (ogent-gastown--auto-refresh-diff old new)))
-      (should (member 'mail-count changed))
-      (should (member 'hook-active changed))
-      (should-not (member 'unread-count changed)))))
+      (should (member 'mail changed))
+      (should (member 'hook changed))
+      (should-not (member 'convoy changed)))))
 
 (ert-deftest ogent-gts-test-auto-refresh-diff-empty-when-equal ()
   "Diff returns nil when snapshots are identical."
   (let ((snap '((mail-count . 2) (hook-active . t))))
     (should (null (ogent-gastown--auto-refresh-diff snap snap)))))
 
-(ert-deftest ogent-gts-test-changed-section-names-mapping ()
-  "Changed keys map to the correct section heading names."
-  (should (equal (sort (ogent-gastown--changed-section-names
-                        '(mail-count hook-active convoy-states))
-                       #'string<)
-                 (sort '("Mail" "Hook" "Convoy") #'string<))))
-
-(ert-deftest ogent-gts-test-changed-section-names-deduplicates ()
-  "Multiple mail keys produce only one Mail entry."
-  (let ((names (ogent-gastown--changed-section-names
-                '(mail-count unread-count mail-ids))))
-    (should (equal names '("Mail")))))
+(ert-deftest ogent-gts-test-diff-deduplicates-mail-keys ()
+  "Multiple mail-related keys in snapshot produce single mail entry in diff."
+  (let ((old '((mail-count . 2) (mail-ids "m1" "m2") (hook-data . t)))
+        (new '((mail-count . 3) (mail-ids "m1" "m2" "m3") (hook-data . t))))
+    (let ((changed (ogent-gastown--auto-refresh-diff old new)))
+      ;; Both mail-count and mail-ids changed, but should deduplicate to single 'mail
+      (should (member 'mail changed))
+      (should (= 1 (length (seq-filter (lambda (x) (eq x 'mail)) changed)))))))
 
 (ert-deftest ogent-gts-test-highlight-creates-overlays ()
-  "Highlighting section names creates overlays on matching lines."
+  "Highlighting a section creates overlays on matching lines."
   (with-temp-buffer
     (setq-local ogent-gastown--change-overlays nil)
-    (insert "Hook Status\n  active\nMail Inbox\n  2 unread\n")
-    (ogent-gastown--highlight-changed-sections '("Mail"))
-    (should (cl-some (lambda (ov)
-                       (and (overlay-get ov 'ogent-gastown-change)
-                            (eq (overlay-get ov 'face) 'ogent-gastown-changed)))
-                     ogent-gastown--change-overlays))))
+    (insert "# Hook Status\n  active\n@ Mail Inbox\n  2 unread\n")
+    (ogent-gastown--highlight-section 'mail)
+    (should (= 1 (length ogent-gastown--change-overlays)))
+    (let* ((entry (car ogent-gastown--change-overlays))
+           (ov (car entry)))
+      (should (overlay-buffer ov))
+      (should (eq 'ogent-gastown-changed (overlay-get ov 'face)))
+      ;; Clean up timer
+      (cancel-timer (cdr entry))
+      (delete-overlay ov))))
 
 (ert-deftest ogent-gts-test-clear-change-overlays ()
   "Clearing overlays removes them from buffer and resets the list."
   (with-temp-buffer
     (insert "test line\n")
-    (let ((ov (make-overlay 1 5)))
+    (let* ((ov (make-overlay 1 5))
+           (timer (run-at-time 999 nil #'ignore)))
       (overlay-put ov 'ogent-gastown-change t)
-      (setq-local ogent-gastown--change-overlays (list ov))
+      (setq-local ogent-gastown--change-overlays (list (cons ov timer)))
       (ogent-gastown--clear-change-overlays)
       (should (null ogent-gastown--change-overlays))
       (should (null (overlay-buffer ov))))))
