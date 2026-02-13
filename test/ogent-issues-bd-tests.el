@@ -961,6 +961,35 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
     (ogent-issues-bd-comment "test-abc" "new note" (lambda () nil)))
   (should-not (ogent-issues-bd--cache-get '("show" "test-abc" "--json"))))
 
+;;; Dep-add Tests
+
+(ert-deftest ogent-issues-bd-test-dep-add ()
+  "Test dep-add calls async with correct args."
+  (let ((called nil))
+    (ogent-issues-bd-test-with-mock "Added"
+      (ogent-issues-bd-dep-add "blocked-1" "blocker-1"
+                               (lambda () (setq called t)))
+      (should called)
+      (should (equal (car ogent-issues-bd-test--captured-args)
+                     '("dep" "add" "blocked-1" "blocker-1"))))))
+
+(ert-deftest ogent-issues-bd-test-dep-add-invalidates-cache ()
+  "Test dep-add invalidates cache."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd--cache-set '("list" "--json") ogent-issues-bd-test--sample-list)
+  (should (ogent-issues-bd--cache-get '("list" "--json")))
+  (ogent-issues-bd-test-with-mock "Added"
+    (ogent-issues-bd-dep-add "blocked-1" "blocker-1" (lambda () nil)))
+  (should-not (ogent-issues-bd--cache-get '("list" "--json"))))
+
+(ert-deftest ogent-issues-bd-test-dep-add-no-bd-user-error ()
+  "Test dep-add errors when bd not available."
+  (let ((ogent-issues-bd-executable nil))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_) nil)))
+      (should-error
+       (ogent-issues-bd-dep-add "blocked-1" "blocker-1" (lambda () nil))
+       :type 'user-error))))
+
 (provide 'ogent-issues-bd-tests)
 
 ;;; ogent-issues-bd-tests.el ends here

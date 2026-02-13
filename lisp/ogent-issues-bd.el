@@ -461,6 +461,24 @@ The last element of PROPS can be :error-callback followed by a function."
          error-callback
          t)))))
 
+(defun ogent-issues-bd-dep-add (blocked-id blocker-id callback &optional error-callback)
+  "Add dependency: BLOCKED-ID depends on BLOCKER-ID.
+Calls CALLBACK on success, ERROR-CALLBACK on error."
+  (let ((err (ogent-issues-bd-check-requirements)))
+    (if err
+        (progn
+          (if error-callback
+              (funcall error-callback err)
+            (user-error "%s" err))
+          nil)
+      (ogent-issues-bd--run-async
+       (list "dep" "add" blocked-id blocker-id)
+       (lambda (_result)
+         (ogent-issues-bd-cache-invalidate)
+         (funcall callback))
+       error-callback
+       t))))
+
 ;;; Cleanup
 
 (defun ogent-issues-bd-cleanup ()

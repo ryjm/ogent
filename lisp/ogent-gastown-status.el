@@ -1021,6 +1021,12 @@ Resolution order:
     ;; Issues navigation
     (define-key map "i" #'ogent-gastown-rig-issues)
 
+    ;; Issue triage (context-sensitive: only act on issue-item-section)
+    (define-key map "x" #'ogent-gastown-issue-close)
+    (define-key map "!" #'ogent-gastown-issue-prioritize)
+    (define-key map "X" #'ogent-gastown-issue-claim)
+    (define-key map "b" #'ogent-gastown-issue-block)
+
     ;; Quit
     (define-key map "q" #'quit-window)
 
@@ -2702,6 +2708,102 @@ pre-fills that recipient."
   "Quick send mail to deacon."
   (interactive)
   (ogent-gastown-mail-compose "deacon/"))
+
+;;; Issue Triage Actions
+
+(defun ogent-gastown--issue-at-point ()
+  "Return the issue plist at point if on an issue-item-section, else nil."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section)))
+      (when (and section
+                 (eq (eieio-object-class-name section)
+                     'ogent-gastown-issue-item-section))
+        (oref section value)))))
+
+(defun ogent-gastown-issue-close ()
+  "Close the issue at point, prompting for a reason."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (reason (read-string (format "Close %s (%s) reason: " id title))))
+      (when (and reason (not (string-empty-p reason)))
+        (when (y-or-n-p (format "Close %s: %s? " id title))
+          (ogent-issues-bd-close
+           id reason
+           (lambda ()
+             (message "Closed %s: %s" id title)
+             (ogent-gastown-cache-invalidate)
+             (ogent-gastown-refresh))
+           (lambda (err)
+             (message "Failed to close %s: %s" id err))))))))
+
+(defun ogent-gastown-issue-prioritize ()
+  "Set priority on the issue at point."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (current (plist-get issue :priority))
+           (choices '("P0" "P1" "P2" "P3"))
+           (default (when current (format "P%s" current)))
+           (choice (completing-read
+                    (format "Priority for %s (%s)%s: "
+                            id title
+                            (if default (format " [%s]" default) ""))
+                    choices nil t nil nil default))
+           (priority (string-to-number (substring choice 1))))
+      (ogent-issues-bd-update
+       id
+       (lambda ()
+         (message "Set %s to %s" id choice)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       :priority priority
+       :error-callback
+       (lambda (err)
+         (message "Failed to set priority on %s: %s" id err))))))
+
+(defun ogent-gastown-issue-claim ()
+  "Claim the issue at point (mark in-progress)."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)")))
+      (ogent-issues-bd-start
+       id
+       (lambda ()
+         (message "Claimed %s: %s" id title)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       (lambda (err)
+         (message "Failed to claim %s: %s" id err))))))
+
+(defun ogent-gastown-issue-block ()
+  "Add a blocking dependency to the issue at point.
+Prompts for the blocker issue ID."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (blocker (read-string (format "Blocker ID for %s (%s): " id title))))
+      (when (and blocker (not (string-empty-p blocker)))
+        (ogent-issues-bd-dep-add
+         id blocker
+         (lambda ()
+           (message "%s now blocked by %s" id blocker)
+           (ogent-gastown-cache-invalidate)
+           (ogent-gastown-refresh))
+         (lambda (err)
+           (message "Failed to add dependency: %s" err)))))))
 
 (defun ogent-gastown-hook-show ()
   "Show hook details."

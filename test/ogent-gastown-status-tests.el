@@ -4958,6 +4958,177 @@
       (should (eq (get-text-property (1- (point)) 'face)
                   'ogent-gastown-fetch-error)))))
 
+;;; Issue Triage Tests
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-nil-without-magit ()
+  "Test ogent-gastown--issue-at-point returns nil without magit."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-not (ogent-gastown--issue-at-point))))
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-nil-on-non-issue ()
+  "Test ogent-gastown--issue-at-point returns nil on non-issue section."
+  (let ((ogent-gastown--magit-section-available t)
+        (mock-section (record 'ogent-gastown-mail-item-section)))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p) (lambda () t))
+              ((symbol-function 'magit-current-section) (lambda () mock-section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_) 'ogent-gastown-mail-item-section)))
+      (should-not (ogent-gastown--issue-at-point)))))
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-plist-on-issue ()
+  "Test ogent-gastown--issue-at-point returns issue plist on issue section."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open" :priority 2))
+         (mock-section 'fake-section))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p) (lambda () t))
+              ((symbol-function 'magit-current-section) (lambda () mock-section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_) 'ogent-gastown-issue-item-section))
+              ((symbol-function 'eieio-oref)
+               (lambda (_section _slot) issue-data)))
+      (should (equal (ogent-gastown--issue-at-point) issue-data)))))
+
+(ert-deftest ogent-gts-test-issue-close-no-issue-at-point ()
+  "Test issue-close errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-close) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-close-calls-bd-close ()
+  "Test issue-close calls ogent-issues-bd-close with correct args."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open"))
+         (close-called nil)
+         (close-args nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "Done"))
+              ((symbol-function 'y-or-n-p)
+               (lambda (_prompt) t))
+              ((symbol-function 'ogent-issues-bd-close)
+               (lambda (id reason cb &optional _err-cb)
+                 (setq close-called t
+                       close-args (list id reason))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-close)
+      (should close-called)
+      (should (equal close-args '("og-abc" "Done"))))))
+
+(ert-deftest ogent-gts-test-issue-close-aborts-on-deny ()
+  "Test issue-close does nothing when user says no."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open"))
+         (close-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "Done"))
+              ((symbol-function 'y-or-n-p)
+               (lambda (_prompt) nil))
+              ((symbol-function 'ogent-issues-bd-close)
+               (lambda (&rest _) (setq close-called t))))
+      (ogent-gastown-issue-close)
+      (should-not close-called))))
+
+(ert-deftest ogent-gts-test-issue-prioritize-no-issue-at-point ()
+  "Test issue-prioritize errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-prioritize) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-prioritize-calls-bd-update ()
+  "Test issue-prioritize calls ogent-issues-bd-update with priority."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-def" :title "Add feature" :status "open" :priority 2))
+         (update-called nil)
+         (update-id nil)
+         (update-priority nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'completing-read)
+               (lambda (_prompt choices &rest _) "P1"))
+              ((symbol-function 'ogent-issues-bd-update)
+               (lambda (id cb &rest props)
+                 (setq update-called t
+                       update-id id
+                       update-priority (plist-get props :priority))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-prioritize)
+      (should update-called)
+      (should (equal update-id "og-def"))
+      (should (equal update-priority 1)))))
+
+(ert-deftest ogent-gts-test-issue-claim-no-issue-at-point ()
+  "Test issue-claim errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-claim) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-claim-calls-bd-start ()
+  "Test issue-claim calls ogent-issues-bd-start with correct id."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-ghi" :title "Update docs" :status "open"))
+         (start-called nil)
+         (start-id nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'ogent-issues-bd-start)
+               (lambda (id cb &optional _err-cb)
+                 (setq start-called t
+                       start-id id)
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-claim)
+      (should start-called)
+      (should (equal start-id "og-ghi")))))
+
+(ert-deftest ogent-gts-test-issue-block-no-issue-at-point ()
+  "Test issue-block errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-block) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-block-calls-bd-dep-add ()
+  "Test issue-block calls ogent-issues-bd-dep-add with correct args."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-jkl" :title "Refactor" :status "open"))
+         (dep-called nil)
+         (dep-args nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "og-xyz"))
+              ((symbol-function 'ogent-issues-bd-dep-add)
+               (lambda (blocked-id blocker-id cb &optional _err-cb)
+                 (setq dep-called t
+                       dep-args (list blocked-id blocker-id))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-block)
+      (should dep-called)
+      (should (equal dep-args '("og-jkl" "og-xyz"))))))
+
+(ert-deftest ogent-gts-test-issue-block-empty-blocker-noop ()
+  "Test issue-block does nothing when blocker ID is empty."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-jkl" :title "Refactor" :status "open"))
+         (dep-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) ""))
+              ((symbol-function 'ogent-issues-bd-dep-add)
+               (lambda (&rest _) (setq dep-called t))))
+      (ogent-gastown-issue-block)
+      (should-not dep-called))))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here
