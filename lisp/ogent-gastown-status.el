@@ -46,6 +46,7 @@
 ;; Load ogent-issues for rig → issues navigation
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues-bd-list "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
 
 ;; Load ogent-convoy for convoy inspector navigation
@@ -675,6 +676,10 @@ Accepts both real gt output (:running) and canonical keys
 (defvar-local ogent-gastown--rigs-data nil
   "Cached rigs list data.")
 
+(defvar-local ogent-gastown--issues-data nil
+  "Cached issues list data, keyed by rig name.
+An alist of (RIG-NAME . ISSUES-LIST) where each issue is a plist.")
+
 (defvar-local ogent-gastown--selected-rig nil
   "Rig name currently selected for rig-scoped detail sections.")
 
@@ -955,7 +960,10 @@ Resolution order:
         "Section for rigs overview."))
     (unless (fboundp 'ogent-gastown-rig-item-section)
       (defclass ogent-gastown-rig-item-section (magit-section) ()
-        "Section for a single rig."))))
+        "Section for a single rig."))
+    (unless (fboundp 'ogent-gastown-issue-item-section)
+      (defclass ogent-gastown-issue-item-section (magit-section) ()
+        "Section for a single issue within a rig."))))
 
 (ogent-gastown--define-magit-section-classes)
 
@@ -1326,7 +1334,9 @@ DEFERRED-CALLBACK runs after each deferred section update."
                   ('convoy
                    (setq ogent-gastown--convoy-loading nil)
                    (setq ogent-gastown--convoy-data
-                         (ogent-gastown--normalize-convoy-list value))))
+                         (ogent-gastown--normalize-convoy-list value)))
+                  ('issues
+                   (setq ogent-gastown--issues-data value)))
                 (setq ogent-gastown--fetch-errors errors)
                 (when deferred-callback
                   (funcall deferred-callback slot value err))))))
@@ -1411,7 +1421,30 @@ DEFERRED-CALLBACK runs after each deferred section update."
      (lambda (result)
        (funcall update-deferred 'convoy result nil))
      (lambda (err)
-       (funcall update-deferred 'convoy nil err)))))
+       (funcall update-deferred 'convoy nil err)))
+
+    ;; Deferred: fetch open issues for inline display in rig sections.
+    ;; Uses bd list via ogent-issues-bd-list with status filter.
+    ;; Groups results by rig name, excluding agent/event types.
+    (ogent-issues-bd-list
+     (lambda (result)
+       (when (buffer-live-p buf)
+         (let ((grouped nil))
+           ;; Group issues by rig (for now, all go under selected rig)
+           (dolist (issue result)
+             (let* ((issue-type (plist-get issue :issue_type))
+                    ;; Skip agent/event beads — only show work items
+                    (work-type-p (member issue-type '("task" "bug" "feature" "epic" "chore"))))
+               (when work-type-p
+                 (let* ((rig (or ogent-gastown--selected-rig "ogent"))
+                        (entry (assoc rig grouped)))
+                   (if entry
+                       (setcdr entry (append (cdr entry) (list issue)))
+                     (push (cons rig (list issue)) grouped))))))
+           (funcall update-deferred 'issues grouped nil))))
+     '(:status "open")
+     (lambda (err)
+       (funcall update-deferred 'issues nil err)))))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
@@ -2282,7 +2315,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (dolist (agent agents)
           (ogent-gastown--insert-rig-agent agent)))
       ;; Insert beads stats detail if expanded
-      (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats)))))
+      (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats))
+      ;; Insert inline issue items if expanded
+      (ogent-gastown--insert-rig-issues name))))
 
 (defun ogent-gastown--insert-rig-beads-detail (beads-stats)
   "Insert beads stats detail lines for an expanded rig section.
@@ -2312,6 +2347,61 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                       (propertize (format "%-12s" label) 'face 'ogent-gastown-dimmed)
                       (propertize (format "%d" value) 'face face)
                       "\n"))))))))
+
+(defun ogent-gastown--insert-rig-issues (rig-name)
+  "Insert inline issue items for RIG-NAME from cached issues data."
+  (when-let* ((issues (cdr (assoc rig-name ogent-gastown--issues-data))))
+    (let ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+          (shown 0)
+          (max-issues 20))
+      (dolist (issue issues)
+        (when (< shown max-issues)
+          (let* ((id (plist-get issue :id))
+                 (title (or (plist-get issue :title) "(untitled)"))
+                 (status (or (plist-get issue :status) "open"))
+                 (priority (plist-get issue :priority))
+                 (assignee (plist-get issue :assignee))
+                 (issue-type (or (plist-get issue :issue_type) "task"))
+                 (status-icon
+                  (pcase status
+                    ("in_progress" (propertize (ogent-ops-section-prefix "●" "*")
+                                              'face 'ogent-gastown-beads-in-progress))
+                    ("hooked"      (propertize (ogent-ops-section-prefix "●" "*")
+                                              'face 'ogent-gastown-beads-in-progress))
+                    ("blocked"     (propertize (ogent-ops-section-prefix "⊘" "x")
+                                              'face 'warning))
+                    (_             (propertize (ogent-ops-section-prefix "○" "o")
+                                              'face 'ogent-gastown-dimmed))))
+                 (pri-badge
+                  (when priority
+                    (propertize (format "[P%s]" priority)
+                                'face (if (<= priority 1) 'warning 'ogent-gastown-dimmed))))
+                 (type-badge
+                  (unless (equal issue-type "task")
+                    (propertize (format "[%s]" issue-type) 'face 'ogent-gastown-dimmed)))
+                 (assignee-str
+                  (when (and assignee (not (string-empty-p assignee)))
+                    (propertize (format "@%s" (file-name-nondirectory assignee))
+                                'face 'ogent-gastown-dimmed))))
+            (magit-insert-section (ogent-gastown-issue-item-section issue)
+              (insert "      "
+                      status-icon " "
+                      (or pri-badge "") (if pri-badge " " "")
+                      (propertize (or id "?") 'face 'ogent-gastown-dimmed)
+                      "  "
+                      (propertize (truncate-string-to-width title 50 nil nil t)
+                                  'face (if (member status '("in_progress" "hooked"))
+                                            'bold 'default))
+                      (if type-badge (concat " " type-badge) "")
+                      (if assignee-str (concat "  " assignee-str) "")
+                      "\n"))
+            (cl-incf shown))))
+      (when (> (length issues) max-issues)
+        (insert "      "
+                (propertize (format "... and %d more (press i for full list)"
+                                    (- (length issues) max-issues))
+                            'face 'ogent-gastown-dimmed)
+                "\n")))))
 
 (defun ogent-gastown--insert-rig-agent (agent)
   "Insert a single AGENT line within a rig section."
@@ -2487,6 +2577,16 @@ On other sections, toggles visibility."
         (let* ((msg (oref section value))
                (id (plist-get msg :id)))
           (ogent-gastown-status-mail-read id)))
+       ((eq (eieio-object-class-name section) 'ogent-gastown-issue-item-section)
+        (let* ((issue (oref section value))
+               (id (plist-get issue :id)))
+          (when id
+            (ogent-issues-bd-get id
+                                 (lambda (detail)
+                                   (when detail
+                                     (ogent-issues--show-detail detail)))
+                                 (lambda (err)
+                                   (message "Could not fetch issue %s: %s" id err))))))
        (t
         (magit-section-toggle section))))))
 
