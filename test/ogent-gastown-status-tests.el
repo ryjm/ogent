@@ -5129,6 +5129,142 @@
       (ogent-gastown-issue-block)
       (should-not dep-called))))
 
+;;; Auto-Refresh Mode Tests
+
+(ert-deftest ogent-gts-test-auto-refresh-snapshot-captures-state ()
+  "Snapshot captures mail, hook, convoy, crew and polecat state."
+  (with-temp-buffer
+    (setq-local ogent-gastown--mail-data
+                '((:id "m1" :read nil) (:id "m2" :read t)))
+    (setq-local ogent-gastown--hook-data '(:has_work t))
+    (setq-local ogent-gastown--convoy-data
+                '((:id "c1" :completed 3)))
+    (setq-local ogent-gastown--crew-data
+                '((:name "alice" :session_running t)))
+    (setq-local ogent-gastown--polecat-data
+                '((:name "opal" :state "active" :current_task "og-1")))
+    (let ((snap (ogent-gastown--auto-refresh-snapshot-data)))
+      (should (equal (alist-get 'mail-count snap) 2))
+      (should (equal (alist-get 'unread-count snap) 1))
+      (should (equal (alist-get 'hook-active snap) t))
+      (should (equal (alist-get 'convoy-states snap) '(("c1" . 3))))
+      (should (equal (alist-get 'crew-states snap) '(("alice" . t))))
+      (should (equal (alist-get 'polecat-states snap)
+                     '(("opal" "active" "og-1")))))))
+
+(ert-deftest ogent-gts-test-auto-refresh-diff-detects-changes ()
+  "Diff correctly identifies which keys changed between snapshots."
+  (let ((old '((mail-count . 2) (unread-count . 1) (hook-active . t)))
+        (new '((mail-count . 3) (unread-count . 1) (hook-active . nil))))
+    (let ((changed (ogent-gastown--auto-refresh-diff old new)))
+      (should (member 'mail-count changed))
+      (should (member 'hook-active changed))
+      (should-not (member 'unread-count changed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-diff-empty-when-equal ()
+  "Diff returns nil when snapshots are identical."
+  (let ((snap '((mail-count . 2) (hook-active . t))))
+    (should (null (ogent-gastown--auto-refresh-diff snap snap)))))
+
+(ert-deftest ogent-gts-test-changed-section-names-mapping ()
+  "Changed keys map to the correct section heading names."
+  (should (equal (sort (ogent-gastown--changed-section-names
+                        '(mail-count hook-active convoy-states))
+                       #'string<)
+                 (sort '("Mail" "Hook" "Convoy") #'string<))))
+
+(ert-deftest ogent-gts-test-changed-section-names-deduplicates ()
+  "Multiple mail keys produce only one Mail entry."
+  (let ((names (ogent-gastown--changed-section-names
+                '(mail-count unread-count mail-ids))))
+    (should (equal names '("Mail")))))
+
+(ert-deftest ogent-gts-test-highlight-creates-overlays ()
+  "Highlighting section names creates overlays on matching lines."
+  (with-temp-buffer
+    (setq-local ogent-gastown--change-overlays nil)
+    (insert "Hook Status\n  active\nMail Inbox\n  2 unread\n")
+    (ogent-gastown--highlight-changed-sections '("Mail"))
+    (should (cl-some (lambda (ov)
+                       (and (overlay-get ov 'ogent-gastown-change)
+                            (eq (overlay-get ov 'face) 'ogent-gastown-changed)))
+                     ogent-gastown--change-overlays))))
+
+(ert-deftest ogent-gts-test-clear-change-overlays ()
+  "Clearing overlays removes them from buffer and resets the list."
+  (with-temp-buffer
+    (insert "test line\n")
+    (let ((ov (make-overlay 1 5)))
+      (overlay-put ov 'ogent-gastown-change t)
+      (setq-local ogent-gastown--change-overlays (list ov))
+      (ogent-gastown--clear-change-overlays)
+      (should (null ogent-gastown--change-overlays))
+      (should (null (overlay-buffer ov))))))
+
+(ert-deftest ogent-gts-test-auto-refresh-mode-starts-timer ()
+  "Enabling auto-refresh mode creates a timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (should ogent-gastown--auto-refresh-timer)
+    (ogent-gastown-auto-refresh-mode -1)
+    (should-not ogent-gastown--auto-refresh-timer)))
+
+(ert-deftest ogent-gts-test-auto-refresh-mode-stops-timer ()
+  "Disabling auto-refresh mode cancels the timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (let ((timer ogent-gastown--auto-refresh-timer))
+      (ogent-gastown-auto-refresh-mode -1)
+      (should-not ogent-gastown--auto-refresh-timer)
+      ;; Timer should have been cancelled
+      (should (aref timer 4)))))  ; cancelled timers have t in slot 4
+
+(ert-deftest ogent-gts-test-auto-refresh-tick-skips-when-loading ()
+  "Auto-refresh tick does nothing when a load is already in progress."
+  (with-temp-buffer
+    (setq-local ogent-gastown-auto-refresh-mode t)
+    (setq-local ogent-gastown--loading t)
+    (let ((refreshed nil))
+      (cl-letf (((symbol-function 'ogent-gastown-cache-invalidate)
+                 (lambda () (setq refreshed t))))
+        (ogent-gastown--auto-refresh-tick (current-buffer))
+        (should-not refreshed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-tick-skips-when-not-visible ()
+  "Auto-refresh tick does nothing when buffer is not in any window."
+  (with-temp-buffer
+    (setq-local ogent-gastown-auto-refresh-mode t)
+    (setq-local ogent-gastown--loading nil)
+    (let ((refreshed nil))
+      (cl-letf (((symbol-function 'ogent-gastown--auto-refresh-visible-p)
+                 (lambda () nil))
+                ((symbol-function 'ogent-gastown-cache-invalidate)
+                 (lambda () (setq refreshed t))))
+        (ogent-gastown--auto-refresh-tick (current-buffer))
+        (should-not refreshed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-cleanup-on-kill ()
+  "Cleanup function stops auto-refresh timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (should ogent-gastown--auto-refresh-timer)
+    (ogent-gastown--cleanup-on-kill)
+    (should-not ogent-gastown--auto-refresh-timer)))
+
+(ert-deftest ogent-gts-test-auto-refresh-customization-defaults ()
+  "Default interval and highlight duration have expected values."
+  (should (= ogent-gastown-auto-refresh-interval 30))
+  (should (= ogent-gastown-auto-refresh-highlight-duration 5)))
+
+(ert-deftest ogent-gts-test-auto-refresh-face-exists ()
+  "The changed face is defined."
+  (should (facep 'ogent-gastown-changed)))
+
+(ert-deftest ogent-gts-test-auto-refresh-keymap-bound ()
+  "The A key is bound to auto-refresh toggle in the mode map."
+  (should (eq (lookup-key ogent-gastown-status-mode-map "A")
+              'ogent-gastown-auto-refresh-mode)))
+
 (provide 'ogent-gastown-status-tests)
 
 ;;; ogent-gastown-status-tests.el ends here
