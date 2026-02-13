@@ -38,6 +38,7 @@
 (declare-function ogent-gastown-issue-claim "ogent-gastown-status")
 (declare-function ogent-gastown-issue-block "ogent-gastown-status")
 (declare-function ogent-gastown-bead-create "ogent-gastown-status")
+(declare-function ogent-gastown-sling "ogent-gastown-status")
 
 ;; Autoloads
 (autoload 'ogent-gastown--in-town-p "ogent-gastown-status" nil nil)
@@ -68,6 +69,7 @@
 (autoload 'ogent-gastown-issue-claim "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-issue-block "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-bead-create "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-sling "ogent-gastown-status" nil t)
 
 (defun ogent-gastown-status-transient--format-header ()
   "Format header for the Gas Town status transient menu."
@@ -98,6 +100,7 @@
     ("M" "Compose mail" ogent-gastown-mail-compose)
     ("m" "Read mail" ogent-gastown-status-mail-read)]
    ["Dispatch"
+    ("S" "Sling work" ogent-gastown-sling)
     ("a" "Attach to hook" ogent-gastown-hook-attach)
     ("C" "Create convoy" ogent-gastown-convoy-create)]]
   [["Inspect"

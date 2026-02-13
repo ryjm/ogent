@@ -1013,6 +1013,9 @@ Resolution order:
     ;; Polecat actions
     (define-key map "P" #'ogent-gastown-polecat-status)
 
+    ;; Dispatch (sling)
+    (define-key map "S" #'ogent-gastown-sling)
+
     ;; Rig actions
     (define-key map "H" #'ogent-gastown-cycle-rig-prev)
     (define-key map "L" #'ogent-gastown-cycle-rig-next)
@@ -1062,6 +1065,9 @@ Mail:
 Hook:
   \\[ogent-gastown-hook-show]     Show hook details
   \\[ogent-gastown-hook-attach]     Attach work to hook
+
+Dispatch:
+  \\[ogent-gastown-sling]     Sling work to agent
 
 Convoy:
   \\[ogent-gastown-convoy-status]     Inspect convoy
@@ -2826,6 +2832,104 @@ Prompts for the blocker issue ID."
        (message "Failed to hook: %s" err))
      t)))
 
+;;; Sling (Work Dispatch)
+
+(defun ogent-gastown--bead-id-at-point ()
+  "Get bead ID from context at point, or nil.
+Checks text properties first, then magit section values."
+  (or
+   ;; Text property (on clickable bead links)
+   (get-text-property (point) 'ogent-bead-id)
+   ;; Section value properties
+   (when (ogent-gastown--magit-usable-p)
+     (let ((section (magit-current-section)))
+       (when (and section (slot-boundp section 'value))
+         (let ((value (oref section value)))
+           (when (listp value)
+             (or (plist-get value :hooked_work)
+                 (plist-get value :current_task)
+                 (plist-get value :id)))))))))
+
+(defun ogent-gastown--sling-target-at-point ()
+  "Get sling target address from section at point, or nil.
+Returns a rig/role/name address suitable for `gt sling'."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section)))
+      (when (and section (slot-boundp section 'value))
+        (let ((class (eieio-object-class-name section))
+              (value (oref section value)))
+          (cond
+           ;; Crew member → rig/crew/name
+           ((eq class 'ogent-gastown-crew-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/crew/%s" rig name))))
+           ;; Polecat → rig/polecats/name
+           ((eq class 'ogent-gastown-polecat-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/polecats/%s" rig name))))
+           ;; Rig → just the rig name (auto-spawns polecat)
+           ((eq class 'ogent-gastown-rig-item-section)
+            (plist-get value :name))
+           ;; Witness → rig/witness/
+           ((eq class 'ogent-gastown-witness-item-section)
+            (let ((rig (plist-get value :rig)))
+              (when rig
+                (format "%s/witness/" rig))))
+           (t nil)))))))
+
+(defun ogent-gastown--get-sling-targets ()
+  "Get list of sling targets for completion.
+Builds from rigs, crew, and polecats."
+  (let ((targets nil))
+    ;; Add rig names (auto-spawn polecat)
+    (dolist (rig ogent-gastown--rigs-data)
+      (let ((name (plist-get rig :name)))
+        (when name (push name targets))))
+    ;; Add crew and polecats (reuse mail recipients logic)
+    (dolist (member ogent-gastown--crew-data)
+      (let ((rig (plist-get member :rig))
+            (name (plist-get member :name)))
+        (when (and rig name)
+          (push (format "%s/crew/%s" rig name) targets))))
+    (dolist (polecat ogent-gastown--polecat-data)
+      (let ((rig (plist-get polecat :rig))
+            (name (plist-get polecat :name)))
+        (when (and rig name)
+          (push (format "%s/polecats/%s" rig name) targets))))
+    (sort (delete-dups targets) #'string<)))
+
+(defun ogent-gastown-sling ()
+  "Sling (dispatch) a bead to a target agent.
+Context-sensitive:
+- On a crew/polecat/rig item: pre-fills target, prompts for bead-id.
+- On a bead link: pre-fills bead-id, prompts for target.
+- Otherwise: prompts for both."
+  (interactive)
+  (let* ((ctx-bead (ogent-gastown--bead-id-at-point))
+         (ctx-target (ogent-gastown--sling-target-at-point))
+         (bead-id (or ctx-bead
+                      (read-string "Bead ID to sling: ")))
+         (target (or ctx-target
+                     (completing-read "Sling to: "
+                                      (ogent-gastown--get-sling-targets)
+                                      nil nil))))
+    (when (or (string-empty-p bead-id) (string-empty-p target))
+      (user-error "Both bead ID and target are required"))
+    (message "Slinging %s → %s ..." bead-id target)
+    (ogent-gastown-status--run-async
+     (list "sling" bead-id target)
+     (lambda (_result)
+       (message "Slung %s → %s" bead-id target)
+       (ogent-gastown-cache-invalidate)
+       (ogent-gastown-refresh))
+     (lambda (err)
+       (message "Sling failed: %s" err))
+     t)))
+
 (defun ogent-gastown-convoy-status ()
   "Inspect convoy at point, or prompt for a convoy ID.
 Opens the dedicated convoy inspector buffer.  When point is on a
@@ -3098,7 +3202,7 @@ Displays available keybindings and actions."
     (message
      (concat
       "n/p:item  M-n/M-p:section  TAB:toggle  "
-      "g:refresh  m:mail  o:hook  c:convoy  "
+      "g:refresh  m:mail  o:hook  S:sling  c:convoy  "
       "H/L:cycle-rig  "
       "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit"
       "  Workspace:" workspace
