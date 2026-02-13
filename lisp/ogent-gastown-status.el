@@ -47,6 +47,7 @@
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues-bd-list "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues-bd-create "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
 
 ;; Load ogent-convoy for convoy inspector navigation
@@ -1020,6 +1021,7 @@ Resolution order:
 
     ;; Issues navigation
     (define-key map "i" #'ogent-gastown-rig-issues)
+    (define-key map "+" #'ogent-gastown-bead-create)
 
     ;; Issue triage (context-sensitive: only act on issue-item-section)
     (define-key map "x" #'ogent-gastown-issue-close)
@@ -3021,6 +3023,50 @@ Works when point is on a rig, crew member, or polecat."
         (let ((default-directory rig-path))
           (ogent-issues))
       (user-error "No rig at point or rig directory not found: %s" rig-name))))
+
+;;; Bead Creation
+
+(defun ogent-gastown-bead-create ()
+  "Create a new bead from the status buffer.
+Prompts for title, type, and priority.  If point is on an agent
+section, offers to scope creation to that agent's rig."
+  (interactive)
+  (let* ((rig-name (or (ogent-gastown--rig-at-point)
+                       (ogent-gastown--sync-selected-rig)
+                       (completing-read
+                        "Rig: "
+                        (mapcar (lambda (r) (plist-get r :name))
+                                ogent-gastown--rigs-data))))
+         (rig-path (when rig-name
+                     (expand-file-name rig-name ogent-gastown--town-root)))
+         (title (read-string "Bead title: "))
+         (type (completing-read "Type: " '("task" "bug" "feature" "epic" "chore")
+                                nil t nil nil "task"))
+         (priority-label (completing-read "Priority: "
+                                          '("P0 (critical)" "P1 (high)"
+                                            "P2 (normal)" "P3 (low)")
+                                          nil t nil nil "P2 (normal)"))
+         (priority (string-to-number (substring priority-label 1 2))))
+    (when (string-empty-p (string-trim title))
+      (user-error "Bead title cannot be empty"))
+    (unless (and rig-path (file-directory-p rig-path))
+      (user-error "Rig directory not found: %s" rig-name))
+    (let ((default-directory rig-path))
+      (ogent-issues-bd-create
+       title
+       (lambda (result)
+         (let ((id (if (listp result)
+                       (or (plist-get (if (plistp result) result (car result)) :id)
+                           (plist-get (if (plistp result) result (car result)) :ID))
+                     "?")))
+           (message "Created bead %s: %s" id title))
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       :type type
+       :priority priority
+       :error-callback
+       (lambda (err)
+         (message "Failed to create bead: %s" err))))))
 
 ;;; Bead Link Navigation
 
