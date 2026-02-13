@@ -3430,6 +3430,8 @@ Returns an alist of (KEY . FINGERPRINT) pairs."
   (when (buffer-live-p buf)
     (with-current-buffer buf
       (when (and ogent-gastown-auto-refresh-mode
+                 ;; Skip if a fetch is already in progress
+                 (not ogent-gastown--loading)
                  ;; Only refresh when buffer is visible
                  (get-buffer-window buf t)
                  ;; Don't refresh during minibuffer input
