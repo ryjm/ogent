@@ -30,6 +30,7 @@
 (declare-function ogent-gastown-witness-show "ogent-gastown-status")
 (declare-function ogent-gastown-crew-status "ogent-gastown-status")
 (declare-function ogent-gastown-polecat-status "ogent-gastown-status")
+(declare-function ogent-gastown-nudge "ogent-gastown-status")
 (declare-function ogent-gastown-rig-status "ogent-gastown-status")
 (declare-function ogent-gastown-refinery-status "ogent-gastown-status")
 (declare-function ogent-gastown-rig-issues "ogent-gastown-status")
@@ -62,6 +63,7 @@
 (autoload 'ogent-gastown-witness-show "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-crew-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-polecat-status "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-nudge "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-refinery-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-issues "ogent-gastown-status" nil t)
@@ -100,7 +102,8 @@
     ("TAB" "Toggle section" ogent-gastown-toggle-section :transient t)]
    ["Communicate"
     ("M" "Compose mail" ogent-gastown-mail-compose)
-    ("m" "Read mail" ogent-gastown-status-mail-read)]
+    ("m" "Read mail" ogent-gastown-status-mail-read)
+    ("N" "Nudge agent" ogent-gastown-nudge)]
    ["Dispatch"
     ("S" "Sling work" ogent-gastown-sling)
     ("a" "Attach to hook" ogent-gastown-hook-attach)
