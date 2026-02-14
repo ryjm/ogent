@@ -195,6 +195,9 @@ ERROR-CALLBACK receives error message on failure."
                                   (format "gt command failed: %s" event)))
                    (message "ogent-agent-detail error: %s"
                             (or stderr-content event)))))))))
+    (set-process-query-on-exit-flag proc nil)
+    (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+      (set-process-query-on-exit-flag stderr-proc nil))
     (push proc ogent-agent-detail--processes)
     proc))
 

@@ -193,6 +193,10 @@ Returns the process object, or nil if no project root found."
                (when (buffer-live-p stderr-buffer)
                  (kill-buffer stderr-buffer))))))))
       
+      ;; Don't prompt "Buffer has a running process" on buffer kill
+      (set-process-query-on-exit-flag proc nil)
+      (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+        (set-process-query-on-exit-flag stderr-proc nil))
       ;; Track process for cleanup
       (push proc ogent-issues-bd--processes)
       proc)))
