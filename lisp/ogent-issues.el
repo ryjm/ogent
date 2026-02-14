@@ -23,6 +23,7 @@ Captured at load time so sibling requires remain robust.")
 (require 'seq)
 (require 'subr-x)
 (require 'eieio)
+(require 'iso8601)
 (require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section - check at both compile and load time
@@ -1317,7 +1318,7 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
       (insert "\n"))
     (insert "\n")))
 
-(defun ogent-issues--insert-detail-gastown (issue)
+(defun ogent-issues--insert-detail-gastown (_issue)
   "Insert Gas Town agent assignment section for ISSUE.
 Shows which agents (crew/polecats) have this bead hooked.
 Only displayed when `ogent-gastown-integration-active-p' returns non-nil."
@@ -1532,7 +1533,7 @@ and re-renders the detail view."
            (stringp iso-time)
            (not (string-empty-p iso-time)))
       (condition-case nil
-          (let ((time (parse-iso8601-time-string iso-time)))
+          (let ((time (encode-time (iso8601-parse iso-time))))
             (format-time-string "%Y-%m-%d %H:%M" time))
         (error iso-time))
     "unknown"))

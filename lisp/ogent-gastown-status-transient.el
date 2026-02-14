@@ -2,11 +2,13 @@
 
 ;;; Commentary:
 ;; Provides a magit-style transient help menu for the Gas Town status buffer.
+;; Organized around the war room mental model: Navigate → Inspect → Act.
 
 ;;; Code:
 
 (require 'transient)
 
+;; Declare functions from ogent-gastown-status
 (declare-function ogent-gastown--in-town-p "ogent-gastown-status")
 (declare-function ogent-gastown--workspace-root-display "ogent-gastown-status")
 (declare-function ogent-gastown-refresh "ogent-gastown-status")
@@ -28,10 +30,19 @@
 (declare-function ogent-gastown-witness-show "ogent-gastown-status")
 (declare-function ogent-gastown-crew-status "ogent-gastown-status")
 (declare-function ogent-gastown-polecat-status "ogent-gastown-status")
+(declare-function ogent-gastown-nudge "ogent-gastown-status")
 (declare-function ogent-gastown-rig-status "ogent-gastown-status")
 (declare-function ogent-gastown-refinery-status "ogent-gastown-status")
 (declare-function ogent-gastown-rig-issues "ogent-gastown-status")
+(declare-function ogent-gastown-issue-close "ogent-gastown-status")
+(declare-function ogent-gastown-issue-prioritize "ogent-gastown-status")
+(declare-function ogent-gastown-issue-claim "ogent-gastown-status")
+(declare-function ogent-gastown-issue-block "ogent-gastown-status")
+(declare-function ogent-gastown-bead-create "ogent-gastown-status")
+(declare-function ogent-gastown-sling "ogent-gastown-status")
+(declare-function ogent-gastown-auto-refresh-mode "ogent-gastown-status")
 
+;; Autoloads
 (autoload 'ogent-gastown--in-town-p "ogent-gastown-status" nil nil)
 (autoload 'ogent-gastown-refresh "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-refresh-force "ogent-gastown-status" nil t)
@@ -52,9 +63,17 @@
 (autoload 'ogent-gastown-witness-show "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-crew-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-polecat-status "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-nudge "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-refinery-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-issues "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-issue-close "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-issue-prioritize "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-issue-claim "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-issue-block "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-bead-create "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-sling "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-auto-refresh-mode "ogent-gastown-status" nil t)
 
 (defun ogent-gastown-status-transient--format-header ()
   "Format header for the Gas Town status transient menu."
@@ -74,37 +93,43 @@
 (transient-define-prefix ogent-gastown-status-dispatch ()
   "Dispatch menu for Gas Town status buffer."
   [:description ogent-gastown-status-transient--format-header
-   ["Navigation"
+   ["Navigate"
     ("n" "Next item" ogent-gastown-next-item :transient t)
     ("p" "Previous item" ogent-gastown-prev-item :transient t)
     ("H" "Prev rig" ogent-gastown-cycle-rig-prev :transient t)
     ("L" "Next rig" ogent-gastown-cycle-rig-next :transient t)
     ("RET" "Visit item" ogent-gastown-visit)
     ("TAB" "Toggle section" ogent-gastown-toggle-section :transient t)]
-   ["Mail"
+   ["Communicate"
+    ("M" "Compose mail" ogent-gastown-mail-compose)
     ("m" "Read mail" ogent-gastown-status-mail-read)
-    ("M" "Compose" ogent-gastown-mail-compose)]
-   ["Hook"
-    ("o" "Show hook" ogent-gastown-hook-show)
-    ("a" "Attach work" ogent-gastown-hook-attach)]]
-  [["Convoy"
-    ("c" "Inspect convoy" ogent-gastown-convoy-status)
-    ("C" "Create convoy" ogent-gastown-convoy-create)]
-   ["Status"
+    ("N" "Nudge agent" ogent-gastown-nudge)]
+   ["Dispatch"
+    ("S" "Sling work" ogent-gastown-sling)
+    ("a" "Attach to hook" ogent-gastown-hook-attach)
+    ("C" "Create convoy" ogent-gastown-convoy-create)]]
+  [["Inspect"
     ("s" "Town stats" ogent-gastown-stats-show)
     ("d" "Deacon" ogent-gastown-deacon-show)
-    ("w" "Witness" ogent-gastown-witness-show)]
-   ["Crew"
-    ("R" "Crew status" ogent-gastown-crew-status)
-    ("P" "Polecat status" ogent-gastown-polecat-status)]]
-  [["Rig"
+    ("w" "Witness" ogent-gastown-witness-show)
+    ("R" "Crew detail" ogent-gastown-crew-status)
+    ("P" "Polecat detail" ogent-gastown-polecat-status)
     ("r" "Rig status" ogent-gastown-rig-status)
-    ("f" "Refinery status" ogent-gastown-refinery-status)
-    ("i" "Rig issues" ogent-gastown-rig-issues)]
+    ("f" "Refinery" ogent-gastown-refinery-status)]
+   ["Triage"
+    ("x" "Close issue" ogent-gastown-issue-close)
+    ("!" "Set priority" ogent-gastown-issue-prioritize)
+    ("X" "Claim issue" ogent-gastown-issue-claim)
+    ("b" "Block issue" ogent-gastown-issue-block)]
+   ["Other"
+    ("i" "Rig issues" ogent-gastown-rig-issues)
+    ("o" "Show hook" ogent-gastown-hook-show)
+    ("c" "Convoy" ogent-gastown-convoy-status)
+    ("+" "Create bead" ogent-gastown-bead-create)]
    ["Refresh"
     ("g" "Refresh" ogent-gastown-refresh :transient t)
-    ("G" "Force refresh" ogent-gastown-refresh-force :transient t)]
-   ["Quit"
+    ("G" "Force refresh" ogent-gastown-refresh-force :transient t)
+    ("A" "Auto-refresh" ogent-gastown-auto-refresh-mode :transient t)
     ("q" "Quit menu" transient-quit-one)
     ("Q" "Quit buffer" quit-window)]])
 

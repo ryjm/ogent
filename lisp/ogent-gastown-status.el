@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'eieio)
 (require 'json)
+(require 'iso8601)
 (require 'ogent-ops-style)
 
 ;; Soft dependency on magit-section
@@ -45,6 +46,8 @@
 ;; Load ogent-issues for rig → issues navigation
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues-bd-list "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues-bd-create "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
 
 ;; Load ogent-convoy for convoy inspector navigation
@@ -93,6 +96,17 @@
 (defcustom ogent-gastown-use-unicode t
   "Whether to use Unicode characters for icons."
   :type 'boolean
+  :group 'ogent-gastown)
+
+(defcustom ogent-gastown-auto-refresh-interval 30
+  "Interval in seconds between automatic refreshes.
+Only effective when `ogent-gastown-auto-refresh-mode' is active."
+  :type 'integer
+  :group 'ogent-gastown)
+
+(defcustom ogent-gastown-auto-refresh-highlight-duration 5
+  "Duration in seconds for the change highlight overlay."
+  :type 'number
   :group 'ogent-gastown)
 
 (defcustom ogent-gastown-workspace-display-width 36
@@ -437,6 +451,16 @@ Invalid face symbols are ignored and default faces are used."
   "Face for keybindings in header line."
   :group 'ogent-gastown-faces)
 
+(defface ogent-gastown-changed
+  '((((class color) (background light))
+     :background "#fff8e1")
+    (((class color) (background dark))
+     :background "#4a3c00"))
+  "Transient highlight for recently-changed items.
+Applied as an overlay that fades after
+`ogent-gastown-auto-refresh-highlight-duration' seconds."
+  :group 'ogent-gastown-faces)
+
 (defun ogent-gastown--section-heading-face (section)
   "Return heading face for SECTION."
   (let ((default-face
@@ -674,6 +698,10 @@ Accepts both real gt output (:running) and canonical keys
 (defvar-local ogent-gastown--rigs-data nil
   "Cached rigs list data.")
 
+(defvar-local ogent-gastown--issues-data nil
+  "Cached issues list data, keyed by rig name.
+An alist of (RIG-NAME . ISSUES-LIST) where each issue is a plist.")
+
 (defvar-local ogent-gastown--selected-rig nil
   "Rig name currently selected for rig-scoped detail sections.")
 
@@ -690,6 +718,20 @@ Keys are symbols like `hook', `mail', `convoy', `workers', `town-status',
 
 (defvar-local ogent-gastown--loading-frame 0
   "Current animation frame index.")
+
+(defvar-local ogent-gastown--auto-refresh-timer nil
+  "Timer for auto-refresh mode.")
+
+(defvar-local ogent-gastown--auto-refresh-snapshot nil
+  "Snapshot of key data taken before an auto-refresh.
+Used to detect changes and highlight them.")
+
+(defvar-local ogent-gastown--auto-refresh-first-load t
+  "Non-nil on the first auto-refresh load.
+Suppresses highlighting so the entire buffer doesn't light up.")
+
+(defvar-local ogent-gastown--change-overlays nil
+  "List of active change-highlight overlays managed by auto-refresh.")
 
 (defvar-local ogent-gastown--town-root nil
   "Gas Town root directory.")
@@ -958,7 +1000,10 @@ Resolution order:
         "Section for rigs overview."))
     (unless (fboundp 'ogent-gastown-rig-item-section)
       (defclass ogent-gastown-rig-item-section (magit-section) ()
-        "Section for a single rig."))))
+        "Section for a single rig."))
+    (unless (fboundp 'ogent-gastown-issue-item-section)
+      (defclass ogent-gastown-issue-item-section (magit-section) ()
+        "Section for a single issue within a rig."))))
 
 (ogent-gastown--define-magit-section-classes)
 
@@ -1007,6 +1052,12 @@ Resolution order:
     ;; Polecat actions
     (define-key map "P" #'ogent-gastown-polecat-status)
 
+    ;; Nudge
+    (define-key map "N" #'ogent-gastown-nudge)
+
+    ;; Dispatch (sling)
+    (define-key map "S" #'ogent-gastown-sling)
+
     ;; Rig actions
     (define-key map "H" #'ogent-gastown-cycle-rig-prev)
     (define-key map "L" #'ogent-gastown-cycle-rig-next)
@@ -1015,6 +1066,16 @@ Resolution order:
 
     ;; Issues navigation
     (define-key map "i" #'ogent-gastown-rig-issues)
+    (define-key map "+" #'ogent-gastown-bead-create)
+
+    ;; Auto-refresh toggle
+    (define-key map "A" #'ogent-gastown-auto-refresh-mode)
+
+    ;; Issue triage (context-sensitive: only act on issue-item-section)
+    (define-key map "x" #'ogent-gastown-issue-close)
+    (define-key map "!" #'ogent-gastown-issue-prioritize)
+    (define-key map "X" #'ogent-gastown-issue-claim)
+    (define-key map "b" #'ogent-gastown-issue-block)
 
     ;; Quit
     (define-key map "q" #'quit-window)
@@ -1050,6 +1111,9 @@ Hook:
   \\[ogent-gastown-hook-show]     Show hook details
   \\[ogent-gastown-hook-attach]     Attach work to hook
 
+Dispatch:
+  \\[ogent-gastown-sling]     Sling work to agent
+
 Convoy:
   \\[ogent-gastown-convoy-status]     Inspect convoy
   \\[ogent-gastown-convoy-create]     Create new convoy
@@ -1065,6 +1129,7 @@ Crew/Polecat:
 
 Other:
   \\[ogent-gastown-refresh]     Refresh
+  \\[ogent-gastown-auto-refresh-mode]     Toggle auto-refresh mode
   \\[ogent-gastown-status-dispatch]     Show command menu
   \\[quit-window]     Quit
 
@@ -1329,7 +1394,9 @@ DEFERRED-CALLBACK runs after each deferred section update."
                   ('convoy
                    (setq ogent-gastown--convoy-loading nil)
                    (setq ogent-gastown--convoy-data
-                         (ogent-gastown--normalize-convoy-list value))))
+                         (ogent-gastown--normalize-convoy-list value)))
+                  ('issues
+                   (setq ogent-gastown--issues-data value)))
                 (setq ogent-gastown--fetch-errors errors)
                 (when deferred-callback
                   (funcall deferred-callback slot value err))))))
@@ -1414,7 +1481,30 @@ DEFERRED-CALLBACK runs after each deferred section update."
      (lambda (result)
        (funcall update-deferred 'convoy result nil))
      (lambda (err)
-       (funcall update-deferred 'convoy nil err)))))
+       (funcall update-deferred 'convoy nil err)))
+
+    ;; Deferred: fetch open issues for inline display in rig sections.
+    ;; Uses bd list via ogent-issues-bd-list with status filter.
+    ;; Groups results by rig name, excluding agent/event types.
+    (ogent-issues-bd-list
+     (lambda (result)
+       (when (buffer-live-p buf)
+         (let ((grouped nil))
+           ;; Group issues by rig (for now, all go under selected rig)
+           (dolist (issue result)
+             (let* ((issue-type (plist-get issue :issue_type))
+                    ;; Skip agent/event beads — only show work items
+                    (work-type-p (member issue-type '("task" "bug" "feature" "epic" "chore"))))
+               (when work-type-p
+                 (let* ((rig (or ogent-gastown--selected-rig "ogent"))
+                        (entry (assoc rig grouped)))
+                   (if entry
+                       (setcdr entry (append (cdr entry) (list issue)))
+                     (push (cons rig (list issue)) grouped))))))
+           (funcall update-deferred 'issues grouped nil))))
+     '(:status "open")
+     (lambda (err)
+       (funcall update-deferred 'issues nil err)))))
 
 (defun ogent-gastown--extract-deacon (town-status)
   "Extract deacon info from TOWN-STATUS."
@@ -2241,8 +2331,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (has-witness (plist-get rig :has_witness))
          (has-refinery (plist-get rig :has_refinery))
          (agents (plist-get rig :agents))
-         (any-running (seq-some (lambda (a) (plist-get a :running)) agents))
-         (beads-stats (plist-get rig :beads_stats)))
+         (any-running (seq-some (lambda (a) (plist-get a :running)) agents)))
     (magit-insert-section (ogent-gastown-rig-item-section rig t)
       (insert "  ")
       (insert (propertize name 'face 'ogent-gastown-rig-name))
@@ -2286,7 +2375,9 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
         (dolist (agent agents)
           (ogent-gastown--insert-rig-agent agent)))
       ;; Insert beads stats detail if expanded
-      (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats)))))
+      (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats))
+      ;; Insert inline issue items if expanded
+      (ogent-gastown--insert-rig-issues name))))
 
 (defun ogent-gastown--insert-rig-beads-detail (beads-stats)
   "Insert beads stats detail lines for an expanded rig section.
@@ -2316,6 +2407,61 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                       (propertize (format "%-12s" label) 'face 'ogent-gastown-dimmed)
                       (propertize (format "%d" value) 'face face)
                       "\n"))))))))
+
+(defun ogent-gastown--insert-rig-issues (rig-name)
+  "Insert inline issue items for RIG-NAME from cached issues data."
+  (when-let* ((issues (cdr (assoc rig-name ogent-gastown--issues-data))))
+    (let ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+          (shown 0)
+          (max-issues 20))
+      (dolist (issue issues)
+        (when (< shown max-issues)
+          (let* ((id (plist-get issue :id))
+                 (title (or (plist-get issue :title) "(untitled)"))
+                 (status (or (plist-get issue :status) "open"))
+                 (priority (plist-get issue :priority))
+                 (assignee (plist-get issue :assignee))
+                 (issue-type (or (plist-get issue :issue_type) "task"))
+                 (status-icon
+                  (pcase status
+                    ("in_progress" (propertize (ogent-ops-section-prefix "●" "*")
+                                              'face 'ogent-gastown-beads-in-progress))
+                    ("hooked"      (propertize (ogent-ops-section-prefix "●" "*")
+                                              'face 'ogent-gastown-beads-in-progress))
+                    ("blocked"     (propertize (ogent-ops-section-prefix "⊘" "x")
+                                              'face 'warning))
+                    (_             (propertize (ogent-ops-section-prefix "○" "o")
+                                              'face 'ogent-gastown-dimmed))))
+                 (pri-badge
+                  (when priority
+                    (propertize (format "[P%s]" priority)
+                                'face (if (<= priority 1) 'warning 'ogent-gastown-dimmed))))
+                 (type-badge
+                  (unless (equal issue-type "task")
+                    (propertize (format "[%s]" issue-type) 'face 'ogent-gastown-dimmed)))
+                 (assignee-str
+                  (when (and assignee (not (string-empty-p assignee)))
+                    (propertize (format "@%s" (file-name-nondirectory assignee))
+                                'face 'ogent-gastown-dimmed))))
+            (magit-insert-section (ogent-gastown-issue-item-section issue)
+              (insert "      "
+                      status-icon " "
+                      (or pri-badge "") (if pri-badge " " "")
+                      (propertize (or id "?") 'face 'ogent-gastown-dimmed)
+                      "  "
+                      (propertize (truncate-string-to-width title 50 nil nil t)
+                                  'face (if (member status '("in_progress" "hooked"))
+                                            'bold 'default))
+                      (if type-badge (concat " " type-badge) "")
+                      (if assignee-str (concat "  " assignee-str) "")
+                      "\n"))
+            (cl-incf shown))))
+      (when (> (length issues) max-issues)
+        (insert "      "
+                (propertize (format "... and %d more (press i for full list)"
+                                    (- (length issues) max-issues))
+                            'face 'ogent-gastown-dimmed)
+                "\n")))))
 
 (defun ogent-gastown--insert-rig-agent (agent)
   "Insert a single AGENT line within a rig section."
@@ -2381,7 +2527,7 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
   "Format ISO-TIME as relative time string."
   (if (and iso-time (stringp iso-time) (not (string-empty-p iso-time)))
       (condition-case nil
-          (let* ((time (parse-iso8601-time-string iso-time))
+          (let* ((time (encode-time (iso8601-parse iso-time)))
                  (diff (float-time (time-subtract (current-time) time))))
             (cond
              ((< diff 60) "just now")
@@ -2491,6 +2637,16 @@ On other sections, toggles visibility."
         (let* ((msg (oref section value))
                (id (plist-get msg :id)))
           (ogent-gastown-status-mail-read id)))
+       ((eq (eieio-object-class-name section) 'ogent-gastown-issue-item-section)
+        (let* ((issue (oref section value))
+               (id (plist-get issue :id)))
+          (when id
+            (ogent-issues-bd-get id
+                                 (lambda (detail)
+                                   (when detail
+                                     (ogent-issues--show-detail detail)))
+                                 (lambda (err)
+                                   (message "Could not fetch issue %s: %s" id err))))))
        (t
         (magit-section-toggle section))))))
 
@@ -2607,6 +2763,121 @@ pre-fills that recipient."
   (interactive)
   (ogent-gastown-mail-compose "deacon/"))
 
+(defun ogent-gastown-nudge (&optional initial-target)
+  "Send a nudge message to a running agent session.
+With INITIAL-TARGET, pre-fill the target.  When called interactively
+with point on a crew/polecat item, derives the target from the section."
+  (interactive (list (ogent-gastown--recipient-at-point)))
+  (let* ((recipients (ogent-gastown--get-mail-recipients))
+         (target (completing-read "Nudge target: " recipients nil nil
+                                  initial-target))
+         (message (read-string "Message: ")))
+    (when (and target (not (string-empty-p target))
+               message (not (string-empty-p message)))
+      (ogent-gastown-status--run-async
+       (list "nudge" target message)
+       (lambda (_result)
+         (message "Nudged %s" target))
+       (lambda (err)
+         (message "Nudge failed: %s" err))
+       t))))
+
+;;; Issue Triage Actions
+
+(defun ogent-gastown--issue-at-point ()
+  "Return the issue plist at point if on an issue-item-section, else nil."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section)))
+      (when (and section
+                 (eq (eieio-object-class-name section)
+                     'ogent-gastown-issue-item-section))
+        (oref section value)))))
+
+(defun ogent-gastown-issue-close ()
+  "Close the issue at point, prompting for a reason."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (reason (read-string (format "Close %s (%s) reason: " id title))))
+      (when (and reason (not (string-empty-p reason)))
+        (when (y-or-n-p (format "Close %s: %s? " id title))
+          (ogent-issues-bd-close
+           id reason
+           (lambda ()
+             (message "Closed %s: %s" id title)
+             (ogent-gastown-cache-invalidate)
+             (ogent-gastown-refresh))
+           (lambda (err)
+             (message "Failed to close %s: %s" id err))))))))
+
+(defun ogent-gastown-issue-prioritize ()
+  "Set priority on the issue at point."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (current (plist-get issue :priority))
+           (choices '("P0" "P1" "P2" "P3"))
+           (default (when current (format "P%s" current)))
+           (choice (completing-read
+                    (format "Priority for %s (%s)%s: "
+                            id title
+                            (if default (format " [%s]" default) ""))
+                    choices nil t nil nil default))
+           (priority (string-to-number (substring choice 1))))
+      (ogent-issues-bd-update
+       id
+       (lambda ()
+         (message "Set %s to %s" id choice)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       :priority priority
+       :error-callback
+       (lambda (err)
+         (message "Failed to set priority on %s: %s" id err))))))
+
+(defun ogent-gastown-issue-claim ()
+  "Claim the issue at point (mark in-progress)."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)")))
+      (ogent-issues-bd-start
+       id
+       (lambda ()
+         (message "Claimed %s: %s" id title)
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       (lambda (err)
+         (message "Failed to claim %s: %s" id err))))))
+
+(defun ogent-gastown-issue-block ()
+  "Add a blocking dependency to the issue at point.
+Prompts for the blocker issue ID."
+  (interactive)
+  (let ((issue (ogent-gastown--issue-at-point)))
+    (unless issue
+      (user-error "No issue at point"))
+    (let* ((id (plist-get issue :id))
+           (title (or (plist-get issue :title) "(untitled)"))
+           (blocker (read-string (format "Blocker ID for %s (%s): " id title))))
+      (when (and blocker (not (string-empty-p blocker)))
+        (ogent-issues-bd-dep-add
+         id blocker
+         (lambda ()
+           (message "%s now blocked by %s" id blocker)
+           (ogent-gastown-cache-invalidate)
+           (ogent-gastown-refresh))
+         (lambda (err)
+           (message "Failed to add dependency: %s" err)))))))
+
 (defun ogent-gastown-hook-show ()
   "Show hook details."
   (interactive)
@@ -2624,6 +2895,104 @@ pre-fills that recipient."
        (ogent-gastown-refresh))
      (lambda (err)
        (message "Failed to hook: %s" err))
+     t)))
+
+;;; Sling (Work Dispatch)
+
+(defun ogent-gastown--bead-id-at-point ()
+  "Get bead ID from context at point, or nil.
+Checks text properties first, then magit section values."
+  (or
+   ;; Text property (on clickable bead links)
+   (get-text-property (point) 'ogent-bead-id)
+   ;; Section value properties
+   (when (ogent-gastown--magit-usable-p)
+     (let ((section (magit-current-section)))
+       (when (and section (slot-boundp section 'value))
+         (let ((value (oref section value)))
+           (when (listp value)
+             (or (plist-get value :hooked_work)
+                 (plist-get value :current_task)
+                 (plist-get value :id)))))))))
+
+(defun ogent-gastown--sling-target-at-point ()
+  "Get sling target address from section at point, or nil.
+Returns a rig/role/name address suitable for `gt sling'."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section)))
+      (when (and section (slot-boundp section 'value))
+        (let ((class (eieio-object-class-name section))
+              (value (oref section value)))
+          (cond
+           ;; Crew member → rig/crew/name
+           ((eq class 'ogent-gastown-crew-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/crew/%s" rig name))))
+           ;; Polecat → rig/polecats/name
+           ((eq class 'ogent-gastown-polecat-item-section)
+            (let ((rig (plist-get value :rig))
+                  (name (plist-get value :name)))
+              (when (and rig name)
+                (format "%s/polecats/%s" rig name))))
+           ;; Rig → just the rig name (auto-spawns polecat)
+           ((eq class 'ogent-gastown-rig-item-section)
+            (plist-get value :name))
+           ;; Witness → rig/witness/
+           ((eq class 'ogent-gastown-witness-item-section)
+            (let ((rig (plist-get value :rig)))
+              (when rig
+                (format "%s/witness/" rig))))
+           (t nil)))))))
+
+(defun ogent-gastown--get-sling-targets ()
+  "Get list of sling targets for completion.
+Builds from rigs, crew, and polecats."
+  (let ((targets nil))
+    ;; Add rig names (auto-spawn polecat)
+    (dolist (rig ogent-gastown--rigs-data)
+      (let ((name (plist-get rig :name)))
+        (when name (push name targets))))
+    ;; Add crew and polecats (reuse mail recipients logic)
+    (dolist (member ogent-gastown--crew-data)
+      (let ((rig (plist-get member :rig))
+            (name (plist-get member :name)))
+        (when (and rig name)
+          (push (format "%s/crew/%s" rig name) targets))))
+    (dolist (polecat ogent-gastown--polecat-data)
+      (let ((rig (plist-get polecat :rig))
+            (name (plist-get polecat :name)))
+        (when (and rig name)
+          (push (format "%s/polecats/%s" rig name) targets))))
+    (sort (delete-dups targets) #'string<)))
+
+(defun ogent-gastown-sling ()
+  "Sling (dispatch) a bead to a target agent.
+Context-sensitive:
+- On a crew/polecat/rig item: pre-fills target, prompts for bead-id.
+- On a bead link: pre-fills bead-id, prompts for target.
+- Otherwise: prompts for both."
+  (interactive)
+  (let* ((ctx-bead (ogent-gastown--bead-id-at-point))
+         (ctx-target (ogent-gastown--sling-target-at-point))
+         (bead-id (or ctx-bead
+                      (read-string "Bead ID to sling: ")))
+         (target (or ctx-target
+                     (completing-read "Sling to: "
+                                      (ogent-gastown--get-sling-targets)
+                                      nil nil))))
+    (when (or (string-empty-p bead-id) (string-empty-p target))
+      (user-error "Both bead ID and target are required"))
+    (message "Slinging %s → %s ..." bead-id target)
+    (ogent-gastown-status--run-async
+     (list "sling" bead-id target)
+     (lambda (_result)
+       (message "Slung %s → %s" bead-id target)
+       (ogent-gastown-cache-invalidate)
+       (ogent-gastown-refresh))
+     (lambda (err)
+       (message "Sling failed: %s" err))
      t)))
 
 (defun ogent-gastown-convoy-status ()
@@ -2698,43 +3067,55 @@ prompts with `completing-read' from the current convoy list."
          (list "witness" "status" rig-name)
          "*gt witness*")))))
 
-(defun ogent-gastown-crew-status ()
-  "Show crew member status."
-  (interactive)
+(autoload 'ogent-agent-detail-inspect "ogent-agent-detail" nil t)
+
+(defun ogent-gastown-crew-status (&optional raw)
+  "Show crew member status.
+With prefix arg RAW (\\[universal-argument]), show raw shell output."
+  (interactive "P")
   (let ((crew-name (when (ogent-gastown--magit-usable-p)
                      (let ((section (magit-current-section)))
                        (when (eq (eieio-object-class-name section)
                                  'ogent-gastown-crew-item-section)
                          (plist-get (oref section value) :name)))))
         (rig-name (ogent-gastown--sync-selected-rig)))
-    (if crew-name
-        (ogent-gastown-status--run-shell-command
-         (list "crew" "status" crew-name)
-         "*gt crew*")
+    (cond
+     ((and crew-name (not raw))
+      (ogent-agent-detail-inspect crew-name 'crew rig-name))
+     (crew-name
+      (ogent-gastown-status--run-shell-command
+       (list "crew" "status" crew-name)
+       "*gt crew*"))
+     (t
       (ogent-gastown-status--run-shell-command
        (if rig-name
            (list "crew" "list" "--rig" rig-name)
          '("crew" "list" "--all"))
-       "*gt crew*"))))
+       "*gt crew*")))))
 
-(defun ogent-gastown-polecat-status ()
-  "Show polecat status."
-  (interactive)
+(defun ogent-gastown-polecat-status (&optional raw)
+  "Show polecat status.
+With prefix arg RAW (\\[universal-argument]), show raw shell output."
+  (interactive "P")
   (let ((polecat-name (when (ogent-gastown--magit-usable-p)
                         (let ((section (magit-current-section)))
                           (when (eq (eieio-object-class-name section)
                                     'ogent-gastown-polecat-item-section)
                             (plist-get (oref section value) :name)))))
         (rig-name (ogent-gastown--sync-selected-rig)))
-    (if polecat-name
-        (ogent-gastown-status--run-shell-command
-         (list "polecat" "status" polecat-name)
-         "*gt polecat*")
+    (cond
+     ((and polecat-name (not raw))
+      (ogent-agent-detail-inspect polecat-name 'polecat rig-name))
+     (polecat-name
+      (ogent-gastown-status--run-shell-command
+       (list "polecat" "status" polecat-name)
+       "*gt polecat*"))
+     (t
       (ogent-gastown-status--run-shell-command
        (if rig-name
            (list "polecat" "list" rig-name)
          '("polecat" "list" "--all"))
-       "*gt polecat*"))))
+       "*gt polecat*")))))
 
 (defun ogent-gastown-rig-status ()
   "Show rig status."
@@ -2812,6 +3193,50 @@ Works when point is on a rig, crew member, or polecat."
           (ogent-issues))
       (user-error "No rig at point or rig directory not found: %s" rig-name))))
 
+;;; Bead Creation
+
+(defun ogent-gastown-bead-create ()
+  "Create a new bead from the status buffer.
+Prompts for title, type, and priority.  If point is on an agent
+section, offers to scope creation to that agent's rig."
+  (interactive)
+  (let* ((rig-name (or (ogent-gastown--rig-at-point)
+                       (ogent-gastown--sync-selected-rig)
+                       (completing-read
+                        "Rig: "
+                        (mapcar (lambda (r) (plist-get r :name))
+                                ogent-gastown--rigs-data))))
+         (rig-path (when rig-name
+                     (expand-file-name rig-name ogent-gastown--town-root)))
+         (title (read-string "Bead title: "))
+         (type (completing-read "Type: " '("task" "bug" "feature" "epic" "chore")
+                                nil t nil nil "task"))
+         (priority-label (completing-read "Priority: "
+                                          '("P0 (critical)" "P1 (high)"
+                                            "P2 (normal)" "P3 (low)")
+                                          nil t nil nil "P2 (normal)"))
+         (priority (string-to-number (substring priority-label 1 2))))
+    (when (string-empty-p (string-trim title))
+      (user-error "Bead title cannot be empty"))
+    (unless (and rig-path (file-directory-p rig-path))
+      (user-error "Rig directory not found: %s" rig-name))
+    (let ((default-directory rig-path))
+      (ogent-issues-bd-create
+       title
+       (lambda (result)
+         (let ((id (if (listp result)
+                       (or (plist-get (if (plistp result) result (car result)) :id)
+                           (plist-get (if (plistp result) result (car result)) :ID))
+                     "?")))
+           (message "Created bead %s: %s" id title))
+         (ogent-gastown-cache-invalidate)
+         (ogent-gastown-refresh))
+       :type type
+       :priority priority
+       :error-callback
+       (lambda (err)
+         (message "Failed to create bead: %s" err))))))
+
 ;;; Bead Link Navigation
 
 (defun ogent-gastown-visit-bead ()
@@ -2842,7 +3267,7 @@ Displays available keybindings and actions."
     (message
      (concat
       "n/p:item  M-n/M-p:section  TAB:toggle  "
-      "g:refresh  m:mail  o:hook  c:convoy  "
+      "g:refresh  m:mail  o:hook  S:sling  c:convoy  "
       "H/L:cycle-rig  "
       "r:rig  f:refinery  s:stats  d:deacon  w:witness  i:issues  ?:help  q:quit"
       "  Workspace:" workspace
@@ -2926,11 +3351,186 @@ convoys, crew members, and polecats."
         (ogent-gastown-refresh))
       (switch-to-buffer buf))))
 
+;;; Auto-Refresh Mode
+
+;; Forward-declare the minor-mode variable so the byte-compiler knows about
+;; it before `define-minor-mode' creates it later in this section.
+(defvar ogent-gastown-auto-refresh-mode)
+
+(defun ogent-gastown--auto-refresh-snapshot-data ()
+  "Capture a snapshot of current buffer data for change detection.
+Returns an alist of (KEY . FINGERPRINT) pairs."
+  (list
+   (cons 'mail-count (length ogent-gastown--mail-data))
+   (cons 'mail-ids (mapcar (lambda (m) (plist-get m :id)) ogent-gastown--mail-data))
+   (cons 'convoy-progress
+         (mapcar (lambda (c)
+                   (cons (plist-get c :id)
+                         (ogent-gastown--convoy-progress-string c)))
+                 ogent-gastown--convoy-data))
+   (cons 'worker-states
+         (mapcar (lambda (w)
+                   (cons (plist-get w :name)
+                         (plist-get w :state)))
+                 ogent-gastown--workers-data))
+   (cons 'polecat-states
+         (mapcar (lambda (p)
+                   (cons (plist-get p :name)
+                         (list (plist-get p :state)
+                               (plist-get p :session_running)
+                               (plist-get p :hooked_work))))
+                 ogent-gastown--polecat-data))
+   (cons 'crew-states
+         (mapcar (lambda (c)
+                   (cons (plist-get c :name)
+                         (list (plist-get c :session_running)
+                               (plist-get c :hooked_work))))
+                 ogent-gastown--crew-data))
+   (cons 'hook-data
+         (when ogent-gastown--hook-data
+           (plist-get ogent-gastown--hook-data :has_work)))))
+
+(defun ogent-gastown--auto-refresh-diff (old-snap new-snap)
+  "Compare OLD-SNAP and NEW-SNAP, return list of changed section keys."
+  (let ((changed nil))
+    (dolist (new-entry new-snap)
+      (let* ((key (car new-entry))
+             (new-val (cdr new-entry))
+             (old-val (alist-get key old-snap)))
+        (unless (equal old-val new-val)
+          (push (pcase key
+                  ((or 'mail-count 'mail-ids) 'mail)
+                  ('convoy-progress 'convoy)
+                  ('worker-states 'workers)
+                  ('polecat-states 'polecats)
+                  ('crew-states 'crew)
+                  ('hook-data 'hook)
+                  (_ key))
+                changed))))
+    (delete-dups changed)))
+
+(defun ogent-gastown--highlight-section (section-key)
+  "Apply a transient change highlight to lines belonging to SECTION-KEY."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((section-name (pcase section-key
+                          ('mail "Mail")
+                          ('convoy "Convoy")
+                          ('workers "Workers")
+                          ('polecats "Polecats")
+                          ('crew "Crew")
+                          ('hook "Hook")
+                          (_ nil))))
+      (when section-name
+        (when (re-search-forward
+               (concat "^[[:space:]]*[^ \t\n].*" (regexp-quote section-name))
+               nil t)
+          (let* ((section-start (line-beginning-position))
+                 ;; Find the end: next section heading or end of buffer
+                 (section-end (save-excursion
+                                (forward-line 1)
+                                (if (re-search-forward "^[^ \t\n]" nil t)
+                                    (line-beginning-position)
+                                  (point-max))))
+                 (ov (make-overlay section-start section-end)))
+            (overlay-put ov 'face 'ogent-gastown-changed)
+            (overlay-put ov 'ogent-gastown-change t)
+            (let ((timer (run-at-time ogent-gastown-auto-refresh-highlight-duration nil
+                                      (lambda ()
+                                        (when (overlay-buffer ov)
+                                          (delete-overlay ov))))))
+              (push (cons ov timer) ogent-gastown--change-overlays))))))))
+
+(defun ogent-gastown--clear-change-overlays ()
+  "Remove all change-highlight overlays and cancel their fade timers."
+  (dolist (entry ogent-gastown--change-overlays)
+    (let ((ov (car entry))
+          (timer (cdr entry)))
+      (when timer (cancel-timer timer))
+      (when (overlay-buffer ov)
+        (delete-overlay ov))))
+  (setq ogent-gastown--change-overlays nil))
+
+(defun ogent-gastown--auto-refresh-tick (buf)
+  "Timer callback: refresh status buffer BUF if conditions are met."
+  (when (buffer-live-p buf)
+    (with-current-buffer buf
+      (when (and ogent-gastown-auto-refresh-mode
+                 ;; Skip if a fetch is already in progress
+                 (not ogent-gastown--loading)
+                 ;; Only refresh when buffer is visible
+                 (get-buffer-window buf t)
+                 ;; Don't refresh during minibuffer input
+                 (not (minibufferp (window-buffer (selected-window)))))
+        ;; Snapshot current state before refresh
+        (let ((pre-snapshot (ogent-gastown--auto-refresh-snapshot-data)))
+          (setq ogent-gastown--auto-refresh-snapshot pre-snapshot))
+        ;; Invalidate cache so we get fresh data
+        (ogent-gastown-cache-invalidate)
+        ;; Run the actual refresh with a post-refresh hook for highlighting
+        (let ((snapshot ogent-gastown--auto-refresh-snapshot)
+              (first-load ogent-gastown--auto-refresh-first-load))
+          (ogent-gastown--ensure-magit-root-section)
+          (ogent-gastown--start-loading)
+          (ogent-gastown--fetch-all
+           (lambda ()
+             (when (buffer-live-p buf)
+               (with-current-buffer buf
+                 (ogent-gastown--stop-loading)
+                 (ogent-gastown--render-buffer)
+                 ;; Highlight changes (skip first load)
+                 (unless first-load
+                   (let* ((post-snapshot (ogent-gastown--auto-refresh-snapshot-data))
+                          (changed (ogent-gastown--auto-refresh-diff snapshot post-snapshot)))
+                     (ogent-gastown--clear-change-overlays)
+                     (dolist (section changed)
+                       (ogent-gastown--highlight-section section))))
+                 (setq ogent-gastown--auto-refresh-first-load nil))))
+           (lambda (_slot _value _err)
+             (when (buffer-live-p buf)
+               (with-current-buffer buf
+                 (unless ogent-gastown--loading
+                   (ogent-gastown--render-buffer)))))))))))
+
+(defun ogent-gastown--auto-refresh-start ()
+  "Start the auto-refresh timer for the current buffer."
+  (ogent-gastown--auto-refresh-stop)
+  (setq ogent-gastown--auto-refresh-first-load t)
+  (setq ogent-gastown--auto-refresh-timer
+        (run-at-time ogent-gastown-auto-refresh-interval
+                     ogent-gastown-auto-refresh-interval
+                     #'ogent-gastown--auto-refresh-tick
+                     (current-buffer))))
+
+(defun ogent-gastown--auto-refresh-stop ()
+  "Stop the auto-refresh timer for the current buffer."
+  (when ogent-gastown--auto-refresh-timer
+    (cancel-timer ogent-gastown--auto-refresh-timer)
+    (setq ogent-gastown--auto-refresh-timer nil))
+  (ogent-gastown--clear-change-overlays)
+  (setq ogent-gastown--auto-refresh-snapshot nil)
+  (setq ogent-gastown--auto-refresh-first-load t))
+
+;;;###autoload
+(define-minor-mode ogent-gastown-auto-refresh-mode
+  "Periodically auto-refresh the Gas Town status buffer.
+When enabled, refreshes every `ogent-gastown-auto-refresh-interval'
+seconds and highlights changed sections with a transient pulse.
+
+Only refreshes when the buffer is visible and the minibuffer is not
+active."
+  :lighter " AutoRef"
+  :group 'ogent-gastown
+  (if ogent-gastown-auto-refresh-mode
+      (ogent-gastown--auto-refresh-start)
+    (ogent-gastown--auto-refresh-stop)))
+
 ;;; Cleanup
 
 (defun ogent-gastown--cleanup-on-kill ()
   "Clean up timers when the buffer is killed."
-  (ogent-gastown--stop-loading-timer))
+  (ogent-gastown--stop-loading-timer)
+  (ogent-gastown--auto-refresh-stop))
 
 (add-hook 'ogent-gastown-status-mode-hook
           (lambda ()

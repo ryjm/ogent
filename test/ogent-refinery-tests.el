@@ -294,20 +294,20 @@
   (let ((ogent-refinery-use-unicode t))
     (should (equal "⚙" (ogent-refinery--status-icon 'processing)))
     (should (equal "○" (ogent-refinery--status-icon 'waiting)))
-    (should (equal "◌" (ogent-refinery--status-icon 'blocked)))
+    (should (equal "✗" (ogent-refinery--status-icon 'blocked)))
     (should (equal "✗" (ogent-refinery--status-icon 'failed)))
     (should (equal "✓" (ogent-refinery--status-icon 'merged)))
-    (should (equal "·" (ogent-refinery--status-icon 'unknown)))))
+    (should (equal "?" (ogent-refinery--status-icon 'unknown)))))
 
 (ert-deftest ogent-refinery-test-status-icon-ascii ()
   "Test status icons with Unicode disabled."
   (let ((ogent-refinery-use-unicode nil))
     (should (equal "*" (ogent-refinery--status-icon 'processing)))
     (should (equal "o" (ogent-refinery--status-icon 'waiting)))
-    (should (equal "-" (ogent-refinery--status-icon 'blocked)))
+    (should (equal "x" (ogent-refinery--status-icon 'blocked)))
     (should (equal "x" (ogent-refinery--status-icon 'failed)))
     (should (equal "+" (ogent-refinery--status-icon 'merged)))
-    (should (equal "." (ogent-refinery--status-icon 'unknown)))))
+    (should (equal "?" (ogent-refinery--status-icon 'unknown)))))
 
 (ert-deftest ogent-refinery-test-section-heading-face-map ()
   "Test section heading face lookup."
@@ -687,9 +687,9 @@
 (ert-deftest ogent-refinery-test-status-icon-nil ()
   "Test status icon with nil status type."
   (let ((ogent-refinery-use-unicode t))
-    (should (equal "·" (ogent-refinery--status-icon nil))))
+    (should (equal "?" (ogent-refinery--status-icon nil))))
   (let ((ogent-refinery-use-unicode nil))
-    (should (equal "." (ogent-refinery--status-icon nil)))))
+    (should (equal "?" (ogent-refinery--status-icon nil)))))
 
 ;;; Filter Queue Status Additional Tests
 
@@ -998,24 +998,24 @@
         (should (string-match-p "fix/bug" shell-cmd))))))
 
 (ert-deftest ogent-refinery-test-merge-with-mr-confirmed ()
-  "Test merge bumps priority when confirmed."
+  "Test merge runs async merge when confirmed."
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((refresh-called nil)
-          (bump-id nil))
+          (merge-args nil))
       (cl-letf (((symbol-function 'ogent-refinery--current-mr)
                  (lambda () '(:id "mr-789" :branch "feat/y")))
                 ((symbol-function 'yes-or-no-p) (lambda (_prompt) t))
-                ((symbol-function 'ogent-refinery--run-priority-bump)
-                 (lambda (id callback &optional _ecb)
-                   (setq bump-id id)
-                   (funcall callback)))
+                ((symbol-function 'ogent-refinery--run-async)
+                 (lambda (args callback &optional _ecb)
+                   (setq merge-args args)
+                   (funcall callback nil)))
                 ((symbol-function 'ogent-refinery-refresh)
                  (lambda (&rest _) (setq refresh-called t)))
                 ((symbol-function 'ogent-refinery-cache-invalidate)
                  #'ignore))
         (ogent-refinery-merge)
-        (should (equal bump-id "mr-789"))
+        (should (equal merge-args '("mq" "merge" "mr-789")))
         (should refresh-called)))))
 
 (ert-deftest ogent-refinery-test-merge-with-mr-declined ()
