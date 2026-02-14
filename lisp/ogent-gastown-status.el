@@ -765,6 +765,10 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
       (cl-return-from ogent-gastown-status--run-async nil))
 
     (let* ((default-directory workspace-root)
+         ;; Suppress termenv/lipgloss terminal escape sequences (OSC 11,
+         ;; CSI 6n) that pollute stdout when gt runs as a subprocess.
+         ;; TERM=dumb prevents the Go termenv library from probing.
+         (process-environment (cons "TERM=dumb" process-environment))
          (buffer (generate-new-buffer " *ogent-gt*"))
          (stderr-buffer (generate-new-buffer " *ogent-gt-stderr*"))
          (proc nil)
