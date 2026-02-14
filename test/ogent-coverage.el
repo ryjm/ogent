@@ -7,13 +7,14 @@
 
 ;;; Code:
 
-(require 'undercover)
-
-;; Configure undercover BEFORE loading any source files
-(undercover "lisp/*.el"
-            "lisp/ui/*.el"
-            (:report-format 'text)
-            (:send-report nil))
+;; undercover is only available when explicitly installed for coverage runs.
+;; Guard the require so byte-compilation and `make test' don't fail when it's
+;; absent (the coverage entry point ogent-run-coverage checks at runtime).
+(when (require 'undercover nil t)
+  (undercover "lisp/*.el"
+              "lisp/ui/*.el"
+              (:report-format 'text)
+              (:send-report nil)))
 
 ;; Now load test helper (which loads source files)
 (require 'ogent-test-helper)
@@ -22,6 +23,8 @@
 (defun ogent-run-coverage ()
   "Load all test files and run with coverage."
   (interactive)
+  (unless (featurep 'undercover)
+    (error "undercover package not installed; install it first for coverage"))
   (mapc #'ogent-test-load (ogent-test--files))
   (ert-run-tests-batch-and-exit t))
 

@@ -754,8 +754,8 @@ OUTPUT should be a plist or list that will be returned."
           (ogent-gastown-use-unicode t))
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
-      ;; Check hook indicator appears (via ops-style helper)
-      (should (search-forward (ogent-ops-section-prefix "⚓" "H") nil t)))))
+      ;; Check hook indicator appears (via ops-style badge)
+      (should (search-forward (ogent-ops-badge-symbol 'hook) nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-with-mail ()
   "Test rig agent with unread mail shows mail indicator."
@@ -768,9 +768,9 @@ OUTPUT should be a plist or list that will be returned."
           (ogent-gastown-use-unicode t))
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
-      ;; Check mail indicator appears (via ops-style helper)
+      ;; Check mail indicator appears (via ops-style badge)
       (should (search-forward
-               (format "%s5" (ogent-ops-section-prefix "📬" "M:"))
+               (format "%s5" (ogent-ops-badge-symbol 'mail))
                nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-no-mail ()

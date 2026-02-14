@@ -363,6 +363,9 @@ ERROR-CALLBACK receives error message on failure."
                  (when (buffer-live-p stderr-buffer)
                    (kill-buffer stderr-buffer))))))))
 
+    (set-process-query-on-exit-flag proc nil)
+    (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+      (set-process-query-on-exit-flag stderr-proc nil))
     (push proc ogent-refinery--processes)
     proc))
 

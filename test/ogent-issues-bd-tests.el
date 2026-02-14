@@ -611,6 +611,8 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
   (let ((ogent-issues-bd--processes nil))
     ;; Create a real process
     (let ((fake-proc (start-process "ogent-test-sleep" nil "sleep" "60")))
+      ;; Don't prompt "Buffer has a running process" on buffer kill
+      (set-process-query-on-exit-flag fake-proc nil)
       (unwind-protect
           (progn
             (push fake-proc ogent-issues-bd--processes)
@@ -623,7 +625,8 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
             (should-not (process-live-p fake-proc)))
         ;; Safety net: ensure process is dead even if test fails
         (when (process-live-p fake-proc)
-          (kill-process fake-proc))))))
+          (kill-process fake-proc)
+          (sleep-for 0.1))))))
 
 (ert-deftest ogent-issues-bd-test-cleanup-invalidates-cache ()
   "Test cleanup also invalidates the cache."
