@@ -9,12 +9,11 @@
 (require 'subr-x)
 (require 'org)
 
-(setq load-prefer-newer t)
-
-;; Prefer source files for project code during tests so stale local .elc
-;; artifacts do not change runtime semantics (notably macro expansion).
-(setq load-suffixes
-      (cons ".el" (delete ".el" (copy-sequence load-suffixes))))
+;; Exclude .elc from load-suffixes so stale bytecode (which may embed
+;; outdated macro expansions, e.g. magit-insert-section) is never loaded.
+;; load-prefer-newer alone is insufficient: it still picks a newer .elc
+;; over .el, but the .elc may contain stale inlined forms.
+(setq load-suffixes (remove ".elc" load-suffixes))
 
 (defconst ogent-test-root
   (file-name-directory (or load-file-name buffer-file-name))
@@ -51,10 +50,18 @@
                        (expand-file-name build-dir straight-dir)))
          (deps '("compat" "dash" "seq" "magit-section")))
     (when doom-build
-      (dolist (dep deps)
-        (let ((dep-dir (expand-file-name dep doom-build)))
-          (when (file-directory-p dep-dir)
-            (add-to-list 'load-path dep-dir)))))))
+      (let ((repos-dir (expand-file-name "repos" straight-dir)))
+        (dolist (dep deps)
+          (let ((dep-dir (expand-file-name dep doom-build)))
+            (when (file-directory-p dep-dir)
+              (add-to-list 'load-path dep-dir)))
+          ;; Prefer repo source over stale bytecode for magit-section.
+          ;; The build dir .elc may be compiled from an older source,
+          ;; and load-prefer-newer cannot distinguish when timestamps match.
+          (when (equal dep "magit-section")
+            (let ((src-dir (expand-file-name "magit/lisp" repos-dir)))
+              (when (file-directory-p src-dir)
+                (add-to-list 'load-path src-dir)))))))))
 
 (unless (featurep 'gptel)
   (provide 'gptel))

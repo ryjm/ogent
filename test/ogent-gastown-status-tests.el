@@ -193,9 +193,8 @@
 
 ;;; Time Formatting Tests
 
-;; Note: parse-iso8601-time-string may not be available in all Emacs versions.
-;; We test the error handling paths when the parser isn't available, and
-;; conditionally test the success paths when it is.
+;; Time formatting uses iso8601-parse + encode-time.
+;; We mock iso8601-parse to return decoded time values for deterministic tests.
 
 (ert-deftest ogent-gts-test-format-time-nil ()
   "Test formatting nil time returns ???."
@@ -220,33 +219,33 @@
 (ert-deftest ogent-gts-test-format-time-just-now-mocked ()
   "Test formatting time within last minute (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 30))))
+                 (decode-time (time-subtract now 30)))))
       (should (equal "just now" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-minutes-ago-mocked ()
   "Test formatting time in minutes (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 5 60)))))
+                 (decode-time (time-subtract now (* 5 60))))))
       (should (string-match-p "5m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-hours-ago-mocked ()
   "Test formatting time in hours (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 3 3600)))))
+                 (decode-time (time-subtract now (* 3 3600))))))
       (should (string-match-p "3h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-days-ago-mocked ()
   "Test formatting time in days shows date format (with mocked parser)."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 2 86400)))))
+                 (decode-time (time-subtract now (* 2 86400))))))
       ;; Should show date format like "Jan 21" instead of relative time
       (let ((result (ogent-gastown--format-time "2026-01-23T17:00:00Z")))
         (should-not (string-match-p "ago" result))
@@ -2447,49 +2446,49 @@
 (ert-deftest ogent-gts-test-format-time-boundary-59-seconds ()
   "Test formatting time at exactly 59 seconds shows just now."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 59))))
+                 (decode-time (time-subtract now 59)))))
       (should (equal "just now" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-60-seconds ()
   "Test formatting time at exactly 60 seconds shows 1m ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 60))))
+                 (decode-time (time-subtract now 60)))))
       (should (string-match-p "1m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-3599-seconds ()
   "Test formatting time at 3599 seconds shows 59m ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 3599))))
+                 (decode-time (time-subtract now 3599)))))
       (should (string-match-p "59m ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-3600-seconds ()
   "Test formatting time at exactly 3600 seconds shows 1h ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now 3600))))
+                 (decode-time (time-subtract now 3600)))))
       (should (string-match-p "1h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-23-hours ()
   "Test formatting time at 23 hours shows 23h ago."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 23 3600)))))
+                 (decode-time (time-subtract now (* 23 3600))))))
       (should (string-match-p "23h ago" (ogent-gastown--format-time "2026-01-23T17:00:00Z"))))))
 
 (ert-deftest ogent-gts-test-format-time-boundary-24-hours ()
   "Test formatting time at 24 hours shows date format."
   (let ((now (current-time)))
-    (cl-letf (((symbol-function 'parse-iso8601-time-string)
+    (cl-letf (((symbol-function 'iso8601-parse)
                (lambda (_iso-time)
-                 (time-subtract now (* 24 3600)))))
+                 (decode-time (time-subtract now (* 24 3600))))))
       (let ((result (ogent-gastown--format-time "2026-01-23T17:00:00Z")))
         (should-not (string-match-p "ago" result))
         (should-not (equal "???" result))))))
@@ -3801,7 +3800,7 @@
 
 (ert-deftest ogent-gts-test-format-time-parser-throws-error ()
   "Test format-time returns ??? when parser throws."
-  (cl-letf (((symbol-function 'parse-iso8601-time-string)
+  (cl-letf (((symbol-function 'iso8601-parse)
              (lambda (_iso-time)
                (error "Parse failed"))))
     (should (equal "???" (ogent-gastown--format-time "2026-01-23T17:00:00Z")))))
@@ -4958,6 +4957,319 @@
       (search-forward "Fetch failed")
       (should (eq (get-text-property (1- (point)) 'face)
                   'ogent-gastown-fetch-error)))))
+
+;;; Issue Triage Tests
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-nil-without-magit ()
+  "Test ogent-gastown--issue-at-point returns nil without magit."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-not (ogent-gastown--issue-at-point))))
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-nil-on-non-issue ()
+  "Test ogent-gastown--issue-at-point returns nil on non-issue section."
+  (let ((ogent-gastown--magit-section-available t)
+        (mock-section (record 'ogent-gastown-mail-item-section)))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p) (lambda () t))
+              ((symbol-function 'magit-current-section) (lambda () mock-section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_) 'ogent-gastown-mail-item-section)))
+      (should-not (ogent-gastown--issue-at-point)))))
+
+(ert-deftest ogent-gts-test-issue-at-point-returns-plist-on-issue ()
+  "Test ogent-gastown--issue-at-point returns issue plist on issue section."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open" :priority 2))
+         (mock-section 'fake-section))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p) (lambda () t))
+              ((symbol-function 'magit-current-section) (lambda () mock-section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_) 'ogent-gastown-issue-item-section))
+              ((symbol-function 'eieio-oref)
+               (lambda (_section _slot) issue-data)))
+      (should (equal (ogent-gastown--issue-at-point) issue-data)))))
+
+(ert-deftest ogent-gts-test-issue-close-no-issue-at-point ()
+  "Test issue-close errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-close) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-close-calls-bd-close ()
+  "Test issue-close calls ogent-issues-bd-close with correct args."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open"))
+         (close-called nil)
+         (close-args nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "Done"))
+              ((symbol-function 'y-or-n-p)
+               (lambda (_prompt) t))
+              ((symbol-function 'ogent-issues-bd-close)
+               (lambda (id reason cb &optional _err-cb)
+                 (setq close-called t
+                       close-args (list id reason))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-close)
+      (should close-called)
+      (should (equal close-args '("og-abc" "Done"))))))
+
+(ert-deftest ogent-gts-test-issue-close-aborts-on-deny ()
+  "Test issue-close does nothing when user says no."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-abc" :title "Fix bug" :status "open"))
+         (close-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "Done"))
+              ((symbol-function 'y-or-n-p)
+               (lambda (_prompt) nil))
+              ((symbol-function 'ogent-issues-bd-close)
+               (lambda (&rest _) (setq close-called t))))
+      (ogent-gastown-issue-close)
+      (should-not close-called))))
+
+(ert-deftest ogent-gts-test-issue-prioritize-no-issue-at-point ()
+  "Test issue-prioritize errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-prioritize) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-prioritize-calls-bd-update ()
+  "Test issue-prioritize calls ogent-issues-bd-update with priority."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-def" :title "Add feature" :status "open" :priority 2))
+         (update-called nil)
+         (update-id nil)
+         (update-priority nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'completing-read)
+               (lambda (_prompt choices &rest _) "P1"))
+              ((symbol-function 'ogent-issues-bd-update)
+               (lambda (id cb &rest props)
+                 (setq update-called t
+                       update-id id
+                       update-priority (plist-get props :priority))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-prioritize)
+      (should update-called)
+      (should (equal update-id "og-def"))
+      (should (equal update-priority 1)))))
+
+(ert-deftest ogent-gts-test-issue-claim-no-issue-at-point ()
+  "Test issue-claim errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-claim) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-claim-calls-bd-start ()
+  "Test issue-claim calls ogent-issues-bd-start with correct id."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-ghi" :title "Update docs" :status "open"))
+         (start-called nil)
+         (start-id nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'ogent-issues-bd-start)
+               (lambda (id cb &optional _err-cb)
+                 (setq start-called t
+                       start-id id)
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-claim)
+      (should start-called)
+      (should (equal start-id "og-ghi")))))
+
+(ert-deftest ogent-gts-test-issue-block-no-issue-at-point ()
+  "Test issue-block errors when not on an issue."
+  (let ((ogent-gastown--magit-section-available nil))
+    (should-error (ogent-gastown-issue-block) :type 'user-error)))
+
+(ert-deftest ogent-gts-test-issue-block-calls-bd-dep-add ()
+  "Test issue-block calls ogent-issues-bd-dep-add with correct args."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-jkl" :title "Refactor" :status "open"))
+         (dep-called nil)
+         (dep-args nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) "og-xyz"))
+              ((symbol-function 'ogent-issues-bd-dep-add)
+               (lambda (blocked-id blocker-id cb &optional _err-cb)
+                 (setq dep-called t
+                       dep-args (list blocked-id blocker-id))
+                 (funcall cb)))
+              ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
+              ((symbol-function 'ogent-gastown-refresh) #'ignore)
+              ((symbol-function 'message) #'ignore))
+      (ogent-gastown-issue-block)
+      (should dep-called)
+      (should (equal dep-args '("og-jkl" "og-xyz"))))))
+
+(ert-deftest ogent-gts-test-issue-block-empty-blocker-noop ()
+  "Test issue-block does nothing when blocker ID is empty."
+  (let* ((ogent-gastown--magit-section-available t)
+         (issue-data '(:id "og-jkl" :title "Refactor" :status "open"))
+         (dep-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issue-at-point)
+               (lambda () issue-data))
+              ((symbol-function 'read-string)
+               (lambda (_prompt) ""))
+              ((symbol-function 'ogent-issues-bd-dep-add)
+               (lambda (&rest _) (setq dep-called t))))
+      (ogent-gastown-issue-block)
+      (should-not dep-called))))
+
+;;; Auto-Refresh Mode Tests
+
+(ert-deftest ogent-gts-test-auto-refresh-snapshot-captures-state ()
+  "Snapshot captures mail, hook, convoy, crew and polecat state."
+  (with-temp-buffer
+    (setq-local ogent-gastown--mail-data
+                '((:id "m1" :read nil) (:id "m2" :read t)))
+    (setq-local ogent-gastown--hook-data '(:has_work t))
+    (setq-local ogent-gastown--convoy-data
+                '((:id "c1" :completed 3 :total 5)))
+    (setq-local ogent-gastown--workers-data nil)
+    (setq-local ogent-gastown--crew-data
+                '((:name "alice" :session_running t :hooked_work "og-2")))
+    (setq-local ogent-gastown--polecat-data
+                '((:name "opal" :state "active" :session_running t :hooked_work "og-1")))
+    (let ((snap (ogent-gastown--auto-refresh-snapshot-data)))
+      (should (equal (alist-get 'mail-count snap) 2))
+      (should (equal (alist-get 'mail-ids snap) '("m1" "m2")))
+      (should (equal (alist-get 'hook-data snap) t))
+      (should (equal (alist-get 'convoy-progress snap) '(("c1" . "3/5"))))
+      (should (equal (alist-get 'crew-states snap) '(("alice" t "og-2"))))
+      (should (equal (alist-get 'polecat-states snap)
+                     '(("opal" "active" t "og-1")))))))
+
+(ert-deftest ogent-gts-test-auto-refresh-diff-detects-changes ()
+  "Diff correctly identifies which section keys changed between snapshots."
+  (let ((old '((mail-count . 2) (mail-ids "m1" "m2") (hook-data . t)
+               (convoy-progress) (worker-states) (polecat-states) (crew-states)))
+        (new '((mail-count . 3) (mail-ids "m1" "m2" "m3") (hook-data . nil)
+               (convoy-progress) (worker-states) (polecat-states) (crew-states))))
+    (let ((changed (ogent-gastown--auto-refresh-diff old new)))
+      (should (member 'mail changed))
+      (should (member 'hook changed))
+      (should-not (member 'convoy changed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-diff-empty-when-equal ()
+  "Diff returns nil when snapshots are identical."
+  (let ((snap '((mail-count . 2) (hook-active . t))))
+    (should (null (ogent-gastown--auto-refresh-diff snap snap)))))
+
+(ert-deftest ogent-gts-test-diff-deduplicates-mail-keys ()
+  "Multiple mail-related keys in snapshot produce single mail entry in diff."
+  (let ((old '((mail-count . 2) (mail-ids "m1" "m2") (hook-data . t)))
+        (new '((mail-count . 3) (mail-ids "m1" "m2" "m3") (hook-data . t))))
+    (let ((changed (ogent-gastown--auto-refresh-diff old new)))
+      ;; Both mail-count and mail-ids changed, but should deduplicate to single 'mail
+      (should (member 'mail changed))
+      (should (= 1 (length (seq-filter (lambda (x) (eq x 'mail)) changed)))))))
+
+(ert-deftest ogent-gts-test-highlight-creates-overlays ()
+  "Highlighting a section creates overlays on matching lines."
+  (with-temp-buffer
+    (setq-local ogent-gastown--change-overlays nil)
+    (insert "# Hook Status\n  active\n@ Mail Inbox\n  2 unread\n")
+    (ogent-gastown--highlight-section 'mail)
+    (should (= 1 (length ogent-gastown--change-overlays)))
+    (let* ((entry (car ogent-gastown--change-overlays))
+           (ov (car entry)))
+      (should (overlay-buffer ov))
+      (should (eq 'ogent-gastown-changed (overlay-get ov 'face)))
+      ;; Clean up timer
+      (cancel-timer (cdr entry))
+      (delete-overlay ov))))
+
+(ert-deftest ogent-gts-test-clear-change-overlays ()
+  "Clearing overlays removes them from buffer and resets the list."
+  (with-temp-buffer
+    (insert "test line\n")
+    (let* ((ov (make-overlay 1 5))
+           (timer (run-at-time 999 nil #'ignore)))
+      (overlay-put ov 'ogent-gastown-change t)
+      (setq-local ogent-gastown--change-overlays (list (cons ov timer)))
+      (ogent-gastown--clear-change-overlays)
+      (should (null ogent-gastown--change-overlays))
+      (should (null (overlay-buffer ov))))))
+
+(ert-deftest ogent-gts-test-auto-refresh-mode-starts-timer ()
+  "Enabling auto-refresh mode creates a timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (should ogent-gastown--auto-refresh-timer)
+    (ogent-gastown-auto-refresh-mode -1)
+    (should-not ogent-gastown--auto-refresh-timer)))
+
+(ert-deftest ogent-gts-test-auto-refresh-mode-stops-timer ()
+  "Disabling auto-refresh mode cancels the timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (let ((timer ogent-gastown--auto-refresh-timer))
+      (ogent-gastown-auto-refresh-mode -1)
+      (should-not ogent-gastown--auto-refresh-timer)
+      ;; Timer should have been cancelled
+      (should (aref timer 4)))))  ; cancelled timers have t in slot 4
+
+(ert-deftest ogent-gts-test-auto-refresh-tick-skips-when-loading ()
+  "Auto-refresh tick does nothing when a load is already in progress."
+  (with-temp-buffer
+    (setq-local ogent-gastown-auto-refresh-mode t)
+    (setq-local ogent-gastown--loading t)
+    (let ((refreshed nil))
+      (cl-letf (((symbol-function 'get-buffer-window)
+                 (lambda (&rest _) t))
+                ((symbol-function 'ogent-gastown-cache-invalidate)
+                 (lambda () (setq refreshed t))))
+        (ogent-gastown--auto-refresh-tick (current-buffer))
+        (should-not refreshed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-tick-skips-when-not-visible ()
+  "Auto-refresh tick does nothing when buffer is not in any window."
+  (with-temp-buffer
+    (setq-local ogent-gastown-auto-refresh-mode t)
+    (setq-local ogent-gastown--loading nil)
+    (let ((refreshed nil))
+      (cl-letf (((symbol-function 'get-buffer-window)
+                 (lambda (&rest _) nil))
+                ((symbol-function 'ogent-gastown-cache-invalidate)
+                 (lambda () (setq refreshed t))))
+        (ogent-gastown--auto-refresh-tick (current-buffer))
+        (should-not refreshed)))))
+
+(ert-deftest ogent-gts-test-auto-refresh-cleanup-on-kill ()
+  "Cleanup function stops auto-refresh timer."
+  (with-temp-buffer
+    (ogent-gastown-auto-refresh-mode 1)
+    (should ogent-gastown--auto-refresh-timer)
+    (ogent-gastown--cleanup-on-kill)
+    (should-not ogent-gastown--auto-refresh-timer)))
+
+(ert-deftest ogent-gts-test-auto-refresh-customization-defaults ()
+  "Default interval and highlight duration have expected values."
+  (should (= ogent-gastown-auto-refresh-interval 30))
+  (should (= ogent-gastown-auto-refresh-highlight-duration 5)))
+
+(ert-deftest ogent-gts-test-auto-refresh-face-exists ()
+  "The changed face is defined."
+  (should (facep 'ogent-gastown-changed)))
+
+(ert-deftest ogent-gts-test-auto-refresh-keymap-bound ()
+  "The A key is bound to auto-refresh toggle in the mode map."
+  (should (eq (lookup-key ogent-gastown-status-mode-map "A")
+              'ogent-gastown-auto-refresh-mode)))
 
 (provide 'ogent-gastown-status-tests)
 
