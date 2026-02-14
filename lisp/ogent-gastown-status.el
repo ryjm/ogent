@@ -1048,6 +1048,9 @@ Resolution order:
     ;; Polecat actions
     (define-key map "P" #'ogent-gastown-polecat-status)
 
+    ;; Nudge
+    (define-key map "N" #'ogent-gastown-nudge)
+
     ;; Dispatch (sling)
     (define-key map "S" #'ogent-gastown-sling)
 
@@ -2755,6 +2758,25 @@ pre-fills that recipient."
   "Quick send mail to deacon."
   (interactive)
   (ogent-gastown-mail-compose "deacon/"))
+
+(defun ogent-gastown-nudge (&optional initial-target)
+  "Send a nudge message to a running agent session.
+With INITIAL-TARGET, pre-fill the target.  When called interactively
+with point on a crew/polecat item, derives the target from the section."
+  (interactive (list (ogent-gastown--recipient-at-point)))
+  (let* ((recipients (ogent-gastown--get-mail-recipients))
+         (target (completing-read "Nudge target: " recipients nil nil
+                                  initial-target))
+         (message (read-string "Message: ")))
+    (when (and target (not (string-empty-p target))
+               message (not (string-empty-p message)))
+      (ogent-gastown-status--run-async
+       (list "nudge" target message)
+       (lambda (_result)
+         (message "Nudged %s" target))
+       (lambda (err)
+         (message "Nudge failed: %s" err))
+       t))))
 
 ;;; Issue Triage Actions
 
