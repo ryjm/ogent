@@ -9,7 +9,7 @@
 ;;
 ;; 2. Margin/fringe indicators (NEW):
 ;;    - Visual icons in the left margin of "* Request:" headlines
-;;    - Status icons: ○ wait, ◐◑◒◓ streaming (animated), ✓ done, ✗ error
+;;    - Status icons: ○ wait, animated spinner while streaming, ✓ done, ✗ error
 ;;    - Visible even when headline is folded
 ;;    - Updated via overlays as request status changes
 ;;
@@ -26,6 +26,7 @@
 (require 'cl-lib)
 (require 'org)
 (require 'ogent-ui-theme)
+(require 'ogent-ops-style)
 
 ;; Forward declarations for request struct accessors
 (declare-function ogent-ui-request-model "ogent-ui")
@@ -69,11 +70,10 @@
 
 (defconst ogent-status--margin-icons
   '((waiting . "○")
-    (streaming . ("◐" "◑" "◒" "◓"))  ; Animated sequence
     (done . "✓")
     (error . "✗"))
   "Alist mapping status symbols to margin/fringe icons.
-For streaming status, value is a list of frames for animation.")
+Streaming frames are resolved via `ogent-ops-streaming-frames'.")
 
 ;;; Buffer-local State
 
@@ -91,7 +91,7 @@ Keys are request IDs (strings), values are plists with:
   :animation-timer - timer for animating streaming indicator")
 
 (defvar-local ogent-status--animation-frame 0
-  "Current frame index for streaming animation (0-3).")
+  "Current frame index for streaming animation.")
 
 ;;; Formatting
 
@@ -167,12 +167,12 @@ Searches backward for the enclosing headline."
 (defun ogent-status--get-margin-icon (status &optional animation-frame)
   "Return the margin icon string for STATUS.
 For streaming status, ANIMATION-FRAME determines which frame to show."
-  (let ((icon-spec (cdr (assoc status ogent-status--margin-icons))))
-    (if (listp icon-spec)
-        ;; Animated icon sequence
-        (nth (mod (or animation-frame 0) (length icon-spec)) icon-spec)
-      ;; Static icon
-      icon-spec)))
+  (if (eq status 'streaming)
+      (let* ((ogent-ops-use-unicode ogent-theme-use-unicode)
+             (frames (ogent-ops-streaming-frames))
+             (frame-count (max 1 (length frames))))
+        (nth (mod (or animation-frame 0) frame-count) frames))
+    (cdr (assoc status ogent-status--margin-icons))))
 
 (defun ogent-status--create-margin-overlay (request)
   "Create a margin indicator overlay for REQUEST at its headline position.
@@ -215,15 +215,18 @@ Uses theme faces for consistent styling."
 
 (defun ogent-status--start-animation (overlay-info)
   "Start animation timer for OVERLAY-INFO (for streaming status).
-Uses theme animation interval for consistent timing."
+Uses shared ops streaming interval for consistent timing."
   ;; Stop existing timer if any
   (ogent-status--stop-animation overlay-info)
-  (let* ((interval (or (ogent-theme-animation-interval) 0.25))
+  (let* ((interval (or (ogent-ops-streaming-interval) 0.25))
          (timer (run-at-time interval interval
                              (lambda (info)
                                (when-let ((ov (plist-get info :overlay)))
                                  (when (overlay-buffer ov)
-                                   (let ((frame (mod (1+ (or (plist-get info :animation-frame) 0)) 4)))
+                                   (let* ((ogent-ops-use-unicode ogent-theme-use-unicode)
+                                          (frame-count (max 1 (length (ogent-ops-streaming-frames))))
+                                          (frame (mod (1+ (or (plist-get info :animation-frame) 0))
+                                                      frame-count)))
                                      (plist-put info :animation-frame frame)
                                      (ogent-status--update-margin-overlay info 'type)))))
                              overlay-info)))

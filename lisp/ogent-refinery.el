@@ -469,16 +469,18 @@ Other:
 
 ;;; Loading Animation
 
-(defconst ogent-refinery--loading-frames (ogent-ops-loading-frames)
-  "Animation frames for loading spinner.")
+(defun ogent-refinery--loading-frames ()
+  "Return animation frames for the loading spinner."
+  (ogent-ops-loading-frames))
 
 (defun ogent-refinery--start-loading ()
   "Start the loading animation."
   (setq ogent-refinery--loading t
         ogent-refinery--loading-frame 0)
   (ogent-refinery--stop-loading-timer)
-  (setq ogent-refinery--loading-timer
-        (run-at-time 0.25 0.25 #'ogent-refinery--animate-loading (current-buffer)))
+  (let ((interval (ogent-ops-loading-interval)))
+    (setq ogent-refinery--loading-timer
+          (run-at-time interval interval #'ogent-refinery--animate-loading (current-buffer))))
   (force-mode-line-update))
 
 (defun ogent-refinery--stop-loading ()
@@ -497,14 +499,15 @@ Other:
   "Advance the loading animation frame in BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (setq ogent-refinery--loading-frame
-            (mod (1+ ogent-refinery--loading-frame) 4))
+      (let ((frame-count (max 1 (length (ogent-refinery--loading-frames)))))
+        (setq ogent-refinery--loading-frame
+              (mod (1+ ogent-refinery--loading-frame) frame-count)))
       (force-mode-line-update))))
 
 (defun ogent-refinery--loading-indicator ()
   "Return the current loading spinner character."
   (when ogent-refinery--loading
-    (nth ogent-refinery--loading-frame ogent-refinery--loading-frames)))
+    (nth ogent-refinery--loading-frame (ogent-refinery--loading-frames))))
 
 ;;; Header Line
 

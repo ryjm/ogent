@@ -351,16 +351,18 @@ Other:
 
 ;;; Loading Animation
 
-(defconst ogent-convoy--loading-frames (ogent-ops-loading-frames)
-  "Animation frames for loading spinner.")
+(defun ogent-convoy--loading-frames ()
+  "Return animation frames for the loading spinner."
+  (ogent-ops-loading-frames))
 
 (defun ogent-convoy--start-loading ()
   "Start the loading animation."
   (setq ogent-convoy--loading t
         ogent-convoy--loading-frame 0)
   (ogent-convoy--stop-loading-timer)
-  (setq ogent-convoy--loading-timer
-        (run-at-time 0.25 0.25 #'ogent-convoy--animate-loading (current-buffer)))
+  (let ((interval (ogent-ops-loading-interval)))
+    (setq ogent-convoy--loading-timer
+          (run-at-time interval interval #'ogent-convoy--animate-loading (current-buffer))))
   (force-mode-line-update))
 
 (defun ogent-convoy--stop-loading ()
@@ -379,14 +381,15 @@ Other:
   "Advance the loading animation frame in BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (setq ogent-convoy--loading-frame
-            (mod (1+ ogent-convoy--loading-frame) 4))
+      (let ((frame-count (max 1 (length (ogent-convoy--loading-frames)))))
+        (setq ogent-convoy--loading-frame
+              (mod (1+ ogent-convoy--loading-frame) frame-count)))
       (force-mode-line-update))))
 
 (defun ogent-convoy--loading-indicator ()
   "Return the current loading spinner character."
   (when ogent-convoy--loading
-    (nth ogent-convoy--loading-frame ogent-convoy--loading-frames)))
+    (nth ogent-convoy--loading-frame (ogent-convoy--loading-frames))))
 
 ;;; Header Line
 

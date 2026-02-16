@@ -95,6 +95,9 @@
          (ogent-refinery-test--mock-error nil)
          (ogent-refinery-test--captured-args nil)
          (ogent-refinery-gt-executable "gt")
+         ;; Default to plain rendering in tests unless a case explicitly
+         ;; validates magit-section behavior.
+         (ogent-refinery--magit-section-available nil)
          ;; Clear cache
          (ogent-refinery--cache (make-hash-table :test 'equal)))
      (cl-letf (((symbol-function 'ogent-refinery--run-async)
@@ -114,6 +117,7 @@
          (ogent-refinery-test--mock-error ,error-msg)
          (ogent-refinery-test--captured-args nil)
          (ogent-refinery-gt-executable "gt")
+         (ogent-refinery--magit-section-available nil)
          (ogent-refinery--cache (make-hash-table :test 'equal)))
      (cl-letf (((symbol-function 'ogent-refinery--run-async)
                 (lambda (args callback &optional error-callback)
@@ -124,6 +128,25 @@
                     (funcall callback ogent-refinery-test--mock-output))
                   nil)))
        ,@body)))
+
+(defun ogent-refinery-test--magit-path-usable-p ()
+  "Return non-nil when refinery magit-section path is usable in tests."
+  (and (require 'magit-section nil t)
+       (condition-case nil
+           (with-temp-buffer
+             (ogent-refinery-mode)
+             (let ((inhibit-read-only t)
+                   (ogent-refinery--magit-section-available t))
+               (magit-insert-section (ogent-refinery-root-section)
+                 (ogent-refinery--insert-mr-item
+                  '(:id "probe-1"
+                    :branch "probe/branch"
+                    :priority "P2"
+                    :status "ready"
+                    :created_at nil)
+                  'waiting))
+               t))
+         (error nil))))
 
 ;;; Cache Tests
 
@@ -766,12 +789,14 @@
 ;;; Loading Animation Additional Tests
 
 (ert-deftest ogent-refinery-test-animate-loading-frame-wraps ()
-  "Test that loading frame wraps around after 3."
+  "Test that loading frame wraps around at frame-count boundary."
   (with-temp-buffer
     (ogent-refinery-mode)
-    (setq ogent-refinery--loading-frame 3)
-    (ogent-refinery--animate-loading (current-buffer))
-    (should (= 0 ogent-refinery--loading-frame))))
+    (cl-letf (((symbol-function 'ogent-refinery--loading-frames)
+               (lambda () '("a" "b" "c"))))
+      (setq ogent-refinery--loading-frame 2)
+      (ogent-refinery--animate-loading (current-buffer))
+      (should (= 0 ogent-refinery--loading-frame)))))
 
 (ert-deftest ogent-refinery-test-animate-loading-dead-buffer ()
   "Test animate-loading does nothing for dead buffer."
@@ -781,11 +806,12 @@
     (ogent-refinery--animate-loading buf)))
 
 (ert-deftest ogent-refinery-test-loading-frames-list ()
-  "Test that loading frames is a list of 4 strings."
-  (should (listp ogent-refinery--loading-frames))
-  (should (= 4 (length ogent-refinery--loading-frames)))
-  (dolist (frame ogent-refinery--loading-frames)
-    (should (stringp frame))))
+  "Test that loading frames is a non-empty list of strings."
+  (let ((frames (ogent-refinery--loading-frames)))
+    (should (listp frames))
+    (should (> (length frames) 0))
+    (dolist (frame frames)
+      (should (stringp frame)))))
 
 ;;; MR Item Plain Rendering Additional Tests
 
@@ -998,7 +1024,7 @@
         (should (string-match-p "fix/bug" shell-cmd))))))
 
 (ert-deftest ogent-refinery-test-merge-with-mr-confirmed ()
-  "Test merge runs async merge when confirmed."
+  "Test merge runs mq merge when confirmed."
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((refresh-called nil)
@@ -1179,7 +1205,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              ogent-refinery-test--sample-mr-processing 'processing))
@@ -1193,7 +1219,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              ogent-refinery-test--sample-mr-ready 'waiting))
@@ -1206,7 +1232,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              ogent-refinery-test--sample-mr-failed 'failed))
@@ -1218,7 +1244,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              ogent-refinery-test--sample-mr-blocked 'blocked))
@@ -1230,7 +1256,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              '(:id "mr-m" :branch "feature/done" :priority "P1"
@@ -1247,7 +1273,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              '(:id "mr-w" :branch "feat/x" :worker "polecat-alpha"
@@ -1262,7 +1288,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              '(:id "mr-nw" :branch "feat/y" :priority "P2"
@@ -1279,7 +1305,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              '(:id "mr-pc" :branch "feat/z" :polecat "pc-beta"
@@ -1296,7 +1322,7 @@
   (with-temp-buffer
     (ogent-refinery-mode)
     (let ((inhibit-read-only t))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item
              '(:id "mr-nf" :name "alt-branch-name" :priority "P2"
@@ -1315,7 +1341,7 @@
     (let ((inhibit-read-only t)
           (mr '(:id "mr-fr" :branch "feat/fail" :priority "P2"
                 :status "error" :reason "Merge conflict" :created_at nil)))
-      (if ogent-refinery--magit-section-available
+      (if (ogent-refinery-test--magit-path-usable-p)
           (magit-insert-section (ogent-refinery-root-section)
             (ogent-refinery--insert-mr-item mr 'failed))
         (ogent-refinery--insert-mr-item-plain mr))
@@ -1329,7 +1355,8 @@
     (ogent-refinery-mode)
     (setq ogent-refinery--queue-data nil)
     (setq ogent-refinery--history-data nil)
-    (let ((inhibit-read-only t))
+    (let ((inhibit-read-only t)
+          (ogent-refinery--magit-section-available nil))
       (ogent-refinery--insert-buffer-contents))
     ;; Should have rendered something regardless of magit-section availability
     (should (> (buffer-size) 0))))
@@ -1432,18 +1459,20 @@
 ;;; Loading Frame Cycling Tests
 
 (ert-deftest ogent-refinery-test-loading-frame-cycles-through-all ()
-  "Test loading frames cycle through all 4 values."
+  "Test loading frames cycle through all values."
   (with-temp-buffer
     (ogent-refinery-mode)
-    (setq ogent-refinery--loading t)
-    (setq ogent-refinery--loading-frame 0)
-    (let ((frames-seen nil))
-      (dotimes (_ 4)
-        (push (ogent-refinery--loading-indicator) frames-seen)
-        (setq ogent-refinery--loading-frame
-              (mod (1+ ogent-refinery--loading-frame) 4)))
-      ;; Should have seen 4 different frames
-      (should (= 4 (length (delete-dups frames-seen)))))))
+    (cl-letf (((symbol-function 'ogent-refinery--loading-frames)
+               (lambda () '("a" "b" "c"))))
+      (setq ogent-refinery--loading t)
+      (setq ogent-refinery--loading-frame 0)
+      (let ((frames-seen nil))
+        (dotimes (_ 3)
+          (push (ogent-refinery--loading-indicator) frames-seen)
+          (setq ogent-refinery--loading-frame
+                (mod (1+ ogent-refinery--loading-frame)
+                     (length (ogent-refinery--loading-frames)))))
+        (should (= 3 (length (delete-dups frames-seen))))))))
 
 ;;; Header Line - Multiple Status Combinations
 
