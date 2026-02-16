@@ -860,6 +860,14 @@
                    :extra-key "extra-value" :another 42))))
     (should (equal (plist-get result :title) "Extra"))
     (should (equal (plist-get result :completed) 1))))
+
+(ert-deftest ogent-convoy-test-inspect-empty-id ()
+  "Test inspect with empty ID errors."
+  (should-error (ogent-convoy-inspect "") :type 'user-error))
+
+(ert-deftest ogent-convoy-test-inspect-nil-id ()
+  "Test inspect with nil ID errors."
+  (should-error (ogent-convoy-inspect nil) :type 'user-error))
 ;;; Provide
 
 (provide 'ogent-convoy-tests)

@@ -1185,16 +1185,18 @@ Other:
 
 ;;; Loading Animation
 
-(defconst ogent-gastown--loading-frames (ogent-ops-loading-frames)
-  "Animation frames for loading spinner.")
+(defun ogent-gastown--loading-frames ()
+  "Return animation frames for the loading spinner."
+  (ogent-ops-loading-frames))
 
 (defun ogent-gastown--start-loading ()
   "Start the loading animation."
   (setq ogent-gastown--loading t
         ogent-gastown--loading-frame 0)
   (ogent-gastown--stop-loading-timer)
-  (setq ogent-gastown--loading-timer
-        (run-at-time 0.25 0.25 #'ogent-gastown--animate-loading (current-buffer)))
+  (let ((interval (ogent-ops-loading-interval)))
+    (setq ogent-gastown--loading-timer
+          (run-at-time interval interval #'ogent-gastown--animate-loading (current-buffer))))
   (force-mode-line-update))
 
 (defun ogent-gastown--stop-loading ()
@@ -1213,14 +1215,15 @@ Other:
   "Advance the loading animation frame in BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (setq ogent-gastown--loading-frame
-            (mod (1+ ogent-gastown--loading-frame) 4))
+      (let ((frame-count (max 1 (length (ogent-gastown--loading-frames)))))
+        (setq ogent-gastown--loading-frame
+              (mod (1+ ogent-gastown--loading-frame) frame-count)))
       (force-mode-line-update))))
 
 (defun ogent-gastown--loading-indicator ()
   "Return the current loading spinner character."
   (when ogent-gastown--loading
-    (nth ogent-gastown--loading-frame ogent-gastown--loading-frames)))
+    (nth ogent-gastown--loading-frame (ogent-gastown--loading-frames))))
 
 (defun ogent-gastown--workspace-root-for-display ()
   "Return workspace root for UI display, preferring buffer-local binding."

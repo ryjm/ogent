@@ -24,6 +24,110 @@ When nil, fall back to ASCII equivalents."
   :type 'boolean
   :group 'ogent-ops-style)
 
+(defconst ogent-ops--loading-spinner-presets
+  '((braille
+     :frames ("⠋" "⠙" "⠹" "⠸" "⠼" "⠴" "⠦" "⠧" "⠇" "⠏")
+     :interval 0.08)
+    (braillewave
+     :frames ("⠁⠂⠄⡀" "⠂⠄⡀⢀" "⠄⡀⢀⠠" "⡀⢀⠠⠐"
+              "⢀⠠⠐⠈" "⠠⠐⠈⠁" "⠐⠈⠁⠂" "⠈⠁⠂⠄")
+     :interval 0.1)
+    (dna
+     :frames ("⠋⠉⠙⠚" "⠉⠙⠚⠒" "⠙⠚⠒⠂" "⠚⠒⠂⠂"
+              "⠒⠂⠂⠒" "⠂⠂⠒⠲" "⠂⠒⠲⠴" "⠒⠲⠴⠤"
+              "⠲⠴⠤⠄" "⠴⠤⠄⠋" "⠤⠄⠋⠉" "⠄⠋⠉⠙")
+     :interval 0.08)
+    (scan
+     :frames ("⠀⠀⠀⠀" "⡇⠀⠀⠀" "⣿⠀⠀⠀" "⢸⡇⠀⠀" "⠀⣿⠀⠀"
+              "⠀⢸⡇⠀" "⠀⠀⣿⠀" "⠀⠀⢸⡇" "⠀⠀⠀⣿" "⠀⠀⠀⢸")
+     :interval 0.07)
+    (rain
+     :frames ("⢁⠂⠔⠈" "⠂⠌⡠⠐" "⠄⡐⢀⠡" "⡈⠠⠀⢂" "⠐⢀⠁⠄" "⠠⠁⠊⡀"
+              "⢁⠂⠔⠈" "⠂⠌⡠⠐" "⠄⡐⢀⠡" "⡈⠠⠀⢂" "⠐⢀⠁⠄" "⠠⠁⠊⡀")
+     :interval 0.1)
+    (scanline
+     :frames ("⠉⠉⠉" "⠓⠓⠓" "⠦⠦⠦" "⣄⣄⣄" "⠦⠦⠦" "⠓⠓⠓")
+     :interval 0.12)
+    (pulse
+     :frames ("⠀⠶⠀" "⠰⣿⠆" "⢾⣉⡷" "⣏⠀⣹" "⡁⠀⢈")
+     :interval 0.18)
+    (snake
+     :frames ("⣁⡀" "⣉⠀" "⡉⠁" "⠉⠉" "⠈⠙" "⠀⠛" "⠐⠚" "⠒⠒"
+              "⠖⠂" "⠶⠀" "⠦⠄" "⠤⠤" "⠠⢤" "⠀⣤" "⢀⣠" "⣀⣀")
+     :interval 0.08)
+    (sparkle
+     :frames ("⡡⠊⢔⠡" "⠊⡰⡡⡘" "⢔⢅⠈⢢" "⡁⢂⠆⡍" "⢔⠨⢑⢐" "⠨⡑⡠⠊")
+     :interval 0.15)
+    (cascade
+     :frames ("⠀⠀⠀⠀" "⠀⠀⠀⠀" "⠁⠀⠀⠀" "⠋⠀⠀⠀" "⠞⠁⠀⠀" "⡴⠋⠀⠀" "⣠⠞⠁⠀"
+              "⢀⡴⠋⠀" "⠀⣠⠞⠁" "⠀⢀⡴⠋" "⠀⠀⣠⠞" "⠀⠀⢀⡴" "⠀⠀⠀⣠" "⠀⠀⠀⢀")
+     :interval 0.06)
+    (columns
+     :frames ("⡀⠀⠀" "⡄⠀⠀" "⡆⠀⠀" "⡇⠀⠀" "⣇⠀⠀" "⣧⠀⠀" "⣷⠀⠀" "⣿⠀⠀"
+              "⣿⡀⠀" "⣿⡄⠀" "⣿⡆⠀" "⣿⡇⠀" "⣿⣇⠀" "⣿⣧⠀" "⣿⣷⠀" "⣿⣿⠀"
+              "⣿⣿⡀" "⣿⣿⡄" "⣿⣿⡆" "⣿⣿⡇" "⣿⣿⣇" "⣿⣿⣧" "⣿⣿⣷" "⣿⣿⣿"
+              "⣿⣿⣿" "⠀⠀⠀")
+     :interval 0.06)
+    (orbit
+     :frames ("⠃" "⠉" "⠘" "⠰" "⢠" "⣀" "⡄" "⠆")
+     :interval 0.1)
+    (breathe
+     :frames ("⠀" "⠂" "⠌" "⡑" "⢕" "⢝" "⣫" "⣟" "⣿" "⣟" "⣫" "⢝" "⢕" "⡑" "⠌" "⠂" "⠀")
+     :interval 0.1)
+    (waverows
+     :frames ("⠖⠉⠉⠑" "⡠⠖⠉⠉" "⣠⡠⠖⠉" "⣄⣠⡠⠖" "⠢⣄⣠⡠" "⠙⠢⣄⣠" "⠉⠙⠢⣄" "⠊⠉⠙⠢"
+              "⠜⠊⠉⠙" "⡤⠜⠊⠉" "⣀⡤⠜⠊" "⢤⣀⡤⠜" "⠣⢤⣀⡤" "⠑⠣⢤⣀" "⠉⠑⠣⢤" "⠋⠉⠑⠣")
+     :interval 0.09)
+    (checkerboard
+     :frames ("⢕⢕⢕" "⡪⡪⡪" "⢊⠔⡡" "⡡⢊⠔")
+     :interval 0.25)
+    (helix
+     :frames ("⢌⣉⢎⣉" "⣉⡱⣉⡱" "⣉⢎⣉⢎" "⡱⣉⡱⣉"
+              "⢎⣉⢎⣉" "⣉⡱⣉⡱" "⣉⢎⣉⢎" "⡱⣉⡱⣉"
+              "⢎⣉⢎⣉" "⣉⡱⣉⡱" "⣉⢎⣉⢎" "⡱⣉⡱⣉"
+              "⢎⣉⢎⣉" "⣉⡱⣉⡱" "⣉⢎⣉⢎" "⡱⣉⡱⣉")
+     :interval 0.08)
+    (fillsweep
+     :frames ("⣀⣀" "⣤⣤" "⣶⣶" "⣿⣿" "⣿⣿" "⣿⣿" "⣶⣶" "⣤⣤" "⣀⣀" "⠀⠀" "⠀⠀")
+     :interval 0.1)
+    (diagswipe
+     :frames ("⠁⠀" "⠋⠀" "⠟⠁" "⡿⠋" "⣿⠟" "⣿⡿" "⣿⣿" "⣿⣿"
+              "⣾⣿" "⣴⣿" "⣠⣾" "⢀⣴" "⠀⣠" "⠀⢀" "⠀⠀" "⠀⠀")
+     :interval 0.06))
+  "Unicode loading spinner presets derived from unicode-animations.")
+
+(defcustom ogent-ops-loading-spinner 'braille
+  "Unicode spinner preset for loading and streaming indicators."
+  :type '(choice (const :tag "braille" braille)
+                 (const :tag "braillewave" braillewave)
+                 (const :tag "dna" dna)
+                 (const :tag "scan" scan)
+                 (const :tag "rain" rain)
+                 (const :tag "scanline" scanline)
+                 (const :tag "pulse" pulse)
+                 (const :tag "snake" snake)
+                 (const :tag "sparkle" sparkle)
+                 (const :tag "cascade" cascade)
+                 (const :tag "columns" columns)
+                 (const :tag "orbit" orbit)
+                 (const :tag "breathe" breathe)
+                 (const :tag "waverows" waverows)
+                 (const :tag "checkerboard" checkerboard)
+                 (const :tag "helix" helix)
+                 (const :tag "fillsweep" fillsweep)
+                 (const :tag "diagswipe" diagswipe))
+  :group 'ogent-ops-style)
+
+(defcustom ogent-ops-loading-frames-ascii '("|" "/" "-" "\\")
+  "ASCII fallback spinner frames for loading and streaming indicators."
+  :type '(repeat string)
+  :group 'ogent-ops-style)
+
+(defcustom ogent-ops-loading-interval-ascii 0.25
+  "ASCII fallback frame interval in seconds."
+  :type 'number
+  :group 'ogent-ops-style)
+
 ;;;; Status symbols
 
 (defconst ogent-ops--status-symbols-unicode
@@ -200,18 +304,30 @@ COUNT, when non-nil, is appended as \" (N)\" with COUNT-FACE (or `shadow')."
 
 ;;;; Loading animation
 
-(defconst ogent-ops-loading-frames-unicode '("◐" "◑" "◒" "◓")
-  "Unicode spinner frames for loading animation.")
-
-(defconst ogent-ops-loading-frames-ascii '("|" "/" "-" "\\")
-  "ASCII spinner frames for loading animation.")
+(defun ogent-ops--loading-spinner-spec ()
+  "Return the configured Unicode spinner preset spec."
+  (or (alist-get ogent-ops-loading-spinner ogent-ops--loading-spinner-presets)
+      (alist-get 'braille ogent-ops--loading-spinner-presets)))
 
 (defun ogent-ops-loading-frames ()
-  "Return the appropriate loading animation frame list.
-Uses `display-graphic-p' to pick Unicode vs ASCII."
-  (if (display-graphic-p)
-      ogent-ops-loading-frames-unicode
+  "Return the loading animation frame list for the current environment."
+  (if ogent-ops-use-unicode
+      (plist-get (ogent-ops--loading-spinner-spec) :frames)
     ogent-ops-loading-frames-ascii))
+
+(defun ogent-ops-loading-interval ()
+  "Return loading animation interval in seconds for the current environment."
+  (if ogent-ops-use-unicode
+      (plist-get (ogent-ops--loading-spinner-spec) :interval)
+    ogent-ops-loading-interval-ascii))
+
+(defun ogent-ops-streaming-frames ()
+  "Return animation frame list for streaming indicators."
+  (ogent-ops-loading-frames))
+
+(defun ogent-ops-streaming-interval ()
+  "Return animation interval in seconds for streaming indicators."
+  (ogent-ops-loading-interval))
 
 ;;;; Font-lock protection
 

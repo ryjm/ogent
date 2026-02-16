@@ -142,13 +142,17 @@
       (should (equal (get-text-property 2 'face result) 'ogent-theme-success)))))
 
 (ert-deftest ogent-theme-icon-streaming-frames ()
-  "Streaming animation icons have multiple frames."
-  (let ((ogent-theme-use-icons nil)
-        (ogent-theme-use-unicode t))
-    (should (equal (ogent-theme-icon 'stream-0) "◐"))
-    (should (equal (ogent-theme-icon 'stream-1) "◑"))
-    (should (equal (ogent-theme-icon 'stream-2) "◒"))
-    (should (equal (ogent-theme-icon 'stream-3) "◓"))))
+  "Streaming animation icon uses shared ops frame data."
+  (let* ((ogent-theme-use-icons nil)
+         (ogent-theme-use-unicode t)
+         (ogent-ops-use-unicode ogent-theme-use-unicode)
+         (frames (ogent-ops-streaming-frames))
+         (frame-count (length frames)))
+    (should (> frame-count 0))
+    (should (equal (substring-no-properties (ogent-theme-stream-icon 0))
+                   (nth 0 frames)))
+    (should (equal (substring-no-properties (ogent-theme-stream-icon frame-count))
+                   (nth 0 frames)))))
 
 (ert-deftest ogent-theme-icon-priority-icons ()
   "Priority icons are correctly defined."
@@ -372,18 +376,19 @@
 
 (ert-deftest ogent-theme-stream-icon-cycles ()
   "Stream icon cycles through frames based on input."
-  (let ((ogent-theme-use-icons nil)
-        (ogent-theme-use-unicode t))
-    (should (equal (ogent-theme-icon 'stream-0)
-                   (substring-no-properties (ogent-theme-stream-icon 0))))
-    (should (equal (ogent-theme-icon 'stream-1)
-                   (substring-no-properties (ogent-theme-stream-icon 1))))
-    (should (equal (ogent-theme-icon 'stream-2)
-                   (substring-no-properties (ogent-theme-stream-icon 2))))
-    (should (equal (ogent-theme-icon 'stream-3)
-                   (substring-no-properties (ogent-theme-stream-icon 3))))
+  (let* ((ogent-theme-use-icons nil)
+         (ogent-theme-use-unicode t)
+         (ogent-ops-use-unicode ogent-theme-use-unicode)
+         (frames (ogent-ops-streaming-frames))
+         (frame-count (length frames)))
+    (should (> frame-count 0))
+    (should (equal (substring-no-properties (ogent-theme-stream-icon 0))
+                   (nth 0 frames)))
+    (when (> frame-count 1)
+      (should (equal (substring-no-properties (ogent-theme-stream-icon 1))
+                     (nth 1 frames))))
     ;; Should wrap around with mod
-    (should (equal (substring-no-properties (ogent-theme-stream-icon 4))
+    (should (equal (substring-no-properties (ogent-theme-stream-icon frame-count))
                    (substring-no-properties (ogent-theme-stream-icon 0))))))
 
 (ert-deftest ogent-theme-stream-icon-has-face ()

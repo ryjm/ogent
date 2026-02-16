@@ -178,12 +178,19 @@
 
 (ert-deftest ogent-status-margin-icon-animated ()
   "Animated streaming icon cycles through frames."
-  (should (equal (ogent-status--get-margin-icon 'streaming 0) "◐"))
-  (should (equal (ogent-status--get-margin-icon 'streaming 1) "◑"))
-  (should (equal (ogent-status--get-margin-icon 'streaming 2) "◒"))
-  (should (equal (ogent-status--get-margin-icon 'streaming 3) "◓"))
-  ;; Should wrap around
-  (should (equal (ogent-status--get-margin-icon 'streaming 4) "◐")))
+  (let* ((ogent-theme-use-unicode t)
+         (ogent-ops-use-unicode ogent-theme-use-unicode)
+         (frames (ogent-ops-streaming-frames))
+         (frame-count (length frames)))
+    (should (> frame-count 0))
+    (should (equal (ogent-status--get-margin-icon 'streaming 0)
+                   (nth 0 frames)))
+    (when (> frame-count 1)
+      (should (equal (ogent-status--get-margin-icon 'streaming 1)
+                     (nth 1 frames))))
+    ;; Should wrap around.
+    (should (equal (ogent-status--get-margin-icon 'streaming frame-count)
+                   (nth 0 frames)))))
 
 (ert-deftest ogent-status-find-request-headline ()
   "Finding request headline from response marker."

@@ -417,21 +417,15 @@ Used to detect project switches and clear stale state.")
   "Timer for animating the loading spinner.")
 
 (defvar-local ogent-issues--loading-frame 0
-  "Current animation frame index (0-3).")
+  "Current animation frame index.")
 
 (defvar-local ogent-issues--agent-assignments nil
   "Hash table mapping bead-id to agent assignment info.
 Populated from Gas Town crew/polecat data when integration is active.")
 
-(defvar ogent-issues--loading-frames nil
-  "Animation frames for loading spinner.
-Uses Unicode in GUI, ASCII in terminal.
-Initialized lazily to avoid issues during byte-compilation.")
-
 (defun ogent-issues--get-loading-frames ()
-  "Return loading frames, initializing if needed."
-  (or ogent-issues--loading-frames
-      (setq ogent-issues--loading-frames (ogent-ops-loading-frames))))
+  "Return loading animation frames."
+  (ogent-ops-loading-frames))
 
 ;;; Section Classes (when magit-section available)
 ;; Use eval-and-compile to ensure classes exist at macro-expansion time
@@ -587,8 +581,9 @@ Other:
     (setq ogent-issues--loading t
           ogent-issues--loading-frame 0)
     (ogent-issues--stop-loading-timer)
-    (setq ogent-issues--loading-timer
-          (run-at-time 0.25 0.25 #'ogent-issues--animate-loading (current-buffer)))
+    (let ((interval (ogent-ops-loading-interval)))
+      (setq ogent-issues--loading-timer
+            (run-at-time interval interval #'ogent-issues--animate-loading (current-buffer))))
     (force-mode-line-update)))
 
 (defun ogent-issues--stop-loading ()
@@ -608,8 +603,9 @@ Other:
   "Advance the loading animation frame in BUFFER."
   (when (buffer-live-p buffer)
     (with-current-buffer buffer
-      (setq ogent-issues--loading-frame
-            (mod (1+ ogent-issues--loading-frame) 4))
+      (let ((frame-count (max 1 (length (ogent-issues--get-loading-frames)))))
+        (setq ogent-issues--loading-frame
+              (mod (1+ ogent-issues--loading-frame) frame-count)))
       (force-mode-line-update))))
 
 (defun ogent-issues--loading-indicator ()

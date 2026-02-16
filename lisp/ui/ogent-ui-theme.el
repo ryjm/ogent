@@ -27,6 +27,7 @@
 
 (require 'cl-lib)
 (require 'face-remap)
+(require 'ogent-ops-style)
 
 ;;; Customization Group
 
@@ -467,9 +468,12 @@ Each pair is (KEY . DESCRIPTION). Returns space-separated string."
     (_ 0.25)))
 
 (defun ogent-theme-stream-icon (frame)
-  "Return streaming animation icon for FRAME (0-3)."
-  (ogent-theme-icon (intern (format "stream-%d" (mod frame 4)))
-                    'ogent-theme-warning))
+  "Return streaming animation icon for FRAME."
+  (let* ((ogent-ops-use-unicode ogent-theme-use-unicode)
+         (frames (ogent-ops-streaming-frames))
+         (frame-count (max 1 (length frames)))
+         (icon (or (nth (mod frame frame-count) frames) "?")))
+    (propertize icon 'face 'ogent-theme-warning)))
 
 ;;; Mode-line Segment Helpers
 

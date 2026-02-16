@@ -754,7 +754,7 @@ OUTPUT should be a plist or list that will be returned."
           (ogent-gastown-use-unicode t))
       (ogent-gastown--insert-rig-agent agent)
       (goto-char (point-min))
-      ;; Check hook indicator appears (via ops-style badge)
+      ;; Check hook indicator appears (via ops-style helper)
       (should (search-forward (ogent-ops-badge-symbol 'hook) nil t)))))
 
 (ert-deftest ogent-gastown-test-insert-rig-agent-with-mail ()
@@ -786,7 +786,7 @@ OUTPUT should be a plist or list that will be returned."
       (let ((content (buffer-string)))
         ;; Should NOT have mail indicator
         (should-not (string-match-p
-                     (regexp-quote (ogent-ops-section-prefix "📬" "M:"))
+                     (regexp-quote (ogent-ops-badge-symbol 'mail))
                      content))))))
 
 (ert-deftest ogent-gastown-test-rig-agent-role-icons ()
@@ -1976,15 +1976,16 @@ OUTPUT should be a plist or list that will be returned."
 (ert-deftest ogent-gastown-test-animate-loading ()
   "Test animate-loading advances the frame."
   (with-temp-buffer
-    (let ((ogent-gastown--loading-frame 0))
-      (ogent-gastown--animate-loading (current-buffer))
-      (should (= 1 ogent-gastown--loading-frame))
-      (ogent-gastown--animate-loading (current-buffer))
-      (should (= 2 ogent-gastown--loading-frame))
-      ;; Wraps around at 4
-      (setq ogent-gastown--loading-frame 3)
-      (ogent-gastown--animate-loading (current-buffer))
-      (should (= 0 ogent-gastown--loading-frame)))))
+    (cl-letf (((symbol-function 'ogent-gastown--loading-frames)
+               (lambda () '("a" "b" "c"))))
+      (let ((ogent-gastown--loading-frame 0))
+        (ogent-gastown--animate-loading (current-buffer))
+        (should (= 1 ogent-gastown--loading-frame))
+        (ogent-gastown--animate-loading (current-buffer))
+        (should (= 2 ogent-gastown--loading-frame))
+        ;; Wraps at current frame count.
+        (ogent-gastown--animate-loading (current-buffer))
+        (should (= 0 ogent-gastown--loading-frame))))))
 
 (ert-deftest ogent-gastown-test-animate-loading-dead-buffer ()
   "Test animate-loading does nothing for killed buffer."
