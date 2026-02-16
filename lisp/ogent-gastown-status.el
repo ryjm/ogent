@@ -515,6 +515,28 @@ Applied as an overlay that fades after
     (add-face-text-property 0 (length heading) heading-face 'append heading)
     heading))
 
+(defun ogent-gastown--insert-section-heading (section title &rest suffixes)
+  "Insert SECTION heading with TITLE and SUFFIXES.
+Re-apply composed face runs after `magit-insert-heading' so section colors
+survive Magit heading face assignment."
+  (let* ((heading (apply #'ogent-gastown--compose-section-heading
+                         section
+                         title
+                         suffixes))
+         (start (point)))
+    (magit-insert-heading heading)
+    (let ((idx 0)
+          (limit (min (length heading) (- (point) start))))
+      (while (< idx limit)
+        (let* ((face (get-text-property idx 'face heading))
+               (next (or (next-single-property-change idx 'face heading) limit)))
+          (when face
+            (if (and (listp face) (cl-every #'symbolp face))
+                (dolist (one-face face)
+                  (add-face-text-property (+ start idx) (+ start next) one-face 'append))
+              (add-face-text-property (+ start idx) (+ start next) face 'append)))
+          (setq idx next))))))
+
 (defun ogent-gastown--compose-plain-section-heading (section title &optional suffix)
   "Compose a plain-mode heading line for SECTION and TITLE with SUFFIX."
   (concat (ogent-gastown--plain-section-prefix section)
@@ -1151,6 +1173,9 @@ Other:
   (setq-local revert-buffer-function #'ogent-gastown-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
+  ;; Status rendering uses explicit face text properties; font-lock's
+  ;; unfontify pass strips those properties in this buffer.
+  (font-lock-mode -1)
   (setq header-line-format '(:eval (ogent-gastown--header-line)))
   (if (and (ogent-gastown--magit-usable-p)
            (boundp 'magit-section-mode-map))
@@ -1623,12 +1648,11 @@ Returns non-nil if an error was inserted."
          (target (or (plist-get data :target) "unknown"))
          (next-action (plist-get data :next_action)))
     (magit-insert-section (ogent-gastown-hook-section data)
-      (magit-insert-heading
-       (ogent-gastown--compose-section-heading
-        'hook
-        "Hook Status"
-        (when loading
-          (propertize " (loading...)" 'face 'ogent-gastown-dimmed))))
+      (ogent-gastown--insert-section-heading
+       'hook
+       "Hook Status"
+       (when loading
+         (propertize " (loading...)" 'face 'ogent-gastown-dimmed)))
       (cond
        ((and loading (null data))
         (insert (propertize "  Loading hook...\n" 'face 'ogent-gastown-dimmed)))
@@ -1682,15 +1706,14 @@ Returns non-nil if an error was inserted."
          (loading ogent-gastown--mail-loading)
          (unread-count (length (seq-filter (lambda (m) (not (plist-get m :read))) mail))))
     (magit-insert-section (ogent-gastown-mail-section mail nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'mail
-         "Mail Inbox"
-         (when loading
-           (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
-         (when (> unread-count 0)
-           (propertize (format " (%d unread)" unread-count)
-                       'face 'ogent-gastown-mail-unread))))
+      (ogent-gastown--insert-section-heading
+       'mail
+       "Mail Inbox"
+       (when loading
+         (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
+       (when (> unread-count 0)
+         (propertize (format " (%d unread)" unread-count)
+                     'face 'ogent-gastown-mail-unread)))
       (cond
        ((and loading (null mail))
         (insert (propertize "  Loading mail...\n" 'face 'ogent-gastown-dimmed)))
@@ -1759,15 +1782,14 @@ Returns non-nil if an error was inserted."
   (let ((convoys ogent-gastown--convoy-data)
         (loading ogent-gastown--convoy-loading))
     (magit-insert-section (ogent-gastown-convoy-section convoys nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'convoy
-         "Convoys"
-         (when loading
-           (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
-         (when convoys
-           (propertize (format " (%d)" (length convoys))
-                       'face 'ogent-gastown-dimmed))))
+      (ogent-gastown--insert-section-heading
+       'convoy
+       "Convoys"
+       (when loading
+         (propertize " (loading...)" 'face 'ogent-gastown-dimmed))
+       (when convoys
+         (propertize (format " (%d)" (length convoys))
+                     'face 'ogent-gastown-dimmed)))
       (cond
        ((and loading (null convoys))
         (insert (propertize "  Loading convoys...\n" 'face 'ogent-gastown-dimmed)))
@@ -1829,15 +1851,14 @@ CONVOY should be a normalized plist with canonical keys."
       (when (plist-get w :session_running)
         (cl-incf running-count)))
     (magit-insert-section (ogent-gastown-workers-section workers nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'workers
-         "Workers"
-         (propertize (ogent-gastown--selected-rig-heading)
-                     'face 'ogent-gastown-rig-name)
-         (propertize (format " (%d/%d running)"
-                             running-count (length workers))
-                     'face 'ogent-gastown-dimmed)))
+      (ogent-gastown--insert-section-heading
+       'workers
+       "Workers"
+       (propertize (ogent-gastown--selected-rig-heading)
+                   'face 'ogent-gastown-rig-name)
+       (propertize (format " (%d/%d running)"
+                           running-count (length workers))
+                   'face 'ogent-gastown-dimmed))
       (cond
        ((ogent-gastown--section-fetch-error 'workers)
         (ogent-gastown--insert-fetch-error 'workers))
@@ -1907,8 +1928,7 @@ CONVOY should be a normalized plist with canonical keys."
   "Insert town statistics section with magit-section."
   (let ((stats ogent-gastown--stats-data))
     (magit-insert-section (ogent-gastown-stats-section stats)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading 'stats "Town Stats"))
+      (ogent-gastown--insert-section-heading 'stats "Town Stats")
       (cond
        ((and (null stats) (ogent-gastown--section-fetch-error 'town-status))
         (ogent-gastown--insert-fetch-error 'town-status))
@@ -1994,14 +2014,13 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
          (has-work (plist-get data :has_work))
          (address (plist-get data :address)))
     (magit-insert-section (ogent-gastown-deacon-section data)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'deacon
-         "Deacon"
-         " "
-         (if running
-             (propertize "[running]" 'face 'ogent-gastown-deacon-running)
-           (propertize "[stopped]" 'face 'ogent-gastown-deacon-stopped))))
+      (ogent-gastown--insert-section-heading
+       'deacon
+       "Deacon"
+       " "
+       (if running
+           (propertize "[running]" 'face 'ogent-gastown-deacon-running)
+         (propertize "[stopped]" 'face 'ogent-gastown-deacon-stopped)))
       (cond
        ((and (null data) (ogent-gastown--section-fetch-error 'town-status))
         (ogent-gastown--insert-fetch-error 'town-status))
@@ -2044,13 +2063,12 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
                                 (lambda (w) (plist-get w :has_witness))
                                 witnesses))))
     (magit-insert-section (ogent-gastown-witness-section witnesses nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'witnesses
-         "Witnesses"
-         (propertize (format " (%d/%d active)"
-                             active-count (length witnesses))
-                     'face 'ogent-gastown-dimmed)))
+      (ogent-gastown--insert-section-heading
+       'witnesses
+       "Witnesses"
+       (propertize (format " (%d/%d active)"
+                           active-count (length witnesses))
+                   'face 'ogent-gastown-dimmed))
       (cond
        ((and (null witnesses) (ogent-gastown--section-fetch-error 'town-status))
         (ogent-gastown--insert-fetch-error 'town-status))
@@ -2115,15 +2133,14 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
       (when (plist-get member :session_running)
         (cl-incf active-count)))
     (magit-insert-section (ogent-gastown-crew-section crew nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'crew
-         "Crew"
-         (propertize (ogent-gastown--selected-rig-heading)
-                     'face 'ogent-gastown-rig-name)
-         (propertize (format " (%d/%d active)"
-                             active-count (length crew))
-                     'face 'ogent-gastown-dimmed)))
+      (ogent-gastown--insert-section-heading
+       'crew
+       "Crew"
+       (propertize (ogent-gastown--selected-rig-heading)
+                   'face 'ogent-gastown-rig-name)
+       (propertize (format " (%d/%d active)"
+                           active-count (length crew))
+                   'face 'ogent-gastown-dimmed))
       (cond
        ((ogent-gastown--section-fetch-error 'crew)
         (ogent-gastown--insert-fetch-error 'crew))
@@ -2214,15 +2231,14 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
       (when (plist-get p :session_running)
         (cl-incf running-count)))
     (magit-insert-section (ogent-gastown-polecat-section polecats nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'polecats
-         "Polecats"
-         (propertize (ogent-gastown--selected-rig-heading)
-                     'face 'ogent-gastown-rig-name)
-         (propertize (format " (%d/%d running)"
-                             running-count (length polecats))
-                     'face 'ogent-gastown-dimmed)))
+      (ogent-gastown--insert-section-heading
+       'polecats
+       "Polecats"
+       (propertize (ogent-gastown--selected-rig-heading)
+                   'face 'ogent-gastown-rig-name)
+       (propertize (format " (%d/%d running)"
+                           running-count (length polecats))
+                   'face 'ogent-gastown-dimmed))
       (cond
        ((ogent-gastown--section-fetch-error 'polecat)
         (ogent-gastown--insert-fetch-error 'polecat))
@@ -2315,12 +2331,11 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
   "Insert rigs overview section with magit-section."
   (let ((rigs ogent-gastown--rigs-data))
     (magit-insert-section (ogent-gastown-rigs-section rigs nil)
-      (magit-insert-heading
-        (ogent-gastown--compose-section-heading
-         'rigs
-         "Rigs"
-         (propertize (format " (%d)" (length rigs))
-                     'face 'ogent-gastown-dimmed)))
+      (ogent-gastown--insert-section-heading
+       'rigs
+       "Rigs"
+       (propertize (format " (%d)" (length rigs))
+                   'face 'ogent-gastown-dimmed))
       (cond
        ((and (null rigs) (ogent-gastown--section-fetch-error 'town-status))
         (ogent-gastown--insert-fetch-error 'town-status))

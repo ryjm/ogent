@@ -2137,6 +2137,34 @@
       (should (string= (substring-no-properties heading) "I Issues:"))
       (should (eq (get-text-property 2 'face heading) 'warning)))))
 
+(ert-deftest ogent-gts-test-insert-section-heading-reapplies-face-after-magit ()
+  "Test heading insertion preserves section colors after Magit heading face."
+  (with-temp-buffer
+    (let ((ogent-gastown-use-unicode nil))
+      (cl-letf (((symbol-function 'magit-insert-heading)
+                 (lambda (heading)
+                   (let ((start (point)))
+                     (insert heading)
+                     ;; Simulate Magit replacing prior face properties.
+                     (put-text-property start (point) 'face 'magit-section-heading)))))
+        (ogent-gastown--insert-section-heading
+         'crew
+         "Crew"
+         (propertize " (1/3 active)" 'face 'ogent-gastown-dimmed))))
+    (goto-char (point-min))
+    (should (search-forward "Crew" nil t))
+    (let* ((label-pos (- (point) (length "Crew")))
+           (label-face (get-text-property label-pos 'face))
+           (label-faces (if (listp label-face) label-face (list label-face))))
+      (should (memq 'magit-section-heading label-faces))
+      (should (memq 'ogent-gastown-section-heading-crew label-faces)))
+    (should (search-forward "(1/3 active)" nil t))
+    (let* ((suffix-pos (- (point) (length "(1/3 active)")))
+           (suffix-face (get-text-property suffix-pos 'face))
+           (suffix-faces (if (listp suffix-face) suffix-face (list suffix-face))))
+      (should (memq 'ogent-gastown-dimmed suffix-faces))
+      (should (memq 'ogent-gastown-section-heading-crew suffix-faces)))))
+
 (ert-deftest ogent-gts-test-magit-crew-heading-uses-crew-face ()
   "Test Magit Crew heading label uses the crew heading face."
   (if (not (ogent-gastown--magit-usable-p))
@@ -2391,6 +2419,16 @@
         (with-current-buffer buf
           (ogent-gastown-status-mode)
           (should buffer-read-only))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-gts-test-mode-disables-font-lock ()
+  "Test mode disables font-lock so heading faces are preserved."
+  (let ((buf (generate-new-buffer " *test-mode*")))
+    (unwind-protect
+        (with-current-buffer buf
+          (ogent-gastown-status-mode)
+          (should-not font-lock-mode))
       (when (buffer-live-p buf)
         (kill-buffer buf)))))
 
