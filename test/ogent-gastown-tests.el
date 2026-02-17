@@ -87,6 +87,10 @@
 (defvar ogent-gastown-test--captured-args nil
   "Captured arguments from mock gt calls.")
 
+(defclass ogent-gastown-test--section ()
+  ((value :initarg :value :initform nil))
+  "Minimal section object for status navigation tests.")
+
 (defmacro ogent-gastown-test-with-mock (output &rest body)
   "Execute BODY with gt mocked to return OUTPUT.
 OUTPUT should be a plist or list that will be returned."
@@ -1915,6 +1919,70 @@ OUTPUT should be a plist or list that will be returned."
     (let ((ogent-gastown--magit-section-available nil))
       (ogent-gastown-prev-item)
       (should (= 2 (line-number-at-pos))))))
+
+(ert-deftest ogent-gastown-test-visit-rig-magit-status-opens-target-rig ()
+  "Rig-scoped sections should open `magit-status' for the represented rig."
+  (let ((root (make-temp-file "ogent-gastown-visit-rig-" t)))
+    (unwind-protect
+        (dolist (entry '((ogent-gastown-witness-item-section (:rig "witness") "witness")
+                         (ogent-gastown-crew-item-section (:rig "crew-rig") "crew-rig")
+                         (ogent-gastown-rig-item-section (:name "mayor-rig") "mayor-rig")))
+          (pcase-let ((`(,section-class ,value ,expected-rig) entry))
+            (let* ((section (ogent-gastown-test--section :value value))
+                   (rig-path (expand-file-name expected-rig root))
+                   (opened-path nil))
+              (make-directory rig-path t)
+              (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+                         (lambda () t))
+                        ((symbol-function 'magit-current-section)
+                         (lambda () section))
+                        ((symbol-function 'eieio-object-class-name)
+                         (lambda (_section) section-class))
+                        ((symbol-function 'magit-status)
+                         (lambda (directory &rest _)
+                           (setq opened-path directory))))
+                (let ((ogent-gastown--town-root root))
+                  (should (ogent-gastown--visit-rig-magit-status))
+                  (should (equal rig-path opened-path)))))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-gastown-test-visit-opens-rig-status-before-toggle ()
+  "Visit should open rig status for rig-scoped items instead of toggling."
+  (let ((opened nil)
+        (toggled nil))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+               (lambda () t))
+              ((symbol-function 'magit-current-section)
+               (lambda () 'section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_section) 'ogent-gastown-crew-item-section))
+              ((symbol-function 'ogent-gastown--visit-rig-magit-status)
+               (lambda ()
+                 (setq opened t)
+                 t))
+              ((symbol-function 'magit-section-toggle)
+               (lambda (_section)
+                 (setq toggled t))))
+      (ogent-gastown-visit)
+      (should opened)
+      (should-not toggled))))
+
+(ert-deftest ogent-gastown-test-visit-toggles-when-rig-status-not-applicable ()
+  "Visit should keep default toggle behavior for non-rig sections."
+  (let ((toggled nil))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+               (lambda () t))
+              ((symbol-function 'magit-current-section)
+               (lambda () 'section))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (_section) 'ogent-gastown-workers-section))
+              ((symbol-function 'ogent-gastown--visit-rig-magit-status)
+               (lambda () nil))
+              ((symbol-function 'magit-section-toggle)
+               (lambda (_section)
+                 (setq toggled t))))
+      (ogent-gastown-visit)
+      (should toggled))))
 
 ;;; --- Header Line (status buffer) Tests ---
 
