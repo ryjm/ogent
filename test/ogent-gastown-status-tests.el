@@ -3045,6 +3045,13 @@
 
 ;;; Visit Bead Extended Tests
 
+(ert-deftest ogent-gts-test-coerce-issue-detail-singleton-list ()
+  "Test singleton list detail payloads are coerced to one plist."
+  (let* ((payload (list '(:id "hq-123" :title "Issue")))
+         (issue (ogent-gastown--coerce-issue-detail payload)))
+    (should (equal (plist-get issue :id) "hq-123"))
+    (should (equal (plist-get issue :title) "Issue"))))
+
 (ert-deftest ogent-gts-test-visit-bead-with-bead-and-dir-calls-bd ()
   "Test visit-bead calls ogent-issues-bd-get when both bead-id and rig-path exist."
   (with-temp-buffer
@@ -3061,6 +3068,27 @@
                  (lambda (_path) t)))
         (ogent-gastown-visit-bead)
         (should (equal bd-called "bead-xyz"))))))
+
+(ert-deftest ogent-gts-test-visit-bead-coerces-list-detail-before-render ()
+  "Test visit-bead unwraps singleton list details before rendering."
+  (with-temp-buffer
+    (let ((shown-issue nil)
+          (tmpdir temporary-file-directory))
+      (insert (propertize "bead-xyz"
+                          'ogent-bead-id "bead-xyz"
+                          'ogent-rig-path tmpdir))
+      (goto-char (point-min))
+      (cl-letf (((symbol-function 'ogent-issues-bd-get)
+                 (lambda (_id callback &optional _err-callback)
+                   (funcall callback (list '(:id "bead-xyz" :title "Issue")))))
+                ((symbol-function 'ogent-issues--show-detail)
+                 (lambda (issue)
+                   (setq shown-issue issue)))
+                ((symbol-function 'file-directory-p)
+                 (lambda (_path) t)))
+        (ogent-gastown-visit-bead)
+        (should (equal (plist-get shown-issue :id) "bead-xyz"))
+        (should (equal (plist-get shown-issue :title) "Issue"))))))
 
 ;;; Status Buffer Auto-Refresh Test
 
@@ -3244,7 +3272,7 @@
                      (funcall callback '(:summary (:rig_count 1)
                                          :agents ((:name "deacon" :running t))
                                          :rigs ((:name "r1" :has_witness t)))))
-                    ((equal args '("crew" "list" "--rig" "r1" "--json"))
+                    ((equal args '("crew" "list" "--all" "--json"))
                      (funcall callback (list '(:name "c1" :rig "r1"))))))))
         (ogent-gastown--fetch-all (lambda () (setq callback-called t)))
         (should callback-called)

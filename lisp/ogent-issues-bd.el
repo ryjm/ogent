@@ -239,6 +239,19 @@ The key includes the project root to ensure cache isolation between projects."
 Call this after any mutation (create, close, update, etc.)."
   (clrhash ogent-issues-bd--cache))
 
+(defun ogent-issues-bd--coerce-single-issue (result)
+  "Normalize `bd show --json` RESULT to a single issue plist.
+Recent bd versions return a one-element array for `show`, while callers of
+`ogent-issues-bd-get` expect one plist."
+  (cond
+   ((null result) nil)
+   ((and (listp result) (keywordp (car result))) result)
+   ((and (listp result)
+         (listp (car result))
+         (keywordp (caar result)))
+    (car result))
+   (t result)))
+
 ;;; High-Level API
 
 (defun ogent-issues-bd-list (callback &optional filters error-callback)
@@ -288,12 +301,13 @@ ERROR-CALLBACK is called on error with an error message."
         ;; Check cache
         (let ((cached (ogent-issues-bd--cache-get args)))
           (if cached
-              (funcall callback cached)
+              (funcall callback (ogent-issues-bd--coerce-single-issue cached))
             (ogent-issues-bd--run-async
              args
              (lambda (result)
-               (ogent-issues-bd--cache-set args result)
-               (funcall callback result))
+               (let ((issue (ogent-issues-bd--coerce-single-issue result)))
+                 (ogent-issues-bd--cache-set args issue)
+                 (funcall callback issue)))
              error-callback)))))))
 
 (defun ogent-issues-bd-ready (callback &optional error-callback)
