@@ -1468,6 +1468,41 @@
                                        recipients))
                    1))))))
 
+;;; Nudge Targets Tests
+
+(ert-deftest ogent-gts-test-get-nudge-targets-only-rig-polecat ()
+  "Test nudge targets only include rig/polecat addresses."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "ogent")
+                 '(:name "beads")))
+          (ogent-gastown--crew-data
+           (list '(:name "ritchie" :rig "ogent")))
+          (ogent-gastown--polecat-data
+           (list '(:name "toast" :rig "beads")))
+          (ogent-gastown--witness-data
+           (list '(:rig "tabula" :has_witness t))))
+      (let ((targets (ogent-gastown--get-nudge-targets)))
+        (should (equal targets
+                       '("beads/polecat" "ogent/polecat" "tabula/polecat")))
+        (should-not (member "deacon/" targets))
+        (should-not (member "mayor/" targets))
+        (should-not (member "ogent/crew/ritchie" targets))
+        (should-not (member "beads/polecats/toast" targets))))))
+
+(ert-deftest ogent-gts-test-get-nudge-targets-no-duplicates ()
+  "Test nudge targets are deduplicated."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "ogent")))
+          (ogent-gastown--crew-data
+           (list '(:name "ritchie" :rig "ogent")
+                 '(:name "knuth" :rig "ogent")))
+          (ogent-gastown--polecat-data nil)
+          (ogent-gastown--witness-data nil))
+      (let ((targets (ogent-gastown--get-nudge-targets)))
+        (should (equal targets '("ogent/polecat")))))))
+
 ;;; Crew Rig Path Tests
 
 (ert-deftest ogent-gts-test-crew-rig-path-basic ()
@@ -3543,6 +3578,48 @@
                  (lambda (&rest _)
                    (setq run-async-called t))))
         (ogent-gastown-mail-compose)
+        (should-not run-async-called)))))
+
+;;; --- Nudge Tests ---
+
+(ert-deftest ogent-gts-test-nudge-sends-rig-polecat-target ()
+  "Test nudge sends command with a rig/polecat target."
+  (with-temp-buffer
+    (let ((run-async-args nil)
+          (messages nil))
+      (cl-letf (((symbol-function 'ogent-gastown--get-nudge-targets)
+                 (lambda () '("ogent/polecat")))
+                ((symbol-function 'completing-read)
+                 (lambda (&rest _) "ogent/polecat"))
+                ((symbol-function 'read-string)
+                 (lambda (_prompt &rest _) "wake up"))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _err _raw)
+                   (setq run-async-args args)
+                   (funcall callback nil)))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (push (apply #'format fmt args) messages))))
+        (ogent-gastown-nudge)
+        (should (equal run-async-args
+                       '("nudge" "ogent/polecat" "wake up")))
+        (should (seq-some (lambda (m) (string-match-p "Nudged ogent/polecat" m))
+                          messages))))))
+
+(ert-deftest ogent-gts-test-nudge-rejects-invalid-target ()
+  "Test nudge rejects non-rig/polecat targets."
+  (with-temp-buffer
+    (let ((run-async-called nil))
+      (cl-letf (((symbol-function 'ogent-gastown--get-nudge-targets)
+                 (lambda () '("ogent/polecat")))
+                ((symbol-function 'completing-read)
+                 (lambda (&rest _) "deacon/"))
+                ((symbol-function 'read-string)
+                 (lambda (_prompt &rest _) "wake up"))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (&rest _)
+                   (setq run-async-called t))))
+        (should-error (ogent-gastown-nudge) :type 'user-error)
         (should-not run-async-called)))))
 
 ;;; --- Mail Read with completing-read Tests ---

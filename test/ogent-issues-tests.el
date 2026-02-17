@@ -2710,6 +2710,55 @@ Verifies the underlying behavior that restore-position must handle."
       (goto-char (point-min))
       (should-error (ogent-issues-comment) :type 'user-error))))
 
+(ert-deftest ogent-issues-test-goto-gastown-calls-status ()
+  "Test goto-gastown delegates to `ogent-gastown-status'."
+  (let ((status-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+               (lambda () t))
+              ((symbol-function 'ogent-gastown-status)
+               (lambda ()
+                 (interactive)
+                 (setq status-called t))))
+      (ogent-issues-goto-gastown)
+      (should status-called))))
+
+(ert-deftest ogent-issues-test-sling-issue-no-issue ()
+  "Test sling-issue signals user-error when no issue at point."
+  (with-temp-buffer
+    (ogent-issues-mode)
+    (let ((inhibit-read-only t)
+          (ogent-issues--magit-section-available nil))
+      (insert "no issue\n")
+      (goto-char (point-min))
+      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+                 (lambda () t)))
+        (should-error (ogent-issues-sling-issue "ogent/crew/ritchie")
+                      :type 'user-error)))))
+
+(ert-deftest ogent-issues-test-sling-issue-calls-run-async ()
+  "Test sling-issue dispatches current issue id via gt sling."
+  (let ((run-args nil)
+        (refresh-called nil))
+    (with-temp-buffer
+      (ogent-issues-mode)
+      (let ((inhibit-read-only t)
+            (ogent-issues--magit-section-available nil))
+        (insert "issue\n")
+        (put-text-property (point-min) (1- (point-max))
+                           'ogent-issue '(:id "test-123" :title "T"))
+        (goto-char (point-min))
+        (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
+                   (lambda () t))
+                  ((symbol-function 'ogent-gastown--run-async)
+                   (lambda (command args callback &optional _error-callback _raw-output)
+                     (setq run-args (list command args))
+                     (funcall callback nil)))
+                  ((symbol-function 'ogent-issues-refresh)
+                   (lambda () (setq refresh-called t))))
+          (ogent-issues-sling-issue "ogent/crew/ritchie"))))
+    (should (equal run-args '("sling" ("test-123" "ogent/crew/ritchie"))))
+    (should refresh-called)))
+
 ;;; Sync Tests
 
 (ert-deftest ogent-issues-test-sync-calls-bd-sync ()

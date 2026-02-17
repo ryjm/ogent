@@ -2766,6 +2766,47 @@ Builds list from:
                 (format "%s/witness/" rig))))
            (t nil)))))))
 
+(defun ogent-gastown--get-nudge-targets ()
+  "Get list of valid nudge targets for completion.
+Nudge targets must be in `rig/polecat` form."
+  (let ((rigs nil))
+    (dolist (rig ogent-gastown--rigs-data)
+      (when-let ((name (plist-get rig :name)))
+        (push name rigs)))
+    (dolist (member ogent-gastown--crew-data)
+      (when-let ((rig (plist-get member :rig)))
+        (push rig rigs)))
+    (dolist (polecat ogent-gastown--polecat-data)
+      (when-let ((rig (plist-get polecat :rig)))
+        (push rig rigs)))
+    (dolist (witness ogent-gastown--witness-data)
+      (when-let ((rig (plist-get witness :rig)))
+        (push rig rigs)))
+    (setq rigs (sort (delete-dups (delq nil rigs)) #'string<))
+    (mapcar (lambda (rig) (format "%s/polecat" rig)) rigs)))
+
+(defun ogent-gastown--nudge-target-at-point ()
+  "Get nudge target address for item at point, or nil.
+Returns an address suitable for `gt nudge` (`rig/polecat`)."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section)))
+      (when (and section (slot-boundp section 'value))
+        (let ((class (eieio-object-class-name section))
+              (value (oref section value)))
+          (let ((rig
+                 (cond
+                  ((eq class 'ogent-gastown-rig-item-section)
+                   (plist-get value :name))
+                  ((eq class 'ogent-gastown-crew-item-section)
+                   (plist-get value :rig))
+                  ((eq class 'ogent-gastown-polecat-item-section)
+                   (plist-get value :rig))
+                  ((eq class 'ogent-gastown-witness-item-section)
+                   (plist-get value :rig))
+                  (t nil))))
+            (when (and (stringp rig) (not (string-empty-p rig)))
+              (format "%s/polecat" rig))))))))
+
 (defun ogent-gastown-mail-compose (&optional initial-recipient
                                             initial-subject initial-body)
   "Compose a new mail message.
@@ -2803,12 +2844,15 @@ pre-fills that recipient."
 (defun ogent-gastown-nudge (&optional initial-target)
   "Send a nudge message to a running agent session.
 With INITIAL-TARGET, pre-fill the target.  When called interactively
-with point on a crew/polecat item, derives the target from the section."
-  (interactive (list (ogent-gastown--recipient-at-point)))
-  (let* ((recipients (ogent-gastown--get-mail-recipients))
-         (target (completing-read "Nudge target: " recipients nil nil
+with point on a rig/crew/polecat/witness item, derives the target from rig."
+  (interactive (list (ogent-gastown--nudge-target-at-point)))
+  (let* ((targets (ogent-gastown--get-nudge-targets))
+         (target (completing-read "Nudge target: " targets nil nil
                                   initial-target))
          (message (read-string "Message: ")))
+    (when (and target (not (string-empty-p target)))
+      (unless (string-match-p "\\`[^/]+/polecat\\'" target)
+        (user-error "Nudge target must be rig/polecat (e.g. ogent/polecat)")))
     (when (and target (not (string-empty-p target))
                message (not (string-empty-p message)))
       (ogent-gastown-status--run-async
