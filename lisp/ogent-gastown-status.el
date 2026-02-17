@@ -52,6 +52,8 @@
 
 ;; Load ogent-convoy for convoy inspector navigation
 (autoload 'ogent-convoy-inspect "ogent-convoy" nil t)
+;; Soft dependency on full magit for repo status views
+(autoload 'magit-status "magit-status" nil t)
 
 ;; Declare magit functions to avoid byte-compile warnings
 (declare-function magit-insert-section "ext:magit-section")
@@ -60,6 +62,7 @@
 (declare-function magit-section-backward "ext:magit-section")
 (declare-function magit-section-toggle "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
+(declare-function magit-status "ext:magit-status")
 
 ;;; Customization
 
@@ -2655,10 +2658,35 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
       (magit-section-cycle-global)
     (message "Section cycling requires magit-section")))
 
+(defun ogent-gastown--visit-rig-magit-status ()
+  "Open `magit-status' for the rig represented at point.
+Return non-nil when a rig status buffer is opened."
+  (let* ((rig-name (ogent-gastown--rig-at-point))
+         (rig-path (and rig-name
+                        ogent-gastown--town-root
+                        (expand-file-name rig-name ogent-gastown--town-root))))
+    (cond
+     ((null rig-name)
+      nil)
+     ((null rig-path)
+      (message "No Gas Town root configured for rig: %s" rig-name)
+      nil)
+     ((not (file-directory-p rig-path))
+      (message "Rig directory not found: %s" rig-path)
+      nil)
+     ((or (fboundp 'magit-status)
+          (require 'magit-status nil t))
+      (magit-status rig-path)
+      t)
+     (t
+      (message "Magit status is unavailable")
+      nil))))
+
 (defun ogent-gastown-visit ()
   "Visit the item at point.
 On convoy items, opens the convoy inspector.
 On mail items, reads the message.
+On rig-scoped items, opens `magit-status' for that rig.
 On other sections, toggles visibility."
   (interactive)
   (when (ogent-gastown--magit-usable-p)
@@ -2684,6 +2712,7 @@ On other sections, toggles visibility."
                                      (ogent-issues--show-detail issue-detail)))
                                  (lambda (err)
                                    (message "Could not fetch issue %s: %s" id err))))))
+       ((ogent-gastown--visit-rig-magit-status))
        (t
         (magit-section-toggle section))))))
 
@@ -3238,7 +3267,7 @@ With prefix arg RAW (\\[universal-argument]), show raw shell output."
 
 (defun ogent-gastown--rig-at-point ()
   "Return rig name from section at point.
-Works on rig sections, crew sections, and polecat sections."
+Works on rig sections, crew sections, witness sections, and polecat sections."
   (when (ogent-gastown--magit-usable-p)
     (let ((section (magit-current-section)))
       (when section

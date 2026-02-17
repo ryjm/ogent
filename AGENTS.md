@@ -79,7 +79,7 @@ These live in the repo and take precedence over global knowledge:
 
 ## Commit & Pull Request Guidelines
 
-- Follow conventional commits (`feat:`, `fix:`, `docs:`). Reference Org features, e.g., `feat: add ogent-context-preview buffer`.
+- Always use Conventional Commits for every commit (`feat:`, `fix:`, `docs:`, etc.). Reference Org features, e.g., `feat: add ogent-context-preview buffer`.
 - Each PR must include: problem statement, testing evidence (`make test` output), screenshots or GIFs for UI tweaks, and links to any related issues or design docs.
 - Keep PRs narrow (≤500 LOC diff) so reviewers can reason about prompt-context impacts.
 
