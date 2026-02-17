@@ -216,6 +216,17 @@ OUTPUT should be a plist or list that will be JSON-encoded."
 				    (should (equal "test-abc" (plist-get result :id)))
 				    (should (equal "Test issue" (plist-get result :title))))))
 
+(ert-deftest ogent-issues-bd-test-get-normalizes-singleton-list ()
+  "Test get coerces singleton list payloads to one plist."
+  (ogent-issues-bd-cache-invalidate)
+  (ogent-issues-bd-test-with-mock (list ogent-issues-bd-test--sample-issue)
+				  (let ((result nil))
+				    (ogent-issues-bd-get "test-abc"
+							 (lambda (issue)
+							   (setq result issue)))
+				    (should (equal "test-abc" (plist-get result :id)))
+				    (should (equal "Test issue" (plist-get result :title))))))
+
 (ert-deftest ogent-issues-bd-test-ready ()
   "Test getting ready issues."
   (ogent-issues-bd-cache-invalidate)

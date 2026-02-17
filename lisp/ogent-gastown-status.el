@@ -1319,10 +1319,12 @@ When unavailable, clear it; when unset, pick the first known rig."
     items))
 
 (defun ogent-gastown--crew-list-args (&optional rig-name)
-  "Return `gt crew list' args scoped to RIG-NAME when provided."
-  (if (and rig-name (not (string-empty-p rig-name)))
-      (list "crew" "list" "--rig" rig-name "--json")
-    '("crew" "list" "--all" "--json")))
+  "Return `gt crew list' args.
+Always use `--all --json`; some gt builds emit plain text for
+`--rig <name> --json` when a rig has no crew, which breaks JSON parsing.
+RIG-NAME is filtered client-side after fetch."
+  (ignore rig-name)
+  '("crew" "list" "--all" "--json"))
 
 (defun ogent-gastown--polecat-list-args (&optional rig-name)
   "Return `gt polecat list' args scoped to RIG-NAME when provided."
@@ -1583,6 +1585,19 @@ Returns non-nil if an error was inserted."
                         'face 'ogent-gastown-fetch-error))
     (insert "\n")
     t))
+
+(defun ogent-gastown--coerce-issue-detail (detail)
+  "Return issue plist from DETAIL payload.
+`bd show --json` commonly returns a single-element array; normalize that
+shape to a plist before passing values into issue detail renderers."
+  (cond
+   ((null detail) nil)
+   ((and (listp detail) (keywordp (car detail))) detail)
+   ((and (listp detail)
+         (listp (car detail))
+         (keywordp (caar detail)))
+    (car detail))
+   (t detail)))
 
 ;;; Buffer Rendering
 
@@ -2665,8 +2680,8 @@ On other sections, toggles visibility."
           (when id
             (ogent-issues-bd-get id
                                  (lambda (detail)
-                                   (when detail
-                                     (ogent-issues--show-detail detail)))
+                                   (when-let ((issue-detail (ogent-gastown--coerce-issue-detail detail)))
+                                     (ogent-issues--show-detail issue-detail)))
                                  (lambda (err)
                                    (message "Could not fetch issue %s: %s" id err))))))
        (t
@@ -3271,8 +3286,8 @@ section, offers to scope creation to that agent's rig."
       (let ((default-directory rig-path))
         (ogent-issues-bd-get bead-id
                              (lambda (issue)
-                               (when issue
-                                 (ogent-issues--show-detail issue)))
+                               (when-let ((issue-detail (ogent-gastown--coerce-issue-detail issue)))
+                                 (ogent-issues--show-detail issue-detail)))
                              (lambda (err)
                                (message "Could not fetch bead %s: %s" bead-id err)))))
      (bead-id
