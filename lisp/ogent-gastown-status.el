@@ -1030,6 +1030,9 @@ Resolution order:
     (unless (fboundp 'ogent-gastown-rig-item-section)
       (defclass ogent-gastown-rig-item-section (magit-section) ()
         "Section for a single rig."))
+    (unless (fboundp 'ogent-gastown-rig-agent-item-section)
+      (defclass ogent-gastown-rig-agent-item-section (magit-section) ()
+        "Section for a single rig-scoped agent line."))
     (unless (fboundp 'ogent-gastown-issue-item-section)
       (defclass ogent-gastown-issue-item-section (magit-section) ()
         "Section for a single issue within a rig."))))
@@ -2413,7 +2416,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
       ;; Insert agents if expanded
       (when agents
         (dolist (agent agents)
-          (ogent-gastown--insert-rig-agent agent)))
+          (ogent-gastown--insert-rig-agent agent name)))
       ;; Insert beads stats detail if expanded
       (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats))
       ;; Insert inline issue items if expanded
@@ -2503,8 +2506,8 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                             'face 'ogent-gastown-dimmed)
                 "\n")))))
 
-(defun ogent-gastown--insert-rig-agent (agent)
-  "Insert a single AGENT line within a rig section."
+(defun ogent-gastown--insert-rig-agent-line (agent)
+  "Insert a single AGENT line."
   (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
          (name (plist-get agent :name))
          (role (plist-get agent :role))
@@ -2532,6 +2535,20 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                                   unread)
                           'face 'ogent-gastown-mail-unread)))
     (insert "\n")))
+
+(defun ogent-gastown--insert-rig-agent (agent &optional rig-name)
+  "Insert AGENT line within a rig section.
+When RIG-NAME is non-nil, include it in section metadata for RET routing."
+  (let ((agent-value (if rig-name
+                         (plist-put (copy-sequence agent) :rig rig-name)
+                       agent)))
+    (if (and (ogent-gastown--magit-usable-p)
+             (derived-mode-p 'magit-section-mode)
+             (boundp 'magit-root-section)
+             magit-root-section)
+        (magit-insert-section (ogent-gastown-rig-agent-item-section agent-value)
+          (ogent-gastown--insert-rig-agent-line agent-value))
+      (ogent-gastown--insert-rig-agent-line agent-value))))
 
 (defun ogent-gastown--insert-rigs-section-plain ()
   "Insert rigs section (plain)."
@@ -2658,35 +2675,117 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
       (magit-section-cycle-global)
     (message "Section cycling requires magit-section")))
 
+(defun ogent-gastown--git-repo-directory-p (directory)
+  "Return non-nil when DIRECTORY appears to be a Git working tree."
+  (and (stringp directory)
+       (file-directory-p directory)
+       (file-exists-p (expand-file-name ".git" directory))))
+
+(defun ogent-gastown--status-section-repo-candidates (section)
+  "Return candidate repo directories for status SECTION.
+Candidates are ordered from most specific to broad fallback."
+  (when (and section
+             (slot-boundp section 'value)
+             ogent-gastown--town-root)
+    (let* ((class (eieio-object-class-name section))
+           (value (oref section value))
+           (rig (pcase class
+                  ('ogent-gastown-rig-item-section
+                   (plist-get value :name))
+                  ((or 'ogent-gastown-crew-item-section
+                       'ogent-gastown-polecat-item-section
+                       'ogent-gastown-rig-agent-item-section
+                       'ogent-gastown-witness-item-section)
+                   (plist-get value :rig))
+                  (_ nil)))
+           (name (plist-get value :name))
+           (role (let ((role-value (plist-get value :role)))
+                   (if (symbolp role-value)
+                       (symbol-name role-value)
+                     role-value)))
+           (relative-candidates
+            (and (stringp rig)
+                 (not (string-empty-p rig))
+                 (pcase class
+                   ('ogent-gastown-rig-item-section
+                    (list (format "%s/mayor/rig" rig)
+                          (format "%s/mayor" rig)))
+                   ('ogent-gastown-crew-item-section
+                    (if (and (stringp name) (not (string-empty-p name)))
+                        (list (format "%s/crew/%s" rig name)
+                              (format "%s/crew/%s/rig" rig name))
+                      (list (format "%s/crew" rig))))
+                   ('ogent-gastown-witness-item-section
+                    (list (format "%s/witness/rig" rig)
+                          (format "%s/witness" rig)))
+                   ('ogent-gastown-polecat-item-section
+                    (if (and (stringp name) (not (string-empty-p name)))
+                        (list (format "%s/polecats/%s" rig name)
+                              (format "%s/polecat/%s" rig name)
+                              (format "%s/polecats" rig)
+                              (format "%s/polecat" rig))
+                      (list (format "%s/polecats" rig)
+                            (format "%s/polecat" rig))))
+                   ('ogent-gastown-rig-agent-item-section
+                    (pcase role
+                      ("witness"
+                       (list (format "%s/witness/rig" rig)
+                             (format "%s/witness" rig)))
+                      ("refinery"
+                       (list (format "%s/refinery/rig" rig)
+                             (format "%s/refinery" rig)))
+                      ("crew"
+                       (if (and (stringp name) (not (string-empty-p name)))
+                           (list (format "%s/crew/%s" rig name)
+                                 (format "%s/crew/%s/rig" rig name))
+                         (list (format "%s/crew" rig))))
+                      ("polecat"
+                       (if (and (stringp name) (not (string-empty-p name)))
+                           (list (format "%s/polecats/%s" rig name)
+                                 (format "%s/polecat/%s" rig name)
+                                 (format "%s/polecats" rig)
+                                 (format "%s/polecat" rig))
+                         (list (format "%s/polecats" rig)
+                               (format "%s/polecat" rig))))
+                      ("mayor"
+                       (list (format "%s/mayor/rig" rig)
+                             (format "%s/mayor" rig)))
+                      (_ nil)))
+                   (_ nil)))))
+      (when relative-candidates
+        (cl-remove-duplicates
+         (mapcar (lambda (relative)
+                   (expand-file-name relative ogent-gastown--town-root))
+                 relative-candidates)
+         :test #'string=)))))
+
 (defun ogent-gastown--visit-rig-magit-status ()
-  "Open `magit-status' for the rig represented at point.
-Return non-nil when a rig status buffer is opened."
-  (let* ((rig-name (ogent-gastown--rig-at-point))
-         (rig-path (and rig-name
-                        ogent-gastown--town-root
-                        (expand-file-name rig-name ogent-gastown--town-root))))
+  "Open `magit-status' for the role-specific repo represented at point.
+Returns non-nil when point is on a rig-scoped section."
+  (let* ((section (and (ogent-gastown--magit-usable-p)
+                       (magit-current-section)))
+         (candidates (ogent-gastown--status-section-repo-candidates section))
+         (repo-path (seq-find #'ogent-gastown--git-repo-directory-p candidates)))
     (cond
-     ((null rig-name)
+     ((null candidates)
       nil)
-     ((null rig-path)
-      (message "No Gas Town root configured for rig: %s" rig-name)
-      nil)
-     ((not (file-directory-p rig-path))
-      (message "Rig directory not found: %s" rig-path)
-      nil)
+     ((null repo-path)
+      (message "No git repository found for this section (checked: %s)"
+               (mapconcat #'abbreviate-file-name candidates ", "))
+      t)
      ((or (fboundp 'magit-status)
           (require 'magit-status nil t))
-      (magit-status rig-path)
+      (magit-status repo-path)
       t)
      (t
       (message "Magit status is unavailable")
-      nil))))
+      t))))
 
 (defun ogent-gastown-visit ()
   "Visit the item at point.
 On convoy items, opens the convoy inspector.
 On mail items, reads the message.
-On rig-scoped items, opens `magit-status' for that rig.
+On rig-scoped items, opens `magit-status' for the corresponding role repo.
 On other sections, toggles visibility."
   (interactive)
   (when (ogent-gastown--magit-usable-p)

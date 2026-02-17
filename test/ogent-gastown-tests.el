@@ -1920,18 +1920,34 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown-prev-item)
       (should (= 2 (line-number-at-pos))))))
 
-(ert-deftest ogent-gastown-test-visit-rig-magit-status-opens-target-rig ()
-  "Rig-scoped sections should open `magit-status' for the represented rig."
+(ert-deftest ogent-gastown-test-visit-rig-magit-status-opens-scoped-repo ()
+  "Rig-scoped sections should open role-specific repos, not rig root."
   (let ((root (make-temp-file "ogent-gastown-visit-rig-" t)))
     (unwind-protect
-        (dolist (entry '((ogent-gastown-witness-item-section (:rig "witness") "witness")
-                         (ogent-gastown-crew-item-section (:rig "crew-rig") "crew-rig")
-                         (ogent-gastown-rig-item-section (:name "mayor-rig") "mayor-rig")))
+        (dolist (entry '((ogent-gastown-witness-item-section
+                          (:rig "witness-rig")
+                          "witness-rig/witness/rig")
+                         (ogent-gastown-crew-item-section
+                          (:rig "crew-rig" :name "alice")
+                          "crew-rig/crew/alice")
+                         (ogent-gastown-rig-agent-item-section
+                          (:rig "crew-rig" :name "alice" :role "crew")
+                          "crew-rig/crew/alice")
+                         (ogent-gastown-rig-agent-item-section
+                          (:rig "witness-rig" :name "witness" :role "witness")
+                          "witness-rig/witness/rig")
+                         (ogent-gastown-rig-agent-item-section
+                          (:rig "refinery-rig" :name "refinery" :role "refinery")
+                          "refinery-rig/refinery/rig")
+                         (ogent-gastown-rig-item-section
+                          (:name "mayor-rig")
+                          "mayor-rig/mayor/rig")))
           (pcase-let ((`(,section-class ,value ,expected-rig) entry))
             (let* ((section (ogent-gastown-test--section :value value))
                    (rig-path (expand-file-name expected-rig root))
                    (opened-path nil))
               (make-directory rig-path t)
+              (write-region "" nil (expand-file-name ".git" rig-path) nil 'silent)
               (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
                          (lambda () t))
                         ((symbol-function 'magit-current-section)
@@ -1944,6 +1960,33 @@ OUTPUT should be a plist or list that will be returned."
                 (let ((ogent-gastown--town-root root))
                   (should (ogent-gastown--visit-rig-magit-status))
                   (should (equal rig-path opened-path)))))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-gastown-test-visit-rig-magit-status-skips-non-repo-paths ()
+  "Visit should not call `magit-status' when no candidate has a .git marker."
+  (let ((root (make-temp-file "ogent-gastown-visit-rig-" t))
+        (opened nil)
+        (captured-message nil))
+    (unwind-protect
+        (let* ((section (ogent-gastown-test--section :value '(:name "missing-rig")))
+               (non-repo-path (expand-file-name "missing-rig/mayor/rig" root)))
+          (make-directory non-repo-path t)
+          (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p)
+                     (lambda () t))
+                    ((symbol-function 'magit-current-section)
+                     (lambda () section))
+                    ((symbol-function 'eieio-object-class-name)
+                     (lambda (_section) 'ogent-gastown-rig-item-section))
+                    ((symbol-function 'magit-status)
+                     (lambda (&rest _)
+                       (setq opened t)))
+                    ((symbol-function 'message)
+                     (lambda (fmt &rest args)
+                       (setq captured-message (apply #'format fmt args)))))
+            (let ((ogent-gastown--town-root root))
+              (should (ogent-gastown--visit-rig-magit-status))
+              (should-not opened)
+              (should (string-match-p "No git repository found" captured-message)))))
       (delete-directory root t))))
 
 (ert-deftest ogent-gastown-test-visit-opens-rig-status-before-toggle ()
