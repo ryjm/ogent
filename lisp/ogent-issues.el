@@ -1896,6 +1896,35 @@ and re-renders the detail view."
    (lambda (err)
      (message "Failed to sync: %s" err))))
 
+(defun ogent-issues-goto-gastown ()
+  "Open the Gas Town status buffer."
+  (interactive)
+  (unless (ogent-gastown-integration-active-p)
+    (user-error "Gas Town integration is not active"))
+  (call-interactively #'ogent-gastown-status))
+
+(defun ogent-issues-sling-issue (&optional target)
+  "Sling the issue at point to TARGET.
+TARGET must be a valid Gas Town target such as rig name or rig/role/name."
+  (interactive)
+  (unless (ogent-gastown-integration-active-p)
+    (user-error "Gas Town integration is not active"))
+  (if-let ((issue-id (ogent-issues--current-issue-id)))
+      (let ((target (or target (read-string "Sling to (rig or rig/role/name): "))))
+        (when (string-empty-p target)
+          (user-error "Sling target cannot be empty"))
+        (message "Slinging %s -> %s ..." issue-id target)
+        (ogent-gastown--run-async
+         "sling"
+         (list issue-id target)
+         (lambda (_result)
+           (message "Slung %s -> %s" issue-id target)
+           (ogent-issues-refresh))
+         (lambda (err)
+           (message "Sling failed: %s" err))
+         t))
+    (user-error "No issue at point")))
+
 ;;; Views
 
 (defun ogent-issues-view-list ()
