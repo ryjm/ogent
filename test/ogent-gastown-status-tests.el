@@ -4705,6 +4705,62 @@
         (should (member '("status" "--json" "--fast") captured-args))
         (should (member '("crew" "list" "--all" "--json") captured-args))))))
 
+;;; --- Issue Grouping Tests ---
+
+(ert-deftest ogent-gts-test-classify-issues-town-rig-and-crew ()
+  "Classify issues into town, rig, and crew-assigned groupings."
+  (with-temp-buffer
+    (let ((ogent-gastown--rigs-data
+           (list '(:name "ogent")
+                 '(:name "beads")))
+          (issues (list '(:id "hq-town-1" :issue_type "task" :title "Town level")
+                        '(:id "og-ogent-crew-1" :issue_type "task"
+                          :created_by "ogent/crew/stallman" :title "Rig scoped")
+                        '(:id "issue-2" :issue_type "bug"
+                          :assignee "ogent/crew/ritchie" :title "Crew scoped")
+                        '(:id "misc-123" :issue_type "task" :title "Unscoped")
+                        '(:id "og-agent" :issue_type "agent" :title "Skip me"))))
+      (let* ((grouped (ogent-gastown--classify-issues issues))
+             (town-ids (mapcar (lambda (issue) (plist-get issue :id))
+                               (plist-get grouped :town)))
+             (ogent-rig-ids (mapcar (lambda (issue) (plist-get issue :id))
+                                    (cdr (assoc "ogent" (plist-get grouped :rigs)))))
+             (ritchie-ids (mapcar (lambda (issue) (plist-get issue :id))
+                                  (cdr (assoc "ogent/ritchie" (plist-get grouped :crew))))))
+        (should (equal town-ids '("hq-town-1" "misc-123")))
+        (should (equal ogent-rig-ids '("og-ogent-crew-1" "issue-2")))
+        (should (equal ritchie-ids '("issue-2")))))))
+
+(ert-deftest ogent-gts-test-town-issues-section-plain-renders-only-town-list ()
+  "Town issues plain section renders cached town issues."
+  (with-temp-buffer
+    (let ((ogent-gastown--issues-data
+           '(:town ((:id "hq-1" :title "Town bead"))
+             :rigs (("ogent" . ((:id "og-1" :title "Rig bead"))))
+             :crew nil)))
+      (ogent-gastown--insert-town-issues-section-plain)
+      (let ((content (buffer-string)))
+        (should (string-match-p "Town Beads" content))
+        (should (string-match-p "hq-1" content))
+        (should-not (string-match-p "og-1" content))))))
+
+(ert-deftest ogent-gts-test-issues-accessors-return-grouped-entries ()
+  "Issues accessors return town, rig, and crew-scoped subsets."
+  (with-temp-buffer
+    (let ((ogent-gastown--issues-data
+           '(:town ((:id "hq-a"))
+             :rigs (("ogent" . ((:id "og-a"))))
+             :crew (("ogent/ritchie" . ((:id "og-b")))))))
+      (should (equal (mapcar (lambda (issue) (plist-get issue :id))
+                             (ogent-gastown--town-issues))
+                     '("hq-a")))
+      (should (equal (mapcar (lambda (issue) (plist-get issue :id))
+                             (ogent-gastown--issues-for-rig "ogent"))
+                     '("og-a")))
+      (should (equal (mapcar (lambda (issue) (plist-get issue :id))
+                             (ogent-gastown--issues-for-crew "ogent" "ritchie"))
+                     '("og-b"))))))
+
 ;;; --- Crew/Polecat/Worker Payload Normalization Tests ---
 
 (ert-deftest ogent-gts-test-crew-section-plain-nil-fields ()
