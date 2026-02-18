@@ -47,6 +47,7 @@
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-issues-bd-get "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues-bd-list "ogent-issues-bd" nil nil)
+(autoload 'ogent-issues-bd-ready "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues-bd-create "ogent-issues-bd" nil nil)
 (autoload 'ogent-issues--show-detail "ogent-issues" nil nil)
 
@@ -3471,11 +3472,44 @@ Checks text properties first, then magit section values."
    (when (ogent-gastown--magit-usable-p)
      (let ((section (magit-current-section)))
        (when (and section (slot-boundp section 'value))
-         (let ((value (oref section value)))
+         (let ((class (eieio-object-class-name section))
+               (value (oref section value)))
            (when (listp value)
              (or (plist-get value :hooked_work)
                  (plist-get value :current_task)
-                 (plist-get value :id)))))))))
+                 (when (eq class 'ogent-gastown-issue-item-section)
+                   (plist-get value :id))))))))))
+
+(defun ogent-gastown--ready-bead-ids ()
+  "Return ready bead IDs from `bd ready --json` for completion."
+  (let ((default-directory (or (ogent-gastown--identity-command-root)
+                               default-directory))
+        (bead-ids nil)
+        (done nil)
+        (proc nil))
+    (setq proc
+          (ogent-issues-bd-ready
+           (lambda (issues)
+             (setq bead-ids
+                   (sort
+                    (delete-dups
+                     (delq nil
+                           (mapcar (lambda (issue)
+                                     (let ((id (plist-get issue :id)))
+                                       (when (and (stringp id)
+                                                  (not (string-empty-p id)))
+                                         id)))
+                                   issues)))
+                    #'string<))
+             (setq done t))
+           (lambda (err)
+             (message "Could not load ready beads: %s" err)
+             (setq done t))))
+    (while (and (not done)
+                proc
+                (process-live-p proc))
+      (accept-process-output proc 0.05))
+    bead-ids))
 
 (defun ogent-gastown--sling-target-at-point ()
   "Get sling target address from section at point, or nil.
@@ -3510,23 +3544,14 @@ Returns a rig/role/name address suitable for `gt sling'."
 
 (defun ogent-gastown--get-sling-targets ()
   "Get list of sling targets for completion.
-Builds from rigs, crew, and polecats."
-  (let ((targets nil))
+Builds from known recipients plus rig names."
+  (let ((targets (ogent-gastown--get-mail-recipients)))
     ;; Add rig names (auto-spawn polecat)
     (dolist (rig ogent-gastown--rigs-data)
       (let ((name (plist-get rig :name)))
-        (when name (push name targets))))
-    ;; Add crew and polecats (reuse mail recipients logic)
-    (dolist (member ogent-gastown--crew-data)
-      (let ((rig (plist-get member :rig))
-            (name (plist-get member :name)))
-        (when (and rig name)
-          (push (format "%s/crew/%s" rig name) targets))))
-    (dolist (polecat ogent-gastown--polecat-data)
-      (let ((rig (plist-get polecat :rig))
-            (name (plist-get polecat :name)))
-        (when (and rig name)
-          (push (format "%s/polecats/%s" rig name) targets))))
+        (when (and (stringp name)
+                   (not (string-empty-p name)))
+          (push name targets))))
     (sort (delete-dups targets) #'string<)))
 
 (defun ogent-gastown-sling ()
@@ -3538,8 +3563,13 @@ Context-sensitive:
   (interactive)
   (let* ((ctx-bead (ogent-gastown--bead-id-at-point))
          (ctx-target (ogent-gastown--sling-target-at-point))
+         (bead-candidates (unless ctx-bead
+                            (ogent-gastown--ready-bead-ids)))
          (bead-id (or ctx-bead
-                      (read-string "Bead ID to sling: ")))
+                      (if bead-candidates
+                          (completing-read "Bead ID to sling: "
+                                           bead-candidates nil nil)
+                        (read-string "Bead ID to sling: "))))
          (target (or ctx-target
                      (completing-read "Sling to: "
                                       (ogent-gastown--get-sling-targets)
@@ -3555,7 +3585,8 @@ Context-sensitive:
        (ogent-gastown-refresh))
      (lambda (err)
        (message "Sling failed: %s" err))
-     t)))
+     t
+     (ogent-gastown--identity-command-root))))
 
 (defun ogent-gastown-convoy-status ()
   "Inspect convoy at point, or prompt for a convoy ID.
