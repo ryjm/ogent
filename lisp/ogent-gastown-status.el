@@ -761,19 +761,22 @@ Suppresses highlighting so the entire buffer doesn't light up.")
 (defvar-local ogent-gastown--town-root nil
   "Gas Town root directory.")
 
+(defvar-local ogent-gastown--invocation-dir nil
+  "Directory from which `ogent-gastown-status' was invoked.")
+
 ;;; Cache
 
 (defvar ogent-gastown--cache (make-hash-table :test 'equal)
   "Cache for gt command results.")
 
-(defun ogent-gastown--cache-key (args)
-  "Generate cache key from ARGS."
-  (format "%S" args))
+(defun ogent-gastown--cache-key (args &optional command-root)
+  "Generate cache key from ARGS and optional COMMAND-ROOT."
+  (format "%S::%s" args (or (ogent-gastown--normalize-dir command-root) "")))
 
-(defun ogent-gastown--cache-get (args)
-  "Get cached result for ARGS if valid."
+(defun ogent-gastown--cache-get (args &optional command-root)
+  "Get cached result for ARGS and COMMAND-ROOT if valid."
   (when (> ogent-gastown-cache-ttl 0)
-    (let* ((key (ogent-gastown--cache-key args))
+    (let* ((key (ogent-gastown--cache-key args command-root))
            (entry (gethash key ogent-gastown--cache)))
       (when entry
         (let ((timestamp (car entry))
@@ -784,10 +787,10 @@ Suppresses highlighting so the entire buffer doesn't light up.")
             (remhash key ogent-gastown--cache)
             nil))))))
 
-(defun ogent-gastown--cache-set (args result)
-  "Cache RESULT for ARGS."
+(defun ogent-gastown--cache-set (args result &optional command-root)
+  "Cache RESULT for ARGS and COMMAND-ROOT."
   (when (> ogent-gastown-cache-ttl 0)
-    (let ((key (ogent-gastown--cache-key args)))
+    (let ((key (ogent-gastown--cache-key args command-root)))
       (puthash key (cons (current-time) result) ogent-gastown--cache))))
 
 (defun ogent-gastown-cache-invalidate ()
@@ -820,10 +823,20 @@ Suppresses highlighting so the entire buffer doesn't light up.")
   (or (ogent-gastown--normalize-dir ogent-gastown--town-root)
       (ogent-gastown--find-town-root)))
 
-(defun ogent-gastown-status--run-async (args callback &optional error-callback raw-output)
+(defun ogent-gastown--identity-command-root ()
+  "Return preferred identity-aware command directory, or nil."
+  (let* ((workspace-root (ogent-gastown--active-workspace-root))
+         (invocation-dir (ogent-gastown--normalize-dir ogent-gastown--invocation-dir)))
+    (when (and workspace-root invocation-dir
+               (string-prefix-p workspace-root invocation-dir)
+               (not (equal workspace-root invocation-dir)))
+      invocation-dir)))
+
+(defun ogent-gastown-status--run-async (args callback &optional error-callback raw-output run-directory)
   "Run gt with ARGS asynchronously, call CALLBACK with result.
 ERROR-CALLBACK receives error message on failure.
-If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
+If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON.
+When RUN-DIRECTORY is non-nil, execute from that directory."
   (let* ((workspace-root (ogent-gastown--active-workspace-root)))
     (unless workspace-root
       (if error-callback
@@ -831,7 +844,9 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
         (message "ogent-gt error: Not in a Gas Town workspace"))
       (cl-return-from ogent-gastown-status--run-async nil))
 
-    (let* ((default-directory workspace-root)
+    (let* ((command-root (or (ogent-gastown--normalize-dir run-directory)
+                             workspace-root))
+           (default-directory command-root)
          ;; Suppress termenv/lipgloss terminal escape sequences (OSC 11,
          ;; CSI 6n) that pollute stdout when gt runs as a subprocess.
          ;; TERM=dumb prevents the Go termenv library from probing.
@@ -921,28 +936,32 @@ If RAW-OUTPUT is non-nil, pass raw string instead of parsed JSON."
     (push proc ogent-gastown--processes)
     proc)))
 
-(defun ogent-gastown--run-async-cached (args callback &optional error-callback raw-output)
+(defun ogent-gastown--run-async-cached (args callback &optional error-callback raw-output run-directory)
   "Run gt with ARGS asynchronously and cache JSON responses.
 CALLBACK receives the parsed result.  ERROR-CALLBACK is invoked on failure.
-When RAW-OUTPUT is non-nil, skip caching and return raw output."
+When RAW-OUTPUT is non-nil, skip caching and return raw output.
+When RUN-DIRECTORY is non-nil, execute and cache by that directory."
   (if raw-output
-      (ogent-gastown-status--run-async args callback error-callback raw-output)
-    (let ((cached (ogent-gastown--cache-get args)))
+      (ogent-gastown-status--run-async args callback error-callback raw-output run-directory)
+    (let ((cached (ogent-gastown--cache-get args run-directory)))
       (if cached
           (funcall callback cached)
         (ogent-gastown-status--run-async
          args
          (lambda (result)
-           (ogent-gastown--cache-set args result)
+           (ogent-gastown--cache-set args result run-directory)
            (funcall callback result))
-         error-callback)))))
+         error-callback
+         raw-output
+         run-directory)))))
 
-(defun ogent-gastown-status--run-shell-command (args output-buffer)
-  "Run `gt` command ARGS in OUTPUT-BUFFER from the active workspace root."
+(defun ogent-gastown-status--run-shell-command (args output-buffer &optional run-directory)
+  "Run `gt` command ARGS in OUTPUT-BUFFER from RUN-DIRECTORY or workspace root."
   (let ((workspace-root (ogent-gastown--active-workspace-root)))
     (unless workspace-root
       (user-error "Not in a Gas Town workspace"))
-    (let ((default-directory workspace-root))
+    (let ((default-directory (or (ogent-gastown--normalize-dir run-directory)
+                                 workspace-root)))
       (async-shell-command
        (string-join
         (mapcar #'shell-quote-argument
@@ -1507,7 +1526,9 @@ DEFERRED-CALLBACK runs after each deferred section update."
      (lambda (result)
        (funcall update-deferred 'hook result nil))
      (lambda (err)
-       (funcall update-deferred 'hook nil err)))
+       (funcall update-deferred 'hook nil err))
+     nil
+     (ogent-gastown--identity-command-root))
 
     (ogent-gastown--run-async-cached
      '("mail" "inbox" "--json")
@@ -3090,7 +3111,10 @@ Prompts for the blocker issue ID."
 (defun ogent-gastown-hook-show ()
   "Show hook details."
   (interactive)
-  (ogent-gastown-status--run-shell-command '("hook") "*gt hook*"))
+  (ogent-gastown-status--run-shell-command
+   '("hook")
+   "*gt hook*"
+   (ogent-gastown--identity-command-root)))
 
 (defun ogent-gastown-hook-attach ()
   "Attach work to hook."
@@ -3104,7 +3128,8 @@ Prompts for the blocker issue ID."
        (ogent-gastown-refresh))
      (lambda (err)
        (message "Failed to hook: %s" err))
-     t)))
+     t
+     (ogent-gastown--identity-command-root))))
 
 ;;; Sling (Work Dispatch)
 
@@ -3540,25 +3565,27 @@ Like `magit-status', this shows a comprehensive view of your
 Gas Town multi-agent workspace including hook status, mail,
 convoys, crew members, and polecats."
   (interactive)
-  (ogent-gastown--refresh-magit-availability)
-  (ogent-gastown--ensure-status-mode-definition)
-  (let ((workspace-root (ogent-gastown--find-town-root)))
-    (unless (executable-find ogent-gastown-gt-executable)
-      (user-error "Gas Town CLI (gt) not found in PATH"))
-    (unless workspace-root
-      (user-error
-       "No Gas Town workspace found (set GT_ROOT/GT_TOWN, open from a town directory, or set ogent-gastown-default-town-root)"))
-    (let ((buf (get-buffer-create ogent-gastown-buffer-name))
-          (workspace-dir (file-name-as-directory (expand-file-name workspace-root))))
-      (with-current-buffer buf
-        (unless (eq major-mode 'ogent-gastown-status-mode)
-          (ogent-gastown-status-mode))
-        (unless (equal ogent-gastown--town-root workspace-dir)
-          (setq-local ogent-gastown--selected-rig nil))
-        (setq-local ogent-gastown--town-root workspace-dir)
-        (setq-local default-directory workspace-dir)
-        (ogent-gastown-refresh))
-      (switch-to-buffer buf))))
+  (let ((invocation-dir default-directory))
+    (ogent-gastown--refresh-magit-availability)
+    (ogent-gastown--ensure-status-mode-definition)
+    (let ((workspace-root (ogent-gastown--find-town-root)))
+      (unless (executable-find ogent-gastown-gt-executable)
+        (user-error "Gas Town CLI (gt) not found in PATH"))
+      (unless workspace-root
+        (user-error
+         "No Gas Town workspace found (set GT_ROOT/GT_TOWN, open from a town directory, or set ogent-gastown-default-town-root)"))
+      (let ((buf (get-buffer-create ogent-gastown-buffer-name))
+            (workspace-dir (file-name-as-directory (expand-file-name workspace-root))))
+        (with-current-buffer buf
+          (unless (eq major-mode 'ogent-gastown-status-mode)
+            (ogent-gastown-status-mode))
+          (unless (equal ogent-gastown--town-root workspace-dir)
+            (setq-local ogent-gastown--selected-rig nil))
+          (setq-local ogent-gastown--town-root workspace-dir)
+          (setq-local ogent-gastown--invocation-dir invocation-dir)
+          (setq-local default-directory workspace-dir)
+          (ogent-gastown-refresh))
+        (switch-to-buffer buf)))))
 
 ;;; Auto-Refresh Mode
 
