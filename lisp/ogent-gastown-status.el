@@ -724,8 +724,15 @@ Accepts both real gt output (:running) and canonical keys
   "Cached rigs list data.")
 
 (defvar-local ogent-gastown--issues-data nil
-  "Cached issues list data, keyed by rig name.
-An alist of (RIG-NAME . ISSUES-LIST) where each issue is a plist.")
+  "Cached grouped issues data.
+Plist keys:
+- `:town' => list of town-level issues (e.g. hq-*).
+- `:rigs' => alist of (RIG-NAME . ISSUES-LIST).
+- `:crew' => alist of (\"RIG/CREW\" . ISSUES-LIST).")
+
+(defconst ogent-gastown--work-issue-types
+  '("task" "bug" "feature" "epic" "chore")
+  "Issue types treated as actionable work in status sections.")
 
 (defvar-local ogent-gastown--selected-rig nil
   "Rig name currently selected for rig-scoped detail sections.")
@@ -733,7 +740,7 @@ An alist of (RIG-NAME . ISSUES-LIST) where each issue is a plist.")
 (defvar-local ogent-gastown--fetch-errors (make-hash-table :test 'eq)
   "Hash table mapping section keys to error messages.
 Keys are symbols like `hook', `mail', `convoy', `workers', `town-status',
-`crew', `polecat'.  Values are error message strings, or absent if no error.")
+`crew', `polecat', `issues'.  Values are error message strings, or absent if no error.")
 
 (defvar-local ogent-gastown--loading nil
   "Non-nil when a gt command is in progress.")
@@ -1129,6 +1136,15 @@ Resolution order:
     (unless (fboundp 'ogent-gastown-rig-agent-item-section)
       (defclass ogent-gastown-rig-agent-item-section (magit-section) ()
         "Section for a single rig-scoped agent line."))
+    (unless (fboundp 'ogent-gastown-town-issues-section)
+      (defclass ogent-gastown-town-issues-section (magit-section) ()
+        "Section for town-level issues."))
+    (unless (fboundp 'ogent-gastown-rig-issues-section)
+      (defclass ogent-gastown-rig-issues-section (magit-section) ()
+        "Section for a rig's grouped issues."))
+    (unless (fboundp 'ogent-gastown-crew-issues-section)
+      (defclass ogent-gastown-crew-issues-section (magit-section) ()
+        "Section for crew-assigned issues under a crew member."))
     (unless (fboundp 'ogent-gastown-issue-item-section)
       (defclass ogent-gastown-issue-item-section (magit-section) ()
         "Section for a single issue within a rig."))))
@@ -1477,6 +1493,142 @@ RIG-NAME is filtered client-side after fetch."
 
 ;;; Data Fetching
 
+(defun ogent-gastown--work-issue-p (issue)
+  "Return non-nil when ISSUE is a work item that should be rendered inline."
+  (member (plist-get issue :issue_type) ogent-gastown--work-issue-types))
+
+(defun ogent-gastown--issue-town-level-p (issue)
+  "Return non-nil when ISSUE is town-level (hq-* IDs)."
+  (let ((id (plist-get issue :id)))
+    (and (stringp id)
+         (string-prefix-p "hq-" id))))
+
+(defun ogent-gastown--issue-group-alist-push (groups key issue)
+  "Append ISSUE under KEY in GROUPS alist, preserving input order."
+  (if-let ((entry (assoc key groups)))
+      (setcdr entry (append (cdr entry) (list issue)))
+    (setq groups (append groups (list (cons key (list issue))))))
+  groups)
+
+(defun ogent-gastown--issue-assignee-identities (issue)
+  "Return normalized assignee identities from ISSUE."
+  (let ((raw (or (plist-get issue :assignees)
+                 (plist-get issue :assignee))))
+    (cond
+     ((stringp raw)
+      (unless (string-empty-p raw) (list raw)))
+     ((listp raw)
+      (delq nil
+            (mapcar (lambda (item)
+                      (cond
+                       ((stringp item)
+                        (unless (string-empty-p item) item))
+                       ((and (listp item) (keywordp (car item)))
+                        (let ((identity (or (plist-get item :id)
+                                            (plist-get item :address)
+                                            (plist-get item :target)
+                                            (plist-get item :name))))
+                          (when (and (stringp identity)
+                                     (not (string-empty-p identity)))
+                            identity)))
+                       (t nil)))
+                    raw)))
+     (t nil))))
+
+(defun ogent-gastown--issue-rig-from-identity (identity rig-names)
+  "Resolve rig name from IDENTITY using known RIG-NAMES."
+  (when (and (stringp identity)
+             (not (string-empty-p identity)))
+    (let ((candidate (car (split-string identity "/" t))))
+      (when (and (stringp candidate)
+                 (member candidate rig-names))
+        candidate))))
+
+(defun ogent-gastown--issue-rig-from-id (id rig-names)
+  "Resolve rig name from issue ID using known RIG-NAMES token matches."
+  (when (and (stringp id) rig-names)
+    (let ((tokens (split-string (downcase id) "[-_/]+" t))
+          (matched nil))
+      (dolist (rig rig-names matched)
+        (when (member (downcase rig) tokens)
+          (setq matched rig))))))
+
+(defun ogent-gastown--issue-assigned-crew-key (issue rig-names)
+  "Return \"RIG/CREW\" key when ISSUE is assigned to a crew member."
+  (let ((key nil))
+    (dolist (identity (ogent-gastown--issue-assignee-identities issue) key)
+      (when (and (stringp identity)
+                 (string-match "\\`\\([^/]+\\)/crew/\\([^/]+\\)\\(?:/.*\\)?\\'" identity))
+        (let ((rig (match-string 1 identity))
+              (crew (match-string 2 identity)))
+          (when (and (member rig rig-names)
+                     (not (string-empty-p crew)))
+            (setq key (format "%s/%s" rig crew))))))))
+
+(defun ogent-gastown--issue-rig (issue rig-names)
+  "Resolve associated rig name for ISSUE using known RIG-NAMES."
+  (let ((explicit-rig (plist-get issue :rig)))
+    (or (and (stringp explicit-rig)
+             (member explicit-rig rig-names)
+             explicit-rig)
+        (seq-some (lambda (identity)
+                    (ogent-gastown--issue-rig-from-identity identity rig-names))
+                  (ogent-gastown--issue-assignee-identities issue))
+        (ogent-gastown--issue-rig-from-identity
+         (plist-get issue :created_by)
+         rig-names)
+        (ogent-gastown--issue-rig-from-id
+         (plist-get issue :id)
+         rig-names))))
+
+(defun ogent-gastown--classify-issues (issues &optional rig-names)
+  "Classify ISSUES into town, rig, and crew groupings.
+When RIG-NAMES is non-nil, use it as the known rig set."
+  (let* ((known-rigs (or rig-names
+                         (delq nil
+                               (mapcar (lambda (rig) (plist-get rig :name))
+                                       ogent-gastown--rigs-data))))
+         (town-issues nil)
+         (rig-groups nil)
+         (crew-groups nil))
+    (dolist (issue issues)
+      (when (ogent-gastown--work-issue-p issue)
+        (let* ((town-level-p (ogent-gastown--issue-town-level-p issue))
+               (crew-key (ogent-gastown--issue-assigned-crew-key issue known-rigs))
+               (crew-rig (and crew-key (car (split-string crew-key "/" t))))
+               (rig-name (unless town-level-p
+                           (or crew-rig
+                               (ogent-gastown--issue-rig issue known-rigs)))))
+          (when crew-key
+            (setq crew-groups
+                  (ogent-gastown--issue-group-alist-push
+                   crew-groups crew-key issue)))
+          (if rig-name
+              (setq rig-groups
+                    (ogent-gastown--issue-group-alist-push
+                     rig-groups rig-name issue))
+            (setq town-issues (append town-issues (list issue)))))))
+    (list :town town-issues
+          :rigs rig-groups
+          :crew crew-groups)))
+
+(defun ogent-gastown--town-issues ()
+  "Return cached town-level issues."
+  (plist-get ogent-gastown--issues-data :town))
+
+(defun ogent-gastown--issues-for-rig (rig-name)
+  "Return cached issues associated with RIG-NAME."
+  (cdr (assoc rig-name (plist-get ogent-gastown--issues-data :rigs))))
+
+(defun ogent-gastown--issues-for-crew (rig crew-name)
+  "Return cached issues assigned to CREW-NAME in RIG."
+  (when (and (stringp rig)
+             (not (string-empty-p rig))
+             (stringp crew-name)
+             (not (string-empty-p crew-name)))
+    (let ((key (format "%s/%s" rig crew-name)))
+      (cdr (assoc key (plist-get ogent-gastown--issues-data :crew))))))
+
 (defun ogent-gastown--fetch-all (callback &optional deferred-callback)
   "Fetch status data for the status buffer.
 CALLBACK runs once core sections are ready.
@@ -1571,6 +1723,7 @@ DEFERRED-CALLBACK runs after each deferred section update."
           ogent-gastown--hook-data nil
           ogent-gastown--mail-data nil
           ogent-gastown--convoy-data nil
+          ogent-gastown--issues-data nil
           ogent-gastown--fetch-errors errors)
 
     ;; Core: fast first paint.
@@ -1621,24 +1774,19 @@ DEFERRED-CALLBACK runs after each deferred section update."
      (lambda (err)
        (funcall update-deferred 'convoy nil err)))
 
-    ;; Deferred: fetch open issues for inline display in rig sections.
-    ;; Uses bd list via ogent-issues-bd-list with status filter.
-    ;; Groups results by rig name, excluding agent/event types.
+    ;; Deferred: fetch open issues for inline display in town/rig/crew sections.
     (ogent-issues-bd-list
      (lambda (result)
        (when (buffer-live-p buf)
-         (let ((grouped nil))
-           ;; Group issues by rig (for now, all go under selected rig)
-           (dolist (issue result)
-             (let* ((issue-type (plist-get issue :issue_type))
-                    ;; Skip agent/event beads — only show work items
-                    (work-type-p (member issue-type '("task" "bug" "feature" "epic" "chore"))))
-               (when work-type-p
-                 (let* ((rig (or ogent-gastown--selected-rig "ogent"))
-                        (entry (assoc rig grouped)))
-                   (if entry
-                       (setcdr entry (append (cdr entry) (list issue)))
-                     (push (cons rig (list issue)) grouped))))))
+         (let ((grouped
+                (with-current-buffer buf
+                  (let* ((known-rig-data
+                          (or ogent-gastown--rigs-data
+                              (plist-get (gethash 'town-status results) :rigs)))
+                         (known-rig-names
+                          (delq nil (mapcar (lambda (rig) (plist-get rig :name))
+                                            known-rig-data))))
+                    (ogent-gastown--classify-issues result known-rig-names)))))
            (funcall update-deferred 'issues grouped nil))))
      '(:status "open")
      (lambda (err)
@@ -1726,6 +1874,8 @@ shape to a plist before passing values into issue detail renderers."
     (insert "\n")
     (ogent-gastown--insert-convoy-section)
     (insert "\n")
+    (ogent-gastown--insert-town-issues-section)
+    (insert "\n")
     (ogent-gastown--insert-rigs-section)
     (insert "\n")
     (ogent-gastown--insert-crew-section)
@@ -1747,6 +1897,8 @@ shape to a plist before passing values into issue detail renderers."
   (ogent-gastown--insert-mail-section-plain)
   (insert "\n")
   (ogent-gastown--insert-convoy-section-plain)
+  (insert "\n")
+  (ogent-gastown--insert-town-issues-section-plain)
   (insert "\n")
   (ogent-gastown--insert-rigs-section-plain)
   (insert "\n")
@@ -2241,6 +2393,124 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
           (insert rig)
           (insert "\n")))))))
 
+;;; Town Issues Section
+
+(defun ogent-gastown--issue-assignee-display (issue)
+  "Return a compact assignee display string for ISSUE, or nil."
+  (when-let* ((identity (car (ogent-gastown--issue-assignee-identities issue))))
+    (format "@%s" (file-name-nondirectory identity))))
+
+(defun ogent-gastown--insert-issue-item (issue indent)
+  "Insert one ISSUE row using INDENT."
+  (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
+         (id (plist-get issue :id))
+         (title (or (plist-get issue :title) "(untitled)"))
+         (status (or (plist-get issue :status) "open"))
+         (priority (plist-get issue :priority))
+         (issue-type (or (plist-get issue :issue_type) "task"))
+         (assignee-str (ogent-gastown--issue-assignee-display issue))
+         (status-icon
+          (pcase status
+            ((or "in_progress" "hooked")
+             (propertize (ogent-ops-section-prefix "●" "*")
+                         'face 'ogent-gastown-beads-in-progress))
+            ("blocked"
+             (propertize (ogent-ops-section-prefix "⊘" "x")
+                         'face 'warning))
+            (_
+             (propertize (ogent-ops-section-prefix "○" "o")
+                         'face 'ogent-gastown-dimmed))))
+         (pri-badge
+          (when priority
+            (propertize (format "[P%s]" priority)
+                        'face (if (<= priority 1) 'warning 'ogent-gastown-dimmed))))
+         (type-badge
+          (unless (equal issue-type "task")
+            (propertize (format "[%s]" issue-type) 'face 'ogent-gastown-dimmed))))
+    (magit-insert-section (ogent-gastown-issue-item-section issue)
+      (insert indent
+              status-icon " "
+              (or pri-badge "") (if pri-badge " " "")
+              (propertize (or id "?") 'face 'ogent-gastown-dimmed)
+              "  "
+              (propertize (truncate-string-to-width title 50 nil nil t)
+                          'face (if (member status '("in_progress" "hooked"))
+                                    'bold 'default))
+              (if type-badge (concat " " type-badge) "")
+              (if assignee-str
+                  (concat "  " (propertize assignee-str 'face 'ogent-gastown-dimmed))
+                "")
+              "\n"))))
+
+(defun ogent-gastown--insert-issues-list (issues indent &optional max-issues)
+  "Insert ISSUES with INDENT, truncated to MAX-ISSUES when non-nil."
+  (let ((shown 0)
+        (limit (or max-issues 20)))
+    (dolist (issue issues)
+      (when (< shown limit)
+        (ogent-gastown--insert-issue-item issue indent)
+        (cl-incf shown)))
+    (when (> (length issues) limit)
+      (insert indent
+              (propertize (format "... and %d more (press i for full list)"
+                                  (- (length issues) limit))
+                          'face 'ogent-gastown-dimmed)
+              "\n"))))
+
+(defun ogent-gastown--insert-town-issues-section ()
+  "Insert town-level issues section with magit-section."
+  (let ((issues (ogent-gastown--town-issues)))
+    (magit-insert-section (ogent-gastown-town-issues-section issues nil)
+      (ogent-gastown--insert-section-heading
+       'issues
+       "Town Beads"
+       (propertize (format " (%d)" (length issues))
+                   'face 'ogent-gastown-dimmed))
+      (cond
+       ((ogent-gastown--section-fetch-error 'issues)
+        (ogent-gastown--insert-fetch-error 'issues))
+       ((null issues)
+        (insert (propertize "  No town-level beads\n" 'face 'ogent-gastown-dimmed)))
+       (t
+        (ogent-gastown--insert-issues-list issues "    "))))))
+
+(defun ogent-gastown--insert-town-issues-section-plain ()
+  "Insert town-level issues section (plain)."
+  (let ((issues (ogent-gastown--town-issues)))
+    (insert (propertize
+             (ogent-gastown--compose-plain-section-heading 'issues "Town Beads")
+             'face (ogent-gastown--section-heading-face 'issues)))
+    (cond
+     ((ogent-gastown--section-fetch-error 'issues)
+      (ogent-gastown--insert-fetch-error 'issues))
+     ((null issues)
+      (insert (propertize "  No town-level beads\n" 'face 'ogent-gastown-dimmed)))
+     (t
+      (dolist (issue issues)
+        (let ((id (or (plist-get issue :id) "?"))
+              (title (or (plist-get issue :title) "(untitled)")))
+          (insert "  ")
+          (insert (propertize id 'face 'ogent-gastown-dimmed))
+          (insert "  ")
+          (insert (truncate-string-to-width title 70 nil nil t))
+          (insert "\n")))))))
+
+(defun ogent-gastown--insert-crew-assigned-issues (rig-name crew-name heading-indent issue-indent)
+  "Insert crew-assigned issues for CREW-NAME in RIG-NAME.
+HEADING-INDENT and ISSUE-INDENT control nesting alignment."
+  (when-let* ((issues (ogent-gastown--issues-for-crew rig-name crew-name)))
+    (magit-insert-section
+        (ogent-gastown-crew-issues-section
+         (list :rig rig-name :crew crew-name :issues issues)
+         nil)
+      (insert heading-indent)
+      (ogent-gastown--insert-section-heading
+       'issues
+       "Assigned Beads"
+       (propertize (format " (%d)" (length issues))
+                   'face 'ogent-gastown-dimmed))
+      (ogent-gastown--insert-issues-list issues issue-indent))))
+
 ;;; Crew Section
 
 (defun ogent-gastown--insert-crew-section ()
@@ -2275,6 +2545,7 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
 (defun ogent-gastown--insert-crew-item (member)
   "Insert a single crew MEMBER as a line."
   (let* ((name (plist-get member :name))
+         (rig-name (plist-get member :rig))
          (hooked-work (plist-get member :hooked_work))
          (branch (plist-get member :branch))
          (dirty (plist-get member :dirty))
@@ -2311,7 +2582,11 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
       (when (and mail-count (> mail-count 0))
         (insert " ")
         (insert (propertize (format "%s%d" (ogent-ops-badge-symbol 'mail) mail-count) 'face 'ogent-gastown-mail-unread)))
-      (insert "\n"))))
+      (insert "\n")
+      (when (and (stringp name)
+                 (not (string-empty-p name)))
+        (ogent-gastown--insert-crew-assigned-issues
+         rig-name name "      " "        ")))))
 
 (defun ogent-gastown--insert-crew-section-plain ()
   "Insert crew section (plain)."
@@ -2517,8 +2792,8 @@ Returns a plist with :ready, :in_progress, :open, or nil if no data."
           (ogent-gastown--insert-rig-agent agent name)))
       ;; Insert beads stats detail if expanded
       (ogent-gastown--insert-rig-beads-detail (plist-get rig :beads_stats))
-      ;; Insert inline issue items if expanded
-      (ogent-gastown--insert-rig-issues name))))
+      ;; Insert foldable rig issues subsection
+      (ogent-gastown--insert-rig-issues-section name))))
 
 (defun ogent-gastown--insert-rig-beads-detail (beads-stats)
   "Insert beads stats detail lines for an expanded rig section.
@@ -2549,60 +2824,24 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
                       (propertize (format "%d" value) 'face face)
                       "\n"))))))))
 
+(defun ogent-gastown--insert-rig-issues-section (rig-name)
+  "Insert foldable issue subsection for RIG-NAME."
+  (when-let* ((issues (ogent-gastown--issues-for-rig rig-name)))
+    (magit-insert-section
+        (ogent-gastown-rig-issues-section
+         (list :rig rig-name :issues issues)
+         nil)
+      (insert "    ")
+      (ogent-gastown--insert-section-heading
+       'issues
+       "Rig Issues"
+       (propertize (format " (%d)" (length issues))
+                   'face 'ogent-gastown-dimmed))
+      (ogent-gastown--insert-issues-list issues "      "))))
+
 (defun ogent-gastown--insert-rig-issues (rig-name)
-  "Insert inline issue items for RIG-NAME from cached issues data."
-  (when-let* ((issues (cdr (assoc rig-name ogent-gastown--issues-data))))
-    (let ((ogent-ops-use-unicode ogent-gastown-use-unicode)
-          (shown 0)
-          (max-issues 20))
-      (dolist (issue issues)
-        (when (< shown max-issues)
-          (let* ((id (plist-get issue :id))
-                 (title (or (plist-get issue :title) "(untitled)"))
-                 (status (or (plist-get issue :status) "open"))
-                 (priority (plist-get issue :priority))
-                 (assignee (plist-get issue :assignee))
-                 (issue-type (or (plist-get issue :issue_type) "task"))
-                 (status-icon
-                  (pcase status
-                    ("in_progress" (propertize (ogent-ops-section-prefix "●" "*")
-                                              'face 'ogent-gastown-beads-in-progress))
-                    ("hooked"      (propertize (ogent-ops-section-prefix "●" "*")
-                                              'face 'ogent-gastown-beads-in-progress))
-                    ("blocked"     (propertize (ogent-ops-section-prefix "⊘" "x")
-                                              'face 'warning))
-                    (_             (propertize (ogent-ops-section-prefix "○" "o")
-                                              'face 'ogent-gastown-dimmed))))
-                 (pri-badge
-                  (when priority
-                    (propertize (format "[P%s]" priority)
-                                'face (if (<= priority 1) 'warning 'ogent-gastown-dimmed))))
-                 (type-badge
-                  (unless (equal issue-type "task")
-                    (propertize (format "[%s]" issue-type) 'face 'ogent-gastown-dimmed)))
-                 (assignee-str
-                  (when (and assignee (not (string-empty-p assignee)))
-                    (propertize (format "@%s" (file-name-nondirectory assignee))
-                                'face 'ogent-gastown-dimmed))))
-            (magit-insert-section (ogent-gastown-issue-item-section issue)
-              (insert "      "
-                      status-icon " "
-                      (or pri-badge "") (if pri-badge " " "")
-                      (propertize (or id "?") 'face 'ogent-gastown-dimmed)
-                      "  "
-                      (propertize (truncate-string-to-width title 50 nil nil t)
-                                  'face (if (member status '("in_progress" "hooked"))
-                                            'bold 'default))
-                      (if type-badge (concat " " type-badge) "")
-                      (if assignee-str (concat "  " assignee-str) "")
-                      "\n"))
-            (cl-incf shown))))
-      (when (> (length issues) max-issues)
-        (insert "      "
-                (propertize (format "... and %d more (press i for full list)"
-                                    (- (length issues) max-issues))
-                            'face 'ogent-gastown-dimmed)
-                "\n")))))
+  "Backward-compatible wrapper for `ogent-gastown--insert-rig-issues-section'."
+  (ogent-gastown--insert-rig-issues-section rig-name))
 
 (defun ogent-gastown--insert-rig-agent-line (agent)
   "Insert a single AGENT line."
@@ -2637,15 +2876,27 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
 (defun ogent-gastown--insert-rig-agent (agent &optional rig-name)
   "Insert AGENT line within a rig section.
 When RIG-NAME is non-nil, include it in section metadata for RET routing."
-  (let ((agent-value (if rig-name
-                         (plist-put (copy-sequence agent) :rig rig-name)
-                       agent)))
+  (let* ((agent-value (if rig-name
+                          (plist-put (copy-sequence agent) :rig rig-name)
+                        agent))
+         (agent-rig (or rig-name (plist-get agent-value :rig)))
+         (agent-name (plist-get agent-value :name))
+         (role-value (plist-get agent-value :role))
+         (role (if (symbolp role-value)
+                   (symbol-name role-value)
+                 role-value)))
     (if (and (ogent-gastown--magit-usable-p)
              (derived-mode-p 'magit-section-mode)
              (boundp 'magit-root-section)
              magit-root-section)
         (magit-insert-section (ogent-gastown-rig-agent-item-section agent-value)
-          (ogent-gastown--insert-rig-agent-line agent-value))
+          (ogent-gastown--insert-rig-agent-line agent-value)
+          (when (and (stringp role)
+                     (string= role "crew")
+                     (stringp agent-name)
+                     (not (string-empty-p agent-name)))
+            (ogent-gastown--insert-crew-assigned-issues
+             agent-rig agent-name "      " "        ")))
       (ogent-gastown--insert-rig-agent-line agent-value))))
 
 (defun ogent-gastown--insert-rigs-section-plain ()
