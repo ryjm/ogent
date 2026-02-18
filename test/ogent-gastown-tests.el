@@ -1920,6 +1920,91 @@ OUTPUT should be a plist or list that will be returned."
       (ogent-gastown-prev-item)
       (should (= 2 (line-number-at-pos))))))
 
+(ert-deftest ogent-gastown-test-identity-command-root-prefers-invocation-dir ()
+  "Hook-like commands should prefer invocation dir under the workspace root."
+  (let* ((root (make-temp-file "ogent-gastown-id-root-" t))
+         (workspace (file-name-as-directory root))
+         (invocation (expand-file-name "crew/ritchie" workspace)))
+    (unwind-protect
+        (progn
+          (make-directory invocation t)
+          (with-temp-buffer
+            (setq-local ogent-gastown--town-root workspace)
+            (setq-local ogent-gastown--invocation-dir invocation)
+            (should (equal (file-name-as-directory invocation)
+                           (ogent-gastown--identity-command-root))))
+          (with-temp-buffer
+            (setq-local ogent-gastown--town-root workspace)
+            (setq-local ogent-gastown--invocation-dir workspace)
+            (should-not (ogent-gastown--identity-command-root))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-gastown-test-hook-show-uses-identity-command-root ()
+  "Hook show should run in identity-aware command directory."
+  (let ((captured nil)
+        (identity-dir "/tmp/ogent-test-identity/"))
+    (cl-letf (((symbol-function 'ogent-gastown--identity-command-root)
+               (lambda () identity-dir))
+              ((symbol-function 'ogent-gastown-status--run-shell-command)
+               (lambda (args output-buffer &optional run-directory)
+                 (setq captured (list args output-buffer run-directory)))))
+      (ogent-gastown-hook-show)
+      (should (equal captured
+                     (list '("hook") "*gt hook*" identity-dir))))))
+
+(ert-deftest ogent-gastown-test-hook-attach-uses-identity-command-root ()
+  "Hook attach should run in identity-aware command directory."
+  (let ((captured nil)
+        (identity-dir "/tmp/ogent-test-identity/"))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) "og-123"))
+              ((symbol-function 'ogent-gastown--identity-command-root)
+               (lambda () identity-dir))
+              ((symbol-function 'ogent-gastown-status--run-async)
+               (lambda (args _callback _error-callback raw-output run-directory)
+                 (setq captured (list args raw-output run-directory)))))
+      (ogent-gastown-hook-attach)
+      (should (equal captured
+                     (list '("hook" "og-123") t identity-dir))))))
+
+(ert-deftest ogent-gastown-test-fetch-all-hook-uses-identity-command-root ()
+  "Deferred hook fetch should pass identity dir into command execution."
+  (let* ((root (make-temp-file "ogent-gastown-fetch-root-" t))
+         (workspace (file-name-as-directory root))
+         (invocation (expand-file-name "crew/ritchie" workspace))
+         (hook-run-dir nil))
+    (unwind-protect
+        (progn
+          (make-directory invocation t)
+          (with-temp-buffer
+            (setq-local ogent-gastown--town-root workspace)
+            (setq-local ogent-gastown--invocation-dir invocation)
+            (cl-letf (((symbol-function 'ogent-gastown--run-async-cached)
+                       (lambda (args callback &optional _error-callback _raw-output run-directory)
+                         (when (equal args '("hook" "--json"))
+                           (setq hook-run-dir run-directory))
+                         (cond
+                          ((equal args '("status" "--json" "--fast"))
+                           (funcall callback '(:summary nil :rigs nil)))
+                          ((equal args '("crew" "list" "--all" "--json"))
+                           (funcall callback nil))
+                          ((equal args '("polecat" "list" "--all" "--json"))
+                           (funcall callback nil))
+                          ((equal args '("hook" "--json"))
+                           (funcall callback '(:has_work nil :role "crew" :target "none")))
+                          ((equal args '("mail" "inbox" "--json"))
+                           (funcall callback nil))
+                          ((equal args '("convoy" "list" "--json"))
+                           (funcall callback nil))
+                          (t
+                           (funcall callback nil)))))
+                      ((symbol-function 'ogent-issues-bd-list)
+                       (lambda (callback _filters &optional _error-callback)
+                         (funcall callback nil))))
+              (ogent-gastown--fetch-all (lambda () nil) nil)
+              (should (equal hook-run-dir (file-name-as-directory invocation))))))
+      (delete-directory root t))))
+
 (ert-deftest ogent-gastown-test-visit-rig-magit-status-opens-scoped-repo ()
   "Rig-scoped sections should open role-specific repos, not rig root."
   (let ((root (make-temp-file "ogent-gastown-visit-rig-" t)))
