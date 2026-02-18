@@ -27,6 +27,7 @@
 ;; Load faces from gastown-status
 (require 'ogent-gastown-status)
 (declare-function ogent-gastown--find-town-root "ogent-gastown-status")
+(declare-function ogent-gastown--hook-status-command-args "ogent-gastown-status")
 
 ;;; Additional Faces (supplement ogent-gastown-status faces)
 
@@ -322,15 +323,18 @@ Returns the process object, or nil if gt is not available."
 (defun ogent-gastown-hook-refresh (&optional callback)
   "Refresh hook status asynchronously.
 If CALLBACK is provided, call it with the hook plist when done."
-  (ogent-gastown--run-async
-   "hook" '("--json")
-   (lambda (result)
-     (setq ogent-gastown--hook-cache result)
-     (force-mode-line-update t)
-     (when callback (funcall callback result)))
-   (lambda (err)
-     (setq ogent-gastown--hook-cache nil)
-     (message "Failed to get hook status: %s" err))))
+  (let* ((hook-args (ogent-gastown--hook-status-command-args))
+         (command (car hook-args))
+         (args (cdr hook-args)))
+    (ogent-gastown--run-async
+     command args
+     (lambda (result)
+       (setq ogent-gastown--hook-cache result)
+       (force-mode-line-update t)
+       (when callback (funcall callback result)))
+     (lambda (err)
+       (setq ogent-gastown--hook-cache nil)
+       (message "Failed to get hook status: %s" err)))))
 
 (defun ogent-gastown-hook-status ()
   "Return cached hook status or nil."
