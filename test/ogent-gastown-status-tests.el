@@ -1749,7 +1749,7 @@
           (callback-called nil)
           (call-count 0))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (_args callback &optional _error-callback _raw)
+                 (lambda (_args callback &optional _error-callback _raw _run-directory)
                    (cl-incf call-count)
                    ;; Immediately call success callback with sample data
                    (funcall callback nil))))
@@ -1767,7 +1767,7 @@
           (ogent-gastown-cache-ttl 0)
           (callback-called nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (_args _callback &optional error-callback _raw)
+                 (lambda (_args _callback &optional error-callback _raw _run-directory)
                    ;; All calls fail
                    (when error-callback
                      (funcall error-callback "test error")))))
@@ -1788,7 +1788,7 @@
           (ogent-gastown--witness-data nil)
           (ogent-gastown--rigs-data nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _error-callback _raw)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
                    ;; Return town-status for the status command
                    (if (equal args '("status" "--json" "--fast"))
                        (funcall callback
@@ -3293,9 +3293,11 @@
           (ogent-gastown--rigs-data nil)
           (callback-called nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _error-callback _raw)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
                    (cond
-                    ((equal args '("hook" "--json"))
+                    ((and (equal (car args) "hook")
+                          (member "status" args)
+                          (member "--json" args))
                      (funcall callback '(:has_work t :role "mayor")))
                     ((equal args '("mail" "inbox" "--json"))
                      (funcall callback (list '(:id "m1" :from "a" :read nil))))
@@ -3365,7 +3367,7 @@
     (cl-letf (((symbol-function 'read-string)
                (lambda (&rest _) "bead-42"))
               ((symbol-function 'ogent-gastown-status--run-async)
-               (lambda (args callback &optional _err _raw)
+               (lambda (args callback &optional _err _raw _run-directory)
                  (setq run-async-args args)
                  (funcall callback nil)))
               ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
@@ -3404,7 +3406,7 @@
                   ((string-match-p "Issue" prompt) "issue-1 issue-2")
                   (t ""))))
               ((symbol-function 'ogent-gastown-status--run-async)
-               (lambda (args callback &optional _err _raw)
+               (lambda (args callback &optional _err _raw _run-directory)
                  (setq run-async-args args)
                  (funcall callback nil)))
               ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
@@ -3503,7 +3505,7 @@
                     ((string-match-p "Message" prompt) "Test Body")
                     (t ""))))
                 ((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _err _raw)
+                 (lambda (args callback &optional _err _raw _run-directory)
                    (setq run-async-args args)
                    (funcall callback nil)))
                 ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
@@ -3553,7 +3555,7 @@
                 ((symbol-function 'read-string)
                  (lambda (&rest _) "stuff"))
                 ((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _err _raw)
+                 (lambda (args callback &optional _err _raw _run-directory)
                    (setq run-async-args args)
                    (funcall callback nil)))
                 ((symbol-function 'ogent-gastown-cache-invalidate) #'ignore)
@@ -3594,7 +3596,7 @@
                 ((symbol-function 'read-string)
                  (lambda (_prompt &rest _) "wake up"))
                 ((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _err _raw)
+                 (lambda (args callback &optional _err _raw _run-directory)
                    (setq run-async-args args)
                    (funcall callback nil)))
                 ((symbol-function 'message)
@@ -4071,7 +4073,7 @@
     (with-current-buffer buf
       (let ((ogent-gastown--town-root "/tmp/gt"))
         (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                   (lambda (_args callback &optional _err _raw)
+                   (lambda (_args callback &optional _err _raw _run-directory)
                      (funcall callback nil))))
           (ogent-gastown--fetch-all
            (lambda ()
@@ -4617,6 +4619,36 @@
 
 ;;; --- Fetch Command Contract Tests ---
 
+(ert-deftest ogent-gts-test-hook-status-command-args-defaults-to-mayor ()
+  "Test hook status args default to mayor target when role env is absent."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt"))
+      (cl-letf (((symbol-function 'getenv)
+                 (lambda (name)
+                   (pcase name
+                     ("GT_ROLE" "")
+                     ("GT_RIG" "")
+                     ("GT_POLECAT" "")
+                     ("GT_CREW" "")
+                     ("GT_ROLE_HOME" "")
+                     (_ nil)))))
+        (should (equal
+                 '("hook" "status" "mayor/" "--json")
+                 (ogent-gastown--hook-status-command-args)))))))
+
+(ert-deftest ogent-gts-test-hook-status-command-args-respects-gt-role ()
+  "Test hook status args use explicit GT_ROLE identities when present."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt"))
+      (cl-letf (((symbol-function 'getenv)
+                 (lambda (name)
+                   (pcase name
+                     ("GT_ROLE" "ogent/witness")
+                     (_ nil)))))
+        (should (equal
+                 '("hook" "status" "ogent/witness" "--json")
+                 (ogent-gastown--hook-status-command-args)))))))
+
 (ert-deftest ogent-gts-test-fetch-contract-town-status-uses-fast ()
   "Test fetch-all uses --fast flag for town status."
   (with-temp-buffer
@@ -4624,7 +4656,7 @@
           (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _error-callback _raw)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
                    (push args captured-args)
                    (funcall callback nil))))
         (ogent-gastown--fetch-all #'ignore)
@@ -4640,7 +4672,7 @@
           (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _error-callback _raw)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
                    (push args captured-args)
                    (funcall callback nil))))
         (ogent-gastown--fetch-all #'ignore)
@@ -4656,12 +4688,17 @@
           (ogent-gastown-cache-ttl 0)
           (captured-args nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional _error-callback _raw)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
                    (push args captured-args)
                    (funcall callback nil))))
         (ogent-gastown--fetch-all #'ignore)
         (should (= (length captured-args) 6))
-        (should (member '("hook" "--json") captured-args))
+        (should (seq-some
+                 (lambda (args)
+                   (and (equal (car args) "hook")
+                        (member "status" args)
+                        (member "--json" args)))
+                 captured-args))
         (should (member '("mail" "inbox" "--json") captured-args))
         (should (member '("convoy" "list" "--json") captured-args))
         (should (member '("polecat" "list" "--all" "--json") captured-args))
@@ -4776,10 +4813,12 @@
           (ogent-gastown--rigs-data nil)
           (callback-called nil))
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
-                 (lambda (args callback &optional error-callback _raw)
+                 (lambda (args callback &optional error-callback _raw _run-directory)
                    (cond
                     ;; Hook and mail succeed
-                    ((equal args '("hook" "--json"))
+                    ((and (equal (car args) "hook")
+                          (member "status" args)
+                          (member "--json" args))
                      (funcall callback '(:has_work t :role "mayor")))
                     ((equal args '("mail" "inbox" "--json"))
                      (funcall callback (list '(:id "m1" :from "a" :read nil))))

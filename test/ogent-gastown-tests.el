@@ -194,6 +194,7 @@ OUTPUT should be a plist or list that will be returned."
       (should (equal "Test hooked work" (plist-get result :title)))
       ;; Check command was correct
       (should (equal "hook" ogent-gastown-test--captured-command))
+      (should (member "status" ogent-gastown-test--captured-args))
       (should (member "--json" ogent-gastown-test--captured-args)))))
 
 (ert-deftest ogent-gastown-test-hook-status-cached ()

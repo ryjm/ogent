@@ -964,10 +964,87 @@ When RUN-DIRECTORY is non-nil, execute and cache by that directory."
                                  workspace-root)))
       (async-shell-command
        (string-join
-        (mapcar #'shell-quote-argument
+       (mapcar #'shell-quote-argument
                 (cons ogent-gastown-gt-executable args))
         " ")
        output-buffer))))
+
+(defun ogent-gastown--hook-target-from-env ()
+  "Resolve hook target from GT_ROLE-style environment variables."
+  (let* ((role (string-trim (or (getenv "GT_ROLE") "")))
+         (rig (string-trim (or (getenv "GT_RIG") "")))
+         (polecat (string-trim (or (getenv "GT_POLECAT") "")))
+         (crew (string-trim (or (getenv "GT_CREW") ""))))
+    (cond
+     ((string-empty-p role) nil)
+     ((or (string= role "mayor") (string= role "mayor/")) "mayor/")
+     ((or (string= role "deacon") (string= role "deacon/")) "deacon/")
+     ((or (string= role "boot") (string= role "deacon/boot")) "deacon/boot")
+     ((string= role "witness")
+      (unless (string-empty-p rig)
+        (format "%s/witness" rig)))
+     ((string= role "refinery")
+      (unless (string-empty-p rig)
+        (format "%s/refinery" rig)))
+     ((string= role "polecat")
+      (unless (or (string-empty-p rig) (string-empty-p polecat))
+        (format "%s/polecats/%s" rig polecat)))
+     ((string= role "crew")
+      (unless (or (string-empty-p rig) (string-empty-p crew))
+        (format "%s/crew/%s" rig crew)))
+     ((string-match-p "/" role)
+      role)
+     (t nil))))
+
+(defun ogent-gastown--hook-target-from-role-home (workspace-root)
+  "Resolve hook target from GT_ROLE_HOME relative to WORKSPACE-ROOT."
+  (let ((role-home (ogent-gastown--normalize-dir (getenv "GT_ROLE_HOME"))))
+    (when (and role-home
+               workspace-root
+               (file-in-directory-p role-home workspace-root))
+      (let* ((rel (directory-file-name
+                   (file-relative-name role-home workspace-root)))
+             (parts (split-string rel "/" t)))
+        (cond
+         ((and (= (length parts) 1)
+               (string= (nth 0 parts) "mayor"))
+          "mayor/")
+         ((and (= (length parts) 1)
+               (string= (nth 0 parts) "deacon"))
+          "deacon/")
+         ((and (>= (length parts) 3)
+               (string= (nth 0 parts) "deacon")
+               (string= (nth 1 parts) "dogs")
+               (string= (nth 2 parts) "boot"))
+          "deacon/boot")
+         ((and (>= (length parts) 2)
+               (string= (nth 1 parts) "witness"))
+          (format "%s/witness" (nth 0 parts)))
+         ((and (>= (length parts) 2)
+               (string= (nth 1 parts) "refinery"))
+          (format "%s/refinery" (nth 0 parts)))
+         ((and (>= (length parts) 3)
+               (string= (nth 1 parts) "polecats"))
+          (format "%s/polecats/%s" (nth 0 parts) (nth 2 parts)))
+         ((and (>= (length parts) 3)
+               (string= (nth 1 parts) "crew"))
+          (format "%s/crew/%s" (nth 0 parts) (nth 2 parts)))
+         (t nil))))))
+
+(defun ogent-gastown--hook-status-target ()
+  "Return the hook target to query for status views."
+  (let ((workspace-root (ogent-gastown--active-workspace-root)))
+    (or (ogent-gastown--hook-target-from-env)
+        (ogent-gastown--hook-target-from-role-home workspace-root)
+        "mayor/")))
+
+(defun ogent-gastown--hook-status-command-args ()
+  "Return `gt` args for JSON hook status queries."
+  (list "hook" "status" (ogent-gastown--hook-status-target) "--json"))
+
+(defun ogent-gastown--hook-status-human-command-args ()
+  "Return `gt` args for human-readable hook status queries."
+  (list "hook" "status" (ogent-gastown--hook-status-target)))
 
 ;;; Town Detection
 
@@ -1522,7 +1599,7 @@ DEFERRED-CALLBACK runs after each deferred section update."
 
     ;; Deferred: load slower sections in the background.
     (ogent-gastown--run-async-cached
-     '("hook" "--json")
+     (ogent-gastown--hook-status-command-args)
      (lambda (result)
        (funcall update-deferred 'hook result nil))
      (lambda (err)
@@ -3112,7 +3189,7 @@ Prompts for the blocker issue ID."
   "Show hook details."
   (interactive)
   (ogent-gastown-status--run-shell-command
-   '("hook")
+   (ogent-gastown--hook-status-human-command-args)
    "*gt hook*"
    (ogent-gastown--identity-command-root)))
 
