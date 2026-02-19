@@ -1323,7 +1323,7 @@ Resolution order:
     (define-key map "f" #'ogent-gastown-refinery-status)
 
     ;; Issues navigation
-    (define-key map "i" #'ogent-gastown-rig-issues)
+    (define-key map "i" #'ogent-gastown-issues)
     (define-key map "+" #'ogent-gastown-bead-create)
 
     ;; Auto-refresh toggle
@@ -3901,21 +3901,71 @@ Works on rig sections, crew sections, witness sections, and polecat sections."
     (when rig
       (expand-file-name rig ogent-gastown--town-root))))
 
-(defun ogent-gastown-rig-issues ()
-  "Open issues buffer for the rig at point.
+(defun ogent-gastown-town-issues ()
+  "Open issues buffer for the town workspace."
+  (interactive)
+  (let ((workspace-root (ogent-gastown--active-workspace-root)))
+    (unless (and workspace-root (file-directory-p workspace-root))
+      (user-error "Town workspace not found: %s" workspace-root))
+    (let ((default-directory workspace-root))
+      (ogent-issues))))
+
+(defun ogent-gastown--issues-context-at-point ()
+  "Return issues scope context at point.
+Result is a plist with `:scope' (`town' or `rig') and optional `:rig'."
+  (when (ogent-gastown--magit-usable-p)
+    (let ((section (magit-current-section))
+          context)
+      (while (and section (null context))
+        (pcase (eieio-object-class-name section)
+          ('ogent-gastown-town-issues-section
+           (setq context '(:scope town)))
+          ((or 'ogent-gastown-rig-issues-section
+               'ogent-gastown-crew-issues-section)
+           (let* ((value (and (slot-boundp section 'value)
+                              (oref section value)))
+                  (rig-name (plist-get value :rig)))
+             (setq context (list :scope 'rig :rig rig-name)))))
+        (setq section (and (slot-boundp section 'parent)
+                           (oref section parent))))
+      context)))
+
+(defun ogent-gastown-issues ()
+  "Open issues list for the current context.
+On town beads, open town-level issues.  On rig-scoped issue sections,
+open that rig's issues.  Otherwise fall back to rig selection."
+  (interactive)
+  (let* ((context (ogent-gastown--issues-context-at-point))
+         (scope (plist-get context :scope))
+         (rig-name (plist-get context :rig)))
+    (pcase scope
+      ('town
+       (ogent-gastown-town-issues))
+      ('rig
+       (if (and (stringp rig-name) (not (string-empty-p rig-name)))
+           (ogent-gastown-rig-issues rig-name)
+         (ogent-gastown-rig-issues)))
+      (_
+       (ogent-gastown-rig-issues)))))
+
+(defun ogent-gastown-rig-issues (&optional rig-name)
+  "Open issues buffer for RIG-NAME or rig at point.
 Works when point is on a rig, crew member, or polecat."
   (interactive)
-  (let* ((rig-name (or (ogent-gastown--rig-at-point)
-                       (completing-read
-                        "Rig: "
-                        (mapcar (lambda (r) (plist-get r :name))
-                                ogent-gastown--rigs-data))))
-         (rig-path (when rig-name
-                     (expand-file-name rig-name ogent-gastown--town-root))))
+  (let* ((resolved-rig (or (and (stringp rig-name)
+                                (not (string-empty-p rig-name))
+                                rig-name)
+                           (ogent-gastown--rig-at-point)
+                           (completing-read
+                            "Rig: "
+                            (mapcar (lambda (r) (plist-get r :name))
+                                    ogent-gastown--rigs-data))))
+         (rig-path (when resolved-rig
+                     (expand-file-name resolved-rig ogent-gastown--town-root))))
     (if (and rig-path (file-directory-p rig-path))
         (let ((default-directory rig-path))
           (ogent-issues))
-      (user-error "No rig at point or rig directory not found: %s" rig-name))))
+      (user-error "No rig at point or rig directory not found: %s" resolved-rig))))
 
 ;;; Bead Creation
 

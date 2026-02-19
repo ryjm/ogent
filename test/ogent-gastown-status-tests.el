@@ -1944,7 +1944,7 @@
 (ert-deftest ogent-gts-test-keybindings-issues ()
   "Issues navigation key is properly bound."
   (should (eq (lookup-key ogent-gastown-status-mode-map "i")
-              'ogent-gastown-rig-issues)))
+              'ogent-gastown-issues)))
 
 (ert-deftest ogent-gts-test-keybindings-quit ()
   "Quit key is properly bound."
@@ -3343,6 +3343,55 @@
         (should ogent-gastown--rigs-data)))))
 
 ;;; Rig Issues (without magit and missing rig)
+
+(ert-deftest ogent-gts-test-issues-context-at-point-detects-town-parent ()
+  "Issue rows under Town Beads resolve to town issues scope."
+  (let ((ogent-gastown--magit-section-available t))
+    (cl-letf (((symbol-function 'ogent-gastown--magit-usable-p) (lambda () t))
+              ((symbol-function 'magit-current-section) (lambda () 'issue))
+              ((symbol-function 'eieio-object-class-name)
+               (lambda (section)
+                 (pcase section
+                   ('issue 'ogent-gastown-issue-item-section)
+                   ('town 'ogent-gastown-town-issues-section)
+                   (_ nil))))
+              ((symbol-function 'slot-boundp)
+               (lambda (section slot)
+                 (pcase (list section slot)
+                   (`(issue parent) t)
+                   (_ nil))))
+              ((symbol-function 'eieio-oref)
+               (lambda (section slot)
+                 (pcase (list section slot)
+                   (`(issue parent) 'town)
+                   (_ nil)))))
+      (should (equal (ogent-gastown--issues-context-at-point)
+                     '(:scope town))))))
+
+(ert-deftest ogent-gts-test-issues-dispatch-opens-town-issues ()
+  "Issues dispatcher opens town issues from town context."
+  (let ((town-called nil)
+        (rig-called nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issues-context-at-point)
+               (lambda () '(:scope town)))
+              ((symbol-function 'ogent-gastown-town-issues)
+               (lambda () (setq town-called t)))
+              ((symbol-function 'ogent-gastown-rig-issues)
+               (lambda (&optional _rig) (setq rig-called t))))
+      (ogent-gastown-issues)
+      (should town-called)
+      (should-not rig-called))))
+
+(ert-deftest ogent-gts-test-issues-dispatch-opens-rig-issues-with-context-rig ()
+  "Issues dispatcher passes the rig when rig scope context is available."
+  (let ((resolved-rig nil))
+    (cl-letf (((symbol-function 'ogent-gastown--issues-context-at-point)
+               (lambda () '(:scope rig :rig "ogent")))
+              ((symbol-function 'ogent-gastown-rig-issues)
+               (lambda (&optional rig-name)
+                 (setq resolved-rig rig-name))))
+      (ogent-gastown-issues)
+      (should (equal resolved-rig "ogent")))))
 
 (ert-deftest ogent-gts-test-rig-issues-errors-on-missing-dir ()
   "Test rig-issues errors when rig directory does not exist."

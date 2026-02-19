@@ -33,7 +33,7 @@
 (declare-function ogent-gastown-nudge "ogent-gastown-status")
 (declare-function ogent-gastown-rig-status "ogent-gastown-status")
 (declare-function ogent-gastown-refinery-status "ogent-gastown-status")
-(declare-function ogent-gastown-rig-issues "ogent-gastown-status")
+(declare-function ogent-gastown-issues "ogent-gastown-status")
 (declare-function ogent-gastown-issue-close "ogent-gastown-status")
 (declare-function ogent-gastown-issue-prioritize "ogent-gastown-status")
 (declare-function ogent-gastown-issue-claim "ogent-gastown-status")
@@ -66,7 +66,7 @@
 (autoload 'ogent-gastown-nudge "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-rig-status "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-refinery-status "ogent-gastown-status" nil t)
-(autoload 'ogent-gastown-rig-issues "ogent-gastown-status" nil t)
+(autoload 'ogent-gastown-issues "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-issue-close "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-issue-prioritize "ogent-gastown-status" nil t)
 (autoload 'ogent-gastown-issue-claim "ogent-gastown-status" nil t)
@@ -122,7 +122,7 @@
     ("X" "Claim issue" ogent-gastown-issue-claim)
     ("b" "Block issue" ogent-gastown-issue-block)]
    ["Other"
-    ("i" "Rig issues" ogent-gastown-rig-issues)
+    ("i" "Issues list" ogent-gastown-issues)
     ("o" "Show hook" ogent-gastown-hook-show)
     ("c" "Convoy" ogent-gastown-convoy-status)
     ("+" "Create bead" ogent-gastown-bead-create)]
