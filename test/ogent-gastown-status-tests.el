@@ -1021,6 +1021,21 @@
   (let ((town-status '(:agents nil)))
     (should-not (ogent-gastown--extract-deacon town-status))))
 
+(ert-deftest ogent-gts-test-extract-deacon-coerces-running-from-has-session ()
+  "Extracted deacon normalizes :has_session into canonical :running."
+  (let ((town-status '(:agents ((:name "deacon" :running nil :has_session t)))))
+    (let ((result (ogent-gastown--extract-deacon town-status)))
+      (should result)
+      (should (eq (plist-get result :running) t)))))
+
+(ert-deftest ogent-gts-test-agent-running-p-supports-multiple-shapes ()
+  "Agent running detection accepts common truthy representations."
+  (should (ogent-gastown--agent-running-p '(:running t)))
+  (should (ogent-gastown--agent-running-p '(:session_running "true")))
+  (should (ogent-gastown--agent-running-p '(:has_session 1)))
+  (should-not (ogent-gastown--agent-running-p '(:running nil)))
+  (should-not (ogent-gastown--agent-running-p '(:session_running "false"))))
+
 ;;; Extract Witnesses Tests
 
 (ert-deftest ogent-gts-test-extract-witnesses-basic ()
@@ -3387,7 +3402,7 @@
     (cl-letf (((symbol-function 'read-string)
                (lambda (&rest _) "bead-99"))
               ((symbol-function 'ogent-gastown-status--run-async)
-               (lambda (_args _callback &optional err-callback _raw)
+               (lambda (_args _callback &optional err-callback _raw _run-directory)
                  (when err-callback
                    (funcall err-callback "hook failed"))))
               ((symbol-function 'message)
@@ -4792,6 +4807,80 @@
                  '("hook" "status" "ogent/witness" "--json")
                  (ogent-gastown--hook-status-command-args)))))))
 
+(ert-deftest ogent-gts-test-prepend-path-dirs-prefers-tmux-host-dir ()
+  "Preferred tmux directory is prepended when available."
+  (let* ((tmux-dir (make-temp-file "ogent-gts-tmux-path-" t))
+         (tmux-bin (expand-file-name "tmux" tmux-dir)))
+    (unwind-protect
+        (progn
+          (write-region "#!/bin/sh\nexit 0\n" nil tmux-bin nil 'silent)
+          (set-file-modes tmux-bin #o755)
+          (should
+           (equal
+            (concat tmux-dir ":/nix/store/tmux-3.5a/bin:/usr/bin")
+            (ogent-gastown--prepend-path-dirs
+             "/nix/store/tmux-3.5a/bin:/usr/bin"
+             (list tmux-dir)))))
+      (delete-directory tmux-dir t))))
+
+(ert-deftest ogent-gts-test-prepend-path-dirs-avoids-duplicates ()
+  "Preferred tmux directory is not duplicated in PATH."
+  (let* ((tmux-dir (make-temp-file "ogent-gts-tmux-path-" t))
+         (tmux-bin (expand-file-name "tmux" tmux-dir)))
+    (unwind-protect
+        (progn
+          (write-region "#!/bin/sh\nexit 0\n" nil tmux-bin nil 'silent)
+          (set-file-modes tmux-bin #o755)
+          (should
+           (equal
+            (concat tmux-dir ":/usr/bin")
+            (ogent-gastown--prepend-path-dirs
+             (concat tmux-dir ":/usr/bin")
+             (list tmux-dir)))))
+      (delete-directory tmux-dir t))))
+
+(ert-deftest ogent-gts-test-prepend-path-dirs-moves-existing-entry-to-front ()
+  "Preferred tmux directory is moved to the front when already present."
+  (let* ((tmux-dir (make-temp-file "ogent-gts-tmux-path-" t))
+         (tmux-bin (expand-file-name "tmux" tmux-dir))
+         (path (concat "/nix/store/tmux-3.5a/bin:" tmux-dir ":/usr/bin")))
+    (unwind-protect
+        (progn
+          (write-region "#!/bin/sh\nexit 0\n" nil tmux-bin nil 'silent)
+          (set-file-modes tmux-bin #o755)
+          (should
+           (equal
+            (concat tmux-dir ":/nix/store/tmux-3.5a/bin:/usr/bin")
+            (ogent-gastown--prepend-path-dirs path (list tmux-dir)))))
+      (delete-directory tmux-dir t))))
+
+(ert-deftest ogent-gts-test-gt-process-environment-sets-term-and-path ()
+  "gt subprocess environment sets TERM and applies preferred PATH."
+  (let* ((tmux-dir (make-temp-file "ogent-gts-tmux-path-" t))
+         (tmux-bin (expand-file-name "tmux" tmux-dir))
+         (process-environment
+          '("PATH=/nix/store/tmux-3.5a/bin:/usr/bin"
+            "TERM=xterm-256color"
+            "FOO=bar"))
+         (ogent-gastown-preferred-path-dirs (list tmux-dir)))
+    (unwind-protect
+        (progn
+          (write-region "#!/bin/sh\nexit 0\n" nil tmux-bin nil 'silent)
+          (set-file-modes tmux-bin #o755)
+          (let* ((env (ogent-gastown--gt-process-environment))
+                 (path-entry (seq-find (lambda (entry)
+                                         (string-prefix-p "PATH=" entry))
+                                       env))
+                 (term-entry (seq-find (lambda (entry)
+                                         (string-prefix-p "TERM=" entry))
+                                       env)))
+            (should (equal term-entry "TERM=dumb"))
+            (should
+             (equal
+              path-entry
+              (concat "PATH=" tmux-dir ":/nix/store/tmux-3.5a/bin:/usr/bin")))))
+      (delete-directory tmux-dir t))))
+
 (ert-deftest ogent-gts-test-fetch-contract-town-status-uses-fast ()
   "Test fetch-all uses --fast flag for town status."
   (with-temp-buffer
@@ -4807,6 +4896,47 @@
         (should (member '("status" "--json" "--fast") captured-args))
         ;; Old contract without --fast MUST NOT appear
         (should-not (member '("status" "--json") captured-args))))))
+
+(ert-deftest ogent-gts-test-fetch-contract-fast-status-falls-back-when-stale ()
+  "Fetch-all retries with full status when fast payload reports all stopped."
+  (with-temp-buffer
+    (let* ((fast-status
+            '(:summary (:rig_count 1)
+              :agents ((:name "deacon" :running nil))
+              :rigs ((:name "r1"
+                      :agents ((:name "witness" :running nil))))))
+           (full-status
+            '(:summary (:rig_count 1)
+              :agents ((:name "deacon" :running t))
+              :rigs ((:name "r1"
+                      :agents ((:name "witness" :running t))))))
+           (ogent-gastown--town-root "/tmp/gt")
+           (ogent-gastown-cache-ttl 0)
+           (captured-status-args nil)
+           (callback-called nil)
+           (deacon-running nil))
+      (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _error-callback _raw _run-directory)
+                   (when (equal (car args) "status")
+                     (push args captured-status-args))
+                   (cond
+                    ((equal args '("status" "--json" "--fast"))
+                     (funcall callback fast-status))
+                    ((equal args '("status" "--json"))
+                     (funcall callback full-status))
+                    (t
+                     (funcall callback nil)))))
+                ((symbol-function 'ogent-issues-bd-list)
+                 (lambda (callback &optional _filters _error-callback)
+                   (funcall callback nil))))
+        (ogent-gastown--fetch-all
+         (lambda ()
+           (setq callback-called t)
+           (setq deacon-running (plist-get ogent-gastown--deacon-data :running))))
+        (should callback-called)
+        (should (member '("status" "--json" "--fast") captured-status-args))
+        (should (member '("status" "--json") captured-status-args))
+        (should deacon-running)))))
 
 (ert-deftest ogent-gts-test-fetch-contract-polecat-uses-all-flag ()
   "Test fetch-all uses --all flag for polecat list."
