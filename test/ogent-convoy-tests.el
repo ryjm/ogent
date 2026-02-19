@@ -108,6 +108,21 @@
   (should-error (ogent-convoy-inspect "") :type 'user-error)
   (should-error (ogent-convoy-inspect nil) :type 'user-error))
 
+(ert-deftest ogent-convoy-test-inspect-uses-provided-workspace-root ()
+  "Inspect stores the explicit workspace root for convoy fetches."
+  (let* ((convoy-id "workspace-root-test")
+         (workspace-root "/tmp/ogent-convoy-workspace")
+         (buffer-name (format ogent-convoy-buffer-name-format convoy-id)))
+    (cl-letf (((symbol-function 'ogent-convoy-refresh) #'ignore)
+              ((symbol-function 'pop-to-buffer-same-window) #'ignore))
+      (unwind-protect
+          (progn
+            (ogent-convoy-inspect convoy-id workspace-root)
+            (with-current-buffer buffer-name
+              (should (equal ogent-convoy--workspace-root workspace-root))))
+        (when-let ((buffer (get-buffer buffer-name)))
+          (kill-buffer buffer))))))
+
 ;;; Header Line Tests
 
 (ert-deftest ogent-convoy-test-header-line-shows-id ()
