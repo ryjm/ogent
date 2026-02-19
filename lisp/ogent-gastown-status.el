@@ -138,6 +138,19 @@ Invalid face symbols are ignored and default faces are used."
                 :value-type face)
   :group 'ogent-gastown)
 
+(defcustom ogent-gastown-preferred-path-dirs
+  (let ((profile-bin (format "/etc/profiles/per-user/%s/bin" (user-login-name))))
+    (delq nil
+          (list (when (file-directory-p profile-bin)
+                  profile-bin)
+                (when (file-directory-p "/run/current-system/sw/bin")
+                  "/run/current-system/sw/bin"))))
+  "Directories prepended to PATH for `gt' subprocesses.
+This avoids stale shell PATH ordering where an incompatible `tmux'
+binary can cause `gt status' to report every rig as stopped."
+  :type '(repeat directory)
+  :group 'ogent-gastown)
+
 ;;; Faces
 
 (defgroup ogent-gastown-faces nil
@@ -703,6 +716,61 @@ Accepts both real gt output (:running) and canonical keys
   "Normalize a list of WORKERS to canonical shape."
   (delq nil (mapcar #'ogent-gastown--normalize-worker workers)))
 
+(defun ogent-gastown--agent-running-p (agent)
+  "Return non-nil when AGENT appears to be running.
+Accepts runtime flags from multiple payload variants:
+`:running', `:session_running', and `:has_session'."
+  (cl-labels ((truthy (value)
+                (cond
+                 ((eq value t) t)
+                 ((numberp value) (> value 0))
+                 ((stringp value)
+                  (member (downcase (string-trim value))
+                          '("1" "true" "t" "yes" "running" "active")))
+                 (t nil))))
+    (or (and (plist-member agent :running)
+             (truthy (plist-get agent :running)))
+        (and (plist-member agent :session_running)
+             (truthy (plist-get agent :session_running)))
+        (and (plist-member agent :has_session)
+             (truthy (plist-get agent :has_session))))))
+
+(defun ogent-gastown--normalize-rig-agent (agent)
+  "Normalize rig AGENT runtime keys to canonical shape."
+  (when agent
+    (let ((normalized (copy-sequence agent)))
+      (plist-put normalized :running (ogent-gastown--agent-running-p agent))
+      normalized)))
+
+(defun ogent-gastown--normalize-rig (rig)
+  "Normalize RIG plist to canonical shape for rendering."
+  (when rig
+    (let* ((normalized (copy-sequence rig))
+           (agents (plist-get rig :agents)))
+      (plist-put normalized :agents
+                 (delq nil (mapcar #'ogent-gastown--normalize-rig-agent agents)))
+      normalized)))
+
+(defun ogent-gastown--normalize-rig-list (rigs)
+  "Normalize a list of RIGS to canonical shape."
+  (delq nil (mapcar #'ogent-gastown--normalize-rig rigs)))
+
+(defun ogent-gastown--town-status-needs-full-refresh-p (town-status)
+  "Return non-nil when fast TOWN-STATUS likely under-reports runtime state."
+  (let* ((deacon (seq-find (lambda (agent)
+                             (string= (plist-get agent :name) "deacon"))
+                           (plist-get town-status :agents)))
+         (rigs (ogent-gastown--normalize-rig-list (plist-get town-status :rigs)))
+         (deacon-running (and deacon (ogent-gastown--agent-running-p deacon)))
+         (any-rig-running
+          (seq-some
+           (lambda (rig)
+             (seq-some #'ogent-gastown--agent-running-p (plist-get rig :agents)))
+           rigs)))
+    (and rigs
+         (not deacon-running)
+         (not any-rig-running))))
+
 (defvar-local ogent-gastown--workers-data nil
   "Cached workers list data.")
 
@@ -810,6 +878,50 @@ Suppresses highlighting so the entire buffer doesn't light up.")
 (defvar ogent-gastown--processes nil
   "List of active gt processes.")
 
+(defun ogent-gastown--env-set (env key value)
+  "Return ENV with KEY set to VALUE."
+  (cons (format "%s=%s" key value)
+        (seq-remove (lambda (entry)
+                      (string-prefix-p (concat key "=") entry))
+                    env)))
+
+(defun ogent-gastown--path-components (path)
+  "Split PATH into non-empty components."
+  (split-string (or path "") path-separator t))
+
+(defun ogent-gastown--prepend-path-dirs (path dirs)
+  "Return PATH with DIRS placed first, preserving DIRS order.
+Only directories containing an executable `tmux' are considered.
+If a preferred directory already exists later in PATH, move it to front."
+  (let* ((components (ogent-gastown--path-components path))
+         (preferred nil))
+    (dolist (dir dirs)
+      (when (and (stringp dir)
+                 (not (string-empty-p dir))
+                 (file-directory-p dir)
+                 (file-executable-p (expand-file-name "tmux" dir)))
+        (push dir preferred)))
+    (setq preferred (nreverse (delete-dups preferred)))
+    (if preferred
+        (let ((filtered components))
+          (dolist (dir preferred)
+            (setq filtered (delete dir filtered)))
+          (string-join (append preferred filtered) path-separator))
+      path)))
+
+(defun ogent-gastown--gt-process-environment ()
+  "Return subprocess environment for `gt' commands.
+Ensures TERM probing stays quiet and preferred tmux directories are
+available first in PATH."
+  (let* ((path (or (getenv "PATH") ""))
+         (adjusted-path (ogent-gastown--prepend-path-dirs
+                         path
+                         ogent-gastown-preferred-path-dirs))
+         (env (ogent-gastown--env-set process-environment "TERM" "dumb")))
+    (if (equal adjusted-path path)
+        env
+      (ogent-gastown--env-set env "PATH" adjusted-path))))
+
 (defun ogent-gastown--normalize-dir (dir)
   "Return DIR as an absolute directory path, or nil."
   (when (and dir (not (string-empty-p dir)) (file-directory-p dir))
@@ -855,10 +967,10 @@ When RUN-DIRECTORY is non-nil, execute from that directory."
     (let* ((command-root (or (ogent-gastown--normalize-dir run-directory)
                              workspace-root))
            (default-directory command-root)
-         ;; Suppress termenv/lipgloss terminal escape sequences (OSC 11,
-         ;; CSI 6n) that pollute stdout when gt runs as a subprocess.
-         ;; TERM=dumb prevents the Go termenv library from probing.
-         (process-environment (cons "TERM=dumb" process-environment))
+           ;; Suppress termenv/lipgloss terminal escape sequences (OSC 11,
+           ;; CSI 6n) that pollute stdout when gt runs as a subprocess.
+           ;; Also prefer host tmux binary when PATH ordering is stale.
+           (process-environment (ogent-gastown--gt-process-environment))
          (buffer (generate-new-buffer " *ogent-gt*"))
          (stderr-buffer (generate-new-buffer " *ogent-gt-stderr*"))
          (proc nil)
@@ -969,10 +1081,11 @@ When RUN-DIRECTORY is non-nil, execute and cache by that directory."
     (unless workspace-root
       (user-error "Not in a Gas Town workspace"))
     (let ((default-directory (or (ogent-gastown--normalize-dir run-directory)
-                                 workspace-root)))
+                                 workspace-root))
+          (process-environment (ogent-gastown--gt-process-environment)))
       (async-shell-command
        (string-join
-       (mapcar #'shell-quote-argument
+        (mapcar #'shell-quote-argument
                 (cons ogent-gastown-gt-executable args))
         " ")
        output-buffer))))
@@ -1661,7 +1774,8 @@ DEFERRED-CALLBACK runs after each deferred section update."
                     (setq ogent-gastown--witness-data
                           (ogent-gastown--extract-witnesses town-status))
                     (setq ogent-gastown--rigs-data
-                          (plist-get town-status :rigs))
+                          (ogent-gastown--normalize-rig-list
+                           (plist-get town-status :rigs)))
                     (ogent-gastown--sync-selected-rig))
                   ;; Keep the same hash table so deferred updates mutate in place.
                   (setq ogent-gastown--fetch-errors errors)
@@ -1731,16 +1845,29 @@ DEFERRED-CALLBACK runs after each deferred section update."
     (ogent-gastown--run-async-cached
      '("status" "--json" "--fast")
      (lambda (result)
-       (puthash 'town-status result results)
-       (remhash 'town-status errors)
-       (when (buffer-live-p buf)
-         (with-current-buffer buf
-           (setq ogent-gastown--rigs-data (plist-get result :rigs))
-           (ogent-gastown--sync-selected-rig)))
-       (let ((selected-rig (and (buffer-live-p buf)
-                                (with-current-buffer buf ogent-gastown--selected-rig))))
-         (funcall fetch-rig-scoped selected-rig))
-       (funcall check-core-done))
+       (let ((apply-town-status
+              (lambda (status)
+                (puthash 'town-status status results)
+                (remhash 'town-status errors)
+                (when (buffer-live-p buf)
+                  (with-current-buffer buf
+                    (setq ogent-gastown--rigs-data
+                          (ogent-gastown--normalize-rig-list
+                           (plist-get status :rigs)))
+                    (ogent-gastown--sync-selected-rig)))
+                (let ((selected-rig (and (buffer-live-p buf)
+                                         (with-current-buffer buf ogent-gastown--selected-rig))))
+                  (funcall fetch-rig-scoped selected-rig))
+                (funcall check-core-done))))
+         (if (ogent-gastown--town-status-needs-full-refresh-p result)
+             (ogent-gastown-status--run-async
+              '("status" "--json")
+              (lambda (full-result)
+                (funcall apply-town-status full-result))
+              (lambda (_err)
+                ;; Fall back to fast payload when full query fails.
+                (funcall apply-town-status result)))
+           (funcall apply-town-status result))))
      (lambda (err)
        (puthash 'town-status nil results)
        (puthash 'town-status err errors)
@@ -1797,9 +1924,13 @@ DEFERRED-CALLBACK runs after each deferred section update."
   "Extract deacon info from TOWN-STATUS."
   (when town-status
     (let ((agents (plist-get town-status :agents)))
-      (seq-find (lambda (agent)
-                  (string= (plist-get agent :name) "deacon"))
-                agents))))
+      (when-let* ((deacon
+                   (seq-find (lambda (agent)
+                               (string= (plist-get agent :name) "deacon"))
+                             agents)))
+        (let ((normalized (copy-sequence deacon)))
+          (plist-put normalized :running (ogent-gastown--agent-running-p deacon))
+          normalized)))))
 
 (defun ogent-gastown--extract-witnesses (town-status)
   "Extract witness info from TOWN-STATUS."
@@ -2748,7 +2879,7 @@ HEADING-INDENT and ISSUE-INDENT control nesting alignment."
          (has-witness (plist-get rig :has_witness))
          (has-refinery (plist-get rig :has_refinery))
          (agents (plist-get rig :agents))
-         (any-running (seq-some (lambda (a) (plist-get a :running)) agents)))
+         (any-running (seq-some #'ogent-gastown--agent-running-p agents)))
     (magit-insert-section (ogent-gastown-rig-item-section rig t)
       (insert "  ")
       (insert (propertize name 'face 'ogent-gastown-rig-name))
@@ -2849,7 +2980,7 @@ BEADS-STATS is a plist with :ready, :in_progress, :blocked, :open, :closed, :tot
   (let* ((ogent-ops-use-unicode ogent-gastown-use-unicode)
          (name (plist-get agent :name))
          (role (plist-get agent :role))
-         (running (plist-get agent :running))
+         (running (ogent-gastown--agent-running-p agent))
          (has-work (plist-get agent :has_work))
          (unread (or (plist-get agent :unread_mail) 0))
          (role-icon (pcase role
