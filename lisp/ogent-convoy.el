@@ -613,10 +613,9 @@ Other:
 ;;; Entry Point
 
 ;;;###autoload
-(defun ogent-convoy-inspect (convoy-id &optional _workspace-root)
+(defun ogent-convoy-inspect (convoy-id &optional workspace-root)
   "Open the convoy inspector for CONVOY-ID.
-Optional WORKSPACE-ROOT is accepted for forward compatibility but
-currently unused."
+Optional WORKSPACE-ROOT scopes gt commands to that workspace."
   (interactive "sConvoy ID: ")
   (unless (and convoy-id (not (string-empty-p convoy-id)))
     (user-error "No convoy ID specified"))
