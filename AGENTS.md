@@ -76,6 +76,8 @@ These live in the repo and take precedence over global knowledge:
 - Write `ert-deftest` cases in files ending with `-tests.el`; mimic the production namespace (`ogent-context-tests.el`).
 - Cover handle resolution, context preview summaries, async multi-model routing, and keybinding regressions. Target ≥90% coverage for `ogent-context.el`.
 - Run `make test` locally before every PR; CI rejects failures automatically.
+- After any merge or push to `master`/`main`, verify CI passes before ending the session:
+  `gh run list --limit 1` then `gh run watch <run-id>` (or check the run URL) and confirm success.
 
 ## Commit & Pull Request Guidelines
 
