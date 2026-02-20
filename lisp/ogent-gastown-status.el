@@ -952,6 +952,76 @@ available first in PATH."
                (not (equal workspace-root invocation-dir)))
       invocation-dir)))
 
+(defun ogent-gastown--beads-command-root (directory)
+  "Return nearest command root for DIRECTORY that contains a `.beads' database."
+  (let ((normalized (ogent-gastown--normalize-dir directory)))
+    (when normalized
+      (let ((beads-root (locate-dominating-file normalized ".beads")))
+        (ogent-gastown--normalize-dir beads-root)))))
+
+(defun ogent-gastown--hook-target-command-root-candidates (target workspace-root)
+  "Return command root candidates for hook TARGET under WORKSPACE-ROOT."
+  (let* ((root (ogent-gastown--normalize-dir workspace-root))
+         (selected-rig (and (boundp 'ogent-gastown--selected-rig)
+                            ogent-gastown--selected-rig))
+         (rigs-from-status (delq nil (mapcar (lambda (rig) (plist-get rig :name))
+                                             ogent-gastown--rigs-data)))
+         (rig-hints (cl-remove-duplicates
+                     (delq nil (append (list selected-rig (string-trim (or (getenv "GT_RIG") "")))
+                                       rigs-from-status))
+                     :test #'string=))
+         (parts (split-string (or target "") "/" t))
+         (invocation-dir (ogent-gastown--normalize-dir ogent-gastown--invocation-dir))
+         (candidates nil))
+    (when invocation-dir
+      (push invocation-dir candidates))
+    (when-let ((role-home (ogent-gastown--normalize-dir (getenv "GT_ROLE_HOME"))))
+      (push role-home candidates))
+    (when root
+      (cond
+       ((equal target "mayor/")
+        (dolist (rig rig-hints)
+          (push (expand-file-name (format "%s/mayor/rig" rig) root) candidates)
+          (push (expand-file-name (format "%s/mayor" rig) root) candidates))
+        (push (expand-file-name "mayor/rig" root) candidates)
+        (push (expand-file-name "mayor" root) candidates))
+       ((equal target "deacon/")
+        (push (expand-file-name "deacon" root) candidates))
+       ((equal target "deacon/boot")
+        (push (expand-file-name "deacon/dogs/boot" root) candidates))
+       ((and (= (length parts) 2)
+             (string= (cadr parts) "witness"))
+        (let ((rig (car parts)))
+          (push (expand-file-name (format "%s/witness/rig" rig) root) candidates)
+          (push (expand-file-name (format "%s/witness" rig) root) candidates)))
+       ((and (= (length parts) 2)
+             (string= (cadr parts) "refinery"))
+        (let ((rig (car parts)))
+          (push (expand-file-name (format "%s/refinery/rig" rig) root) candidates)
+          (push (expand-file-name (format "%s/refinery" rig) root) candidates)))
+       ((and (>= (length parts) 3)
+             (string= (nth 1 parts) "crew"))
+        (let ((rig (car parts))
+              (crew (nth 2 parts)))
+          (push (expand-file-name (format "%s/crew/%s/rig" rig crew) root) candidates)
+          (push (expand-file-name (format "%s/crew/%s" rig crew) root) candidates)))
+       ((and (>= (length parts) 3)
+             (string= (nth 1 parts) "polecats"))
+        (let ((rig (car parts))
+              (polecat (nth 2 parts)))
+          (push (expand-file-name (format "%s/polecats/%s" rig polecat) root) candidates)
+          (push (expand-file-name (format "%s/polecat/%s" rig polecat) root) candidates)))))
+    (cl-remove-duplicates (delq nil candidates) :test #'string=)))
+
+(defun ogent-gastown--hook-command-root ()
+  "Return best command root for hook commands with a valid beads DB."
+  (let* ((workspace-root (ogent-gastown--active-workspace-root))
+         (target (ogent-gastown--hook-status-target)))
+    (or (seq-some #'ogent-gastown--beads-command-root
+                  (ogent-gastown--hook-target-command-root-candidates target workspace-root))
+        ;; Fallback to prior behavior for edge workspaces.
+        (ogent-gastown--identity-command-root))))
+
 (defun ogent-gastown-status--run-async (args callback &optional error-callback raw-output run-directory)
   "Run gt with ARGS asynchronously, call CALLBACK with result.
 ERROR-CALLBACK receives error message on failure.
@@ -1845,20 +1915,31 @@ DEFERRED-CALLBACK runs after each deferred section update."
     (ogent-gastown--run-async-cached
      '("status" "--json" "--fast")
      (lambda (result)
-       (let ((apply-town-status
-              (lambda (status)
-                (puthash 'town-status status results)
-                (remhash 'town-status errors)
-                (when (buffer-live-p buf)
-                  (with-current-buffer buf
-                    (setq ogent-gastown--rigs-data
-                          (ogent-gastown--normalize-rig-list
-                           (plist-get status :rigs)))
-                    (ogent-gastown--sync-selected-rig)))
-                (let ((selected-rig (and (buffer-live-p buf)
-                                         (with-current-buffer buf ogent-gastown--selected-rig))))
-                  (funcall fetch-rig-scoped selected-rig))
-                (funcall check-core-done))))
+       (let* ((fetch-hook-status
+               (lambda ()
+                 (ogent-gastown--run-async-cached
+                  (ogent-gastown--hook-status-command-args)
+                  (lambda (hook-result)
+                    (funcall update-deferred 'hook hook-result nil))
+                  (lambda (hook-err)
+                    (funcall update-deferred 'hook nil hook-err))
+                  nil
+                  (ogent-gastown--hook-command-root))))
+              (apply-town-status
+               (lambda (status)
+                 (puthash 'town-status status results)
+                 (remhash 'town-status errors)
+                 (when (buffer-live-p buf)
+                   (with-current-buffer buf
+                     (setq ogent-gastown--rigs-data
+                           (ogent-gastown--normalize-rig-list
+                            (plist-get status :rigs)))
+                     (ogent-gastown--sync-selected-rig)))
+                 (let ((selected-rig (and (buffer-live-p buf)
+                                          (with-current-buffer buf ogent-gastown--selected-rig))))
+                   (funcall fetch-rig-scoped selected-rig))
+                 (funcall fetch-hook-status)
+                 (funcall check-core-done))))
          (if (ogent-gastown--town-status-needs-full-refresh-p result)
              (ogent-gastown-status--run-async
               '("status" "--json")
@@ -1876,18 +1957,17 @@ DEFERRED-CALLBACK runs after each deferred section update."
                                   (ogent-gastown--sync-selected-rig)
                                   ogent-gastown--selected-rig))))
          (funcall fetch-rig-scoped selected-rig))
+       (ogent-gastown--run-async-cached
+        (ogent-gastown--hook-status-command-args)
+        (lambda (hook-result)
+          (funcall update-deferred 'hook hook-result nil))
+        (lambda (hook-err)
+          (funcall update-deferred 'hook nil hook-err))
+        nil
+        (ogent-gastown--hook-command-root))
        (funcall check-core-done)))
 
     ;; Deferred: load slower sections in the background.
-    (ogent-gastown--run-async-cached
-     (ogent-gastown--hook-status-command-args)
-     (lambda (result)
-       (funcall update-deferred 'hook result nil))
-     (lambda (err)
-       (funcall update-deferred 'hook nil err))
-     nil
-     (ogent-gastown--identity-command-root))
-
     (ogent-gastown--run-async-cached
      '("mail" "inbox" "--json")
      (lambda (result)
@@ -3574,7 +3654,7 @@ Prompts for the blocker issue ID."
   (ogent-gastown-status--run-shell-command
    (ogent-gastown--hook-status-human-command-args)
    "*gt hook*"
-   (ogent-gastown--identity-command-root)))
+   (ogent-gastown--hook-command-root)))
 
 (defun ogent-gastown-hook-attach ()
   "Attach work to hook."
@@ -3589,7 +3669,7 @@ Prompts for the blocker issue ID."
      (lambda (err)
        (message "Failed to hook: %s" err))
      t
-     (ogent-gastown--identity-command-root))))
+     (ogent-gastown--hook-command-root))))
 
 ;;; Sling (Work Dispatch)
 

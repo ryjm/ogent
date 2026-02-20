@@ -4930,6 +4930,45 @@
               (concat "PATH=" tmux-dir ":/nix/store/tmux-3.5a/bin:/usr/bin")))))
       (delete-directory tmux-dir t))))
 
+(ert-deftest ogent-gts-test-hook-command-root-prefers-rig-mayor-with-beads-db ()
+  "Hook command root should resolve to a beads-backed rig mayor path."
+  (let* ((workspace (make-temp-file "ogent-gts-hook-root-" t))
+         (invocation (expand-file-name "mayor" workspace))
+         (rig-mayor (expand-file-name "ogent/mayor/rig" workspace)))
+    (unwind-protect
+        (progn
+          (make-directory invocation t)
+          (make-directory (expand-file-name ".beads" rig-mayor) t)
+          (with-temp-buffer
+            (setq ogent-gastown--town-root workspace
+                  ogent-gastown--invocation-dir invocation
+                  ogent-gastown--selected-rig "ogent"
+                  ogent-gastown--rigs-data (list '(:name "ogent")))
+            (cl-letf (((symbol-function 'ogent-gastown--hook-status-target)
+                       (lambda () "mayor/"))
+                      ((symbol-function 'getenv)
+                       (lambda (_name) nil)))
+              (should (equal (file-name-as-directory rig-mayor)
+                             (ogent-gastown--hook-command-root))))))
+      (delete-directory workspace t))))
+
+(ert-deftest ogent-gts-test-fetch-contract-hook-status-uses-hook-command-root ()
+  "Hook status fetch should run from hook command root, not bare invocation dir."
+  (with-temp-buffer
+    (let ((ogent-gastown--town-root "/tmp/gt")
+          (ogent-gastown-cache-ttl 0)
+          (hook-run-directory nil))
+      (cl-letf (((symbol-function 'ogent-gastown--hook-command-root)
+                 (lambda () "/tmp/hook-root/"))
+                ((symbol-function 'ogent-gastown-status--run-async)
+                 (lambda (args callback &optional _error-callback _raw run-directory)
+                   (when (and (equal (car args) "hook")
+                              (member "status" args))
+                     (setq hook-run-directory run-directory))
+                 (funcall callback nil))))
+        (ogent-gastown--fetch-all #'ignore)
+        (should (equal "/tmp/hook-root/" hook-run-directory))))))
+
 (ert-deftest ogent-gts-test-fetch-contract-town-status-uses-fast ()
   "Test fetch-all uses --fast flag for town status."
   (with-temp-buffer
