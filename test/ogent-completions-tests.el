@@ -850,9 +850,7 @@
     (setq ogent-completions--current-index (make-hash-table :test 'equal))
     (insert "** Question\nPrompt\n** Response\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nContent\n")
     (goto-char (point-min))
-    ;; cl-return-from uses throw; catch it here
-    (catch '--cl-block-ogent-completion-next--
-      (ogent-completion-next))))
+    (ogent-completion-next)))
 
 (ert-deftest ogent-completions-prev-single-completion-no-error ()
   "ogent-completion-prev returns early when only one completion."
@@ -862,9 +860,7 @@
     (setq ogent-completions--current-index (make-hash-table :test 'equal))
     (insert "** Question\nPrompt\n** Response\n:PROPERTIES:\n:RESPONSE-INDEX: 1\n:END:\nContent\n")
     (goto-char (point-min))
-    ;; cl-return-from uses throw; catch it here
-    (catch '--cl-block-ogent-completion-prev--
-      (ogent-completion-prev))))
+    (ogent-completion-prev)))
 
 ;;; Error When Not in Context
 
