@@ -27,7 +27,8 @@ jobs:
 
       - name: Test
         run: |
-          emacs -Q --batch \
+          # setup-emacs/Nix needs site startup for compressed core Lisp.
+          emacs --batch \
             -L lisp -L lisp/ui -L test -L test/ui \
             -l test/ogent-test-helper.el \
             --eval '(progn
