@@ -723,7 +723,7 @@ function ensure-tests-available {
     # $2 is set, give an error and return 1; otherwise give verbose message.  $1
     # should have a corresponding predicate command, like ert-tests-p for ERT.
     local test_name=$1
-    local test_command="${test_name,,}-tests-p"  # Converts name to lowercase.
+    local test_command="$(printf '%s' "$test_name" | tr '[:upper:]' '[:lower:]')-tests-p"
     local direct_p=$2
 
     if ! $test_command
