@@ -81,7 +81,7 @@ Otherwise, return the cached version or fetch synchronously."
 Return nil if OK, or an error message string if not."
   (cond
    ((not (ogent-issues-bd-available-p))
-    "bd CLI not found. Install beads: https://github.com/jmillerv/beads")
+    "bd CLI not found. Install beads: https://github.com/gastownhall/beads")
    ((not (ogent-issues-bd-initialized-p))
     (format "No beads project found (searched up from %s). Run: bd init"
             (abbreviate-file-name default-directory)))
@@ -398,7 +398,7 @@ ERROR-CALLBACK is called on error with an error message."
        t))))
 
 (defun ogent-issues-bd-start (id callback &optional error-callback)
-  "Mark issue ID as in-progress, calling CALLBACK on success.
+  "Claim issue ID, calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
     (if err
@@ -408,7 +408,7 @@ ERROR-CALLBACK is called on error with an error message."
             (user-error "%s" err))
           nil)
       (ogent-issues-bd--run-async
-       (list "update" id "--status" "in_progress")
+       (list "update" id "--claim")
        (lambda (_result)
          (ogent-issues-bd-cache-invalidate)
          (funcall callback))
@@ -434,7 +434,7 @@ ERROR-CALLBACK is called on error with an error message."
        t))))
 
 (defun ogent-issues-bd-sync (callback &optional error-callback)
-  "Sync beads to git, calling CALLBACK on success.
+  "Run `bd sync', calling CALLBACK on success.
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
     (if err

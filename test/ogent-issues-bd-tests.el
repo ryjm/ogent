@@ -241,7 +241,7 @@ OUTPUT should be a plist or list that will be JSON-encoded."
   "Test creating an issue."
   (ogent-issues-bd-cache-invalidate)
   (ogent-issues-bd-test-with-mock ogent-issues-bd-test--sample-issue
-				  (let ((_result nil))
+				  (let ((result nil))
 				    (ogent-issues-bd-create "New issue"
 							    (lambda (issue)
 							      (setq result issue))
@@ -272,7 +272,7 @@ OUTPUT should be a plist or list that will be JSON-encoded."
 				      (should (member "Done" args))))))
 
 (ert-deftest ogent-issues-bd-test-start ()
-  "Test starting an issue."
+  "Test claiming an issue."
   (ogent-issues-bd-cache-invalidate)
   (ogent-issues-bd-test-with-mock "Started"
 				  (let ((called nil))
@@ -281,7 +281,7 @@ OUTPUT should be a plist or list that will be JSON-encoded."
 							     (setq called t)))
 				    (should called)
 				    (let ((args (car ogent-issues-bd-test--captured-args)))
-				      (should (equal '("update" "test-abc" "--status" "in_progress")
+				      (should (equal '("update" "test-abc" "--claim")
                                                      args))))))
 
 (ert-deftest ogent-issues-bd-test-sync ()

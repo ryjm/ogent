@@ -31,6 +31,7 @@ To verify your setup:
 which gt                    # Should return path to gt executable
 which bd                    # Should return path to bd executable
 gt status --json --fast     # Fast town snapshot (run from town root)
+bd doctor                   # Beads health checks
 ```
 
 ## Quick Start
@@ -44,6 +45,9 @@ gt status --json --fast     # Fast town snapshot (run from town root)
 4. **Find ready work**: `M-x ogent-gastown-show-ready` or `SPC o G r`
 
 5. **Claim an issue**: `M-x ogent-gastown-claim-issue` or `SPC o G C`
+
+6. **Dispatch work**: from the issues buffer, use `M-x ogent-issues-sling-issue`
+   to run `gt sling <issue> <target>`.
 
 ## Key Concepts
 
@@ -63,11 +67,15 @@ A Gas Town workspace (the "town") contains multiple **rigs**:
 
 ### Beads (Issue Tracking)
 
-Beads is a git-native issue tracker. Issues have:
+Beads is a Dolt-backed graph issue tracker. Issues have:
 - **ID**: Prefixed identifier (e.g., `gt-abc`)
 - **Status**: open, in_progress, blocked, closed
 - **Dependencies**: Issues can block other issues
 - **Molecules**: Workflow templates attached to issues
+
+Use `bd update <id> --claim` to claim Beads-only work atomically. Use
+`gt sling <id> [target]` when the work should land on an agent hook and start
+execution immediately.
 
 ### Hook
 
@@ -125,7 +133,7 @@ The status buffer runs six parallel async fetches on every refresh:
 
 | Section | Command | Data |
 |---------|---------|------|
-| Hook | `gt hook status mayor/ --json` | Current hook assignment |
+| Hook | `gt mol status mayor/ --json` | Current hook assignment |
 | Mail | `gt mail inbox --json` | Inbox messages |
 | Convoy | `gt convoy list --json` | Active convoys |
 | Workers | `gt polecat list --all --json` | Polecat states |
@@ -177,9 +185,11 @@ Prompts for an issue ID and displays full details including:
 **`ogent-gastown-claim-issue`** (`SPC o G C`)
 
 Claim an issue to work on. This:
-1. Sets status to `in_progress`
+1. Runs `bd update <id> --claim`
 2. Assigns you as the worker
-3. Hooks the issue (makes it your current assignment)
+3. Sets status to `in_progress`
+
+Use `gt sling` when the issue should also become hooked work for an agent.
 
 **`ogent-gastown-close-issue`** (`SPC o G x`)
 
@@ -201,9 +211,9 @@ Run this at the start of each session.
 **`ogent-gastown-done`** (`SPC o G d`)
 
 End your session cleanly:
-1. Sync beads changes
-2. Create handoff notes
-3. Push to remote
+1. Submit the current branch to the merge queue
+2. Notify the Witness with the completion outcome
+3. Exit the polecat session
 
 **`ogent-gastown-show-hook`** (`SPC o G h`)
 
@@ -312,7 +322,7 @@ renders the same placeholder text as legitimately empty data.
    timeout 12 gt status --json --fast
 
    # Hook status
-   timeout 12 gt hook status mayor/ --json
+   timeout 12 gt mol status mayor/ --json
 
    # Mail inbox
    timeout 12 gt mail inbox --json
@@ -383,8 +393,9 @@ to appear empty.
 
 **Solution:**
 1. Run `ogent-gastown-prime` to refresh
-2. Check `gt hook` in terminal
-3. Verify beads sync: `bd sync --status`
+2. Check `gt mol status` in terminal
+3. Check Beads health: `bd doctor`
+4. Inspect Dolt state: `bd vc status`
 
 ## Integration with ogent
 

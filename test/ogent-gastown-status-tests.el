@@ -3139,7 +3139,7 @@
                           'ogent-rig-path tmpdir))
       (goto-char (point-min))
       (cl-letf (((symbol-function 'ogent-issues-bd-get)
-                 (lambda (id callback &optional err-callback)
+                 (lambda (id _callback &optional _err-callback)
                    (setq bd-called id)))
                 ((symbol-function 'file-directory-p)
                  (lambda (_path) t)))
@@ -4868,7 +4868,7 @@
 ;;; --- Fetch Command Contract Tests ---
 
 (ert-deftest ogent-gts-test-hook-status-command-args-defaults-to-mayor ()
-  "Test hook status args default to mayor target when role env is absent."
+  "Test molecule status args default to mayor target when role env is absent."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt"))
       (cl-letf (((symbol-function 'getenv)
@@ -4881,11 +4881,11 @@
                      ("GT_ROLE_HOME" "")
                      (_ nil)))))
         (should (equal
-                 '("hook" "status" "mayor/" "--json")
+                 '("mol" "status" "mayor/" "--json")
                  (ogent-gastown--hook-status-command-args)))))))
 
 (ert-deftest ogent-gts-test-hook-status-command-args-respects-gt-role ()
-  "Test hook status args use explicit GT_ROLE identities when present."
+  "Test molecule status args use explicit GT_ROLE identities when present."
   (with-temp-buffer
     (let ((ogent-gastown--town-root "/tmp/gt"))
       (cl-letf (((symbol-function 'getenv)
@@ -4894,7 +4894,7 @@
                      ("GT_ROLE" "ogent/witness")
                      (_ nil)))))
         (should (equal
-                 '("hook" "status" "ogent/witness" "--json")
+                 '("mol" "status" "ogent/witness" "--json")
                  (ogent-gastown--hook-status-command-args)))))))
 
 (ert-deftest ogent-gts-test-prepend-path-dirs-prefers-tmux-host-dir ()

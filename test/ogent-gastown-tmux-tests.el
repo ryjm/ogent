@@ -528,7 +528,7 @@
   "Test default quick commands are defined."
   (should ogent-gastown-tmux-quick-commands)
   (should (assoc "Check mail" ogent-gastown-tmux-quick-commands))
-  (should (assoc "Sync beads" ogent-gastown-tmux-quick-commands))
+  (should (assoc "Beads doctor" ogent-gastown-tmux-quick-commands))
   (should (assoc "Show hook" ogent-gastown-tmux-quick-commands)))
 
 ;;; VTerm Attach Tests
