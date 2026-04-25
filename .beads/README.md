@@ -1,81 +1,62 @@
-# Beads - AI-Native Issue Tracking
+# Beads / Gas Town Workflow
 
-Welcome to Beads! This repository uses **Beads** for issue tracking - a modern, AI-native tool designed to live directly in your codebase alongside your code.
+Current repo guidance as of 2026-04-24.
 
-## What is Beads?
+This repo uses `bd` (Beads) for dependency-aware issue tracking and Gas Town
+for multi-agent dispatch when the checkout is inside a town. Current Beads
+storage is Dolt-backed. The runtime database lives under `.beads/dolt/` and is
+ignored by git; tracked `.beads/` files are configuration, metadata, prime
+context, and lightweight exports.
 
-Beads is issue tracking that lives in your repo, making it perfect for AI coding agents and developers who want their issues close to their code. No web UI required - everything works through the CLI and integrates seamlessly with git.
-
-**Learn more:** [github.com/steveyegge/beads](https://github.com/steveyegge/beads)
-
-## Quick Start
-
-### Essential Commands
+## Startup
 
 ```bash
-# Create new issues
-bd create "Add user authentication"
-
-# View all issues
-bd list
-
-# View issue details
-bd show <issue-id>
-
-# Update issue status
-bd update <issue-id> --status in_progress
-bd update <issue-id> --status done
-
-# Sync with git remote
-bd sync
+bd prime          # Print agent workflow context
+gt prime          # Restore Gas Town role context when in a town
+gt mol status     # Check your hook
+gt mail inbox     # Check mail if your hook is empty
+bd ready          # Find unblocked Beads work
 ```
 
-### Working with Issues
+If `gt mol status` shows hooked work, that work is the assignment. Execute it.
 
-Issues in Beads are:
-- **Git-native**: Stored in `.beads/issues.jsonl` and synced like code
-- **AI-friendly**: CLI-first design works perfectly with AI coding agents
-- **Branch-aware**: Issues can follow your branch workflow
-- **Always in sync**: Auto-syncs with your commits
-
-## Why Beads?
-
-✨ **AI-Native Design**
-- Built specifically for AI-assisted development workflows
-- CLI-first interface works seamlessly with AI coding agents
-- No context switching to web UIs
-
-🚀 **Developer Focused**
-- Issues live in your repo, right next to your code
-- Works offline, syncs when you push
-- Fast, lightweight, and stays out of your way
-
-🔧 **Git Integration**
-- Automatic sync with git commits
-- Branch-aware issue tracking
-- Intelligent JSONL merge resolution
-
-## Get Started with Beads
-
-Try Beads in your own projects:
+## Work Commands
 
 ```bash
-# Install Beads
-curl -sSL https://raw.githubusercontent.com/steveyegge/beads/main/scripts/install.sh | bash
-
-# Initialize in your repo
-bd init
-
-# Create your first issue
-bd create "Try out Beads"
+bd create "Title" --type task --priority 2
+bd update <id> --claim
+bd show <id>
+bd close <id> --reason "Completed"
+gt sling <id> [target]
+gt done
 ```
 
-## Learn More
+Use `bd update <id> --claim` for Beads-only work. Use `gt sling` when work
+should land on an agent hook and start immediately.
 
-- **Documentation**: [github.com/steveyegge/beads/docs](https://github.com/steveyegge/beads/tree/main/docs)
-- **Quick Start Guide**: Run `bd quickstart`
-- **Examples**: [github.com/steveyegge/beads/examples](https://github.com/steveyegge/beads/tree/main/examples)
+## Maintenance
 
----
+```bash
+bd doctor
+bd hooks install --force
+bd worktree info
+bd vc status
+bd dolt commit
+bd dolt pull
+bd dolt push
+```
 
-*Beads: Issue tracking that moves at the speed of thought* ⚡
+`bd sync` is a compatibility command under the Dolt backend. The CLI reports it
+as a no-op because Dolt persists writes directly.
+
+## Worktrees
+
+Prefer `bd worktree create` for new worktrees. It creates a local
+`.beads/redirect` file pointing at the shared Beads database. The redirect is
+intentionally ignored and must stay local. For manually-created worktrees, run
+`bd worktree info` and keep `BEADS_NO_DAEMON=1` for direct access.
+
+## References
+
+- Canonical Beads repo: <https://github.com/gastownhall/beads>
+- Published docs: <https://gastownhall.github.io/beads/>
