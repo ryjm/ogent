@@ -47,6 +47,10 @@
                                  (ogent-request "Test prompt" '("gpt-4o-mini"))
                                  (should (string-match-p "Test prompt"
                                                          (plist-get captured :prompt)))
+                                 (should (string-match-p "# Resolved @handles"
+                                                         (plist-get captured :prompt)))
+                                 (should (string-match-p "Final supporting text"
+                                                         (plist-get captured :prompt)))
                                  (should (eq (plist-get captured :backend) 'gptel-openai))
                                  (should (equal (plist-get captured :model) "gpt-4o-mini"))
                                  (save-excursion
@@ -82,12 +86,37 @@
                                    (should (search-forward "** Request: This is a longer test prompt that should be truncated in ..." nil t))
                                    ;; Src block should be directly under Request headline
                                    (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
-                                   (should (search-forward "Prompt:" nil t))
+                                   (should (search-forward "# User Prompt" nil t))
                                    (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
                                    (should (search-forward "#+end_src" nil t))
                                    ;; Response should be a level 3 heading (nested under Request)
                                    (should (search-forward "*** Response" nil t))
                                    (should (search-forward "Response text" nil t))))))))
+
+(ert-deftest ogent-ui-response-block-escapes-org-syntax-in-context ()
+  "Prompt/context transcripts escape Org syntax that would split src blocks."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let* ((context (ogent-context-build-with-source
+                                              (current-buffer) nil nil))
+                                    (model '(:id "gpt-4o-mini"))
+                                    (block (ogent-ui--create-response-block
+                                            "Test prompt" context model))
+                                    (block-start (plist-get block :block-start)))
+                               (goto-char block-start)
+                               (should (eq (org-element-type (org-element-context))
+                                           'src-block))
+                               (let ((block-end (save-excursion
+                                                  (search-forward "#+end_src")
+                                                  (point))))
+                                 (goto-char block-start)
+                                 (should (search-forward ",*** Deep Note" block-end t))
+                                 (goto-char block-start)
+                                 (should-not (search-forward "\n*** Deep Note"
+                                                             block-end t)))))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
   "ogent-ui--ensure-gptel requires gptel plus declared backend features."
@@ -858,6 +887,28 @@
                   (should (seq-find (lambda (d) (eq (plist-get d :type) :added)) diff)))
                 (setq ogent-ui--previous-context "Root: modified"))))
         (kill-buffer buffer)))))
+
+(ert-deftest ogent-ui-context-preview-renders-send-payload ()
+  "Context preview uses the same hydrated renderer as request dispatch."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-context-preview-buffer-name "*test-ogent-context-payload*")
+                                    (ogent--transient-prompt "Preview prompt")
+                                    (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+                               (unwind-protect
+                                   (progn
+                                     (ogent-context-preview)
+                                     (with-current-buffer preview-buffer
+                                       (let ((payload (buffer-string)))
+                                         (should (string-match-p "# User Prompt" payload))
+                                         (should (string-match-p "Preview prompt" payload))
+                                         (should (string-match-p "# Resolved @handles" payload))
+                                         (should (string-match-p "Final supporting text" payload)))))
+                                 (when (buffer-live-p preview-buffer)
+                                   (kill-buffer preview-buffer)))))))
 
 ;;; Error Collection and Display Tests
 

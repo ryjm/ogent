@@ -127,7 +127,45 @@
 				       (should (string= (ogent-context-node-title
 							 (plist-get ctx :root))
 							"Root Overview"))))
-				 (kill-buffer source-buffer))))))
+					 (kill-buffer source-buffer))))))
+
+(ert-deftest ogent-context-build-with-source-respects-exclusions ()
+  "Combined context filters dependencies using excluded handles."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let* ((ogent-context-excluded-handles '("details-block"))
+				    (ctx (ogent-context-build-with-source (current-buffer)))
+				    (deps (plist-get ctx :dependencies))
+				    (handles (mapcar (lambda (dep)
+						       (plist-get dep :handle))
+						     deps)))
+			       (should-not (member "details-block" handles))
+			       (should (member "deep-note" handles))
+			       (should (equal (plist-get ctx :excluded-handles)
+					      '("details-block")))))))
+
+(ert-deftest ogent-context-render-prompt-hydrates-dependencies ()
+  "Rendered prompt includes resolved dependency content, not just names."
+  (ogent-test-with-fixture "data/fixture.org"
+			   (lambda ()
+			     (goto-char (point-min))
+			     (search-forward "Root Overview")
+			     (org-back-to-heading t)
+			     (let* ((ctx (ogent-context-build-filtered))
+				    (payload (ogent-context-render-prompt
+					      "Explain this tree" ctx)))
+			       (should (string-match-p "# User Prompt" payload))
+			       (should (string-match-p "Explain this tree" payload))
+			       (should (string-match-p "# Resolved @handles" payload))
+			       (should (string-match-p "## @details-block: Details Block" payload))
+			       (should (string-match-p "This paragraph cites @appendix-note" payload))
+			       (should (string-match-p "## @appendix-note: Appendix Note" payload))
+			       (should (string-match-p "Final supporting text" payload))
+			       (should (string-match-p "# Missing @handles" payload))
+			       (should (string-match-p "- @missing-note" payload))))))
 
 ;;; Lazy context building tests
 

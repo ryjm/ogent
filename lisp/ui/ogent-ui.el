@@ -21,6 +21,7 @@
 ;; Forward declarations for source context
 (declare-function ogent-context-build-with-source "ogent-context")
 (declare-function ogent-context--format-source-context "ogent-context")
+(declare-function ogent-context-render-prompt "ogent-context")
 (declare-function ogent-pinned-item-type "ogent-context")
 (declare-function ogent-pinned-item-label "ogent-context")
 (declare-function ogent-pinned-item-content "ogent-context")
@@ -526,28 +527,30 @@ concurrently (fan-out mode)."
     (with-current-buffer companion
       (let ((context (ogent-context-build-with-source
                       source-buffer region-start region-end)))
-        (if ogent-ui--selected-models
-            ;; Multi-model fan-out: dispatch to all selected models
-            (dolist (model-id ogent-ui--selected-models)
-              (let* ((model (ogent-models-ensure model-id))
+        (if (ogent-validate-and-prompt context)
+            (if ogent-ui--selected-models
+                ;; Multi-model fan-out: dispatch to all selected models
+                (dolist (model-id ogent-ui--selected-models)
+                  (let* ((model (ogent-models-ensure model-id))
+                         (request (funcall ogent-response-function final-prompt context model)))
+                    (unless (ogent-ui-request-p request)
+                      (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                    (setf (ogent-ui-request-preset request) effective-preset)
+                    (setf (ogent-ui-request-source-buffer request) source-buffer)
+                    (ogent-ui--send-request request)))
+              ;; Single model: use current gptel-backend/gptel-model
+              (let* ((model (list :id (if (fboundp 'gptel--model-name)
+                                          (gptel--model-name gptel-model)
+                                        gptel-model)
+                                  :backend gptel-backend
+                                  :stream? gptel-stream))
                      (request (funcall ogent-response-function final-prompt context model)))
                 (unless (ogent-ui-request-p request)
                   (user-error "ogent-response-function must return an `ogent-ui-request'"))
                 (setf (ogent-ui-request-preset request) effective-preset)
                 (setf (ogent-ui-request-source-buffer request) source-buffer)
                 (ogent-ui--send-request request)))
-          ;; Single model: use current gptel-backend/gptel-model
-          (let* ((model (list :id (if (fboundp 'gptel--model-name)
-                                      (gptel--model-name gptel-model)
-                                    gptel-model)
-                              :backend gptel-backend
-                              :stream? gptel-stream))
-                 (request (funcall ogent-response-function final-prompt context model)))
-            (unless (ogent-ui-request-p request)
-              (user-error "ogent-response-function must return an `ogent-ui-request'"))
-            (setf (ogent-ui-request-preset request) effective-preset)
-            (setf (ogent-ui-request-source-buffer request) source-buffer)
-            (ogent-ui--send-request request)))))))
+          (message "Ogent request canceled"))))))
 
 ;; Note: ogent--suffix-send replaced by ogent--suffix-send-action
 ;; which includes visual feedback via ogent-theme-flash
@@ -705,6 +708,11 @@ Used for retry functionality.")
         (org-mode)))
     buffer))
 
+(defun ogent-ui--preview-prompt ()
+  "Return the prompt text to display in context previews."
+  (or ogent--transient-prompt
+      "(prompt will be supplied at dispatch)"))
+
 (defun ogent-ui--read-prompt ()
   "Derive the prompt from the region or minibuffer."
   (if (use-region-p)
@@ -834,18 +842,16 @@ DIFF-RESULT is a list of plists from `ogent-ui--diff-strings'."
   (unless (bolp) (insert "\n"))
   (let ((model-label (string-join models ", ")))
     (insert (format "#+begin_src text :model %s\n" model-label))
-    (insert content)
+    (insert (ogent-ui--escape-org-block-content content))
     (unless (string-suffix-p "\n" content)
       (insert "\n"))
     (insert "#+end_src\n")))
 
 (defun ogent-ui-insert-response-block (prompt context models)
   "Default response function writing PROMPT and CONTEXT to Org."
-  (let ((summary (ogent-ui--format-context context)))
-    (ogent-ui--insert-src-block
-     (format "Prompt:\n%s\n\nContext Summary:\n%s\n"
-             prompt summary)
-     models)))
+  (ogent-ui--insert-src-block
+   (ogent-ui--render-prompt prompt context)
+   models))
 
 ;;;###autoload
 (defun ogent-context-preview ()
@@ -859,15 +865,15 @@ When invoked from a non-Org buffer, includes source buffer context."
     (with-current-buffer companion
       (let* ((context (ogent-context-build-with-source
                        source-buffer region-start region-end))
-             (summary (ogent-ui--format-context context))
+             (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
              (buffer (ogent-ui--context-buffer)))
         (with-current-buffer buffer
           (let ((previous ogent-ui--previous-context))
-            (insert summary)
+            (insert payload)
             (goto-char (point-min))
             ;; Apply diff highlighting if we have previous context
             (when previous
-              (let ((diff (ogent-ui--diff-strings previous summary)))
+              (let ((diff (ogent-ui--diff-strings previous payload)))
                 (when diff
                   (ogent-ui--apply-diff-overlays diff)
                   ;; Clear overlays after 3 seconds
@@ -879,7 +885,7 @@ When invoked from a non-Org buffer, includes source buffer context."
                                               (ogent-ui--clear-diff-overlays))))
                                         buffer)))))
             ;; Update previous context for next comparison
-            (setq ogent-ui--previous-context summary)))
+            (setq ogent-ui--previous-context payload)))
         (display-buffer buffer)))))
 
 (defun ogent-ui--context-preview-visible-p ()
@@ -909,10 +915,10 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
       (with-current-buffer companion
         (let* ((context (ogent-context-build-with-source
                          source-buffer region-start region-end))
-               (summary (ogent-ui--format-context context))
+               (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
                (buffer (ogent-ui--context-buffer)))
           (with-current-buffer buffer
-            (insert summary)
+            (insert payload)
             (goto-char (point-min)))
           ;; Use side-window with slot -1 to appear above transient (slot 0)
           (setq ogent-ui--context-preview-window
@@ -1192,6 +1198,25 @@ exist before `ogent-request' dispatches."
   (setq ogent-ui--request-seq (1+ ogent-ui--request-seq))
   (format "ogent-request-%d" ogent-ui--request-seq))
 
+(defun ogent-ui--escape-org-block-content (content)
+  "Return CONTENT escaped for literal storage inside an Org block.
+The prompt sent to the model remains unescaped.  This only protects the
+transcript copy from Org syntax that can terminate or split the block."
+  (replace-regexp-in-string "^\\(\\*\\|#\\+\\)" ",\\1" content))
+
+(defun ogent-ui--hide-src-block-at (position)
+  "Hide the Org source block at POSITION when folding is available."
+  (when (and position
+             (derived-mode-p 'org-mode)
+             (fboundp 'org-fold-hide-block-toggle))
+    (save-excursion
+      (goto-char position)
+      (when (looking-at "^#\\+begin_src")
+        (condition-case nil
+            (org-fold-hide-block-toggle 'hide)
+          (user-error nil)
+          (error nil))))))
+
 (defun ogent-ui--create-response-block (prompt context model)
   "Insert a nested headline structure for a request with MODEL.
 Creates a top-level '* Request: <truncated prompt>' headline containing
@@ -1209,7 +1234,7 @@ Returns a plist containing a streaming marker and block-start marker."
     (unless (bolp) (insert "\n")))
   (let* ((model-id (plist-get model :id))
          (backend (plist-get model :backend))
-         (summary (ogent-ui--format-context context))
+         (payload (ogent-ui--render-prompt prompt context))
          ;; Truncate prompt for headline (max 60 chars)
          (prompt-summary (truncate-string-to-width prompt 60 nil nil "..."))
          request-heading-pos
@@ -1225,15 +1250,11 @@ Returns a plist containing a streaming marker and block-start marker."
                     (if backend
                         (format " :backend %s" (ogent-ui--backend-label backend))
                       "")))
-    (insert (format "Prompt:\n%s\n\nContext Summary:\n%s\n"
-                    prompt summary))
+    (insert (ogent-ui--escape-org-block-content payload))
+    (insert "\n")
     (insert "#+end_src\n\n")
-    ;; Fold the context src block immediately
-    (save-excursion
-      (goto-char block-start)
-      (when (and (derived-mode-p 'org-mode)
-                 (fboundp 'org-fold-hide-block-toggle))
-        (org-fold-hide-block-toggle 'hide)))
+    ;; Fold the context src block immediately.
+    (ogent-ui--hide-src-block-at block-start)
     ;; Insert Response sub-headline as child of Request (level 3)
     ;; Include model name for multi-model fan-out disambiguation
     (setq response-heading-pos (point))
@@ -1425,13 +1446,7 @@ heading (see `ogent-shift-response-headings')."
   (let ((block-start (ogent-ui-request-block-start request)))
     (when (and block-start (marker-buffer block-start))
       (with-current-buffer (ogent-ui-request-buffer request)
-        (save-excursion
-          (goto-char block-start)
-          (when (and (looking-at "^#\\+begin_src")
-                     (derived-mode-p 'org-mode)
-                     (fboundp 'org-fold-hide-block-toggle))
-            ;; Fold the src block
-            (org-fold-hide-block-toggle 'hide)))))))
+        (ogent-ui--hide-src-block-at block-start)))))
 
 (defcustom ogent-ui-request-history-max 20
   "Maximum number of closed requests to keep in history."
@@ -1694,24 +1709,24 @@ Results are displayed in the buffer."
             (pcase approval
               (`approved
                (cond
-		;; Edit tools: show diff preview instead of executing
-		((ogent-ui--is-edit-tool-p tool-name)
+                ;; Edit tools: show diff preview instead of executing
+                ((ogent-ui--is-edit-tool-p tool-name)
                  (condition-case err
                      (ogent-ui--show-diff-for-tool tool-name tool-args)
                    (error
                     (ogent-ui--insert-tool-block
                      tool-name tool-args
                      (format "[Diff preview error: %s]" (error-message-string err))))))
-		;; Async-capable tools: stream output incrementally
-		((ogent-ui--async-tool-p tool-name)
+                ;; Async-capable tools: stream output incrementally
+                ((ogent-ui--async-tool-p tool-name)
                  (ogent-ui--execute-tool-async tool-name tool-args))
-		;; All other tools: execute synchronously
-		(t
+                ;; All other tools: execute synchronously
+                (t
                  (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                   (ogent-ui--insert-tool-block tool-name tool-args result))))))
-            ('denied
+                   (ogent-ui--insert-tool-block tool-name tool-args result)))))
+            (`denied
              (ogent-ui--insert-tool-block tool-name tool-args
-                                          "[Tool execution denied by user]"))))))))
+                                          "[Tool execution denied by user]")))))))))
 
 (defun ogent-ui--check-tool-approval (tool-name tool-args)
   "Check if TOOL-NAME with TOOL-ARGS should be executed.
@@ -1814,21 +1829,7 @@ preset name strings found in the prompt."
 
 (defun ogent-ui--render-prompt (prompt context)
   "Render PROMPT and CONTEXT into the final text sent to gptel."
-  (let* ((root (plist-get context :root))
-         (content (when root (ogent-context-node-content root)))
-         (pinned (plist-get context :pinned))
-         (pinned-content (when pinned
-                           (ogent-pinned-context-string)))
-         (segments (delq nil
-                         (list (format "Prompt:\n%s" prompt)
-                               (format "Org Context:\n%s"
-                                       (ogent-ui--format-context context))
-                               (when (and content (not (string-empty-p content)))
-                                 (format "Subtree Content:\n%s" content))
-                               (when (and pinned-content
-                                          (not (string-empty-p pinned-content)))
-                                 (format "Pinned Context:\n%s" pinned-content))))))
-    (string-join segments "\n\n")))
+  (ogent-context-render-prompt prompt context))
 
 (defun ogent-ui--send-request (request)
   "Send REQUEST to the LLM via gptel.
@@ -1922,21 +1923,24 @@ The source buffer content is captured for context."
                                         gptel-model)
                                     (plist-get (ogent-models-default) :id)))))
              last-request)
-        (dolist (model-id model-ids)
-          (let* ((model (ogent-models-ensure model-id))
-                 (request (funcall ogent-response-function final-prompt context model)))
-            (unless (ogent-ui-request-p request)
-              (user-error "ogent-response-function must return an `ogent-ui-request'"))
-            (setf (ogent-ui-request-preset request) effective-preset)
-            (setf (ogent-ui-request-source-buffer request) source-buffer)
-            (ogent-ui--send-request request)
-            (setq last-request request)))
-        ;; Position cursor at response heading in companion window
-        (when-let* ((response-pos (and last-request
-                                       (ogent-ui-request-response-pos last-request)))
-                    (win (get-buffer-window companion)))
-          (with-selected-window win
-            (goto-char response-pos)))))))
+        (if (ogent-validate-and-prompt context)
+            (progn
+              (dolist (model-id model-ids)
+                (let* ((model (ogent-models-ensure model-id))
+                       (request (funcall ogent-response-function final-prompt context model)))
+                  (unless (ogent-ui-request-p request)
+                    (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                  (setf (ogent-ui-request-preset request) effective-preset)
+                  (setf (ogent-ui-request-source-buffer request) source-buffer)
+                  (ogent-ui--send-request request)
+                  (setq last-request request)))
+              ;; Position cursor at response heading in companion window
+              (when-let* ((response-pos (and last-request
+                                             (ogent-ui-request-response-pos last-request)))
+                          (win (get-buffer-window companion)))
+                (with-selected-window win
+                  (goto-char response-pos))))
+          (message "Ogent request canceled"))))))
 
 ;;; Tool and Reasoning Block Support
 

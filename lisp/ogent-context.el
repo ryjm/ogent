@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'org)
 (require 'org-element)
+(require 'subr-x)
 (require 'thunk)
 
 (defgroup ogent nil
@@ -312,6 +313,14 @@ If REGION-START and REGION-END are provided, include the selected region."
      :region-start region-start
      :region-end region-end)))
 
+(defun ogent-context--source-line-number (source-ctx position)
+  "Return the line number for POSITION in SOURCE-CTX's buffer."
+  (let ((buffer (ogent-source-context-buffer source-ctx)))
+    (if (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (line-number-at-pos position t))
+      0)))
+
 (defun ogent-context--format-source-context (source-ctx)
   "Format SOURCE-CTX as a string for the prompt."
   (let ((file (or (ogent-source-context-file source-ctx) "(unsaved)"))
@@ -324,10 +333,179 @@ If REGION-START and REGION-END are provided, include the selected region."
             mode
             (if (and region-start region-end)
                 (format "Selected region (lines %d-%d):"
-                        (line-number-at-pos region-start)
-                        (line-number-at-pos region-end))
+                        (ogent-context--source-line-number source-ctx region-start)
+                        (ogent-context--source-line-number source-ctx region-end))
               "Full buffer:")
             content)))
+
+(defun ogent-context--node-location (node)
+  "Return a human-readable source location for NODE."
+  (let ((buffer (ogent-context-node-buffer node)))
+    (cond
+     ((and (buffer-live-p buffer) (buffer-file-name buffer))
+      (buffer-file-name buffer))
+     ((buffer-live-p buffer)
+      (buffer-name buffer))
+     (t "generated"))))
+
+(defun ogent-context--format-node-reference (node)
+  "Return a compact one-line reference for NODE."
+  (format "%s (id: %s, source: %s)"
+          (or (ogent-context-node-title node) "<untitled>")
+          (or (ogent-context-node-id node) "<none>")
+          (ogent-context--node-location node)))
+
+(defun ogent-context--format-node-payload (label node)
+  "Return full prompt payload for NODE labeled as LABEL."
+  (when node
+    (let ((content (string-trim (or (ogent-context-node-content node) ""))))
+      (string-join
+       (delq nil
+             (list (format "## %s: %s"
+                           label
+                           (or (ogent-context-node-title node) "<untitled>"))
+                   (format "ID: %s" (or (ogent-context-node-id node) "<none>"))
+                   (format "Source: %s" (ogent-context--node-location node))
+                   (unless (string-empty-p content)
+                     (format "Content:\n%s" content))))
+       "\n"))))
+
+(defun ogent-context--format-dependency-payload (dependency)
+  "Return full prompt payload for resolved DEPENDENCY."
+  (let ((node (plist-get dependency :node))
+        (handle (plist-get dependency :handle)))
+    (when node
+      (ogent-context--format-node-payload
+       (format "@%s" handle)
+       node))))
+
+(defun ogent-context--format-pinned-context (items)
+  "Return prompt-ready text for pinned ITEMS."
+  (when items
+    (mapconcat
+     (lambda (item)
+       (let ((content (ogent-pinned-item-content item))
+             (label (ogent-pinned-item-label item))
+             (type (ogent-pinned-item-type item)))
+         (format "## Pinned %s: %s\n%s"
+                 type label
+                 (or content "(content unavailable)"))))
+     items
+     "\n\n")))
+
+(defun ogent-context--format-manifest (context)
+  "Return a compact manifest for CONTEXT."
+  (let* ((source-ctx (plist-get context :source-context))
+         (root (plist-get context :root))
+         (ancestors (plist-get context :ancestors))
+         (dependencies (plist-get context :dependencies))
+         (included (cl-remove-if (lambda (dep)
+                                   (plist-get dep :missing-p))
+                                 dependencies))
+         (missing (cl-remove-if-not (lambda (dep)
+                                      (plist-get dep :missing-p))
+                                    dependencies))
+         (pinned (plist-get context :pinned))
+         (excluded (plist-get context :excluded-handles))
+         (lines nil))
+    (when source-ctx
+      (push (format "- Source buffer: %s (%d chars)"
+                    (or (ogent-source-context-file source-ctx)
+                        (buffer-name (ogent-source-context-buffer source-ctx)))
+                    (length (or (ogent-source-context-content source-ctx) "")))
+            lines))
+    (when root
+      (push (format "- Root: %s" (ogent-context--format-node-reference root))
+            lines))
+    (when ancestors
+      (push (format "- Ancestors: %s"
+                    (string-join
+                     (mapcar #'ogent-context--format-node-reference ancestors)
+                     " -> "))
+            lines))
+    (when included
+      (push (format "- Resolved handles: %s"
+                    (string-join
+                     (mapcar (lambda (dep)
+                               (format "@%s" (plist-get dep :handle)))
+                             included)
+                     ", "))
+            lines))
+    (when missing
+      (push (format "- Missing handles: %s"
+                    (string-join
+                     (mapcar (lambda (dep)
+                               (format "@%s" (plist-get dep :handle)))
+                             missing)
+                     ", "))
+            lines))
+    (when excluded
+      (push (format "- Excluded handles: %s"
+                    (string-join
+                     (mapcar (lambda (handle) (format "@%s" handle))
+                             excluded)
+                     ", "))
+            lines))
+    (when pinned
+      (push (format "- Pinned items: %d" (length pinned)) lines))
+    (if lines
+        (string-join (nreverse lines) "\n")
+      "- No context")))
+
+(defun ogent-context-render-prompt (prompt context)
+  "Render PROMPT and CONTEXT into the exact payload sent to the model."
+  (let* ((source-ctx (plist-get context :source-context))
+         (root (plist-get context :root))
+         (ancestors (plist-get context :ancestors))
+         (dependencies (plist-get context :dependencies))
+         (resolved-dependencies
+          (cl-remove-if (lambda (dep)
+                          (or (plist-get dep :missing-p)
+                              (null (plist-get dep :node))))
+                        dependencies))
+         (missing-dependencies
+          (cl-remove-if-not (lambda (dep)
+                              (plist-get dep :missing-p))
+                            dependencies))
+         (pinned (plist-get context :pinned))
+         (pinned-content (ogent-context--format-pinned-context pinned)))
+    (string-join
+     (delq nil
+           (list "# User Prompt"
+                 prompt
+                 "# Context Manifest"
+                 (ogent-context--format-manifest context)
+                 (when source-ctx
+                   (format "# Source Buffer\n%s"
+                           (ogent-context--format-source-context source-ctx)))
+                 (when ancestors
+                   (format "# Org Ancestors\n%s"
+                           (mapconcat
+                            (lambda (node)
+                              (format "- %s"
+                                      (ogent-context--format-node-reference node)))
+                            ancestors
+                            "\n")))
+                 (when root
+                   (format "# Org Root\n%s"
+                           (ogent-context--format-node-payload "Root" root)))
+                 (when resolved-dependencies
+                   (format "# Resolved @handles\n%s"
+                           (mapconcat
+                            #'ogent-context--format-dependency-payload
+                            resolved-dependencies
+                            "\n\n")))
+                 (when missing-dependencies
+                   (format "# Missing @handles\n%s"
+                           (mapconcat
+                            (lambda (dep)
+                              (format "- @%s" (plist-get dep :handle)))
+                            missing-dependencies
+                            "\n")))
+                 (when (and pinned-content
+                            (not (string-empty-p pinned-content)))
+                   (format "# Pinned Context\n%s" pinned-content))))
+     "\n\n")))
 
 (defun ogent-context--slug (string)
   "Return a kebab-case slug for STRING."
@@ -585,23 +763,25 @@ Returns a plist with :source-context for non-Org or standard Org context keys."
 The current buffer should be an Org companion buffer.
 SOURCE-BUFFER is the code buffer the user is editing.
 Returns context with both Org structure (if any), source code, and pinned items."
-  (let ((source-ctx (when (and source-buffer
-                               (buffer-live-p source-buffer)
-                               ;; Use buffer-local-value for faster check
-                               (not (eq (buffer-local-value 'major-mode source-buffer)
-                                        'org-mode)))
-                      (ogent-context--build-source-context
-                       source-buffer region-start region-end)))
-        (org-ctx (when (derived-mode-p 'org-mode)
-                   (condition-case nil
-                       (ogent-context-build)
-                     (error nil))))
-        (pinned-items (ogent-pinned-items-valid)))
+  (let* ((source-ctx (when (and source-buffer
+                                (buffer-live-p source-buffer)
+                                ;; Use buffer-local-value for faster check
+                                (not (eq (buffer-local-value 'major-mode source-buffer)
+                                         'org-mode)))
+                       (ogent-context--build-source-context
+                        source-buffer region-start region-end)))
+         (org-ctx (when (derived-mode-p 'org-mode)
+                    (condition-case nil
+                        (ogent-context-build-filtered)
+                      (error nil))))
+         (pinned-items (or (plist-get org-ctx :pinned)
+                           (ogent-pinned-items-valid))))
     (list :source-context source-ctx
           :root (plist-get org-ctx :root)
           :ancestors (plist-get org-ctx :ancestors)
           :handles (plist-get org-ctx :handles)
           :dependencies (plist-get org-ctx :dependencies)
+          :excluded-handles (plist-get org-ctx :excluded-handles)
           :pinned pinned-items)))
 
 ;;; Lazy Context Building
