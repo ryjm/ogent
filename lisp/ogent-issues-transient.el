@@ -176,7 +176,7 @@ Returns a plist with :file, :line, :function, and :formatted keys."
   [["Sync"
     ("g" "Refresh" ogent-issues-refresh :transient t)
     ("G" "Force refresh" ogent-issues-refresh-force :transient t)
-    ("S" "Sync to git" ogent-issues-sync)]
+    ("S" "Run bd sync" ogent-issues-sync)]
    [:description "Gas Town"
     :if ogent-gastown-integration-active-p
     ("T" "Gas Town status" ogent-issues-goto-gastown)

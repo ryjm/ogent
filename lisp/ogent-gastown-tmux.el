@@ -63,8 +63,8 @@ Used when `ogent-gastown-tmux-attach-method' is `external'."
 
 (defcustom ogent-gastown-tmux-quick-commands
   '(("Check mail" . "gt mail inbox")
-    ("Sync beads" . "bd sync")
-    ("Show hook" . "gt hook")
+    ("Beads doctor" . "bd doctor")
+    ("Show hook" . "gt mol status")
     ("Prime session" . "gt prime")
     ("Nudge" . "# Nudge sent"))
   "Quick commands for tmux sessions.
@@ -123,7 +123,7 @@ Returns a list of plists with session info."
 (defun ogent-gastown-tmux--get-sessions (&optional force-refresh)
   "Return list of Gas Town tmux sessions.
 Uses cache unless FORCE-REFRESH is non-nil or cache is stale.
-Sessions are filtered to only show those with `ogent-gastown-tmux-session-prefix'."
+Sessions are filtered by `ogent-gastown-tmux-session-prefix'."
   (when (or force-refresh
             (null ogent-gastown-tmux--session-cache)
             (null ogent-gastown-tmux--cache-time)

@@ -122,7 +122,8 @@ Only effective when `ogent-gastown-auto-refresh-mode' is active."
   "Optional per-section heading face overrides.
 When non-nil, this should be an alist of (SECTION . FACE), where SECTION is
 one of `hook', `mail', `convoy', `workers', `stats', `deacon',
-`witnesses', `crew', `polecats', `rigs', or `issues'. FACE must name an existing face.
+`witnesses', `crew', `polecats', `rigs', or `issues'. FACE must name an
+existing face.
 Invalid face symbols are ignored and default faces are used."
   :type '(alist :key-type (choice (const hook)
                                   (const mail)
@@ -1231,11 +1232,11 @@ When RUN-DIRECTORY is non-nil, execute and cache by that directory."
 
 (defun ogent-gastown--hook-status-command-args ()
   "Return `gt` args for JSON hook status queries."
-  (list "hook" "status" (ogent-gastown--hook-status-target) "--json"))
+  (list "mol" "status" (ogent-gastown--hook-status-target) "--json"))
 
 (defun ogent-gastown--hook-status-human-command-args ()
   "Return `gt` args for human-readable hook status queries."
-  (list "hook" "status" (ogent-gastown--hook-status-target)))
+  (list "mol" "status" (ogent-gastown--hook-status-target)))
 
 ;;; Town Detection
 

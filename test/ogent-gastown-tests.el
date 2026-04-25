@@ -1147,7 +1147,7 @@ OUTPUT should be a plist or list that will be returned."
           (let ((update-args (car (last all-args))))
             (should (member "update" update-args))
             (should (member "test-abc" update-args))
-            (should (member "--status=in_progress" update-args))))))))
+            (should (member "--claim" update-args))))))))
 
 (ert-deftest ogent-gastown-test-bd-issue-start-nil-id ()
   "Test bd issue start does nothing when no current issue."
@@ -1247,7 +1247,7 @@ OUTPUT should be a plist or list that will be returned."
           (let ((update-args (car (last all-args))))
             (should (member "update" update-args))
             (should (member "test-abc" update-args))
-            (should (member "--status=in_progress" update-args))))))))
+            (should (member "--claim" update-args))))))))
 
 ;;; Interactive Command Tests - ogent-gastown-send-mail
 
@@ -1343,7 +1343,7 @@ OUTPUT should be a plist or list that will be returned."
 ;;; Interactive Command Tests - ogent-gastown-claim-issue
 
 (ert-deftest ogent-gastown-test-claim-issue ()
-  "Test claim-issue sets status to in_progress."
+  "Test claim-issue uses atomic bd claim."
   (let ((all-args nil))
     (let ((ogent-gastown--bd-ready-cache nil)
           (ogent-gastown-bd-executable "bd"))
@@ -1358,7 +1358,7 @@ OUTPUT should be a plist or list that will be returned."
         (let ((update-args (car (last all-args))))
           (should (member "update" update-args))
           (should (member "issue-123" update-args))
-          (should (member "--status=in_progress" update-args)))))))
+          (should (member "--claim" update-args)))))))
 
 ;;; Interactive Command Tests - ogent-gastown-close-issue
 
@@ -1944,7 +1944,7 @@ OUTPUT should be a plist or list that will be returned."
   "Hook show should run in hook-target-aware command directory."
   (let ((captured nil)
         (hook-dir "/tmp/ogent-test-hook/")
-        (hook-args '("hook" "status" "mayor/")))
+        (hook-args '("mol" "status" "mayor/")))
     (cl-letf (((symbol-function 'ogent-gastown--hook-command-root)
                (lambda () hook-dir))
               ((symbol-function 'ogent-gastown--hook-status-human-command-args)
@@ -1975,7 +1975,7 @@ OUTPUT should be a plist or list that will be returned."
   "Deferred hook fetch should pass hook command root into execution."
   (let ((hook-run-dir nil)
         (hook-root "/tmp/ogent-test-hook/")
-        (hook-args '("hook" "status" "mayor/" "--json")))
+        (hook-args '("mol" "status" "mayor/" "--json")))
     (with-temp-buffer
       (cl-letf (((symbol-function 'ogent-gastown--hook-command-root)
                  (lambda () hook-root))

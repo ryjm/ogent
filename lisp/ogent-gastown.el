@@ -444,7 +444,7 @@ This loads the hooked work and prepares the session."
 
 (defun ogent-gastown-done ()
   "Signal work completion with gt done.
-This syncs beads and submits to the merge queue."
+This submits the current branch to the merge queue."
   (interactive)
   (if (ogent-gastown-in-town-p)
       (progn
@@ -845,6 +845,19 @@ If CALLBACK is provided, call it with the issues list when done."
          (message "Failed to update %s: %s" id err)))
    t))
 
+(defun ogent-gastown-bd-claim (id callback &optional error-callback)
+  "Claim issue ID, calling CALLBACK on success."
+  (ogent-gastown-bd--run-async
+   (list "update" id "--claim")
+   (lambda (_result)
+     (message "Claimed %s" id)
+     (ogent-gastown-bd-ready-refresh)
+     (when callback (funcall callback)))
+   (or error-callback
+       (lambda (err)
+         (message "Failed to claim %s: %s" id err)))
+   t))
+
 (defun ogent-gastown-bd-close (id reason callback &optional error-callback)
   "Close issue ID with REASON, calling CALLBACK on success."
   (ogent-gastown-bd--run-async
@@ -924,9 +937,9 @@ If CALLBACK is provided, call it with the issues list when done."
 
 ;;;###autoload
 (defun ogent-gastown-claim-issue (id)
-  "Claim issue ID by setting status to in_progress."
+  "Claim issue ID with `bd update --claim'."
   (interactive "sIssue ID: ")
-  (ogent-gastown-bd-update id "in_progress" nil))
+  (ogent-gastown-bd-claim id nil))
 
 ;;;###autoload
 (defun ogent-gastown-close-issue (id reason)

@@ -503,7 +503,7 @@ The inherited `value' slot holds the issue plist.")))
     (define-key map "H" #'ogent-issues-kanban-move-left)
     (define-key map "L" #'ogent-issues-kanban-move-right)
     
-    ;; Sync (like magit push/pull)
+    ;; Sync
     (define-key map "S" #'ogent-issues-sync)
     
     ;; Quit
@@ -554,7 +554,7 @@ Views:
 
 Other:
   \\[ogent-issues-refresh]     Refresh
-  \\[ogent-issues-sync]     Sync to git
+  \\[ogent-issues-sync]     Run bd sync
   \\[ogent-issues-dispatch]     Show all commands
 
 \\{ogent-issues-mode-map}"
@@ -1887,11 +1887,11 @@ and re-renders the detail view."
     (user-error "No issue at point")))
 
 (defun ogent-issues-sync ()
-  "Sync issues to git."
+  "Run `bd sync' for the active Beads project."
   (interactive)
   (ogent-issues-bd-sync
    (lambda ()
-     (message "Synced to git")
+     (message "bd sync completed")
      (ogent-issues-refresh))
    (lambda (err)
      (message "Failed to sync: %s" err))))
