@@ -11,6 +11,21 @@
 (require 'ogent-gastown-status)
 (require 'ogent-ops-style)
 
+;;; Test Helpers
+
+(defmacro ogent-gts-test-with-temp-workspace (&rest body)
+  "Evaluate BODY with an isolated Gas Town workspace root."
+  (declare (indent 0) (debug t))
+  `(let ((ogent-gts-test--workspace-root
+          (make-temp-file "ogent-gts-workspace-" t)))
+     (unwind-protect
+         (let ((ogent-gastown--town-root
+                (file-name-as-directory ogent-gts-test--workspace-root))
+               (default-directory
+                (file-name-as-directory ogent-gts-test--workspace-root)))
+           ,@body)
+       (delete-directory ogent-gts-test--workspace-root t))))
+
 ;;; Test Fixtures
 
 (defconst ogent-gts-test--sample-hook-active
@@ -1103,7 +1118,9 @@
     (cl-letf (((symbol-function 'ogent-gastown--insert-plain)
                (lambda () (setq plain-called t)))
               ((symbol-function 'ogent-gastown--insert-with-magit-section)
-               (lambda () (setq magit-called t))))
+               (lambda () (setq magit-called t)))
+              ((symbol-function 'ogent-gastown--magit-usable-p)
+               (lambda () t)))
       (let ((ogent-gastown--magit-section-available t))
         (ogent-gastown--insert-buffer-contents)
         (should magit-called)
@@ -1652,7 +1669,9 @@
                 ((symbol-function 'ogent-gastown--insert-buffer-contents)
                  (lambda ()
                    (cl-incf insert-called)
-                   (insert "placeholder"))))
+                   (insert "placeholder")))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () t)))
         (ogent-gastown--ensure-magit-root-section)
         (should (= insert-called 1))
         (should (equal (buffer-string) "placeholder"))))))
@@ -2809,65 +2828,72 @@
 
 (ert-deftest ogent-gts-test-hook-show-calls-async-shell ()
   "Test hook-show calls async-shell-command."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (ogent-gastown-hook-show)
-      (should (= (length commands) 1))
-      (should (string-match-p "gt hook" (caar commands))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands))))
+        (ogent-gastown-hook-show)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt hook" (caar commands)))))))
 
 ;;; Stats Show Tests
 
 (ert-deftest ogent-gts-test-stats-show-calls-async-shell ()
   "Test stats-show calls async-shell-command."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (ogent-gastown-stats-show)
-      (should (= (length commands) 1))
-      (should (string-match-p "gt status" (caar commands))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands))))
+        (ogent-gastown-stats-show)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt status" (caar commands)))))))
 
 ;;; Deacon Show Tests
 
 (ert-deftest ogent-gts-test-deacon-show-calls-async-shell ()
   "Test deacon-show calls async-shell-command."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (ogent-gastown-deacon-show)
-      (should (= (length commands) 1))
-      (should (string-match-p "gt deacon status" (caar commands))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands))))
+        (ogent-gastown-deacon-show)
+        (should (= (length commands) 1))
+        (should (string-match-p "gt deacon status" (caar commands)))))))
 
 ;;; Crew Status Tests (without magit)
 
 (ert-deftest ogent-gts-test-crew-status-no-magit-lists ()
   "Test crew-status lists all crew when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands)))
-              ((symbol-function 'ogent-gastown--magit-section-available)
-               nil))
-      (let ((ogent-gastown--magit-section-available nil))
-        (ogent-gastown-crew-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt crew list" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands)))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () nil)))
+        (let ((ogent-gastown--magit-section-available nil))
+          (ogent-gastown-crew-status)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt crew list" (caar commands))))))))
 
 ;;; Polecat Status Tests (without magit)
 
 (ert-deftest ogent-gts-test-polecat-status-no-magit-lists ()
   "Test polecat-status lists all polecats when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands))))
-      (let ((ogent-gastown--magit-section-available nil))
-        (ogent-gastown-polecat-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt polecat list" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands)))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () nil)))
+        (let ((ogent-gastown--magit-section-available nil))
+          (ogent-gastown-polecat-status)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt polecat list" (caar commands))))))))
 
 ;;; Convoy Status Tests (without magit)
 
@@ -2892,15 +2918,16 @@
 
 (ert-deftest ogent-gts-test-mail-read-with-explicit-id ()
   "Test mail-read with explicit ID calls async-shell-command."
-  (with-temp-buffer
-    (let ((commands nil)
-          (ogent-gastown--magit-section-available nil))
-      (cl-letf (((symbol-function 'async-shell-command)
-                 (lambda (cmd &optional buf)
-                   (push (list cmd buf) commands))))
-        (ogent-gastown-status-mail-read "test-mail-123")
-        (should (= (length commands) 1))
-        (should (string-match-p "gt mail read test-mail-123" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (with-temp-buffer
+      (let ((commands nil)
+            (ogent-gastown--magit-section-available nil))
+        (cl-letf (((symbol-function 'async-shell-command)
+                   (lambda (cmd &optional buf)
+                     (push (list cmd buf) commands))))
+          (ogent-gastown-status-mail-read "test-mail-123")
+          (should (= (length commands) 1))
+          (should (string-match-p "gt mail read test-mail-123" (caar commands))))))))
 
 ;;; Cleanup Hook Tests
 
@@ -3505,52 +3532,61 @@
 
 (ert-deftest ogent-gts-test-witness-show-no-magit-prompts ()
   "Test witness-show prompts for rig when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands)))
-              ((symbol-function 'completing-read)
-               (lambda (&rest _) "my-rig")))
-      (let ((ogent-gastown--magit-section-available nil)
-            (ogent-gastown--witness-data
-             (list '(:rig "my-rig" :has_witness t))))
-        (ogent-gastown-witness-show)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt witness status my-rig" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands)))
+                ((symbol-function 'completing-read)
+                 (lambda (&rest _) "my-rig"))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () nil)))
+        (let ((ogent-gastown--magit-section-available nil)
+              (ogent-gastown--witness-data
+               (list '(:rig "my-rig" :has_witness t))))
+          (ogent-gastown-witness-show)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt witness status my-rig" (caar commands))))))))
 
 ;;; --- Rig Status Tests (completing-read fallback) ---
 
 (ert-deftest ogent-gts-test-rig-status-no-magit-prompts ()
   "Test rig-status prompts for rig when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands)))
-              ((symbol-function 'completing-read)
-               (lambda (&rest _) "test-rig")))
-      (let ((ogent-gastown--magit-section-available nil)
-            (ogent-gastown--rigs-data
-             (list '(:name "test-rig"))))
-        (ogent-gastown-rig-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt rig status test-rig" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands)))
+                ((symbol-function 'completing-read)
+                 (lambda (&rest _) "test-rig"))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () nil)))
+        (let ((ogent-gastown--magit-section-available nil)
+              (ogent-gastown--rigs-data
+               (list '(:name "test-rig"))))
+          (ogent-gastown-rig-status)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt rig status test-rig" (caar commands))))))))
 
 ;;; --- Refinery Status Tests ---
 
 (ert-deftest ogent-gts-test-refinery-status-no-magit-prompts ()
   "Test refinery-status prompts for rig when magit unavailable."
-  (let ((commands nil))
-    (cl-letf (((symbol-function 'async-shell-command)
-               (lambda (cmd &optional buf)
-                 (push (list cmd buf) commands)))
-              ((symbol-function 'completing-read)
-               (lambda (&rest _) "ref-rig")))
-      (let ((ogent-gastown--magit-section-available nil)
-            (ogent-gastown--rigs-data
-             (list '(:name "ref-rig"))))
-        (ogent-gastown-refinery-status)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt refinery status ref-rig" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (let ((commands nil))
+      (cl-letf (((symbol-function 'async-shell-command)
+                 (lambda (cmd &optional buf)
+                   (push (list cmd buf) commands)))
+                ((symbol-function 'completing-read)
+                 (lambda (&rest _) "ref-rig"))
+                ((symbol-function 'ogent-gastown--magit-usable-p)
+                 (lambda () nil)))
+        (let ((ogent-gastown--magit-section-available nil)
+              (ogent-gastown--rigs-data
+               (list '(:name "ref-rig"))))
+          (ogent-gastown-refinery-status)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt refinery status ref-rig" (caar commands))))))))
 
 ;;; --- Mail Compose Tests ---
 
@@ -3835,19 +3871,22 @@
 
 (ert-deftest ogent-gts-test-mail-read-completing-read-fallback ()
   "Test mail-read falls back to completing-read without magit."
-  (with-temp-buffer
-    (let ((commands nil)
-          (ogent-gastown--magit-section-available nil)
-          (ogent-gastown--mail-data
-           (list '(:id "mail-abc" :from "sender" :subject "Test"))))
-      (cl-letf (((symbol-function 'completing-read)
-                 (lambda (&rest _) "mail-abc"))
-                ((symbol-function 'async-shell-command)
-                 (lambda (cmd &optional buf)
-                   (push (list cmd buf) commands))))
-        (ogent-gastown-status-mail-read)
-        (should (= (length commands) 1))
-        (should (string-match-p "gt mail read mail-abc" (caar commands)))))))
+  (ogent-gts-test-with-temp-workspace
+    (with-temp-buffer
+      (let ((commands nil)
+            (ogent-gastown--magit-section-available nil)
+            (ogent-gastown--mail-data
+             (list '(:id "mail-abc" :from "sender" :subject "Test"))))
+        (cl-letf (((symbol-function 'completing-read)
+                   (lambda (&rest _) "mail-abc"))
+                  ((symbol-function 'async-shell-command)
+                   (lambda (cmd &optional buf)
+                     (push (list cmd buf) commands)))
+                  ((symbol-function 'ogent-gastown--magit-usable-p)
+                   (lambda () nil)))
+          (ogent-gastown-status-mail-read)
+          (should (= (length commands) 1))
+          (should (string-match-p "gt mail read mail-abc" (caar commands))))))))
 
 ;;; --- Worker Item Face Tests ---
 
@@ -4175,7 +4214,9 @@
     (cl-letf (((symbol-function 'ogent-gastown--insert-plain)
                (lambda () (cl-incf plain-count)))
               ((symbol-function 'ogent-gastown--insert-with-magit-section)
-               (lambda () (cl-incf magit-count))))
+               (lambda () (cl-incf magit-count)))
+              ((symbol-function 'ogent-gastown--magit-usable-p)
+               (lambda () ogent-gastown--magit-section-available)))
       (let ((ogent-gastown--magit-section-available nil))
         (ogent-gastown--insert-buffer-contents)
         (should (= plain-count 1))
