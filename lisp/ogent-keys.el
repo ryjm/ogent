@@ -12,6 +12,10 @@
 ;; Declare evil functions to avoid byte-compile warnings
 (declare-function evil-define-key* "ext:evil-core")
 
+;; Doom variables are optional; bind them dynamically when Doom is present.
+(defvar doom-leader-map)
+(defvar doom-leader-key)
+
 ;; Declare hydra commands (defined in ogent-ui-hydra.el)
 (declare-function ogent-navigate "ogent-ui-hydra")
 (declare-function ogent-edit-menu "ogent-ui-hydra")
@@ -31,9 +35,6 @@
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
-;; Declare Gas Town commands (defined in ogent-gastown.el)
-(declare-function ogent-gastown-dispatch "ogent-gastown")
-
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -46,9 +47,22 @@ This prefix is used for all ogent commands in standard Emacs."
   :type 'string
   :group 'ogent-keys)
 
-(defcustom ogent-evil-prefix "SPC e"
+(defcustom ogent-evil-prefix "SPC o"
   "Prefix for evil leader keybindings.
-This prefix is used with evil-mode's leader key system."
+This prefix is used with evil-mode's normal and visual state maps.
+The default mirrors Doom's leader convention: SPC o for ogent."
+  :type 'string
+  :group 'ogent-keys)
+
+(defcustom ogent-enable-doom-bindings t
+  "Whether to install Doom leader bindings when Doom is available.
+Bindings are installed under `ogent-doom-prefix' in `doom-leader-map'."
+  :type 'boolean
+  :group 'ogent-keys)
+
+(defcustom ogent-doom-prefix "o"
+  "Doom leader prefix for ogent commands.
+With Doom's default leader this makes commands available under SPC o."
   :type 'string
   :group 'ogent-keys)
 
@@ -192,28 +206,72 @@ These use the `ogent-review-prefix' (C-c o by default)."
            (full-key (concat ogent-review-prefix " " key)))
       (define-key keymap (kbd full-key) cmd))))
 
+(defun ogent-keys--bind-actions (keymap registry &optional prefix)
+  "Bind REGISTRY actions into KEYMAP.
+When PREFIX is non-nil, bind each action under PREFIX."
+  (dolist (entry registry)
+    (let* ((key (plist-get (cdr entry) :key))
+           (cmd (plist-get (cdr entry) :command))
+           (full-key (if prefix (concat prefix " " key) key)))
+      (define-key keymap (kbd full-key) cmd))))
+
+(defun ogent-setup-evil-bindings-now (keymap)
+  "Install evil bindings into KEYMAP immediately."
+  (when (and ogent-enable-evil-bindings
+             (fboundp 'evil-define-key*))
+    (dolist (entry ogent-action-registry)
+      (let* ((_name (car entry))
+             (props (cdr entry))
+             (key (plist-get props :key))
+             (cmd (plist-get props :command))
+             (visual-p (plist-get props :visual)))
+        ;; Normal state binding
+        (evil-define-key* 'normal keymap
+          (kbd (concat ogent-evil-prefix " " key)) cmd)
+        ;; Visual state for region-based actions
+        (when visual-p
+          (evil-define-key* 'visual keymap
+            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
+
 (defun ogent-setup-evil-bindings (keymap)
   "Set up evil keybindings in KEYMAP from action registry.
-Requires evil-mode to be loaded. Uses leader key prefix."
-  (when (and ogent-enable-evil-bindings
-             (featurep 'evil))
-    (require 'evil)
-    ;; Use evil-define-key* (the function version) instead of the macro
-    ;; to avoid compile-time expansion issues
-    (when (fboundp 'evil-define-key*)
-      (dolist (entry ogent-action-registry)
-        (let* ((_name (car entry))
-               (props (cdr entry))
-               (key (plist-get props :key))
-               (cmd (plist-get props :command))
-               (visual-p (plist-get props :visual)))
-          ;; Normal state binding
-          (evil-define-key* 'normal keymap
-			    (kbd (concat ogent-evil-prefix " " key)) cmd)
-          ;; Visual state for region-based actions
-          (when visual-p
-            (evil-define-key* 'visual keymap
-			      (kbd (concat ogent-evil-prefix " " key)) cmd)))))))
+If evil is not loaded yet, defer installation until it loads."
+  (when ogent-enable-evil-bindings
+    (if (featurep 'evil)
+        (progn
+          (require 'evil)
+          (ogent-setup-evil-bindings-now keymap))
+      (with-eval-after-load 'evil
+        (ogent-setup-evil-bindings-now keymap)))))
+
+;;;###autoload
+(defun ogent-setup-doom-bindings (&optional leader-map noerror)
+  "Install Doom leader bindings for ogent.
+LEADER-MAP defaults to `doom-leader-map'.  When NOERROR is non-nil,
+return nil instead of signaling if Doom is unavailable."
+  (interactive)
+  (let ((map (or leader-map
+                 (and (boundp 'doom-leader-map)
+                      (keymapp doom-leader-map)
+                      doom-leader-map))))
+    (cond
+     ((not ogent-enable-doom-bindings) nil)
+     ((not (keymapp map))
+      (unless noerror
+        (user-error "Doom leader map is not available"))
+      nil)
+     (t
+      (let ((prefix-map (make-sparse-keymap)))
+        (ogent-keys--bind-actions prefix-map ogent-action-registry)
+        (define-key map (kbd ogent-doom-prefix) prefix-map)
+        (when (featurep 'which-key)
+          (let ((leader (if (and (boundp 'doom-leader-key)
+                                 (stringp doom-leader-key))
+                            doom-leader-key
+                          "SPC")))
+            (which-key-add-key-based-replacements
+              (concat leader " " ogent-doom-prefix) "ogent")))
+        prefix-map)))))
 
 (defun ogent-setup-which-key ()
   "Set up which-key descriptions for ogent prefixes and all commands."
@@ -226,6 +284,11 @@ Requires evil-mode to be loaded. Uses leader key prefix."
     (when (and ogent-enable-evil-bindings (featurep 'evil))
       (which-key-add-key-based-replacements
        ogent-evil-prefix "ogent"))
+    (when (and ogent-enable-doom-bindings
+               (boundp 'doom-leader-key)
+               (stringp doom-leader-key))
+      (which-key-add-key-based-replacements
+       (concat doom-leader-key " " ogent-doom-prefix) "ogent"))
     ;; Add descriptions for each command
     (dolist (entry ogent-action-registry)
       (let* ((props (cdr entry))
@@ -251,6 +314,9 @@ and which-key integration."
   (ogent-setup-vanilla-bindings keymap)
   (ogent-setup-review-bindings keymap)
   (ogent-setup-evil-bindings keymap)
+  (ogent-setup-doom-bindings nil t)
+  (with-eval-after-load 'doom
+    (ogent-setup-doom-bindings nil t))
   (with-eval-after-load 'which-key
     (ogent-setup-which-key)))
 
@@ -266,6 +332,15 @@ and which-key integration."
     (princ (format "Review prefix: %s\n" ogent-review-prefix))
     (when (featurep 'evil)
       (princ (format "Evil prefix: %s\n" ogent-evil-prefix)))
+    (when (and ogent-enable-doom-bindings
+               (boundp 'doom-leader-map)
+               (keymapp doom-leader-map))
+      (princ (format "Doom leader prefix: %s %s\n"
+                     (if (and (boundp 'doom-leader-key)
+                              (stringp doom-leader-key))
+                         doom-leader-key
+                       "SPC")
+                     ogent-doom-prefix)))
     (princ "\n")
     (princ (format "%-12s %-8s %-30s %s\n" "Action" "Key" "Command" "Description"))
     (princ (make-string 70 ?-))

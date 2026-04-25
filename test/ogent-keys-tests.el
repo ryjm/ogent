@@ -168,9 +168,18 @@
   "ogent-evil-prefix is a customizable variable."
   (should (custom-variable-p 'ogent-evil-prefix)))
 
+(ert-deftest ogent-keys-evil-prefix-defaults-to-doom-style ()
+  "Default evil prefix follows Doom's SPC o convention."
+  (should (equal ogent-evil-prefix "SPC o")))
+
 (ert-deftest ogent-keys-enable-evil-customizable-var ()
   "ogent-enable-evil-bindings is a customizable variable."
   (should (custom-variable-p 'ogent-enable-evil-bindings)))
+
+(ert-deftest ogent-keys-doom-customization-vars ()
+  "Doom keybinding customization variables are available."
+  (should (custom-variable-p 'ogent-enable-doom-bindings))
+  (should (custom-variable-p 'ogent-doom-prefix)))
 
 ;;; Expected Actions Tests
 
@@ -213,10 +222,14 @@
   (let ((map (make-sparse-keymap)))
     (ogent-setup-review-bindings map)
     ;; Check that review keys are bound under review prefix
-    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " n")))))
-    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " p")))))
-    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " a")))))
-    (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " x")))))))
+    (should (eq (lookup-key map (kbd (concat ogent-review-prefix " n")))
+                'ogent-completion-next))
+    (should (eq (lookup-key map (kbd (concat ogent-review-prefix " p")))
+                'ogent-completion-prev))
+    (should (eq (lookup-key map (kbd (concat ogent-review-prefix " a")))
+                'ogent-review-accept))
+    (should (eq (lookup-key map (kbd (concat ogent-review-prefix " x")))
+                'ogent-completion-reject))))
 
 (ert-deftest ogent-keys-review-registry-has-entries ()
   "Test that review action registry has expected entries."
@@ -224,6 +237,24 @@
   (should (assq 'review-prev ogent-review-action-registry))
   (should (assq 'review-accept ogent-review-action-registry))
   (should (assq 'review-reject ogent-review-action-registry)))
+
+(ert-deftest ogent-keys-doom-bindings-install-under-prefix ()
+  "Doom leader bindings install the action registry under ogent-doom-prefix."
+  (let ((leader-map (make-sparse-keymap))
+        (ogent-enable-doom-bindings t)
+        (ogent-doom-prefix "o"))
+    (ogent-setup-doom-bindings leader-map)
+    (should (eq (lookup-key leader-map (kbd "o p"))
+                'ogent-prompt-dispatch))
+    (should (eq (lookup-key leader-map (kbd "o r"))
+                'ogent-request))
+    (should (eq (lookup-key leader-map (kbd "o E"))
+                'ogent-request-edit))))
+
+(ert-deftest ogent-keys-doom-bindings-noerror-without-doom ()
+  "Doom setup returns nil instead of erroring when NOERROR is non-nil."
+  (let ((ogent-enable-doom-bindings t))
+    (should-not (ogent-setup-doom-bindings nil t))))
 
 ;;; Setup All Bindings
 
@@ -236,7 +267,8 @@
       ;; Vanilla bindings should be set
       (should (commandp (lookup-key map (kbd (concat ogent-vanilla-prefix " p")))))
       ;; Review bindings should be set
-      (should (commandp (lookup-key map (kbd (concat ogent-review-prefix " n"))))))))
+      (should (eq (lookup-key map (kbd (concat ogent-review-prefix " n")))
+                  'ogent-completion-next)))))
 
 ;;; Action Registry Properties
 
@@ -285,8 +317,10 @@
         (ogent-review-prefix "C-c r"))
     (ogent-setup-review-bindings map)
     ;; Should use custom prefix
-    (should (commandp (lookup-key map (kbd "C-c r n"))))
-    (should (commandp (lookup-key map (kbd "C-c r p"))))
+    (should (eq (lookup-key map (kbd "C-c r n"))
+                'ogent-completion-next))
+    (should (eq (lookup-key map (kbd "C-c r p"))
+                'ogent-completion-prev))
     ;; Default prefix should not be bound
     (should-not (eq (lookup-key map (kbd "C-c o n")) 'ogent-completion-next))))
 
