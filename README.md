@@ -13,22 +13,22 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 ## Key Concepts
 - **Atomic subtrees**: Any subtree can declare an `OGENT_ID` or use the headline title as its handle. Within sibling or descendant headings, reference another subtree by typing `@handle`. ogent resolves the reference, injects its content into the prompt, and keeps backlinks so you can audit provenance.
 - **Context scoping**: Invoking `M-x ogent-request` collects the current heading, all ancestor headings, and any `@handle` dependencies into a structured payload. Handles can point to other buffers or Org-roam files, so the request can include folders that “fill out” missing knowledge while still rooting the prompt in the active subtree.
-- **Context summary**: Before dispatching, ogent renders a collapsible Org summary (e.g., `ogent-context-preview`) showing the headings, referenced files, and character counts being sent. Contributors can expand subtrees to audit what the model will see without having to read the entire payload.
+- **Context preview**: Before dispatching, ogent renders the same hydrated payload it will send to the model, including the root subtree, resolved `@handle` content, source buffer or region, and pins.
 - **Prompt templates**: Users can store reusable AI instructions inside dedicated “Prompt” subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
 - **Native Agent**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output. This is the most important concept of `ogent` - it should act as a homunculus that can be instantiated at any point in your Emacs workflow. 
-- **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c o m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
+- **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c . m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
 - **Model registry**: `lisp/ogent-models.el` lists every supported gptel backend (id, preset, stream support). The dispatcher and transport stack look up this registry so adding a provider is a data change plus tests, not a UI surgery.
 
 ## Prompt Capture & Formatting
-- **Command palette**: `C-c o p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke.
+- **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
 - **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
 - **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
 - **Multi-model fan-out**: Selecting multiple providers triggers concurrent gptel requests via the registry; each response streams into its own src block tagged with model/backend metadata so you can compare answers side-by-side without blocking.
-- **Ergonomic review**: `C-c . N` / `C-c . P` cycle through completions, `C-c . A` accepts the current one (deleting others), and `C-c . X` rejects it. Visual feedback dims non-current completions and optionally folds them.
-- **Context hydration**: The dispatcher remembers which external documents, folders, or handles you attached to the current subtree and offers a `C-c o c` toggle to reuse or clear that context when issuing follow-up prompts.
+- **Ergonomic review**: `C-c o n` / `C-c o p` cycle through completions, `C-c o a` accepts the current one (deleting others), and `C-c o x` rejects it. Visual feedback dims non-current completions and optionally folds them.
+- **Context hydration**: The dispatcher resolves referenced `@handles`, includes their content in the model payload, and offers a `C-c . c` preview of that payload before dispatch.
 
 ## Codemap Overview
-- `M-x ogent-codemap-buffer` (bound to `C-c o m`) analyzes the repository or selected folders, extracts public definitions, and emits an Org subtree titled “Codemap”. Each entry includes inline links such as `[[file:lisp/ogent-context.el::ogent-context-build][Context Builder]]` so you can jump straight to the code.
+- `M-x ogent-codemap-buffer` (bound to `C-c . m`) analyzes the repository or selected folders, extracts public definitions, and emits an Org subtree titled “Codemap”. Each entry includes inline links such as `[[file:lisp/ogent-context.el::ogent-context-build][Context Builder]]` so you can jump straight to the code.
 - Codemaps update incrementally: rerun the command to refresh sections impacted by recent changes while preserving manual annotations.
 - The codemap subtree doubles as a navigational aid and a prompt attachment—mark it with an `OGENT_ID` (`OGENT_ID: codemap-core`) and reference it via `@codemap-core` whenever you want the model to understand the project layout.
 - Inspired by Windsurf’s codemaps, ogent surfaces data-flow descriptions (“`ogent-prompt-dispatch -> ogent-context-build -> gptel-send`”) directly under each bullet, so the map reads like an architecture digest next to your agent transcript.
@@ -36,12 +36,12 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 ## Planned Workflow
 1. Author Org content as usual, tagging reusable sections with unique `OGENT_ID`s.
 2. Reference needed sections inline (`The overview lives in @overview-block`) to shape the context hierarchy.
-3. Run `M-x ogent-request` (or `C-c o p`) to send the current tree plus referenced blocks—and any attached external documents—to the selected model(s) via `gptel`, reviewing the context summary before dispatch.
+3. Run `M-x ogent-request` (or `C-c . p`) to send the current tree plus referenced blocks, and any attached external documents, to the selected model(s) via `gptel`, reviewing the hydrated payload before dispatch.
 4. Evaluate each src block (`C-c C-c`) or archive it as a `Notes` child (`C-c C-d`), then promote accepted knowledge into the permanent subtree structure.
 
 ## Doom Emacs
 
-For Doom Emacs users, ogent provides an idiomatic configuration with keybindings under `SPC e`. See the full guide at [docs/doom-emacs.md](docs/doom-emacs.md).
+For Doom Emacs users, ogent provides an idiomatic configuration with keybindings under `SPC o`. See the full guide at [docs/doom-emacs.md](docs/doom-emacs.md).
 
 **Quick start** - add to `~/.doom.d/packages.el`:
 
@@ -50,18 +50,18 @@ For Doom Emacs users, ogent provides an idiomatic configuration with keybindings
                          :files ("*.el" "ui/*.el")))
 ```
 
-Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
+Then run `doom sync` and add this to `~/.doom.d/config.el`:
 
 ```elisp
 (use-package! ogent
   :defer t
   :commands (ogent-mode ogent-prompt-dispatch ogent-request)
   :init
-  (map! :leader
-        (:prefix ("e" . "ogent")
-         :desc "Prompt dispatch" "e" #'ogent-prompt-dispatch
-         :desc "Send request"    "r" #'ogent-request
-         :desc "Toggle mode"     "t" #'ogent-mode)))
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+  :config
+  (ogent-setup-doom-bindings)
+  (ogent-global-mode 1))
 ```
 
 ## AI & Knowledge Sources
@@ -80,7 +80,7 @@ Then run `doom sync` and add keybindings to `~/.doom.d/config.el`:
 
 ## Backends, Models, and Presets
 - `docs/backends-and-presets.md` walks through backend switching (gptel backend selection), model registry configuration, preset definition, and troubleshooting.
-- Use the prompt dispatcher (`C-c o p`) to pick a provider/model (`m`), apply a preset (`s`), or fan out across multiple models (`M`).
+- Use the prompt dispatcher (`C-c . p`, or `SPC o p` in Doom/Evil) to pick a provider/model (`m`), apply a preset (`s`), or fan out across multiple models (`M`).
 
 ## Module Overview
 

@@ -35,15 +35,15 @@ gt status --json --fast     # Fast town snapshot (run from town root)
 
 ## Quick Start
 
-1. **Open the dispatch menu**: `M-x ogent-gastown-dispatch` or `SPC e G G`
+1. **Open the dispatch menu**: `M-x ogent-gastown-dispatch` or `SPC o G G`
 
-2. **Check your hook** (assigned work): `M-x ogent-gastown-show-hook` or `SPC e G h`
+2. **Check your hook** (assigned work): `M-x ogent-gastown-show-hook` or `SPC o G h`
 
-3. **View status buffer** (magit-style overview): `M-x ogent-gastown-status` or `SPC e G s`
+3. **View status buffer** (magit-style overview): `M-x ogent-gastown-status` or `SPC o G s`
 
-4. **Find ready work**: `M-x ogent-gastown-show-ready` or `SPC e G r`
+4. **Find ready work**: `M-x ogent-gastown-show-ready` or `SPC o G r`
 
-5. **Claim an issue**: `M-x ogent-gastown-claim-issue` or `SPC e G C`
+5. **Claim an issue**: `M-x ogent-gastown-claim-issue` or `SPC o G C`
 
 ## Key Concepts
 
@@ -95,7 +95,7 @@ A convoy groups related issues for batch work. Convoys help track:
 
 ### Main Dispatch Menu
 
-**`ogent-gastown-dispatch`** (`SPC e G G`)
+**`ogent-gastown-dispatch`** (`SPC o G G`)
 
 Opens a transient menu with all Gas Town operations organized by category:
 - **Status**: View hook, mail, convoy, workers
@@ -105,7 +105,7 @@ Opens a transient menu with all Gas Town operations organized by category:
 
 ### Status Buffer
 
-**`ogent-gastown-status`** (`SPC e G s`)
+**`ogent-gastown-status`** (`SPC o G s`)
 
 Opens a magit-style buffer showing:
 - Current hook status
@@ -149,11 +149,11 @@ Use `g` to refresh and `G` to force-refresh (clears cache first).
 
 ### Mail Commands
 
-**`ogent-gastown-show-mail`** (`SPC e G m`)
+**`ogent-gastown-show-mail`** (`SPC o G m`)
 
 Displays your inbox with unread messages highlighted.
 
-**`ogent-gastown-send-mail`** (`SPC e G M`)
+**`ogent-gastown-send-mail`** (`SPC o G M`)
 
 Interactive mail composition. Prompts for:
 - Recipient address (e.g., `refinery/`, `polecat/alpha`)
@@ -162,11 +162,11 @@ Interactive mail composition. Prompts for:
 
 ### Issue Tracking
 
-**`ogent-gastown-show-ready`** (`SPC e G r`)
+**`ogent-gastown-show-ready`** (`SPC o G r`)
 
 Lists issues that have no blockers and are ready to work on.
 
-**`ogent-gastown-show-issue`** (`SPC e G i`)
+**`ogent-gastown-show-issue`** (`SPC o G i`)
 
 Prompts for an issue ID and displays full details including:
 - Description and acceptance criteria
@@ -174,14 +174,14 @@ Prompts for an issue ID and displays full details including:
 - Attached molecules
 - Comments and history
 
-**`ogent-gastown-claim-issue`** (`SPC e G C`)
+**`ogent-gastown-claim-issue`** (`SPC o G C`)
 
 Claim an issue to work on. This:
 1. Sets status to `in_progress`
 2. Assigns you as the worker
 3. Hooks the issue (makes it your current assignment)
 
-**`ogent-gastown-close-issue`** (`SPC e G x`)
+**`ogent-gastown-close-issue`** (`SPC o G x`)
 
 Mark an issue as complete. Prompts for:
 - Issue ID
@@ -189,7 +189,7 @@ Mark an issue as complete. Prompts for:
 
 ### Session Management
 
-**`ogent-gastown-prime`** (`SPC e G p`)
+**`ogent-gastown-prime`** (`SPC o G p`)
 
 Prime your session by:
 1. Checking your hook for assigned work
@@ -198,18 +198,18 @@ Prime your session by:
 
 Run this at the start of each session.
 
-**`ogent-gastown-done`** (`SPC e G d`)
+**`ogent-gastown-done`** (`SPC o G d`)
 
 End your session cleanly:
 1. Sync beads changes
 2. Create handoff notes
 3. Push to remote
 
-**`ogent-gastown-show-hook`** (`SPC e G h`)
+**`ogent-gastown-show-hook`** (`SPC o G h`)
 
 Display what's currently on your hook (your assignment).
 
-**`ogent-gastown-show-convoy`** (`SPC e G c`)
+**`ogent-gastown-show-convoy`** (`SPC o G c`)
 
 Open the convoy inspector.  Delegates to the magit-style convoy
 inspector (`ogent-convoy-inspect`) which shows detailed convoy
@@ -220,7 +220,7 @@ the inspector is unavailable.
 
 ### Doom Emacs
 
-All Gas Town commands are under `SPC e G`:
+All Gas Town commands are under `SPC o G`:
 
 | Key | Command | Description |
 |-----|---------|-------------|

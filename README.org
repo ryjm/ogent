@@ -102,14 +102,18 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 (package! ogent :recipe (:local-repo "/path/to/ogent"))
 (use-package! ogent
   :after org
+  :init
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
   :config
-  (map! :leader :desc "Ogent Prompt" "o p" #'ogent-prompt-dispatch)
+  (ogent-setup-doom-bindings)
   (ogent-global-mode 1))
 #+end_src
 
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
 - Press =C-c . p= to open the dispatcher, pick models, and send the current subtree.
+- Doom/Evil users get the same command surface under =SPC o= when =ogent-setup-doom-bindings= or evil bindings are active.
 - Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
 - Press =C-c . d= to capture the last AI response to a Notes child heading.
 - Use =C-c . ?= for quick Q&A without full context machinery.
