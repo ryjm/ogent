@@ -38,14 +38,11 @@ ogent depends on [gptel](https://github.com/karthink/gptel) for LLM communicatio
   :defer t
   :commands (ogent-mode ogent-prompt-dispatch ogent-request ogent-onboard)
   :init
-  ;; Keybindings under SPC e
-  (map! :leader
-        (:prefix ("e" . "ogent")
-         :desc "Prompt dispatch" "e" #'ogent-prompt-dispatch
-         :desc "Send request"    "r" #'ogent-request
-         :desc "Setup wizard"    "o" #'ogent-onboard
-         :desc "Context preview" "c" #'ogent-context-preview
-         :desc "Toggle mode"     "t" #'ogent-mode)))
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+  :config
+  (ogent-setup-doom-bindings)
+  (ogent-global-mode 1))
 ```
 
 3. Run `doom sync` to install packages.
@@ -115,7 +112,7 @@ ogent provides an interactive setup wizard that handles API key configuration fo
 
 ### Using the Setup Wizard
 
-Run `M-x ogent-onboard` (or `SPC e o` in Doom/Spacemacs) to start the wizard:
+Run `M-x ogent-onboard` (or `SPC o O` in Doom/Evil) to start the wizard:
 
 1. **Select a provider:**
    - **Anthropic Claude Max/Pro (OAuth)** - Recommended for Claude subscribers. Uses the Claude Code-compatible OAuth flow.
@@ -172,7 +169,7 @@ ogent works within Org-mode buffers, treating each heading as an addressable blo
 
 Open an Org file and run:
 - `M-x ogent-mode` or
-- `SPC e t` (Doom/Spacemacs) or
+- `SPC o t` (Doom/Evil) or
 - `C-c . t` (vanilla Emacs)
 
 ### 2. Write Your Prompt
@@ -197,12 +194,12 @@ Please suggest an implementation approach.
 
 With your cursor in the heading you want to send:
 - `M-x ogent-request` or
-- `SPC e r` (Doom/Spacemacs) or
+- `SPC o r` (Doom/Evil) or
 - `C-c . r` (vanilla Emacs)
 
 For more control, use the **prompt dispatcher**:
 - `M-x ogent-prompt-dispatch` or
-- `SPC e e` (Doom/Spacemacs) or
+- `SPC o p` (Doom/Evil) or
 - `C-c . p` (vanilla Emacs)
 
 The dispatcher lets you:
@@ -228,39 +225,39 @@ Here's my suggested approach for user authentication...
 
 Before sending, preview what will be sent to the model:
 - `M-x ogent-context-preview` or
-- `SPC e c` (Doom/Spacemacs) or
+- `SPC o c` (Doom/Evil) or
 - `C-c . c` (vanilla Emacs)
 
-This shows all headings, referenced files, and character counts.
+This shows the hydrated payload that will be sent, including resolved handles, source context, and pinned items.
 
 ## Keybindings Cheat Sheet
 
-ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC e` for Doom/Spacemacs.
+ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 
 | Key | Vanilla | Doom | Description |
 |-----|---------|------|-------------|
-| `p` | `C-c . p` | `SPC e p` | Prompt dispatcher |
-| `r` | `C-c . r` | `SPC e r` | Send request |
-| `a` | `C-c . a` | `SPC e a` | Abort request |
-| `R` | `C-c . R` | `SPC e R` | Retry last request |
-| `c` | `C-c . c` | `SPC e c` | Preview context |
-| `m` | `C-c . m` | `SPC e m` | Show codemap |
-| `M` | `C-c . M` | `SPC e M` | Generate task codemap |
-| `P` | `C-c . P` | `SPC e P` | Pin file/buffer/region |
-| `U` | `C-c . U` | `SPC e U` | Unpin item |
-| `l` | `C-c . l` | `SPC e l` | List pinned items |
-| `e` | `C-c . e` | `SPC e e` | Edit menu |
-| `E` | `C-c . E` | `SPC e E` | Request edit |
-| `s` | `C-c . s` | `SPC e s` | Go to source |
-| `n` | `C-c . n` | `SPC e n` | Navigation menu |
-| `b` | `C-c . b` | `SPC e b` | Show backlinks |
-| `i` | `C-c . i` | `SPC e i` | Issue tracker |
-| `?` | `C-c . ?` | `SPC e ?` | Quick ask |
-| `D` | `C-c . D` | `SPC e D` | Toggle debug mode |
-| `]` | `C-c . ]` | `SPC e ]` | Next completion |
-| `[` | `C-c . [` | `SPC e [` | Previous completion |
-| `z` | `C-c . z` | `SPC e z` | Accept completion |
-| `x` | `C-c . x` | `SPC e x` | Reject completion |
+| `p` | `C-c . p` | `SPC o p` | Prompt dispatcher |
+| `r` | `C-c . r` | `SPC o r` | Send request |
+| `a` | `C-c . a` | `SPC o a` | Abort request |
+| `R` | `C-c . R` | `SPC o R` | Retry last request |
+| `c` | `C-c . c` | `SPC o c` | Preview context |
+| `m` | `C-c . m` | `SPC o m` | Show codemap |
+| `M` | `C-c . M` | `SPC o M` | Generate task codemap |
+| `P` | `C-c . P` | `SPC o P` | Pin file/buffer/region |
+| `U` | `C-c . U` | `SPC o U` | Unpin item |
+| `l` | `C-c . l` | `SPC o l` | List pinned items |
+| `e` | `C-c . e` | `SPC o e` | Edit menu |
+| `E` | `C-c . E` | `SPC o E` | Request edit |
+| `s` | `C-c . s` | `SPC o s` | Go to source |
+| `n` | `C-c . n` | `SPC o n` | Navigation menu |
+| `b` | `C-c . b` | `SPC o b` | Show backlinks |
+| `i` | `C-c . i` | `SPC o i` | Issue tracker |
+| `?` | `C-c . ?` | `SPC o ?` | Quick ask |
+| `D` | `C-c . D` | `SPC o D` | Toggle debug mode |
+| `]` | `C-c . ]` | `SPC o ]` | Next completion |
+| `[` | `C-c . [` | `SPC o [` | Previous completion |
+| `z` | `C-c . z` | `SPC o z` | Accept completion |
+| `x` | `C-c . x` | `SPC o x` | Reject completion |
 
 Run `M-x ogent-describe-bindings` to see all bindings in a help buffer.
 

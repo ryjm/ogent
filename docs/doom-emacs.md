@@ -46,16 +46,24 @@ Add to your `~/.doom.d/config.el`:
   :init
   ;; Set ogent source directory for development/recompilation
   (setq ogent-source-directory "~/path/to/ogent")
-  ;; Keybindings under SPC e (see Keybindings section below)
+  ;; First-class Doom leader bindings under SPC o.
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+
+  ;; ogent can install the full command surface itself. Keep explicit map!
+  ;; calls only if you want to override individual keys.
+  (ogent-setup-doom-bindings)
+
+  ;; Optional explicit bindings, equivalent to the defaults:
   (map! :leader
-        (:prefix ("e" . "ogent")
-         :desc "Prompt dispatch"     "e" #'ogent-prompt-dispatch
+        (:prefix ("o" . "ogent")
+         :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
          :desc "Request edit"        "E" #'ogent-request-edit
-         :desc "Edit menu"           "m" #'ogent-edit-menu
+         :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
          :desc "Global mode"         "g" #'ogent-global-mode
-         :desc "Onboard/setup"       "o" #'ogent-onboard
+         :desc "Onboard/setup"       "O" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Accept edit"         "a" #'ogent-edit-accept-current
@@ -75,27 +83,22 @@ Add to your `~/.doom.d/config.el`:
 
 ## Keybindings Reference
 
-All ogent commands are bound under `SPC e` (for "execute" or "edit with AI"):
+All ogent commands are bound under `SPC o`:
 
 | Key       | Command                    | Description                          |
 |-----------|----------------------------|--------------------------------------|
-| `SPC e e` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
-| `SPC e r` | `ogent-request`            | Send request with current context    |
-| `SPC e E` | `ogent-request-edit`       | Request code edits for buffer/region |
-| `SPC e m` | `ogent-edit-menu`          | Edit operations transient menu       |
-| `SPC e t` | `ogent-mode`               | Toggle ogent mode in buffer          |
-| `SPC e g` | `ogent-global-mode`        | Toggle ogent mode globally           |
-| `SPC e o` | `ogent-onboard`            | Run setup wizard                     |
-| `SPC e c` | `ogent-context-preview`    | Preview what will be sent to model   |
-| `SPC e s` | `ogent-companion-display`  | Show companion Org buffer            |
-| `SPC e a` | `ogent-edit-accept-current`| Accept edit at point                 |
-| `SPC e x` | `ogent-edit-reject-current`| Reject edit at point                 |
-| `SPC e A` | `ogent-edit-accept-all`    | Accept all pending edits             |
-| `SPC e X` | `ogent-edit-reject-all`    | Reject all pending edits             |
-| `SPC e n` | `smerge-next`              | Jump to next edit conflict           |
-| `SPC e p` | `smerge-prev`              | Jump to previous edit conflict       |
-| `SPC e k` | `ogent-abort-request`      | Abort in-progress request            |
-| `SPC e M` | `ogent-codemap-buffer`     | Show project codemap                 |
+| `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
+| `SPC o r` | `ogent-request`            | Send request with current context    |
+| `SPC o E` | `ogent-request-edit`       | Request code edits for buffer/region |
+| `SPC o e` | `ogent-edit-menu`          | Edit operations transient menu       |
+| `SPC o c` | `ogent-context-preview`    | Preview what will be sent to model   |
+| `SPC o P` | `ogent-pin-dwim`           | Pin file/buffer/region               |
+| `SPC o U` | `ogent-unpin-interactive`  | Unpin context item                   |
+| `SPC o l` | `ogent-list-pinned`        | List pinned context                  |
+| `SPC o a` | `ogent-abort-request`      | Abort in-progress request            |
+| `SPC o R` | `ogent-retry-request`      | Retry last request                   |
+| `SPC o ?` | `ogent-ask`                | Quick ask                            |
+| `SPC o m` | `ogent-codemap-buffer`     | Show project codemap                 |
 
 ## API Key Configuration
 
@@ -171,7 +174,7 @@ For org-mode specific commands, use localleader (`SPC m`):
 (map! :after org
       :map org-mode-map
       :localleader
-      (:prefix ("e" . "ogent")
+      (:prefix ("o" . "ogent")
        :desc "Send subtree" "s" #'ogent-request
        :desc "Preview context" "p" #'ogent-context-preview))
 ```
@@ -200,16 +203,21 @@ Here's a full, copy-paste ready configuration:
   :init
   (setq ogent-source-directory "~/projects/ogent")
 
-  ;; Main keybindings under SPC e
+  ;; Main keybindings under SPC o
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+  (ogent-setup-doom-bindings)
+
+  ;; Optional explicit overrides.
   (map! :leader
-        (:prefix ("e" . "ogent")
-         :desc "Prompt dispatch"     "e" #'ogent-prompt-dispatch
+        (:prefix ("o" . "ogent")
+         :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
          :desc "Request edit"        "E" #'ogent-request-edit
-         :desc "Edit menu"           "m" #'ogent-edit-menu
+         :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
          :desc "Global mode"         "g" #'ogent-global-mode
-         :desc "Onboard/setup"       "o" #'ogent-onboard
+         :desc "Onboard/setup"       "O" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Accept edit"         "a" #'ogent-edit-accept-current
