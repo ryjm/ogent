@@ -23,7 +23,8 @@
   (should (featurep 'ogent-notes))
   (should (featurep 'ogent-session))
   (should (featurep 'ogent-debug))
-  (should (featurep 'ogent-anthropic-oauth)))
+  (should (featurep 'ogent-anthropic-oauth))
+  (should (featurep 'ogent-codex-oauth)))
 
 ;;; Mode Tests
 

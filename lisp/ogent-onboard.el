@@ -7,12 +7,20 @@
 ;;; Code:
 
 (require 'auth-source)
+(require 'cl-lib)
+(require 'subr-x)
 (require 'ogent-models)
 
 ;; Forward declarations for OAuth module
 (declare-function ogent-anthropic-oauth-authenticated-p "ogent-anthropic-oauth")
 (declare-function ogent-anthropic-oauth-mode "ogent-anthropic-oauth")
 (declare-function ogent-anthropic-login "ogent-anthropic-oauth")
+(declare-function ogent-claude-code-authenticated-p "ogent-anthropic-oauth")
+(declare-function ogent-claude-code-login "ogent-anthropic-oauth")
+(declare-function ogent-codex-oauth-authenticated-p "ogent-codex-oauth")
+(declare-function ogent-codex-oauth-get-api-key "ogent-codex-oauth")
+(declare-function ogent-codex-oauth-mode "ogent-codex-oauth")
+(declare-function ogent-codex-login "ogent-codex-oauth")
 
 (defgroup ogent-onboard nil
   "Interactive setup for ogent providers."
@@ -25,10 +33,15 @@
      :backend gptel-anthropic
      :feature gptel-anthropic
      :auth-type oauth
+     :oauth-feature ogent-anthropic-oauth
+     :oauth-login ogent-claude-code-login
+     :oauth-authenticated-p ogent-claude-code-authenticated-p
+     :oauth-mode ogent-anthropic-oauth-mode
+     :oauth-login-mode max
      :backend-creator gptel-make-anthropic
-     :models ((:id "claude-sonnet-4-5-20250929" :description "Claude Sonnet 4.5 - best for coding/agents")
+     :models ((:id "claude-opus-4-7" :description "Claude Opus 4.7 - most capable")
+              (:id "claude-sonnet-4-6" :description "Claude Sonnet 4.6 - balanced speed and intelligence")
               (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
-              (:id "claude-opus-4-5-20251101" :description "Claude Opus 4.5 - maximum intelligence")
               (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
     (:id anthropic
      :name "Anthropic (API Key)"
@@ -38,9 +51,9 @@
      :env-var "ANTHROPIC_API_KEY"
      :auth-type api-key
      :backend-creator gptel-make-anthropic
-     :models ((:id "claude-sonnet-4-5-20250929" :description "Claude Sonnet 4.5 - best for coding/agents")
+     :models ((:id "claude-opus-4-7" :description "Claude Opus 4.7 - most capable")
+              (:id "claude-sonnet-4-6" :description "Claude Sonnet 4.6 - balanced speed and intelligence")
               (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
-              (:id "claude-opus-4-5-20251101" :description "Claude Opus 4.5 - maximum intelligence")
               (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
     (:id openai
      :name "OpenAI (GPT)"
@@ -50,10 +63,34 @@
      :env-var "OPENAI_API_KEY"
      :auth-type api-key
      :backend-creator gptel-make-openai
-     :models ((:id "gpt-4o" :description "GPT-4o - best quality")
-              (:id "gpt-4o-mini" :description "GPT-4o mini - fast and cheap")
-              (:id "o1" :description "o1 - reasoning model")
-              (:id "o1-mini" :description "o1-mini - fast reasoning"))))
+     :models ((:id "gpt-5.5" :description "GPT-5.5 - flagship reasoning and coding")
+              (:id "gpt-5.5-pro" :description "GPT-5.5 pro - hardest reasoning tasks" :stream? nil)
+              (:id "gpt-5.4" :description "GPT-5.4 - professional coding and agentic work")
+              (:id "gpt-5.4-mini" :description "GPT-5.4 mini - fast, cost-aware coding")
+              (:id "gpt-5.4-nano" :description "GPT-5.4 nano - low-cost high-volume tasks")
+              (:id "gpt-5.3-codex" :description "GPT-5.3-Codex - agentic coding")
+              (:id "gpt-4.1" :description "GPT-4.1 - non-reasoning long-context model")
+              (:id "gpt-4o-mini" :description "GPT-4o mini - legacy fallback")))
+    (:id openai-codex
+     :name "OpenAI Codex / ChatGPT (OAuth - Recommended)"
+     :host "api.openai.com"
+     :backend gptel-openai
+     :feature gptel-openai
+     :auth-type oauth
+     :oauth-feature ogent-codex-oauth
+     :oauth-login ogent-codex-login
+     :oauth-authenticated-p ogent-codex-oauth-authenticated-p
+     :oauth-mode ogent-codex-oauth-mode
+     :oauth-key ogent-codex-oauth-get-api-key
+     :backend-creator gptel-make-openai
+     :models ((:id "gpt-5.5" :description "GPT-5.5 - flagship reasoning and coding")
+              (:id "gpt-5.5-pro" :description "GPT-5.5 pro - hardest reasoning tasks" :stream? nil)
+              (:id "gpt-5.4" :description "GPT-5.4 - professional coding and agentic work")
+              (:id "gpt-5.4-mini" :description "GPT-5.4 mini - fast, cost-aware coding")
+              (:id "gpt-5.4-nano" :description "GPT-5.4 nano - low-cost high-volume tasks")
+              (:id "gpt-5.3-codex" :description "GPT-5.3-Codex - agentic coding")
+              (:id "gpt-4.1" :description "GPT-4.1 - non-reasoning long-context model")
+              (:id "gpt-4o-mini" :description "GPT-4o mini - legacy fallback"))))
   "Provider configurations for onboarding.
 Each provider can have :auth-type of `oauth' or `api-key'."
   :type '(repeat plist)
@@ -144,24 +181,51 @@ Each provider can have :auth-type of `oauth' or `api-key'."
 
 ;;; OAuth configuration
 
+(defun ogent-onboard--oauth-api-key (provider)
+  "Return PROVIDER's OAuth-derived API key, when one is exposed."
+  (when-let ((key-fn (plist-get provider :oauth-key)))
+    (when (fboundp key-fn)
+      (funcall key-fn))))
+
 (defun ogent-onboard--configure-oauth (provider)
   "Configure OAuth for PROVIDER. Returns non-nil on success."
-  (let ((name (plist-get provider :name)))
-    ;; Check if already authenticated
-    (when (require 'ogent-anthropic-oauth nil t)
-      (if (ogent-anthropic-oauth-authenticated-p)
-          (if (y-or-n-p (format "Already logged in via OAuth (%s mode). Re-authenticate? "
-                                (ogent-anthropic-oauth-mode)))
-              (progn
-                (ogent-anthropic-login 'max)
-                (ogent-anthropic-oauth-authenticated-p))
-            t)
-        ;; Not authenticated, start OAuth flow
-        (message "Starting OAuth login for %s..." name)
-        (message "This will open your browser to authenticate with your Claude Max/Pro account.")
-        (when (y-or-n-p "Continue with OAuth login? ")
-          (ogent-anthropic-login 'max)
-          (ogent-anthropic-oauth-authenticated-p))))))
+  (let* ((name (plist-get provider :name))
+         (feature (or (plist-get provider :oauth-feature)
+                      'ogent-anthropic-oauth))
+         (login-fn (or (plist-get provider :oauth-login)
+                       'ogent-anthropic-login))
+         (authenticated-fn (or (plist-get provider :oauth-authenticated-p)
+                               'ogent-anthropic-oauth-authenticated-p))
+         (mode-fn (or (plist-get provider :oauth-mode)
+                      'ogent-anthropic-oauth-mode))
+         (login-mode (if (plist-member provider :oauth-login-mode)
+                         (plist-get provider :oauth-login-mode)
+                       (when (eq feature 'ogent-anthropic-oauth) 'max))))
+    (when (require feature nil t)
+      (unless (and (fboundp login-fn)
+                   (fboundp authenticated-fn))
+        (user-error "OAuth provider %s is missing required auth handlers" name))
+      (cl-labels ((ready-p ()
+                    (and (funcall authenticated-fn)
+                         (if (plist-get provider :oauth-key)
+                             (ogent-onboard--oauth-api-key provider)
+                           t)))
+                  (login ()
+                    (if login-mode
+                        (funcall login-fn login-mode)
+                      (funcall login-fn))
+                    (ready-p)))
+        (if (ready-p)
+            (let ((mode (when (fboundp mode-fn)
+                          (funcall mode-fn))))
+              (if (y-or-n-p (format "Already logged in via OAuth%s. Re-authenticate? "
+                                    (if mode (format " (%s mode)" mode) "")))
+                  (login)
+                t))
+          (message "Starting OAuth login for %s..." name)
+          (message "This will open your browser or a login buffer to authenticate.")
+          (when (y-or-n-p "Continue with OAuth login? ")
+            (login)))))))
 
 ;;; Verification
 
@@ -232,9 +296,12 @@ MODEL-ID is accepted for future use but not currently verified."
   (let* ((model-id (plist-get model-plist :id))
          (backend (plist-get provider :backend))
          (description (plist-get model-plist :description))
+         (stream (if (plist-member model-plist :stream?)
+                     (plist-get model-plist :stream?)
+                   t))
          (entry `(:id ,model-id
                   :backend ,backend
-                  :stream? t
+                  :stream? ,stream
                   :description ,description))
          (existing (ogent-models-get model-id)))
     (unless existing
@@ -266,7 +333,8 @@ Guides you through:
     ;; Configure authentication based on type
     (cond
      ((eq auth-type 'oauth)
-      (setq auth-success (ogent-onboard--configure-oauth provider)))
+      (setq auth-success (ogent-onboard--configure-oauth provider))
+      (setq api-key (ogent-onboard--oauth-api-key provider)))
      (t
       (setq api-key (ogent-onboard--configure-api-key provider))
       (setq auth-success api-key)))
@@ -363,6 +431,7 @@ local checkout path."
                       ogent-session ogent-notes ogent-keys
                       ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
                       ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                      ogent-codex-oauth
                       ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
         (when (featurep feat)
           (unload-feature feat t)))
@@ -391,6 +460,7 @@ local checkout path."
                     ogent-session ogent-notes ogent-keys
                     ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
                     ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                    ogent-codex-oauth
                     ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
       (when (featurep feat)
         (unload-feature feat t)))

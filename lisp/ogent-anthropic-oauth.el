@@ -495,6 +495,35 @@ Opens browser for authorization, then prompts for the authorization code."
                    "")))
     (message "Not logged in to Anthropic OAuth. Run M-x ogent-anthropic-login")))
 
+;;; Claude Code compatibility aliases
+
+;;;###autoload
+(defun ogent-claude-code-login (&optional mode)
+  "Login through the Claude Code-compatible OAuth flow.
+MODE defaults to `max' for Claude Pro/Max subscriptions."
+  (interactive
+   (list (intern (completing-read
+                  "Claude Code login mode: "
+                  '("max" "console")
+                  nil t nil nil "max"))))
+  (ogent-anthropic-login (or mode 'max)))
+
+;;;###autoload
+(defun ogent-claude-code-logout ()
+  "Clear Claude Code-compatible OAuth tokens."
+  (interactive)
+  (ogent-anthropic-logout))
+
+;;;###autoload
+(defun ogent-claude-code-status ()
+  "Display Claude Code-compatible OAuth authentication status."
+  (interactive)
+  (ogent-anthropic-status))
+
+(defun ogent-claude-code-authenticated-p ()
+  "Return non-nil if Claude Code-compatible OAuth is active."
+  (ogent-anthropic-oauth-authenticated-p))
+
 ;;; gptel Integration via Advice
 
 (defvar ogent-anthropic-oauth-debug nil
