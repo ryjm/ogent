@@ -16,7 +16,7 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 
 * Model Abstraction
 - Define a registry in =lisp/ogent-models.el= with entries:
-  - =:id= → display/model string (="gpt-4o"=, ="claude-3.5"=, etc.).
+  - =:id= → display/model string (="gpt-5.4-mini"=, ="claude-sonnet-4-6"=, etc.).
   - =:backend= → the =gptel-backend= symbol (e.g. =gptel-openai=, =gptel-anthropic=).
   - =:preset= (optional) → symbol passed to =gptel-with-preset=.
   - =:stream?= → non-nil if =gptel-stream= should be enabled.

@@ -69,7 +69,7 @@ Add to your `~/.doom.d/config.el`:
 
   :config
   ;; Optional: Set default model after gptel loads
-  ;; (setq ogent-default-model "claude-sonnet-4-20250514")
+  ;; (setq ogent-default-model "claude-sonnet-4-6")
   )
 ```
 

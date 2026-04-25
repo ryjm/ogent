@@ -45,10 +45,10 @@ Example registry entry:
 
 ```elisp
 (setq ogent-model-registry
-      '((:id "gpt-4o-mini" :backend gptel-openai :stream? t
-             :description "OpenAI GPT-4o mini")
-        (:id "claude-3.5" :backend "anthropic" :stream? t
-             :description "Anthropic Claude 3.5")))
+      '((:id "gpt-5.4-mini" :backend gptel-openai :stream? t
+             :description "OpenAI GPT-5.4 mini")
+        (:id "claude-sonnet-4-6" :backend "anthropic" :stream? t
+             :description "Anthropic Claude Sonnet 4.6")))
 ```
 
 ### Creating backends
@@ -59,7 +59,7 @@ Backends are created with gptel (or via `ogent-onboard`):
 ;; Example: OpenAI backend
 (setq gptel-backend
       (gptel-make-openai "OpenAI" :key "sk-..." :stream t))
-(setq gptel-model "gpt-4o-mini")
+(setq gptel-model "gpt-5.4-mini")
 ```
 
 `M-x ogent-onboard` is the recommended path. It will create backends and
@@ -77,7 +77,7 @@ update the model registry for you.
 You can also call `ogent-request` with a list of model IDs:
 
 ```elisp
-(ogent-request "Compare answers" '("gpt-4o-mini" "claude-3.5"))
+(ogent-request "Compare answers" '("gpt-5.4-mini" "claude-sonnet-4-6"))
 ```
 
 ## Preset configuration
@@ -111,7 +111,7 @@ Presets can be applied in three ways:
 Example model entry with preset:
 
 ```elisp
-(:id "gpt-4o-mini" :backend gptel-openai :stream? t :preset ogent-explain)
+(:id "gpt-5.4-mini" :backend gptel-openai :stream? t :preset ogent-explain)
 ```
 
 ## Example .dir-locals.el
@@ -121,10 +121,10 @@ consistent across a repo:
 
 ```elisp
 ((org-mode .
-  ((ogent-default-model . "gpt-4o-mini")
+  ((ogent-default-model . "gpt-5.4-mini")
    (ogent-model-registry .
-    ((:id "gpt-4o-mini" :backend gptel-openai :stream? t :preset ogent-explain)
-     (:id "claude-3.5" :backend gptel-anthropic :stream? t)))
+    ((:id "gpt-5.4-mini" :backend gptel-openai :stream? t :preset ogent-explain)
+     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t)))
    (ogent-preset-registry .
     ((:name my-summary
       :spec (:description "Team summary"

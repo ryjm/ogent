@@ -24,6 +24,32 @@
     (should (plist-get provider :backend))
     (should (plist-get provider :models))))
 
+(ert-deftest ogent-onboard-providers-include-current-models ()
+  "Onboarding offers the current model families for each provider."
+  (let* ((providers (mapcar (lambda (p) (cons (plist-get p :id) p))
+                            ogent-onboard-providers))
+         (anthropic (cdr (assq 'anthropic providers)))
+         (openai (cdr (assq 'openai providers)))
+         (openai-codex (cdr (assq 'openai-codex providers)))
+         (anthropic-models (mapcar (lambda (m) (plist-get m :id))
+                                   (plist-get anthropic :models)))
+         (openai-models (mapcar (lambda (m) (plist-get m :id))
+                                (plist-get openai :models)))
+         (openai-codex-models (mapcar (lambda (m) (plist-get m :id))
+                                      (plist-get openai-codex :models))))
+    (dolist (model-id '("claude-opus-4-7"
+                        "claude-sonnet-4-6"
+                        "claude-haiku-4-5-20251001"))
+      (should (member model-id anthropic-models)))
+    (dolist (model-id '("gpt-5.5"
+                        "gpt-5.5-pro"
+                        "gpt-5.4"
+                        "gpt-5.4-mini"
+                        "gpt-5.4-nano"
+                        "gpt-5.3-codex"))
+      (should (member model-id openai-models))
+      (should (member model-id openai-codex-models)))))
+
 (ert-deftest ogent-onboard-add-to-registry ()
   "Adding model to registry works correctly."
   (let ((ogent-model-registry '((:id "existing" :backend foo)))
@@ -33,6 +59,18 @@
     (should (ogent-models-get "test-model"))
     (should (eq (plist-get (ogent-models-get "test-model") :backend)
                 'gptel-anthropic))))
+
+(ert-deftest ogent-onboard-add-to-registry-preserves-stream-metadata ()
+  "Adding model to registry preserves explicit :stream? metadata."
+  (let ((ogent-model-registry nil)
+        (provider '(:id openai :backend gptel-openai))
+        (model '(:id "gpt-5.5-pro"
+                 :stream? nil
+                 :description "Non-streaming model")))
+    (let ((entry (ogent-onboard--add-to-registry provider model)))
+      (should (equal (plist-get entry :id) "gpt-5.5-pro"))
+      (should-not (plist-get entry :stream?))
+      (should-not (plist-get (ogent-models-get "gpt-5.5-pro") :stream?)))))
 
 (ert-deftest ogent-onboard-set-default-model ()
   "Setting default model updates ogent-default-model."
@@ -123,10 +161,10 @@
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
   (let ((_provider (car ogent-onboard-providers)))  ; Anthropic
-    (ogent-test-with-input "claude-sonnet-4-5 RET"
+    (ogent-test-with-input "claude-sonnet-4-6 RET"
 			   (let ((model (ogent-onboard--select-model provider)))
 			     (should model)
-			     (should (string-prefix-p "claude-sonnet-4-5" (plist-get model :id)))))))
+			     (should (string-prefix-p "claude-sonnet-4-6" (plist-get model :id)))))))
 
 ;;; Auth-source Integration Tests
 
@@ -317,6 +355,31 @@
     (let ((provider '(:name "Anthropic OAuth")))
       (should-not (ogent-onboard--configure-oauth provider)))))
 
+(ert-deftest ogent-onboard-configure-oauth-provider-specific-functions ()
+  "OAuth setup uses provider-specific login and status functions."
+  (let ((login-called nil)
+        (authenticated nil))
+    (cl-letf (((symbol-function 'require)
+               (lambda (feature &rest _)
+                 (eq feature 'ogent-codex-oauth)))
+              ((symbol-function 'ogent-codex-oauth-authenticated-p)
+               (lambda () authenticated))
+              ((symbol-function 'ogent-codex-oauth-mode)
+               (lambda () "chatgpt"))
+              ((symbol-function 'ogent-codex-login)
+               (lambda (&optional _mode)
+                 (setq login-called t)
+                 (setq authenticated t)))
+              ((symbol-function 'y-or-n-p)
+               (lambda (_prompt) t)))
+      (let ((provider '(:name "OpenAI Codex"
+                        :oauth-feature ogent-codex-oauth
+                        :oauth-login ogent-codex-login
+                        :oauth-authenticated-p ogent-codex-oauth-authenticated-p
+                        :oauth-mode ogent-codex-oauth-mode)))
+        (should (ogent-onboard--configure-oauth provider))
+        (should login-called)))))
+
 ;;; Create Backend Tests
 
 (ert-deftest ogent-onboard-create-backend-unknown-creator ()
@@ -405,6 +468,28 @@
                                   ogent-onboard-providers)))
     (should oauth-provider)
     (should (eq 'oauth (plist-get oauth-provider :auth-type)))))
+
+(ert-deftest ogent-onboard-openai-codex-provider-has-oauth-handlers ()
+  "OpenAI Codex provider reuses Codex OAuth login state."
+  (let ((provider (seq-find (lambda (p)
+                              (eq (plist-get p :id) 'openai-codex))
+                            ogent-onboard-providers)))
+    (should provider)
+    (should (eq 'oauth (plist-get provider :auth-type)))
+    (should (eq 'ogent-codex-oauth (plist-get provider :oauth-feature)))
+    (should (eq 'ogent-codex-login (plist-get provider :oauth-login)))
+    (should (eq 'ogent-codex-oauth-authenticated-p
+                (plist-get provider :oauth-authenticated-p)))
+    (should (eq 'ogent-codex-oauth-get-api-key
+                (plist-get provider :oauth-key)))))
+
+(ert-deftest ogent-onboard-oauth-providers-have-handlers ()
+  "Every OAuth provider declares its auth integration functions."
+  (dolist (provider ogent-onboard-providers)
+    (when (eq (plist-get provider :auth-type) 'oauth)
+      (should (plist-get provider :oauth-feature))
+      (should (plist-get provider :oauth-login))
+      (should (plist-get provider :oauth-authenticated-p)))))
 
 (ert-deftest ogent-onboard-api-key-provider-has-env-var ()
   "Test API key providers have :env-var set."

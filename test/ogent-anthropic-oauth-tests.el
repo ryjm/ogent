@@ -811,6 +811,13 @@
       ;; Should NOT contain "created" since created-at is nil
       (should-not (string-match-p "created" last-msg)))))
 
+(ert-deftest ogent-oauth-test-claude-code-aliases ()
+  "Claude Code command aliases are available for the OAuth flow."
+  (should (fboundp 'ogent-claude-code-login))
+  (should (fboundp 'ogent-claude-code-status))
+  (should (fboundp 'ogent-claude-code-logout))
+  (should (fboundp 'ogent-claude-code-authenticated-p)))
+
 (ert-deftest ogent-oauth-test-logout-confirmed ()
   "Test logout clears tokens when user confirms."
   (let* ((tmp-dir (make-temp-file "ogent-logout-" t))
