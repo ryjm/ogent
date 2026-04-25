@@ -27,8 +27,20 @@ jobs:
 
       - name: Test
         run: |
-          # setup-emacs/Nix needs site startup for compressed core Lisp.
+          # Nix stores jka-compr itself as .el.gz, which can recurse while
+          # bootstrapping compressed core Lisp. Preload an uncompressed copy.
+          compat_dir="$RUNNER_TEMP/emacs-lisp-compat"
+          mkdir -p "$compat_dir"
+          lisp_dir="$(emacs --batch --eval '(princ lisp-directory)')"
+          if [ -f "$lisp_dir/jka-compr.el.gz" ]; then
+            gzip -dc "$lisp_dir/jka-compr.el.gz" > "$compat_dir/jka-compr.el"
+          elif [ -f "$lisp_dir/jka-compr.el" ]; then
+            cp "$lisp_dir/jka-compr.el" "$compat_dir/jka-compr.el"
+          fi
+
           emacs --batch \
+            -L "$compat_dir" \
+            -l jka-compr \
             -L lisp -L lisp/ui -L test -L test/ui \
             -l test/ogent-test-helper.el \
             --eval '(progn
