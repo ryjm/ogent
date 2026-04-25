@@ -2,6 +2,7 @@
 
 (require 'ogent-test-helper)
 (require 'ogent-completions)
+(require 'ogent-ui)
 (require 'ogent-keys)
 
 ;;; Review Action Registry Tests
@@ -572,11 +573,8 @@
            (question-pos (and question-marker (marker-position question-marker))))
       ;; Pre-populate registry with the correct key
       (puthash question-pos '(dummy) ogent-completions--registry)
-      ;; Simulate a request struct
-      (let ((mock-request (list 'mock-request)))
-        (cl-letf (((symbol-function 'ogent-ui-request-marker)
-                   (lambda (_req) response-marker)))
-          (ogent-completions--on-response-complete mock-request))
+      (let ((request (make-ogent-ui-request :marker response-marker)))
+        (ogent-completions--on-response-complete request)
         ;; The registry for this question should now be invalidated
         (should-not (gethash question-pos ogent-completions--registry))))))
 
