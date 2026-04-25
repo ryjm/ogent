@@ -11,7 +11,7 @@
 ;; Settings cascade: global defaults -> .dir-locals.el -> .ogent.el
 ;;
 ;; Example .ogent.el file:
-;;   ((ogent-project-model . "claude-3.5")
+;;   ((ogent-project-model . "claude-sonnet-4-6")
 ;;    (ogent-project-preset . ogent-code-review)
 ;;    (ogent-project-context-files . ("README.md" "ARCHITECTURE.md"))
 ;;    (ogent-project-codemap-roots . ("src" "lib"))

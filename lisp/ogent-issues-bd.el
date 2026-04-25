@@ -408,7 +408,7 @@ ERROR-CALLBACK is called on error with an error message."
             (user-error "%s" err))
           nil)
       (ogent-issues-bd--run-async
-       (list "start" id)
+       (list "update" id "--status" "in_progress")
        (lambda (_result)
          (ogent-issues-bd-cache-invalidate)
          (funcall callback))
@@ -426,7 +426,7 @@ ERROR-CALLBACK is called on error with an error message."
             (user-error "%s" err))
           nil)
       (ogent-issues-bd--run-async
-       (list "comment" id text)
+       (list "comments" "add" id text)
        (lambda (_result)
          (ogent-issues-bd-cache-invalidate)
          (funcall callback))

@@ -282,23 +282,22 @@ Removes dimming, expands the subtree."
       (user-error "Not in a Question/Response context"))
     (unless completions
       (user-error "No completions found for this question"))
-    (when (= (length completions) 1)
-      (message "Only one completion available")
-      (cl-return-from ogent-completion-next))
-    (let* ((key (marker-position question-marker))
-           (current-index (gethash key ogent-completions--current-index 0))
-           (next-index (mod (1+ current-index) (length completions)))
-           (next-completion (nth next-index completions)))
-      ;; Update index
-      (ogent-completions--set-current-index question-marker next-index)
-      ;; Update visual state
-      (ogent-completions--update-visual-state completions next-index)
-      ;; Move point to the new current completion
-      (goto-char (ogent-completion-marker next-completion))
-      (message "Completion %d of %d (%s)"
-               (1+ next-index)
-               (length completions)
-               (ogent-completion-model next-completion)))))
+    (if (= (length completions) 1)
+        (message "Only one completion available")
+      (let* ((key (marker-position question-marker))
+             (current-index (gethash key ogent-completions--current-index 0))
+             (next-index (mod (1+ current-index) (length completions)))
+             (next-completion (nth next-index completions)))
+        ;; Update index
+        (ogent-completions--set-current-index question-marker next-index)
+        ;; Update visual state
+        (ogent-completions--update-visual-state completions next-index)
+        ;; Move point to the new current completion
+        (goto-char (ogent-completion-marker next-completion))
+        (message "Completion %d of %d (%s)"
+                 (1+ next-index)
+                 (length completions)
+                 (ogent-completion-model next-completion))))))
 
 ;;;###autoload
 (defun ogent-completion-prev ()
@@ -312,23 +311,22 @@ Removes dimming, expands the subtree."
       (user-error "Not in a Question/Response context"))
     (unless completions
       (user-error "No completions found for this question"))
-    (when (= (length completions) 1)
-      (message "Only one completion available")
-      (cl-return-from ogent-completion-prev))
-    (let* ((key (marker-position question-marker))
-           (current-index (gethash key ogent-completions--current-index 0))
-           (prev-index (mod (1- current-index) (length completions)))
-           (prev-completion (nth prev-index completions)))
-      ;; Update index
-      (ogent-completions--set-current-index question-marker prev-index)
-      ;; Update visual state
-      (ogent-completions--update-visual-state completions prev-index)
-      ;; Move point to the new current completion
-      (goto-char (ogent-completion-marker prev-completion))
-      (message "Completion %d of %d (%s)"
-               (1+ prev-index)
-               (length completions)
-               (ogent-completion-model prev-completion)))))
+    (if (= (length completions) 1)
+        (message "Only one completion available")
+      (let* ((key (marker-position question-marker))
+             (current-index (gethash key ogent-completions--current-index 0))
+             (prev-index (mod (1- current-index) (length completions)))
+             (prev-completion (nth prev-index completions)))
+        ;; Update index
+        (ogent-completions--set-current-index question-marker prev-index)
+        ;; Update visual state
+        (ogent-completions--update-visual-state completions prev-index)
+        ;; Move point to the new current completion
+        (goto-char (ogent-completion-marker prev-completion))
+        (message "Completion %d of %d (%s)"
+                 (1+ prev-index)
+                 (length completions)
+                 (ogent-completion-model prev-completion))))))
 
 ;;; Accept/Reject Commands
 

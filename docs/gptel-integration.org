@@ -4,16 +4,43 @@
 
 ogent uses gptel as its transport layer for communicating with LLM backends. This guide covers:
 
-- Setting up API keys for different providers
+- Setting up OAuth or API-key authentication for different providers
 - Configuring backends in the model registry
 - Defining and using presets
 - Using @preset cookies in prompts
 
-* API Key Setup
+* Authentication Setup
 
-ogent inherits authentication from gptel. Set up your API keys before using ogent:
+ogent can either inherit API-key authentication from gptel or reuse CLI OAuth
+credentials through its onboarding providers.
 
-** OpenAI
+** OAuth-backed providers
+
+For OpenAI, log in with the Codex CLI first. ogent reads the API key that Codex
+caches in =$CODEX_HOME/auth.json= or =~/.codex/auth.json=:
+
+#+begin_src emacs-lisp
+(ogent-codex-login)
+(ogent-codex-login-device)  ;; Device-code fallback for headless sessions
+(ogent-codex-status)
+#+end_src
+
+For Anthropic, ogent exposes Claude Code-compatible aliases over its existing
+OAuth flow:
+
+#+begin_src emacs-lisp
+(ogent-claude-code-login)
+(ogent-claude-code-status)
+(ogent-claude-code-logout)
+#+end_src
+
+After logging in, run =M-x ogent-onboard= and choose the matching OAuth provider.
+
+** API-key providers
+
+Set up API keys before using API-key providers:
+
+*** OpenAI
 
 #+begin_src emacs-lisp
 ;; Option 1: Environment variable (recommended)
@@ -26,7 +53,7 @@ ogent inherits authentication from gptel. Set up your API keys before using ogen
 (setq gptel-api-key "sk-...")
 #+end_src
 
-** Anthropic
+*** Anthropic
 
 #+begin_src emacs-lisp
 ;; Environment variable
@@ -36,7 +63,7 @@ ogent inherits authentication from gptel. Set up your API keys before using ogen
 ;; machine api.anthropic.com login apikey password sk-ant-...
 #+end_src
 
-** Other Providers
+*** Other Providers
 
 gptel supports many backends. See [[https://github.com/karthink/gptel#backends][gptel documentation]] for provider-specific setup.
 
@@ -46,19 +73,19 @@ ogent maintains a registry of available models in =ogent-model-registry=. Each e
 
 #+begin_src emacs-lisp
 (setq ogent-model-registry
-      '((:id "gpt-4o-mini"
+      '((:id "gpt-5.4-mini"
          :backend gptel-openai
          :stream? t
-         :description "OpenAI GPT-4o mini - fast and cheap")
-        (:id "gpt-4o"
+         :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
+        (:id "gpt-5.5"
          :backend gptel-openai
          :stream? t
-         :description "OpenAI GPT-4o - best quality")
-        (:id "claude-3.5"
+         :description "OpenAI GPT-5.5 - flagship reasoning and coding")
+        (:id "claude-sonnet-4-6"
          :backend gptel-anthropic
          :stream? t
          :preset code-expert
-         :description "Anthropic Claude 3.5")))
+         :description "Anthropic Claude Sonnet 4.6")))
 #+end_src
 
 ** Required Fields
@@ -147,7 +174,7 @@ The cookie is stripped from the final prompt, and the preset is applied automati
 *** Programmatic Use
 
 #+begin_src emacs-lisp
-(ogent-request "Review this code" '("gpt-4o") 'code-review)
+(ogent-request "Review this code" '("gpt-5.4-mini") 'code-review)
 #+end_src
 
 ** Preset Priority
@@ -173,7 +200,7 @@ When multiple presets could apply, ogent uses this priority:
 Response blocks show status in their header:
 
 #+begin_example
-#+begin_src text :model gpt-4o :backend gptel-openai :status typing
+#+begin_src text :model gpt-5.4-mini :backend gptel-openai :status typing
 #+end_example
 
 Status values:
@@ -185,7 +212,7 @@ Status values:
 On completion, latency is added:
 
 #+begin_example
-#+begin_src text :model gpt-4o :status done :latency 2.3s
+#+begin_src text :model gpt-5.4-mini :status done :latency 2.3s
 #+end_example
 
 ** Cancellation and Retry
@@ -253,5 +280,5 @@ If responses appear all at once instead of streaming:
 
 #+begin_src emacs-lisp
 ;; Ensure streaming is enabled for the model
-(:id "gpt-4o" :backend gptel-openai :stream? t ...)
+(:id "gpt-5.4-mini" :backend gptel-openai :stream? t ...)
 #+end_src

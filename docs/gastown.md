@@ -125,12 +125,15 @@ The status buffer runs six parallel async fetches on every refresh:
 
 | Section | Command | Data |
 |---------|---------|------|
-| Hook | `gt hook --json` | Current hook assignment |
+| Hook | `gt hook status mayor/ --json` | Current hook assignment |
 | Mail | `gt mail inbox --json` | Inbox messages |
 | Convoy | `gt convoy list --json` | Active convoys |
 | Workers | `gt polecat list --all --json` | Polecat states |
 | Town Status | `gt status --json --fast` | Rig list, beads stats, deacon, witnesses |
-| Crew | `gt crew list --json` | Crew worker list |
+| Crew | `gt crew list --all --json` | Crew worker list |
+
+The hook target is resolved from the active Gas Town role context when available;
+`mayor/` is the fallback target shown here.
 
 The town status fetch uses `--fast` by default. The `--fast` flag skips expensive
 operations (overseer mail counts, hook discovery per-rig, merge queue summaries)
@@ -309,7 +312,7 @@ renders the same placeholder text as legitimately empty data.
    timeout 12 gt status --json --fast
 
    # Hook status
-   timeout 12 gt hook --json
+   timeout 12 gt hook status mayor/ --json
 
    # Mail inbox
    timeout 12 gt mail inbox --json
@@ -321,7 +324,7 @@ renders the same placeholder text as legitimately empty data.
    timeout 12 gt polecat list --all --json
 
    # Crew list
-   timeout 12 gt crew list --json
+   timeout 12 gt crew list --all --json
    ```
 
 2. If a command hangs (no output before timeout), it's likely blocking on a
