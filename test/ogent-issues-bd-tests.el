@@ -281,8 +281,8 @@ OUTPUT should be a plist or list that will be JSON-encoded."
 							     (setq called t)))
 				    (should called)
 				    (let ((args (car ogent-issues-bd-test--captured-args)))
-				      (should (member "start" args))
-				      (should (member "test-abc" args))))))
+				      (should (equal '("update" "test-abc" "--status" "in_progress")
+                                                     args))))))
 
 (ert-deftest ogent-issues-bd-test-sync ()
   "Test syncing beads."
@@ -508,7 +508,8 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
                                  (setq called t)))
       (should called)
       (let ((args (car ogent-issues-bd-test--captured-args)))
-        (should (member "comment" args))
+        (should (member "comments" args))
+        (should (member "add" args))
         (should (member "test-abc" args))
         (should (member "This is a comment" args))))))
 

@@ -68,6 +68,7 @@
 (require 'ogent-session)
 (require 'ogent-debug)
 (require 'ogent-anthropic-oauth)
+(require 'ogent-codex-oauth)
 (require 'ogent-completions)
 (require 'ogent-mcp)
 (require 'ogent-gastown)

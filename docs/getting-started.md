@@ -76,7 +76,7 @@ git clone https://github.com/your-org/ogent.git ~/path/to/ogent
   :bind-keymap ("C-c ." . ogent-mode-map)
   :config
   ;; Optional: set default model
-  (setq ogent-default-model "claude-sonnet-4-5-20250929"))
+  (setq ogent-default-model "claude-sonnet-4-6"))
 ```
 
 ### Spacemacs
@@ -118,12 +118,14 @@ ogent provides an interactive setup wizard that handles API key configuration fo
 Run `M-x ogent-onboard` (or `SPC e o` in Doom/Spacemacs) to start the wizard:
 
 1. **Select a provider:**
-   - **Anthropic Claude Max/Pro (OAuth)** - Recommended for Claude Max subscribers. Uses browser-based OAuth login.
+   - **Anthropic Claude Max/Pro (OAuth)** - Recommended for Claude subscribers. Uses the Claude Code-compatible OAuth flow.
    - **Anthropic (API Key)** - Use your own Anthropic API key.
    - **OpenAI (GPT)** - Use your OpenAI API key.
+   - **OpenAI Codex / ChatGPT (OAuth)** - Reuse Codex CLI ChatGPT credentials.
 
 2. **Configure authentication:**
-   - For OAuth: Your browser will open to authenticate with your Claude account.
+   - For Claude OAuth: Your browser will open to authenticate with your Claude account.
+   - For Codex OAuth: Run `M-x ogent-codex-login` first, or choose the Codex OAuth provider after your Codex CLI is already logged in.
    - For API keys: Enter your key when prompted. You can save it to `~/.authinfo.gpg` for future sessions.
 
 3. **Select default model:**
@@ -217,7 +219,7 @@ Responses stream inline as Org source blocks:
 ...your prompt...
 
 ** Response
-#+begin_src text :model claude-sonnet-4-5
+#+begin_src text :model claude-sonnet-4-6
 Here's my suggested approach for user authentication...
 #+end_src
 ```
@@ -300,9 +302,10 @@ Run `M-x ogent-describe-bindings` to see all bindings in a help buffer.
 **Problem:** Browser-based login not working.
 
 **Solution:**
-1. Ensure you have an active Claude Max/Pro subscription
-2. Try logging out and back in: `M-x ogent-anthropic-logout` then retry
-3. Fall back to API key authentication via `M-x ogent-onboard`
+1. For Claude Code, ensure your account includes Claude Code access, then try `M-x ogent-claude-code-logout` and log in again.
+2. For Codex, run `M-x ogent-codex-login-device` if browser callback login is blocked or you are on a headless machine.
+3. Confirm Codex has a file auth cache at `$CODEX_HOME/auth.json` or `~/.codex/auth.json`.
+4. Fall back to API key authentication via `M-x ogent-onboard`.
 
 ### "Rate limit exceeded"
 

@@ -1,5 +1,4 @@
-# Ogent CI - Test Emacs package using makem.sh
-# Based on: https://github.com/alphapapa/makem.sh/blob/master/test.yml
+# Ogent CI - run the ERT suite across supported Emacs versions.
 
 name: CI
 
@@ -26,16 +25,25 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Initialize sandbox
-        run: |
-          SANDBOX_DIR=$(mktemp -d) || exit 1
-          echo "SANDBOX_DIR=$SANDBOX_DIR" >> $GITHUB_ENV
-          ./makem.sh -vv --sandbox=$SANDBOX_DIR --install-deps --install-linters
-
-      - name: Lint
-        continue-on-error: true
-        run: ./makem.sh -vv --sandbox=$SANDBOX_DIR lint
-
       - name: Test
-        if: always()
-        run: ./makem.sh -vv --sandbox=$SANDBOX_DIR test
+        run: |
+          # Nix stores jka-compr itself as .el.gz, which can recurse while
+          # bootstrapping compressed core Lisp. Preload an uncompressed copy.
+          compat_dir="$RUNNER_TEMP/emacs-lisp-compat"
+          mkdir -p "$compat_dir"
+          lisp_dir="$(emacs --batch --eval '(princ lisp-directory)')"
+          if [ -f "$lisp_dir/jka-compr.el.gz" ]; then
+            gzip -dc "$lisp_dir/jka-compr.el.gz" > "$compat_dir/jka-compr.el"
+          elif [ -f "$lisp_dir/jka-compr.el" ]; then
+            cp "$lisp_dir/jka-compr.el" "$compat_dir/jka-compr.el"
+          fi
+
+          emacs --batch \
+            -L "$compat_dir" \
+            -l jka-compr \
+            -L lisp -L lisp/ui -L test -L test/ui \
+            -l test/ogent-test-helper.el \
+            --eval '(progn
+                      (dolist (file (ogent-test--files))
+                        (load-file file))
+                      (ert-run-tests-batch-and-exit))'

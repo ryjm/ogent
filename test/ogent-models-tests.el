@@ -16,6 +16,30 @@
     (should (equal (plist-get (ogent-models-ensure "alpha") :backend) 'foo))
     (should-error (ogent-models-ensure "missing") :type 'error)))
 
+(ert-deftest ogent-models-default-is-current-cost-aware-openai-model ()
+  "The shipped default should use a current low-cost OpenAI model."
+  (should (equal ogent-default-model "gpt-5.4-mini"))
+  (should (ogent-models-get ogent-default-model)))
+
+(ert-deftest ogent-models-registry-includes-current-frontier-models ()
+  "The default registry includes current OpenAI and Anthropic text models."
+  (dolist (model-id '("gpt-5.5"
+                      "gpt-5.5-pro"
+                      "gpt-5.4"
+                      "gpt-5.4-mini"
+                      "gpt-5.4-nano"
+                      "gpt-5.3-codex"
+                      "claude-opus-4-7"
+                      "claude-sonnet-4-6"
+                      "claude-haiku-4-5-20251001"))
+    (should (ogent-models-get model-id))))
+
+(ert-deftest ogent-models-pro-models-can-disable-streaming ()
+  "The registry can represent models that should not stream."
+  (let ((model (ogent-models-get "gpt-5.5-pro")))
+    (should model)
+    (should-not (plist-get model :stream?))))
+
 (ert-deftest ogent-presets-available-collects-names ()
   "Available presets include both ogent and gptel presets."
   (let ((ogent-preset-registry '((:name code-review :spec (:description "cr"))

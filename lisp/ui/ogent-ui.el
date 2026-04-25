@@ -1920,7 +1920,7 @@ The source buffer content is captured for context."
                                       (if (fboundp 'gptel--model-name)
                                           (gptel--model-name gptel-model)
                                         gptel-model)
-                                    "gpt-4o-mini"))))
+                                    (plist-get (ogent-models-default) :id)))))
              last-request)
         (dolist (model-id model-ids)
           (let* ((model (ogent-models-ensure model-id))

@@ -31,7 +31,8 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 - [[https://github.com/karthink/gptel][gptel]] for transport and model selection
 - Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
 - An LLM provider:
-  - **Claude Max/Pro**: Use OAuth authentication (recommended, no API key needed)
+  - **OpenAI Codex / ChatGPT**: Reuse Codex CLI OAuth credentials
+  - **Claude Code / Claude Max/Pro**: Use OAuth authentication (recommended, no API key needed)
   - **API Key**: Traditional API key for Anthropic or OpenAI
 
 * Install
@@ -55,28 +56,45 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 * Configuration
 ** Quick Setup (Recommended)
 Run =M-x ogent-onboard= to interactively configure your LLM provider. This wizard:
-1. Lets you choose between Claude Max/Pro (OAuth) or API key authentication
+1. Lets you choose between OpenAI Codex OAuth, Claude Code OAuth, or API key authentication
 2. Guides you through the login process
 3. Configures gptel backends automatically
 
-** Claude Max/Pro OAuth (No API Key Required!)
-If you have a Claude Pro or Claude Max subscription, you can authenticate via OAuth:
+** OpenAI Codex / ChatGPT OAuth
+If you already use the Codex CLI with ChatGPT login, ogent can reuse the API key
+cached in =$CODEX_HOME/auth.json= or =~/.codex/auth.json=:
 
 #+begin_src emacs-lisp
 (require 'ogent)
-(ogent-anthropic-login)  ; Opens browser, paste the code
+(ogent-codex-login)         ; Opens Codex browser login
+(ogent-codex-login-device)  ; Device-code fallback for headless sessions
+#+end_src
+
+After login, choose =OpenAI Codex / ChatGPT (OAuth - Recommended)= in
+=M-x ogent-onboard=.
+
+To check status: =M-x ogent-codex-status=
+To logout: =M-x ogent-codex-logout=
+
+** Claude Code / Claude Max/Pro OAuth
+If you have a Claude Pro, Max, Team, Enterprise, or Console account, you can
+authenticate via the Claude Code-compatible OAuth flow:
+
+#+begin_src emacs-lisp
+(require 'ogent)
+(ogent-claude-code-login)  ; Opens browser, paste the code
 #+end_src
 
 This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
 refreshes them as needed. No API key management required!
 
-To check status: =M-x ogent-anthropic-status=
-To logout: =M-x ogent-anthropic-logout=
+The older Anthropic-named commands still work. The Claude Code aliases are:
+=M-x ogent-claude-code-status= and =M-x ogent-claude-code-logout=.
 
 ** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
 (add-hook 'org-mode-hook #'ogent-mode)
-(setq ogent-default-model "gpt-4o-mini")
+(setq ogent-default-model "gpt-5.4-mini")
 #+end_src
 
 ** Doom Emacs

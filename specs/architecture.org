@@ -21,7 +21,7 @@ This explicitness serves two purposes: reproducibility (same input → same beha
 *** Responses as Data
 Model output lands in Org src blocks with structured headers:
 #+begin_example
-#+begin_src text :model claude-3.5 :status done :latency 2.1s
+#+begin_src text :model claude-sonnet-4-6 :status done :latency 2.1s
 #+end_example
 
 This metadata enables programmatic access. Fold responses, navigate between them, extract them for export. The response is not ephemeral chat—it's a first-class Org element.

@@ -15,18 +15,36 @@
   "Configuration for ogent model registry."
   :group 'ogent)
 
-(defcustom ogent-default-model "gpt-4o-mini"
+(defcustom ogent-default-model "gpt-5.4-mini"
   "Default model identifier used when dispatching prompts."
   :type 'string
   :group 'ogent-models)
 
 (defcustom ogent-model-registry
-  '((:id "gpt-4o-mini" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-4o mini")
-    (:id "gpt-4o" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-4o")
-    (:id "claude-3.5" :backend gptel-anthropic :stream? t
-          :description "Anthropic Claude 3.5"))
+  '((:id "gpt-5.5" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-5.5 - flagship reasoning and coding")
+    (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
+          :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
+    (:id "gpt-5.4" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-5.4 - professional coding and agentic work")
+    (:id "gpt-5.4-mini" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
+    (:id "gpt-5.4-nano" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-5.4 nano - low-cost high-volume tasks")
+    (:id "gpt-5.3-codex" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-5.3-Codex - agentic coding")
+    (:id "gpt-4.1" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-4.1 - non-reasoning long-context model")
+    (:id "gpt-4o-mini" :backend gptel-openai :stream? t
+          :description "OpenAI GPT-4o mini - legacy fallback")
+    (:id "claude-opus-4-7" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Opus 4.7 - complex reasoning and agentic coding")
+    (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
+    (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Haiku 4.5 - fastest Claude model")
+    (:id "claude-sonnet-4-20250514" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Sonnet 4 - legacy fallback"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 
@@ -45,7 +63,7 @@ Optional keys:
   "Return the plist describing MODEL-ID or nil if unknown."
   (seq-find (lambda (entry)
               (string= (plist-get entry :id) model-id))
-            (ogent-models-all)))
+            ogent-model-registry))
 
 (defun ogent-models-ensure (model-id)
   "Return MODEL-ID entry or signal a user error if missing."
