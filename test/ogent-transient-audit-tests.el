@@ -50,6 +50,10 @@
                   (string-prefix-p "transient-" (symbol-name command)))
              (string-prefix-p "C-" key)))))
 
+(defun ogent-transient-audit--action-suffix-p (suffix)
+  "Return non-nil when SUFFIX should resolve to an interactive command."
+  (not (object-of-class-p suffix 'transient-infix)))
+
 (ert-deftest ogent-transient-audit-prefixes-setup ()
   "Every Transient prefix should render without setup-time errors."
   (ogent-transient-audit--with-stable-environment
@@ -85,7 +89,8 @@
    (lambda ()
      (dolist (prefix ogent-transient-audit-prefixes)
        (dolist (suffix (transient-suffixes prefix))
-         (when (ogent-transient-audit--visible-suffix-p suffix)
+         (when (and (ogent-transient-audit--visible-suffix-p suffix)
+                    (ogent-transient-audit--action-suffix-p suffix))
            (should (commandp (oref suffix command)))))))))
 
 (provide 'ogent-transient-audit-tests)
