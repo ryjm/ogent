@@ -6,7 +6,9 @@
 ;;; Code:
 
 (require 'ert)
+(require 'seq)
 (require 'ogent-models)
+(require 'ogent-tool-effects)
 (require 'ogent-tools)
 
 (defun ogent-tools-tests--wait-until (predicate &optional timeout process)
@@ -1662,6 +1664,26 @@ PROCESS, when non-nil, is passed to `accept-process-output'."
       (ogent-tools--progress-update)
       ;; Should show approximately 5.0s
       (should (string-match-p "[45]\\." last-message)))))
+
+(ert-deftest ogent-tools-default-registry-declares-effects ()
+  "Every default tool declares auditable effects."
+  (dolist (spec ogent-tools-default-registry)
+    (should (plist-get spec :effects))
+    (should (ogent-tool-effects-normalize
+             (plist-get spec :effects)))))
+
+(ert-deftest ogent-tools-default-registry-classifies-dangerous-tools ()
+  "Dangerous default tools require approval through effect policy."
+  (let ((bash (seq-find (lambda (spec)
+                          (eq (plist-get spec :name) 'bash))
+                        ogent-tools-default-registry))
+        (read-file (seq-find (lambda (spec)
+                               (eq (plist-get spec :name) 'read-file))
+                             ogent-tools-default-registry)))
+    (should (ogent-tool-effects-approval-required-p
+             (plist-get bash :effects)))
+    (should-not (ogent-tool-effects-approval-required-p
+                 (plist-get read-file :effects)))))
 
 (provide 'ogent-tools-tests)
 

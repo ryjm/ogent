@@ -61,6 +61,30 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
 - =ogent-tool-fsm= manages the approval state machine
 - Users can re-run tools at point with =ogent-tool-rerun=
 
+*** Proof Ledger
+Requests and tool calls may be recorded through =ogent-ledger.el= when
+=ogent-ledger-enabled= is non-nil. Ledger entries are append-only Org
+headings with event type, hash metadata, and printable event data.
+
+The ledger is intentionally explicit:
+- Request entries store prompt and context hashes, not full prompt payloads.
+- Tool entries store declared effects, result hashes, errors, and duration.
+- Buffer and marker values are sanitized to printable references.
+
+This gives ogent a replayable audit trail without hidden memory.
+
+*** Tool Effects
+Every tool spec should declare =:effects=. Effects are plists with:
+- =:kind= such as =read=, =write=, =execute=, =network=, =git=,
+  =issue=, or =emacs-state=
+- =:target= such as =file=, =filesystem=, =shell=, or =external=
+- =:scope= such as =workspace=, =process=, =command=, or =unrestricted=
+- =:risk= such as =low=, =medium=, =high=, or =critical=
+
+Approval policy must consider effects, not only tool names. Read-only
+workspace tools can run without prompting by default, while write,
+execute, network, git, issue, and Emacs-state effects require approval.
+
 * Rule of Engagement
 - Treat this file as required context before building any feature.
 - Emacs Lisp modules must stay under =lisp/=, UI helpers under =lisp/ui/=, docs under =docs/=, specs here.
@@ -103,6 +127,16 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
 - Users can override the companion by selecting an existing Org buffer (prompt or config). Once linked, ogent commands route context reads to the originating buffer and writes/streamed responses to the Org companion.
 - All editing actions must respect the active context: code buffers receive inline diffs/patches when the user asks for edits, while the Org companion records prompts, context summaries, and streamed completions. Keep the two buffers synchronized via markers so navigation commands (e.g., jump to last response) work regardless of where ogent was invoked.
 - Ensure the linking metadata survives buffer reloads (e.g., via buffer-local vars saved in file-local settings) and expose a command to rebind the companion Org buffer when users switch workflows.
+
+* Proof Ledger & Effects
+- =ogent-ledger.el= owns append-only request and tool event recording.
+- =ogent-tool-effects.el= owns effect normalization, formatting, risk
+  scoring, and approval policy primitives.
+- Ledger recording is gated by =ogent-ledger-enabled=.
+- New tools must declare =:effects= in their registry spec.
+- Approval UI should display declared effects before arguments.
+- Context manifests should include hashes and reasons for every included
+  source, Org node, handle, and pinned item.
 
 * Extending Specs
 If a feature introduces new architectural rules, add a child heading here or create another file under =specs/= and cross-link it.

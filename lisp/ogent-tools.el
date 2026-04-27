@@ -742,7 +742,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 			 :description "Line number to start from (1-indexed)")
 		  (:name "limit" :type "integer" :optional t
 			 :description "Maximum lines to read"))
-	   :category "filesystem")
+	   :category "filesystem"
+	   :effects ((:kind read :target file :scope workspace :risk low)))
 
     (:name glob
 	   :function ogent-tool--glob
@@ -751,7 +752,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 			 :description "Glob pattern like **/*.el or src/**/*.py")
 		  (:name "path" :type "string" :optional t
 			 :description "Directory to search in (default: project root)"))
-	   :category "search")
+	   :category "search"
+	   :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name grep
 	   :function ogent-tool--grep
@@ -766,7 +768,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 			 :description "Limit search to files matching pattern (e.g., *.el)")
 		  (:name "context_lines" :type "integer" :optional t
 			 :description "Lines of context around matches"))
-	   :category "search")
+	   :category "search"
+	   :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name bash
 	   :function ogent-tool--bash
@@ -780,6 +783,10 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 		  (:name "timeout" :type "integer" :optional t
 			 :description "Timeout in seconds"))
 	   :category "shell"
+	   :effects ((:kind execute :target shell :scope unrestricted :risk critical)
+		     (:kind read :target filesystem :scope unrestricted :risk high)
+		     (:kind write :target filesystem :scope unrestricted :risk high)
+		     (:kind network :target external :scope command :risk high))
 	   :confirm t)
 
     (:name write-file
@@ -790,6 +797,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 		  (:name "content" :type "string"
 			 :description "Content to write"))
 	   :category "filesystem"
+	   :effects ((:kind write :target file :scope workspace :risk high))
 	   :confirm t)
 
     (:name edit-file
@@ -804,6 +812,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 		  (:name "replace_all" :type "boolean" :optional t
 			 :description "If true, replace all occurrences"))
 	   :category "filesystem"
+	   :effects ((:kind read :target file :scope workspace :risk low)
+		     (:kind write :target file :scope workspace :risk high))
 	   :confirm t))
   "Default tool definitions for ogent.
 These provide Claude Code-like functionality.")

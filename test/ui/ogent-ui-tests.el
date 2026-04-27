@@ -539,6 +539,37 @@
     (should (eq (ogent-ui--check-tool-approval 'read-file nil)
                 'approved))))
 
+(ert-deftest ogent-tool-approval-read-effect-auto-approves ()
+  "Read-only tool specs are auto-approved by policy."
+  (let ((ogent-tool-require-approval t)
+        (ogent-tool-allow-list nil))
+    (cl-letf (((symbol-function 'ogent-tool-spec-get)
+               (lambda (_name)
+                 '(:name read-file
+                   :effects ((:kind read :target file :scope workspace)))))
+              ((symbol-function 'ogent-tool--prompt-approval)
+               (lambda (&rest _)
+                 (error "approval prompt should not be called"))))
+      (should (eq (ogent-ui--check-tool-approval "read-file" nil)
+                  'approved)))))
+
+(ert-deftest ogent-tool-approval-write-effect-prompts ()
+  "Write effects require the approval prompt."
+  (let ((ogent-tool-require-approval t)
+        (ogent-tool-allow-list nil)
+        (prompt-called nil))
+    (cl-letf (((symbol-function 'ogent-tool-spec-get)
+               (lambda (_name)
+                 '(:name write-file
+                   :effects ((:kind write :target file :scope workspace)))))
+              ((symbol-function 'ogent-tool--prompt-approval)
+               (lambda (&rest _)
+                 (setq prompt-called t)
+                 'deny)))
+      (should (eq (ogent-ui--check-tool-approval "write-file" nil)
+                  'denied))
+      (should prompt-called))))
+
 (ert-deftest ogent-tool-deny-list-normalizes-tool-names ()
   "Session deny-list should treat string and symbol tool names alike."
   (let ((ogent-tool--denied-tools nil))

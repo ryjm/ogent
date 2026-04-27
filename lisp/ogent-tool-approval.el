@@ -10,6 +10,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'transient)
+(require 'ogent-tool-effects)
 
 (defgroup ogent-tool-approval nil
   "Tool approval settings for ogent."
@@ -58,9 +59,11 @@ Keys are canonical tool names, values are t or `rejected'.")
 
 (defun ogent-tool-approval-required-p (tool-spec)
   "Return non-nil if TOOL-SPEC requires user approval.
-Checks for :confirm flag in the spec plist."
+Checks explicit confirmation and declared tool effects."
   (and tool-spec
-       (plist-get tool-spec :confirm)))
+       (or (plist-get tool-spec :confirm)
+           (ogent-tool-effects-approval-required-p
+            (plist-get tool-spec :effects)))))
 
 (defun ogent-tool-approval--format-args (args)
   "Format ARGS plist for display in approval prompt.
@@ -84,6 +87,9 @@ Returns a formatted string with indented key-value pairs."
 (defvar ogent-tool-approval--current-tool-name nil
   "Tool name for the current approval transient.")
 
+(defvar ogent-tool-approval--current-tool-spec nil
+  "Tool spec for the current approval transient.")
+
 (defvar ogent-tool-approval--current-tool-args nil
   "Tool args for the current approval transient.")
 
@@ -97,6 +103,7 @@ Called with t for approval, nil for rejection.")
   (when ogent-tool-approval--current-callback
     (funcall ogent-tool-approval--current-callback t))
   (setq ogent-tool-approval--current-tool-name nil
+        ogent-tool-approval--current-tool-spec nil
         ogent-tool-approval--current-tool-args nil
         ogent-tool-approval--current-callback nil))
 
@@ -106,6 +113,7 @@ Called with t for approval, nil for rejection.")
   (when ogent-tool-approval--current-callback
     (funcall ogent-tool-approval--current-callback nil))
   (setq ogent-tool-approval--current-tool-name nil
+        ogent-tool-approval--current-tool-spec nil
         ogent-tool-approval--current-tool-args nil
         ogent-tool-approval--current-callback nil))
 
@@ -133,11 +141,14 @@ Called with t for approval, nil for rejection.")
   "Transient menu for tool execution approval."
   [:description
    (lambda ()
-     (format "Tool Approval: %s\n\nArguments:\n%s"
+     (format "Tool Approval: %s\n\nEffects:\n%s\n\nArguments:\n%s"
              (propertize (or (and ogent-tool-approval--current-tool-name
-                                  (symbol-name ogent-tool-approval--current-tool-name))
+                                  (ogent-tool-approval--normalize-tool-name
+                                   ogent-tool-approval--current-tool-name))
                              "unknown")
                          'face 'warning)
+             (ogent-tool-effects-format
+              (plist-get ogent-tool-approval--current-tool-spec :effects))
              (ogent-tool-approval--format-args
               ogent-tool-approval--current-tool-args)))
    ["Actions"
@@ -170,6 +181,7 @@ Otherwise, displays transient approval menu."
      ;; Prompt for approval
      (t
       (setq ogent-tool-approval--current-tool-name tool-name
+            ogent-tool-approval--current-tool-spec tool-spec
             ogent-tool-approval--current-tool-args args
             ogent-tool-approval--current-callback callback)
       (ogent-tool-approval-menu)))))

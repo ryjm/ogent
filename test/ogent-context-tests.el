@@ -3,6 +3,7 @@
 (require 'ogent-test-helper)
 (require 'ogent-context)
 (require 'org)
+(require 'seq)
 
 (ert-deftest ogent-context-resolve-by-ogent-id ()
   "Handles using explicit OGENT_ID are resolved."
@@ -180,6 +181,39 @@
         (should (string-match-p "truncated node Root" payload))
         (should (string-match-p "## @dep: Dep" payload))
         (should (string-match-p "truncated node Dep" payload))))))
+
+(ert-deftest ogent-context-manifest-includes-hashes-and-reasons ()
+  "Context manifest records provenance for root and handles."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Root\nSee @dep.\n* Dep\nSupporting text.\n")
+    (goto-char (point-min))
+    (let* ((ctx (ogent-context-build-filtered))
+           (manifest (ogent-context-manifest ctx))
+           (root (seq-find (lambda (entry)
+                             (eq (plist-get entry :kind) 'root))
+                           manifest))
+           (handle (seq-find (lambda (entry)
+                               (eq (plist-get entry :kind) 'handle))
+                             manifest)))
+      (should root)
+      (should handle)
+      (should (string= (plist-get root :reason) "current Org subtree"))
+      (should (string= (plist-get handle :reason) "@dep reference"))
+      (should (= (length (plist-get root :hash)) 64))
+      (should (= (length (plist-get handle :hash)) 64)))))
+
+(ert-deftest ogent-context-render-prompt-includes-provenance ()
+  "Rendered prompt manifest includes provenance hashes."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Root\nSee @dep.\n* Dep\nSupporting text.\n")
+    (goto-char (point-min))
+    (let* ((ctx (ogent-context-build-filtered))
+           (payload (ogent-context-render-prompt "Explain" ctx)))
+      (should (string-match-p "- Provenance:" payload))
+      (should (string-match-p "sha256:" payload))
+      (should (string-match-p "reason: @dep reference" payload)))))
 
 ;;; Lazy context building tests
 
