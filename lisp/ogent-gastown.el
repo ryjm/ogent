@@ -323,6 +323,7 @@ Returns the process object, or nil if gt is not available."
 (defun ogent-gastown-hook-refresh (&optional callback)
   "Refresh hook status asynchronously.
 If CALLBACK is provided, call it with the hook plist when done."
+  (interactive)
   (let* ((hook-args (ogent-gastown--hook-status-command-args))
          (command (car hook-args))
          (args (cdr hook-args)))
@@ -353,6 +354,7 @@ If CALLBACK is provided, call it with the hook plist when done."
 (defun ogent-gastown-mail-refresh (&optional callback)
   "Refresh mail inbox status asynchronously.
 If CALLBACK is provided, call it with the mail list when done."
+  (interactive)
   (ogent-gastown--run-async
    "mail" '("inbox" "--json")
    (lambda (result)
@@ -408,6 +410,7 @@ CALLBACK is called on success with the result."
 (defun ogent-gastown-convoy-refresh (&optional callback)
   "Refresh convoy status asynchronously.
 If CALLBACK is provided, call it with the convoy list when done."
+  (interactive)
   (ogent-gastown--run-async
    "convoy" '("list" "--json")
    (lambda (result)

@@ -9,6 +9,15 @@
 (require 'ogent-models)
 (require 'ogent-tools)
 
+(defun ogent-tools-tests--wait-until (predicate &optional timeout process)
+  "Wait until PREDICATE returns non-nil, up to TIMEOUT seconds.
+PROCESS, when non-nil, is passed to `accept-process-output'."
+  (let ((deadline (+ (float-time) (or timeout 3))))
+    (while (and (< (float-time) deadline)
+                (not (funcall predicate)))
+      (accept-process-output process 0.05))
+    (funcall predicate)))
+
 (ert-deftest ogent-tools-format-bytes ()
   "Human-readable byte formatting matches expected units."
   (should (equal (ogent-tools--format-bytes 512) "512 B"))
@@ -32,6 +41,18 @@
           (should (equal (expand-file-name "file.txt" root)
                          (ogent-tools--resolve-path "file.txt"))))
       (delete-directory root t))))
+
+(ert-deftest ogent-tools-resolve-path-relative-prefers-project-root ()
+  "Relative paths use the configured project root."
+  (let ((root (make-temp-file "ogent-root-" t))
+        (other (make-temp-file "ogent-other-" t)))
+    (unwind-protect
+        (let ((ogent-tools-project-root root)
+              (default-directory (file-name-as-directory other)))
+          (should (equal (expand-file-name "file.txt" root)
+                         (ogent-tools--resolve-path "file.txt"))))
+      (delete-directory root t)
+      (delete-directory other t))))
 
 (ert-deftest ogent-tools-truncate-output ()
   "Output truncation appends a notice when exceeding max."
@@ -983,6 +1004,77 @@
       (should tool)
       (should (plist-get tool :async-function))
       (should (plist-get tool :async-callback-style)))))
+
+;;; Async process lifecycle
+
+(ert-deftest ogent-tools-bash-async-timeout-callback-once ()
+  "Async bash timeout reports one terminal error and cleans registry."
+  (let ((events nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil)
+        (ogent-tools--active-processes nil)
+        (ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        proc)
+    (unwind-protect
+        (progn
+          (setq proc
+                (ogent-tool--bash-async
+                 "sleep 5" nil 0.2
+                 (lambda (type data)
+                   (push (list type data) events))))
+          (should proc)
+          (should
+           (ogent-tools-tests--wait-until
+            (lambda ()
+              (not (assq proc ogent-tools--active-processes)))
+            3 proc))
+          (should-not (process-live-p proc))
+          (should (= 1 (cl-count 'error events :key #'car)))
+          (should (= 0 (cl-count 'done events :key #'car)))
+          (should (string-match-p
+                   "Timeout after"
+                   (cadr (seq-find (lambda (event) (eq (car event) 'error))
+                                   events)))))
+      (when (and proc (process-live-p proc))
+        (kill-process proc))
+      (ogent-tools-cancel-all))))
+
+(ert-deftest ogent-tools-grep-async-registers-for-cancellation ()
+  "Async grep participates in the shared cancellation registry."
+  (let* ((temp-dir (make-temp-file "ogent-grep-async-cancel-" t))
+         (fifo (expand-file-name "blocking.pipe" temp-dir))
+         (mkfifo (or (executable-find "mkfifo") "/usr/bin/mkfifo"))
+         (events nil)
+         (exec-path '("/nonexistent"))
+         (ogent-tools-show-progress nil)
+         (ogent-tools-stream-callback nil)
+         (ogent-tools--active-processes nil)
+         (ogent-tools--progress-state nil)
+         (ogent-tools--progress-timer nil)
+         proc)
+    (unwind-protect
+        (progn
+          (skip-unless (file-executable-p mkfifo))
+          (call-process mkfifo nil nil nil fifo)
+          (setq proc
+                (ogent-tool--grep-async
+                 "needle" temp-dir nil nil
+                 (lambda (type data)
+                   (push (list type data) events))))
+          (should proc)
+          (should (assq proc ogent-tools--active-processes))
+          (ogent-tools-cancel-all)
+          (should
+           (ogent-tools-tests--wait-until
+            (lambda () (not (process-live-p proc)))
+            3 proc))
+          (should-not ogent-tools--active-processes))
+      (when (and proc (process-live-p proc))
+        (kill-process proc))
+      (when (file-exists-p temp-dir)
+        (delete-directory temp-dir t))
+      (ogent-tools-cancel-all))))
 
 ;;; Cancel-all with live processes
 

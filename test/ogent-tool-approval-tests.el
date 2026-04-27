@@ -75,6 +75,38 @@
     (should callback-called)
     (should-not callback-arg)))
 
+(ert-deftest ogent-tool-approval-request/cache-normalizes-string-name ()
+  "Session approvals treat string and symbol tool names as the same tool."
+  (let ((spec '(:name "bash" :function ogent-tool--bash :confirm t))
+        (callback-called nil)
+        (callback-arg nil))
+    (clrhash ogent-tool-approval--session-approved)
+    (puthash "bash" t ogent-tool-approval--session-approved)
+    (ogent-tool-approval-request
+     spec
+     '(:command "echo test")
+     (lambda (approved)
+       (setq callback-called t
+             callback-arg approved)))
+    (should callback-called)
+    (should callback-arg)))
+
+(ert-deftest ogent-tool-approval-request/cache-reads-legacy-symbol-name ()
+  "Session approval lookup still accepts symbol keys from older state."
+  (let ((spec '(:name bash :function ogent-tool--bash :confirm t))
+        (callback-called nil)
+        (callback-arg nil))
+    (clrhash ogent-tool-approval--session-approved)
+    (puthash 'bash t ogent-tool-approval--session-approved)
+    (ogent-tool-approval-request
+     spec
+     '(:command "echo test")
+     (lambda (approved)
+       (setq callback-called t
+             callback-arg approved)))
+    (should callback-called)
+    (should callback-arg)))
+
 (ert-deftest ogent-tool-approval-reset/clears-cache ()
   "Reset clears all session approvals."
   (clrhash ogent-tool-approval--session-approved)
@@ -111,6 +143,19 @@
                   (list :content long-string))))
     (should (string-match-p "\\.\\.\\." result))
     (should (< (length result) 250))))
+
+(ert-deftest ogent-tool-approval--format-args/string-key-and-newline ()
+  "Argument formatting handles string keys and multiline values."
+  (let ((result (ogent-tool-approval--format-args
+                 '("command" "echo one\necho two"))))
+    (should (string-match-p "command:" result))
+    (should (string-match-p "echo one\\\\necho two" result))))
+
+(ert-deftest ogent-tool-approval--format-args/odd-plist ()
+  "Argument formatting tolerates a trailing key without value."
+  (let ((result (ogent-tool-approval--format-args '(:command))))
+    (should (string-match-p "command:" result))
+    (should (string-match-p "nil" result))))
 
 (provide 'ogent-tool-approval-tests)
 

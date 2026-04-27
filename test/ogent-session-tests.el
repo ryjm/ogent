@@ -584,6 +584,29 @@
       (when (file-exists-p ogent-session-directory)
         (delete-directory ogent-session-directory t)))))
 
+(ert-deftest ogent-session-search-treats-query-literally ()
+  "Session search accepts strings that are invalid regexps."
+  (let* ((ogent-session-directory (make-temp-file "ogent-test-search-literal-" t))
+         (file1 (expand-file-name "s1.org" ogent-session-directory))
+         result-buf)
+    (unwind-protect
+        (progn
+          (with-temp-file file1
+            (insert "#+title: Literal\n")
+            (insert "#+OGENT-SESSION-ID: literal\n")
+            (insert "\n* Conversation\nFind this literal text: a[b\n"))
+          (ogent-session-search "a[b")
+          (setq result-buf (get-buffer "*Ogent Search*"))
+          (should (buffer-live-p result-buf))
+          (with-current-buffer result-buf
+            (goto-char (point-min))
+            (should (search-forward "1 session(s) matched" nil t))
+            (should (search-forward "a[b" nil t))))
+      (when (buffer-live-p result-buf)
+        (kill-buffer result-buf))
+      (when (file-exists-p ogent-session-directory)
+        (delete-directory ogent-session-directory t)))))
+
 ;;; Display Search Results Tests
 
 (ert-deftest ogent-history-display-search-results-formatting ()
@@ -882,6 +905,49 @@
         (kill-buffer buffer))
       (when (file-exists-p ogent-session-directory)
         (delete-directory ogent-session-directory t)))))
+
+(ert-deftest ogent-persist-save-preserves-body-org-keywords ()
+  "Saving a session preserves Org keywords inside transcript content."
+  (let* ((ogent-session-directory (make-temp-file "ogent-test-body-keywords-" t))
+         (buffer (get-buffer-create "*test-body-keywords*"))
+         saved-file)
+    (unwind-protect
+        (with-current-buffer buffer
+          (org-mode)
+          (insert "#+title: Old Title\n")
+          (insert "#+OGENT-SESSION-ID: old-id\n\n")
+          (insert "* Response\n")
+          (insert "#+begin_src org\n")
+          (insert "#+title: Keep This Generated Title\n")
+          (insert "#+OGENT-SESSION-ID: keep-this-generated-id\n")
+          (insert "#+end_src\n")
+          (setq-local ogent-persist--id "new-id")
+          (setq-local ogent-persist--models '("new-model"))
+          (setq-local ogent-persist--start-time (current-time))
+          (setq saved-file (ogent-session-save))
+          (with-temp-buffer
+            (insert-file-contents saved-file)
+            (let ((content (buffer-string)))
+              (should (string-match-p "OGENT-SESSION-ID: new-id" content))
+              (should (string-match-p "Keep This Generated Title" content))
+              (should (string-match-p "keep-this-generated-id" content)))))
+      (when (buffer-live-p buffer)
+        (with-current-buffer buffer
+          (setq-local ogent-persist--id nil))
+        (kill-buffer buffer))
+      (when (file-exists-p ogent-session-directory)
+        (delete-directory ogent-session-directory t)))))
+
+(ert-deftest ogent-persist-parse-metadata-ignores-body-keywords ()
+  "Metadata parsing only reads the initial Org preamble."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Response\n")
+    (insert "#+begin_src org\n")
+    (insert "#+title: Body Title\n")
+    (insert "#+OGENT-SESSION-ID: body-id\n")
+    (insert "#+end_src\n")
+    (should-not (ogent-persist--parse-metadata-from-buffer))))
 
 ;;; Maybe Auto Save Non-Org Buffer
 

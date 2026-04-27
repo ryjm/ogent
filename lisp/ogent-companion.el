@@ -131,10 +131,14 @@ Returns the companion buffer."
 ;;; Persistence via file-local variables
 
 (defcustom ogent-companion-persist-links t
-  "When non-nil, persist companion buffer links via file-local variables.
-Only works for file-backed buffers.  The companion association is saved
-as a file-local variable and restored when the file is reopened."
+  "When non-nil, persist companion buffer links for file-backed buffers."
   :type 'boolean
+  :group 'ogent-companion)
+
+(defcustom ogent-companion-link-registry-file
+  (expand-file-name "ogent-companion-links.el" user-emacs-directory)
+  "File used to store persistent source-to-companion links."
+  :type 'file
   :group 'ogent-companion)
 
 (defvar-local ogent-companion-file nil
@@ -148,6 +152,55 @@ This is saved in file-local variables to persist across sessions.")
 Returns file path if BUFFER is file-backed, otherwise buffer name."
   (or (buffer-file-name buffer)
       (buffer-name buffer)))
+
+(defun ogent-companion--get-source-identifier (buffer)
+  "Return the persistent source identifier for BUFFER."
+  (when-let ((file (buffer-file-name buffer)))
+    (expand-file-name file)))
+
+(defun ogent-companion--read-link-registry ()
+  "Read the persistent companion link registry."
+  (condition-case nil
+      (when (file-readable-p ogent-companion-link-registry-file)
+        (with-temp-buffer
+          (insert-file-contents ogent-companion-link-registry-file)
+          (goto-char (point-min))
+          (let ((data (read (current-buffer))))
+            (when (listp data)
+              data))))
+    (error nil)))
+
+(defun ogent-companion--write-link-registry (registry)
+  "Write REGISTRY to `ogent-companion-link-registry-file'."
+  (when-let ((dir (file-name-directory ogent-companion-link-registry-file)))
+    (make-directory dir t))
+  (with-temp-file ogent-companion-link-registry-file
+    (insert ";; ogent companion links\n")
+    (prin1 registry (current-buffer))
+    (insert "\n")))
+
+(defun ogent-companion--save-persistent-link (source-buffer companion-buffer)
+  "Persist the link between SOURCE-BUFFER and COMPANION-BUFFER."
+  (when-let* ((source-id (ogent-companion--get-source-identifier source-buffer))
+              (companion-id (ogent-companion--get-companion-identifier companion-buffer)))
+    (let ((registry (assoc-delete-all
+                     source-id
+                     (copy-sequence (ogent-companion--read-link-registry)))))
+      (push (cons source-id companion-id) registry)
+      (ogent-companion--write-link-registry registry))))
+
+(defun ogent-companion--lookup-persistent-link (source-buffer)
+  "Return the persisted companion identifier for SOURCE-BUFFER."
+  (when-let ((source-id (ogent-companion--get-source-identifier source-buffer)))
+    (cdr (assoc source-id (ogent-companion--read-link-registry)))))
+
+(defun ogent-companion--delete-persistent-link (source-buffer)
+  "Remove SOURCE-BUFFER from the persistent companion link registry."
+  (when-let ((source-id (ogent-companion--get-source-identifier source-buffer)))
+    (let ((registry (assoc-delete-all
+                     source-id
+                     (copy-sequence (ogent-companion--read-link-registry)))))
+      (ogent-companion--write-link-registry registry))))
 
 (defun ogent-companion--find-or-create-from-identifier (identifier)
   "Find or create a companion buffer from IDENTIFIER.
@@ -174,18 +227,22 @@ Saves either the companion's file path or buffer name."
     (with-current-buffer source-buffer
       (let ((identifier (ogent-companion--get-companion-identifier companion-buffer)))
         (when identifier
-          (setq-local ogent-companion-file identifier))))))
+          (setq-local ogent-companion-file identifier)
+          (ogent-companion--save-persistent-link source-buffer companion-buffer))))))
 
 (defun ogent-companion--restore-link ()
   "Restore companion buffer link from file-local variables.
 Called via `hack-local-variables-hook' when a file is opened.
 Handles both file-backed and temp companion buffers."
   (when (and ogent-companion-persist-links
-             ogent-companion-file
              (not ogent-companion--linked-buffer))
-    (let ((companion (ogent-companion--find-or-create-from-identifier
-                      ogent-companion-file)))
+    (let* ((identifier (or ogent-companion-file
+                           (ogent-companion--lookup-persistent-link
+                            (current-buffer))))
+           (companion (ogent-companion--find-or-create-from-identifier
+                       identifier)))
       (when (buffer-live-p companion)
+        (setq-local ogent-companion-file identifier)
         (with-current-buffer companion
           (unless (derived-mode-p 'org-mode)
             (org-mode)))
@@ -293,6 +350,7 @@ BUFFER defaults to the current buffer."
       (with-current-buffer companion
         (setq-local ogent-companion--linked-buffer nil))
       (with-current-buffer buf
+        (ogent-companion--delete-persistent-link buf)
         (setq-local ogent-companion--linked-buffer nil)
         (setq-local ogent-companion-file nil))
       (when (called-interactively-p 'any)

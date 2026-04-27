@@ -13,6 +13,14 @@
 (defvar gptel-testbackend nil
   "Dummy gptel backend binding for ogent-ui tests.")
 
+(defvar gptel-backend)
+(defvar gptel-model)
+(defvar gptel--known-backends)
+
+(cl-defstruct (ogent-ui-test-provider
+               (:constructor ogent-ui-test-provider-create))
+  "Dummy backend type for backend resolution tests.")
+
 (ert-deftest ogent-ui-format-context-includes-missing ()
   "Format string contains handles and missing metadata."
   (ogent-test-with-fixture "data/fixture.org"
@@ -118,6 +126,24 @@
                                  (should-not (search-forward "\n*** Deep Note"
                                                              block-end t)))))))
 
+(ert-deftest ogent-ui-response-block-headline-is-single-line ()
+  "Request headlines should not be split by multi-line prompts."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Session\n")
+    (goto-char (point-min))
+    (let ((ogent-session-buffer-p nil))
+      (ogent-ui--create-response-block
+       "first line\nsecond line\n#+end_src\n* hostile"
+       '(:root nil)
+       '(:id "test-model"))
+      (goto-char (point-min))
+      (should (search-forward
+               "** Request: first line second line #+end_src * hostile"
+               nil t))
+      (forward-line 1)
+      (should (looking-at-p "#\\+begin_src text")))))
+
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
   "ogent-ui--ensure-gptel requires gptel plus declared backend features."
   (let ((requested '()))
@@ -141,6 +167,19 @@
     (should (eq (ogent-ui--resolve-backend
                  '(:backend ogent-ui-tests--backend))
                 'backend-object))))
+
+(ert-deftest ogent-ui-resolve-backend-symbol-current-provider ()
+  "Backend resolution can use the current gptel backend provider object."
+  (let ((gptel-backend (ogent-ui-test-provider-create)))
+    (should (eq (ogent-ui--resolve-backend '(:backend ogent-ui-test-provider))
+                gptel-backend))))
+
+(ert-deftest ogent-ui-resolve-backend-symbol-known-provider ()
+  "Backend resolution can use a matching known gptel backend provider."
+  (let* ((backend (ogent-ui-test-provider-create))
+         (gptel--known-backends `(("Audit" . ,backend))))
+    (should (eq (ogent-ui--resolve-backend '(:backend ogent-ui-test-provider))
+                backend))))
 
 (ert-deftest ogent-ui-resolve-backend-string-bound ()
   "Backend resolution handles string backend with bound gptel-* symbol."
@@ -313,6 +352,41 @@
         (should (eq (ogent-ui-request-status request) 'error))
         (should (member request ogent-ui--request-history))))))
 
+(ert-deftest ogent-ui-close-response-is-idempotent ()
+  "Closing a request twice should run lifecycle side effects once."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil)
+          (hook-count 0)
+          (error-block-count 0))
+      (let ((request (make-ogent-ui-request
+                      :id "req-idempotent"
+                      :context '(:source test)
+                      :buffer (current-buffer)
+                      :marker (copy-marker (point-max))
+                      :status 'type
+                      :start-time (current-time)))
+            (ogent-after-request-hook
+             (list (lambda (_context)
+                     (setq hook-count (1+ hook-count))))))
+        (puthash "req-idempotent" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--insert-error-block)
+                   (lambda (&rest _)
+                     (setq error-block-count (1+ error-block-count))))
+                  ((symbol-function 'ogent-theme-flash)
+                   (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-status-clear-request)
+                   (lambda (&rest _) nil)))
+          (ogent-ui--close-response request)
+          (ogent-ui--close-response request "late error"))
+        (should (ogent-ui-request-closed request))
+        (should (eq (ogent-ui-request-status request) 'done))
+        (should (= hook-count 1))
+        (should (= error-block-count 0))
+        (should (= (length ogent-ui--request-history) 1))
+        (should (null (gethash "req-idempotent" ogent-ui--request-table)))))))
+
 (ert-deftest ogent-ui-latency-formatting ()
   "Format latency shows seconds with one decimal."
   (let ((request (make-ogent-ui-request
@@ -331,6 +405,32 @@
     (ogent-ui--abort-request request)
     (should (ogent-ui-request-closed request))
     (should (null (gethash "test-abort" ogent-ui--request-table)))))
+
+(ert-deftest ogent-ui-abort-request-preserves-aborted-status ()
+  "Abort should close with terminal aborted status."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-abort-status"
+                      :buffer (current-buffer)
+                      :marker (copy-marker (point-max))
+                      :status 'wait
+                      :start-time (current-time))))
+        (puthash "req-abort-status" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--insert-error-block)
+                   (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-theme-flash)
+                   (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-status-clear-request)
+                   (lambda (&rest _) nil)))
+          (ogent-ui--abort-request request))
+        (should (ogent-ui-request-closed request))
+        (should (eq (ogent-ui-request-status request) 'aborted))
+        (should (ogent-ui-request-end-time request))
+        (should (member request ogent-ui--request-history))
+        (should (null (gethash "req-abort-status" ogent-ui--request-table)))))))
 
 (ert-deftest ogent-ui-request-history ()
   "Closed requests are added to history."
@@ -386,6 +486,7 @@
   "Tool pattern matching for simple patterns."
   ;; Tool name only
   (should (ogent-tool--pattern-match-p "read-file" "read-file" nil))
+  (should (ogent-tool--pattern-match-p "read-file" 'read-file nil))
   (should-not (ogent-tool--pattern-match-p "read-file" "write-file" nil))
   ;; Wildcard args
   (should (ogent-tool--pattern-match-p "bash(*)" "bash" '(:command "git status")))
@@ -417,6 +518,7 @@
   "Allow-list checking works correctly."
   (let ((ogent-tool-allow-list '("read-file" "bash(command:git *)")))
     (should (ogent-tool--allowed-p "read-file" nil))
+    (should (ogent-tool--allowed-p 'read-file nil))
     (should (ogent-tool--allowed-p "bash" '(:command "git status")))
     (should-not (ogent-tool--allowed-p "write-file" nil))
     (should-not (ogent-tool--allowed-p "bash" '(:command "rm -rf /")))))
@@ -433,7 +535,26 @@
   (let ((ogent-tool-require-approval t)
         (ogent-tool-allow-list '("read-file")))
     (should (eq (ogent-ui--check-tool-approval "read-file" nil)
+                'approved))
+    (should (eq (ogent-ui--check-tool-approval 'read-file nil)
                 'approved))))
+
+(ert-deftest ogent-tool-deny-list-normalizes-tool-names ()
+  "Session deny-list should treat string and symbol tool names alike."
+  (let ((ogent-tool--denied-tools nil))
+    (ogent-tool--add-to-deny-list 'bash)
+    (should (ogent-tool--denied-p "bash"))
+    (should (ogent-tool--denied-p 'bash))))
+
+(ert-deftest ogent-ui-execute-tool-accepts-symbol-tool-names ()
+  "Tool execution should accept symbol names from structured callbacks."
+  (let ((ogent-tool-registry
+         (list (list :name 'symbol-tool
+                     :function (lambda (arg1) (format "got %s" arg1))
+                     :description "Symbol tool"
+                     :args '((:name "arg1" :type "string"))))))
+    (should (equal (ogent-ui--execute-tool 'symbol-tool '(:arg1 "value"))
+                   "got value"))))
 
 (ert-deftest ogent-tool-format-preview ()
   "Tool preview formatting is human-readable."
@@ -1808,6 +1929,95 @@ Regression test: inline suffix shorthand with plain defun caused 'Need keyword' 
   (should (fboundp 'ogent-prompt-dispatch))
   ;; The prefix should be defined as a transient command
   (should (get 'ogent-prompt-dispatch 'transient--prefix)))
+
+(ert-deftest ogent-ui-prompt-dispatch-sets-up-without-error ()
+  "Prompt dispatcher should render under Transient in clean sessions."
+  (let ((gptel-backend nil)
+        (gptel-model nil))
+    (unwind-protect
+        (progn
+          (transient-setup 'ogent-prompt-dispatch)
+          (should (get 'ogent-prompt-dispatch 'transient--prefix)))
+      (when transient-current-prefix
+        (transient-quit-one)))))
+
+(ert-deftest ogent-ui-prompt-dispatch-visible-keys-are-unique ()
+  "Prompt dispatcher should not bind duplicate visible keys."
+  (let ((seen (make-hash-table :test #'equal))
+        duplicates)
+    (dolist (suffix (transient-suffixes 'ogent-prompt-dispatch))
+      (let ((key (oref suffix key)))
+        (unless (string-prefix-p "C-" key)
+          (let ((existing (gethash key seen)))
+            (if existing
+                (push (list key existing (oref suffix command)) duplicates)
+              (puthash key (oref suffix command) seen))))))
+    (should-not duplicates)))
+
+(defun ogent-ui-tests--contains-private-use-char-p (text)
+  "Return non-nil when TEXT contains a private-use glyph."
+  (catch 'found
+    (mapc (lambda (char)
+            (when (and (>= char #xe000)
+                       (<= char #xf8ff))
+              (throw 'found t)))
+          text)
+    nil))
+
+(ert-deftest ogent-ui-prompt-dispatch-renders-without-icon-glyphs ()
+  "Prompt dispatcher should render as compact text without icon glyphs."
+  (let ((gptel-backend nil)
+        (gptel-model nil))
+    (unwind-protect
+        (progn
+          (transient-setup 'ogent-prompt-dispatch)
+          (let ((text (with-current-buffer (get-buffer transient--buffer-name)
+                        (buffer-substring-no-properties (point-min) (point-max)))))
+            (should (string-match-p "Send" text))
+            (should (string-match-p "Model" text))
+            (should (string-match-p "Context" text))
+            (should-not (ogent-ui-tests--contains-private-use-char-p text))))
+      (when transient-current-prefix
+        (transient-quit-one)))))
+
+(ert-deftest ogent-ui-prompt-dispatch-model-and-codemap-keys-are-distinct ()
+  "Model selection and codemap commands should use separate keys."
+  (let ((model (cl-find-if (lambda (suffix)
+                             (equal (oref suffix key) "m"))
+                           (transient-suffixes 'ogent-prompt-dispatch)))
+        (codemap (cl-find-if (lambda (suffix)
+                               (equal (oref suffix key) "C"))
+                             (transient-suffixes 'ogent-prompt-dispatch))))
+    (should model)
+    (should codemap)
+    (should (eq (oref model command) 'ogent--infix-provider))
+    (should (eq (oref codemap command) 'ogent-codemap-buffer))))
+
+(ert-deftest ogent-ui-provider-infix-does-not-persist-backend-objects ()
+  "Provider selection should not store backend structs in Transient history."
+  (let* ((backend (ogent-ui-test-provider-create))
+         (model 'audit-model)
+         (gptel--known-backends `(("Audit" . ,backend)))
+         (transient-history nil))
+    (cl-letf (((symbol-function 'gptel-backend-models)
+               (lambda (_backend) (list model)))
+              ((symbol-function 'gptel--model-name)
+               (lambda (candidate) (symbol-name candidate)))
+              ((symbol-function 'completing-read)
+               (lambda (_prompt choices &rest _)
+                 (caar choices)))
+              ((symbol-function 'transient--show)
+               #'ignore))
+      (let* ((obj (ogent-provider-variable
+                   :command 'ogent--infix-provider
+                   :variable 'gptel-backend
+                   :model 'gptel-model
+                   :set-value #'ogent--set-with-scope
+                   :key "m"
+                   :reader #'ogent--read-provider))
+             (selection (transient-infix-read obj)))
+        (should (equal selection (list backend model)))
+        (should-not (alist-get 'ogent--infix-provider transient-history))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

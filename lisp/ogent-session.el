@@ -101,11 +101,8 @@ Returns a plist with :id, :models, :start-time, :title, :project."
                      (when ogent-session-track-project
                        (ogent-persist--detect-project))))
         (roam-id ogent-persist--roam-id)
-        (title (save-excursion
-                 (goto-char (point-min))
-                 (if (re-search-forward "^#\\+title:\\s-*\\(.+\\)$" nil t)
-                     (match-string-no-properties 1)
-                   (buffer-name)))))
+        (title (or (ogent-persist--preamble-value "title")
+                   (buffer-name))))
     (list :id id
           :models models
           :start-time start-time
@@ -121,6 +118,51 @@ Uses `project-root' if available, or vc-root-dir as fallback."
           (project-root proj)))
       (vc-root-dir)
       default-directory))
+
+(defun ogent-persist--preamble-keywords ()
+  "Return Org file keywords from the initial metadata preamble.
+The result is an alist mapping upper-case keyword names to values."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((keywords nil)
+          (done nil)
+          (case-fold-search t))
+      (while (and (not done) (not (eobp)))
+        (cond
+         ((looking-at "^#\\+\\([^: \t]+\\):[ \t]*\\(.*\\)$")
+          (push (cons (upcase (match-string-no-properties 1))
+                      (match-string-no-properties 2))
+                keywords)
+          (forward-line 1))
+         ((looking-at "^[ \t]*$")
+          (forward-line 1))
+         (t
+          (setq done t))))
+      (nreverse keywords))))
+
+(defun ogent-persist--preamble-value (key)
+  "Return the preamble keyword value for KEY."
+  (cdr (assoc (upcase key) (ogent-persist--preamble-keywords))))
+
+(defun ogent-persist--metadata-line-p ()
+  "Return non-nil when point is on an ogent-managed metadata line."
+  (let ((case-fold-search t))
+    (looking-at-p "^#\\+\\(?:title:\\|OGENT-SESSION-\\)")))
+
+(defun ogent-persist--strip-metadata-preamble ()
+  "Remove ogent-managed metadata lines from the initial Org preamble."
+  (goto-char (point-min))
+  (let ((done nil))
+    (while (and (not done) (not (eobp)))
+      (cond
+       ((ogent-persist--metadata-line-p)
+        (delete-region (line-beginning-position)
+                       (min (point-max) (1+ (line-end-position)))))
+       ((or (looking-at-p "^#\\+")
+            (looking-at-p "^[ \t]*$"))
+        (forward-line 1))
+       (t
+        (setq done t))))))
 
 (defun ogent-persist--format-metadata-header (metadata)
   "Format METADATA plist as Org file-level keywords."
@@ -146,38 +188,22 @@ Uses `project-root' if available, or vc-root-dir as fallback."
 
 (defun ogent-persist--parse-metadata-from-buffer ()
   "Parse session metadata from current buffer's Org keywords."
-  (save-excursion
-    (goto-char (point-min))
-    (let ((id nil) (models nil) (start-time nil) (title nil)
-          (project nil) (roam-id nil))
-      ;; Extract ID
-      (when (re-search-forward "^#\\+OGENT-SESSION-ID:\\s-*\\(.+\\)$" nil t)
-        (setq id (match-string-no-properties 1)))
-      ;; Extract start time
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+OGENT-SESSION-START:\\s-*\\(.+\\)$" nil t)
-        (condition-case nil
-            (setq start-time (date-to-time (match-string-no-properties 1)))
-          (error nil)))
-      ;; Extract models
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+OGENT-SESSION-MODELS:\\s-*\\(.+\\)$" nil t)
-        (setq models (split-string (match-string-no-properties 1) ",\\s-*" t)))
-      ;; Extract title
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+title:\\s-*\\(.+\\)$" nil t)
-        (setq title (match-string-no-properties 1)))
-      ;; Extract project
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+OGENT-SESSION-PROJECT:\\s-*\\(.+\\)$" nil t)
-        (setq project (match-string-no-properties 1)))
-      ;; Extract roam ID
-      (goto-char (point-min))
-      (when (re-search-forward "^#\\+OGENT-SESSION-ROAM:\\s-*\\(.+\\)$" nil t)
-        (setq roam-id (match-string-no-properties 1)))
-      (when id
-        (list :id id :models models :start-time start-time
-              :title title :project project :roam-id roam-id)))))
+  (let* ((keywords (ogent-persist--preamble-keywords))
+         (id (cdr (assoc "OGENT-SESSION-ID" keywords)))
+         (models-value (cdr (assoc "OGENT-SESSION-MODELS" keywords)))
+         (start-value (cdr (assoc "OGENT-SESSION-START" keywords)))
+         (title (cdr (assoc "TITLE" keywords)))
+         (project (cdr (assoc "OGENT-SESSION-PROJECT" keywords)))
+         (roam-id (cdr (assoc "OGENT-SESSION-ROAM" keywords)))
+         (models (when models-value
+                   (split-string models-value ",\\s-*" t)))
+         (start-time (when start-value
+                       (condition-case nil
+                           (date-to-time start-value)
+                         (error nil)))))
+    (when id
+      (list :id id :models models :start-time start-time
+            :title title :project project :roam-id roam-id))))
 
 (defun ogent-persist--apply-metadata (metadata)
   "Apply METADATA plist to buffer-local session variables."
@@ -220,13 +246,7 @@ Returns the path to the saved file."
     (with-temp-buffer
       ;; First, insert content and strip old metadata
       (insert content)
-      (goto-char (point-min))
-      ;; Remove old metadata lines (title and ogent-session keywords)
-      (while (re-search-forward "^#\\+\\(OGENT-SESSION-\\|title:\\)" nil t)
-        (goto-char (line-beginning-position))
-        (let ((line-start (point)))
-          (forward-line 1)
-          (delete-region line-start (point))))
+      (ogent-persist--strip-metadata-preamble)
       
       ;; Now insert fresh metadata at the beginning
       (goto-char (point-min))
@@ -500,7 +520,7 @@ Uses grep for fast full-text search."
         (goto-char (point-min))
         (let ((metadata (ogent-persist--parse-metadata-from-buffer))
               (matches '()))
-          (while (search-forward-regexp query nil t)
+          (while (search-forward query nil t)
             (let* ((line-num (line-number-at-pos))
                    (line-start (line-beginning-position))
                    (line-end (line-end-position))

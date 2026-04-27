@@ -28,6 +28,19 @@
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
 
+(defvar transient-history-file)
+(defvar transient-save-history)
+
+(defconst ogent-test-transient-history-file
+  (make-temp-file "ogent-transient-history")
+  "Scratch Transient history file used by batch tests.")
+
+(with-temp-file ogent-test-transient-history-file
+  (insert "nil\n"))
+
+(setq transient-history-file ogent-test-transient-history-file)
+(setq transient-save-history nil)
+
 ;; Auto-detect magit-section from Doom Emacs straight builds.
 ;; magit-section requires dash and compat on load-path.
 ;; Pick the highest-versioned build dir available (exact version may not match).

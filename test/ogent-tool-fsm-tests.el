@@ -76,6 +76,22 @@
     (should (string-match-p "^test-tool-[0-9]+$" id))
     (should (eq (plist-get normalized :name) 'test-tool))))
 
+(ert-deftest ogent-tool-fsm-test-normalize-rejects-missing-name ()
+  "Normalize returns nil for malformed tool calls with no name."
+  (should-not (ogent-tool-fsm--normalize-tool-call
+               '(:id "call-missing-name" :input (:arg1 "value1")))))
+
+(ert-deftest ogent-tool-fsm-test-parse-skips-malformed-calls ()
+  "Parser should preserve valid calls and skip malformed tool calls."
+  (let* ((response-info
+          '(:tool-use
+            ((:id "bad" :input (:arg1 "value1"))
+             (:id "good" :name test-tool :input (:arg1 "value2")))))
+         (calls (ogent-tool-fsm-parse-tool-calls response-info)))
+    (should (= (length calls) 1))
+    (should (equal (plist-get (car calls) :id) "good"))
+    (should (eq (plist-get (car calls) :name) 'test-tool))))
+
 ;;; Execution Tests
 
 (ert-deftest ogent-tool-fsm-test-spec-lookup ()
@@ -166,7 +182,7 @@
   "Test callback wrapper integration."
   (let ((original-called nil)
         (text-received nil)
-        (_info-received nil))
+        (info-received nil))
     (let ((wrapped (ogent-tool-fsm-callback-wrapper
                     (lambda (text info)
                       (setq original-called t
@@ -176,13 +192,19 @@
       (funcall wrapped "Hello" nil)
       (should original-called)
       (should (equal text-received "Hello"))
+      (should-not info-received)
       
       ;; Reset
-      (setq original-called nil)
+      (setq original-called nil
+            text-received nil
+            info-received nil)
       
       ;; Call with tool response
       (funcall wrapped "Text" '(:tool-use ((:id "c1" :name test :input nil))))
-      (should original-called))))
+      (should original-called)
+      (should (equal text-received "Text"))
+      (should (equal info-received
+                     '(:tool-use ((:id "c1" :name test :input nil))))))))
 
 ;;; Render Integration Tests
 

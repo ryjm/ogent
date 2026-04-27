@@ -46,6 +46,50 @@
   (or (alist-get status ogent-tool-render-status-indicators)
       "?"))
 
+(defun ogent-tool-render--stringify (value)
+  "Return VALUE as display text."
+  (if (stringp value)
+      value
+    (format "%S" value)))
+
+(defun ogent-tool-render--single-line (value)
+  "Return VALUE as text with record separators escaped."
+  (replace-regexp-in-string
+   "[\r\n]+"
+   (lambda (_match) "\\n")
+   (ogent-tool-render--stringify value)
+   t t))
+
+(defun ogent-tool-render--escape-example-content (content)
+  "Escape CONTENT for literal insertion in an Org example block."
+  (let ((case-fold-search t))
+    (replace-regexp-in-string
+     "^\\([ \t]*\\)\\([#][+]\\|[*]\\|,\\|:END:\\)"
+     "\\1,\\2"
+     content)))
+
+(defun ogent-tool-render--sanitize-id-part (value)
+  "Return VALUE as a drawer-safe identifier part."
+  (replace-regexp-in-string
+   "[^[:alnum:]_-]+"
+   "_"
+   (ogent-tool-render--single-line value)))
+
+(defun ogent-tool-render--drawer-name (id)
+  "Return the drawer name for tool call ID."
+  (format "TOOL_CALL_%s" (ogent-tool-render--sanitize-id-part id)))
+
+(defun ogent-tool-render--drawer-region (drawer-name)
+  "Return the region occupied by DRAWER-NAME, or nil."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward
+           (format "^[ \t]*:%s:[ \t]*$" (regexp-quote drawer-name))
+           nil t)
+      (let ((start (line-beginning-position)))
+        (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+          (cons start (min (point-max) (1+ (line-end-position)))))))))
+
 ;;; Tool Call Data Structure
 
 (cl-defstruct (ogent-tool-call
@@ -89,30 +133,31 @@ Returns the created/updated drawer markers as (START . END)."
          (error-msg (ogent-tool-call-error tool-call))
          (timestamp (or (ogent-tool-call-timestamp tool-call)
                         (current-time)))
-         (drawer-name (format "TOOL_CALL_%s" id))
+         (drawer-name (ogent-tool-render--drawer-name id))
          (start-pos (point))
+         existing-region
          start-marker end-marker)
     
     ;; Try to find existing drawer if not inserting new
     (unless insert-at-point
-      (save-excursion
-        (goto-char (point-min))
-        (when (re-search-forward
-               (format "^[ \t]*:%s:[ \t]*$" (regexp-quote drawer-name))
-               nil t)
-          (setq start-pos (line-beginning-position))
-          (goto-char start-pos))))
+      (setq existing-region (ogent-tool-render--drawer-region drawer-name))
+      (when existing-region
+        (setq start-pos (car existing-region))))
     
     (goto-char start-pos)
     
     ;; If updating existing, delete the old content
-    (when (and (not insert-at-point)
-               (ogent-tool-call-start-marker tool-call))
+    (cond
+     ((and (not insert-at-point)
+           (ogent-tool-call-start-marker tool-call))
       (let ((old-start (marker-position (ogent-tool-call-start-marker tool-call)))
             (old-end (marker-position (ogent-tool-call-end-marker tool-call))))
         (when (and old-start old-end)
           (delete-region old-start old-end)
           (goto-char old-start))))
+     ((and (not insert-at-point) existing-region)
+      (delete-region (car existing-region) (cdr existing-region))
+      (goto-char (car existing-region))))
     
     ;; Insert drawer
     (setq start-marker (point-marker))
@@ -162,27 +207,26 @@ Returns the created/updated drawer markers as (START . END)."
 (defun ogent-tool-render--plist-to-pairs (plist)
   "Convert PLIST to list of (key . value) pairs."
   (let (pairs)
-    (while plist
-      (push (cons (substring (symbol-name (car plist)) 1) ; strip leading :
-                  (cadr plist))
-            pairs)
+    (while (consp plist)
+      (let ((key (car plist)))
+        (push (cons (cond
+                     ((keywordp key)
+                      (substring (symbol-name key) 1))
+                     ((symbolp key)
+                      (symbol-name key))
+                     (t
+                      (ogent-tool-render--single-line key)))
+                    (cadr plist))
+              pairs))
       (setq plist (cddr plist)))
     (nreverse pairs)))
 
 (defun ogent-tool-render--format-value (value)
   "Format VALUE for display in drawer."
-  (cond
-   ((stringp value)
-    (if (> (length value) 60)
-        (concat (substring value 0 57) "...")
-      value))
-   ((numberp value)
-    (number-to-string value))
-   ((symbolp value)
-    (symbol-name value))
-   ((listp value)
-    (format "%S" value))
-   (t (format "%s" value))))
+  (let ((text (ogent-tool-render--single-line value)))
+    (if (> (length text) 60)
+        (concat (substring text 0 57) "...")
+      text)))
 
 (defun ogent-tool-render-update-status (tool-call new-status)
   "Update the status of TOOL-CALL to NEW-STATUS and re-render.
@@ -225,13 +269,16 @@ Updates status to \\='failed."
 
 (defun ogent-tool-render--truncate-result (result)
   "Truncate RESULT if it's too long for display."
-  (let ((max-length 2000))
-    (if (> (length result) max-length)
-        (concat (substring result 0 max-length)
-                "\n\n[... truncated, total length: "
-                (number-to-string (length result))
-                " chars]")
-      result)))
+  (let* ((text (ogent-tool-render--stringify result))
+         (max-length 2000)
+         (truncated
+          (if (> (length text) max-length)
+              (concat (substring text 0 max-length)
+                      "\n\n[... truncated, total length: "
+                      (number-to-string (length text))
+                      " chars]")
+            text)))
+    (ogent-tool-render--escape-example-content truncated)))
 
 ;;; Navigation
 
@@ -277,7 +324,9 @@ NAME is the tool name (string or symbol).
 ARGS is a plist of arguments to pass to the tool.
 The tool call is created with a unique ID and `pending' status."
   (let* ((name-str (if (symbolp name) (symbol-name name) name))
-         (id (format "%s-%d" name-str (cl-incf ogent-tool-render--id-counter)))
+         (id (format "%s-%d"
+                     (ogent-tool-render--sanitize-id-part name-str)
+                     (cl-incf ogent-tool-render--id-counter)))
          (tool-call (ogent-tool-call-create
                      :id id
                      :name name-str
