@@ -19,6 +19,8 @@
 ;; Declare hydra commands (defined in ogent-ui-hydra.el)
 (declare-function ogent-navigate "ogent-ui-hydra")
 (declare-function ogent-edit-menu "ogent-ui-hydra")
+(declare-function ogent-quick-edit "ogent-edit")
+(declare-function ogent-request-edit "ogent-edit")
 
 ;; Declare completion commands (defined in ogent-completions.el)
 (declare-function ogent-completion-next "ogent-completions")
@@ -109,6 +111,9 @@ Set to nil to disable automatic evil binding setup."
     ;; Editing (hydra menu)
     (edit-menu        :key "e" :command ogent-edit-menu
                       :desc "Edit hydra menu")
+    (quick-edit       :key "k" :command ogent-quick-edit
+                      :desc "Quick inline edit"
+                      :visual t)
     (request-edit     :key "E" :command ogent-request-edit
                       :desc "Request edit"
                       :visual t)
@@ -248,7 +253,7 @@ If evil is not loaded yet, defer installation until it loads."
 (defun ogent-setup-doom-bindings (&optional leader-map noerror)
   "Install Doom leader bindings for ogent.
 LEADER-MAP defaults to `doom-leader-map'.  When NOERROR is non-nil,
-return nil instead of signaling if Doom is unavailable."
+return nil rather than signaling if Doom is unavailable."
   (interactive)
   (let ((map (or leader-map
                  (and (boundp 'doom-leader-map)

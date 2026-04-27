@@ -205,6 +205,7 @@
 (ert-deftest ogent-keys-edit-actions-present ()
   "Edit actions are present in registry."
   (should (assq 'edit-menu ogent-action-registry))
+  (should (assq 'quick-edit ogent-action-registry))
   (should (assq 'request-edit ogent-action-registry))
   (should (assq 'goto-source ogent-action-registry))
   (should (assq 'goto-companion ogent-action-registry)))
@@ -255,11 +256,13 @@
                 'ogent-prompt-dispatch))
     (should (eq (lookup-key leader-map (kbd "o r"))
                 'ogent-request))
+    (should (eq (lookup-key leader-map (kbd "o k"))
+                'ogent-quick-edit))
     (should (eq (lookup-key leader-map (kbd "o E"))
                 'ogent-request-edit))))
 
 (ert-deftest ogent-keys-doom-bindings-noerror-without-doom ()
-  "Doom setup returns nil instead of erroring when NOERROR is non-nil."
+  "Doom setup returns nil when NOERROR is non-nil and Doom is absent."
   (let ((ogent-enable-doom-bindings t))
     (should-not (ogent-setup-doom-bindings nil t))))
 

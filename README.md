@@ -21,6 +21,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
+- **Quick inline edit**: `C-c . k` (`SPC o k` in Doom/Evil) prompts for one instruction and targets the active region, current definition, or current line. Use a prefix argument for full-file edits.
 - **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
 - **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
 - **Multi-model fan-out**: Selecting multiple providers triggers concurrent gptel requests via the registry; each response streams into its own src block tagged with model/backend metadata so you can compare answers side-by-side without blocking.

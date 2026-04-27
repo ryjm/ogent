@@ -571,6 +571,104 @@ missing separator and end marker")
             (kill-buffer)))
       (delete-file temp-file))))
 
+(ert-deftest ogent-edit-request-uses-explicit-bounds ()
+  "ogent-request-edit can send a focused buffer slice."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first () nil)\n\n(defun second () t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (let ((start (point-min))
+                  (end (save-excursion
+                         (goto-char (point-min))
+                         (search-forward "\n\n")
+                         (match-beginning 0))))
+              (ogent-test-with-mock-gptel
+                (ogent-request-edit "Return t" start end)
+                (let* ((captured (ogent-test-last-request))
+                       (prompt (plist-get captured :prompt)))
+                  (should captured)
+                  (should (string-match-p "defun first" prompt))
+                  (should-not (string-match-p "defun second" prompt))
+                  (should (= (plist-get ogent-edit--pending-request :region-start)
+                             start))
+                  (should (= (plist-get ogent-edit--pending-request :region-end)
+                             end)))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-quick-target-prefers-region ()
+  "Quick edit targets the active region first."
+  (with-temp-buffer
+    (insert "alpha\nbeta\ngamma\n")
+    (goto-char (point-min))
+    (push-mark (+ (point-min) 5) t t)
+    (activate-mark)
+    (let ((target (ogent-edit--quick-target)))
+      (should (eq (plist-get target :scope) 'region))
+      (should (= (plist-get target :start) (point-min)))
+      (should (= (plist-get target :end) (+ (point-min) 5))))))
+
+(ert-deftest ogent-edit-quick-target-uses-defun-at-point ()
+  "Quick edit targets the current defun when no region is active."
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(defun first ()\n  nil)\n\n(defun second ()\n  t)\n")
+    (goto-char (point-min))
+    (search-forward "nil")
+    (let ((target (ogent-edit--quick-target)))
+      (should (eq (plist-get target :scope) 'defun))
+      (should (string-match-p
+               "defun first"
+               (buffer-substring-no-properties
+                (plist-get target :start)
+                (plist-get target :end))))
+      (should-not (string-match-p
+                   "defun second"
+                   (buffer-substring-no-properties
+                    (plist-get target :start)
+                    (plist-get target :end)))))))
+
+(ert-deftest ogent-edit-quick-target-falls-back-to-line ()
+  "Quick edit targets the current line when no defun is available."
+  (with-temp-buffer
+    (insert "alpha\nbeta\ngamma\n")
+    (goto-char (point-min))
+    (forward-line 1)
+    (cl-letf (((symbol-function 'mark-defun)
+               (lambda (&rest _args)
+                 (user-error "No defun"))))
+      (let ((target (ogent-edit--quick-target)))
+        (should (eq (plist-get target :scope) 'line))
+        (should (string= "beta"
+                         (buffer-substring-no-properties
+                          (plist-get target :start)
+                          (plist-get target :end))))))))
+
+(ert-deftest ogent-edit-quick-edit-sends-focused-target ()
+  "ogent-quick-edit sends only the selected quick edit target."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  nil)\n\n(defun second ()\n  t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "nil")
+            (ogent-test-with-mock-gptel
+              (ogent-quick-edit "Return t")
+              (let* ((captured (ogent-test-last-request))
+                     (prompt (plist-get captured :prompt)))
+                (should captured)
+                (should (string-match-p "Return t" prompt))
+                (should (string-match-p "defun first" prompt))
+                (should-not (string-match-p "defun second" prompt))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
 ;;; Coverage Expansion Tests for ogent-edit.el
 
 (ert-deftest ogent-edit-make-callback-accumulates-streaming ()

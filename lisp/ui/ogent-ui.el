@@ -36,6 +36,7 @@
 (declare-function ogent-edit--generate-id "ogent-edit-format")
 (declare-function make-ogent-edit "ogent-edit-format")
 (autoload 'ogent-edit-menu "ogent-edit" nil t)
+(autoload 'ogent-quick-edit "ogent-edit" nil t)
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-session-save "ogent-session" nil t)
 (autoload 'ogent-session-load "ogent-session" nil t)
@@ -76,7 +77,7 @@
   "When non-nil, instruct LLM to format responses as Org-mode.
 This adds a system directive to requests when the target buffer
 is in Org-mode, ensuring code blocks use #+begin_src syntax,
-headings use * instead of #, etc."
+headings use * rather than #, etc."
   :type 'boolean
   :group 'ogent-mode)
 
@@ -1045,6 +1046,10 @@ Shows model, context info, and pinned count."
   "Return the description for quick ask."
   "Quick ask...")
 
+(defun ogent--desc-quick-edit ()
+  "Return the description for quick edit."
+  "Quick edit...")
+
 (defun ogent--desc-preview ()
   "Return the description for context preview."
   "Preview...")
@@ -1104,6 +1109,7 @@ A polished interface for AI-assisted workflows.
   [:description ogent--format-status-header
    [:description "Send"
     (ogent--suffix-send-action)
+    ("k" ogent-quick-edit :description ogent--desc-quick-edit)
     ("?" ogent-ask :description ogent--desc-quick-ask)]
    [:description "Model"
     (ogent--infix-provider)
@@ -1574,7 +1580,7 @@ Handles both regular text responses and tool call responses."
                    (not (and (consp text) (memq (car text) '(tool-call tool-result)))))
           (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
         ;; Update status based on what we're receiving
-        ;; Note: gptel may pass t instead of a string in some cases
+        ;; Note: gptel may pass t rather than a string in some cases
         (when (and (stringp text) (> (length text) 0))
           (unless (eq (ogent-ui-request-status request) 'type)
             (ogent-ui--update-status request 'type))

@@ -90,20 +90,91 @@ When enabled, edits are still logged to the companion buffer if
           (error (message "Edit processing error: %s" (error-message-string err))))
         (setq ogent-edit--streaming-response ""))))))
 
+(defun ogent-edit--make-target (scope start end)
+  "Return a quick edit target plist.
+SCOPE names the target type.  START and END bound the target text."
+  (list :scope scope :start start :end end))
+
+(defun ogent-edit--valid-bounds-p (start end)
+  "Return non-nil when START and END bound text in the current buffer."
+  (and (integerp start)
+       (integerp end)
+       (<= (point-min) start end (point-max))))
+
+(defun ogent-edit--defun-bounds ()
+  "Return bounds for the current defun, or nil."
+  (condition-case nil
+      (save-mark-and-excursion
+        (let ((inhibit-message t))
+          (mark-defun))
+        (let ((start (region-beginning))
+              (end (region-end)))
+          (when (< start end)
+            (cons start end))))
+    (error nil)))
+
+(defun ogent-edit--line-bounds ()
+  "Return bounds for the current line."
+  (cons (line-beginning-position) (line-end-position)))
+
+(defun ogent-edit--quick-target (&optional whole-buffer)
+  "Return the best quick edit target for the current buffer.
+When WHOLE-BUFFER is non-nil, target the full buffer."
+  (cond
+   (whole-buffer
+    (ogent-edit--make-target 'buffer (point-min) (point-max)))
+   ((use-region-p)
+    (ogent-edit--make-target 'region (region-beginning) (region-end)))
+   (t
+    (let ((bounds (ogent-edit--defun-bounds)))
+      (if bounds
+          (ogent-edit--make-target 'defun (car bounds) (cdr bounds))
+        (let ((line (ogent-edit--line-bounds)))
+          (ogent-edit--make-target 'line (car line) (cdr line))))))))
+
+(defun ogent-edit--scope-label (scope)
+  "Return a short label for quick edit SCOPE."
+  (pcase scope
+    ('buffer "whole buffer")
+    ('region "active region")
+    ('defun "current definition")
+    ('line "current line")
+    (_ "current target")))
+
+(defun ogent-edit--quick-prompt (instruction scope)
+  "Return a quick edit prompt for INSTRUCTION and target SCOPE."
+  (format "%s
+
+Quick edit target: %s. Keep the patch focused on this target and preserve unrelated code."
+          instruction
+          (ogent-edit--scope-label scope)))
+
 ;;;###autoload
-(defun ogent-request-edit (&optional prompt)
+(defun ogent-request-edit (&optional prompt start end)
   "Request code edits for current buffer or region.
 PROMPT is the edit instruction.  If region is active, only that
-region is sent for context.  Sends request via gptel and applies
-edits as smerge conflicts when response arrives."
+region is sent for context.  START and END provide explicit
+buffer bounds for callers that already resolved the edit target.
+Sends request via gptel and applies edits as smerge conflicts
+when response arrives."
   (interactive)
   (ogent-edit--ensure-gptel)
   (unless (buffer-file-name)
     (user-error "Buffer must be visiting a file for edit requests"))
+  (when (or start end)
+    (unless (and start end)
+      (user-error "Both START and END are required for explicit edit bounds"))
+    (unless (ogent-edit--valid-bounds-p start end)
+      (user-error "Edit bounds are outside the current buffer")))
   (let* ((source-buffer (current-buffer))
-         (region-active (use-region-p))
-         (region-start (when region-active (region-beginning)))
-         (region-end (when region-active (region-end)))
+         (explicit-bounds (and start end))
+         (region-active (or explicit-bounds (use-region-p)))
+         (region-start (cond
+                        (explicit-bounds start)
+                        ((use-region-p) (region-beginning))))
+         (region-end (cond
+                      (explicit-bounds end)
+                      ((use-region-p) (region-end))))
          (content (if region-active
                       (buffer-substring-no-properties region-start region-end)
                     (buffer-substring-no-properties (point-min) (point-max))))
@@ -130,6 +201,25 @@ edits as smerge conflicts when response arrives."
                    :system ogent-edit-system-prompt
                    :stream t
                    :callback (ogent-edit--make-callback))))
+
+;;;###autoload
+(defun ogent-quick-edit (instruction &optional whole-buffer)
+  "Request a fast inline edit for the active region or nearby code.
+INSTRUCTION describes the desired change.  With prefix
+WHOLE-BUFFER, use the full buffer as the edit target."
+  (interactive (list (read-string "Quick edit: ") current-prefix-arg))
+  (unless (and (stringp instruction)
+               (string-match-p "\\S-" instruction))
+    (user-error "Quick edit instruction cannot be empty"))
+  (let* ((target (ogent-edit--quick-target whole-buffer))
+         (scope (plist-get target :scope))
+         (start (plist-get target :start))
+         (end (plist-get target :end))
+         (prompt (ogent-edit--quick-prompt instruction scope)))
+    (message "Quick edit target: %s (%d chars)"
+             (ogent-edit--scope-label scope)
+             (- end start))
+    (ogent-request-edit prompt start end)))
 
 ;;; Response Processing
 
@@ -296,6 +386,7 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
 			   ("A" "Accept all" ogent-edit--accept-all-dispatch)
 			   ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
 			 [["Request"
+			   ("k" "Quick edit" ogent-quick-edit)
 			   ("e" "Request edit" ogent-request-edit)
 			   ("D" "Diff buffer (magit-style)" ogent-edit-show-diff-buffer)
 			   ("q" "Quit" transient-quit-one)]

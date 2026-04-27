@@ -49,6 +49,8 @@
 (declare-function ogent-abort-request "ogent-ui")
 (declare-function ogent-retry-request "ogent-ui")
 (declare-function ogent-context-preview "ogent-ui")
+(declare-function ogent-quick-edit "ogent-edit")
+(declare-function ogent-request-edit "ogent-edit")
 (declare-function ogent-show-backlinks "ogent-ui-backlinks")
 (declare-function ogent-show-dependency-graph "ogent-ui-graph")
 (declare-function ogent-edit-accept-current "ogent-edit-display")
@@ -182,12 +184,14 @@ Options: `posframe' (floating), `lv' (echo area), `nil' (none)."
     "
 ╭─────────────────────────────────────────────────────────────╮
 │ _s_: send request    _a_: abort          _c_: context       │
-│ _r_: retry last      _e_: request edit   _p_: pin dwim      │
+│ _r_: retry last      _k_: quick edit     _p_: pin dwim      │
+│ _e_: request edit                                           │
 ╰─────────────────────────────────────────────────────────────╯
 "
     ("s" ogent-request)
     ("a" ogent-abort-request)
     ("r" ogent-retry-request)
+    ("k" ogent-quick-edit)
     ("e" ogent-request-edit)
     ("c" ogent-context-preview)
     ("p" ogent-pin-dwim)
