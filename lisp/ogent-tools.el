@@ -179,10 +179,10 @@ TYPE is `stdout' or `stderr'."
 
 (defun ogent-tools--resolve-path (path)
   "Resolve PATH to absolute, expanding ~ and relative paths."
-  (let ((expanded (expand-file-name path)))
-    (if (file-name-absolute-p expanded)
-        expanded
-      (expand-file-name path (ogent-tools--project-root)))))
+  (if (or (file-name-absolute-p path)
+          (string-prefix-p "~" path))
+      (expand-file-name path)
+    (expand-file-name path (ogent-tools--project-root))))
 
 (defun ogent-tools--truncate-output (output max-chars)
   "Truncate OUTPUT to MAX-CHARS, adding notice if truncated."
@@ -191,6 +191,32 @@ TYPE is `stdout' or `stderr'."
               "\n\n[Output truncated. Total length: "
               (number-to-string (length output)) " chars]")
     output))
+
+;;; Async Process Helpers
+
+(defvar ogent-tools--active-processes nil
+  "Alist of (process . callback-info) for active async tool processes.")
+
+(defun ogent-tools--drop-active-process (process)
+  "Remove PROCESS from the active async process registry."
+  (setq ogent-tools--active-processes
+        (assq-delete-all process ogent-tools--active-processes)))
+
+(defun ogent-tools--cancel-timer (timer)
+  "Cancel TIMER when it is non-nil."
+  (when timer
+    (cancel-timer timer)))
+
+(defun ogent-tools--kill-buffer-if-live (buffer)
+  "Kill BUFFER when it is still live."
+  (when (buffer-live-p buffer)
+    (kill-buffer buffer)))
+
+(defun ogent-tools--format-timeout (seconds)
+  "Return SECONDS formatted for timeout messages."
+  (if (integerp seconds)
+      (format "%ds" seconds)
+    (format "%.1fs" seconds)))
 
 ;;; Tool: Read File
 
@@ -351,6 +377,9 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
                         (shell-quote-argument dir))))
          (default-directory dir)
          (match-count 0)
+         (pending-line "")
+         (stderr-buffer (generate-new-buffer " *ogent-grep-stderr*"))
+         completed
          proc)
     ;; Signal start
     (ogent-tools--stream-start 'grep
@@ -358,42 +387,85 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
                                      :directory dir
                                      :filter glob-filter))
     (condition-case err
-        (progn
+        (cl-labels
+            ((emit-line
+              (line)
+              (unless (string-empty-p line)
+                (cl-incf match-count)
+                (when callback
+                  (funcall callback 'match line))))
+             (emit-output
+              (output)
+              (let* ((text (concat pending-line output))
+                     (lines (split-string text "\n")))
+                (setq pending-line (car (last lines)))
+                (dolist (line (butlast lines))
+                  (emit-line line))))
+             (stderr-text
+              ()
+              (if (buffer-live-p stderr-buffer)
+                  (with-current-buffer stderr-buffer
+                    (buffer-string))
+                "")))
           (setq proc (make-process
                       :name "ogent-grep-async"
                       :command (list shell-file-name
                                      shell-command-switch
                                      cmd)
+                      :stderr stderr-buffer
                       :noquery t
                       :filter (lambda (_proc output)
                                 (ogent-tools--stream-output 'grep 'stdout output)
-                                ;; Split into lines and callback each match
-                                (dolist (line (split-string output "\n" t))
-                                  (cl-incf match-count)
-                                  (when callback
-                                    (funcall callback 'match line))))))
+                                (emit-output output))))
+          (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+            (set-process-query-on-exit-flag stderr-proc nil)
+            (set-process-filter
+             stderr-proc
+             (lambda (_proc output)
+               (with-current-buffer stderr-buffer
+                 (goto-char (point-max))
+                 (insert output))
+               (ogent-tools--stream-output 'grep 'stderr output))))
           (set-process-sentinel
            proc
            (lambda (process event)
-             (if (string-match-p "finished\\|exited" event)
-                 (progn
-                   (ogent-tools--stream-done 'grep (process-exit-status process))
+             (unless completed
+               (setq completed t)
+               (ogent-tools--drop-active-process process)
+               (unless (string-empty-p pending-line)
+                 (emit-line pending-line)
+                 (setq pending-line ""))
+               (let ((status (process-exit-status process)))
+                 (cond
+                  ((and (string-match-p "finished\\|exited" event)
+                        (memq status '(0 1)))
+                   (ogent-tools--stream-done 'grep status)
                    (when callback
                      (funcall callback 'done match-count)))
-               (ogent-tools--stream-error 'grep (string-trim event))
-               (when callback
-                 (funcall callback 'error (string-trim event))))))
+                  (t
+                   (let ((message (string-trim
+                                   (or (and (buffer-live-p stderr-buffer)
+                                            (stderr-text))
+                                       ""))))
+                     (when (string-empty-p message)
+                       (setq message (string-trim event)))
+                     (ogent-tools--stream-error 'grep message)
+                     (when callback
+                       (funcall callback 'error message)))))))
+             (ogent-tools--kill-buffer-if-live stderr-buffer)))
+          (push (cons proc (list :callback callback
+                                 :stderr-buffer stderr-buffer))
+                ogent-tools--active-processes)
           proc)
       (error
-       (ogent-tools--stream-error 'grep (error-message-string err))
-       (when callback
-         (funcall callback 'error (error-message-string err)))
+       (ogent-tools--kill-buffer-if-live stderr-buffer)
+       (let ((message (error-message-string err)))
+         (ogent-tools--stream-error 'grep message)
+         (when callback
+           (funcall callback 'error message)))
        nil))))
 
 ;;; Tool: Bash (Shell Execution)
-
-(defvar ogent-tools--active-processes nil
-  "Alist of (process . callback-info) for active async tool processes.")
 
 (defcustom ogent-tools-bash-stream-threshold 0
   "Byte threshold above which bash output is streamed.
@@ -458,8 +530,11 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
               (when (process-live-p proc)
                 (kill-process proc)
                 (ogent-tools--stream-error 'bash
-                                           (format "Timeout after %ds" timeout-secs))
-                (error "Command timed out after %d seconds" timeout-secs)))
+                                           (format "Timeout after %s"
+                                                   (ogent-tools--format-timeout
+                                                    timeout-secs)))
+                (error "Command timed out after %s"
+                       (ogent-tools--format-timeout timeout-secs))))
             (setq exit-code (process-exit-status proc)))
           ;; Collect output
           (setq stdout-text (with-current-buffer output-buffer
@@ -501,7 +576,7 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
          (proc-name (format "ogent-bash-%d" (random 100000)))
          (output-count 0)
          (stderr-buffer (generate-new-buffer " *ogent-bash-stderr*"))
-         proc timer)
+         proc timer timed-out completed)
     ;; Signal start
     (ogent-tools--stream-start 'bash
                                (list :command command
@@ -534,43 +609,45 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
           (set-process-sentinel
            proc
            (lambda (process event)
-             (when timer (cancel-timer timer))
-             (setq ogent-tools--active-processes
-                   (assq-delete-all process ogent-tools--active-processes))
-             (kill-buffer stderr-buffer)
-             (let ((status (process-exit-status process)))
-               (if (string-match-p "finished\\|exited" event)
-                   (progn
-                     (ogent-tools--stream-done 'bash status)
+             (unless completed
+               (setq completed t)
+               (ogent-tools--cancel-timer timer)
+               (ogent-tools--drop-active-process process)
+               (ogent-tools--kill-buffer-if-live stderr-buffer)
+               (if timed-out
+                   (let ((message (format "Timeout after %s"
+                                          (ogent-tools--format-timeout timeout-secs))))
+                     (ogent-tools--stream-error 'bash message)
                      (when callback
-                       (funcall callback 'done status)))
-                 (ogent-tools--stream-error 'bash
-                                            (format "Process %s: %s"
-                                                    (process-name process)
-                                                    (string-trim event)))
-                 (when callback
-                   (funcall callback 'error
-                            (format "Process %s: %s"
-                                    (process-name process)
-                                    (string-trim event))))))))
+                       (funcall callback 'error message)))
+                 (let ((status (process-exit-status process)))
+                   (if (string-match-p "finished\\|exited" event)
+                       (progn
+                         (ogent-tools--stream-done 'bash status)
+                         (when callback
+                           (funcall callback 'done status)))
+                     (let ((message (format "Process %s: %s"
+                                            (process-name process)
+                                            (string-trim event))))
+                       (ogent-tools--stream-error 'bash message)
+                       (when callback
+                         (funcall callback 'error message)))))))))
           ;; Set up timeout
           (when (> timeout-secs 0)
             (setq timer
                   (run-at-time timeout-secs nil
                                (lambda ()
-                                 (when (process-live-p proc)
-                                   (kill-process proc)
-                                   (ogent-tools--stream-error 'bash
-                                                              (format "Timeout after %ds" timeout-secs))
-                                   (when callback
-                                     (funcall callback 'error
-                                              (format "Timeout after %ds" timeout-secs))))))))
+                                 (when (and (process-live-p proc)
+                                            (not completed))
+                                   (setq timed-out t)
+                                   (kill-process proc))))))
           ;; Track active process
           (push (cons proc (list :callback callback :timer timer :stderr-buffer stderr-buffer))
                 ogent-tools--active-processes)
           proc)
       (error
-       (kill-buffer stderr-buffer)
+       (ogent-tools--cancel-timer timer)
+       (ogent-tools--kill-buffer-if-live stderr-buffer)
        (ogent-tools--stream-error 'bash (error-message-string err))
        (when callback
          (funcall callback 'error (error-message-string err)))
@@ -591,11 +668,10 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
           (cl-incf count))
         ;; Cancel associated timer if any
         (when-let ((timer (plist-get info :timer)))
-          (cancel-timer timer))
+          (ogent-tools--cancel-timer timer))
         ;; Kill stderr buffer if any
         (when-let ((buf (plist-get info :stderr-buffer)))
-          (when (buffer-live-p buf)
-            (kill-buffer buf)))))
+          (ogent-tools--kill-buffer-if-live buf))))
     (setq ogent-tools--active-processes nil)
     ;; Clean up progress state
     (when ogent-tools--progress-timer

@@ -120,6 +120,18 @@
       (should (= 1 (length tools)))
       (should (equal "read" (alist-get 'name (aref tools 0)))))))
 
+(ert-deftest ogent-mcp--array-to-list-converts-json-vectors ()
+  "JSON arrays decoded as vectors are normalized to lists."
+  (should (equal '("a" "b") (ogent-mcp--array-to-list ["a" "b"])))
+  (should (equal '("a") (ogent-mcp--array-to-list '("a"))))
+  (should-not (ogent-mcp--array-to-list nil)))
+
+(ert-deftest ogent-mcp--json-true-p-rejects-json-false ()
+  "JSON false is not treated as truthy."
+  (should (ogent-mcp--json-true-p t))
+  (should-not (ogent-mcp--json-true-p :json-false))
+  (should-not (ogent-mcp--json-true-p nil)))
+
 ;;; Schema Conversion Tests
 
 (ert-deftest ogent-mcp--schema-to-args-converts-properties ()
@@ -497,7 +509,8 @@
         (let ((response (ogent-mcp--request-sync conn "test/method" nil 0.1)))
           (should-not (car response))
           (should (cdr response))
-          (should (string-match-p "timeout" (alist-get 'message (cdr response)))))))))
+          (should (string-match-p "timeout" (alist-get 'message (cdr response))))
+          (should (= 0 (hash-table-count ogent-mcp--pending-requests))))))))
 
 ;;; Protocol Version Tests
 
@@ -687,12 +700,12 @@
                           (cb (gethash id ogent-mcp--pending-requests)))
                      (when cb
                        (remhash id ogent-mcp--pending-requests)
-                       ;; Use a list (not vector) for tools since dolist is
-                       ;; used in register-tools; in real code the JSON
-                       ;; parse result would need conversion.
-                       (funcall cb '((tools . (((name . "read") (description . "Read file"))))) nil))))))
+                       (funcall cb '((tools . [((name . "read")
+                                                (description . "Read file"))]))
+                                nil))))))
         (ogent-mcp--refresh-tools conn)
         (should (ogent-mcp-connection-tools conn))
+        (should (listp (ogent-mcp-connection-tools conn)))
         (should (= 1 (length (ogent-mcp-connection-tools conn))))))))
 
 (ert-deftest ogent-mcp--refresh-tools-logs-error ()
@@ -734,6 +747,25 @@
         (let ((result (ogent-mcp--call-tool conn "read_file" '(:path "/tmp/test"))))
           (should (equal "file contents" result)))))))
 
+(ert-deftest ogent-mcp--call-tool-allows-json-false-is-error ()
+  "MCP tool results with isError=false are successful."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal)))
+    (let ((conn (make-ogent-mcp-connection :name "test" :status 'ready)))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((content . [((type . "text")
+                                                  (text . "ok"))])
+                                     (isError . :json-false))
+                                nil)))))
+                ((symbol-function 'accept-process-output) #'ignore))
+        (let ((result (ogent-mcp--call-tool conn "read_file" '(:path "/tmp/test"))))
+          (should (equal "ok" result)))))))
+
 (ert-deftest ogent-mcp--call-tool-errors-on-failure ()
   "ogent-mcp--call-tool signals error on MCP error response."
   (let ((ogent-mcp--request-id 0)
@@ -766,7 +798,8 @@
                        (remhash id ogent-mcp--pending-requests)
                        (funcall cb '((resources . [((uri . "file:///tmp") (name . "tmp"))])) nil))))))
         (ogent-mcp--refresh-resources conn)
-        (should (ogent-mcp-connection-resources conn))))))
+        (should (ogent-mcp-connection-resources conn))
+        (should (listp (ogent-mcp-connection-resources conn)))))))
 
 (ert-deftest ogent-mcp--refresh-resources-skips-without-capability ()
   "ogent-mcp--refresh-resources does nothing without resources capability."

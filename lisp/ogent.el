@@ -61,6 +61,8 @@
 (require 'ogent-codemap)
 (require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
+(require 'ogent-ui-backlinks)
+(require 'ogent-ui-graph)
 (require 'ogent-ui-hydra)  ; Hydra menus for quick actions
 (require 'ogent-onboard)
 (require 'ogent-edit)

@@ -24,6 +24,13 @@
       (should (symbolp (plist-get props :command)))
       (should (stringp (plist-get props :desc))))))
 
+(ert-deftest ogent-keys-registry-commands-are-loaded ()
+  "All registry commands should be available after loading ogent."
+  (require 'ogent)
+  (dolist (entry ogent-action-registry)
+    (let ((command (plist-get (cdr entry) :command)))
+      (should (commandp command)))))
+
 (ert-deftest ogent-keys-registry-unique-keys ()
   "All keys in registry are unique."
   (let ((keys (mapcar (lambda (entry)

@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
 (require 'transient)
 
 (defgroup ogent-tool-approval nil
@@ -16,7 +17,44 @@
 
 (defvar ogent-tool-approval--session-approved (make-hash-table :test 'equal)
   "Hash table tracking tools approved for this session.
-Keys are tool names (symbols), values are t.")
+Keys are canonical tool names, values are t or `rejected'.")
+
+(defun ogent-tool-approval--normalize-tool-name (name)
+  "Return canonical approval cache key for tool NAME."
+  (cond
+   ((symbolp name) (symbol-name name))
+   ((stringp name) name)
+   (t (format "%S" name))))
+
+(defun ogent-tool-approval--format-key (key)
+  "Return KEY formatted for display."
+  (cond
+   ((keywordp key) (substring (symbol-name key) 1))
+   ((symbolp key) (symbol-name key))
+   ((stringp key) key)
+   (t (format "%S" key))))
+
+(defun ogent-tool-approval--format-value (value)
+  "Return VALUE as one-line approval display text."
+  (let ((text (replace-regexp-in-string
+               "[\r\n]+"
+               (lambda (_match) "\\n")
+               (if (stringp value) value (format "%S" value))
+               t t)))
+    (if (> (length text) 200)
+        (concat (substring text 0 200) "...")
+      text)))
+
+(defun ogent-tool-approval--cached-decision (name)
+  "Return cached approval decision for tool NAME, or nil when absent."
+  (let* ((missing (make-symbol "missing"))
+         (key (ogent-tool-approval--normalize-tool-name name))
+         (cached (gethash key ogent-tool-approval--session-approved missing)))
+    (if (eq cached missing)
+        (let ((legacy (gethash name ogent-tool-approval--session-approved missing)))
+          (unless (eq legacy missing)
+            legacy))
+      cached)))
 
 (defun ogent-tool-approval-required-p (tool-spec)
   "Return non-nil if TOOL-SPEC requires user approval.
@@ -30,20 +68,18 @@ Returns a formatted string with indented key-value pairs."
   (if (not args)
       "  (no arguments)"
     (let ((result ""))
-      (while args
+      (while (consp args)
         (let ((key (car args))
               (val (cadr args)))
           (setq result
                 (concat result
                         (format "  %s: %s\n"
-                                (substring (symbol-name key) 1) ; Remove leading :
-                                (if (stringp val)
-                                    (if (> (length val) 200)
-                                        (concat (substring val 0 200) "...")
-                                      val)
-                                  val))))
+                                (ogent-tool-approval--format-key key)
+                                (ogent-tool-approval--format-value val))))
           (setq args (cddr args))))
-      (substring result 0 -1)))) ; Remove trailing newline
+      (if (string-empty-p result)
+          "  (no arguments)"
+        (substring result 0 -1)))))
 
 (defvar ogent-tool-approval--current-tool-name nil
   "Tool name for the current approval transient.")
@@ -77,7 +113,9 @@ Called with t for approval, nil for rejection.")
   "Approve current tool and remember for this session."
   (interactive)
   (when ogent-tool-approval--current-tool-name
-    (puthash ogent-tool-approval--current-tool-name t
+    (puthash (ogent-tool-approval--normalize-tool-name
+              ogent-tool-approval--current-tool-name)
+             t
              ogent-tool-approval--session-approved))
   (ogent-tool-approval--approve))
 
@@ -85,7 +123,9 @@ Called with t for approval, nil for rejection.")
   "Reject current tool and remember for this session."
   (interactive)
   (when ogent-tool-approval--current-tool-name
-    (puthash ogent-tool-approval--current-tool-name 'rejected
+    (puthash (ogent-tool-approval--normalize-tool-name
+              ogent-tool-approval--current-tool-name)
+             'rejected
              ogent-tool-approval--session-approved))
   (ogent-tool-approval--reject))
 
@@ -123,8 +163,8 @@ Otherwise, displays transient approval menu."
       (funcall callback t))
      
      ;; Check session cache
-     ((gethash tool-name ogent-tool-approval--session-approved)
-      (let ((cached (gethash tool-name ogent-tool-approval--session-approved)))
+     ((ogent-tool-approval--cached-decision tool-name)
+      (let ((cached (ogent-tool-approval--cached-decision tool-name)))
         (funcall callback (eq cached t))))
      
      ;; Prompt for approval

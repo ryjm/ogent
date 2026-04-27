@@ -48,6 +48,16 @@ Each entry can be a live buffer or the name of one."
   :type '(repeat (choice buffer string))
   :group 'ogent)
 
+(defcustom ogent-context-max-item-chars 120000
+  "Maximum characters captured from any single source context item."
+  :type 'integer
+  :group 'ogent)
+
+(defcustom ogent-context-binary-sample-bytes 4096
+  "Number of bytes sampled when checking pinned files for binary content."
+  :type 'integer
+  :group 'ogent)
+
 (defvar ogent-context-excluded-handles nil
   "List of handle strings to exclude from context building.
 Handles in this list will be filtered out from the :dependencies
@@ -232,20 +242,58 @@ Otherwise, pin the buffer."
   "Return the number of valid pinned items."
   (length (ogent-pinned-items-valid)))
 
+(defun ogent-context--truncate-content (content label &optional total-length)
+  "Return CONTENT capped to `ogent-context-max-item-chars' for LABEL."
+  (let ((limit ogent-context-max-item-chars)
+        (size (or total-length (length content))))
+    (if (and (integerp limit)
+             (> limit 0)
+             (> (length content) limit))
+        (concat
+         (substring content 0 limit)
+         (format "\n\n[ogent: truncated %s; original %d chars, showing first %d]"
+                 label size limit))
+      content)))
+
+(defun ogent-context--binary-file-p (path)
+  "Return non-nil when PATH appears to contain binary content."
+  (with-temp-buffer
+    (insert-file-contents-literally path nil 0 ogent-context-binary-sample-bytes)
+    (goto-char (point-min))
+    (search-forward "\0" nil t)))
+
+(defun ogent-context--file-content (path)
+  "Return prompt-safe text content for file PATH."
+  (cond
+   ((ogent-context--binary-file-p path)
+    (format "[ogent: binary file omitted: %s]" path))
+   (t
+    (let* ((attrs (file-attributes path))
+           (size (file-attribute-size attrs))
+           (limit (and (integerp ogent-context-max-item-chars)
+                       (> ogent-context-max-item-chars 0)
+                       (1+ ogent-context-max-item-chars))))
+      (with-temp-buffer
+        (insert-file-contents path nil 0 limit)
+        (ogent-context--truncate-content
+         (buffer-string)
+         (format "file %s" path)
+         size))))))
+
 (defun ogent-pinned-item-content (item)
   "Get the content string for pinned ITEM."
   (pcase (ogent-pinned-item-type item)
     ('file
      (let ((path (ogent-pinned-item-path item)))
        (when (file-readable-p path)
-         (with-temp-buffer
-           (insert-file-contents path)
-           (buffer-string)))))
+         (ogent-context--file-content path))))
     ('buffer
      (let ((buf (ogent-pinned-item-buffer item)))
        (when (buffer-live-p buf)
          (with-current-buffer buf
-           (buffer-substring-no-properties (point-min) (point-max))))))
+           (ogent-context--truncate-content
+            (buffer-substring-no-properties (point-min) (point-max))
+            (format "buffer %s" (buffer-name buf)))))))
     ('region
      (let ((buf (ogent-pinned-item-buffer item))
            (start (ogent-pinned-item-start-marker item))
@@ -254,7 +302,9 @@ Otherwise, pin the buffer."
                   (markerp start) (markerp end)
                   (marker-position start) (marker-position end))
          (with-current-buffer buf
-           (buffer-substring-no-properties start end)))))))
+           (ogent-context--truncate-content
+            (buffer-substring-no-properties start end)
+            (format "region %s" (buffer-name buf)))))))))
 
 (defun ogent-pinned-items-valid ()
   "Return list of valid pinned items (buffers still live, files exist)."
@@ -302,9 +352,11 @@ If REGION-START and REGION-END are provided, include the selected region."
          (mode (symbol-name (buffer-local-value 'major-mode buffer)))
          ;; Content extraction still needs with-current-buffer for point access
          (content (with-current-buffer buffer
-                    (if (and region-start region-end)
-                        (buffer-substring-no-properties region-start region-end)
-                      (buffer-substring-no-properties (point-min) (point-max))))))
+                    (ogent-context--truncate-content
+                     (if (and region-start region-end)
+                         (buffer-substring-no-properties region-start region-end)
+                       (buffer-substring-no-properties (point-min) (point-max)))
+                     (format "source buffer %s" (buffer-name buffer))))))
     (make-ogent-source-context
      :buffer buffer
      :file file
@@ -358,12 +410,17 @@ If REGION-START and REGION-END are provided, include the selected region."
 (defun ogent-context--format-node-payload (label node)
   "Return full prompt payload for NODE labeled as LABEL."
   (when node
-    (let ((content (string-trim (or (ogent-context-node-content node) ""))))
+    (let* ((title (or (ogent-context-node-title node) "<untitled>"))
+           (raw-content (or (ogent-context-node-content node) ""))
+           (content (string-trim
+                     (ogent-context--truncate-content
+                      raw-content
+                      (format "node %s" title)))))
       (string-join
        (delq nil
              (list (format "## %s: %s"
                            label
-                           (or (ogent-context-node-title node) "<untitled>"))
+                           title)
                    (format "ID: %s" (or (ogent-context-node-id node) "<none>"))
                    (format "Source: %s" (ogent-context--node-location node))
                    (unless (string-empty-p content)

@@ -125,6 +125,18 @@ Example:
      (message "ogent-mcp: Failed to parse JSON: %s" (error-message-string err))
      nil)))
 
+(defun ogent-mcp--array-to-list (value)
+  "Return JSON array VALUE as a list."
+  (cond
+   ((vectorp value) (append value nil))
+   ((listp value) value)
+   ((null value) nil)
+   (t (list value))))
+
+(defun ogent-mcp--json-true-p (value)
+  "Return non-nil when VALUE is JSON true."
+  (eq value t))
+
 ;;; Process Management
 
 (defun ogent-mcp--make-process-filter (conn)
@@ -224,10 +236,12 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
   (let ((timeout (or timeout ogent-mcp-connect-timeout))
         (done nil)
         (result nil)
-        (error-result nil))
-    (ogent-mcp--request conn method params
-                        (lambda (res err)
-                          (setq result res error-result err done t)))
+        (error-result nil)
+        request-id)
+    (setq request-id
+          (ogent-mcp--request conn method params
+                              (lambda (res err)
+                                (setq result res error-result err done t))))
     ;; Wait for response
     (let ((start-time (current-time)))
       (while (and (not done)
@@ -236,6 +250,7 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
         (accept-process-output nil 0.1)))
     (if done
         (cons result error-result)
+      (remhash request-id ogent-mcp--pending-requests)
       (cons nil `((code . -32000) (message . "Request timeout"))))))
 
 (defun ogent-mcp--initialize (conn callback)
@@ -273,7 +288,8 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
                             (message "ogent-mcp: Failed to list tools from '%s': %s"
                                      (ogent-mcp-connection-name conn)
                                      (alist-get 'message error-obj))
-                          (let ((tools (alist-get 'tools result)))
+                          (let ((tools (ogent-mcp--array-to-list
+                                        (alist-get 'tools result))))
                             (setf (ogent-mcp-connection-tools conn) tools)
                             (ogent-mcp--register-tools conn tools))))))
 
@@ -333,7 +349,7 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
       (let* ((result (car response))
              (content (alist-get 'content result))
              (is-error (alist-get 'isError result)))
-        (if is-error
+        (if (ogent-mcp--json-true-p is-error)
             (error "Tool execution error: %s"
                    (ogent-mcp--extract-text-content content))
           (ogent-mcp--extract-text-content content))))))
@@ -370,7 +386,8 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
                                          (ogent-mcp-connection-name conn)
                                          (alist-get 'message error-obj))
                               (setf (ogent-mcp-connection-resources conn)
-                                    (alist-get 'resources result))))))))
+                                    (ogent-mcp--array-to-list
+                                     (alist-get 'resources result)))))))))
 
 ;;; Public API
 
@@ -505,10 +522,11 @@ AUTO-CONNECT if non-nil connects on ogent startup."
       (if (cdr response)
           (error "MCP resource error: %s" (alist-get 'message (cdr response)))
         (let* ((result (car response))
-               (contents (alist-get 'contents result)))
+               (contents (ogent-mcp--array-to-list
+                          (alist-get 'contents result))))
           ;; Return first content item
           (when contents
-            (let ((item (aref contents 0)))
+            (let ((item (car contents)))
               (or (alist-get 'text item)
                   (alist-get 'blob item)))))))))
 

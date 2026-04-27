@@ -167,6 +167,20 @@
 			       (should (string-match-p "# Missing @handles" payload))
 			       (should (string-match-p "- @missing-note" payload))))))
 
+(ert-deftest ogent-context-render-prompt-truncates-nodes-after-discovery ()
+  "Rendered prompt caps Org node payloads after handle discovery."
+  (let ((ogent-context-max-item-chars 3))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Root\nabcde @dep\n* Dep\n0123456789\n")
+      (goto-char (point-min))
+      (let* ((ctx (ogent-context-build-filtered))
+             (payload (ogent-context-render-prompt "Explain" ctx)))
+        (should (string-match-p "## Root: Root" payload))
+        (should (string-match-p "truncated node Root" payload))
+        (should (string-match-p "## @dep: Dep" payload))
+        (should (string-match-p "truncated node Dep" payload))))))
+
 ;;; Lazy context building tests
 
 (ert-deftest ogent-context-build-lazy-defers-evaluation ()
@@ -565,6 +579,19 @@
             (should-not (ogent-source-context-region-end ctx))))
       (kill-buffer buf))))
 
+(ert-deftest ogent-context-build-source-truncates-large-buffer ()
+  "Source context caps large buffer content."
+  (let ((buf (generate-new-buffer "*test-truncated-source*"))
+        (ogent-context-max-item-chars 4))
+    (unwind-protect
+        (with-current-buffer buf
+          (insert "abcdef")
+          (let ((ctx (ogent-context--build-source-context buf)))
+            (should (string-prefix-p "abcd" (ogent-source-context-content ctx)))
+            (should (string-match-p "truncated source buffer"
+                                    (ogent-source-context-content ctx)))))
+      (kill-buffer buf))))
+
 (ert-deftest ogent-context-build-source-region-content ()
   "Source context extracts only region content when given."
   (let ((buf (generate-new-buffer "*test-region-ctx*")))
@@ -640,6 +667,33 @@
           (let ((item (make-ogent-pinned-item :type 'file :path tmp
                                               :label "test" :pinned-at (current-time))))
             (should (string= (ogent-pinned-item-content item) "file content"))))
+      (delete-file tmp))))
+
+(ert-deftest ogent-pinned-item-content-file-truncates ()
+  "File pinned items cap large file content."
+  (let ((tmp (make-temp-file "ogent-pin-truncate"))
+        (ogent-context-max-item-chars 5))
+    (unwind-protect
+        (progn
+          (write-region "0123456789" nil tmp)
+          (let* ((item (make-ogent-pinned-item :type 'file :path tmp
+                                               :label "test" :pinned-at (current-time)))
+                 (content (ogent-pinned-item-content item)))
+            (should (string-prefix-p "01234" content))
+            (should (string-match-p "truncated file" content))))
+      (delete-file tmp))))
+
+(ert-deftest ogent-pinned-item-content-file-omits-binary ()
+  "File pinned items omit binary content."
+  (let ((tmp (make-temp-file "ogent-pin-binary")))
+    (unwind-protect
+        (progn
+          (write-region "abc\0def" nil tmp nil 'silent)
+          (let* ((item (make-ogent-pinned-item :type 'file :path tmp
+                                               :label "test" :pinned-at (current-time)))
+                 (content (ogent-pinned-item-content item)))
+            (should (string-match-p "binary file omitted" content))
+            (should-not (string-match-p "abc" content))))
       (delete-file tmp))))
 
 (ert-deftest ogent-pinned-item-content-buffer ()

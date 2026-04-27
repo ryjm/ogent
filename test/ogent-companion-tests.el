@@ -496,6 +496,84 @@ but doesn't test actual insertion behavior (that's in UI tests)."
           (kill-buffer src-buf))
       (delete-file temp-file))))
 
+(ert-deftest ogent-companion-save-link-writes-registry ()
+  "File-backed companion links are written to the registry."
+  (let ((temp-file (make-temp-file "ogent-save-registry" nil ".el"))
+        (registry-file (make-temp-file "ogent-link-registry" nil ".el")))
+    (unwind-protect
+        (let ((ogent-companion-link-registry-file registry-file)
+              (ogent-companion-persist-links t)
+              src-buf companion)
+          (setq src-buf (find-file-noselect temp-file))
+          (with-current-buffer src-buf
+            (fundamental-mode)
+            (setq companion (ogent-companion-get-or-create))
+            (let ((registry (ogent-companion--read-link-registry)))
+              (should (equal (cdr (assoc temp-file registry))
+                             (buffer-name companion)))))
+          (kill-buffer companion)
+          (kill-buffer src-buf))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file))
+      (when (file-exists-p registry-file)
+        (delete-file registry-file)))))
+
+(ert-deftest ogent-companion-restore-link-from-registry ()
+  "A reopened source buffer restores its companion from the registry."
+  (let ((temp-file (make-temp-file "ogent-restore-registry" nil ".el"))
+        (registry-file (make-temp-file "ogent-link-registry" nil ".el"))
+        companion-name)
+    (unwind-protect
+        (let ((ogent-companion-link-registry-file registry-file)
+              (ogent-companion-persist-links t)
+              src-buf companion reopened restored)
+          (setq src-buf (find-file-noselect temp-file))
+          (with-current-buffer src-buf
+            (fundamental-mode)
+            (setq companion (ogent-companion-get-or-create))
+            (setq companion-name (buffer-name companion)))
+          (kill-buffer src-buf)
+          (kill-buffer companion)
+          (setq reopened (find-file-noselect temp-file))
+          (with-current-buffer reopened
+            (fundamental-mode)
+            (setq-local ogent-companion--linked-buffer nil)
+            (setq-local ogent-companion-file nil)
+            (ogent-companion--restore-link)
+            (setq restored ogent-companion--linked-buffer)
+            (should (buffer-live-p restored))
+            (should (equal (buffer-name restored) companion-name))
+            (with-current-buffer restored
+              (should (derived-mode-p 'org-mode))))
+          (kill-buffer restored)
+          (kill-buffer reopened))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file))
+      (when (file-exists-p registry-file)
+        (delete-file registry-file)))))
+
+(ert-deftest ogent-companion-unlink-removes-registry-entry ()
+  "Unlinking clears the persisted companion mapping."
+  (let ((temp-file (make-temp-file "ogent-unlink-registry" nil ".el"))
+        (registry-file (make-temp-file "ogent-link-registry" nil ".el")))
+    (unwind-protect
+        (let ((ogent-companion-link-registry-file registry-file)
+              (ogent-companion-persist-links t)
+              src-buf companion)
+          (setq src-buf (find-file-noselect temp-file))
+          (with-current-buffer src-buf
+            (fundamental-mode)
+            (setq companion (ogent-companion-get-or-create))
+            (should (assoc temp-file (ogent-companion--read-link-registry)))
+            (ogent-companion-unlink)
+            (should-not (assoc temp-file (ogent-companion--read-link-registry))))
+          (kill-buffer companion)
+          (kill-buffer src-buf))
+      (when (file-exists-p temp-file)
+        (delete-file temp-file))
+      (when (file-exists-p registry-file)
+        (delete-file registry-file)))))
+
 ;;; Restore Link Tests
 
 (ert-deftest ogent-companion-restore-link-with-buffer-name ()

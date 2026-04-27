@@ -33,6 +33,12 @@
 (declare-function ogent-edit-inline-diff-available-p "ogent-edit-display")
 (declare-function ogent-edit--generate-id "ogent-edit-format")
 (declare-function make-ogent-edit "ogent-edit-format")
+(autoload 'ogent-edit-menu "ogent-edit" nil t)
+(autoload 'ogent-issues "ogent-issues" nil t)
+(autoload 'ogent-session-save "ogent-session" nil t)
+(autoload 'ogent-session-load "ogent-session" nil t)
+(autoload 'ogent-session-list "ogent-session" nil t)
+(autoload 'ogent-debug-mode "ogent-debug" nil t)
 
 (defvar ogent-edit-display-method)
 
@@ -103,6 +109,21 @@ Do NOT use markdown syntax. Use Org-mode syntax exclusively."
 
 ;;; Tool Approval System
 
+(defun ogent-tool--name-string (tool-name)
+  "Return TOOL-NAME as a string, or nil when it is not usable."
+  (cond
+   ((null tool-name) nil)
+   ((stringp tool-name) tool-name)
+   ((symbolp tool-name) (symbol-name tool-name))
+   (t nil)))
+
+(defun ogent-tool--name-symbol (tool-name)
+  "Return TOOL-NAME as a symbol, or nil when it is not usable."
+  (cond
+   ((symbolp tool-name) tool-name)
+   ((stringp tool-name) (intern tool-name))
+   (t nil)))
+
 (defcustom ogent-tool-allow-list nil
   "List of patterns for auto-approved tool calls.
 Each pattern is a string like \"ToolName(arg:pattern)\" where:
@@ -131,14 +152,16 @@ When nil, all tools execute without prompting."
 (defun ogent-tool--pattern-match-p (pattern tool-name args)
   "Return non-nil if TOOL-NAME with ARGS matches PATTERN.
 PATTERN format: \"tool-name\" or \"tool-name(arg:glob)\"."
-  (if (string-match "^\\([^(]+\\)\\(?:(\\(.*\\))\\)?$" pattern)
-      (let ((pat-name (match-string 1 pattern))
-            (pat-args (match-string 2 pattern)))
-        (and (string= pat-name tool-name)
-             (or (null pat-args)
-                 (string= pat-args "*")
-                 (ogent-tool--args-match-p pat-args args))))
-    nil))
+  (let ((tool-name (ogent-tool--name-string tool-name)))
+    (if (and tool-name
+             (string-match "^\\([^(]+\\)\\(?:(\\(.*\\))\\)?$" pattern))
+        (let ((pat-name (match-string 1 pattern))
+              (pat-args (match-string 2 pattern)))
+          (and (string= pat-name tool-name)
+               (or (null pat-args)
+                   (string= pat-args "*")
+                   (ogent-tool--args-match-p pat-args args))))
+      nil)))
 
 (defun ogent-tool--args-match-p (arg-pattern args)
   "Return non-nil if ARG-PATTERN matches ARGS plist.
@@ -201,28 +224,31 @@ Returns symbol: `approve', `deny', `always', or `never'."
 (defun ogent-tool--add-to-allow-list (tool-name args)
   "Add TOOL-NAME to `ogent-tool-allow-list'.
 If ARGS is non-nil, creates a pattern matching those specific args."
-  (let ((pattern (if (and args (plist-get args :command))
-                     ;; For bash, include the command prefix
-                     (let ((cmd (plist-get args :command)))
-                       (if (string-match "^\\([^ ]+\\)" cmd)
-                           (format "%s(command:%s *)" tool-name (match-string 1 cmd))
-                         tool-name))
-                   tool-name)))
-    (unless (member pattern ogent-tool-allow-list)
-      (customize-save-variable 'ogent-tool-allow-list
-                               (cons pattern ogent-tool-allow-list)))))
+  (when-let ((name (ogent-tool--name-string tool-name)))
+    (let ((pattern (if (and args (plist-get args :command))
+                       ;; For bash, include the command prefix
+                       (let ((cmd (plist-get args :command)))
+                         (if (string-match "^\\([^ ]+\\)" cmd)
+                             (format "%s(command:%s *)" name (match-string 1 cmd))
+                           name))
+                     name)))
+      (unless (member pattern ogent-tool-allow-list)
+        (customize-save-variable 'ogent-tool-allow-list
+                                 (cons pattern ogent-tool-allow-list))))))
 
 (defvar ogent-tool--denied-tools nil
   "List of tool patterns permanently denied in this session.")
 
 (defun ogent-tool--add-to-deny-list (tool-name)
   "Add TOOL-NAME to the session deny list."
-  (unless (member tool-name ogent-tool--denied-tools)
-    (push tool-name ogent-tool--denied-tools)))
+  (when-let ((name (ogent-tool--name-string tool-name)))
+    (unless (member name ogent-tool--denied-tools)
+      (push name ogent-tool--denied-tools))))
 
 (defun ogent-tool--denied-p (tool-name)
   "Return non-nil if TOOL-NAME is in the session deny list."
-  (member tool-name ogent-tool--denied-tools))
+  (when-let ((name (ogent-tool--name-string tool-name)))
+    (member name ogent-tool--denied-tools)))
 
 ;;; gptel-style Variable Scope Management
 
@@ -264,8 +290,8 @@ and there's an active request."
 
 (cl-defmethod transient-init-value ((obj ogent-provider-variable))
   "Initialize OBJ's value from gptel-backend."
-  (oset obj value gptel-backend)
-  (oset obj model-value gptel-model))
+  (oset obj value (and (boundp 'gptel-backend) gptel-backend))
+  (oset obj model-value (and (boundp 'gptel-model) gptel-model)))
 
 (cl-defmethod transient-format-value ((obj ogent-provider-variable))
   "Format the current backend:model selection for display."
@@ -289,6 +315,10 @@ and there's an active request."
     (oset obj model-value model)
     (funcall (oref obj set-value) 'gptel-backend backend ogent--set-buffer-locally)
     (funcall (oref obj set-value) 'gptel-model model ogent--set-buffer-locally)))
+
+(cl-defmethod transient-infix-read ((obj ogent-provider-variable))
+  "Read OBJ without persisting runtime backend structs in Transient history."
+  (funcall (oref obj reader) (transient-prompt obj) nil nil))
 
 (defun ogent--read-provider (prompt &rest _)
   "Read provider:model using completing-read.
@@ -940,37 +970,31 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
   "Format the current model for display in transient header."
   (if (and (boundp 'gptel-backend) gptel-backend
            (boundp 'gptel-model) gptel-model)
-      (concat (ogent-theme-icon 'model 'ogent-theme-primary)
-              " "
-              (propertize
-               (format "%s:%s"
-                       (if (fboundp 'gptel-backend-name)
-                           (gptel-backend-name gptel-backend)
-                         "backend")
-                       (if (fboundp 'gptel--model-name)
-                           (gptel--model-name gptel-model)
-                         gptel-model))
-               'face 'ogent-theme-primary))
-    (concat (ogent-theme-icon 'warning 'ogent-theme-muted)
-            " "
-            (propertize "not configured" 'face 'ogent-theme-muted))))
+      (propertize
+       (format "%s:%s"
+               (if (fboundp 'gptel-backend-name)
+                   (gptel-backend-name gptel-backend)
+                 "backend")
+               (if (fboundp 'gptel--model-name)
+                   (gptel--model-name gptel-model)
+                 gptel-model))
+       'face 'ogent-theme-primary)
+    (propertize "not configured" 'face 'ogent-theme-muted)))
 
 (defun ogent--format-status-header ()
   "Format a comprehensive status line for the dispatcher header.
-Shows model, context info, and pinned count with icons."
+Shows model, context info, and pinned count."
   (let* ((model-str (ogent--format-model-header))
          (pinned (ogent-pinned-count))
          (pinned-str (if (> pinned 0)
                          (concat "  "
-                                 (ogent-theme-icon 'pin 'ogent-theme-highlight)
-                                 " "
+                                 (propertize "pinned " 'face 'transient-heading)
                                  (propertize (format "%d" pinned)
                                              'face 'ogent-theme-highlight))
                        ""))
          (preset-str (if ogent-ui--selected-preset
                          (concat "  "
-                                 (ogent-theme-icon 'settings 'ogent-theme-secondary)
-                                 " "
+                                 (propertize "preset " 'face 'transient-heading)
                                  (propertize ogent-ui--selected-preset
                                              'face 'ogent-theme-secondary))
                        ""))
@@ -978,76 +1002,71 @@ Shows model, context info, and pinned count with icons."
          (active-count (hash-table-count ogent-ui--request-table))
          (active-str (if (> active-count 0)
                          (concat "  "
-                                 (ogent-theme-icon 'running 'ogent-theme-warning)
-                                 " "
                                  (propertize (format "%d active" active-count)
                                              'face 'ogent-theme-warning))
                        "")))
     (concat model-str pinned-str preset-str active-str)))
 
 (defun ogent--format-context-group ()
-  "Format the Context group header with pinned count and icon."
+  "Format the Context group header with pinned count."
   (let ((count (ogent-pinned-count)))
-    (concat (ogent-theme-icon 'context)
-            " Context"
+    (concat "Context"
             (when (> count 0)
               (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
 
-;;; Enhanced Transient Menu Descriptions with Icons
+;;; Prompt dispatcher descriptions
 
 (defun ogent--desc-send ()
-  "Dynamic description for send action with icon."
-  (concat (ogent-theme-icon 'send 'ogent-theme-success)
-          " "
-          (cond
-           (ogent--transient-prompt
-            (propertize
-             (format "Send \"%s\""
-                     (truncate-string-to-width ogent--transient-prompt 20 nil nil "..."))
-             'face 'ogent-theme-success))
-           ((use-region-p)
-            (propertize "Send region" 'face 'ogent-theme-success))
-           (t (propertize "Send" 'face 'ogent-theme-success)))))
+  "Return the dynamic description for sending from the dispatcher."
+  (cond
+   (ogent--transient-prompt
+    (propertize
+     (format "Send \"%s\""
+             (truncate-string-to-width ogent--transient-prompt 20 nil nil "..."))
+     'face 'ogent-theme-success))
+   ((use-region-p)
+    (propertize "Send region" 'face 'ogent-theme-success))
+   (t (propertize "Send" 'face 'ogent-theme-success))))
 
 (defun ogent--desc-quick-ask ()
-  "Description for quick ask with icon."
-  (concat (ogent-theme-icon 'help) " Quick ask..."))
+  "Return the description for quick ask."
+  "Quick ask...")
 
 (defun ogent--desc-preview ()
-  "Description for context preview with icon."
-  (concat (ogent-theme-icon 'search) " Preview..."))
+  "Return the description for context preview."
+  "Preview...")
 
 (defun ogent--desc-codemap ()
-  "Description for codemap with icon."
-  (concat (ogent-theme-icon 'code) " Codemap..."))
+  "Return the description for codemap."
+  "Codemap...")
 
 (defun ogent--desc-edit-menu ()
-  "Description for edit menu with icon."
-  (concat (ogent-theme-icon 'edit) " Edit menu"))
+  "Return the description for edit menu."
+  "Edit menu")
 
 (defun ogent--desc-issues ()
-  "Description for issues with icon."
-  (concat (ogent-theme-icon 'issue) " Issues"))
+  "Return the description for issues."
+  "Issues")
 
 (defun ogent--desc-save ()
-  "Description for save with icon."
-  (concat (ogent-theme-icon 'save) " Save..."))
+  "Return the description for saving a session."
+  "Save...")
 
 (defun ogent--desc-load ()
-  "Description for load with icon."
-  (concat (ogent-theme-icon 'folder) " Load..."))
+  "Return the description for loading a session."
+  "Load...")
 
 (defun ogent--desc-history ()
-  "Description for history with icon."
-  (concat (ogent-theme-icon 'session) " History..."))
+  "Return the description for session history."
+  "History...")
 
 (defun ogent--desc-debug ()
-  "Description for debug mode with icon."
-  (concat (ogent-theme-icon 'terminal) " Debug mode"))
+  "Return the description for debug mode."
+  "Debug mode")
 
 (defun ogent--desc-quit ()
-  "Description for quit with icon."
-  (concat (ogent-theme-icon 'cancel 'ogent-theme-muted) " Quit"))
+  "Return the description for quitting the dispatcher."
+  "Quit")
 
 (transient-define-suffix ogent--suffix-send-action ()
   "Send prompt to LLM with visual feedback."
@@ -1062,70 +1081,53 @@ Shows model, context info, and pinned count with icons."
 
 ;;;###autoload (autoload 'ogent-prompt-dispatch "ogent" nil t)
 (transient-define-prefix ogent-prompt-dispatch ()
-			 "Prompt dispatcher for ogent requests.
+  "Prompt dispatcher for ogent requests.
 
 A polished interface for AI-assisted workflows.
 
                     ╭─────────────────────────────╮
                     │      OGENT DISPATCHER       │
                     ╰─────────────────────────────╯"
-			 [:description ogent--format-status-header
-				       :class transient-row
-				       ;; Row 1: Primary action + Model configuration
-				       [:description
-					(lambda () (concat (ogent-theme-icon 'send) " Send"))
-					:class transient-column
-					(ogent--suffix-send-action)
-					("?" ogent-ask :description ogent--desc-quick-ask)]
-				       [:description
-					(lambda () (concat (ogent-theme-icon 'model) " Model"))
-					:class transient-column
-					(ogent--infix-provider)
-					(ogent--infix-preset)
-					(ogent--infix-models)]]
+  [:description ogent--format-status-header
+   [:description "Send"
+    (ogent--suffix-send-action)
+    ("?" ogent-ask :description ogent--desc-quick-ask)]
+   [:description "Model"
+    (ogent--infix-provider)
+    (ogent--infix-preset)
+    (ogent--infix-models)]]
 
-			 [;; Row 2: Prompt input + Context management
-			  [:description
-			   (lambda () (concat (ogent-theme-icon 'edit) " Prompt"))
-			   :class transient-column
-			   (ogent--infix-prompt)
-			   (ogent--infix-templates)
-			   (ogent--infix-tools)]
-			  [:description ogent--format-context-group
-					:class transient-column
-					("c" ogent-context-preview-toggle :description ogent--desc-preview :transient t)
-					("m" ogent-codemap-buffer :description ogent--desc-codemap)
-					(ogent--suffix-pin-dwim)
-					(ogent--suffix-unpin)
-					(ogent--suffix-list-pinned)]]
+  [[:description "Prompt"
+    (ogent--infix-prompt)
+    (ogent--infix-templates)
+    (ogent--infix-tools)]
+   [:description ogent--format-context-group
+    ("c" ogent-context-preview-toggle :description ogent--desc-preview :transient t)
+    ("C" ogent-codemap-buffer :description ogent--desc-codemap)
+    (ogent--suffix-pin-dwim)
+    (ogent--suffix-unpin)
+    (ogent--suffix-list-pinned)]]
 
-			 [;; Row 3: Navigation + Session + Quit
-			  [:description
-			   (lambda () (concat (ogent-theme-icon 'link) " Navigate"))
-			   :class transient-column
-			   ("e" ogent-edit-menu :description ogent--desc-edit-menu)
-			   ("i" ogent-issues :description ogent--desc-issues)]
-			  [:description
-			   (lambda () (concat (ogent-theme-icon 'session) " Session"))
-			   :class transient-column
-			   ("S" ogent-session-save :description ogent--desc-save)
-			   ("L" ogent-session-load :description ogent--desc-load)
-			   ("H" ogent-session-list :description ogent--desc-history)]
-			  [:description ""
-					:class transient-column
-					("D" ogent-debug-mode :description ogent--desc-debug)
-					("q" transient-quit-one :description ogent--desc-quit)]]
-			 (interactive)
-			 (ogent-ui--ensure-companion-context)
-			 (transient-setup 'ogent-prompt-dispatch))
+  [[:description "Navigate"
+    ("e" ogent-edit-menu :description ogent--desc-edit-menu)
+    ("i" ogent-issues :description ogent--desc-issues)]
+   [:description "Session"
+    ("S" ogent-session-save :description ogent--desc-save)
+    ("L" ogent-session-load :description ogent--desc-load)
+    ("H" ogent-session-list :description ogent--desc-history)]
+   [""
+    ("D" ogent-debug-mode :description ogent--desc-debug)
+    ("q" transient-quit-one :description ogent--desc-quit)]]
+  (interactive)
+  (ogent-ui--ensure-companion-context)
+  (transient-setup 'ogent-prompt-dispatch))
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
 			 "Pin current file/buffer/region to context."
 			 :key "P"
 			 :description
 			 (lambda ()
-			   (concat (ogent-theme-icon 'pin 'ogent-theme-highlight)
-				   " Pin "
+			   (concat "Pin "
 				   (cond
 				    ((use-region-p) "region")
 				    ((buffer-file-name) "file")
@@ -1142,11 +1144,8 @@ A polished interface for AI-assisted workflows.
 			 (lambda ()
 			   (let ((count (ogent-pinned-count)))
 			     (if (zerop count)
-				 (concat (ogent-theme-icon 'unpin 'ogent-theme-muted)
-					 " "
-					 (propertize "Unpin..." 'face 'ogent-theme-muted))
-			       (concat (ogent-theme-icon 'unpin)
-				       " Unpin..."))))
+				 (propertize "Unpin..." 'face 'ogent-theme-muted)
+			       "Unpin...")))
 			 :transient t
 			 (interactive)
 			 (if (zerop (ogent-pinned-count))
@@ -1160,8 +1159,7 @@ A polished interface for AI-assisted workflows.
 			 :description
 			 (lambda ()
 			   (let ((count (ogent-pinned-count)))
-			     (concat (ogent-theme-icon 'context)
-				     " List"
+			     (concat "List"
 				     (when (> count 0)
 				       (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
 			 (interactive)
@@ -1204,6 +1202,16 @@ The prompt sent to the model remains unescaped.  This only protects the
 transcript copy from Org syntax that can terminate or split the block."
   (replace-regexp-in-string "^\\(\\*\\|#\\+\\)" ",\\1" content))
 
+(defun ogent-ui--prompt-headline-summary (prompt)
+  "Return a single-line headline summary for PROMPT."
+  (let ((summary (string-join
+                  (split-string (string-trim (format "%s" prompt))
+                                "[[:space:]\n\r]+" t)
+                  " ")))
+    (if (string-empty-p summary)
+        "(empty prompt)"
+      (truncate-string-to-width summary 60 nil nil "..."))))
+
 (defun ogent-ui--hide-src-block-at (position)
   "Hide the Org source block at POSITION when folding is available."
   (when (and position
@@ -1235,8 +1243,7 @@ Returns a plist containing a streaming marker and block-start marker."
   (let* ((model-id (plist-get model :id))
          (backend (plist-get model :backend))
          (payload (ogent-ui--render-prompt prompt context))
-         ;; Truncate prompt for headline (max 60 chars)
-         (prompt-summary (truncate-string-to-width prompt 60 nil nil "..."))
+         (prompt-summary (ogent-ui--prompt-headline-summary prompt))
          request-heading-pos
          block-start
          response-heading-pos)
@@ -1397,7 +1404,7 @@ heading (see `ogent-shift-response-headings')."
 (defun ogent-ui--update-status (request new-status)
   "Update REQUEST status to NEW-STATUS and refresh block metadata."
   (setf (ogent-ui-request-status request) new-status)
-  (when (eq new-status 'done)
+  (when (memq new-status '(done error aborted))
     (setf (ogent-ui-request-end-time request) (current-time)))
   (ogent-ui--update-block-header request)
   ;; Update margin indicator
@@ -1453,19 +1460,21 @@ heading (see `ogent-shift-response-headings')."
   :type 'integer
   :group 'ogent-mode)
 
-(defun ogent-ui--close-response (request &optional error-message)
+(defun ogent-ui--close-response (request &optional error-message final-status)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
+FINAL-STATUS overrides the default terminal status.
 The src block is already closed; this just updates status and folds.
 Provides visual feedback via mode-line flash."
-  (when error-message
-    (ogent-ui--insert-error-block request error-message)
-    (ogent-ui--update-status request 'error)
-    ;; Flash error
-    (ogent-theme-flash 'error (format "Request failed: %s"
-                                      (truncate-string-to-width error-message 50 nil nil "..."))))
-  (unless (ogent-ui-request-closed request)
+  (if (ogent-ui-request-closed request)
+      (remhash (ogent-ui-request-id request) ogent-ui--request-table)
+    (when error-message
+      (ogent-ui--insert-error-block request error-message)
+      (ogent-ui--update-status request (or final-status 'error))
+      ;; Flash error
+      (ogent-theme-flash 'error (format "Request failed: %s"
+                                        (truncate-string-to-width error-message 50 nil nil "..."))))
     (unless error-message
-      (ogent-ui--update-status request 'done)
+      (ogent-ui--update-status request (or final-status 'done))
       ;; Flash success with latency info
       (let ((latency (ogent-ui--format-latency request)))
         (ogent-theme-flash 'success
@@ -1478,35 +1487,36 @@ Provides visual feedback via mode-line flash."
     (push request ogent-ui--request-history)
     (when (> (length ogent-ui--request-history) ogent-ui-request-history-max)
       (setq ogent-ui--request-history
-            (seq-take ogent-ui--request-history ogent-ui-request-history-max))))
-  (remhash (ogent-ui-request-id request) ogent-ui--request-table)
-  ;; Fontify the response region for syntax highlighting (src blocks, etc.)
-  ;; and align any Org tables that were streamed in
-  (with-current-buffer (ogent-ui-request-buffer request)
-    (let ((start (ogent-ui-request-response-pos request))
-          (end (ogent-ui-request-marker request)))
-      (when (and start end (markerp end) (marker-position end))
-        (let ((end-pos (marker-position end)))
-          (font-lock-flush start end-pos)
-          ;; Align Org tables in the response region
-          (when (derived-mode-p 'org-mode)
-            (save-excursion
-              (goto-char start)
-              (while (re-search-forward "^[ \t]*|" end-pos t)
-                (org-table-align)
-                ;; Move past this table to avoid re-aligning
-                (goto-char (org-table-end)))))))))
-  ;; Clean up auto-scroll hook if no more active requests in buffer
-  (with-current-buffer (ogent-ui-request-buffer request)
-    (unless (cl-some (lambda (r)
-                       (eq (ogent-ui-request-buffer r)
-                           (current-buffer)))
-                     (ogent-ui-active-requests))
-      (remove-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command t)))
-  ;; Clean up margin indicator (after a delay to keep it visible briefly)
-  (when (fboundp 'ogent-status-clear-request)
-    (run-with-timer 2.0 nil #'ogent-status-clear-request request))
-  (run-hook-with-args 'ogent-after-request-hook (ogent-ui-request-context request)))
+            (seq-take ogent-ui--request-history ogent-ui-request-history-max)))
+    (remhash (ogent-ui-request-id request) ogent-ui--request-table)
+    ;; Fontify the response region for syntax highlighting (src blocks, etc.)
+    ;; and align any Org tables that were streamed in
+    (with-current-buffer (ogent-ui-request-buffer request)
+      (let ((start (ogent-ui-request-response-pos request))
+            (end (ogent-ui-request-marker request)))
+        (when (and start end (markerp end) (marker-position end))
+          (let ((end-pos (marker-position end)))
+            (font-lock-flush start end-pos)
+            ;; Align Org tables in the response region
+            (when (derived-mode-p 'org-mode)
+              (save-excursion
+                (goto-char start)
+                (while (re-search-forward "^[ \t]*|" end-pos t)
+                  (org-table-align)
+                  ;; Move past this table to avoid re-aligning
+                  (goto-char (org-table-end)))))))))
+    ;; Clean up auto-scroll hook if no more active requests in buffer
+    (with-current-buffer (ogent-ui-request-buffer request)
+      (unless (cl-some (lambda (r)
+                         (eq (ogent-ui-request-buffer r)
+                             (current-buffer)))
+                       (ogent-ui-active-requests))
+        (remove-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command t)))
+    ;; Clean up margin indicator after a short visible grace period.
+    (when (fboundp 'ogent-status-clear-request)
+      (run-with-timer 2.0 nil #'ogent-status-clear-request request))
+    (run-hook-with-args 'ogent-after-request-hook
+                        (ogent-ui-request-context request))))
 
 (defun ogent-ui--make-callback (request-id)
   "Return a gptel callback that streams into REQUEST-ID.
@@ -1617,8 +1627,9 @@ completes, in case the callback-based detection doesn't trigger."
   "Return non-nil if TOOL-NAME supports async streaming execution.
 Checks the tool spec for an :async-function property."
   (and ogent-stream-tool-output
-       (when-let ((spec (and (fboundp 'ogent-tool-spec-get)
-                             (ogent-tool-spec-get (intern tool-name)))))
+       (when-let* ((tool-symbol (ogent-tool--name-symbol tool-name))
+                   (spec (and (fboundp 'ogent-tool-spec-get)
+                              (ogent-tool-spec-get tool-symbol))))
          (plist-get spec :async-function))))
 
 (defun ogent-ui--make-streaming-callback (drawer callback-style)
@@ -1672,7 +1683,8 @@ Returns the streaming drawer struct.  Output is streamed to the drawer.
 Uses the :async-function and :async-callback-style from the tool spec."
   (let* ((drawer (ogent-ui--insert-streaming-drawer tool-name tool-args))
          (spec (and (fboundp 'ogent-tool-spec-get)
-                    (ogent-tool-spec-get (intern tool-name))))
+                    (when-let ((tool-symbol (ogent-tool--name-symbol tool-name)))
+                      (ogent-tool-spec-get tool-symbol))))
          (async-func (plist-get spec :async-function))
          (callback-style (or (plist-get spec :async-callback-style) :stream))
          (arg-values (ogent-ui--extract-tool-args spec tool-args))
@@ -1700,66 +1712,74 @@ Results are displayed in the buffer."
           ;; Debug: log the raw tool-call structure
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
             (message "[ogent-debug] tool-call raw: %S" tool-call))
-          (let* ((tool-name (plist-get tool-call :name))
+          (let* ((raw-tool-name (plist-get tool-call :name))
+                 (tool-name (ogent-tool--name-string raw-tool-name))
                  ;; gptel normalizes to :args, but check :input/:arguments as fallback
                  (tool-args (or (plist-get tool-call :args)
                                 (plist-get tool-call :input)
-                                (plist-get tool-call :arguments)))
-                 (approval (ogent-ui--check-tool-approval tool-name tool-args)))
-            (pcase approval
-              (`approved
-               (cond
-                ;; Edit tools: show diff preview instead of executing
-                ((ogent-ui--is-edit-tool-p tool-name)
-                 (condition-case err
-                     (ogent-ui--show-diff-for-tool tool-name tool-args)
-                   (error
-                    (ogent-ui--insert-tool-block
-                     tool-name tool-args
-                     (format "[Diff preview error: %s]" (error-message-string err))))))
-                ;; Async-capable tools: stream output incrementally
-                ((ogent-ui--async-tool-p tool-name)
-                 (ogent-ui--execute-tool-async tool-name tool-args))
-                ;; All other tools: execute synchronously
-                (t
-                 (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                   (ogent-ui--insert-tool-block tool-name tool-args result)))))
-            (`denied
-             (ogent-ui--insert-tool-block tool-name tool-args
-                                          "[Tool execution denied by user]")))))))))
+                                (plist-get tool-call :arguments))))
+            (if (not tool-name)
+                (ogent-ui--insert-tool-block
+                 "unknown" tool-args "[Malformed tool call: missing name]")
+              (let ((approval (ogent-ui--check-tool-approval tool-name tool-args)))
+                (pcase approval
+                  (`approved
+                   (cond
+                    ;; Edit tools: show diff preview.
+                    ((ogent-ui--is-edit-tool-p tool-name)
+                     (condition-case err
+                         (ogent-ui--show-diff-for-tool tool-name tool-args)
+                       (error
+                        (ogent-ui--insert-tool-block
+                         tool-name tool-args
+                         (format "[Diff preview error: %s]" (error-message-string err))))))
+                    ;; Async-capable tools: stream output incrementally
+                    ((ogent-ui--async-tool-p tool-name)
+                     (ogent-ui--execute-tool-async tool-name tool-args))
+                    ;; All other tools: execute synchronously
+                    (t
+                     (let ((result (ogent-ui--execute-tool tool-name tool-args)))
+                       (ogent-ui--insert-tool-block tool-name tool-args result)))))
+                  (`denied
+                   (ogent-ui--insert-tool-block tool-name tool-args
+                                                "[Tool execution denied by user]")))))))))))
 
 (defun ogent-ui--check-tool-approval (tool-name tool-args)
   "Check if TOOL-NAME with TOOL-ARGS should be executed.
 Returns `approved' or `denied'."
-  (cond
-   ;; Approval disabled - always approve
-   ((not ogent-tool-require-approval) 'approved)
-   ;; Already denied this session
-   ((ogent-tool--denied-p tool-name) 'denied)
-   ;; In allow-list - auto-approve
-   ((ogent-tool--allowed-p tool-name tool-args) 'approved)
-   ;; Check tool spec for :confirm flag (if false, auto-approve)
-   ((let ((spec (and (fboundp 'ogent-tool-spec-get)
-                     (ogent-tool-spec-get (intern tool-name)))))
-      (and spec (not (plist-get spec :confirm))))
-    'approved)
-   ;; Prompt user
-   (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
-        (pcase response
-          ('approve 'approved)
-          ('deny 'denied)
-          ('always
-           (ogent-tool--add-to-allow-list tool-name tool-args)
-           'approved)
-          ('never
-           (ogent-tool--add-to-deny-list tool-name)
-           'denied))))))
+  (let ((tool-symbol (ogent-tool--name-symbol tool-name)))
+    (cond
+     ;; Malformed tool call.
+     ((not tool-symbol) 'denied)
+     ;; Approval disabled - always approve
+     ((not ogent-tool-require-approval) 'approved)
+     ;; Already denied this session
+     ((ogent-tool--denied-p tool-name) 'denied)
+     ;; In allow-list - auto-approve
+     ((ogent-tool--allowed-p tool-name tool-args) 'approved)
+     ;; Check tool spec for :confirm flag (if false, auto-approve)
+     ((let ((spec (and (fboundp 'ogent-tool-spec-get)
+                       (ogent-tool-spec-get tool-symbol))))
+        (and spec (not (plist-get spec :confirm))))
+      'approved)
+     ;; Prompt user
+     (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
+          (pcase response
+            ('approve 'approved)
+            ('deny 'denied)
+            ('always
+             (ogent-tool--add-to-allow-list tool-name tool-args)
+             'approved)
+            ('never
+             (ogent-tool--add-to-deny-list tool-name)
+             'denied)))))))
 
 (defun ogent-ui--execute-tool (name args)
   "Execute tool NAME with ARGS and return result string.
 Looks up tool in `ogent-tool-registry' and calls its function."
-  (if-let* ((spec (and (fboundp 'ogent-tool-spec-get)
-                       (ogent-tool-spec-get (intern name))))
+  (if-let* ((tool-symbol (ogent-tool--name-symbol name))
+            (spec (and (fboundp 'ogent-tool-spec-get)
+                       (ogent-tool-spec-get tool-symbol)))
             (func (plist-get spec :function)))
       (condition-case err
           (let ((arg-values (ogent-ui--extract-tool-args spec args)))
@@ -1792,6 +1812,13 @@ Returns a list of values in the order defined in the spec's :args."
         (push value values)))
     (nreverse values)))
 
+(defun ogent-ui--backend-matches-provider-p (backend-object provider)
+  "Return non-nil when BACKEND-OBJECT has PROVIDER type."
+  (and backend-object
+       (symbolp provider)
+       (or (eq (type-of backend-object) provider)
+           (ignore-errors (cl-typep backend-object provider)))))
+
 (defun ogent-ui--resolve-backend (model)
   "Return the backend object for MODEL plist."
   (let ((backend (plist-get model :backend)))
@@ -1808,7 +1835,17 @@ Returns a list of values in the order defined in the spec's :args."
               (ignore-errors (require backend nil 'noerror)))
             (if (boundp backend)
                 (symbol-value backend)
-              backend))
+              (or (and (boundp 'gptel-backend)
+                       (ogent-ui--backend-matches-provider-p
+                        gptel-backend backend)
+                       gptel-backend)
+                  (when (boundp 'gptel--known-backends)
+                    (cdr (seq-find
+                          (lambda (entry)
+                            (ogent-ui--backend-matches-provider-p
+                             (cdr entry) backend))
+                          gptel--known-backends)))
+                  backend)))
            (t backend)))
     backend))
 
@@ -2808,8 +2845,7 @@ Records the error and displays it in the *ogent-errors* buffer."
       (when (and handle (fboundp 'gptel-abort))
         (ignore-errors
           (gptel-abort (ogent-ui-request-buffer request)))))
-    (ogent-ui--update-status request 'aborted)
-    (ogent-ui--close-response request "Request aborted by user")))
+    (ogent-ui--close-response request "Request aborted by user" 'aborted)))
 
 (defun ogent-ui--get-partial-response (request)
   "Extract the partial response text accumulated so far for REQUEST."

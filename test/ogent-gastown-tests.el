@@ -181,6 +181,23 @@ OUTPUT should be a plist or list that will be returned."
                (lambda () nil)))
       (should-not (ogent-gastown-in-town-p)))))
 
+;;; Dispatch Menu Tests
+
+(ert-deftest ogent-gastown-test-refresh-commands-are-interactive ()
+  "Refresh commands used by transient menus should be interactive."
+  (should (commandp 'ogent-gastown-hook-refresh))
+  (should (commandp 'ogent-gastown-mail-refresh))
+  (should (commandp 'ogent-gastown-convoy-refresh)))
+
+(ert-deftest ogent-gastown-test-dispatch-sets-up-without-error ()
+  "Gas Town dispatch should render without transient command errors."
+  (unwind-protect
+      (progn
+        (transient-setup 'ogent-gastown-dispatch)
+        (should (get 'ogent-gastown-dispatch 'transient--prefix)))
+    (when transient-current-prefix
+      (transient-quit-one))))
+
 ;;; Hook Status Tests
 
 (ert-deftest ogent-gastown-test-hook-refresh ()

@@ -50,7 +50,7 @@ Supports Claude format (tool_use blocks) and OpenAI format (function_call)."
    ;; Response is already a plist with :tool-use key (gptel format)
    ((and (listp response) (plist-get response :tool-use))
     (let ((tool-calls (plist-get response :tool-use)))
-      (mapcar #'ogent-tool-fsm--normalize-tool-call tool-calls)))
+      (delq nil (mapcar #'ogent-tool-fsm--normalize-tool-call tool-calls))))
    
    ;; Response is a string - parse it
    ((stringp response)
@@ -62,17 +62,22 @@ Supports Claude format (tool_use blocks) and OpenAI format (function_call)."
 (defun ogent-tool-fsm--normalize-tool-call (call)
   "Normalize CALL to standard plist format.
 Handles both Claude (:name, :input) and OpenAI (:function, :arguments) formats."
-  (let ((id (or (plist-get call :id)
-                (format "%s-%d" (or (plist-get call :name)
-                                    (plist-get call :function))
-                        (random 10000))))
-        (name (or (plist-get call :name)
-                  (plist-get call :function)))
-        (args (or (plist-get call :input)
-                  (plist-get call :arguments))))
-    (list :id id
-          :name (if (symbolp name) name (intern name))
-          :args args)))
+  (when (listp call)
+    (let* ((name (or (plist-get call :name)
+                     (plist-get call :function)))
+           (args (or (plist-get call :input)
+                     (plist-get call :arguments))))
+      (if (not (or (stringp name)
+                   (and name (symbolp name))))
+          (progn
+            (ogent-tool-fsm--log "Ignoring malformed tool call without name: %S" call)
+            nil)
+        (let ((tool-name (if (symbolp name) name (intern name)))
+              (id (or (plist-get call :id)
+                      (format "%s-%d" name (random 10000)))))
+          (list :id id
+                :name tool-name
+                :args args))))))
 
 (defun ogent-tool-fsm--parse-string-response (text)
   "Parse tool calls from TEXT string.
