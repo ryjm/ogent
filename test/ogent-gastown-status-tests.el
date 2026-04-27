@@ -2835,7 +2835,7 @@
                    (push (list cmd buf) commands))))
         (ogent-gastown-hook-show)
         (should (= (length commands) 1))
-        (should (string-match-p "gt hook" (caar commands)))))))
+        (should (string-match-p "gt mol status" (caar commands)))))))
 
 ;;; Stats Show Tests
 
@@ -3339,7 +3339,7 @@
       (cl-letf (((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw _run-directory)
                    (cond
-                    ((and (equal (car args) "hook")
+                    ((and (equal (car args) "mol")
                           (member "status" args)
                           (member "--json" args))
                      (funcall callback '(:has_work t :role "mayor")))
@@ -5003,7 +5003,7 @@
                  (lambda () "/tmp/hook-root/"))
                 ((symbol-function 'ogent-gastown-status--run-async)
                  (lambda (args callback &optional _error-callback _raw run-directory)
-                   (when (and (equal (car args) "hook")
+                   (when (and (equal (car args) "mol")
                               (member "status" args))
                      (setq hook-run-directory run-directory))
                  (funcall callback nil))))
@@ -5097,7 +5097,7 @@
         (should (= (length captured-args) 6))
         (should (seq-some
                  (lambda (args)
-                   (and (equal (car args) "hook")
+                   (and (equal (car args) "mol")
                         (member "status" args)
                         (member "--json" args)))
                  captured-args))
@@ -5274,7 +5274,7 @@
                  (lambda (args callback &optional error-callback _raw _run-directory)
                    (cond
                     ;; Hook and mail succeed
-                    ((and (equal (car args) "hook")
+                    ((and (equal (car args) "mol")
                           (member "status" args)
                           (member "--json" args))
                      (funcall callback '(:has_work t :role "mayor")))

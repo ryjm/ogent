@@ -193,7 +193,7 @@ OUTPUT should be a plist or list that will be returned."
       (should (equal "ogent-xyz" (plist-get result :id)))
       (should (equal "Test hooked work" (plist-get result :title)))
       ;; Check command was correct
-      (should (equal "hook" ogent-gastown-test--captured-command))
+      (should (equal "mol" ogent-gastown-test--captured-command))
       (should (member "status" ogent-gastown-test--captured-args))
       (should (member "--json" ogent-gastown-test--captured-args)))))
 
