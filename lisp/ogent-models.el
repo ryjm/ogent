@@ -214,6 +214,7 @@ Optional keys:
   :category    - grouping (e.g., \"filesystem\", \"shell\", \"search\")
   :async       - if non-nil, function takes a callback as last arg
   :confirm     - if non-nil, require user approval before execution
+  :effects     - list of effect plists for policy and audit trails
   :include     - if non-nil, include tool results in response
 
 Example:
@@ -223,6 +224,7 @@ Example:
    :args ((:name \"file_path\" :type \"string\"
            :description \"Absolute path to the file\"))
    :category \"filesystem\"
+   :effects ((:kind read :target file :scope workspace :risk low))
    :confirm nil)"
   :type '(repeat plist)
   :group 'ogent-models)

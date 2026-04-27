@@ -56,6 +56,7 @@
 (require 'ogent-context)
 (require 'ogent-models)
 (require 'ogent-tools)
+(require 'ogent-ledger)
 (require 'ogent-companion)
 (require 'ogent-core)
 (require 'ogent-codemap)

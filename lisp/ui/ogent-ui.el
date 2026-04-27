@@ -15,6 +15,8 @@
 (require 'ogent-models)
 (require 'ogent-prompts)
 (require 'ogent-companion)
+(require 'ogent-tool-effects)
+(require 'ogent-ledger)
 (require 'ogent-ui-status)
 (require 'ogent-ui-theme)
 
@@ -199,7 +201,18 @@ Supports * as wildcard."
 
 (defun ogent-tool--format-preview (tool-name args)
   "Format a preview string for TOOL-NAME with ARGS."
-  (let ((preview (format "Tool: %s\n" tool-name)))
+  (let* ((tool-symbol (ogent-tool--name-symbol tool-name))
+         (spec (and tool-symbol
+                    (fboundp 'ogent-tool-spec-get)
+                    (ogent-tool-spec-get tool-symbol)))
+         (preview (format "Tool: %s\n" tool-name)))
+    (when spec
+      (setq preview
+            (concat preview
+                    "Effects:\n"
+                    (ogent-tool-effects-format
+                     (plist-get spec :effects))
+                    "\n")))
     (when args
       (setq preview (concat preview "Arguments:\n"))
       (let ((pairs nil))
@@ -1277,6 +1290,7 @@ Returns a plist containing a streaming marker and block-start marker."
   (setf (ogent-ui-request-start-time request) (current-time))
   (setf (ogent-ui-request-status request) 'wait)
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
+  (ogent-ledger-record-request-start request)
   ;; Create margin indicator
   (when (fboundp 'ogent-status-set-request)
     (ogent-status-set-request request))
@@ -1480,6 +1494,7 @@ Provides visual feedback via mode-line flash."
         (ogent-theme-flash 'success
                            (format "Response complete%s"
                                    (if latency (format " (%s)" latency) "")))))
+    (ogent-ledger-record-request-finish request error-message)
     ;; Fold the prompt/context src block
     (ogent-ui--fold-prompt-block request)
     (setf (ogent-ui-request-closed request) t)
@@ -1757,10 +1772,13 @@ Returns `approved' or `denied'."
      ((ogent-tool--denied-p tool-name) 'denied)
      ;; In allow-list - auto-approve
      ((ogent-tool--allowed-p tool-name tool-args) 'approved)
-     ;; Check tool spec for :confirm flag (if false, auto-approve)
+     ;; Check tool spec policy.
      ((let ((spec (and (fboundp 'ogent-tool-spec-get)
                        (ogent-tool-spec-get tool-symbol))))
-        (and spec (not (plist-get spec :confirm))))
+        (and spec
+             (not (or (plist-get spec :confirm)
+                      (ogent-tool-effects-approval-required-p
+                       (plist-get spec :effects))))))
       'approved)
      ;; Prompt user
      (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))

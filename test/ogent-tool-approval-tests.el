@@ -23,6 +23,20 @@
   (let ((spec '(:name bash :function ogent-tool--bash :confirm t)))
     (should (ogent-tool-approval-required-p spec))))
 
+(ert-deftest ogent-tool-approval-required-p/with-read-effect ()
+  "Read-only tools do not require approval by default."
+  (let ((spec '(:name read-file
+                :function ogent-tool--read-file
+                :effects ((:kind read :target file :scope workspace)))))
+    (should-not (ogent-tool-approval-required-p spec))))
+
+(ert-deftest ogent-tool-approval-required-p/with-write-effect ()
+  "Write effects require approval by default."
+  (let ((spec '(:name write-file
+                :function ogent-tool--write-file
+                :effects ((:kind write :target file :scope workspace)))))
+    (should (ogent-tool-approval-required-p spec))))
+
 (ert-deftest ogent-tool-approval-request/no-confirm-executes-immediately ()
   "Tools without :confirm execute callback immediately with t."
   (let ((spec '(:name read-file :function ogent-tool--read-file))

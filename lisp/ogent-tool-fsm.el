@@ -13,6 +13,7 @@
 (require 'cl-lib)
 (require 'ogent-tool-render)
 (require 'ogent-tool-approval)
+(require 'ogent-ledger)
 
 (declare-function ogent-tool-spec-get "ogent-models")
 (declare-function ogent-tool-get "ogent-models")
@@ -106,12 +107,15 @@ Automatically logs execution to tool call history."
          (spec (and (fboundp 'ogent-tool-spec-get)
                     (ogent-tool-spec-get name)))
          (func (and spec (plist-get spec :function)))
+         (effects (plist-get spec :effects))
          (start-time (current-time)))
     
     (ogent-tool-fsm--log "Executing tool: %s (id: %s)" name id)
+    (ogent-ledger-record-tool-start tool-call effects)
     
     (if (not func)
         (let ((err-msg (format "Tool not found: %s" name)))
+          (ogent-ledger-record-tool-finish tool-call nil err-msg 0.0 effects)
           ;; Log error to history
           (when (fboundp 'ogent-debug-log-tool-call)
             (ogent-debug-log-tool-call
@@ -124,6 +128,8 @@ Automatically logs execution to tool call history."
           (let* ((result (apply func (ogent-tool-fsm--plist-to-args args)))
                  (duration (float-time (time-subtract (current-time) start-time))))
             (ogent-tool-fsm--log "Tool %s completed successfully" name)
+            (ogent-ledger-record-tool-finish
+             tool-call result nil duration effects)
             ;; Log success to history
             (when (fboundp 'ogent-debug-log-tool-call)
               (ogent-debug-log-tool-call tool-call result duration))
@@ -132,6 +138,8 @@ Automatically logs execution to tool call history."
          (let* ((err-msg (error-message-string err))
                 (duration (float-time (time-subtract (current-time) start-time))))
            (ogent-tool-fsm--log "Tool %s failed: %s" name err-msg)
+           (ogent-ledger-record-tool-finish
+            tool-call nil err-msg duration effects)
            ;; Log failure to history
            (when (fboundp 'ogent-debug-log-tool-call)
              (ogent-debug-log-tool-call

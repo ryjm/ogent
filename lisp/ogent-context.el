@@ -450,6 +450,109 @@ If REGION-START and REGION-END are provided, include the selected region."
      items
      "\n\n")))
 
+(defun ogent-context--content-hash (content)
+  "Return sha256 hash for CONTENT."
+  (secure-hash 'sha256 (or content "")))
+
+(defun ogent-context--manifest-entry (kind label reason content &optional source)
+  "Return a provenance manifest entry."
+  (list :kind kind
+        :label label
+        :reason reason
+        :source source
+        :chars (length (or content ""))
+        :hash (ogent-context--content-hash content)))
+
+(defun ogent-context--node-manifest-entry (kind reason node)
+  "Return a manifest entry for NODE."
+  (ogent-context--manifest-entry
+   kind
+   (or (ogent-context-node-title node)
+       (ogent-context-node-id node)
+       "<untitled>")
+   reason
+   (ogent-context-node-content node)
+   (ogent-context--node-location node)))
+
+(defun ogent-context-manifest (context)
+  "Return structured provenance entries for CONTEXT."
+  (let ((entries nil)
+        (source-ctx (plist-get context :source-context))
+        (root (plist-get context :root))
+        (ancestors (plist-get context :ancestors))
+        (dependencies (plist-get context :dependencies))
+        (pinned (plist-get context :pinned))
+        (excluded (plist-get context :excluded-handles)))
+    (when source-ctx
+      (push (ogent-context--manifest-entry
+             'source
+             (or (ogent-source-context-file source-ctx)
+                 (buffer-name (ogent-source-context-buffer source-ctx)))
+             (if (and (ogent-source-context-region-start source-ctx)
+                      (ogent-source-context-region-end source-ctx))
+                 "selected source region"
+               "active source buffer")
+             (ogent-source-context-content source-ctx)
+             (ogent-source-context-file source-ctx))
+            entries))
+    (when root
+      (push (ogent-context--node-manifest-entry
+             'root "current Org subtree" root)
+            entries))
+    (dolist (node ancestors)
+      (push (ogent-context--node-manifest-entry
+             'ancestor "ancestor Org subtree" node)
+            entries))
+    (dolist (dep dependencies)
+      (let ((handle (plist-get dep :handle))
+            (node (plist-get dep :node)))
+        (if (and node (not (plist-get dep :missing-p)))
+            (push (ogent-context--node-manifest-entry
+                   'handle (format "@%s reference" handle) node)
+                  entries)
+          (push (list :kind 'missing-handle
+                      :label (format "@%s" handle)
+                      :reason "unresolved handle"
+                      :chars 0
+                      :hash nil)
+                entries))))
+    (dolist (item pinned)
+      (let ((content (ogent-pinned-item-content item)))
+        (push (ogent-context--manifest-entry
+               'pinned
+               (ogent-pinned-item-label item)
+               "pinned context"
+               content
+               (pcase (ogent-pinned-item-type item)
+                 ('file (ogent-pinned-item-path item))
+                 ('buffer (buffer-name (ogent-pinned-item-buffer item)))
+                 ('region (buffer-name (ogent-pinned-item-buffer item)))
+                 (_ nil)))
+              entries)))
+    (dolist (handle excluded)
+      (push (list :kind 'excluded-handle
+                  :label (format "@%s" handle)
+                  :reason "excluded by user"
+                  :chars 0
+                  :hash nil)
+            entries))
+    (nreverse entries)))
+
+(defun ogent-context--format-manifest-entry (entry)
+  "Return a compact display line for manifest ENTRY."
+  (let ((hash (plist-get entry :hash)))
+    (format "  - %s: %s (%d chars%s; reason: %s%s)"
+            (plist-get entry :kind)
+            (plist-get entry :label)
+            (or (plist-get entry :chars) 0)
+            (if hash
+                (format "; sha256:%s" (substring hash 0 12))
+              "")
+            (plist-get entry :reason)
+            (if-let ((source (plist-get entry :source)))
+                (format "; source: %s" source)
+              ""))))
+
 (defun ogent-context--format-manifest (context)
   "Return a compact manifest for CONTEXT."
   (let* ((source-ctx (plist-get context :source-context))
@@ -464,6 +567,7 @@ If REGION-START and REGION-END are provided, include the selected region."
                                     dependencies))
          (pinned (plist-get context :pinned))
          (excluded (plist-get context :excluded-handles))
+         (manifest (ogent-context-manifest context))
          (lines nil))
     (when source-ctx
       (push (format "- Source buffer: %s (%d chars)"
@@ -505,8 +609,14 @@ If REGION-START and REGION-END are provided, include the selected region."
             lines))
     (when pinned
       (push (format "- Pinned items: %d" (length pinned)) lines))
-    (if lines
-        (string-join (nreverse lines) "\n")
+    (if (or lines manifest)
+        (string-join
+         (append (nreverse lines)
+                 (when manifest
+                   (cons "- Provenance:"
+                         (mapcar #'ogent-context--format-manifest-entry
+                                 manifest))))
+         "\n")
       "- No context")))
 
 (defun ogent-context-render-prompt (prompt context)
