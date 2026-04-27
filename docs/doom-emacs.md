@@ -39,6 +39,7 @@ Add to your `~/.doom.d/config.el`:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-quick-edit
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
@@ -59,6 +60,7 @@ Add to your `~/.doom.d/config.el`:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "Quick edit"          "k" #'ogent-quick-edit
          :desc "Request edit"        "E" #'ogent-request-edit
          :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
@@ -66,13 +68,7 @@ Add to your `~/.doom.d/config.el`:
          :desc "Onboard/setup"       "O" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
-         :desc "Accept edit"         "a" #'ogent-edit-accept-current
-         :desc "Reject edit"         "x" #'ogent-edit-reject-current
-         :desc "Accept all edits"    "A" #'ogent-edit-accept-all
-         :desc "Reject all edits"    "X" #'ogent-edit-reject-all
-         :desc "Next edit"           "n" #'smerge-next
-         :desc "Previous edit"       "p" #'smerge-prev
-         :desc "Abort request"       "k" #'ogent-abort-request
+         :desc "Abort request"       "a" #'ogent-abort-request
          :desc "Codemap"             "M" #'ogent-codemap-buffer))
 
   :config
@@ -89,6 +85,7 @@ All ogent commands are bound under `SPC o`:
 |-----------|----------------------------|--------------------------------------|
 | `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
 | `SPC o r` | `ogent-request`            | Send request with current context    |
+| `SPC o k` | `ogent-quick-edit`         | Quick inline edit                    |
 | `SPC o E` | `ogent-request-edit`       | Request code edits for buffer/region |
 | `SPC o e` | `ogent-edit-menu`          | Edit operations transient menu       |
 | `SPC o c` | `ogent-context-preview`    | Preview what will be sent to model   |
@@ -196,6 +193,7 @@ Here's a full, copy-paste ready configuration:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-quick-edit
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
@@ -213,6 +211,7 @@ Here's a full, copy-paste ready configuration:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "Quick edit"          "k" #'ogent-quick-edit
          :desc "Request edit"        "E" #'ogent-request-edit
          :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
@@ -220,13 +219,7 @@ Here's a full, copy-paste ready configuration:
          :desc "Onboard/setup"       "O" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
-         :desc "Accept edit"         "a" #'ogent-edit-accept-current
-         :desc "Reject edit"         "x" #'ogent-edit-reject-current
-         :desc "Accept all edits"    "A" #'ogent-edit-accept-all
-         :desc "Reject all edits"    "X" #'ogent-edit-reject-all
-         :desc "Next edit"           "n" #'smerge-next
-         :desc "Previous edit"       "p" #'smerge-prev
-         :desc "Abort request"       "k" #'ogent-abort-request
+         :desc "Abort request"       "a" #'ogent-abort-request
          :desc "Codemap"             "M" #'ogent-codemap-buffer))
 
   :config
@@ -256,7 +249,7 @@ Here's a full, copy-paste ready configuration:
 
 ### "Cannot open load file: ogent-ui"
 
-This error occurs when Doom's autoloads point to individual module files instead of the main package. This was fixed in ogent - ensure you have the latest version and run `doom sync`.
+This error occurs when Doom's autoloads point to individual module files rather than the main package. This was fixed in ogent. Ensure you have the latest version and run `doom sync`.
 
 ### gptel backend not found
 
