@@ -1368,6 +1368,45 @@ WINDOW defaults to the selected window."
         (goto-char (point-max))
         (recenter -1)))))
 
+(defconst ogent-ui--auto-scroll-margin 10
+  "Character margin for deciding whether a window follows a stream tail.")
+
+(defun ogent-ui--position-value (position)
+  "Return numeric buffer position for POSITION."
+  (if (markerp position)
+      (marker-position position)
+    position))
+
+(defun ogent-ui--window-follows-position-p (window position)
+  "Return non-nil when WINDOW is already showing POSITION."
+  (and (window-live-p window)
+       (integer-or-marker-p position)
+       (let* ((pos (ogent-ui--position-value position))
+              (visible-pos (max (point-min) (1- pos)))
+              (start (window-start window)))
+         (or (pos-visible-in-window-p visible-pos window)
+             (and (<= start pos)
+                  (<= (count-screen-lines start pos nil window)
+                      (+ (window-body-height window)
+                         ogent-ui--auto-scroll-margin)))))))
+
+(defun ogent-ui--windows-following-position (buffer position)
+  "Return BUFFER windows currently following POSITION."
+  (cl-remove-if-not
+   (lambda (window)
+     (ogent-ui--window-follows-position-p window position))
+   (get-buffer-window-list buffer nil t)))
+
+(defun ogent-ui--scroll-window-to-position (window position)
+  "Scroll WINDOW to show POSITION near the bottom."
+  (when (and (window-live-p window)
+             (integer-or-marker-p position))
+    (let ((pos (ogent-ui--position-value position)))
+      (with-selected-window window
+        (set-window-point window pos)
+        (goto-char pos)
+        (recenter -1)))))
+
 (defcustom ogent-shift-response-headings t
   "When non-nil, shift org headings in LLM responses to nest under Response.
 LLM responses appear under a `*** Response' heading (level 3).
@@ -1417,18 +1456,24 @@ heading (see `ogent-shift-response-headings')."
           (processed-chunk (ogent-ui--shift-org-headings chunk)))
       (when (and marker (marker-buffer marker))
         (with-current-buffer (ogent-ui-request-buffer request)
-          (save-excursion
-            (goto-char marker)
-            (insert processed-chunk)
-            (set-marker marker (point)))
-          ;; Auto-scroll if enabled and we're tracking this request
-          (when (and ogent-auto-scroll
-                     ogent--auto-scroll-enabled)
-            (let ((window (get-buffer-window (current-buffer))))
-              (when window
-                ;; Always scroll to bottom during streaming - don't disable
-                ;; based on window position since insertion moves point
-                (ogent-ui--scroll-to-bottom window)))))))))
+          (let ((following-windows
+                 (when (and ogent-auto-scroll
+                            ogent--auto-scroll-enabled)
+	                   (ogent-ui--windows-following-position
+	                    (current-buffer)
+	                    marker))))
+            (save-excursion
+              (goto-char marker)
+              (insert processed-chunk)
+              (set-marker marker (point)))
+            (cond
+             (following-windows
+              (dolist (window following-windows)
+                (ogent-ui--scroll-window-to-position window marker)))
+             ((and ogent-auto-scroll
+                   ogent--auto-scroll-enabled
+                   (get-buffer-window-list (current-buffer) nil t))
+              (setq ogent--auto-scroll-enabled nil)))))))))
 
 
 (defun ogent-ui--insert-error-block (request message)
