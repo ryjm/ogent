@@ -36,6 +36,7 @@
 (declare-function ogent-edit--generate-id "ogent-edit-format")
 (declare-function make-ogent-edit "ogent-edit-format")
 (autoload 'ogent-edit-menu "ogent-edit" nil t)
+(autoload 'ogent-fix-buffer-diagnostics "ogent-edit" nil t)
 (autoload 'ogent-fix-diagnostic "ogent-edit" nil t)
 (autoload 'ogent-quick-edit "ogent-edit" nil t)
 (autoload 'ogent-issues "ogent-issues" nil t)
@@ -1055,6 +1056,10 @@ Shows model, context info, and pinned count."
   "Return the description for diagnostic repair."
   "Fix diagnostic")
 
+(defun ogent--desc-fix-buffer-diagnostics ()
+  "Return the description for buffer diagnostic repair."
+  "Fix buffer diagnostics")
+
 (defun ogent--desc-preview ()
   "Return the description for context preview."
   "Preview...")
@@ -1115,6 +1120,8 @@ A polished interface for AI-assisted workflows.
    [:description "Send"
     (ogent--suffix-send-action)
     ("f" ogent-fix-diagnostic :description ogent--desc-fix-diagnostic)
+    ("F" ogent-fix-buffer-diagnostics
+     :description ogent--desc-fix-buffer-diagnostics)
     ("k" ogent-quick-edit :description ogent--desc-quick-edit)
     ("?" ogent-ask :description ogent--desc-quick-ask)]
    [:description "Model"

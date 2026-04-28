@@ -206,6 +206,7 @@
   "Edit actions are present in registry."
   (should (assq 'edit-menu ogent-action-registry))
   (should (assq 'fix-diagnostic ogent-action-registry))
+  (should (assq 'fix-buffer-diagnostics ogent-action-registry))
   (should (assq 'quick-edit ogent-action-registry))
   (should (assq 'request-edit ogent-action-registry))
   (should (assq 'goto-source ogent-action-registry))
@@ -259,6 +260,8 @@
                 'ogent-request))
     (should (eq (lookup-key leader-map (kbd "o f"))
                 'ogent-fix-diagnostic))
+    (should (eq (lookup-key leader-map (kbd "o F"))
+                'ogent-fix-buffer-diagnostics))
     (should (eq (lookup-key leader-map (kbd "o k"))
                 'ogent-quick-edit))
     (should (eq (lookup-key leader-map (kbd "o E"))
