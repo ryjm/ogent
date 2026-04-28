@@ -427,6 +427,88 @@ INSTRUCTION adds optional user guidance."
           (when instruction
             (format "\nExtra instruction:\n%s\n" instruction))))
 
+(defun ogent-edit--ranges-overlap-p (left-start left-end right-start right-end)
+  "Return non-nil when two buffer ranges overlap.
+LEFT-START and LEFT-END are one range.  RIGHT-START and RIGHT-END
+are the other range.  Empty ranges are treated as one character wide."
+  (when (and (integerp left-start)
+             (integerp right-start))
+    (let ((left-end (max (or left-end left-start) (1+ left-start)))
+          (right-end (max (or right-end right-start) (1+ right-start))))
+      (and (< left-start right-end)
+           (< right-start left-end)))))
+
+(defun ogent-edit--diagnostics-overlapping (diagnostics start end)
+  "Return DIAGNOSTICS that overlap START and END."
+  (cl-remove-if-not
+   (lambda (diagnostic)
+     (ogent-edit--ranges-overlap-p
+      (plist-get diagnostic :start)
+      (plist-get diagnostic :end)
+      start
+      end))
+   diagnostics))
+
+(defun ogent-edit--diagnostics-minus (diagnostics excluded)
+  "Return DIAGNOSTICS with entries from EXCLUDED removed."
+  (cl-remove-if (lambda (diagnostic) (memq diagnostic excluded)) diagnostics))
+
+(defun ogent-edit--format-ai-speed-diagnostics (target-diagnostics
+                                                other-diagnostics)
+  "Return prompt text for AI speed edit diagnostic signals.
+TARGET-DIAGNOSTICS are inside the edit target.  OTHER-DIAGNOSTICS
+are elsewhere in the buffer."
+  (string-join
+   (delq nil
+         (list
+          (cond
+           (target-diagnostics
+            (concat "Diagnostics in target:\n"
+                    (ogent-edit--format-diagnostics-list target-diagnostics)))
+           ((null other-diagnostics)
+            "Diagnostics: none reported."))
+          (when other-diagnostics
+            (concat "Diagnostics elsewhere in buffer:\n"
+                    (ogent-edit--format-diagnostics-list other-diagnostics)))))
+   "\n\n"))
+
+(defun ogent-edit--ai-speed-prompt (target target-diagnostics
+                                           buffer-diagnostics &optional instruction)
+  "Return an AI-decided speed edit prompt.
+TARGET is a quick edit target plist.  TARGET-DIAGNOSTICS are
+diagnostics inside the target.  BUFFER-DIAGNOSTICS are diagnostics
+from the current buffer.  INSTRUCTION adds optional caller guidance."
+  (let* ((scope (plist-get target :scope))
+         (start (plist-get target :start))
+         (end (plist-get target :end))
+         (other-diagnostics
+          (ogent-edit--diagnostics-minus buffer-diagnostics target-diagnostics))
+         (file (or (buffer-file-name) (buffer-name)))
+         (line (line-number-at-pos))
+         (column (1+ (current-column))))
+    (concat "Drive one AI speed-coding edit from the current editor state.\n\n"
+            "Editor state:\n"
+            (format "- File: %s\n" file)
+            (format "- Mode: %s\n" major-mode)
+            (format "- Point: line %d, column %d\n" line column)
+            (format "- Target: %s (%d chars)\n"
+                    (ogent-edit--scope-label scope)
+                    (- end start))
+            "\n"
+            (ogent-edit--format-ai-speed-diagnostics
+             target-diagnostics other-diagnostics)
+            "\n\nDecision policy:\n"
+            "- Choose the highest-value small edit visible from this state.\n"
+            "- Prefer target diagnostics, then related buffer diagnostics,"
+            " then local correctness or clarity improvements.\n"
+            "- Keep the edit small and reviewable.\n"
+            "- Keep unrelated code unchanged.\n"
+            "- If the target is already clean, improve nearby code only when"
+            " the benefit is clear.\n"
+            "- Include every necessary edit as SEARCH/REPLACE blocks.\n"
+            (when instruction
+              (format "\nExtra guidance:\n%s\n" instruction)))))
+
 (defun ogent-edit--diagnostic-target (diagnostic &optional whole-buffer)
   "Return the edit target for DIAGNOSTIC.
 When WHOLE-BUFFER is non-nil, target the full buffer."
@@ -440,6 +522,22 @@ When WHOLE-BUFFER is non-nil, target the full buffer."
       (save-excursion
         (goto-char (ogent-edit--normalize-diagnostic-position position))
         (ogent-edit--quick-target))))))
+
+(defun ogent-edit--ai-speed-target (diagnostics &optional whole-buffer)
+  "Return the target for an AI speed edit from DIAGNOSTICS.
+WHOLE-BUFFER forces full-buffer targeting.  Regions always win.
+When the point target is clean, the highest-ranked diagnostic can
+drive the target choice."
+  (let* ((point-target (ogent-edit--quick-target whole-buffer))
+         (start (plist-get point-target :start))
+         (end (plist-get point-target :end)))
+    (cond
+     ((or whole-buffer (use-region-p)) point-target)
+     ((ogent-edit--diagnostics-overlapping diagnostics start end)
+      point-target)
+     ((car diagnostics)
+      (ogent-edit--diagnostic-target (car diagnostics)))
+     (t point-target))))
 
 ;;;###autoload
 (defun ogent-request-edit (&optional prompt start end)
@@ -555,6 +653,29 @@ With prefix argument, prompt for extra INSTRUCTION."
                (length diagnostics)
                (- (point-max) (point-min)))
       (ogent-request-edit prompt (point-min) (point-max)))))
+
+;;;###autoload
+(defun ogent-ai-speed-edit (&optional whole-buffer instruction)
+  "Request an AI-decided speed edit for the current editor state.
+With prefix WHOLE-BUFFER, use the full buffer as edit context.
+INSTRUCTION provides optional guidance for noninteractive callers."
+  (interactive (list current-prefix-arg nil))
+  (let* ((diagnostics (ogent-edit--diagnostics-in-buffer))
+         (target (ogent-edit--ai-speed-target diagnostics whole-buffer))
+         (scope (plist-get target :scope))
+         (start (plist-get target :start))
+         (end (plist-get target :end))
+         (target-diagnostics
+          (if (eq scope 'buffer)
+              diagnostics
+            (ogent-edit--diagnostics-overlapping diagnostics start end)))
+         (prompt (ogent-edit--ai-speed-prompt
+                  target target-diagnostics diagnostics instruction)))
+    (message "AI speed edit target: %s (%d chars, %d diagnostics)"
+             (ogent-edit--scope-label scope)
+             (- end start)
+             (length target-diagnostics))
+    (ogent-request-edit prompt start end)))
 
 ;;; Response Processing
 
@@ -721,6 +842,7 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
     ("A" "Accept all" ogent-edit--accept-all-dispatch)
     ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
   [["Request"
+    ("v" "AI speed edit" ogent-ai-speed-edit)
     ("f" "Fix diagnostic" ogent-fix-diagnostic)
     ("F" "Fix buffer diagnostics" ogent-fix-buffer-diagnostics)
     ("k" "Quick edit" ogent-quick-edit)

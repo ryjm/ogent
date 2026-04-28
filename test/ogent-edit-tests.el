@@ -799,6 +799,132 @@ missing separator and end marker")
             (kill-buffer)))
       (delete-file temp-file))))
 
+(ert-deftest ogent-edit-ai-speed-target-chases-ranked-diagnostic ()
+  "AI speed target follows the top buffer diagnostic when point is clean."
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(defun first ()\n  t)\n\n(defun second ()\n  missing)\n")
+    (goto-char (point-min))
+    (search-forward "first")
+    (let ((diagnostic-start (save-excursion
+                              (goto-char (point-min))
+                              (search-forward "missing")
+                              (match-beginning 0)))
+          (diagnostic-end (save-excursion
+                            (goto-char (point-min))
+                            (search-forward "missing")
+                            (match-end 0))))
+      (let* ((diagnostic (list :source 'flymake
+                               :severity :error
+                               :message "Void variable missing"
+                               :start diagnostic-start
+                               :end diagnostic-end))
+             (target (ogent-edit--ai-speed-target (list diagnostic)))
+             (target-text (buffer-substring-no-properties
+                           (plist-get target :start)
+                           (plist-get target :end))))
+        (should (eq (plist-get target :scope) 'defun))
+        (should (string-match-p "defun second" target-text))
+        (should-not (string-match-p "defun first" target-text))))))
+
+(ert-deftest ogent-edit-ai-speed-edit-sends-editor-state ()
+  "ogent-ai-speed-edit sends an AI decision prompt with diagnostic signals."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "missing")
+            (let ((diagnostic (flymake-make-diagnostic
+                               (current-buffer)
+                               (match-beginning 0)
+                               (match-end 0)
+                               :error
+                               "Void variable missing"))
+                  (flycheck-current-errors nil))
+              (cl-letf (((symbol-function 'flymake-diagnostics)
+                         (lambda (&rest _args) (list diagnostic))))
+                (ogent-test-with-mock-gptel
+                  (ogent-ai-speed-edit)
+                  (let* ((captured (ogent-test-last-request))
+                         (prompt (plist-get captured :prompt)))
+                    (should captured)
+                    (should (string-match-p
+                             "Drive one AI speed-coding edit" prompt))
+                    (should (string-match-p "Editor state:" prompt))
+                    (should (string-match-p "Diagnostics in target:" prompt))
+                    (should (string-match-p "Void variable missing" prompt))
+                    (should (string-match-p "defun first" prompt))
+                    (should-not (string-match-p "defun second" prompt))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-ai-speed-edit-uses-buffer-diagnostic-target ()
+  "ogent-ai-speed-edit can target the top diagnostic away from point."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  t)\n\n(defun second ()\n  missing)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "first")
+            (let ((diagnostic (save-excursion
+                                (goto-char (point-min))
+                                (search-forward "missing")
+                                (flymake-make-diagnostic
+                                 (current-buffer)
+                                 (match-beginning 0)
+                                 (match-end 0)
+                                 :error
+                                 "Void variable missing")))
+                  (flycheck-current-errors nil))
+              (cl-letf (((symbol-function 'flymake-diagnostics)
+                         (lambda (&rest _args) (list diagnostic))))
+                (ogent-test-with-mock-gptel
+                  (ogent-ai-speed-edit)
+                  (let* ((captured (ogent-test-last-request))
+                         (prompt (plist-get captured :prompt)))
+                    (should captured)
+                    (should (string-match-p "Diagnostics in target:" prompt))
+                    (should (string-match-p "Void variable missing" prompt))
+                    (should (string-match-p "defun second" prompt))
+                    (should-not (string-match-p "defun first" prompt))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-ai-speed-edit-allows-clean-local-edit ()
+  "ogent-ai-speed-edit still works when no diagnostics are present."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  (identity t))\n\n(defun second ()\n  t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "identity")
+            (let ((flycheck-current-errors nil))
+              (cl-letf (((symbol-function 'flymake-diagnostics)
+                         (lambda (&rest _args) nil)))
+                (ogent-test-with-mock-gptel
+                  (ogent-ai-speed-edit nil "Prefer simple local cleanup")
+                  (let* ((captured (ogent-test-last-request))
+                         (prompt (plist-get captured :prompt)))
+                    (should captured)
+                    (should (string-match-p "Diagnostics: none reported"
+                                            prompt))
+                    (should (string-match-p "Prefer simple local cleanup"
+                                            prompt))
+                    (should (string-match-p "defun first" prompt))
+                    (should-not (string-match-p "defun second" prompt))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
 (ert-deftest ogent-edit-diagnostics-at-point-normalizes-flymake ()
   "Flymake diagnostics are normalized into promptable plists."
   (with-temp-buffer

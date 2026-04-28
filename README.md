@@ -21,6 +21,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
+- **AI speed edit**: `C-c . v` (`SPC o v` in Doom/Evil) lets the model choose the highest-value small edit from the active selection, point context, and editor diagnostics, then routes the patch through the inline review flow.
 - **Diagnostic repair**: `C-c . f` (`SPC o f` in Doom/Evil) grabs the Flymake or Flycheck diagnostic at point, builds a focused repair prompt, and applies the result through the inline edit review flow.
 - **Buffer diagnostic sweep**: `C-c . F` (`SPC o F` in Doom/Evil) ranks every Flymake or Flycheck diagnostic in the current buffer and requests one reviewable repair patch.
 - **Quick inline edit**: `C-c . k` (`SPC o k` in Doom/Evil) prompts for one instruction and targets the active region, current definition, or current line. Use a prefix argument for full-file edits.
@@ -58,7 +59,8 @@ Then run `doom sync` and add this to `~/.doom.d/config.el`:
 ```elisp
 (use-package! ogent
   :defer t
-  :commands (ogent-mode ogent-prompt-dispatch ogent-request)
+  :commands (ogent-mode ogent-prompt-dispatch ogent-request
+             ogent-ai-speed-edit)
   :init
   (setq ogent-enable-doom-bindings t
         ogent-doom-prefix "o")

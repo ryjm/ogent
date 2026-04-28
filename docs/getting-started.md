@@ -36,7 +36,8 @@ ogent depends on [gptel](https://github.com/karthink/gptel) for LLM communicatio
 ```elisp
 (use-package! ogent
   :defer t
-  :commands (ogent-mode ogent-prompt-dispatch ogent-request ogent-onboard)
+  :commands (ogent-mode ogent-prompt-dispatch ogent-request
+             ogent-ai-speed-edit ogent-onboard)
   :init
   (setq ogent-enable-doom-bindings t
         ogent-doom-prefix "o")
@@ -69,7 +70,8 @@ git clone https://github.com/your-org/ogent.git ~/path/to/ogent
 ;; Load ogent
 (use-package ogent
   :after gptel
-  :commands (ogent-mode ogent-prompt-dispatch ogent-request ogent-onboard)
+  :commands (ogent-mode ogent-prompt-dispatch ogent-request
+             ogent-ai-speed-edit ogent-onboard)
   :bind-keymap ("C-c ." . ogent-mode-map)
   :config
   ;; Optional: set default model
@@ -94,12 +96,14 @@ dotspacemacs-additional-packages
 (defun dotspacemacs/user-config ()
   ;; ogent configuration
   (use-package ogent
-    :commands (ogent-mode ogent-prompt-dispatch ogent-request ogent-onboard)
+    :commands (ogent-mode ogent-prompt-dispatch ogent-request
+               ogent-ai-speed-edit ogent-onboard)
     :init
     (spacemacs/declare-prefix "ae" "ogent")
     (spacemacs/set-leader-keys
       "aee" 'ogent-prompt-dispatch
       "aer" 'ogent-request
+      "aev" 'ogent-ai-speed-edit
       "aeo" 'ogent-onboard
       "aec" 'ogent-context-preview)))
 ```
@@ -246,6 +250,7 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `P` | `C-c . P` | `SPC o P` | Pin file/buffer/region |
 | `U` | `C-c . U` | `SPC o U` | Unpin item |
 | `l` | `C-c . l` | `SPC o l` | List pinned items |
+| `v` | `C-c . v` | `SPC o v` | AI speed edit |
 | `f` | `C-c . f` | `SPC o f` | Fix diagnostic at point |
 | `F` | `C-c . F` | `SPC o F` | Fix buffer diagnostics |
 | `k` | `C-c . k` | `SPC o k` | Quick inline edit |
