@@ -1392,6 +1392,53 @@
     (goto-char (point-max))
     (should (ogent-ui--at-window-bottom-p))))
 
+(ert-deftest ogent-ui-streaming-preserves-scrolled-away-window ()
+  "Streaming does not pull a scrolled-away window to the response tail."
+  (with-temp-buffer
+    (switch-to-buffer (current-buffer))
+    (org-mode)
+    (dotimes (i 120)
+      (insert (format "line %03d\n" i)))
+    (let* ((win (selected-window))
+           (marker (copy-marker (point-max) t))
+           (request (make-ogent-ui-request
+                     :id "scroll-away"
+                     :model (list :id "test-model")
+                     :buffer (current-buffer)
+                     :marker marker)))
+      (set-window-start win (point-min) t)
+      (set-window-point win (point-min))
+      (let ((before-start (window-start win))
+            (before-point (window-point win))
+            (ogent-auto-scroll t)
+            (ogent--auto-scroll-enabled t))
+        (ogent-ui--append-response request "streamed text\n")
+        (should (= (window-start win) before-start))
+        (should (= (window-point win) before-point))
+        (should-not ogent--auto-scroll-enabled)))))
+
+(ert-deftest ogent-ui-streaming-follows-visible-response-tail ()
+  "Streaming keeps following when the response tail is visible."
+  (with-temp-buffer
+    (switch-to-buffer (current-buffer))
+    (org-mode)
+    (dotimes (i 20)
+      (insert (format "line %03d\n" i)))
+    (let* ((win (selected-window))
+           (marker (copy-marker (point-max) t))
+           (request (make-ogent-ui-request
+                     :id "scroll-follow"
+                     :model (list :id "test-model")
+                     :buffer (current-buffer)
+                     :marker marker)))
+      (goto-char (point-max))
+      (set-window-point win (point-max))
+      (let ((ogent-auto-scroll t)
+            (ogent--auto-scroll-enabled t))
+        (ogent-ui--append-response request "streamed text\n")
+        (should (= (window-point win) (marker-position marker)))
+        (should ogent--auto-scroll-enabled)))))
+
 ;;; Heading Shift Tests
 
 (ert-deftest ogent-ui-shift-org-headings-basic ()
