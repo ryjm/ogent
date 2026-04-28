@@ -15,12 +15,24 @@
 (require 'ogent-edit-log)
 (require 'ogent-edit-diff)
 
+(eval-when-compile
+  (require 'flymake))
+
 ;; gptel integration
 (declare-function gptel-request "ext:gptel" (prompt &rest args))
 (declare-function gptel-backend-name "ext:gptel")
 (declare-function gptel--model-name "ext:gptel")
 (defvar gptel-backend)
 (defvar gptel-model)
+
+;; Diagnostic integrations
+(declare-function flycheck-overlay-errors-at "ext:flycheck" (pos))
+(declare-function flycheck-error-filename "ext:flycheck" (err))
+(declare-function flycheck-error-line "ext:flycheck" (err))
+(declare-function flycheck-error-column "ext:flycheck" (err))
+(declare-function flycheck-error-level "ext:flycheck" (err))
+(declare-function flycheck-error-message "ext:flycheck" (err))
+(declare-function flycheck-error-id "ext:flycheck" (err))
 
 
 ;;; Customization
@@ -149,6 +161,172 @@ Quick edit target: %s. Keep the patch focused on this target and preserve unrela
           instruction
           (ogent-edit--scope-label scope)))
 
+(defun ogent-edit--position-from-line-column (line column)
+  "Return buffer position for one-based LINE and COLUMN."
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line (max 0 (1- (or line 1))))
+    (move-to-column (max 0 (1- (or column 1))))
+    (point)))
+
+(defun ogent-edit--line-number-at (position)
+  "Return the one-based line number at POSITION."
+  (save-excursion
+    (goto-char position)
+    (line-number-at-pos)))
+
+(defun ogent-edit--column-number-at (position)
+  "Return the one-based column number at POSITION."
+  (save-excursion
+    (goto-char position)
+    (1+ (current-column))))
+
+(defun ogent-edit--normalize-diagnostic-position (position)
+  "Return POSITION clamped to the current buffer."
+  (when (integerp position)
+    (max (point-min) (min position (point-max)))))
+
+(defun ogent-edit--diagnostic-severity-rank (severity)
+  "Return a sort rank for diagnostic SEVERITY."
+  (pcase severity
+    ((or :error 'error "error") 0)
+    ((or :warning 'warning "warning") 1)
+    ((or :note :info 'note 'info "note" "info") 2)
+    (_ 3)))
+
+(defun ogent-edit--diagnostic-severity-name (severity)
+  "Return a display name for diagnostic SEVERITY."
+  (cond
+   ((keywordp severity) (substring (symbol-name severity) 1))
+   ((symbolp severity) (symbol-name severity))
+   ((stringp severity) severity)
+   (t "diagnostic")))
+
+(defun ogent-edit--diagnostic-width (diagnostic)
+  "Return width of DIAGNOSTIC in buffer characters."
+  (let ((start (plist-get diagnostic :start))
+        (end (plist-get diagnostic :end)))
+    (if (and start end)
+        (- end start)
+      most-positive-fixnum)))
+
+(defun ogent-edit--sort-diagnostics (diagnostics)
+  "Return DIAGNOSTICS sorted by likely repair importance."
+  (sort (copy-sequence diagnostics)
+        (lambda (left right)
+          (let ((left-rank (ogent-edit--diagnostic-severity-rank
+                            (plist-get left :severity)))
+                (right-rank (ogent-edit--diagnostic-severity-rank
+                             (plist-get right :severity))))
+            (if (= left-rank right-rank)
+                (< (ogent-edit--diagnostic-width left)
+                   (ogent-edit--diagnostic-width right))
+              (< left-rank right-rank))))))
+
+(defun ogent-edit--diagnostic-from-flymake (diagnostic)
+  "Return ogent diagnostic plist from Flymake DIAGNOSTIC."
+  (let* ((start (ogent-edit--normalize-diagnostic-position
+                 (ignore-errors (flymake-diagnostic-beg diagnostic))))
+         (end (ogent-edit--normalize-diagnostic-position
+               (ignore-errors (flymake-diagnostic-end diagnostic))))
+         (line (and start (ogent-edit--line-number-at start)))
+         (column (and start (ogent-edit--column-number-at start))))
+    (when start
+      (list :source 'flymake
+            :message (or (ignore-errors (flymake-diagnostic-text diagnostic))
+                         "Flymake diagnostic")
+            :severity (ignore-errors (flymake-diagnostic-type diagnostic))
+            :start start
+            :end (or end start)
+            :line line
+            :column column
+            :file (buffer-file-name)))))
+
+(defun ogent-edit--flymake-diagnostics-at-point ()
+  "Return ogent diagnostic plists from Flymake at point."
+  (when (and (or (featurep 'flymake)
+                 (require 'flymake nil 'noerror))
+             (fboundp 'flymake-diagnostics))
+    (let* ((start (max (point-min) (1- (point))))
+           (end (min (point-max) (1+ (point))))
+           (diagnostics (ignore-errors (flymake-diagnostics start end))))
+      (delq nil (mapcar #'ogent-edit--diagnostic-from-flymake diagnostics)))))
+
+(defun ogent-edit--diagnostic-from-flycheck (error)
+  "Return ogent diagnostic plist from Flycheck ERROR."
+  (let* ((line (ignore-errors (flycheck-error-line error)))
+         (column (or (ignore-errors (flycheck-error-column error)) 1))
+         (start (and line (ogent-edit--position-from-line-column line column)))
+         (end (and start (save-excursion
+                           (goto-char start)
+                           (line-end-position)))))
+    (when start
+      (list :source 'flycheck
+            :message (or (ignore-errors (flycheck-error-message error))
+                         "Flycheck diagnostic")
+            :severity (ignore-errors (flycheck-error-level error))
+            :start start
+            :end end
+            :line line
+            :column column
+            :file (or (ignore-errors (flycheck-error-filename error))
+                      (buffer-file-name))
+            :id (ignore-errors (flycheck-error-id error))))))
+
+(defun ogent-edit--flycheck-diagnostics-at-point ()
+  "Return ogent diagnostic plists from Flycheck at point."
+  (when (fboundp 'flycheck-overlay-errors-at)
+    (let ((errors (ignore-errors (flycheck-overlay-errors-at (point)))))
+      (delq nil (mapcar #'ogent-edit--diagnostic-from-flycheck errors)))))
+
+(defun ogent-edit--diagnostics-at-point ()
+  "Return editor diagnostics at point, normalized for edit prompting."
+  (ogent-edit--sort-diagnostics
+   (append (ogent-edit--flymake-diagnostics-at-point)
+           (ogent-edit--flycheck-diagnostics-at-point))))
+
+(defun ogent-edit--format-diagnostic (diagnostic)
+  "Return prompt text for DIAGNOSTIC."
+  (let ((file (or (plist-get diagnostic :file) (buffer-file-name) "<buffer>"))
+        (line (or (plist-get diagnostic :line) "?"))
+        (column (or (plist-get diagnostic :column) "?"))
+        (source (plist-get diagnostic :source))
+        (severity (ogent-edit--diagnostic-severity-name
+                   (plist-get diagnostic :severity)))
+        (message (plist-get diagnostic :message))
+        (id (plist-get diagnostic :id)))
+    (format "%s:%s:%s [%s/%s]%s %s"
+            file line column source severity
+            (if id (format " %s" id) "")
+            message)))
+
+(defun ogent-edit--diagnostic-prompt (diagnostic &optional instruction)
+  "Return a repair prompt for DIAGNOSTIC.
+INSTRUCTION adds optional user guidance."
+  (concat "Fix this editor diagnostic.\n\n"
+          "Diagnostic:\n"
+          (ogent-edit--format-diagnostic diagnostic)
+          "\n\nRepair requirements:\n"
+          "- Make the smallest correct change that resolves the diagnostic.\n"
+          "- Preserve surrounding behavior unless the diagnostic proves it is wrong.\n"
+          "- Include every necessary edit as SEARCH/REPLACE blocks.\n"
+          (when instruction
+            (format "\nExtra instruction:\n%s\n" instruction))))
+
+(defun ogent-edit--diagnostic-target (diagnostic &optional whole-buffer)
+  "Return the edit target for DIAGNOSTIC.
+When WHOLE-BUFFER is non-nil, target the full buffer."
+  (cond
+   (whole-buffer
+    (ogent-edit--make-target 'buffer (point-min) (point-max)))
+   ((use-region-p)
+    (ogent-edit--make-target 'region (region-beginning) (region-end)))
+   (t
+    (let ((position (or (plist-get diagnostic :start) (point))))
+      (save-excursion
+        (goto-char (ogent-edit--normalize-diagnostic-position position))
+        (ogent-edit--quick-target))))))
+
 ;;;###autoload
 (defun ogent-request-edit (&optional prompt start end)
   "Request code edits for current buffer or region.
@@ -220,6 +398,26 @@ WHOLE-BUFFER, use the full buffer as the edit target."
              (ogent-edit--scope-label scope)
              (- end start))
     (ogent-request-edit prompt start end)))
+
+;;;###autoload
+(defun ogent-fix-diagnostic (&optional whole-buffer instruction)
+  "Request a focused edit for the Flymake or Flycheck diagnostic at point.
+With prefix WHOLE-BUFFER, use the full buffer as edit context.
+INSTRUCTION provides optional repair guidance for noninteractive callers."
+  (interactive (list current-prefix-arg nil))
+  (let ((diagnostic (car (ogent-edit--diagnostics-at-point))))
+    (unless diagnostic
+      (user-error "No Flymake or Flycheck diagnostic at point"))
+    (let* ((target (ogent-edit--diagnostic-target diagnostic whole-buffer))
+           (scope (plist-get target :scope))
+           (start (plist-get target :start))
+           (end (plist-get target :end))
+           (prompt (ogent-edit--diagnostic-prompt diagnostic instruction)))
+      (message "Fixing %s diagnostic using %s (%d chars)"
+               (plist-get diagnostic :source)
+               (ogent-edit--scope-label scope)
+               (- end start))
+      (ogent-request-edit prompt start end))))
 
 ;;; Response Processing
 
@@ -371,29 +569,30 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
 
 ;;;###autoload (autoload 'ogent-edit-menu "ogent-edit" nil t)
 (transient-define-prefix ogent-edit-menu ()
-			 "Commands for managing ogent edits."
-			 [:description
-			  (lambda ()
-			    (let ((pending (ogent-edit--pending-count)))
-			      (format "Pending edits: %d (%s mode)"
-				      pending ogent-edit-display-method)))
-			  ["Current Edit"
-			   ("a" "Accept" ogent-edit--accept-current-dispatch)
-			   ("r" "Reject" ogent-edit--reject-current-dispatch)
-			   ("n" "Next" ogent-edit--next-dispatch :transient t)
-			   ("p" "Previous" ogent-edit--prev-dispatch :transient t)]
-			  ["All Edits"
-			   ("A" "Accept all" ogent-edit--accept-all-dispatch)
-			   ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
-			 [["Request"
-			   ("k" "Quick edit" ogent-quick-edit)
-			   ("e" "Request edit" ogent-request-edit)
-			   ("D" "Diff buffer (magit-style)" ogent-edit-show-diff-buffer)
-			   ("q" "Quit" transient-quit-one)]
-			  ["Overlay Actions" :if (lambda () (eq ogent-edit-display-method 'overlay))
-			   ("d" "Diff" ogent-edit-overlay-diff)
-			   ("E" "Ediff" ogent-edit-overlay-ediff)
-			   ("m" "Merge (smerge)" ogent-edit-overlay-merge)]])
+  "Commands for managing ogent edits."
+  [:description
+   (lambda ()
+     (let ((pending (ogent-edit--pending-count)))
+       (format "Pending edits: %d (%s mode)"
+               pending ogent-edit-display-method)))
+   ["Current Edit"
+    ("a" "Accept" ogent-edit--accept-current-dispatch)
+    ("r" "Reject" ogent-edit--reject-current-dispatch)
+    ("n" "Next" ogent-edit--next-dispatch :transient t)
+    ("p" "Previous" ogent-edit--prev-dispatch :transient t)]
+   ["All Edits"
+    ("A" "Accept all" ogent-edit--accept-all-dispatch)
+    ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
+  [["Request"
+    ("f" "Fix diagnostic" ogent-fix-diagnostic)
+    ("k" "Quick edit" ogent-quick-edit)
+    ("e" "Request edit" ogent-request-edit)
+    ("D" "Diff buffer (magit-style)" ogent-edit-show-diff-buffer)
+    ("q" "Quit" transient-quit-one)]
+   ["Overlay Actions" :if (lambda () (eq ogent-edit-display-method 'overlay))
+    ("d" "Diff" ogent-edit-overlay-diff)
+    ("E" "Ediff" ogent-edit-overlay-ediff)
+    ("m" "Merge (smerge)" ogent-edit-overlay-merge)]])
 
 (provide 'ogent-edit)
 

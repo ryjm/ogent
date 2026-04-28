@@ -10,6 +10,7 @@ Always review the relevant playbook before starting a feature. Each section link
 
 * Speed Coding Edits
 - Focused code edit commands live in =lisp/ogent-edit.el= and reuse the SEARCH/REPLACE pipeline.
+- Diagnostic-driven commands should normalize editor sources such as Flymake and Flycheck before prompt construction.
 - Bind new user-facing commands through =lisp/ogent-keys.el= for vanilla, Evil, and Doom parity.
 - Document the final key chord in =README.md= and =docs/getting-started.md=.
 - Tests: extend =test/ogent-edit-tests.el= for target selection and =test/ogent-keys-tests.el= for registry coverage.
