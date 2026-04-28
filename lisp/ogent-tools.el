@@ -212,6 +212,13 @@ TYPE is `stdout' or `stderr'."
   (when (buffer-live-p buffer)
     (kill-buffer buffer)))
 
+(defun ogent-tools--append-to-buffer-if-live (buffer text)
+  "Append TEXT to BUFFER when BUFFER is still live."
+  (when (buffer-live-p buffer)
+    (with-current-buffer buffer
+      (goto-char (point-max))
+      (insert text))))
+
 (defun ogent-tools--format-timeout (seconds)
   "Return SECONDS formatted for timeout messages."
   (if (integerp seconds)
@@ -422,9 +429,7 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
             (set-process-filter
              stderr-proc
              (lambda (_proc output)
-               (with-current-buffer stderr-buffer
-                 (goto-char (point-max))
-                 (insert output))
+               (ogent-tools--append-to-buffer-if-live stderr-buffer output)
                (ogent-tools--stream-output 'grep 'stderr output))))
           (set-process-sentinel
            proc
@@ -504,9 +509,8 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                         :sentinel #'ignore
                         :noquery t
                         :filter (lambda (_proc output)
-                                  (with-current-buffer output-buffer
-                                    (goto-char (point-max))
-                                    (insert output))
+                                  (ogent-tools--append-to-buffer-if-live
+                                   output-buffer output)
                                   (ogent-tools--stream-output 'bash 'stdout output))))
                  ;; Set up stderr filter
                  (stderr-proc (get-buffer-process stderr-buffer)))
@@ -517,9 +521,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
               (set-process-filter
                stderr-proc
                (lambda (_proc output)
-                 (with-current-buffer stderr-buffer
-                   (goto-char (point-max))
-                   (insert output))
+                 (ogent-tools--append-to-buffer-if-live stderr-buffer output)
                  (ogent-tools--stream-output 'bash 'stderr output))))
             ;; Wait for completion with timeout
             (let ((deadline (+ (float-time) timeout-secs)))
@@ -537,13 +539,17 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                        (ogent-tools--format-timeout timeout-secs))))
             (setq exit-code (process-exit-status proc)))
           ;; Collect output
-          (setq stdout-text (with-current-buffer output-buffer
-                              (buffer-string)))
-          (setq stderr-text (with-current-buffer stderr-buffer
-                              (buffer-string))))
+          (setq stdout-text (if (buffer-live-p output-buffer)
+                                (with-current-buffer output-buffer
+                                  (buffer-string))
+                              ""))
+          (setq stderr-text (if (buffer-live-p stderr-buffer)
+                                (with-current-buffer stderr-buffer
+                                  (buffer-string))
+                              "")))
       ;; Cleanup
-      (kill-buffer output-buffer)
-      (kill-buffer stderr-buffer))
+      (ogent-tools--kill-buffer-if-live output-buffer)
+      (ogent-tools--kill-buffer-if-live stderr-buffer))
     ;; Signal completion
     (ogent-tools--stream-done 'bash exit-code)
     ;; Format result

@@ -1430,6 +1430,12 @@ PROCESS, when non-nil, is passed to `accept-process-output'."
     (should (string-match-p "out" result))
     (should (string-match-p "err" result))))
 
+(ert-deftest ogent-tools-append-to-buffer-if-live-skips-dead-buffer ()
+  "Late process output does not fail after cleanup kills its buffer."
+  (let ((buffer (generate-new-buffer " *ogent-dead-filter-buffer*")))
+    (kill-buffer buffer)
+    (should-not (ogent-tools--append-to-buffer-if-live buffer "late output"))))
+
 ;;; ================================================================
 ;;; Streaming Edge Case Tests
 ;;; ================================================================
