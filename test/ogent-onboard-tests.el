@@ -6,6 +6,9 @@
 (defvar ogent-onboard-tests--backend nil
   "Backend placeholder for ogent-onboard tests.")
 
+(defvar gptel-backend)
+(defvar gptel-model)
+
 (ert-deftest ogent-onboard-providers-defined ()
   "Provider list contains expected entries."
   (should (assq 'anthropic
@@ -24,6 +27,68 @@
     (should (plist-get provider :backend))
     (should (plist-get provider :models))))
 
+(ert-deftest ogent-onboard-providers-excluding-backend-keeps-oauth ()
+  "Provider fallback keeps OAuth choices for the failed backend."
+  (let* ((ogent-onboard-providers
+          '((:id openai
+             :name "OpenAI"
+             :backend gptel-openai
+             :models ((:id "gpt")))
+            (:id anthropic
+             :name "Anthropic"
+             :backend gptel-anthropic
+             :models ((:id "claude")))))
+         (providers (ogent-onboard--providers-excluding-backend
+                     'gptel-openai))
+         (ids (mapcar (lambda (provider)
+                        (plist-get provider :id))
+                      providers)))
+    (should (memq 'openai-codex ids))
+    (should (memq 'anthropic-oauth ids))
+    (should (memq 'anthropic ids))))
+
+(ert-deftest ogent-onboard-provider-fallback-offers-anthropic-oauth ()
+  "Anthropic backend failures still offer Anthropic OAuth login."
+  (let* ((ogent-onboard-providers
+          '((:id anthropic
+             :name "Anthropic"
+             :backend gptel-anthropic
+             :models ((:id "claude-3-5-sonnet-20241022")))))
+         (providers (ogent-onboard--providers-excluding-backend
+                     'gptel-anthropic))
+         (ids (mapcar (lambda (provider)
+                        (plist-get provider :id))
+                      providers)))
+    (should (eq (car ids) 'anthropic-oauth))
+    (should (memq 'openai-codex ids))))
+
+(ert-deftest ogent-onboard-login-different-provider-selects-filtered-provider ()
+  "Different-provider login runs setup for the filtered provider."
+  (let ((selected-providers nil)
+        (setup-provider nil))
+    (cl-letf (((symbol-function 'ogent-onboard--select-provider)
+               (lambda (providers _prompt)
+                 (setq selected-providers providers)
+                 (car providers)))
+              ((symbol-function 'ogent-onboard--run-provider-setup)
+               (lambda (provider)
+                 (setq setup-provider provider))))
+      (let ((ogent-onboard-providers
+             '((:id openai
+                :name "OpenAI"
+                :backend gptel-openai
+                :models ((:id "gpt")))
+               (:id anthropic
+                :name "Anthropic"
+                :backend gptel-anthropic
+                :models ((:id "claude"))))))
+        (ogent-onboard-login-different-provider 'gptel-openai)
+        (should (memq 'openai-codex
+                      (mapcar (lambda (provider)
+                                (plist-get provider :id))
+                              selected-providers)))
+        (should (eq (plist-get setup-provider :id) 'openai-codex))))))
+
 (ert-deftest ogent-onboard-providers-include-current-models ()
   "Onboarding offers the current model families for each provider."
   (let* ((providers (mapcar (lambda (p) (cons (plist-get p :id) p))
@@ -41,14 +106,98 @@
                         "claude-sonnet-4-6"
                         "claude-haiku-4-5-20251001"))
       (should (member model-id anthropic-models)))
+    (should-not (member "claude-sonnet-4-20250514" anthropic-models))
     (dolist (model-id '("gpt-5.5"
-                        "gpt-5.5-pro"
                         "gpt-5.4"
                         "gpt-5.4-mini"
-                        "gpt-5.4-nano"
-                        "gpt-5.3-codex"))
+                        "gpt-5.4-nano"))
       (should (member model-id openai-models))
       (should (member model-id openai-codex-models)))))
+
+(ert-deftest ogent-onboard-known-provider-models-ignore-stale-plists ()
+  "Built-in OpenAI providers use the current catalog at selection time."
+  (let* ((provider '(:id openai
+                     :name "OpenAI"
+                     :backend gptel-openai
+                     :models ((:id "gpt-3.5-turbo"
+                                    :description "Stale"))))
+         (models (ogent-onboard--models-for-provider provider))
+         (ids (mapcar (lambda (model)
+                        (plist-get model :id))
+                      models)))
+    (should (equal (car ids) "gpt-5.5"))
+    (should (member "gpt-5.4-mini" ids))
+    (should-not (member "gpt-3.5-turbo" ids))))
+
+(ert-deftest ogent-onboard-select-model-shows-current-openai-models ()
+  "OpenAI model selection presents current built-in choices."
+  (let ((provider '(:id openai
+                    :name "OpenAI"
+                    :backend gptel-openai
+                    :models ((:id "gpt-3.5-turbo"
+                                   :description "Stale"))))
+        (captured-choices nil))
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt choices &rest _)
+                 (setq captured-choices choices)
+                 (car choices))))
+      (let ((model (ogent-onboard--select-model provider)))
+        (should (equal (plist-get model :id) "gpt-5.5"))
+        (should (seq-some (lambda (choice)
+                            (string-match-p "gpt-5.4-mini" choice))
+                          captured-choices))
+        (should-not (seq-some (lambda (choice)
+                                (string-match-p "gpt-3.5-turbo" choice))
+                              captured-choices))))))
+
+(ert-deftest ogent-onboard-known-anthropic-models-ignore-stale-plists ()
+  "Built-in Anthropic providers use the current catalog at selection time."
+  (let* ((provider '(:id anthropic
+                     :name "Anthropic"
+                     :backend gptel-anthropic
+                     :models ((:id "claude-3-5-sonnet-20241022"
+                                    :description "Stale"))))
+         (models (ogent-onboard--models-for-provider provider))
+         (ids (mapcar (lambda (model)
+                        (plist-get model :id))
+                      models)))
+    (should (equal (car ids) "claude-opus-4-7"))
+    (should (member "claude-sonnet-4-6" ids))
+    (should (member "claude-haiku-4-5-20251001" ids))
+    (should-not (member "claude-3-5-sonnet-20241022" ids))
+    (should-not (member "claude-sonnet-4-20250514" ids))))
+
+(ert-deftest ogent-onboard-providers-restore-built-in-oauth ()
+  "Canonical providers restore built-in OAuth entries in stale sessions."
+  (let* ((ogent-onboard-providers
+          '((:id anthropic
+             :name "Anthropic"
+             :backend gptel-anthropic
+             :models ((:id "claude-3-5-sonnet-20241022")))))
+         (providers (ogent-onboard--providers))
+         (ids (mapcar (lambda (provider)
+                        (plist-get provider :id))
+                      providers)))
+    (should (memq 'anthropic-oauth ids))
+    (should (memq 'anthropic ids))
+    (should (memq 'openai-codex ids))))
+
+(ert-deftest ogent-onboard-select-provider-shows-anthropic-oauth ()
+  "Provider selection shows Anthropic OAuth from canonical built-ins."
+  (let ((ogent-onboard-providers
+         '((:id anthropic
+            :name "Anthropic"
+            :backend gptel-anthropic
+            :models ((:id "claude-3-5-sonnet-20241022")))))
+        (captured-choices nil))
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt choices &rest _)
+                 (setq captured-choices choices)
+                 "Anthropic Claude Max/Pro (OAuth - Recommended)")))
+      (let ((provider (ogent-onboard--select-provider)))
+        (should (eq (plist-get provider :id) 'anthropic-oauth))
+        (should (member "Anthropic Claude Max/Pro (OAuth - Recommended)"
+                        captured-choices))))))
 
 (ert-deftest ogent-onboard-add-to-registry ()
   "Adding model to registry works correctly."
@@ -74,9 +223,25 @@
 
 (ert-deftest ogent-onboard-set-default-model ()
   "Setting default model updates ogent-default-model."
-  (let ((ogent-default-model nil))
+  (let ((ogent-default-model nil)
+        (gptel-model nil)
+        (gptel-backend nil))
     (ogent-onboard--set-default-model "claude-sonnet-4-20250514")
-    (should (equal ogent-default-model "claude-sonnet-4-20250514"))))
+    (should (equal ogent-default-model "claude-sonnet-4-20250514"))
+    (should (equal gptel-model "claude-sonnet-4-20250514"))))
+
+(ert-deftest ogent-onboard-set-default-model-updates-active-gptel ()
+  "Setting a known default model also updates active gptel bindings."
+  (let ((ogent-default-model "old-model")
+        (ogent-model-registry
+         '((:id "fresh-model" :backend ogent-onboard-tests--backend)))
+        (ogent-onboard-tests--backend 'fresh-backend)
+        (gptel-model "old-model")
+        (gptel-backend 'old-backend))
+    (ogent-onboard--set-default-model "fresh-model")
+    (should (equal ogent-default-model "fresh-model"))
+    (should (equal gptel-model "fresh-model"))
+    (should (eq gptel-backend 'fresh-backend))))
 
 (ert-deftest ogent-onboard-create-backend-anthropic-placeholder ()
   "Anthropic backend uses oauth placeholder when key is nil."
@@ -96,6 +261,7 @@
 (ert-deftest ogent-onboard-create-backend-openai-key ()
   "OpenAI backend passes API key to gptel-make-openai."
   (let* ((provider '(:name "OpenAI"
+                    :id openai
                     :backend-creator gptel-make-openai
                     :models ((:id "o1"))))
          (captured nil))
@@ -106,7 +272,11 @@
       (should (eq (ogent-onboard--create-backend provider "secret") 'backend))
       (should (equal (car captured) "OpenAI"))
       (should (equal (plist-get (cadr captured) :key) "secret"))
-      (should (equal (plist-get (cadr captured) :models) '("o1"))))))
+      (should (equal (plist-get (cadr captured) :models)
+                     '("gpt-5.5"
+                       "gpt-5.4"
+                       "gpt-5.4-mini"
+                       "gpt-5.4-nano"))))))
 
 (ert-deftest ogent-onboard-verify-connection-success ()
   "Verify connection sets backend variable on success."
@@ -146,7 +316,7 @@
 
 (ert-deftest ogent-onboard-select-provider-interactive ()
   "Test provider selection with simulated input."
-  (ogent-test-with-input "Anthropic RET"
+  (ogent-test-with-input "Anthropic (API Key) RET"
 			 (let ((provider (ogent-onboard--select-provider)))
 			   (should provider)
 			   (should (eq (plist-get provider :id) 'anthropic)))))
@@ -160,7 +330,7 @@
 
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
-  (let ((_provider (car ogent-onboard-providers)))  ; Anthropic
+  (let ((provider (car ogent-onboard-providers)))
     (ogent-test-with-input "claude-sonnet-4-6 RET"
 			   (let ((model (ogent-onboard--select-model provider)))
 			     (should model)
@@ -314,6 +484,8 @@
              (lambda () t))
             ((symbol-function 'ogent-anthropic-oauth-mode)
              (lambda () "max"))
+            ((symbol-function 'ogent-anthropic-login)
+             (lambda (_mode) t))
             ((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
     (let ((provider '(:name "Anthropic OAuth")))
       (should (ogent-onboard--configure-oauth provider)))))
@@ -351,6 +523,8 @@
   (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
             ((symbol-function 'ogent-anthropic-oauth-authenticated-p)
              (lambda () nil))
+            ((symbol-function 'ogent-anthropic-login)
+             (lambda (_mode) t))
             ((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
     (let ((provider '(:name "Anthropic OAuth")))
       (should-not (ogent-onboard--configure-oauth provider)))))
@@ -518,13 +692,17 @@
 
 (ert-deftest ogent-onboard-set-default-model-changes-var ()
   "Test set-default-model changes ogent-default-model."
-  (let ((ogent-default-model "old-model"))
+  (let ((ogent-default-model "old-model")
+        (gptel-model nil)
+        (gptel-backend nil))
     (ogent-onboard--set-default-model "new-model")
     (should (equal "new-model" ogent-default-model))))
 
 (ert-deftest ogent-onboard-set-default-model-nil ()
   "Test set-default-model handles nil."
-  (let ((ogent-default-model "old"))
+  (let ((ogent-default-model "old")
+        (gptel-model "old")
+        (gptel-backend 'old-backend))
     (ogent-onboard--set-default-model nil)
     (should (null ogent-default-model))))
 

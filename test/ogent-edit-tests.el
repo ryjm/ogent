@@ -10,6 +10,9 @@
 (require 'smerge-mode)
 
 (defvar flycheck-current-errors)
+(defvar gptel-backend)
+(defvar gptel-model)
+(defvar ogent-edit-tests--backend nil)
 
 ;;; Format Tests
 
@@ -602,6 +605,37 @@ missing separator and end marker")
             (kill-buffer)))
       (delete-file temp-file))))
 
+(ert-deftest ogent-edit-request-uses-ogent-default-model ()
+  "Edit requests bind gptel to the ogent default model."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun foo () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (let ((ogent-default-model "fresh-model")
+                  (ogent-model-registry
+                   '((:id "fresh-model"
+                      :backend ogent-edit-tests--backend)))
+                  (ogent-edit-tests--backend 'fresh-backend)
+                  (gptel-model "stale-model")
+                  (gptel-backend 'stale-backend)
+                  captured)
+              (cl-letf (((symbol-function 'gptel-request)
+                         (lambda (_prompt &rest args)
+                           (setq captured
+                                 (list :model gptel-model
+                                       :backend gptel-backend
+                                       :stream (plist-get args :stream)))
+                           'mock-request)))
+                (ogent-request-edit "Fix this")
+                (should (equal (plist-get captured :model) "fresh-model"))
+                (should (eq (plist-get captured :backend) 'fresh-backend))
+                (should (eq (plist-get captured :stream) t))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
 (ert-deftest ogent-edit-quick-target-prefers-region ()
   "Quick edit targets the active region first."
   (with-temp-buffer
@@ -669,6 +703,99 @@ missing separator and end marker")
                 (should (string-match-p "Return t" prompt))
                 (should (string-match-p "defun first" prompt))
                 (should-not (string-match-p "defun second" prompt))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-quick-edit-access-error-offers-provider-login ()
+  "Quick edit access failures offer a different provider login."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (let ((gptel-model "gpt-4o-mini")
+                  (gptel-backend 'gptel-openai)
+                  (ogent-prompt-provider-login-on-access-error t)
+                  (ogent-provider--login-prompt-active nil)
+                  (noninteractive nil)
+                  (captured-backend :unset)
+                  (captured-prompt nil))
+              (cl-letf (((symbol-function 'gptel-request)
+                         (lambda (_prompt &rest args)
+                           (when-let ((callback (plist-get args :callback)))
+                             (funcall callback nil
+                                      '(:error "Your credits are exhausted")))
+                           'mock-request))
+                        ((symbol-function 'run-at-time)
+                         (lambda (_secs _repeat function &rest args)
+                           (when (eq function 'ogent-provider-offer-login)
+                             (apply function args))
+                           (timer-create)))
+                        ((symbol-function 'y-or-n-p)
+                         (lambda (prompt)
+                           (setq captured-prompt prompt)
+                           t))
+                        ((symbol-function
+                          'ogent-onboard-login-different-provider)
+                         (lambda (backend)
+                           (setq captured-backend backend))))
+                (ogent-quick-edit "Return t")
+                (should (eq captured-backend 'gptel-openai))
+                (should (string-match-p "credits" captured-prompt))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-callback-non-access-error-skips-provider-login ()
+  "Quick edit transient failures do not offer provider login."
+  (let ((ogent-edit--streaming-response "partial")
+        (ogent-edit--pending-request
+         '(:model "gpt-4o-mini" :backend gptel-openai))
+        (ogent-prompt-provider-login-on-access-error t)
+        (noninteractive nil)
+        (scheduled nil))
+    (cl-letf (((symbol-function 'run-at-time)
+               (lambda (_secs _repeat function &rest args)
+                 (when (eq function 'ogent-provider-offer-login)
+                   (setq scheduled (list function args)))
+                 (timer-create))))
+      (let ((callback (ogent-edit--make-callback)))
+        (funcall callback nil '(:error "Connection timed out"))
+        (should-not scheduled)
+        (should (string= ogent-edit--streaming-response ""))))))
+
+(ert-deftest ogent-edit-request-signal-access-error-offers-provider-login ()
+  "Synchronous edit request access failures offer provider login."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (let ((gptel-model "gpt-4o-mini")
+                  (gptel-backend 'gptel-openai)
+                  (ogent-prompt-provider-login-on-access-error t)
+                  (ogent-provider--login-prompt-active nil)
+                  (noninteractive nil)
+                  (captured-backend :unset))
+              (cl-letf (((symbol-function 'gptel-request)
+                         (lambda (&rest _)
+                           (error "Payment required: add credits")))
+                        ((symbol-function 'run-at-time)
+                         (lambda (_secs _repeat function &rest args)
+                           (when (eq function 'ogent-provider-offer-login)
+                             (apply function args))
+                           (timer-create)))
+                        ((symbol-function 'y-or-n-p)
+                         (lambda (_prompt) t))
+                        ((symbol-function
+                          'ogent-onboard-login-different-provider)
+                         (lambda (backend)
+                           (setq captured-backend backend))))
+                (ogent-request-edit "Return t")
+                (should (eq captured-backend 'gptel-openai))))
             (kill-buffer)))
       (delete-file temp-file))))
 

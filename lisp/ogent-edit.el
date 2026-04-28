@@ -15,6 +15,9 @@
 (require 'ogent-edit-display)
 (require 'ogent-edit-log)
 (require 'ogent-edit-diff)
+(require 'ogent-gptel)
+(require 'ogent-models)
+(require 'ogent-provider-fallback)
 
 (eval-when-compile
   (require 'flymake))
@@ -72,6 +75,35 @@ When enabled, edits are still logged to the companion buffer if
   (unless (require 'gptel nil 'noerror)
     (user-error "gptel is required for ogent edit requests. Install gptel first")))
 
+(defun ogent-edit--current-model-name ()
+  "Return the current gptel model name for edit error reporting."
+  (when (boundp 'gptel-model)
+    (ogent-gptel-model-display-name gptel-model)))
+
+(defun ogent-edit--current-backend ()
+  "Return the current gptel backend for edit error reporting."
+  (when (boundp 'gptel-backend)
+    gptel-backend))
+
+(defun ogent-edit--maybe-offer-provider-login (error-message)
+  "Offer provider login when ERROR-MESSAGE is an access failure."
+  (let* ((request ogent-edit--pending-request)
+         (model (or (plist-get request :model)
+                    (ogent-edit--current-model-name)))
+         (backend (or (plist-get request :backend)
+                      (ogent-edit--current-backend))))
+    (ogent-provider-maybe-offer-login model backend error-message)))
+
+(defun ogent-edit--request-model ()
+  "Return the ogent model used for edit requests."
+  (ogent-models-default))
+
+(defun ogent-edit--model-stream-p (model)
+  "Return non-nil when MODEL should stream edit responses."
+  (if (plist-member model :stream?)
+      (plist-get model :stream?)
+    t))
+
 (defun ogent-edit--make-callback ()
   "Return a gptel callback that accumulates response and processes on completion."
   (lambda (text info)
@@ -85,7 +117,9 @@ When enabled, edits are still logged to the companion buffer if
     (cond
      ;; Error case
      ((and (listp info) (plist-get info :error))
-      (message "Edit request failed: %s" (plist-get info :error))
+      (let ((error-message (plist-get info :error)))
+        (message "Edit request failed: %s" error-message)
+        (ogent-edit--maybe-offer-provider-login error-message))
       (setq ogent-edit--streaming-response ""))
      ;; Done - info contains :status "success" or similar completion markers
      ((or (and (listp info)
@@ -439,26 +473,33 @@ when response arrives."
          (user-prompt (or prompt (read-string "Edit instruction: ")))
          (filename (file-name-nondirectory (buffer-file-name)))
          (mode (symbol-name major-mode))
-         (full-prompt (ogent-edit-wrap-prompt user-prompt filename mode content)))
+         (full-prompt (ogent-edit-wrap-prompt user-prompt filename mode content))
+         (model (ogent-edit--request-model))
+         (model-id (plist-get model :id))
+         (backend (ogent-gptel-resolve-backend model)))
     ;; Store context for callback
     (setq ogent-edit--pending-request
           (list :source-buffer source-buffer
                 :region-start region-start
                 :region-end region-end
+                :model model-id
+                :backend (or (plist-get model :backend) backend)
                 :prompt user-prompt))
     ;; Reset streaming accumulator
     (setq ogent-edit--streaming-response "")
     ;; Send the request via gptel
-    (message "Sending edit request to %s..."
-             (if (and (boundp 'gptel-model) gptel-model)
-                 (if (fboundp 'gptel--model-name)
-                     (gptel--model-name gptel-model)
-                   gptel-model)
-               "LLM"))
-    (gptel-request full-prompt
-                   :system ogent-edit-system-prompt
-                   :stream t
-                   :callback (ogent-edit--make-callback))))
+    (message "Sending edit request to %s..." model-id)
+    (condition-case err
+        (let ((gptel-backend backend)
+              (gptel-model model-id))
+          (gptel-request full-prompt
+                         :system ogent-edit-system-prompt
+                         :stream (ogent-edit--model-stream-p model)
+                         :callback (ogent-edit--make-callback)))
+      (error
+       (let ((error-message (error-message-string err)))
+         (message "Edit request failed: %s" error-message)
+         (ogent-edit--maybe-offer-provider-login error-message))))))
 
 ;;;###autoload
 (defun ogent-quick-edit (instruction &optional whole-buffer)

@@ -13,10 +13,12 @@
 (require 'ogent-core)
 (require 'ogent-codemap)
 (require 'ogent-models)
+(require 'ogent-gptel)
 (require 'ogent-prompts)
 (require 'ogent-companion)
 (require 'ogent-tool-effects)
 (require 'ogent-ledger)
+(require 'ogent-provider-fallback)
 (require 'ogent-ui-status)
 (require 'ogent-ui-theme)
 
@@ -44,6 +46,7 @@
 (autoload 'ogent-session-load "ogent-session" nil t)
 (autoload 'ogent-session-list "ogent-session" nil t)
 (autoload 'ogent-debug-mode "ogent-debug" nil t)
+(autoload 'ogent-onboard-login-different-provider "ogent-onboard" nil t)
 
 (defvar ogent-edit-display-method)
 
@@ -1493,6 +1496,21 @@ heading (see `ogent-shift-response-headings')."
   :type 'integer
   :group 'ogent-mode)
 
+(defun ogent-ui--error-message-string (error-message)
+  "Return ERROR-MESSAGE as a display string."
+  (ogent-provider-error-message-string error-message))
+
+(defun ogent-ui--provider-access-error-p (error-message)
+  "Return non-nil when ERROR-MESSAGE looks like a provider access failure."
+  (ogent-provider-access-error-p error-message))
+
+(defun ogent-ui--maybe-offer-provider-login (request error-message)
+  "Schedule provider login offer for REQUEST when ERROR-MESSAGE qualifies."
+  (let* ((model (ogent-ui-request-model request))
+         (model-id (plist-get model :id))
+         (backend (plist-get model :backend)))
+    (ogent-provider-maybe-offer-login model-id backend error-message)))
+
 (defun ogent-ui--close-response (request &optional error-message final-status)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
 FINAL-STATUS overrides the default terminal status.
@@ -1500,12 +1518,16 @@ The src block is already closed; this just updates status and folds.
 Provides visual feedback via mode-line flash."
   (if (ogent-ui-request-closed request)
       (remhash (ogent-ui-request-id request) ogent-ui--request-table)
-    (when error-message
-      (ogent-ui--insert-error-block request error-message)
+    (when-let ((message (and error-message
+                             (ogent-ui--error-message-string error-message))))
+      (ogent-ui--insert-error-block request message)
       (ogent-ui--update-status request (or final-status 'error))
       ;; Flash error
-      (ogent-theme-flash 'error (format "Request failed: %s"
-                                        (truncate-string-to-width error-message 50 nil nil "..."))))
+      (ogent-theme-flash 'error
+                         (format "Request failed: %s"
+                                 (truncate-string-to-width
+                                  message 50 nil nil "...")))
+      (ogent-ui--maybe-offer-provider-login request message))
     (unless error-message
       (ogent-ui--update-status request (or final-status 'done))
       ;; Flash success with latency info
@@ -1851,40 +1873,11 @@ Returns a list of values in the order defined in the spec's :args."
 
 (defun ogent-ui--backend-matches-provider-p (backend-object provider)
   "Return non-nil when BACKEND-OBJECT has PROVIDER type."
-  (and backend-object
-       (symbolp provider)
-       (or (eq (type-of backend-object) provider)
-           (ignore-errors (cl-typep backend-object provider)))))
+  (ogent-gptel-backend-matches-provider-p backend-object provider))
 
 (defun ogent-ui--resolve-backend (model)
   "Return the backend object for MODEL plist."
-  (let ((backend (plist-get model :backend)))
-    (setq backend
-          (cond
-           ((functionp backend) (funcall backend))
-           ((stringp backend)
-            (let ((sym (intern (format "gptel-%s" backend))))
-              (or (and (boundp sym) (symbol-value sym))
-                  (ignore-errors (require sym nil 'noerror))
-                  backend)))
-           ((symbolp backend)
-            (unless (boundp backend)
-              (ignore-errors (require backend nil 'noerror)))
-            (if (boundp backend)
-                (symbol-value backend)
-              (or (and (boundp 'gptel-backend)
-                       (ogent-ui--backend-matches-provider-p
-                        gptel-backend backend)
-                       gptel-backend)
-                  (when (boundp 'gptel--known-backends)
-                    (cdr (seq-find
-                          (lambda (entry)
-                            (ogent-ui--backend-matches-provider-p
-                             (cdr entry) backend))
-                          gptel--known-backends)))
-                  backend)))
-           (t backend)))
-    backend))
+  (ogent-gptel-resolve-backend model))
 
 (defun ogent-ui--extract-preset-cookies (prompt)
   "Extract @preset tokens from PROMPT.
@@ -1937,25 +1930,27 @@ When model has :tools, enables gptel tool calling."
           (setq prompt-text (concat ogent-org-format-directive "\n\n" prompt-text))
         ;; Normal mode: use system message
         (setq args (plist-put args :system ogent-org-format-directive))))
-    (when (and (fboundp 'gptel-backend-p)
-               (not (gptel-backend-p backend)))
-      (user-error
-       "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
-       (plist-get model :backend) model-id))
     (condition-case err
-        (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
-               (gptel-backend backend)
-               (gptel-model model-id)
-               ;; Bind all registered tools
-               (gptel-tools (or tools gptel-tools))
-               (gptel-use-tools (when tools t))
-               (handle (if preset
-                           (if (fboundp 'gptel-with-preset)
-                               (gptel-with-preset (if (stringp preset) (intern preset) preset)
-						  (funcall sender))
-                             (funcall sender))
-                         (funcall sender))))
-          (setf (ogent-ui-request-gptel-handle request) handle))
+        (progn
+          (when (and (fboundp 'gptel-backend-p)
+                     (not (gptel-backend-p backend)))
+            (user-error
+             "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
+             (plist-get model :backend) model-id))
+          (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
+                 (gptel-backend backend)
+                 (gptel-model model-id)
+                 ;; Bind all registered tools
+                 (gptel-tools (or tools gptel-tools))
+                 (gptel-use-tools (when tools t))
+                 (handle (if preset
+                             (if (fboundp 'gptel-with-preset)
+                                 (gptel-with-preset
+                                     (if (stringp preset) (intern preset) preset)
+                                   (funcall sender))
+                               (funcall sender))
+                           (funcall sender))))
+            (setf (ogent-ui-request-gptel-handle request) handle)))
       (error
        (ogent-ui--close-response request (error-message-string err))))))
 

@@ -1600,6 +1600,110 @@
                                                            (should (string-match-p "Invalid API key"
                                                                                    (plist-get (car ogent-ui--error-history) :error))))))))
 
+(ert-deftest ogent-ui-provider-access-error-detection ()
+  "Provider access error detection is narrow enough for retries."
+  (should (ogent-ui--provider-access-error-p "Invalid API key provided"))
+  (should (ogent-ui--provider-access-error-p
+           "You do not have access to model claude-opus"))
+  (should (ogent-ui--provider-access-error-p "model_not_found"))
+  (should (ogent-ui--provider-access-error-p "Quota exceeded"))
+  (should (ogent-ui--provider-access-error-p "Your credits are exhausted"))
+  (should-not (ogent-ui--provider-access-error-p "Connection timed out"))
+  (should-not (ogent-ui--provider-access-error-p "Rate limit exceeded")))
+
+(ert-deftest ogent-ui-invalid-api-key-offers-provider-login ()
+  "Access failures offer to log in to a different provider."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil)
+                                   (ogent-prompt-provider-login-on-access-error t)
+                                   (ogent-provider--login-prompt-active nil)
+                                   (noninteractive nil)
+                                   (captured-backend :unset)
+                                   (captured-prompt nil))
+                               (cl-letf (((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (when (eq function 'ogent-provider-offer-login)
+                                              (apply function args))
+                                            (timer-create)))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil))
+                                         ((symbol-function 'y-or-n-p)
+                                          (lambda (prompt)
+                                            (setq captured-prompt prompt)
+                                            t))
+                                         ((symbol-function
+                                           'ogent-onboard-login-different-provider)
+                                          (lambda (backend)
+                                            (setq captured-backend backend))))
+                                 (ogent-test-with-error-mock
+                                     "Invalid API key provided"
+                                   (ogent-request "Test prompt" '("gpt-4o-mini")))
+                                 (should (eq captured-backend 'gptel-openai))
+                                 (should (string-match-p
+                                          "Login to a different provider"
+                                          captured-prompt)))))))
+
+(ert-deftest ogent-ui-non-access-error-does-not-offer-provider-login ()
+  "Transient failures do not trigger provider login."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil)
+                                   (ogent-prompt-provider-login-on-access-error t)
+                                   (noninteractive nil)
+                                   (scheduled nil)
+                                   (login-called nil))
+                               (cl-letf (((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (when (eq function 'ogent-provider-offer-login)
+                                              (setq scheduled t)
+                                              (apply function args))
+                                            (timer-create)))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil))
+                                         ((symbol-function
+                                           'ogent-onboard-login-different-provider)
+                                          (lambda (&rest _)
+                                            (setq login-called t))))
+                                 (ogent-test-with-error-mock
+                                     "Connection timed out"
+                                   (ogent-request "Test prompt" '("gpt-4o-mini")))
+                                 (should-not scheduled)
+                                 (should-not login-called))))))
+
+(ert-deftest ogent-ui-provider-login-prompt-can-be-disabled ()
+  "The access-error provider prompt obeys its customization switch."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--error-history nil)
+                                   (ogent-prompt-provider-login-on-access-error nil)
+                                   (noninteractive nil)
+                                   (scheduled nil))
+                               (cl-letf (((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (when (eq function 'ogent-provider-offer-login)
+                                              (setq scheduled t)
+                                              (apply function args))
+                                            (timer-create)))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil)))
+                                 (ogent-test-with-error-mock
+                                     "Invalid API key provided"
+                                   (ogent-request "Test prompt" '("gpt-4o-mini")))
+                                 (should-not scheduled))))))
+
 (ert-deftest ogent-ui-error-context-too-long ()
   "Test handling of context length exceeded error."
   (ogent-test-with-fixture "data/fixture.org"

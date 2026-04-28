@@ -9,6 +9,7 @@
 (require 'auth-source)
 (require 'cl-lib)
 (require 'subr-x)
+(require 'ogent-gptel)
 (require 'ogent-models)
 
 ;; Forward declarations for OAuth module
@@ -26,8 +27,35 @@
   "Interactive setup for ogent providers."
   :group 'ogent)
 
-(defcustom ogent-onboard-providers
-  '((:id anthropic-oauth
+(defconst ogent-onboard--anthropic-models
+  '((:id "claude-opus-4-7"
+     :description "Claude Opus 4.7 - most capable")
+    (:id "claude-sonnet-4-6"
+     :description "Claude Sonnet 4.6 - balanced speed and intelligence")
+    (:id "claude-haiku-4-5-20251001"
+     :description "Claude Haiku 4.5 - fastest"))
+  "Built-in Anthropic model catalog for onboarding.")
+
+(defconst ogent-onboard--openai-models
+  '((:id "gpt-5.5"
+     :description "GPT-5.5 - flagship reasoning and coding")
+    (:id "gpt-5.4"
+     :description "GPT-5.4 - coding and professional work")
+    (:id "gpt-5.4-mini"
+     :description "GPT-5.4 mini - faster, lower-cost coding")
+    (:id "gpt-5.4-nano"
+     :description "GPT-5.4 nano - lowest-latency OpenAI option"))
+  "Built-in OpenAI model catalog for onboarding.")
+
+(defconst ogent-onboard--built-in-models-by-provider
+  `((anthropic . ,ogent-onboard--anthropic-models)
+    (anthropic-oauth . ,ogent-onboard--anthropic-models)
+    (openai . ,ogent-onboard--openai-models)
+    (openai-codex . ,ogent-onboard--openai-models))
+  "Current built-in model catalogs keyed by provider ID.")
+
+(defconst ogent-onboard--built-in-providers
+  `((:id anthropic-oauth
      :name "Anthropic Claude Max/Pro (OAuth - Recommended)"
      :host "api.anthropic.com"
      :backend gptel-anthropic
@@ -39,10 +67,7 @@
      :oauth-mode ogent-anthropic-oauth-mode
      :oauth-login-mode max
      :backend-creator gptel-make-anthropic
-     :models ((:id "claude-opus-4-7" :description "Claude Opus 4.7 - most capable")
-              (:id "claude-sonnet-4-6" :description "Claude Sonnet 4.6 - balanced speed and intelligence")
-              (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
-              (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
+     :models ,ogent-onboard--anthropic-models)
     (:id anthropic
      :name "Anthropic (API Key)"
      :host "api.anthropic.com"
@@ -51,10 +76,7 @@
      :env-var "ANTHROPIC_API_KEY"
      :auth-type api-key
      :backend-creator gptel-make-anthropic
-     :models ((:id "claude-opus-4-7" :description "Claude Opus 4.7 - most capable")
-              (:id "claude-sonnet-4-6" :description "Claude Sonnet 4.6 - balanced speed and intelligence")
-              (:id "claude-haiku-4-5-20251001" :description "Claude Haiku 4.5 - fastest")
-              (:id "claude-sonnet-4-20250514" :description "Claude Sonnet 4 - legacy balanced")))
+     :models ,ogent-onboard--anthropic-models)
     (:id openai
      :name "OpenAI (GPT)"
      :host "api.openai.com"
@@ -63,14 +85,7 @@
      :env-var "OPENAI_API_KEY"
      :auth-type api-key
      :backend-creator gptel-make-openai
-     :models ((:id "gpt-5.5" :description "GPT-5.5 - flagship reasoning and coding")
-              (:id "gpt-5.5-pro" :description "GPT-5.5 pro - hardest reasoning tasks" :stream? nil)
-              (:id "gpt-5.4" :description "GPT-5.4 - professional coding and agentic work")
-              (:id "gpt-5.4-mini" :description "GPT-5.4 mini - fast, cost-aware coding")
-              (:id "gpt-5.4-nano" :description "GPT-5.4 nano - low-cost high-volume tasks")
-              (:id "gpt-5.3-codex" :description "GPT-5.3-Codex - agentic coding")
-              (:id "gpt-4.1" :description "GPT-4.1 - non-reasoning long-context model")
-              (:id "gpt-4o-mini" :description "GPT-4o mini - legacy fallback")))
+     :models ,ogent-onboard--openai-models)
     (:id openai-codex
      :name "OpenAI Codex / ChatGPT (OAuth - Recommended)"
      :host "api.openai.com"
@@ -83,14 +98,11 @@
      :oauth-mode ogent-codex-oauth-mode
      :oauth-key ogent-codex-oauth-get-api-key
      :backend-creator gptel-make-openai
-     :models ((:id "gpt-5.5" :description "GPT-5.5 - flagship reasoning and coding")
-              (:id "gpt-5.5-pro" :description "GPT-5.5 pro - hardest reasoning tasks" :stream? nil)
-              (:id "gpt-5.4" :description "GPT-5.4 - professional coding and agentic work")
-              (:id "gpt-5.4-mini" :description "GPT-5.4 mini - fast, cost-aware coding")
-              (:id "gpt-5.4-nano" :description "GPT-5.4 nano - low-cost high-volume tasks")
-              (:id "gpt-5.3-codex" :description "GPT-5.3-Codex - agentic coding")
-              (:id "gpt-4.1" :description "GPT-4.1 - non-reasoning long-context model")
-              (:id "gpt-4o-mini" :description "GPT-4o mini - legacy fallback"))))
+     :models ,ogent-onboard--openai-models))
+  "Canonical provider definitions shipped with ogent.")
+
+(defcustom ogent-onboard-providers
+  ogent-onboard--built-in-providers
   "Provider configurations for onboarding.
 Each provider can have :auth-type of `oauth' or `api-key'."
   :type '(repeat plist)
@@ -129,19 +141,118 @@ Each provider can have :auth-type of `oauth' or `api-key'."
 
 ;;; Provider selection
 
-(defun ogent-onboard--select-provider ()
-  "Prompt user to select a provider to configure."
+(defun ogent-onboard--provider-with-id (id providers)
+  "Return the provider with ID from PROVIDERS."
+  (cl-find-if (lambda (provider)
+                (eq (plist-get provider :id) id))
+              providers))
+
+(defun ogent-onboard--plist-add-missing (base extras)
+  "Return BASE with keys from EXTRAS added when absent."
+  (let ((result (copy-sequence base)))
+    (while extras
+      (let ((key (pop extras))
+            (value (pop extras)))
+        (unless (plist-member result key)
+          (setq result (plist-put result key value)))))
+    result))
+
+(defun ogent-onboard--canonicalize-provider (provider)
+  "Return PROVIDER with current built-in fields for known provider IDs."
+  (if-let ((built-in (ogent-onboard--provider-with-id
+                     (plist-get provider :id)
+                     ogent-onboard--built-in-providers)))
+      (ogent-onboard--plist-add-missing built-in provider)
+    provider))
+
+(defun ogent-onboard--providers (&optional providers)
+  "Return onboarding PROVIDERS with current built-ins restored.
+Known built-in providers are refreshed from ogent's canonical
+definitions. Custom providers with unknown IDs remain available."
+  (let* ((configured (or providers ogent-onboard-providers))
+         (result (mapcar
+                  (lambda (built-in)
+                    (let ((configured-provider
+                           (ogent-onboard--provider-with-id
+                            (plist-get built-in :id)
+                            configured)))
+                      (if configured-provider
+                          (ogent-onboard--plist-add-missing
+                           built-in configured-provider)
+                        built-in)))
+                  ogent-onboard--built-in-providers)))
+    (dolist (provider configured)
+      (unless (ogent-onboard--provider-with-id
+               (plist-get provider :id)
+               ogent-onboard--built-in-providers)
+        (setq result (append result (list provider)))))
+    result))
+
+(defun ogent-onboard--select-provider (&optional providers prompt)
+  "Prompt user to select a provider to configure.
+PROVIDERS defaults to `ogent-onboard-providers'.  PROMPT defaults
+to \"Select provider: \"."
   (let* ((choices (mapcar (lambda (p)
                             (cons (plist-get p :name) p))
-                          ogent-onboard-providers))
-         (name (completing-read "Select provider: "
+                          (ogent-onboard--providers providers)))
+         (name (completing-read (or prompt "Select provider: ")
                                 (mapcar #'car choices)
                                 nil t)))
     (cdr (assoc name choices))))
 
+(defun ogent-onboard--same-backend-p (provider backend)
+  "Return non-nil when PROVIDER uses BACKEND."
+  (let ((provider-backend (plist-get provider :backend)))
+    (or (eq provider-backend backend)
+        (and (symbolp provider-backend)
+             (boundp provider-backend)
+             (eq (symbol-value provider-backend) backend))
+        (and backend
+             (symbolp provider-backend)
+             (ignore-errors (cl-typep backend provider-backend))))))
+
+(defun ogent-onboard--providers-excluding-backend (backend)
+  "Return provider login choices after BACKEND fails.
+OAuth providers for the same backend stay visible because switching
+credential sources can recover from quota or account failures."
+  (let* ((providers (ogent-onboard--providers))
+         (same-backend (cl-remove-if-not
+                        (lambda (provider)
+                          (ogent-onboard--same-backend-p provider backend))
+                        providers))
+         (same-oauth (cl-remove-if-not
+                      (lambda (provider)
+                        (eq (plist-get provider :auth-type) 'oauth))
+                      same-backend))
+         (same-api-key (cl-remove-if
+                        (lambda (provider)
+                          (eq (plist-get provider :auth-type) 'oauth))
+                        same-backend))
+         (different-backend (cl-remove-if
+                             (lambda (provider)
+                               (ogent-onboard--same-backend-p
+                                provider backend))
+                             providers)))
+    (or (append same-oauth different-backend same-api-key)
+        providers)))
+
+(defun ogent-onboard--built-in-models-for-provider (provider)
+  "Return the current built-in model catalog for PROVIDER."
+  (alist-get (plist-get provider :id)
+             ogent-onboard--built-in-models-by-provider))
+
+(defun ogent-onboard--models-for-provider (provider)
+  "Return model choices for PROVIDER.
+Known built-in providers use the current built-in catalog, which
+keeps older customized provider plists from surfacing stale model
+choices in already-running Emacs sessions."
+  (let ((provider (ogent-onboard--canonicalize-provider provider)))
+    (or (ogent-onboard--built-in-models-for-provider provider)
+        (plist-get provider :models))))
+
 (defun ogent-onboard--select-model (provider)
   "Prompt user to select a model from PROVIDER."
-  (let* ((models (plist-get provider :models))
+  (let* ((models (ogent-onboard--models-for-provider provider))
          (choices (mapcar (lambda (m)
                             (cons (format "%s - %s"
                                           (plist-get m :id)
@@ -241,7 +352,7 @@ For OAuth providers, API-KEY may be nil; authentication is handled by advice."
   (let* ((creator-sym (plist-get provider :backend-creator))
          (name (plist-get provider :name))
          (models (mapcar (lambda (m) (plist-get m :id))
-                         (plist-get provider :models))))
+                         (ogent-onboard--models-for-provider provider))))
     (cond
      ((eq creator-sym 'gptel-make-anthropic)
       (when (fboundp 'gptel-make-anthropic)
@@ -312,24 +423,22 @@ MODEL-ID is accepted for future use but not currently verified."
 (defun ogent-onboard--set-default-model (model-id)
   "Set MODEL-ID as the default ogent model."
   (setq ogent-default-model model-id)
+  (when-let* ((model-id)
+              (model (ogent-models-get model-id))
+              (backend (ogent-gptel-resolve-backend model)))
+    (setq gptel-model model-id)
+    (when backend
+      (setq gptel-backend backend)))
   (message "Set %s as default model" model-id))
 
 ;;; Main command
 
-;;;###autoload (autoload 'ogent-onboard "ogent" nil t)
-(defun ogent-onboard ()
-  "Interactive setup wizard for ogent model providers.
-Guides you through:
-1. Selecting a provider (Anthropic, OpenAI, etc.)
-2. Configuring authentication (OAuth or API key)
-3. Choosing a default model
-4. Verifying the connection works"
-  (interactive)
-  (let* ((provider (ogent-onboard--select-provider))
-         (auth-type (plist-get provider :auth-type))
+(defun ogent-onboard--run-provider-setup (provider)
+  "Run the onboarding flow for PROVIDER."
+  (let* ((auth-type (plist-get provider :auth-type))
          (api-key nil)
          (auth-success nil))
-    
+
     ;; Configure authentication based on type
     (cond
      ((eq auth-type 'oauth)
@@ -338,10 +447,10 @@ Guides you through:
      (t
       (setq api-key (ogent-onboard--configure-api-key provider))
       (setq auth-success api-key)))
-    
+
     (unless auth-success
       (user-error "Authentication is required to continue"))
-    
+
     (let* ((model (ogent-onboard--select-model provider))
            (model-id (plist-get model :id)))
       ;; Verify
@@ -358,6 +467,26 @@ Guides you through:
             (message "Setup complete! You can now use ogent with %s."
                      (plist-get provider :name)))
         (message "Setup incomplete - please check your authentication and try again")))))
+
+;;;###autoload (autoload 'ogent-onboard "ogent" nil t)
+(defun ogent-onboard ()
+  "Interactive setup wizard for ogent model providers.
+Guides you through:
+1. Selecting a provider (Anthropic, OpenAI, etc.)
+2. Configuring authentication (OAuth or API key)
+3. Choosing a default model
+4. Verifying the connection works"
+  (interactive)
+  (ogent-onboard--run-provider-setup (ogent-onboard--select-provider)))
+
+;;;###autoload
+(defun ogent-onboard-login-different-provider (&optional failed-backend)
+  "Prompt for a provider login that differs from FAILED-BACKEND."
+  (interactive)
+  (let ((provider (ogent-onboard--select-provider
+                   (ogent-onboard--providers-excluding-backend failed-backend)
+                   "Login to provider: ")))
+    (ogent-onboard--run-provider-setup provider)))
 
 ;;;###autoload
 (defun ogent-onboard-add-provider ()
