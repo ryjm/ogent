@@ -8,6 +8,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'subr-x)
 (require 'transient)
 (require 'ogent-edit-format)
 (require 'ogent-edit-parse)
@@ -33,6 +34,7 @@
 (declare-function flycheck-error-level "ext:flycheck" (err))
 (declare-function flycheck-error-message "ext:flycheck" (err))
 (declare-function flycheck-error-id "ext:flycheck" (err))
+(defvar flycheck-current-errors)
 
 
 ;;; Customization
@@ -223,6 +225,34 @@ Quick edit target: %s. Keep the patch focused on this target and preserve unrela
                    (ogent-edit--diagnostic-width right))
               (< left-rank right-rank))))))
 
+(defun ogent-edit--diagnostic-dedupe-key (diagnostic)
+  "Return a stable duplicate key for DIAGNOSTIC."
+  (list (or (plist-get diagnostic :file) (buffer-file-name))
+        (plist-get diagnostic :line)
+        (plist-get diagnostic :column)
+        (ogent-edit--diagnostic-severity-name
+         (plist-get diagnostic :severity))
+        (plist-get diagnostic :message)))
+
+(defun ogent-edit--dedupe-diagnostics (diagnostics)
+  "Return DIAGNOSTICS with duplicate entries removed."
+  (let ((seen (make-hash-table :test 'equal))
+        unique)
+    (dolist (diagnostic diagnostics)
+      (let ((key (ogent-edit--diagnostic-dedupe-key diagnostic)))
+        (unless (gethash key seen)
+          (puthash key t seen)
+          (push diagnostic unique))))
+    (nreverse unique)))
+
+(defun ogent-edit--same-buffer-file-p (file)
+  "Return non-nil when FILE names the current buffer file."
+  (let ((buffer-file (buffer-file-name)))
+    (or (not file)
+        (not buffer-file)
+        (string= (expand-file-name file)
+                 (expand-file-name buffer-file)))))
+
 (defun ogent-edit--diagnostic-from-flymake (diagnostic)
   "Return ogent diagnostic plist from Flymake DIAGNOSTIC."
   (let* ((start (ogent-edit--normalize-diagnostic-position
@@ -252,26 +282,37 @@ Quick edit target: %s. Keep the patch focused on this target and preserve unrela
            (diagnostics (ignore-errors (flymake-diagnostics start end))))
       (delq nil (mapcar #'ogent-edit--diagnostic-from-flymake diagnostics)))))
 
+(defun ogent-edit--flymake-diagnostics-in-buffer ()
+  "Return ogent diagnostic plists from Flymake in the current buffer."
+  (when (and (or (featurep 'flymake)
+                 (require 'flymake nil 'noerror))
+             (fboundp 'flymake-diagnostics))
+    (let ((diagnostics (ignore-errors
+                         (flymake-diagnostics (point-min) (point-max)))))
+      (delq nil (mapcar #'ogent-edit--diagnostic-from-flymake diagnostics)))))
+
 (defun ogent-edit--diagnostic-from-flycheck (error)
   "Return ogent diagnostic plist from Flycheck ERROR."
-  (let* ((line (ignore-errors (flycheck-error-line error)))
-         (column (or (ignore-errors (flycheck-error-column error)) 1))
-         (start (and line (ogent-edit--position-from-line-column line column)))
-         (end (and start (save-excursion
-                           (goto-char start)
-                           (line-end-position)))))
-    (when start
-      (list :source 'flycheck
-            :message (or (ignore-errors (flycheck-error-message error))
-                         "Flycheck diagnostic")
-            :severity (ignore-errors (flycheck-error-level error))
-            :start start
-            :end end
-            :line line
-            :column column
-            :file (or (ignore-errors (flycheck-error-filename error))
-                      (buffer-file-name))
-            :id (ignore-errors (flycheck-error-id error))))))
+  (let ((file (or (ignore-errors (flycheck-error-filename error))
+                  (buffer-file-name))))
+    (when (ogent-edit--same-buffer-file-p file)
+      (let* ((line (ignore-errors (flycheck-error-line error)))
+             (column (or (ignore-errors (flycheck-error-column error)) 1))
+             (start (and line (ogent-edit--position-from-line-column line column)))
+             (end (and start (save-excursion
+                               (goto-char start)
+                               (line-end-position)))))
+        (when start
+          (list :source 'flycheck
+                :message (or (ignore-errors (flycheck-error-message error))
+                             "Flycheck diagnostic")
+                :severity (ignore-errors (flycheck-error-level error))
+                :start start
+                :end end
+                :line line
+                :column column
+                :file file
+                :id (ignore-errors (flycheck-error-id error))))))))
 
 (defun ogent-edit--flycheck-diagnostics-at-point ()
   "Return ogent diagnostic plists from Flycheck at point."
@@ -279,11 +320,26 @@ Quick edit target: %s. Keep the patch focused on this target and preserve unrela
     (let ((errors (ignore-errors (flycheck-overlay-errors-at (point)))))
       (delq nil (mapcar #'ogent-edit--diagnostic-from-flycheck errors)))))
 
+(defun ogent-edit--flycheck-diagnostics-in-buffer ()
+  "Return ogent diagnostic plists from Flycheck in the current buffer."
+  (when (and (boundp 'flycheck-current-errors)
+             (listp flycheck-current-errors))
+    (delq nil
+          (mapcar #'ogent-edit--diagnostic-from-flycheck
+                  flycheck-current-errors))))
+
 (defun ogent-edit--diagnostics-at-point ()
   "Return editor diagnostics at point, normalized for edit prompting."
   (ogent-edit--sort-diagnostics
    (append (ogent-edit--flymake-diagnostics-at-point)
            (ogent-edit--flycheck-diagnostics-at-point))))
+
+(defun ogent-edit--diagnostics-in-buffer ()
+  "Return editor diagnostics in the current buffer."
+  (ogent-edit--sort-diagnostics
+   (ogent-edit--dedupe-diagnostics
+    (append (ogent-edit--flymake-diagnostics-in-buffer)
+            (ogent-edit--flycheck-diagnostics-in-buffer)))))
 
 (defun ogent-edit--format-diagnostic (diagnostic)
   "Return prompt text for DIAGNOSTIC."
@@ -309,6 +365,30 @@ INSTRUCTION adds optional user guidance."
           "\n\nRepair requirements:\n"
           "- Make the smallest correct change that resolves the diagnostic.\n"
           "- Preserve surrounding behavior unless the diagnostic proves it is wrong.\n"
+          "- Include every necessary edit as SEARCH/REPLACE blocks.\n"
+          (when instruction
+            (format "\nExtra instruction:\n%s\n" instruction))))
+
+(defun ogent-edit--format-diagnostics-list (diagnostics)
+  "Return prompt text for DIAGNOSTICS."
+  (string-join
+   (cl-loop for diagnostic in diagnostics
+            for index from 1
+            collect (format "%d. %s"
+                            index
+                            (ogent-edit--format-diagnostic diagnostic)))
+   "\n"))
+
+(defun ogent-edit--buffer-diagnostics-prompt (diagnostics &optional instruction)
+  "Return a repair prompt for buffer DIAGNOSTICS.
+INSTRUCTION adds optional user guidance."
+  (concat "Fix these editor diagnostics in the current buffer.\n\n"
+          "Diagnostics, ranked by severity and repair span:\n"
+          (ogent-edit--format-diagnostics-list diagnostics)
+          "\n\nRepair requirements:\n"
+          "- Resolve every listed diagnostic when possible.\n"
+          "- Prefer one coherent root-cause fix when several diagnostics share a cause.\n"
+          "- Keep unrelated code unchanged.\n"
           "- Include every necessary edit as SEARCH/REPLACE blocks.\n"
           (when instruction
             (format "\nExtra instruction:\n%s\n" instruction))))
@@ -418,6 +498,22 @@ INSTRUCTION provides optional repair guidance for noninteractive callers."
                (ogent-edit--scope-label scope)
                (- end start))
       (ogent-request-edit prompt start end))))
+
+;;;###autoload
+(defun ogent-fix-buffer-diagnostics (&optional instruction)
+  "Request one full-buffer edit for all Flymake or Flycheck diagnostics.
+With prefix argument, prompt for extra INSTRUCTION."
+  (interactive
+   (list (when current-prefix-arg
+           (read-string "Extra repair instruction: "))))
+  (let ((diagnostics (ogent-edit--diagnostics-in-buffer)))
+    (unless diagnostics
+      (user-error "No Flymake or Flycheck diagnostics in buffer"))
+    (let ((prompt (ogent-edit--buffer-diagnostics-prompt diagnostics instruction)))
+      (message "Fixing %d diagnostics using whole buffer (%d chars)"
+               (length diagnostics)
+               (- (point-max) (point-min)))
+      (ogent-request-edit prompt (point-min) (point-max)))))
 
 ;;; Response Processing
 
@@ -585,6 +681,7 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
     ("R" "Reject all" ogent-edit--reject-all-dispatch)]]
   [["Request"
     ("f" "Fix diagnostic" ogent-fix-diagnostic)
+    ("F" "Fix buffer diagnostics" ogent-fix-buffer-diagnostics)
     ("k" "Quick edit" ogent-quick-edit)
     ("e" "Request edit" ogent-request-edit)
     ("D" "Diff buffer (magit-style)" ogent-edit-show-diff-buffer)

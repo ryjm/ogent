@@ -22,6 +22,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
 - **Diagnostic repair**: `C-c . f` (`SPC o f` in Doom/Evil) grabs the Flymake or Flycheck diagnostic at point, builds a focused repair prompt, and applies the result through the inline edit review flow.
+- **Buffer diagnostic sweep**: `C-c . F` (`SPC o F` in Doom/Evil) ranks every Flymake or Flycheck diagnostic in the current buffer and requests one reviewable repair patch.
 - **Quick inline edit**: `C-c . k` (`SPC o k` in Doom/Evil) prompts for one instruction and targets the active region, current definition, or current line. Use a prefix argument for full-file edits.
 - **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
 - **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.

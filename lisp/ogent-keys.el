@@ -19,6 +19,7 @@
 ;; Declare hydra commands (defined in ogent-ui-hydra.el)
 (declare-function ogent-navigate "ogent-ui-hydra")
 (declare-function ogent-edit-menu "ogent-ui-hydra")
+(declare-function ogent-fix-buffer-diagnostics "ogent-edit")
 (declare-function ogent-fix-diagnostic "ogent-edit")
 (declare-function ogent-quick-edit "ogent-edit")
 (declare-function ogent-request-edit "ogent-edit")
@@ -114,6 +115,10 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Edit hydra menu")
     (fix-diagnostic   :key "f" :command ogent-fix-diagnostic
                       :desc "Fix diagnostic"
+                      :visual t)
+    (fix-buffer-diagnostics
+                      :key "F" :command ogent-fix-buffer-diagnostics
+                      :desc "Fix buffer diagnostics"
                       :visual t)
     (quick-edit       :key "k" :command ogent-quick-edit
                       :desc "Quick inline edit"

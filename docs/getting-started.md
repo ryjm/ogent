@@ -247,6 +247,7 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `U` | `C-c . U` | `SPC o U` | Unpin item |
 | `l` | `C-c . l` | `SPC o l` | List pinned items |
 | `f` | `C-c . f` | `SPC o f` | Fix diagnostic at point |
+| `F` | `C-c . F` | `SPC o F` | Fix buffer diagnostics |
 | `k` | `C-c . k` | `SPC o k` | Quick inline edit |
 | `e` | `C-c . e` | `SPC o e` | Edit menu |
 | `E` | `C-c . E` | `SPC o E` | Request edit |
