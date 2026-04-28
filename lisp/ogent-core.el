@@ -25,6 +25,7 @@
 (declare-function ogent-show-backlinks "ui/ogent-ui-backlinks")
 (declare-function ogent-show-dependency-graph "ui/ogent-ui-graph")
 (declare-function ogent-codemap-buffer "ogent-codemap")
+(declare-function ogent-ai-speed-edit "ogent-edit")
 (declare-function ogent-request-edit "ogent-edit")
 (declare-function ogent-edit-menu "ogent-edit")
 (declare-function ogent-edit-goto-source "ogent-edit-display")

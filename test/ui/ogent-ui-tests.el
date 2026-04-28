@@ -2128,6 +2128,15 @@ Regression test: inline suffix shorthand with plain defun caused 'Need keyword' 
     (should (eq (oref model command) 'ogent--infix-provider))
     (should (eq (oref codemap command) 'ogent-codemap-buffer))))
 
+(ert-deftest ogent-ui-prompt-dispatch-ai-speed-edit-key ()
+  "Prompt dispatcher exposes AI speed edit on v."
+  (let ((speed-edit (cl-find-if (lambda (suffix)
+                                  (equal (oref suffix key) "v"))
+                                (transient-suffixes
+                                 'ogent-prompt-dispatch))))
+    (should speed-edit)
+    (should (eq (oref speed-edit command) 'ogent-ai-speed-edit))))
+
 (ert-deftest ogent-ui-provider-infix-does-not-persist-backend-objects ()
   "Provider selection should not store backend structs in Transient history."
   (let* ((backend (ogent-ui-test-provider-create))

@@ -39,6 +39,7 @@ Add to your `~/.doom.d/config.el`:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-ai-speed-edit
              ogent-fix-buffer-diagnostics
              ogent-fix-diagnostic
              ogent-quick-edit
@@ -62,6 +63,7 @@ Add to your `~/.doom.d/config.el`:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "AI speed edit"       "v" #'ogent-ai-speed-edit
          :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Fix buffer diags"     "F" #'ogent-fix-buffer-diagnostics
          :desc "Quick edit"          "k" #'ogent-quick-edit
@@ -89,6 +91,7 @@ All ogent commands are bound under `SPC o`:
 |-----------|----------------------------|--------------------------------------|
 | `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
 | `SPC o r` | `ogent-request`            | Send request with current context    |
+| `SPC o v` | `ogent-ai-speed-edit`      | AI chooses a small reviewable edit   |
 | `SPC o f` | `ogent-fix-diagnostic`     | Fix diagnostic at point              |
 | `SPC o F` | `ogent-fix-buffer-diagnostics` | Fix buffer diagnostics           |
 | `SPC o k` | `ogent-quick-edit`         | Quick inline edit                    |
@@ -199,6 +202,7 @@ Here's a full, copy-paste ready configuration:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-ai-speed-edit
              ogent-fix-buffer-diagnostics
              ogent-fix-diagnostic
              ogent-quick-edit
@@ -219,6 +223,7 @@ Here's a full, copy-paste ready configuration:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "AI speed edit"       "v" #'ogent-ai-speed-edit
          :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Fix buffer diags"     "F" #'ogent-fix-buffer-diagnostics
          :desc "Quick edit"          "k" #'ogent-quick-edit
