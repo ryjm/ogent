@@ -39,6 +39,7 @@ Add to your `~/.doom.d/config.el`:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-fix-diagnostic
              ogent-quick-edit
              ogent-request-edit
              ogent-context-preview
@@ -60,6 +61,7 @@ Add to your `~/.doom.d/config.el`:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Quick edit"          "k" #'ogent-quick-edit
          :desc "Request edit"        "E" #'ogent-request-edit
          :desc "Edit menu"           "e" #'ogent-edit-menu
@@ -85,6 +87,7 @@ All ogent commands are bound under `SPC o`:
 |-----------|----------------------------|--------------------------------------|
 | `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
 | `SPC o r` | `ogent-request`            | Send request with current context    |
+| `SPC o f` | `ogent-fix-diagnostic`     | Fix diagnostic at point              |
 | `SPC o k` | `ogent-quick-edit`         | Quick inline edit                    |
 | `SPC o E` | `ogent-request-edit`       | Request code edits for buffer/region |
 | `SPC o e` | `ogent-edit-menu`          | Edit operations transient menu       |
@@ -193,6 +196,7 @@ Here's a full, copy-paste ready configuration:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-fix-diagnostic
              ogent-quick-edit
              ogent-request-edit
              ogent-context-preview
@@ -211,6 +215,7 @@ Here's a full, copy-paste ready configuration:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Quick edit"          "k" #'ogent-quick-edit
          :desc "Request edit"        "E" #'ogent-request-edit
          :desc "Edit menu"           "e" #'ogent-edit-menu

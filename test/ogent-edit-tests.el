@@ -6,6 +6,7 @@
 (require 'ogent-edit-display)
 (require 'ogent-edit-log)
 (require 'ogent-edit)
+(require 'flymake)
 (require 'smerge-mode)
 
 ;;; Format Tests
@@ -668,6 +669,104 @@ missing separator and end marker")
                 (should-not (string-match-p "defun second" prompt))))
             (kill-buffer)))
       (delete-file temp-file))))
+
+(ert-deftest ogent-edit-diagnostics-at-point-normalizes-flymake ()
+  "Flymake diagnostics are normalized into promptable plists."
+  (with-temp-buffer
+    (insert "(defun sample ()\n  missing)\n")
+    (let ((diagnostic (flymake-make-diagnostic
+                       (current-buffer) 20 27 :error "Void variable missing")))
+      (goto-char 22)
+      (cl-letf (((symbol-function 'flymake-diagnostics)
+                 (lambda (&rest _args) (list diagnostic))))
+        (let ((normalized (car (ogent-edit--diagnostics-at-point))))
+          (should (eq (plist-get normalized :source) 'flymake))
+          (should (eq (plist-get normalized :severity) :error))
+          (should (string= (plist-get normalized :message)
+                           "Void variable missing"))
+          (should (= (plist-get normalized :line) 2)))))))
+
+(ert-deftest ogent-edit-fix-diagnostic-sends-flymake-context ()
+  "ogent-fix-diagnostic sends a focused repair prompt for Flymake."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "missing")
+            (let ((diagnostic (flymake-make-diagnostic
+                               (current-buffer)
+                               (match-beginning 0)
+                               (match-end 0)
+                               :error
+                               "Void variable missing")))
+              (cl-letf (((symbol-function 'flymake-diagnostics)
+                         (lambda (&rest _args) (list diagnostic))))
+                (ogent-test-with-mock-gptel
+                  (ogent-fix-diagnostic)
+                  (let* ((captured (ogent-test-last-request))
+                         (prompt (plist-get captured :prompt)))
+                    (should captured)
+                    (should (string-match-p "Fix this editor diagnostic" prompt))
+                    (should (string-match-p "Void variable missing" prompt))
+                    (should (string-match-p "defun first" prompt))
+                    (should-not (string-match-p "defun second" prompt))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-fix-diagnostic-uses-flycheck-fallback ()
+  "ogent-fix-diagnostic uses Flycheck errors when Flymake has none."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el"))
+        (error '(:line 2 :column 3 :level error
+                 :message "Reference to free variable missing"
+                 :id "free-var")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (goto-char (point-min))
+            (search-forward "missing")
+            (cl-letf (((symbol-function 'flymake-diagnostics)
+                       (lambda (&rest _args) nil))
+                      ((symbol-function 'flycheck-overlay-errors-at)
+                       (lambda (_pos) (list error)))
+                      ((symbol-function 'flycheck-error-filename)
+                       (lambda (_err) temp-file))
+                      ((symbol-function 'flycheck-error-line)
+                       (lambda (err) (plist-get err :line)))
+                      ((symbol-function 'flycheck-error-column)
+                       (lambda (err) (plist-get err :column)))
+                      ((symbol-function 'flycheck-error-level)
+                       (lambda (err) (plist-get err :level)))
+                      ((symbol-function 'flycheck-error-message)
+                       (lambda (err) (plist-get err :message)))
+                      ((symbol-function 'flycheck-error-id)
+                       (lambda (err) (plist-get err :id))))
+              (ogent-test-with-mock-gptel
+                (ogent-fix-diagnostic)
+                (let* ((captured (ogent-test-last-request))
+                       (prompt (plist-get captured :prompt)))
+                  (should captured)
+                  (should (string-match-p "flycheck" prompt))
+                  (should (string-match-p "free-var" prompt))
+                  (should (string-match-p "Reference to free variable missing"
+                                          prompt)))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-fix-diagnostic-errors-without-diagnostic ()
+  "ogent-fix-diagnostic reports when no diagnostic is available."
+  (with-temp-buffer
+    (cl-letf (((symbol-function 'flymake-diagnostics)
+               (lambda (&rest _args) nil))
+              ((symbol-function 'flycheck-overlay-errors-at)
+               (lambda (_pos) nil)))
+      (should-error (ogent-fix-diagnostic) :type 'user-error))))
 
 ;;; Coverage Expansion Tests for ogent-edit.el
 
