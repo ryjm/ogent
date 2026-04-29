@@ -624,8 +624,53 @@
 
 (ert-deftest ogent-onboard-find-source-root-custom ()
   "Test find-source-root uses ogent-source-directory when set."
+  (let* ((root (make-temp-file "ogent-root-" t))
+         (lisp-dir (expand-file-name "lisp" root))
+         (ogent-source-directory root))
+    (unwind-protect
+        (progn
+          (make-directory lisp-dir)
+          (with-temp-file (expand-file-name "ogent.el" lisp-dir)
+            (insert ";;; ogent.el\n"))
+          (should (equal (file-name-as-directory (file-truename root))
+                         (ogent-onboard--find-source-root))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-onboard-find-source-root-keeps-invalid-custom-path ()
+  "Invalid custom source roots remain authoritative for reload errors."
   (let ((ogent-source-directory "/custom/ogent"))
-    (should (equal "/custom/ogent" (ogent-onboard--find-source-root)))))
+    (should (equal "/custom/ogent/" (ogent-onboard--find-source-root)))))
+
+(ert-deftest ogent-onboard-source-root-accepts-lisp-dir ()
+  "Source root detection accepts an ogent lisp directory."
+  (let* ((root (make-temp-file "ogent-root-" t))
+         (lisp-dir (expand-file-name "lisp" root)))
+    (unwind-protect
+        (progn
+          (make-directory lisp-dir)
+          (with-temp-file (expand-file-name "ogent.el" lisp-dir)
+            (insert ";;; ogent.el\n"))
+          (should (equal (file-name-as-directory (file-truename root))
+                         (ogent-onboard--source-root-from-path lisp-dir))))
+      (delete-directory root t))))
+
+(ert-deftest ogent-onboard-source-root-follows-symlinked-package-file ()
+  "Source root detection follows straight-style symlinked package files."
+  (let* ((root (make-temp-file "ogent-root-" t))
+         (build (make-temp-file "ogent-build-" t))
+         (lisp-dir (expand-file-name "lisp" root))
+         (source-file (expand-file-name "ogent.el" lisp-dir))
+         (linked-file (expand-file-name "ogent.el" build)))
+    (unwind-protect
+        (progn
+          (make-directory lisp-dir)
+          (with-temp-file source-file
+            (insert ";;; ogent.el\n"))
+          (make-symbolic-link source-file linked-file)
+          (should (equal (file-name-as-directory (file-truename root))
+                         (ogent-onboard--source-root-from-path linked-file))))
+      (delete-directory root t)
+      (delete-directory build t))))
 
 (ert-deftest ogent-onboard-find-source-root-nil-falls-back ()
   "Test find-source-root falls back when ogent-source-directory is nil."
