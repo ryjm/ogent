@@ -506,24 +506,52 @@ reliable reloading during development."
           (directory :tag "Source directory"))
   :group 'ogent)
 
+(defun ogent-onboard--source-root-from-path (path)
+  "Return the ogent project root represented by PATH, or nil.
+PATH may name the project root, the lisp directory, or an ogent
+source file. Symlinks are resolved before the root is inferred."
+  (when path
+    (let* ((resolved (file-truename (expand-file-name path)))
+           (dir (directory-file-name
+                 (if (file-directory-p resolved)
+                     resolved
+                   (file-name-directory resolved))))
+           (parent (file-name-directory dir)))
+      (cond
+       ((file-exists-p (expand-file-name "lisp/ogent.el" dir))
+        (file-name-as-directory dir))
+       ((and (string= (file-name-nondirectory dir) "lisp")
+             (file-exists-p (expand-file-name "ogent.el" dir)))
+        (file-name-as-directory parent))
+       ((and parent
+             (file-exists-p (expand-file-name "lisp/ogent.el" parent)))
+        (file-name-as-directory parent))))))
+
+(defun ogent-onboard--first-source-root (&rest paths)
+  "Return the first ogent project root found from PATHS."
+  (catch 'root
+    (dolist (path paths)
+      (when-let ((root (ogent-onboard--source-root-from-path path)))
+        (throw 'root root)))))
+
 (defun ogent-onboard--find-source-root ()
   "Find the ogent source root directory.
 Priority:
 1. `ogent-source-directory' if set
 2. straight.el local repo path
 3. Fall back to load-file-name parent"
-  (or ogent-source-directory
+  (or (when ogent-source-directory
+        (or (ogent-onboard--source-root-from-path ogent-source-directory)
+            (file-name-as-directory (expand-file-name ogent-source-directory))))
       ;; Check straight.el for local repo path
-      (when (and (boundp 'straight--repos-dir)
-                 (file-directory-p (expand-file-name "ogent" straight--repos-dir)))
-        (expand-file-name "ogent" straight--repos-dir))
+      (when (boundp 'straight--repos-dir)
+        (ogent-onboard--source-root-from-path
+         (expand-file-name "ogent" straight--repos-dir)))
       ;; Fall back to computed path from load location
-      (file-name-directory
-       (directory-file-name
-        (file-name-directory
-         (or load-file-name
-             (locate-library "ogent")
-             buffer-file-name))))))
+      (ogent-onboard--first-source-root
+       load-file-name
+       (locate-library "ogent")
+       buffer-file-name)))
 
 ;;;###autoload
 (defun ogent-recompile ()

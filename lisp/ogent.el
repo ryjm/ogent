@@ -46,12 +46,24 @@
 
 ;;; Code:
 
-;; Ensure the ui/ subdirectory is in load-path before requiring ogent-ui
-;; This handles package managers that only add the main lisp/ directory
-(let ((ui-dir (expand-file-name "ui" (file-name-directory
-                                      (or load-file-name buffer-file-name)))))
-  (unless (member ui-dir load-path)
-    (add-to-list 'load-path ui-dir)))
+;; Ensure sibling modules are available before requiring the package graph.
+;; Doom/straight builds local packages as symlinks, and newly added files can
+;; exist in the real source tree before the build directory is regenerated.
+(let* ((entry-file (or load-file-name buffer-file-name))
+       (entry-dir (and entry-file (file-name-directory entry-file)))
+       (source-dir (and entry-file
+                        (file-name-directory (file-truename entry-file)))))
+  (dolist (dir (delete-dups
+                (delq nil
+                      (list entry-dir
+                            source-dir
+                            (when entry-dir
+                              (expand-file-name "ui" entry-dir))
+                            (when source-dir
+                              (expand-file-name "ui" source-dir))))))
+    (when (and (file-directory-p dir)
+               (not (member dir load-path)))
+      (add-to-list 'load-path dir))))
 
 (require 'ogent-context)
 (require 'ogent-models)
