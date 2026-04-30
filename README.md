@@ -18,6 +18,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Native Agent**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output. This is the most important concept of `ogent` - it should act as a homunculus that can be instantiated at any point in your Emacs workflow. 
 - **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c . m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
 - **Model registry**: `lisp/ogent-models.el` lists every supported gptel backend (id, preset, stream support). The dispatcher and transport stack look up this registry so adding a provider is a data change plus tests, not a UI surgery.
+- **Org Armory graph**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-status` (`C-c . K`, `SPC o K`) renders armory, agent, and job records as a typed graph with bridges to Ogent Issues and Gas Town.
 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
@@ -102,6 +103,7 @@ ogent is organized into focused modules under `lisp/`:
 | `ogent-completions.el`, `ogent-session.el` | Completion handling and session buffers |
 | `ogent-edit*.el`, `inline-diff.el` | AI-powered code editing (diff, display, format, parse, word-level inline diff) |
 | `ogent-tool*.el` | Tool system (approval, FSM, rendering) |
+| `ogent-armory*.el` | Org-native Armory storage and graph status |
 | `ogent-issues*.el` | Beads issue tracker integration |
 | `ogent-gastown*.el`, `ogent-refinery.el` | Gas Town multi-agent coordination |
 | `ogent-onboard.el`, `ogent-anthropic-oauth.el` | Setup wizard and OAuth |
@@ -116,6 +118,7 @@ The following features were added recently:
 - **Inline Diff Display** (`inline-diff.el`): Word-level inline diff highlighting as an alternative to smerge. Toggle with `ogent-edit-toggle-display-method` (cycles smerge → overlay → inline-diff).
 - **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads issues with inline filtering, transient menus, and dependency graph visualization.
 - **Gas Town Multi-Agent** (`ogent-gastown.el`): Status buffer and tmux integration for coordinating multiple AI agent workspaces.
+- **Org Armory Foundation** (`ogent-armory.el`, `ogent-armory-status.el`): Org-backed Armory roots, agents, jobs, and a graph status view with Issues/Gas Town bridges.
 - **Refinery Buffer** (`ogent-refinery.el`): Merge queue visualization for tracking and managing pending merges.
 - **Session Management** (`ogent-session.el`): Improved Org hierarchy with proper request/response threading and inline prompting.
 - **Tool System** (`ogent-tool-*.el`): Complete tool approval UI, FSM status tracking, and inline rendering of tool calls/results.

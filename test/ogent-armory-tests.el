@@ -112,6 +112,42 @@
     (should (file-exists-p
              (expand-file-name ".agents/editor/jobs/weekly-review.org" dir)))))
 
+(ert-deftest ogent-armory-build-graph-connects-armory-agents-and-jobs ()
+  "The armory graph connects armory, agent, and job records."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review" :name "Weekly Review" :cron "0 9 * * 1")
+     "Review architecture notes.")
+    (let* ((graph (ogent-armory-build-graph dir))
+           (nodes (plist-get graph :nodes))
+           (edges (plist-get graph :edges)))
+      (should (equal (plist-get graph :root) (file-truename dir)))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "armory:."))
+                        nodes))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "agent:cto"))
+                        nodes))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "job:cto/weekly-review"))
+                        nodes))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "armory:.")
+                               (equal (plist-get edge :to) "agent:cto")
+                               (eq (plist-get edge :kind) 'contains)))
+                        edges))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "agent:cto")
+                               (equal (plist-get edge :to) "job:cto/weekly-review")
+                               (eq (plist-get edge :kind) 'owns)))
+                        edges)))))
+
 (provide 'ogent-armory-tests)
 
 ;;; ogent-armory-tests.el ends here

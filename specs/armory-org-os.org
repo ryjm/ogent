@@ -23,6 +23,9 @@ dispatch.
   - https://orgmode.org/manual/Agenda-Views.html
   - https://orgmode.org/manual/Hyperlinks.html
   - https://orgmode.org/org.html#Properties-and-Columns
+- Incremental computation references for the long-term projection model:
+  - https://www.microsoft.com/en-us/research/publication/differential-dataflow/
+  - https://arxiv.org/abs/1611.03429
 
 * Architectural Translation
 
@@ -121,11 +124,51 @@ Keep the technical plan brutally clear.
 Review recent Org pages and file a summary.
 #+end_src
 
+* Graph and Projection Model
+
+Armory storage is not just a file layout. It is the base relation layer for an
+Org-native operational graph:
+
+#+begin_example
+Armory(id, path, name, kind)
+Agent(slug, path, name, role, provider, active)
+Job(agent_slug, job_id, path, name, cron, enabled)
+
+contains : Armory -> Agent
+owns     : Agent   -> Job
+#+end_example
+
+=ogent-armory-build-graph= materializes the first derived graph today. Nodes
+are plists with =:id=, =:kind=, =:label=, =:path=, and =:data=. Edges are plists
+with =:from=, =:to=, and =:kind=. The current edge vocabulary starts with
+=contains= and =owns=, leaving room for future =mentions=, =blocks=, =dispatches=,
+=backs=, and =observed-by= relations.
+
+This shape makes the Armory layer a natural extension of existing ogent
+systems:
+
+- =ogent-issues= can project beads work into the same graph by attaching issue
+  nodes to armory, agent, job, or conversation nodes.
+- =ogent-gastown-status= can project hooks, mail, convoys, rigs, and worker
+  assignments as operational edges.
+- Org agenda/search already performs collection and display over scattered TODO
+  entries, tags, and properties, which matches the projection model.
+- Future indexes can move from full rebuilds toward change propagation over Org
+  edits, following the same broad family of ideas as differential dataflow and
+  incremental lambda calculus.
+
+The status buffer =ogent-armory-status= is the first projection surface. It
+renders the armory graph, lets users visit the source Org record with =RET=,
+and bridges to =ogent-issues= and =ogent-gastown-status= with the same refresh
+and navigation conventions used by the operational buffers.
+
 * UI Contract
 
 The first Emacs surfaces should be boring and powerful:
 
 - =ogent-armory-scaffold= creates an Org-backed armory directory.
+- =ogent-armory-status= shows the derived Armory graph and operational
+  bridges to Issues and Gas Town.
 - =ogent-armory-agents= should show personas in a tabulated buffer.
 - =ogent-armory-agent= should open a single agent profile buffer with sections
   for composer, inbox, conversations, recent work, schedule, details, and
@@ -144,8 +187,8 @@ The implementation should use existing ogent primitives whenever possible:
 - Conversation rendering should reuse current Org src/tool block conventions.
 - Tool effects and approval policy stay in =ogent-tool-effects.el= and
   =ogent-tool-approval.el=.
-- Beads/Gas Town integration stays separate from Armory tasks, with links
-  between records when needed.
+- Beads and Gas Town stay as their own operational backends while Armory
+  records expose typed graph attachment points.
 
 * Phases
 
@@ -155,6 +198,8 @@ The implementation should use existing ogent primitives whenever possible:
 - Scaffold armory directories with =index.org=.
 - Write/read =persona.org= agent files.
 - Write/read Org job files.
+- Build a typed graph projection over armory, agent, and job records.
+- Add a Armory status buffer that bridges to Issues and Gas Town.
 - Test that no Markdown files are emitted.
 
 ** Phase 2: Agent Profile Buffers
@@ -189,6 +234,8 @@ The implementation should use existing ogent primitives whenever possible:
   detached automation bridge.
 - Whether the Armory task board should use =magit-section= everywhere or
   =tabulated-list-mode= for dense keyboard sorting.
+- Whether the graph projection should gain an on-disk incremental cache, and
+  which Org edit hooks should feed its change set.
 - Whether org-roam should become the recommended cross-armory index or remain
   optional.
 - Whether imported Armory markdown directories need a one-shot converter.

@@ -32,11 +32,14 @@ Always review the relevant playbook before starting a feature. Each section link
 
 * Org Armory Features
 - Storage helpers live in =lisp/ogent-armory.el=.
-- Agent profile and task-board UI should live under =lisp/ui/= once they become
-  interactive buffers.
+- The graph status surface lives in =lisp/ogent-armory-status.el= and should
+  reuse =ogent-ops-style= plus navigation conventions from Issues and Gas Town.
+- Agent profile and task-board UI should live under =lisp/ui/= once they need
+  richer interaction than the graph status buffer.
 - Durable records must be Org files: =index.org=, =persona.org=, job =.org=
   files, conversation transcript =.org= files.
 - Do not introduce TypeScript, Markdown frontmatter, or a database layer for
   Armory records.
-- Tests belong in =test/ogent-armory-tests.el= for storage contracts and
-  =test/ui/= for interactive buffer behavior.
+- Tests belong in =test/ogent-armory-tests.el= for storage contracts,
+  =test/ogent-armory-status-tests.el= for graph status behavior, and =test/ui/=
+  for richer interactive buffers.
