@@ -40,6 +40,9 @@
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
+;; Declare Cabinet commands (defined in ogent-cabinet-status.el)
+(declare-function ogent-cabinet-status "ogent-cabinet-status")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -168,6 +171,8 @@ Set to nil to disable automatic evil binding setup."
     ;; Gas Town
     (gastown          :key "G" :command ogent-gastown-dispatch
                       :desc "Gas Town menu")
+    (cabinet-status   :key "K" :command ogent-cabinet-status
+                      :desc "Cabinet status")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")

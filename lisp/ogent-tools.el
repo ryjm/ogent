@@ -537,6 +537,11 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                                                     timeout-secs)))
                 (error "Command timed out after %s"
                        (ogent-tools--format-timeout timeout-secs))))
+            ;; Emacs 29 can report process exit before delivering final pipe
+            ;; data to filters.
+            (while (accept-process-output proc 0.01))
+            (when stderr-proc
+              (while (accept-process-output stderr-proc 0.01)))
             (setq exit-code (process-exit-status proc)))
           ;; Collect output
           (setq stdout-text (if (buffer-live-p output-buffer)
