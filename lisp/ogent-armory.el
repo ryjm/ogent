@@ -15,7 +15,7 @@
   "Org-native Armory-style knowledge bases."
   :group 'ogent)
 
-(defcustom ogent-armory-default-agent-provider "default"
+(defcustom ogent-armory-default-agent-provider "codex"
   "Default provider identifier for newly scaffolded agents."
   :type 'string
   :group 'ogent-armory)
@@ -96,6 +96,11 @@ PROPERTIES is an alist of property names to values."
       nil
     (split-string value "[ \t]*,[ \t]*" t)))
 
+(defun ogent-armory--blank-to-nil (value)
+  "Return nil when VALUE is nil or blank."
+  (when (and value (not (string-blank-p value)))
+    value))
+
 (defun ogent-armory--heading-body ()
   "Return the body text under the current Org heading."
   (save-excursion
@@ -146,7 +151,7 @@ PROPERTIES is an alist of property names to values."
                     (ogent-armory-agent-directory directory agent-slug)))
 
 (defun ogent-armory-root-p (directory)
-  "Return non-nil when DIRECTORY contains an Org armory index."
+  "Return non-nil when DIRECTORY has an Org armory index."
   (let ((index (ogent-armory-index-file directory)))
     (and (file-exists-p index)
          (with-temp-buffer
@@ -188,7 +193,8 @@ START defaults to `default-directory'."
               :path file)))))
 
 (defun ogent-armory--format-index (name kind description body tags)
-  "Return an Org index document for a armory."
+  "Return an Org index document for armory NAME.
+KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
   (let ((armory-id (format "%s-%s" (ogent-armory--slug name "armory") kind)))
     (concat
      (format "#+title: %s\n\n" name)
@@ -264,6 +270,9 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
          (role (ogent-armory--agent-plist-value agent :role "Agent"))
          (provider (ogent-armory--agent-plist-value
                     agent :provider ogent-armory-default-agent-provider))
+         (model (ogent-armory--agent-plist-value agent :model nil))
+         (permission-mode (ogent-armory--agent-plist-value
+                           agent :permission-mode nil))
          (heartbeat (ogent-armory--agent-plist-value
                      agent :heartbeat ogent-armory-default-heartbeat))
          (active (ogent-armory--agent-plist-value agent :active t))
@@ -277,6 +286,8 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
         ("OGENT_SLUG" . ,slug)
         ("OGENT_ROLE" . ,role)
         ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_MODEL" . ,model)
+        ("OGENT_PERMISSION_MODE" . ,permission-mode)
         ("OGENT_HEARTBEAT" . ,heartbeat)
         ("OGENT_ACTIVE" . ,active)
         ("OGENT_WORKSPACE" . ,workspace)
@@ -288,7 +299,8 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
 (defun ogent-armory-write-agent (directory agent &optional body)
   "Write AGENT persona under DIRECTORY using BODY as instructions.
 AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
-`:role', `:provider', `:heartbeat', `:active', `:workspace', and `:tags'."
+`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
+`:active', `:workspace', and `:tags'."
   (let* ((slug (ogent-armory--slug
                 (ogent-armory--agent-plist-value agent :slug nil)
                 "agent"))
@@ -312,6 +324,10 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
               :name name
               :role (org-entry-get nil "OGENT_ROLE")
               :provider (org-entry-get nil "OGENT_PROVIDER")
+              :model (ogent-armory--blank-to-nil
+                      (org-entry-get nil "OGENT_MODEL"))
+              :permission-mode (ogent-armory--blank-to-nil
+                                (org-entry-get nil "OGENT_PERMISSION_MODE"))
               :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
               :active (ogent-armory--truth-value
                        (org-entry-get nil "OGENT_ACTIVE"))

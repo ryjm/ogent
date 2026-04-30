@@ -41,7 +41,7 @@ dispatch.
 | Search | Flexsearch index | =consult-ripgrep= / =occur= / =org-ql= style adapters when present |
 | Git history | Node simple-git routes | Magit/VC commands and optional automatic commits |
 | Embedded apps | =index.html= iframe | =browse-url=, =xwidget-webkit=, or =eww= preview from an Org-linked app node |
-| Provider runtime | CLI adapter registry | Existing gptel registry plus optional CLI tool adapters |
+| Provider runtime | CLI adapter registry | Codex and Claude CLI runner adapters plus gptel-backed interactive dispatch |
 
 * Org Storage Contract
 
@@ -95,7 +95,9 @@ instructions:
 :OGENT_AGENT: t
 :OGENT_SLUG: cto
 :OGENT_ROLE: Architecture
-:OGENT_PROVIDER: codex-cli
+:OGENT_PROVIDER: codex
+:OGENT_MODEL: gpt-5.4
+:OGENT_PERMISSION_MODE:
 :OGENT_HEARTBEAT: 0 9 * * 1-5
 :OGENT_ACTIVE: t
 :OGENT_WORKSPACE: engineering
@@ -123,6 +125,27 @@ Keep the technical plan brutally clear.
 
 Review recent Org pages and file a summary.
 #+end_src
+
+** Running Agents
+
+=ogent-armory-runner.el= turns persona and job records into concrete CLI
+process plans:
+
+- =OGENT_PROVIDER= selects the runner. Supported values normalize to =codex=
+  or =claude=.
+- Codex agents run through =codex exec= with the prompt on stdin and inherit the
+  local =codex login= session. Armory runs pass =--skip-git-repo-check= by
+  default because a knowledge root may not be a git checkout.
+- Claude agents run through =claude -p= and inherit the local Claude Code
+  first-party login.
+- =OGENT_MODEL= passes a model override to the selected CLI when present.
+- =OGENT_PERMISSION_MODE= passes the Claude Code permission mode when present.
+- =OGENT_WORKSPACE= chooses the process working directory relative to the
+  armory root, or an absolute directory.
+
+Every manual run and job run writes an Org transcript under
+=.agents/<slug>/sessions/=. The transcript stores provider, job, workspace,
+exit status, prompt, stdout, and stderr in property drawers and src blocks.
 
 * Graph and Projection Model
 
@@ -168,7 +191,8 @@ The first Emacs surfaces should be boring and powerful:
 
 - =ogent-armory-scaffold= creates an Org-backed armory directory.
 - =ogent-armory-status= shows the derived Armory graph and operational
-  bridges to Issues and Gas Town.
+  bridges to Issues and Gas Town. Press =R= on an agent or job to run it through
+  the selected CLI provider.
 - =ogent-armory-agents= should show personas in a tabulated buffer.
 - =ogent-armory-agent= should open a single agent profile buffer with sections
   for composer, inbox, conversations, recent work, schedule, details, and
@@ -208,6 +232,8 @@ The implementation should use existing ogent primitives whenever possible:
 - Add commands to edit identity fields via Org property drawers.
 - Add a composer entry point that dispatches through current ogent request
   machinery.
+- Run agents and jobs through Codex or Claude CLI providers from the status
+  buffer.
 
 ** Phase 3: Conversation Store
 

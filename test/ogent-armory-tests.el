@@ -68,6 +68,8 @@
        :name "CTO"
        :role "Architecture"
        :provider "codex-cli"
+       :model "gpt-5.4"
+       :permission-mode "default"
        :heartbeat "0 9 * * 1-5"
        :active t
        :workspace "engineering"
@@ -78,6 +80,8 @@
       (should (equal (plist-get agent :name) "CTO"))
       (should (equal (plist-get agent :role) "Architecture"))
       (should (equal (plist-get agent :provider) "codex-cli"))
+      (should (equal (plist-get agent :model) "gpt-5.4"))
+      (should (equal (plist-get agent :permission-mode) "default"))
       (should (equal (plist-get agent :heartbeat) "0 9 * * 1-5"))
       (should (eq (plist-get agent :active) t))
       (should (equal (plist-get agent :workspace) "engineering"))

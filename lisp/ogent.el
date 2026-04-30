@@ -77,7 +77,7 @@
           (default-value 'org-capture-templates-contexts))))
 
 (defun ogent--with-org-capture-templates-contexts (fn &rest args)
-  "Call FN with `org-capture-templates-contexts' safely bound."
+  "Call FN with ARGS and `org-capture-templates-contexts' safely bound."
   (ogent--ensure-org-capture-templates-contexts)
   (let ((org-capture-templates-contexts
          (if (boundp 'org-capture-templates-contexts)
@@ -120,6 +120,7 @@
 (require 'ogent-completions)
 (require 'ogent-mcp)
 (require 'ogent-armory)
+(require 'ogent-armory-runner)
 (require 'ogent-armory-status)
 (require 'ogent-gastown)
 (require 'ogent-presets)
