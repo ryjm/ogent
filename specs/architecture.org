@@ -87,6 +87,9 @@ frontmatter:
   =contains= and =owns=
 - =ogent-cabinet-status= renders that graph as the Cabinet operational entry
   point and links into =ogent-issues= and =ogent-gastown-status=
+- =ogent-cabinet-runner= executes agents and jobs through local Codex or Claude
+  CLI subscriptions, then persists each run as an Org transcript under the
+  agent's session directory
 
 See [[file:cabinet-org-os.org][Org Cabinet Integration]] for the full mapping from
 Cabinet's repository architecture to ogent's Emacs/Org architecture.

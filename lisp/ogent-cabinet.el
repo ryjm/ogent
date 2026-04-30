@@ -15,7 +15,7 @@
   "Org-native Cabinet-style knowledge bases."
   :group 'ogent)
 
-(defcustom ogent-cabinet-default-agent-provider "default"
+(defcustom ogent-cabinet-default-agent-provider "codex"
   "Default provider identifier for newly scaffolded agents."
   :type 'string
   :group 'ogent-cabinet)
@@ -96,6 +96,11 @@ PROPERTIES is an alist of property names to values."
       nil
     (split-string value "[ \t]*,[ \t]*" t)))
 
+(defun ogent-cabinet--blank-to-nil (value)
+  "Return nil when VALUE is nil or blank."
+  (when (and value (not (string-blank-p value)))
+    value))
+
 (defun ogent-cabinet--heading-body ()
   "Return the body text under the current Org heading."
   (save-excursion
@@ -146,7 +151,7 @@ PROPERTIES is an alist of property names to values."
                     (ogent-cabinet-agent-directory directory agent-slug)))
 
 (defun ogent-cabinet-root-p (directory)
-  "Return non-nil when DIRECTORY contains an Org cabinet index."
+  "Return non-nil when DIRECTORY has an Org cabinet index."
   (let ((index (ogent-cabinet-index-file directory)))
     (and (file-exists-p index)
          (with-temp-buffer
@@ -188,7 +193,8 @@ START defaults to `default-directory'."
               :path file)))))
 
 (defun ogent-cabinet--format-index (name kind description body tags)
-  "Return an Org index document for a cabinet."
+  "Return an Org index document for cabinet NAME.
+KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
   (let ((cabinet-id (format "%s-%s" (ogent-cabinet--slug name "cabinet") kind)))
     (concat
      (format "#+title: %s\n\n" name)
@@ -264,6 +270,9 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
          (role (ogent-cabinet--agent-plist-value agent :role "Agent"))
          (provider (ogent-cabinet--agent-plist-value
                     agent :provider ogent-cabinet-default-agent-provider))
+         (model (ogent-cabinet--agent-plist-value agent :model nil))
+         (permission-mode (ogent-cabinet--agent-plist-value
+                           agent :permission-mode nil))
          (heartbeat (ogent-cabinet--agent-plist-value
                      agent :heartbeat ogent-cabinet-default-heartbeat))
          (active (ogent-cabinet--agent-plist-value agent :active t))
@@ -277,6 +286,8 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
         ("OGENT_SLUG" . ,slug)
         ("OGENT_ROLE" . ,role)
         ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_MODEL" . ,model)
+        ("OGENT_PERMISSION_MODE" . ,permission-mode)
         ("OGENT_HEARTBEAT" . ,heartbeat)
         ("OGENT_ACTIVE" . ,active)
         ("OGENT_WORKSPACE" . ,workspace)
@@ -288,7 +299,8 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
 (defun ogent-cabinet-write-agent (directory agent &optional body)
   "Write AGENT persona under DIRECTORY using BODY as instructions.
 AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
-`:role', `:provider', `:heartbeat', `:active', `:workspace', and `:tags'."
+`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
+`:active', `:workspace', and `:tags'."
   (let* ((slug (ogent-cabinet--slug
                 (ogent-cabinet--agent-plist-value agent :slug nil)
                 "agent"))
@@ -312,6 +324,10 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
               :name name
               :role (org-entry-get nil "OGENT_ROLE")
               :provider (org-entry-get nil "OGENT_PROVIDER")
+              :model (ogent-cabinet--blank-to-nil
+                      (org-entry-get nil "OGENT_MODEL"))
+              :permission-mode (ogent-cabinet--blank-to-nil
+                                (org-entry-get nil "OGENT_PERMISSION_MODE"))
               :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
               :active (ogent-cabinet--truth-value
                        (org-entry-get nil "OGENT_ACTIVE"))

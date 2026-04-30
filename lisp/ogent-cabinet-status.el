@@ -10,6 +10,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-runner)
 (require 'ogent-ops-style)
 
 (autoload 'ogent-issues "ogent-issues" nil t)
@@ -85,6 +86,7 @@
     (define-key map "p" #'ogent-cabinet-status-previous-item)
     (define-key map "i" #'ogent-cabinet-status-open-issues)
     (define-key map "G" #'ogent-cabinet-status-open-gastown)
+    (define-key map "R" #'ogent-cabinet-status-run)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-cabinet-status-mode'.")
@@ -149,7 +151,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
   (concat
-   "g refresh  RET visit  n/p move  i issues  G gastown  q quit"
+   "g refresh  RET visit  n/p move  i issues  G gastown  R run  q quit"
    (when ogent-cabinet-status--root
      (concat "    "
              (propertize
@@ -229,12 +231,18 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                           (ogent-cabinet-status--node-by-id
                            (plist-get edge :to)))
                         (ogent-cabinet-status--edges-from id 'owns)))
-                 (status (if (plist-get data :active) 'active 'idle)))
+                 (provider (or (plist-get data :provider) "codex"))
+                 (status (cond
+                          ((ogent-cabinet-runner-running-p
+                            (plist-get data :slug))
+                           'working)
+                          ((plist-get data :active) 'active)
+                          (t 'idle))))
             (ogent-cabinet-status--insert-node-line
              agent
-             (format "%s %s  %s  %s"
+             (format "%s %s  %s  %s  %s"
                      (propertize (ogent-ops-activity-symbol status)
-                                 'face (if (eq status 'active)
+                                 'face (if (memq status '(active working))
                                            'ogent-cabinet-status-connected
                                          'ogent-cabinet-status-disconnected))
                      (propertize (plist-get agent :label)
@@ -242,6 +250,8 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                      (propertize
                       (or (plist-get data :role) "Agent")
                       'face 'ogent-cabinet-status-dimmed)
+                     (propertize provider
+                                 'face 'ogent-cabinet-status-dimmed)
                      (propertize
                       (format "%d jobs" (length jobs))
                       'face 'ogent-cabinet-status-dimmed)))
@@ -371,6 +381,26 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (interactive)
   (let ((default-directory (or ogent-cabinet-status--root default-directory)))
     (call-interactively #'ogent-gastown-status)))
+
+(defun ogent-cabinet-status-run ()
+  "Run the Cabinet agent or job at point."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--node-at-point))
+         (kind (plist-get node :kind))
+         (data (plist-get node :data)))
+    (pcase kind
+      ('agent
+       (ogent-cabinet-run-agent
+        ogent-cabinet-status--root
+        (plist-get data :slug)
+        (read-string "Instruction: ")))
+      ('job
+       (ogent-cabinet-run-job
+        ogent-cabinet-status--root
+        (plist-get data :agent)
+        (plist-get data :id)))
+      (_
+       (user-error "No runnable Cabinet agent or job at point")))))
 
 (defun ogent-cabinet-status-next-item ()
   "Move point to the next Cabinet record line."
