@@ -418,7 +418,11 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
   "Return a typed graph projection for the Org armory under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
 status buffers, future incremental indexes, and automation planners."
-  (let* ((root (file-truename (ogent-armory--directory directory)))
+  (let* ((candidate (ogent-armory--directory directory))
+         (root (file-truename
+                (ogent-armory--directory
+                 (or (ogent-armory-find-root candidate)
+                     candidate))))
          (index (ogent-armory-read-index root))
          (armory-id "armory:.")
          (nodes (list (ogent-armory--graph-node
