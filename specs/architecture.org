@@ -73,6 +73,19 @@ The ledger is intentionally explicit:
 
 This gives ogent a replayable audit trail without hidden memory.
 
+*** Org Cabinet Layer
+Cabinet-style knowledge-base and AI-team features live behind an Org storage
+contract. The durable records are Org files, not JSON databases or Markdown
+frontmatter:
+- cabinet roots use =index.org= with =OGENT_CABINET= properties
+- agents use =.agents/<slug>/persona.org=
+- recurring jobs use =.agents/<slug>/jobs/<job-id>.org=
+- conversations should use Org transcript files with the same src/tool block
+  conventions as normal ogent requests
+
+See [[file:cabinet-org-os.org][Org Cabinet Integration]] for the full mapping from
+Cabinet's repository architecture to ogent's Emacs/Org architecture.
+
 *** Tool Effects
 Every tool spec should declare =:effects=. Effects are plists with:
 - =:kind= such as =read=, =write=, =execute=, =network=, =git=,
