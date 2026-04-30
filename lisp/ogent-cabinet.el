@@ -140,6 +140,11 @@ PROPERTIES is an alist of property names to values."
    (expand-file-name "jobs"
                      (ogent-cabinet-agent-directory directory agent-slug))))
 
+(defun ogent-cabinet-jobs-directory (directory agent-slug)
+  "Return the jobs directory for AGENT-SLUG under DIRECTORY."
+  (expand-file-name "jobs"
+                    (ogent-cabinet-agent-directory directory agent-slug)))
+
 (defun ogent-cabinet-root-p (directory)
   "Return non-nil when DIRECTORY contains an Org cabinet index."
   (let ((index (ogent-cabinet-index-file directory)))
@@ -163,6 +168,24 @@ START defaults to `default-directory'."
                     parent))))
     (when found
       (directory-file-name found))))
+
+(defun ogent-cabinet-read-index (directory)
+  "Read the cabinet index under DIRECTORY and return a plist."
+  (let ((file (ogent-cabinet-index-file directory)))
+    (unless (file-readable-p file)
+      (user-error "Cabinet index not found: %s" file))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (org-mode)
+      (let ((name (ogent-cabinet--first-heading-title)))
+        (list :id (or (org-entry-get nil "OGENT_CABINET_ID") "cabinet")
+              :name name
+              :kind (org-entry-get nil "OGENT_KIND")
+              :description (org-entry-get nil "OGENT_DESCRIPTION")
+              :tags (ogent-cabinet--tags-from-string
+                     (org-entry-get nil "OGENT_TAGS"))
+              :body (ogent-cabinet--heading-body)
+              :path file)))))
 
 (defun ogent-cabinet--format-index (name kind description body tags)
   "Return an Org index document for a cabinet."
@@ -310,6 +333,24 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
                 (ogent-cabinet-agent-file directory name))))
         (directory-files agents-dir nil directory-files-no-dot-files-regexp))))))
 
+(defun ogent-cabinet-list-jobs (directory agent-slug)
+  "Return jobs owned by AGENT-SLUG under DIRECTORY."
+  (let ((jobs-dir (ogent-cabinet-jobs-directory directory agent-slug)))
+    (when (file-directory-p jobs-dir)
+      (seq-sort-by
+       (lambda (job)
+         (or (plist-get job :id) ""))
+       #'string<
+       (delq
+        nil
+        (mapcar
+         (lambda (file)
+           (when (and (file-regular-p file)
+                      (string-equal (file-name-extension file) "org"))
+             (ogent-cabinet-read-job directory agent-slug
+                                     (file-name-base file))))
+         (directory-files jobs-dir t "\\.org\\'")))))))
+
 (defun ogent-cabinet--format-job (agent-slug job body)
   "Return JOB and BODY formatted as an Org task file for AGENT-SLUG."
   (let* ((id (ogent-cabinet--slug (plist-get job :id) "job"))
@@ -357,6 +398,63 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
               :enabled (ogent-cabinet--truth-value
                         (org-entry-get nil "OGENT_ENABLED"))
               :body (ogent-cabinet--heading-body))))))
+
+(defun ogent-cabinet--graph-node (id kind label path data)
+  "Return a graph node plist for ID, KIND, LABEL, PATH, and DATA."
+  (list :id id
+        :kind kind
+        :label label
+        :path path
+        :data data))
+
+(defun ogent-cabinet--graph-edge (from to kind &optional data)
+  "Return a graph edge plist from FROM to TO with KIND and DATA."
+  (let ((edge (list :from from :to to :kind kind)))
+    (if data
+        (plist-put edge :data data)
+      edge)))
+
+(defun ogent-cabinet-build-graph (directory)
+  "Return a typed graph projection for the Org cabinet under DIRECTORY.
+The returned plist has `:nodes' and `:edges' collections suitable for
+status buffers, future incremental indexes, and automation planners."
+  (let* ((root (file-truename (ogent-cabinet--directory directory)))
+         (index (ogent-cabinet-read-index root))
+         (cabinet-id "cabinet:.")
+         (nodes (list (ogent-cabinet--graph-node
+                       cabinet-id
+                       'cabinet
+                       (plist-get index :name)
+                       (plist-get index :path)
+                       index)))
+         (edges nil))
+    (dolist (slug (ogent-cabinet-list-agents root))
+      (let* ((agent (ogent-cabinet-read-agent root slug))
+             (agent-id (format "agent:%s" slug)))
+        (push (ogent-cabinet--graph-node
+               agent-id
+               'agent
+               (or (plist-get agent :name) slug)
+               (ogent-cabinet-agent-file root slug)
+               agent)
+              nodes)
+        (push (ogent-cabinet--graph-edge cabinet-id agent-id 'contains)
+              edges)
+        (dolist (job (ogent-cabinet-list-jobs root slug))
+          (let* ((job-id (plist-get job :id))
+                 (node-id (format "job:%s/%s" slug job-id)))
+            (push (ogent-cabinet--graph-node
+                   node-id
+                   'job
+                   (or (plist-get job :name) job-id)
+                   (ogent-cabinet-job-file root slug job-id)
+                   job)
+                  nodes)
+            (push (ogent-cabinet--graph-edge agent-id node-id 'owns)
+                  edges)))))
+    (list :root (directory-file-name root)
+          :nodes (nreverse nodes)
+          :edges (nreverse edges))))
 
 (provide 'ogent-cabinet)
 

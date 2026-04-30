@@ -112,6 +112,42 @@
     (should (file-exists-p
              (expand-file-name ".agents/editor/jobs/weekly-review.org" dir)))))
 
+(ert-deftest ogent-cabinet-build-graph-connects-cabinet-agents-and-jobs ()
+  "The cabinet graph connects cabinet, agent, and job records."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-cabinet-write-job
+     dir "cto"
+     '(:id "weekly-review" :name "Weekly Review" :cron "0 9 * * 1")
+     "Review architecture notes.")
+    (let* ((graph (ogent-cabinet-build-graph dir))
+           (nodes (plist-get graph :nodes))
+           (edges (plist-get graph :edges)))
+      (should (equal (plist-get graph :root) (file-truename dir)))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "cabinet:."))
+                        nodes))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "agent:cto"))
+                        nodes))
+      (should (seq-find (lambda (node)
+                          (equal (plist-get node :id) "job:cto/weekly-review"))
+                        nodes))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "cabinet:.")
+                               (equal (plist-get edge :to) "agent:cto")
+                               (eq (plist-get edge :kind) 'contains)))
+                        edges))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "agent:cto")
+                               (equal (plist-get edge :to) "job:cto/weekly-review")
+                               (eq (plist-get edge :kind) 'owns)))
+                        edges)))))
+
 (provide 'ogent-cabinet-tests)
 
 ;;; ogent-cabinet-tests.el ends here

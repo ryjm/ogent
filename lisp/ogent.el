@@ -120,6 +120,7 @@
 (require 'ogent-completions)
 (require 'ogent-mcp)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-status)
 (require 'ogent-gastown)
 (require 'ogent-presets)
 (require 'ogent-analytics)
