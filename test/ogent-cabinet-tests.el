@@ -124,7 +124,9 @@
      dir "cto"
      '(:id "weekly-review" :name "Weekly Review" :cron "0 9 * * 1")
      "Review architecture notes.")
-    (let* ((graph (ogent-cabinet-build-graph dir))
+    (let* ((nested (expand-file-name "work/planning" dir))
+           (_ (make-directory nested t))
+           (graph (ogent-cabinet-build-graph nested))
            (nodes (plist-get graph :nodes))
            (edges (plist-get graph :edges)))
       (should (equal (plist-get graph :root) (file-truename dir)))

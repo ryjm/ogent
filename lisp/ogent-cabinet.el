@@ -418,7 +418,11 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
   "Return a typed graph projection for the Org cabinet under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
 status buffers, future incremental indexes, and automation planners."
-  (let* ((root (file-truename (ogent-cabinet--directory directory)))
+  (let* ((candidate (ogent-cabinet--directory directory))
+         (root (file-truename
+                (ogent-cabinet--directory
+                 (or (ogent-cabinet-find-root candidate)
+                     candidate))))
          (index (ogent-cabinet-read-index root))
          (cabinet-id "cabinet:.")
          (nodes (list (ogent-cabinet--graph-node
