@@ -26,6 +26,78 @@
   (should (featurep 'ogent-anthropic-oauth))
   (should (featurep 'ogent-codex-oauth)))
 
+(ert-deftest ogent-org-capture-contexts-compat-defines-missing-var ()
+  "Compatibility guard defines missing Org capture contexts variable."
+  (let ((was-bound (boundp 'org-capture-templates-contexts))
+        (old-value (and (boundp 'org-capture-templates-contexts)
+                        org-capture-templates-contexts)))
+    (unwind-protect
+        (progn
+          (makunbound 'org-capture-templates-contexts)
+          (ogent--ensure-org-capture-templates-contexts)
+          (should (boundp 'org-capture-templates-contexts))
+          (should (null org-capture-templates-contexts)))
+      (if was-bound
+          (setq org-capture-templates-contexts old-value)
+        (makunbound 'org-capture-templates-contexts)))))
+
+(ert-deftest ogent-org-capture-contexts-compat-preserves-existing-var ()
+  "Compatibility guard preserves an existing Org capture contexts value."
+  (let ((was-bound (boundp 'org-capture-templates-contexts))
+        (old-value (and (boundp 'org-capture-templates-contexts)
+                        org-capture-templates-contexts))
+        (expected '(("x" ((in-mode . "org-mode"))))))
+    (unwind-protect
+        (progn
+          (set 'org-capture-templates-contexts expected)
+          (ogent--ensure-org-capture-templates-contexts)
+          (should (equal org-capture-templates-contexts expected)))
+      (if was-bound
+          (setq org-capture-templates-contexts old-value)
+        (makunbound 'org-capture-templates-contexts)))))
+
+(ert-deftest ogent-org-capture-contexts-compat-advises-template-selection ()
+  "Compatibility guard wraps Org capture template selection."
+  (require 'org-capture)
+  (should (advice-member-p #'ogent--with-org-capture-templates-contexts
+                           'org-capture-select-template)))
+
+(ert-deftest ogent-org-capture-contexts-compat-wraps-capture-commands ()
+  "Compatibility guard wraps Org capture commands that select templates."
+  (require 'org-capture)
+  (dolist (command '(org-capture
+                     org-capture-goto-target
+                     org-capture-select-template))
+    (should (advice-member-p #'ogent--with-org-capture-templates-contexts
+                             command))))
+
+(ert-deftest ogent-org-capture-contexts-compat-recovers-goto-target ()
+  "Org capture target navigation recovers from a missing contexts variable."
+  (require 'org-capture)
+  (let ((test-file (make-temp-file "ogent-capture-target" nil ".org"))
+        (was-bound (boundp 'org-capture-templates-contexts))
+        (old-value (and (boundp 'org-capture-templates-contexts)
+                        org-capture-templates-contexts)))
+    (unwind-protect
+        (let ((org-capture-templates
+               (list (list "x" "Compat test" 'entry
+                           (list 'file+headline test-file "Inbox")
+                           "* %?"))))
+          (with-temp-file test-file
+            (insert "* Inbox\n"))
+          (makunbound 'org-capture-templates-contexts)
+          (save-window-excursion
+            (org-capture-goto-target "x"))
+          (should (boundp 'org-capture-templates-contexts))
+          (should (null org-capture-templates-contexts)))
+      (when (get-file-buffer test-file)
+        (kill-buffer (get-file-buffer test-file)))
+      (when (file-exists-p test-file)
+        (delete-file test-file))
+      (if was-bound
+          (setq org-capture-templates-contexts old-value)
+        (makunbound 'org-capture-templates-contexts)))))
+
 ;;; Mode Tests
 
 (ert-deftest ogent-mode-defined ()
