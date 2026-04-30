@@ -119,6 +119,7 @@
 (require 'ogent-codex-oauth)
 (require 'ogent-completions)
 (require 'ogent-mcp)
+(require 'ogent-armory)
 (require 'ogent-gastown)
 (require 'ogent-presets)
 (require 'ogent-analytics)

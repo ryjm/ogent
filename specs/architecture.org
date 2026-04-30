@@ -73,6 +73,19 @@ The ledger is intentionally explicit:
 
 This gives ogent a replayable audit trail without hidden memory.
 
+*** Org Armory Layer
+Armory-style knowledge-base and AI-team features live behind an Org storage
+contract. The durable records are Org files, not JSON databases or Markdown
+frontmatter:
+- armory roots use =index.org= with =OGENT_ARMORY= properties
+- agents use =.agents/<slug>/persona.org=
+- recurring jobs use =.agents/<slug>/jobs/<job-id>.org=
+- conversations should use Org transcript files with the same src/tool block
+  conventions as normal ogent requests
+
+See [[file:armory-org-os.org][Org Armory Integration]] for the full mapping from
+Armory's repository architecture to ogent's Emacs/Org architecture.
+
 *** Tool Effects
 Every tool spec should declare =:effects=. Effects are plists with:
 - =:kind= such as =read=, =write=, =execute=, =network=, =git=,

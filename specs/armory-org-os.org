@@ -1,0 +1,194 @@
+#+title: Org Armory Integration
+
+* Intent
+
+ogent should keep its current identity as an Org-first LLM exoskeleton and gain
+the useful Armory product layer: local knowledge base, AI team, durable
+conversations, recurring jobs, task board, search, git history, and embedded
+apps.
+
+The port is not a TypeScript or Markdown migration. The durable format is Org.
+The frontend is Emacs. The runtime surface is Elisp commands, Org buffers,
+agenda/search buffers, magit-section style dashboards, and gptel-backed model
+dispatch.
+
+* Sources Reviewed
+
+- Armory repository: https://github.com/hilash/armory
+- Armory docs reviewed locally after cloning: =README.md=, =docs/PRD.md=,
+  =docs/TASKS_CONVERSATIONS_PRD.md=, =docs/AGENT_PAGE_PRD.md=,
+  =docs/TASK_BOARD_PRD.md=, =docs/SIDEBAR.md=, =docs/PROVIDER-CLI.md=,
+  =docs/EDITOR.md=
+- Org manual references:
+  - https://orgmode.org/manual/Agenda-Views.html
+  - https://orgmode.org/manual/Hyperlinks.html
+  - https://orgmode.org/org.html#Properties-and-Columns
+
+* Architectural Translation
+
+| Armory concept | Armory implementation | ogent implementation |
+|-----------------+------------------------+----------------------|
+| Knowledge pages | Markdown files with frontmatter | Org files and subtrees with property drawers |
+| Page editor | Tiptap in React | Org buffers, narrowing, sparse trees, capture, refiling |
+| Sidebar tree | React file tree | Emacs tree/tabulated buffer over armory roots |
+| Agents | =persona.md= plus jobs and memory dirs | =persona.org= plus Org job and memory files |
+| Conversations | Markdown prompt/transcript plus JSON metadata | Org transcript files using headings, src blocks, tool blocks, and properties |
+| Tasks board | React kanban over conversation/task state | Magit-section or tabulated-list board over Org task/conversation properties |
+| Scheduler | node-cron daemon | Emacs timers for interactive mode; cron/automation integration for detached runs |
+| Search | Flexsearch index | =consult-ripgrep= / =occur= / =org-ql= style adapters when present |
+| Git history | Node simple-git routes | Magit/VC commands and optional automatic commits |
+| Embedded apps | =index.html= iframe | =browse-url=, =xwidget-webkit=, or =eww= preview from an Org-linked app node |
+| Provider runtime | CLI adapter registry | Existing gptel registry plus optional CLI tool adapters |
+
+* Org Storage Contract
+
+All new Armory-style records use Org:
+
+#+begin_example
+armory-root/
+  index.org
+  .agents/
+    .conversations/
+    editor/
+      persona.org
+      jobs/
+        weekly-review.org
+      memory/
+        context.org
+        decisions.org
+        learnings.org
+      sessions/
+  .jobs/
+  .armory-state/
+#+end_example
+
+** Armory Index
+
+=index.org= marks a armory root:
+
+#+begin_src org
+#+title: Acme Research
+
+* Acme Research
+:PROPERTIES:
+:OGENT_ARMORY: t
+:OGENT_ARMORY_ID: acme-research-root
+:OGENT_KIND: root
+:OGENT_DESCRIPTION: Research lab
+:OGENT_TAGS: ai, ops
+:END:
+#+end_src
+
+** Agent Persona
+
+=.agents/<slug>/persona.org= is the source of truth for identity and durable
+instructions:
+
+#+begin_src org
+#+title: CTO
+
+* CTO
+:PROPERTIES:
+:OGENT_AGENT: t
+:OGENT_SLUG: cto
+:OGENT_ROLE: Architecture
+:OGENT_PROVIDER: codex-cli
+:OGENT_HEARTBEAT: 0 9 * * 1-5
+:OGENT_ACTIVE: t
+:OGENT_WORKSPACE: engineering
+:OGENT_TAGS: engineering, strategy
+:END:
+
+Keep the technical plan brutally clear.
+#+end_src
+
+** Agent Job
+
+=.agents/<slug>/jobs/<job-id>.org= stores a recurring prompt as an Org task:
+
+#+begin_src org
+#+title: Weekly Review
+
+* TODO Weekly Review
+:PROPERTIES:
+:OGENT_JOB: t
+:OGENT_JOB_ID: weekly-review
+:OGENT_AGENT: editor
+:OGENT_CRON: 0 9 * * 1
+:OGENT_ENABLED: t
+:END:
+
+Review recent Org pages and file a summary.
+#+end_src
+
+* UI Contract
+
+The first Emacs surfaces should be boring and powerful:
+
+- =ogent-armory-scaffold= creates an Org-backed armory directory.
+- =ogent-armory-agents= should show personas in a tabulated buffer.
+- =ogent-armory-agent= should open a single agent profile buffer with sections
+  for composer, inbox, conversations, recent work, schedule, details, and
+  persona instructions.
+- =ogent-armory-tasks= should show attention-first lanes: Inbox, Needs Reply,
+  Running, Just Finished, Archive.
+- =ogent-armory-search= should search armory Org files and conversation
+  transcripts.
+- =ogent-armory-open-app= should open =index.html= artifacts referenced from
+  Org nodes.
+
+The implementation should use existing ogent primitives whenever possible:
+
+- Context building stays in =ogent-context.el=.
+- Model selection stays in =ogent-models.el= and gptel integration.
+- Conversation rendering should reuse current Org src/tool block conventions.
+- Tool effects and approval policy stay in =ogent-tool-effects.el= and
+  =ogent-tool-approval.el=.
+- Beads/Gas Town integration stays separate from Armory tasks, with links
+  between records when needed.
+
+* Phases
+
+** Phase 1: Org Storage Foundation
+
+- Add =ogent-armory.el=.
+- Scaffold armory directories with =index.org=.
+- Write/read =persona.org= agent files.
+- Write/read Org job files.
+- Test that no Markdown files are emitted.
+
+** Phase 2: Agent Profile Buffers
+
+- Add a read-only profile buffer for one agent.
+- Add commands to edit identity fields via Org property drawers.
+- Add a composer entry point that dispatches through current ogent request
+  machinery.
+
+** Phase 3: Conversation Store
+
+- Store every manual run, job run, and heartbeat run as one Org conversation
+  file with metadata properties.
+- Preserve current response src block and tool block rendering.
+- Add resume metadata without provider-specific sidecars.
+
+** Phase 4: Schedule and Task Board
+
+- Add agenda-compatible views for enabled jobs and recent conversations.
+- Add a magit-section attention board with the Armory lanes.
+- Add retry/resume/archive commands over Org metadata.
+
+** Phase 5: Search, Git, Apps
+
+- Add armory-scoped search commands.
+- Add optional Magit/VC history commands for changed Org files.
+- Add app artifact preview commands for directories with =index.html=.
+
+* Open Decisions
+
+- Whether cron execution should live only in Emacs timers or also expose a
+  detached automation bridge.
+- Whether the Armory task board should use =magit-section= everywhere or
+  =tabulated-list-mode= for dense keyboard sorting.
+- Whether org-roam should become the recommended cross-armory index or remain
+  optional.
+- Whether imported Armory markdown directories need a one-shot converter.
