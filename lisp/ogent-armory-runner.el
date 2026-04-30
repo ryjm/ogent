@@ -1,0 +1,442 @@
+;;; ogent-armory-runner.el --- Run Org armory agents via local CLIs -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Runs Armory agents through locally authenticated coding CLIs.  The runner
+;; plans commands from Org persona and job records, starts the process, and
+;; stores the resulting transcript back into the agent's Org session directory.
+
+;;; Code:
+
+(require 'cl-lib)
+(require 'json)
+(require 'org)
+(require 'subr-x)
+(require 'ogent-armory)
+
+(defgroup ogent-armory-runner nil
+  "Run Org Armory agents through subscription-authenticated CLIs."
+  :group 'ogent-armory
+  :prefix "ogent-armory-runner-")
+
+(defcustom ogent-armory-codex-executable "codex"
+  "Executable used for Codex CLI agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-claude-executable "claude"
+  "Executable used for Claude Code agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-confirm-before-run t
+  "When non-nil, ask before starting a CLI agent from an interactive command."
+  :type 'boolean
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-codex-sandbox "workspace-write"
+  "Sandbox mode passed to `codex exec'."
+  :type '(choice (const "read-only")
+                 (const "workspace-write")
+                 (const "danger-full-access"))
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-codex-approval "on-request"
+  "Approval policy passed to the Codex CLI."
+  :type '(choice (const "untrusted")
+                 (const "on-request")
+                 (const "never"))
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-codex-skip-git-repo-check t
+  "When non-nil, pass `--skip-git-repo-check' to `codex exec'."
+  :type 'boolean
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-claude-permission-mode "default"
+  "Permission mode passed to Claude Code."
+  :type '(choice (const "default")
+                 (const "plan")
+                 (const "acceptEdits")
+                 (const "auto")
+                 (const "bypassPermissions")
+                 (const "dontAsk"))
+  :group 'ogent-armory-runner)
+
+(defvar ogent-armory-runner--processes nil
+  "Active Armory runner processes.")
+
+(defun ogent-armory-runner-running-p (agent-slug)
+  "Return non-nil when AGENT-SLUG has a live Armory runner process."
+  (cl-some
+   (lambda (process)
+     (let* ((plan (process-get process 'ogent-armory-plan))
+            (agent (plist-get plan :agent)))
+       (and (process-live-p process)
+            (equal (plist-get agent :slug) agent-slug))))
+   ogent-armory-runner--processes))
+
+(defun ogent-armory-runner--blank-to-nil (value)
+  "Return nil when VALUE is nil or blank."
+  (when (and value (not (string-blank-p value)))
+    value))
+
+(defun ogent-armory-runner-normalize-provider (provider)
+  "Return canonical provider symbol for PROVIDER."
+  (let ((value (downcase (string-trim (format "%s" (or provider "codex"))))))
+    (cond
+     ((member value '("" "default" "codex" "codex-cli" "openai-codex"))
+      'codex)
+     ((member value '("claude" "claude-code" "anthropic" "anthropic-claude"))
+      'claude)
+     (t (intern value)))))
+
+(defun ogent-armory-runner--workspace (root agent)
+  "Return the workspace path for AGENT under ROOT."
+  (let ((workspace (ogent-armory-runner--blank-to-nil
+                    (plist-get agent :workspace))))
+    (file-name-as-directory
+     (file-truename
+      (cond
+       ((or (null workspace) (equal workspace "/")) root)
+       ((file-name-absolute-p workspace) workspace)
+       (t (expand-file-name workspace root)))))))
+
+(defun ogent-armory-runner--session-file (root agent-slug &optional job-id)
+  "Return a fresh session file under ROOT for AGENT-SLUG and JOB-ID."
+  (let* ((timestamp (format-time-string "%Y%m%dT%H%M%S"))
+         (name (if job-id
+                   (format "%s-%s.org" timestamp job-id)
+                 (format "%s-run.org" timestamp)))
+         (file (expand-file-name
+                name
+                (expand-file-name "sessions"
+                                  (ogent-armory-agent-directory
+                                   root agent-slug)))))
+    (make-directory (file-name-directory file) t)
+    file))
+
+(defun ogent-armory-runner--prompt (agent &optional job instruction)
+  "Return a CLI prompt from AGENT, optional JOB, and INSTRUCTION."
+  (string-join
+   (delq
+    nil
+    (list
+     (format "You are the Org Armory agent named %s."
+             (or (plist-get agent :name) (plist-get agent :slug) "agent"))
+     (when-let ((role (ogent-armory-runner--blank-to-nil
+                       (plist-get agent :role))))
+       (format "Role: %s" role))
+     (when-let ((body (ogent-armory-runner--blank-to-nil
+                       (plist-get agent :body))))
+       (format "Persona instructions:\n%s" body))
+     (when job
+       (format "Run this Armory job: %s."
+               (or (plist-get job :name) (plist-get job :id))))
+     (when-let ((job-body (and job
+                               (ogent-armory-runner--blank-to-nil
+                                (plist-get job :body)))))
+       (format "Job instructions:\n%s" job-body))
+     (when-let ((user-instruction
+                 (ogent-armory-runner--blank-to-nil instruction)))
+       (format "User instruction:\n%s" user-instruction))))
+   "\n\n"))
+
+(defun ogent-armory-runner--append-option (args option value)
+  "Append OPTION and VALUE to ARGS when VALUE is nonblank."
+  (if (ogent-armory-runner--blank-to-nil value)
+      (append args (list option value))
+    args))
+
+(cl-defun ogent-armory-runner-plan
+    (directory agent-slug &key job-id instruction)
+  "Return a process plan for AGENT-SLUG under DIRECTORY.
+JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
+  (let* ((candidate (ogent-armory--directory directory))
+         (root (file-truename
+                (ogent-armory--directory
+                 (or (ogent-armory-find-root candidate)
+                     candidate))))
+         (agent (ogent-armory-read-agent root agent-slug))
+         (job (when job-id
+                (ogent-armory-read-job root agent-slug job-id)))
+         (provider (ogent-armory-runner-normalize-provider
+                    (plist-get agent :provider)))
+         (workspace (ogent-armory-runner--workspace root agent))
+         (prompt (ogent-armory-runner--prompt agent job instruction))
+         (model (ogent-armory-runner--blank-to-nil
+                 (plist-get agent :model)))
+         (permission-mode (or (ogent-armory-runner--blank-to-nil
+                               (plist-get agent :permission-mode))
+                              ogent-armory-runner-claude-permission-mode))
+         (session-file (ogent-armory-runner--session-file
+                        root agent-slug job-id)))
+    (unless (file-directory-p workspace)
+      (user-error "Armory agent workspace not found: %s" workspace))
+    (pcase provider
+      ('codex
+       (let ((args (list "--ask-for-approval"
+                         ogent-armory-runner-codex-approval
+                         "exec"
+                         "--cd" workspace
+                         "--sandbox" ogent-armory-runner-codex-sandbox)))
+         (when ogent-armory-runner-codex-skip-git-repo-check
+           (setq args (append args (list "--skip-git-repo-check"))))
+         (setq args (ogent-armory-runner--append-option args "--model" model))
+         (list :provider provider
+               :program ogent-armory-codex-executable
+               :args (append args (list "-"))
+               :prompt prompt
+               :stdin prompt
+               :root root
+               :workspace workspace
+               :agent agent
+               :job job
+               :session-file session-file)))
+      ('claude
+       (let ((args (list "-p"
+                         "--permission-mode" permission-mode
+                         "--add-dir" root)))
+         (setq args (ogent-armory-runner--append-option args "--model" model))
+         (list :provider provider
+               :program ogent-armory-claude-executable
+               :args (append args (list prompt))
+               :prompt prompt
+               :stdin nil
+               :root root
+               :workspace workspace
+               :agent agent
+               :job job
+               :session-file session-file)))
+      (_
+       (user-error "Unsupported Armory agent provider: %s" provider)))))
+
+(defun ogent-armory-runner--org-src-text (text)
+  "Return TEXT escaped for insertion in an Org src block."
+  (let ((escaped
+         (mapconcat
+          (lambda (line)
+            (let ((case-fold-search t))
+              (if (string-match-p "\\`[ \t]*#\\+end_src\\_>" line)
+                  (concat "," line)
+                line)))
+          (split-string (or text "") "\n")
+          "\n")))
+    (cond
+     ((string-empty-p escaped) "")
+     ((string-suffix-p "\n" escaped) escaped)
+     (t (concat escaped "\n")))))
+
+(defun ogent-armory-runner--command-preview (plan)
+  "Return a shell-like command preview for PLAN."
+  (let* ((program (plist-get plan :program))
+         (provider (plist-get plan :provider))
+         (args (copy-sequence (plist-get plan :args))))
+    (when (and (eq provider 'claude) args)
+      (setcar (last args) "<prompt>"))
+    (string-join (mapcar #'shell-quote-argument (cons program args)) " ")))
+
+(defun ogent-armory-runner--buffer-output (process)
+  "Return generated stdout from PROCESS."
+  (when (buffer-live-p (process-buffer process))
+    (with-current-buffer (process-buffer process)
+      (buffer-substring-no-properties
+       (let ((start (process-get process 'ogent-armory-output-start)))
+         (cond
+          ((integerp start) start)
+          ((markerp start) (marker-position start))
+          (t (point-min))))
+       (point-max)))))
+
+(defun ogent-armory-runner--format-session (plan output error-output exit-status)
+  "Return an Org session transcript for PLAN, OUTPUT, ERROR-OUTPUT, EXIT-STATUS."
+  (let* ((agent (plist-get plan :agent))
+         (job (plist-get plan :job))
+         (provider (plist-get plan :provider))
+         (status (if (zerop exit-status) "DONE" "FAILED"))
+         (title (format "%s %s"
+                        (or (plist-get agent :name) (plist-get agent :slug))
+                        (or (plist-get job :name) "Run"))))
+    (concat
+     (format "#+title: %s\n\n" title)
+     (format "* %s %s\n" status title)
+     (ogent-armory--format-properties
+      `(("OGENT_SESSION" . t)
+        ("OGENT_AGENT" . ,(plist-get agent :slug))
+        ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_JOB_ID" . ,(or (plist-get job :id) ""))
+        ("OGENT_EXIT_STATUS" . ,exit-status)
+        ("OGENT_WORKSPACE" . ,(plist-get plan :workspace))
+        ("OGENT_FINISHED" . ,(format-time-string "%Y-%m-%dT%H:%M:%S%z"))))
+     "\n** Prompt\n"
+     "#+begin_src text\n"
+     (ogent-armory-runner--org-src-text (plist-get plan :prompt))
+     "#+end_src\n\n"
+     "** Output\n"
+     "#+begin_src text\n"
+     (ogent-armory-runner--org-src-text output)
+     "#+end_src\n"
+     (when (ogent-armory-runner--blank-to-nil error-output)
+       (concat "\n** Error\n"
+               "#+begin_src text\n"
+               (ogent-armory-runner--org-src-text error-output)
+               "#+end_src\n")))))
+
+(defun ogent-armory-runner--write-session (plan output error-output exit-status)
+  "Write PLAN transcript with OUTPUT, ERROR-OUTPUT, and EXIT-STATUS."
+  (let ((file (plist-get plan :session-file)))
+    (ogent-armory--write-file
+     file
+     (ogent-armory-runner--format-session
+      plan output error-output exit-status))
+    file))
+
+(defun ogent-armory-runner-start (plan)
+  "Start PLAN and return its process."
+  (let* ((program (plist-get plan :program))
+         (args (plist-get plan :args))
+         (stdin (plist-get plan :stdin))
+         (workspace (plist-get plan :workspace))
+         (buffer (get-buffer-create
+                  (format "*ogent-armory-agent:%s*"
+                          (plist-get (plist-get plan :agent) :slug))))
+         (stderr-buffer (generate-new-buffer " *ogent-armory-agent-stderr*"))
+         output-start
+         proc)
+    (unless (executable-find program)
+      (user-error "Armory runner executable not found: %s" program))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "$ %s\n\n"
+                        (ogent-armory-runner--command-preview plan)))
+        (setq output-start (point))))
+    (let ((default-directory workspace))
+      (setq proc
+            (make-process
+             :name "ogent-armory-agent"
+             :buffer buffer
+             :stderr stderr-buffer
+             :command (cons program args)
+             :connection-type 'pipe
+             :sentinel
+             (lambda (process event)
+               (unless (process-live-p process)
+                 (setq ogent-armory-runner--processes
+                       (delq process ogent-armory-runner--processes))
+                 (let* ((exit-status (process-exit-status process))
+                        (output (ogent-armory-runner--buffer-output process))
+                        (error-output
+                         (when (buffer-live-p stderr-buffer)
+                           (string-trim
+                            (with-current-buffer stderr-buffer
+                              (buffer-string)))))
+                        (session-file
+                         (ogent-armory-runner--write-session
+                          plan output error-output exit-status)))
+                   (process-put process 'ogent-armory-session-file session-file)
+                   (when (buffer-live-p stderr-buffer)
+                     (kill-buffer stderr-buffer))
+                   (message "Armory agent finished: %s (%s)"
+                            session-file
+                            (string-trim event))))))))
+    (set-process-query-on-exit-flag proc nil)
+    (process-put proc 'ogent-armory-plan plan)
+    (process-put proc 'ogent-armory-output-start output-start)
+    (push proc ogent-armory-runner--processes)
+    (when stdin
+      (process-send-string proc stdin)
+      (process-send-eof proc))
+    proc))
+
+(defun ogent-armory-runner--read-agent (root)
+  "Read an agent slug from ROOT."
+  (completing-read "Agent: " (ogent-armory-list-agents root) nil t))
+
+(defun ogent-armory-runner--read-job (root agent-slug)
+  "Read a job id for AGENT-SLUG under ROOT."
+  (completing-read
+   "Job: "
+   (mapcar (lambda (job) (plist-get job :id))
+           (ogent-armory-list-jobs root agent-slug))
+   nil t))
+
+(defun ogent-armory-runner--confirm (plan)
+  "Return non-nil when PLAN may start."
+  (or (not ogent-armory-runner-confirm-before-run)
+      (yes-or-no-p
+       (format "Run %s agent %s in %s and send prompt text to the CLI provider? "
+               (plist-get plan :provider)
+               (plist-get (plist-get plan :agent) :slug)
+               (abbreviate-file-name (plist-get plan :workspace))))))
+
+;;;###autoload
+(defun ogent-armory-run-agent (directory agent-slug instruction)
+  "Run AGENT-SLUG under DIRECTORY with INSTRUCTION."
+  (interactive
+   (let* ((root (or (ogent-armory-find-root)
+                    (read-directory-name "Armory root: ")))
+          (agent (ogent-armory-runner--read-agent root)))
+     (list root agent (read-string "Instruction: "))))
+  (let ((plan (ogent-armory-runner-plan
+               directory agent-slug :instruction instruction)))
+    (when (ogent-armory-runner--confirm plan)
+      (ogent-armory-runner-start plan))))
+
+;;;###autoload
+(defun ogent-armory-run-job (directory agent-slug job-id)
+  "Run JOB-ID for AGENT-SLUG under DIRECTORY."
+  (interactive
+   (let* ((root (or (ogent-armory-find-root)
+                    (read-directory-name "Armory root: ")))
+          (agent (ogent-armory-runner--read-agent root))
+          (job (ogent-armory-runner--read-job root agent)))
+     (list root agent job)))
+  (let ((plan (ogent-armory-runner-plan
+               directory agent-slug :job-id job-id)))
+    (when (ogent-armory-runner--confirm plan)
+      (ogent-armory-runner-start plan))))
+
+(defun ogent-armory-runner-auth-status (provider)
+  "Return local subscription auth status for PROVIDER."
+  (pcase (ogent-armory-runner-normalize-provider provider)
+    ('codex
+     (let* ((program ogent-armory-codex-executable)
+            (buffer (generate-new-buffer " *ogent-codex-auth*"))
+            (exit (when (executable-find program)
+                    (call-process program nil buffer nil "login" "status")))
+            (output (when (buffer-live-p buffer)
+                      (prog1 (string-trim
+                              (with-current-buffer buffer (buffer-string)))
+                        (kill-buffer buffer)))))
+       (list :provider 'codex
+             :logged-in (and (integerp exit) (zerop exit))
+             :method output
+             :raw output)))
+    ('claude
+     (let* ((program ogent-armory-claude-executable)
+            (buffer (generate-new-buffer " *ogent-claude-auth*"))
+            (exit (when (executable-find program)
+                    (call-process program nil buffer nil "auth" "status")))
+            (output (when (buffer-live-p buffer)
+                      (prog1 (string-trim
+                              (with-current-buffer buffer (buffer-string)))
+                        (kill-buffer buffer))))
+            (parsed (when (and output (not (string-empty-p output)))
+                      (condition-case nil
+                          (let ((json-object-type 'plist)
+                                (json-array-type 'list)
+                                (json-key-type 'keyword))
+                            (json-read-from-string output))
+                        (error nil)))))
+       (list :provider 'claude
+             :logged-in (and (integerp exit)
+                             (zerop exit)
+                             (plist-get parsed :loggedIn))
+             :method (plist-get parsed :authMethod)
+             :subscription (plist-get parsed :subscriptionType)
+             :raw output)))
+    (_ (list :provider provider :logged-in nil :raw "unsupported provider"))))
+
+(provide 'ogent-armory-runner)
+
+;;; ogent-armory-runner.el ends here

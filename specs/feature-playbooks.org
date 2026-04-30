@@ -29,3 +29,20 @@ Always review the relevant playbook before starting a feature. Each section link
 * Documentation & Specs
 - Store human-facing guides in =docs/=; architectural decisions stay here under =specs/=.
 - When adding a new feature, drop a short playbook entry describing where code, tests, and docs belong.
+
+* Org Armory Features
+- Storage helpers live in =lisp/ogent-armory.el=.
+- CLI execution helpers live in =lisp/ogent-armory-runner.el=. Keep provider
+  adapters small, explicit, and covered by fixture-backed process tests.
+- The graph status surface lives in =lisp/ogent-armory-status.el= and should
+  reuse =ogent-ops-style= plus navigation conventions from Issues and Gas Town.
+- Agent profile and task-board UI should live under =lisp/ui/= once they need
+  richer interaction than the graph status buffer.
+- Durable records must be Org files: =index.org=, =persona.org=, job =.org=
+  files, conversation transcript =.org= files.
+- Do not introduce TypeScript, Markdown frontmatter, or a database layer for
+  Armory records.
+- Tests belong in =test/ogent-armory-tests.el= for storage contracts,
+  =test/ogent-armory-runner-tests.el= for CLI runner plans and transcripts,
+  =test/ogent-armory-status-tests.el= for graph status behavior, and =test/ui/=
+  for richer interactive buffers.
