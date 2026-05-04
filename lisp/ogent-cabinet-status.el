@@ -7,8 +7,10 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-runner)
 (require 'ogent-ops-style)
@@ -21,8 +23,12 @@
 (autoload 'ogent-cabinet-search "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-apps "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-home "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-agent "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-jobs "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-create-job "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
+(declare-function ogent-cabinet-jobs--goto "ogent-ui-cabinet" (agent job-id))
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
@@ -81,6 +87,43 @@
   "Face for inactive operational bridges."
   :group 'ogent-cabinet-status)
 
+(defconst ogent-cabinet-status-agent-editable-properties
+  '("OGENT_ROLE"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_PERMISSION_MODE"
+    "OGENT_HEARTBEAT"
+    "OGENT_ACTIVE"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS")
+  "Agent properties editable from Cabinet status.")
+
+(defconst ogent-cabinet-status-job-editable-properties
+  '("OGENT_JOB_ID"
+    "OGENT_AGENT"
+    "OGENT_CRON"
+    "OGENT_HEARTBEAT"
+    "OGENT_ENABLED"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS"
+    "OGENT_ARCHIVED")
+  "Job properties editable from Cabinet status.")
+
+(defconst ogent-cabinet-status-job-property-keys
+  '(("OGENT_JOB_ID" . :id)
+    ("OGENT_AGENT" . :agent)
+    ("OGENT_CRON" . :cron)
+    ("OGENT_HEARTBEAT" . :heartbeat)
+    ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_PROVIDER" . :provider)
+    ("OGENT_MODEL" . :model)
+    ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TAGS" . :tags)
+    ("OGENT_ARCHIVED" . :archived-raw))
+  "Map editable job Org properties to Cabinet job plist keys.")
+
 (defvar-local ogent-cabinet-status--root nil
   "Cabinet root shown by the current status buffer.")
 
@@ -97,6 +140,13 @@
     (define-key map "i" #'ogent-cabinet-status-open-issues)
     (define-key map "G" #'ogent-cabinet-status-open-gastown)
     (define-key map "R" #'ogent-cabinet-status-run)
+    (define-key map "m" #'ogent-cabinet-status-dispatch)
+    (define-key map "?" #'ogent-cabinet-status-help)
+    (define-key map "e" #'ogent-cabinet-status-edit)
+    (define-key map "E" #'ogent-cabinet-status-edit-body)
+    (define-key map "P" #'ogent-cabinet-status-open-agent-profile)
+    (define-key map "J" #'ogent-cabinet-status-open-agent-jobs)
+    (define-key map "C" #'ogent-cabinet-status-create-job)
     (define-key map "h" #'ogent-cabinet-home)
     (define-key map "a" #'ogent-cabinet-agents)
     (define-key map "t" #'ogent-cabinet-tasks)
@@ -113,6 +163,8 @@
 \\<ogent-cabinet-status-mode-map>
 \\[ogent-cabinet-status-refresh] refreshes the graph.
 \\[ogent-cabinet-status-visit] visits the Org record at point.
+\\[ogent-cabinet-status-dispatch] opens the status action menu.
+\\[ogent-cabinet-status-help] shows status help.
 \\[ogent-cabinet-status-open-issues] opens Ogent Issues.
 \\[ogent-cabinet-status-open-gastown] opens Gas Town status."
   :group 'ogent-cabinet-status
@@ -167,7 +219,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
   (concat
-   "g refresh  RET visit  n/p move  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  R run  q quit"
+   "m menu  ? help  g refresh  RET visit  n/p move  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
    (when ogent-cabinet-status--root
      (concat "    "
              (propertize
@@ -258,7 +310,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                           (t 'idle))))
             (ogent-cabinet-status--insert-node-line
              agent
-             (format "%s %s  %s  %s  %s"
+             (format "%s %s  %s  %s  %s%s"
                      (propertize (ogent-ops-activity-symbol status)
                                  'face (if (memq status '(active working))
                                            'ogent-cabinet-status-connected
@@ -272,7 +324,9 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                                  'face 'ogent-cabinet-status-dimmed)
                      (propertize
                       (format "%d jobs" (length jobs))
-                      'face 'ogent-cabinet-status-dimmed)))
+                      'face 'ogent-cabinet-status-dimmed)
+                     (propertize "  [P profile] [C job] [R run]"
+                                 'face 'ogent-cabinet-status-id)))
             (dolist (job jobs)
               (when job
                 (ogent-cabinet-status--insert-node-line
@@ -307,7 +361,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (let* ((data (plist-get job :data))
          (enabled (plist-get data :enabled))
          (state (if enabled 'ready 'waiting)))
-    (format "%s %s  %s"
+    (format "%s %s  %s%s"
             (propertize (ogent-ops-status-symbol state)
                         'face (if enabled
                                   'ogent-cabinet-status-connected
@@ -315,7 +369,9 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
             (propertize (plist-get job :label)
                         'face 'ogent-cabinet-status-label)
             (propertize (or (plist-get data :cron) "manual")
-                        'face 'ogent-cabinet-status-dimmed))))
+                        'face 'ogent-cabinet-status-dimmed)
+            (propertize "  [R run] [e edit] [E prompt]"
+                        'face 'ogent-cabinet-status-id))))
 
 (defun ogent-cabinet-status--insert-bridges ()
   "Insert operational bridge section."
@@ -343,7 +399,16 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
      (point)
      `(ogent-cabinet-node ,node
                           mouse-face highlight
-                          help-echo "RET visits this Org record"))))
+                          help-echo ,(ogent-cabinet-status--node-help node)))))
+
+(defun ogent-cabinet-status--node-help (node)
+  "Return hover help for graph NODE."
+  (pcase (plist-get node :kind)
+    ('agent "RET visits source, P opens profile, C creates a job, e edits properties, R runs")
+    ('job "RET visits source, R runs job, e edits metadata, E edits prompt/body")
+    ('session "RET visits transcript, R retries when linked to an agent or job, e edits archive/tags")
+    ('app "RET visits source, E visits source body")
+    (_ "RET visits this Org record")))
 
 (defun ogent-cabinet-status--insert-bridge-line (name state key)
   "Insert bridge NAME with STATE and activation KEY."
@@ -399,10 +464,70 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (or (get-text-property (point) 'ogent-cabinet-node)
       (get-text-property (line-beginning-position) 'ogent-cabinet-node)))
 
+(defun ogent-cabinet-status--require-node ()
+  "Return the graph node at point or signal a Cabinet status error."
+  (or (ogent-cabinet-status--node-at-point)
+      (user-error "No Cabinet record at point")))
+
+(defun ogent-cabinet-status--node-agent (node)
+  "Return the agent slug associated with NODE."
+  (let ((data (plist-get node :data)))
+    (pcase (plist-get node :kind)
+      ('agent (plist-get data :slug))
+      ((or 'job 'session 'app) (plist-get data :agent))
+      (_ nil))))
+
+(defun ogent-cabinet-status--node-job-id (node)
+  "Return the job id associated with NODE."
+  (let ((data (plist-get node :data)))
+    (pcase (plist-get node :kind)
+      ('job (plist-get data :id))
+      ((or 'session 'app) (plist-get data :job-id))
+      (_ nil))))
+
+(defun ogent-cabinet-status--job-with-property (job property value)
+  "Return JOB copied with Org PROPERTY set to VALUE."
+  (let* ((copy (copy-sequence job))
+         (key (cdr (assoc property
+                          ogent-cabinet-status-job-property-keys))))
+    (unless key
+      (user-error "Unsupported Cabinet job property: %s" property))
+    (pcase property
+      ("OGENT_TAGS"
+       (plist-put copy key (ogent-cabinet--tags-from-string value)))
+      ("OGENT_ENABLED"
+       (plist-put copy :enabled-raw value)
+       (plist-put copy :enabled (ogent-cabinet--truth-value value)))
+      ("OGENT_ARCHIVED"
+       (plist-put copy :archived-raw value)
+       (plist-put copy :archived (ogent-cabinet--truth-value value)))
+      (_
+       (plist-put copy key value)))
+    copy))
+
+(defun ogent-cabinet-status--read-current-property (file property)
+  "Return PROPERTY from the first Org heading in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (ogent-cabinet--first-heading-title)
+    (org-entry-get nil property)))
+
+(defun ogent-cabinet-status--visit-body (file)
+  "Visit FILE and move to the first body line."
+  (find-file file)
+  (org-mode)
+  (goto-char (point-min))
+  (unless (re-search-forward org-heading-regexp nil t)
+    (user-error "No Org heading found in %s" file))
+  (org-back-to-heading t)
+  (org-end-of-meta-data t)
+  (skip-chars-forward " \t\n"))
+
 (defun ogent-cabinet-status-visit ()
   "Visit the Org record at point."
   (interactive)
-  (let* ((node (ogent-cabinet-status--node-at-point))
+  (let* ((node (ogent-cabinet-status--require-node))
          (path (plist-get node :path)))
     (unless (and path (file-exists-p path))
       (user-error "No Cabinet record at point"))
@@ -423,7 +548,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status-run ()
   "Run the Cabinet agent or job at point."
   (interactive)
-  (let* ((node (ogent-cabinet-status--node-at-point))
+  (let* ((node (ogent-cabinet-status--require-node))
          (kind (plist-get node :kind))
          (data (plist-get node :data)))
     (pcase kind
@@ -449,6 +574,119 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
           (read-string "Instruction: "))))
       (_
        (user-error "No runnable Cabinet agent or job at point")))))
+
+(defun ogent-cabinet-status-edit ()
+  "Edit metadata for the Cabinet agent, job, or session at point."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--require-node))
+         (kind (plist-get node :kind))
+         (data (plist-get node :data))
+         (path (plist-get node :path)))
+    (pcase kind
+      ('agent
+       (let* ((slug (plist-get data :slug))
+              (property (completing-read
+                         "Agent property: "
+                         ogent-cabinet-status-agent-editable-properties
+                         nil t))
+              (current (ogent-cabinet-status--read-current-property
+                        (ogent-cabinet-agent-file ogent-cabinet-status--root
+                                                  slug)
+                        property))
+              (value (read-string (format "%s: " property) current)))
+         (ogent-cabinet-update-agent-property
+          ogent-cabinet-status--root slug property value)))
+      ('job
+       (let* ((agent (plist-get data :agent))
+              (job-id (plist-get data :id))
+              (property (completing-read
+                         "Job property: "
+                         ogent-cabinet-status-job-editable-properties
+                         nil t))
+              (current (ogent-cabinet-status--read-current-property
+                        (ogent-cabinet-job-file ogent-cabinet-status--root
+                                                agent
+                                                job-id)
+                        property))
+              (value (read-string (format "%s: " property) current))
+              (candidate (ogent-cabinet-status--job-with-property
+                          data property value)))
+         (ogent-cabinet-validate-job candidate)
+         (ogent-cabinet-update-job-property
+          ogent-cabinet-status--root agent job-id property value)))
+      ('session
+       (let* ((property (completing-read
+                         "Session property: "
+                         '("OGENT_ARCHIVED" "OGENT_TAGS")
+                         nil t))
+              (current (ogent-cabinet-status--read-current-property
+                        path property))
+              (value (read-string (format "%s: " property) current)))
+         (ogent-cabinet-update-session-property path property value)))
+      (_
+       (user-error "No editable Cabinet record at point"))))
+  (ogent-cabinet-status-refresh))
+
+(defun ogent-cabinet-status-edit-body ()
+  "Visit the selected Cabinet Org body or prompt."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--require-node))
+         (path (plist-get node :path)))
+    (unless (and path (file-exists-p path))
+      (user-error "No Cabinet file at point"))
+    (ogent-cabinet-status--visit-body path)))
+
+(defun ogent-cabinet-status-open-agent-profile ()
+  "Open the agent profile associated with the current Cabinet node."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--require-node))
+         (slug (ogent-cabinet-status--node-agent node)))
+    (unless slug
+      (user-error "No Cabinet agent at point"))
+    (ogent-cabinet-agent ogent-cabinet-status--root slug)))
+
+(defun ogent-cabinet-status-open-agent-jobs ()
+  "Open the jobs surface for the agent associated with the current node."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--require-node))
+         (slug (ogent-cabinet-status--node-agent node))
+         (job-id (ogent-cabinet-status--node-job-id node)))
+    (unless slug
+      (user-error "No Cabinet agent at point"))
+    (let ((buffer (ogent-cabinet-jobs ogent-cabinet-status--root slug)))
+      (when (and job-id (fboundp 'ogent-cabinet-jobs--goto))
+        (with-current-buffer buffer
+          (ogent-cabinet-jobs--goto slug job-id)))
+      buffer)))
+
+(defun ogent-cabinet-status-create-job ()
+  "Create a Cabinet job for the agent associated with the current node."
+  (interactive)
+  (let* ((node (ogent-cabinet-status--require-node))
+         (slug (ogent-cabinet-status--node-agent node)))
+    (unless slug
+      (user-error "No Cabinet agent at point"))
+    (ogent-cabinet-create-job ogent-cabinet-status--root slug)))
+
+(defun ogent-cabinet-status-help ()
+  "Show Cabinet status keybindings and node actions."
+  (interactive)
+  (with-help-window "*Ogent Cabinet Status Help*"
+    (princ "Cabinet Status\n")
+    (princ "==============\n\n")
+    (princ "Move with n/p. RET visits the durable Org source for the item at point.\n\n")
+    (princ "Node actions\n")
+    (princ "------------\n")
+    (princ "Agent:   P opens profile, e edits identity properties, C creates a job, R runs with a prompt.\n")
+    (princ "Job:     R runs the job, e edits metadata, E edits the prompt/body, J opens the agent job list.\n")
+    (princ "Session: R retries linked work, e edits archive/tags, RET visits the transcript.\n")
+    (princ "App:     RET visits the source record when available.\n\n")
+    (princ "Surfaces\n")
+    (princ "--------\n")
+    (princ "h Home, a Agents, t Tasks, c Conversations, s Search, A Apps, i Issues, G Gas Town.\n\n")
+    (princ "Menus\n")
+    (princ "-----\n")
+    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")))
 
 (defun ogent-cabinet-status-next-item ()
   "Move point to the next Cabinet record line."
@@ -487,6 +725,55 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                         (point-min)))
         (when previous
           (goto-char (max (point-min) (1- previous))))))))
+
+(defun ogent-cabinet-status--transient-header ()
+  "Return the header text for `ogent-cabinet-status-dispatch'."
+  (let* ((root (and (boundp 'ogent-cabinet-status--root)
+                    ogent-cabinet-status--root))
+         (node (ignore-errors (ogent-cabinet-status--node-at-point)))
+         (kind (and node (plist-get node :kind)))
+         (label (and node (plist-get node :label))))
+    (concat
+     (propertize "Cabinet Status" 'face 'transient-heading)
+     (if root
+         (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
+       "")
+     (if node
+         (format "  %s %s"
+                 (propertize (symbol-name kind) 'face 'transient-heading)
+                 (propertize (or label "") 'face 'shadow))
+       ""))))
+
+;;;###autoload (autoload 'ogent-cabinet-status-dispatch "ogent-cabinet-status" nil t)
+(transient-define-prefix ogent-cabinet-status-dispatch ()
+  "Dispatch menu for Cabinet status buffers."
+  [:description ogent-cabinet-status--transient-header
+   ["Run"
+    ("R" "Run/retry selected" ogent-cabinet-status-run)
+    ("C" "Create job for agent" ogent-cabinet-status-create-job)]
+   ["Edit"
+    ("e" "Edit metadata" ogent-cabinet-status-edit)
+    ("E" "Edit body/prompt" ogent-cabinet-status-edit-body)
+    ("P" "Agent profile" ogent-cabinet-status-open-agent-profile)
+    ("J" "Agent jobs" ogent-cabinet-status-open-agent-jobs)]
+   ["Navigate"
+    ("RET" "Visit Org source" ogent-cabinet-status-visit)
+    ("n" "Next item" ogent-cabinet-status-next-item :transient t)
+    ("p" "Previous item" ogent-cabinet-status-previous-item :transient t)
+    ("g" "Refresh" ogent-cabinet-status-refresh :transient t)]]
+  [["Surfaces"
+    ("h" "Home" ogent-cabinet-home)
+    ("a" "Agents" ogent-cabinet-agents)
+    ("t" "Tasks" ogent-cabinet-tasks)
+    ("c" "Conversations" ogent-cabinet-conversations)
+    ("s" "Search" ogent-cabinet-search)
+    ("A" "Apps" ogent-cabinet-apps)]
+   ["Bridges"
+    ("i" "Ogent Issues" ogent-cabinet-status-open-issues)
+    ("G" "Gas Town" ogent-cabinet-status-open-gastown)]
+   ["Help"
+    ("?" "Help" ogent-cabinet-status-help)
+    ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-cabinet-status--setup-evil ()
   "Set up Evil integration for Cabinet status buffers."

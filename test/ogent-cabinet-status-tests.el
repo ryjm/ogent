@@ -6,8 +6,10 @@
 ;;; Code:
 
 (require 'ogent-test-helper)
+(require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-status)
+(require 'ogent-ui-cabinet)
 
 (defmacro ogent-cabinet-status-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
@@ -66,6 +68,171 @@
               #'ogent-cabinet-status-visit))
   (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "<kp-enter>"))
               #'ogent-cabinet-status-visit)))
+
+(ert-deftest ogent-cabinet-status-action-keys-are-discoverable ()
+  "The Cabinet status buffer exposes edit, run, menu, and help actions."
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "m"))
+              #'ogent-cabinet-status-dispatch))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "?"))
+              #'ogent-cabinet-status-help))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "e"))
+              #'ogent-cabinet-status-edit))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "E"))
+              #'ogent-cabinet-status-edit-body))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "P"))
+              #'ogent-cabinet-status-open-agent-profile))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "J"))
+              #'ogent-cabinet-status-open-agent-jobs))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C"))
+              #'ogent-cabinet-status-create-job))
+  (ogent-cabinet-status-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (let ((buffer (ogent-cabinet-status dir)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (let ((header (ogent-cabinet-status--header-line)))
+              (dolist (key '("m menu" "? help" "e edit" "E body"
+                             "P profile" "J jobs" "C job" "R run"))
+                (should (string-match-p (regexp-quote key) header)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-cabinet-status-transient-renders ()
+  "The Cabinet status transient menu sets up without display errors."
+  (unwind-protect
+      (progn
+        (transient-setup 'ogent-cabinet-status-dispatch)
+        (should (get 'ogent-cabinet-status-dispatch 'transient--prefix)))
+    (when transient-current-prefix
+      (transient-quit-one))))
+
+(ert-deftest ogent-cabinet-status-help-documents-dwim-actions ()
+  "The Cabinet status help buffer documents node-specific workflows."
+  (save-window-excursion
+    (ogent-cabinet-status-help)
+    (with-current-buffer "*Ogent Cabinet Status Help*"
+      (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+        (should (string-match-p "Cabinet Status" text))
+        (should (string-match-p "Agent" text))
+        (should (string-match-p "Job" text))
+        (should (string-match-p "R runs" text))
+        (should (string-match-p "e edits" text))
+        (should (string-match-p "m opens this Transient menu" text))))))
+
+(defun ogent-cabinet-status-test--seed-agent-and-job (dir)
+  "Create a Cabinet with one agent and one job under DIR."
+  (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+  (ogent-cabinet-write-agent
+   dir
+   '(:slug "cto"
+     :name "CTO"
+     :role "Architecture"
+     :provider "codex-cli"
+     :active t)
+   "Maintain architecture.")
+  (ogent-cabinet-write-job
+   dir "cto"
+   '(:id "weekly-review"
+     :name "Weekly Review"
+     :cron "0 9 * * 1"
+     :enabled t)
+   "Review architecture notes."))
+
+(ert-deftest ogent-cabinet-status-edits-agent-and-job-properties ()
+  "Status edit changes real Org property drawers for agents and jobs."
+  (ogent-cabinet-status-test-with-temp-dir dir
+    (ogent-cabinet-status-test--seed-agent-and-job dir)
+    (let ((buffer (ogent-cabinet-status dir)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "CTO")
+              (cl-letf (((symbol-function 'completing-read)
+                         (lambda (&rest _) "OGENT_ROLE"))
+                        ((symbol-function 'read-string)
+                         (lambda (&rest _) "Systems")))
+                (ogent-cabinet-status-edit))
+              (should (equal (plist-get (ogent-cabinet-read-agent dir "cto")
+                                        :role)
+                             "Systems"))
+              (ogent-cabinet-status-refresh)
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (cl-letf (((symbol-function 'completing-read)
+                         (lambda (&rest _) "OGENT_ENABLED"))
+                        ((symbol-function 'read-string)
+                         (lambda (&rest _) "nil")))
+                (ogent-cabinet-status-edit))
+              (should-not (plist-get (ogent-cabinet-read-job dir
+                                                              "cto"
+                                                              "weekly-review")
+                                      :enabled))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-cabinet-status-runs-job-at-point ()
+  "Running from a job line dispatches the real Cabinet job identity."
+  (ogent-cabinet-status-test-with-temp-dir dir
+    (ogent-cabinet-status-test--seed-agent-and-job dir)
+    (let ((buffer (ogent-cabinet-status dir))
+          called)
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'ogent-cabinet-run-job)
+                       (lambda (root agent job-id)
+                         (setq called (list root agent job-id)))))
+              (ogent-cabinet-status-run))
+            (should (equal called (list (file-truename dir)
+                                        "cto"
+                                        "weekly-review"))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-cabinet-status-opens-profile-jobs-and-bodies ()
+  "Status node actions jump to the profile, jobs list, and Org body."
+  (ogent-cabinet-status-test-with-temp-dir dir
+    (ogent-cabinet-status-test--seed-agent-and-job dir)
+    (let ((buffer (ogent-cabinet-status dir))
+          profile-buffer
+          jobs-buffer
+          body-file)
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "CTO")
+              (setq profile-buffer (ogent-cabinet-status-open-agent-profile)))
+            (with-current-buffer profile-buffer
+              (should (eq major-mode 'ogent-cabinet-agent-mode))
+              (should (equal ogent-cabinet-agent--slug "cto")))
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (setq jobs-buffer (ogent-cabinet-status-open-agent-jobs)))
+            (with-current-buffer jobs-buffer
+              (should (eq major-mode 'ogent-cabinet-jobs-mode))
+              (should (equal (plist-get (tabulated-list-get-id) :job-id)
+                             "weekly-review")))
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (ogent-cabinet-status-edit-body)
+              (setq body-file buffer-file-name)
+              (should (looking-at-p "Review architecture notes")))
+            (should (equal (file-truename body-file)
+                           (file-truename
+                            (ogent-cabinet-job-file dir
+                                                    "cto"
+                                                    "weekly-review")))))
+        (dolist (buf (list buffer profile-buffer jobs-buffer))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))
+        (when (get-file-buffer (ogent-cabinet-job-file dir "cto" "weekly-review"))
+          (kill-buffer (get-file-buffer
+                        (ogent-cabinet-job-file dir "cto" "weekly-review"))))))))
 
 (ert-deftest ogent-cabinet-status-visit-opens-cabinet-node-file ()
   "Visiting the rendered cabinet node opens its Org source file."
