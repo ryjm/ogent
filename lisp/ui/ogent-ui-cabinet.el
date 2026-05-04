@@ -543,7 +543,8 @@
   "Major mode for Cabinet attention lanes."
   :group 'ogent-ui-cabinet
   (setq-local tabulated-list-format
-              [("Type" 10 t)
+              [("Lane" 16 t)
+               ("Type" 10 t)
                ("Agent" 14 t)
                ("Item" 32 t)
                ("State" 18 t)
@@ -617,32 +618,34 @@
   (list
    item
    (vector
+    (or (plist-get item :lane) "")
     (symbol-name (plist-get item :type))
     (or (plist-get item :agent) "")
     (or (plist-get item :name) "")
     (or (plist-get item :state) "")
     (or (plist-get item :when) ""))))
 
-(defun ogent-cabinet-tasks--groups ()
-  "Return tabulated list groups for the current Cabinet task buffer."
+(defun ogent-cabinet-tasks--entries ()
+  "Return tabulated list entries for the current Cabinet task buffer."
   (let ((items (ogent-cabinet-tasks--items)))
-    (mapcar
-     (lambda (lane)
-       (let ((lane-items (seq-filter
-                          (lambda (item)
-                            (equal (plist-get item :lane) lane))
-                          items)))
-        (cons lane
-              (if lane-items
-                  (mapcar #'ogent-cabinet-tasks--entry lane-items)
-                (list (ogent-cabinet-tasks--entry
-                       (list :type 'empty
-                             :lane lane
-                             :agent ""
-                             :name "(empty)"
-                             :state ""
-                             :when "")))))))
-     ogent-cabinet-task-lanes)))
+    (apply
+     #'append
+     (mapcar
+      (lambda (lane)
+        (let ((lane-items (seq-filter
+                           (lambda (item)
+                             (equal (plist-get item :lane) lane))
+                           items)))
+          (if lane-items
+              (mapcar #'ogent-cabinet-tasks--entry lane-items)
+            (list (ogent-cabinet-tasks--entry
+                   (list :type 'empty
+                         :lane lane
+                         :agent ""
+                         :name "(empty)"
+                         :state ""
+                         :when ""))))))
+      ogent-cabinet-task-lanes))))
 
 ;;;###autoload
 (defun ogent-cabinet-tasks (&optional directory)
@@ -658,7 +661,7 @@
       (ogent-cabinet-tasks-mode)
       (setq ogent-cabinet-tasks--root root)
       (setq default-directory (file-name-as-directory root))
-      (setq tabulated-list-groups #'ogent-cabinet-tasks--groups)
+      (setq tabulated-list-entries #'ogent-cabinet-tasks--entries)
       (tabulated-list-print t))
     (pop-to-buffer buffer)
     buffer))
