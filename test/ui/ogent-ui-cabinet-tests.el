@@ -448,6 +448,38 @@
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
 
+(ert-deftest ogent-ui-cabinet-conversation-renders-success-trace ()
+  "Successful conversation traces do not render as errors."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-ui-cabinet-test--write-session
+                 root "cto" "successful-run" "DONE" 0)))
+      (ogent-cabinet--write-file
+       file
+       (concat
+        (with-temp-buffer
+          (insert-file-contents file)
+          (buffer-string))
+        "\n** Runtime Trace\n#+begin_src text\nTool trace.\n#+end_src\n"))
+      (let ((buffer (ogent-cabinet-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (let ((text (buffer-substring-no-properties
+                           (point-min)
+                           (point-max))))
+                (should (string-match-p "Runtime Trace" text))
+                (should-not (string-match-p "\nError\n" text))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
 (ert-deftest ogent-ui-cabinet-conversations-empty-state ()
   "A new Cabinet conversation browser shows a usable empty state."
   (ogent-ui-cabinet-test-with-temp-dir root
@@ -579,6 +611,59 @@
               #'ogent-cabinet-conversations))
   (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "A"))
               #'ogent-cabinet-apps)))
+
+(ert-deftest ogent-ui-cabinet-evil-overrides-dispatch-keymaps ()
+  "Cabinet UI dispatch keys remain active in Evil normal state."
+  (let ((ogent-cabinet-home-mode-hook nil)
+        (ogent-cabinet-agents-mode-hook nil)
+        (ogent-cabinet-agent-mode-hook nil)
+        (ogent-cabinet-jobs-mode-hook nil)
+        (ogent-cabinet-tasks-mode-hook nil)
+        (ogent-cabinet-conversations-mode-hook nil)
+        (ogent-cabinet-conversation-mode-hook nil)
+        (ogent-cabinet-search-mode-hook nil)
+        (ogent-cabinet-apps-mode-hook nil)
+        states
+        maps)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state)
+                 (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (map state)
+                 (push (cons map state) maps)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil)))
+      (ogent-cabinet-ui--setup-evil))
+    (dolist (mode '(ogent-cabinet-home-mode
+                    ogent-cabinet-agents-mode
+                    ogent-cabinet-agent-mode
+                    ogent-cabinet-jobs-mode
+                    ogent-cabinet-tasks-mode
+                    ogent-cabinet-conversations-mode
+                    ogent-cabinet-conversation-mode
+                    ogent-cabinet-search-mode
+                    ogent-cabinet-apps-mode))
+      (should (member (cons mode 'normal) states)))
+    (dolist (map (list ogent-cabinet-home-mode-map
+                       ogent-cabinet-agents-mode-map
+                       ogent-cabinet-agent-mode-map
+                       ogent-cabinet-jobs-mode-map
+                       ogent-cabinet-tasks-mode-map
+                       ogent-cabinet-conversations-mode-map
+                       ogent-cabinet-conversation-mode-map
+                       ogent-cabinet-search-mode-map
+                       ogent-cabinet-apps-mode-map))
+      (should (member (cons map 'all) maps)))
+    (dolist (hook (list ogent-cabinet-home-mode-hook
+                        ogent-cabinet-agents-mode-hook
+                        ogent-cabinet-agent-mode-hook
+                        ogent-cabinet-jobs-mode-hook
+                        ogent-cabinet-tasks-mode-hook
+                        ogent-cabinet-conversations-mode-hook
+                        ogent-cabinet-conversation-mode-hook
+                        ogent-cabinet-search-mode-hook
+                        ogent-cabinet-apps-mode-hook))
+      (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-cabinet-tests)
 

@@ -17,6 +17,10 @@
 
 (autoload 'ogent-cabinet-status "ogent-cabinet-status" nil t)
 
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
+
 (defgroup ogent-ui-cabinet nil
   "Richer UI surfaces for Org Cabinet records."
   :group 'ogent-cabinet
@@ -1777,6 +1781,9 @@
         (insert (format "  %s\n%s\n" (plist-get tool :header)
                         (plist-get tool :body))))
       (insert "\n"))
+    (when (ogent-cabinet--blank-to-nil (plist-get detail :runtime-trace))
+      (ogent-cabinet-ui--insert-heading "Runtime Trace")
+      (insert (plist-get detail :runtime-trace) "\n\n"))
     (when (ogent-cabinet--blank-to-nil (plist-get detail :error))
       (ogent-cabinet-ui--insert-heading "Error")
       (insert (plist-get detail :error) "\n\n"))
@@ -2011,6 +2018,43 @@
            (path (plist-get app :path)))
       (browse-url-of-file path)
       path)))
+
+(defun ogent-cabinet-ui--setup-evil ()
+  "Set up Evil integration for Cabinet UI buffers."
+  (when (fboundp 'evil-set-initial-state)
+    (dolist (mode '(ogent-cabinet-home-mode
+                    ogent-cabinet-agents-mode
+                    ogent-cabinet-agent-mode
+                    ogent-cabinet-jobs-mode
+                    ogent-cabinet-tasks-mode
+                    ogent-cabinet-conversations-mode
+                    ogent-cabinet-conversation-mode
+                    ogent-cabinet-search-mode
+                    ogent-cabinet-apps-mode))
+      (evil-set-initial-state mode 'normal))
+    (dolist (map (list ogent-cabinet-home-mode-map
+                       ogent-cabinet-agents-mode-map
+                       ogent-cabinet-agent-mode-map
+                       ogent-cabinet-jobs-mode-map
+                       ogent-cabinet-tasks-mode-map
+                       ogent-cabinet-conversations-mode-map
+                       ogent-cabinet-conversation-mode-map
+                       ogent-cabinet-search-mode-map
+                       ogent-cabinet-apps-mode-map))
+      (evil-make-overriding-map map 'all))
+    (dolist (hook '(ogent-cabinet-home-mode-hook
+                    ogent-cabinet-agents-mode-hook
+                    ogent-cabinet-agent-mode-hook
+                    ogent-cabinet-jobs-mode-hook
+                    ogent-cabinet-tasks-mode-hook
+                    ogent-cabinet-conversations-mode-hook
+                    ogent-cabinet-conversation-mode-hook
+                    ogent-cabinet-search-mode-hook
+                    ogent-cabinet-apps-mode-hook))
+      (add-hook hook #'evil-normalize-keymaps))))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-ui--setup-evil))
 
 (provide 'ogent-ui-cabinet)
 

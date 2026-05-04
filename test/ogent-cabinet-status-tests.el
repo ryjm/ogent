@@ -137,6 +137,24 @@
                               (eq (plist-get edge :kind) edge-kind))
                             edges)))))))
 
+(ert-deftest ogent-cabinet-status-evil-overrides-dispatch-keymap ()
+  "Cabinet status dispatch keys remain active in Evil normal state."
+  (let ((ogent-cabinet-status-mode-hook nil)
+        states
+        maps)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state)
+                 (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (map state)
+                 (push (cons map state) maps)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil)))
+      (ogent-cabinet-status--setup-evil))
+    (should (member (cons 'ogent-cabinet-status-mode 'normal) states))
+    (should (member (cons ogent-cabinet-status-mode-map 'all) maps))
+    (should (memq #'evil-normalize-keymaps ogent-cabinet-status-mode-hook))))
+
 (provide 'ogent-cabinet-status-tests)
 
 ;;; ogent-cabinet-status-tests.el ends here

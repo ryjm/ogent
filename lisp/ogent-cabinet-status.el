@@ -23,6 +23,9 @@
 (autoload 'ogent-cabinet-home "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
 
 (defgroup ogent-cabinet-status nil
   "Operational status view for Org cabinets."
@@ -484,6 +487,16 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                         (point-min)))
         (when previous
           (goto-char (max (point-min) (1- previous))))))))
+
+(defun ogent-cabinet-status--setup-evil ()
+  "Set up Evil integration for Cabinet status buffers."
+  (when (fboundp 'evil-set-initial-state)
+    (evil-set-initial-state 'ogent-cabinet-status-mode 'normal)
+    (evil-make-overriding-map ogent-cabinet-status-mode-map 'all)
+    (add-hook 'ogent-cabinet-status-mode-hook #'evil-normalize-keymaps)))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-status--setup-evil))
 
 (provide 'ogent-cabinet-status)
 

@@ -318,8 +318,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
      (ogent-cabinet-runner--org-src-text output)
      "#+end_src\n"
      (when (ogent-cabinet-runner--blank-to-nil error-output)
-       (concat "\n** Error\n"
-               "#+begin_src text\n"
+       (concat "\n** "
+               (if (zerop exit-status) "Runtime Trace" "Error")
+               "\n#+begin_src text\n"
                (ogent-cabinet-runner--org-src-text error-output)
                "#+end_src\n")))))
 

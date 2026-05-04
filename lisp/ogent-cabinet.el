@@ -587,9 +587,11 @@ When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
     (insert-file-contents file)
     (org-mode)
     (let* ((name (ogent-cabinet--first-heading-title))
-           (todo (nth 2 (org-heading-components)))
+           (todo (or (nth 2 (org-heading-components))
+                     (when (string-match "\\`\\(DONE\\|FAILED\\|TODO\\)\\_>" name)
+                       (match-string 1 name))))
            (exit-status-text (ogent-cabinet--blank-to-nil
-                              (org-entry-get nil "OGENT_EXIT_STATUS")))
+                               (org-entry-get nil "OGENT_EXIT_STATUS")))
            (exit-status (when exit-status-text
                           (string-to-number exit-status-text)))
            (agent (or (ogent-cabinet--blank-to-nil
@@ -674,15 +676,27 @@ AGENT-SLUG is a fallback for older transcripts with sparse properties."
     (with-temp-buffer
       (insert-file-contents file)
       (org-mode)
-      (append
-       record
-       (list :prompt (ogent-cabinet--strip-src-wrapper
-                      (ogent-cabinet--section-text "Prompt"))
-             :output (ogent-cabinet--strip-src-wrapper
-                      (ogent-cabinet--section-text "Output"))
-             :error (ogent-cabinet--strip-src-wrapper
-                     (ogent-cabinet--section-text "Error"))
-             :tools (ogent-cabinet--tool-blocks))))))
+      (let* ((exit-status (plist-get record :exit-status))
+             (successful (if exit-status
+                             (zerop exit-status)
+                           (equal (plist-get record :status) "DONE")))
+             (error-text (ogent-cabinet--strip-src-wrapper
+                          (ogent-cabinet--section-text "Error")))
+             (trace-text (or (ogent-cabinet--blank-to-nil
+                              (ogent-cabinet--strip-src-wrapper
+                               (ogent-cabinet--section-text "Runtime Trace")))
+                             (when successful
+                               (ogent-cabinet--blank-to-nil error-text)))))
+        (append
+         record
+         (list :prompt (ogent-cabinet--strip-src-wrapper
+                        (ogent-cabinet--section-text "Prompt"))
+               :output (ogent-cabinet--strip-src-wrapper
+                        (ogent-cabinet--section-text "Output"))
+               :error (unless successful
+                        error-text)
+               :runtime-trace trace-text
+               :tools (ogent-cabinet--tool-blocks)))))))
 
 (defun ogent-cabinet-list-sessions (directory &optional agent-slug)
   "Return Cabinet sessions under DIRECTORY.
@@ -727,21 +741,27 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
     (org-mode)
     (condition-case nil
         (progn
-          (let ((heading (ogent-cabinet--first-heading-title)))
+          (let* ((heading (ogent-cabinet--first-heading-title))
+                 (agent-property (ogent-cabinet--blank-to-nil
+                                  (org-entry-get nil "OGENT_AGENT")))
+                 (slug-property (ogent-cabinet--blank-to-nil
+                                 (org-entry-get nil "OGENT_SLUG")))
+                 (agent (if (and agent-property
+                                  (not (member (downcase agent-property)
+                                               '("t" "true" "yes"))))
+                            agent-property
+                          slug-property)))
             (list
              :kind (cond
                     ((org-entry-get nil "OGENT_CABINET") 'cabinet)
-                    ((org-entry-get nil "OGENT_AGENT") 'agent)
-                    ((org-entry-get nil "OGENT_JOB") 'job)
                     ((org-entry-get nil "OGENT_SESSION") 'session)
+                    ((org-entry-get nil "OGENT_JOB") 'job)
+                    ((org-entry-get nil "OGENT_AGENT") 'agent)
                     ((org-entry-get nil "OGENT_IMPORT") 'import)
                     ((org-entry-get nil "OGENT_ISSUE_ID") 'issue-link)
                     (t 'org))
              :heading heading
-             :agent (or (ogent-cabinet--blank-to-nil
-                         (org-entry-get nil "OGENT_AGENT"))
-                        (ogent-cabinet--blank-to-nil
-                         (org-entry-get nil "OGENT_SLUG")))
+             :agent agent
              :status (or (nth 2 (org-heading-components))
                          (ogent-cabinet--blank-to-nil
                           (org-entry-get nil "OGENT_STATUS")))
@@ -820,23 +840,24 @@ An app artifact is a directory containing an index.html file."
          (files (directory-files-recursively root "index\\.html\\'"))
          apps)
     (dolist (file files)
-      (unless (ogent-cabinet--hidden-path-p root file)
-        (let* ((dir (file-name-directory file))
-               (relative (directory-file-name
-                          (file-relative-name dir root)))
-               (owner (ogent-cabinet--app-owner root relative))
-               (attrs (file-attributes file)))
-          (push (list :label (if (string-empty-p relative) "." relative)
-                      :directory (directory-file-name dir)
-                      :path file
-                      :modified (format-time-string
-                                 "%Y-%m-%d %H:%M"
-                                 (file-attribute-modification-time attrs))
-                      :agent (plist-get owner :agent)
-                      :job-id (plist-get owner :job-id)
-                      :session-id (plist-get owner :id)
-                      :session-path (plist-get owner :path))
-                apps))))
+      (let* ((dir (file-name-directory file))
+             (relative (directory-file-name
+                        (file-relative-name dir root)))
+             (owner (ogent-cabinet--app-owner root relative)))
+        (unless (and (ogent-cabinet--hidden-path-p root file)
+                     (not owner))
+          (let ((attrs (file-attributes file)))
+            (push (list :label (if (string-empty-p relative) "." relative)
+                        :directory (directory-file-name dir)
+                        :path file
+                        :modified (format-time-string
+                                   "%Y-%m-%d %H:%M"
+                                   (file-attribute-modification-time attrs))
+                        :agent (plist-get owner :agent)
+                        :job-id (plist-get owner :job-id)
+                        :session-id (plist-get owner :id)
+                        :session-path (plist-get owner :path))
+                  apps)))))
     (seq-sort-by (lambda (app) (plist-get app :label)) #'string< apps)))
 
 (defun ogent-cabinet--graph-node (id kind label path data)
