@@ -40,12 +40,17 @@
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
-;; Declare Armory commands (defined in ogent-armory-status.el)
+;; Declare Armory commands (defined in ogent-armory-status.el and UI files)
+(declare-function ogent-armory-home "ogent-ui-armory")
 (declare-function ogent-armory-status "ogent-armory-status")
 (declare-function ogent-armory-agents "ogent-ui-armory")
+(declare-function ogent-armory-agent "ogent-ui-armory")
 (declare-function ogent-armory-tasks "ogent-ui-armory")
+(declare-function ogent-armory-conversations "ogent-ui-armory")
 (declare-function ogent-armory-search "ogent-ui-armory")
-(declare-function ogent-armory-open-app "ogent-ui-armory")
+(declare-function ogent-armory-apps "ogent-ui-armory")
+(declare-function ogent-armory-create-agent "ogent-ui-armory")
+(declare-function ogent-armory-create-job "ogent-ui-armory")
 
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
@@ -175,16 +180,30 @@ Set to nil to disable automatic evil binding setup."
     ;; Gas Town
     (gastown          :key "G" :command ogent-gastown-dispatch
                       :desc "Gas Town menu")
+    (armory-home     :key "j" :command ogent-armory-home
+                      :desc "Armory Home")
     (armory-status   :key "K" :command ogent-armory-status
-                      :desc "Armory status")
-    (armory-agents   :key "j" :command ogent-armory-agents
+                      :desc "Armory graph/status")
+    (armory-agents   :key "y" :command ogent-armory-agents
                       :desc "Armory agents")
-    (armory-tasks    :key "y" :command ogent-armory-tasks
+    (armory-agent-profile
+                      :key "Y" :command ogent-armory-agent
+                      :desc "Armory agent profile")
+    (armory-tasks    :key "I" :command ogent-armory-tasks
                       :desc "Armory tasks")
-    (armory-search   :key "I" :command ogent-armory-search
+    (armory-conversations
+                      :key "O" :command ogent-armory-conversations
+                      :desc "Armory conversations")
+    (armory-search   :key "V" :command ogent-armory-search
                       :desc "Armory search")
-    (armory-open-app :key "O" :command ogent-armory-open-app
-                      :desc "Open Armory app")
+    (armory-apps     :key "W" :command ogent-armory-apps
+                      :desc "Armory apps")
+    (armory-create-agent
+                      :key "X" :command ogent-armory-create-agent
+                      :desc "Create Armory agent")
+    (armory-create-job
+                      :key "Z" :command ogent-armory-create-job
+                      :desc "Create Armory job")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")

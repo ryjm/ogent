@@ -15,6 +15,8 @@
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
 
+(autoload 'ogent-armory-status "ogent-armory-status" nil t)
+
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."
   :group 'ogent-armory
@@ -25,8 +27,30 @@
   :type 'string
   :group 'ogent-ui-armory)
 
+(defcustom ogent-armory-home-buffer-name-format "*ogent-armory-home: %s*"
+  "Format string used for Armory Home buffers."
+  :type 'string
+  :group 'ogent-ui-armory)
+
 (defcustom ogent-armory-agent-buffer-name-format "*ogent-armory-agent: %s*"
   "Format string used for single Armory agent buffers."
+  :type 'string
+  :group 'ogent-ui-armory)
+
+(defcustom ogent-armory-jobs-buffer-name-format "*ogent-armory-jobs: %s*"
+  "Format string used for Armory job buffers."
+  :type 'string
+  :group 'ogent-ui-armory)
+
+(defcustom ogent-armory-conversations-buffer-name-format
+  "*ogent-armory-conversations: %s*"
+  "Format string used for Armory conversation buffers."
+  :type 'string
+  :group 'ogent-ui-armory)
+
+(defcustom ogent-armory-conversation-buffer-name-format
+  "*ogent-armory-conversation: %s*"
+  "Format string used for a single Armory conversation buffer."
   :type 'string
   :group 'ogent-ui-armory)
 
@@ -38,6 +62,16 @@
 (defcustom ogent-armory-search-buffer-name-format "*ogent-armory-search: %s*"
   "Format string used for Armory search buffers."
   :type 'string
+  :group 'ogent-ui-armory)
+
+(defcustom ogent-armory-apps-buffer-name-format "*ogent-armory-apps: %s*"
+  "Format string used for Armory app artifact buffers."
+  :type 'string
+  :group 'ogent-ui-armory)
+
+(defcustom ogent-armory-stale-days 7
+  "Days after which scheduled Armory jobs read as stale."
+  :type 'integer
   :group 'ogent-ui-armory)
 
 (defface ogent-armory-ui-heading
@@ -71,9 +105,38 @@
     "OGENT_TAGS")
   "Agent identity properties editable from the profile buffer.")
 
+(defconst ogent-armory-job-editable-properties
+  '("OGENT_JOB_ID"
+    "OGENT_AGENT"
+    "OGENT_CRON"
+    "OGENT_HEARTBEAT"
+    "OGENT_ENABLED"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS"
+    "OGENT_ARCHIVED")
+  "Job properties editable from Armory job buffers.")
+
+(defconst ogent-armory-job-property-keys
+  '(("OGENT_JOB_ID" . :id)
+    ("OGENT_AGENT" . :agent)
+    ("OGENT_CRON" . :cron)
+    ("OGENT_HEARTBEAT" . :heartbeat)
+    ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_PROVIDER" . :provider)
+    ("OGENT_MODEL" . :model)
+    ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TAGS" . :tags)
+    ("OGENT_ARCHIVED" . :archived-raw))
+  "Map job Org property names to plist keys.")
+
 (defconst ogent-armory-task-lanes
-  '("Inbox" "Needs Reply" "Running" "Just Finished" "Archive")
+  '("Inbox" "Needs Reply" "Running" "Scheduled" "Just Finished" "Stale" "Archive")
   "Attention lanes displayed by `ogent-armory-tasks'.")
+
+(defvar-local ogent-armory-home--root nil
+  "Armory root for the current home buffer.")
 
 (defvar-local ogent-armory-agents--root nil
   "Armory root for the current agents buffer.")
@@ -84,14 +147,41 @@
 (defvar-local ogent-armory-agent--slug nil
   "Agent slug for the current single-agent buffer.")
 
+(defvar-local ogent-armory-jobs--root nil
+  "Armory root for the current jobs buffer.")
+
+(defvar-local ogent-armory-jobs--agent nil
+  "Optional agent filter for the current jobs buffer.")
+
+(defvar-local ogent-armory-conversations--root nil
+  "Armory root for the current conversations buffer.")
+
+(defvar-local ogent-armory-conversations--filters nil
+  "Filters for the current conversations buffer.")
+
+(defvar-local ogent-armory-conversation--root nil
+  "Armory root for the current conversation detail buffer.")
+
+(defvar-local ogent-armory-conversation--file nil
+  "Conversation file for the current detail buffer.")
+
 (defvar-local ogent-armory-tasks--root nil
   "Armory root for the current task buffer.")
+
+(defvar-local ogent-armory-tasks--filters nil
+  "Filters for the current task buffer.")
 
 (defvar-local ogent-armory-search--root nil
   "Armory root for the current search buffer.")
 
 (defvar-local ogent-armory-search--query nil
   "Search query for the current search buffer.")
+
+(defvar-local ogent-armory-search--filters nil
+  "Search filters for the current search buffer.")
+
+(defvar-local ogent-armory-apps--root nil
+  "Armory root for the current apps buffer.")
 
 (defun ogent-armory-ui--root (&optional directory)
   "Return the Armory root for DIRECTORY or the current context."
@@ -128,6 +218,46 @@
   "Return sessions for SLUG under ROOT."
   (or (ogent-armory-list-sessions root slug) nil))
 
+(defun ogent-armory-ui--all-jobs (root &optional agent)
+  "Return all Armory jobs under ROOT, optionally narrowed to AGENT."
+  (let (jobs)
+    (dolist (slug (if agent (list agent) (ogent-armory-ui--agent-slugs root)))
+      (setq jobs (append jobs (ogent-armory-ui--agent-jobs root slug))))
+    jobs))
+
+(defun ogent-armory-ui--last-session (sessions)
+  "Return the most recent session from SESSIONS."
+  (car (seq-sort
+        (lambda (left right)
+          (string> (or (plist-get left :finished) "")
+                   (or (plist-get right :finished) "")))
+        (copy-sequence sessions))))
+
+(defun ogent-armory-ui--stale-job-p (root job)
+  "Return non-nil when JOB under ROOT has no recent successful session."
+  (let* ((agent (plist-get job :agent))
+         (job-id (plist-get job :id))
+         (sessions (seq-filter
+                    (lambda (session)
+                      (and (equal (plist-get session :agent) agent)
+                           (equal (plist-get session :job-id) job-id)
+                           (zerop (or (plist-get session :exit-status) 0))))
+                    (ogent-armory-list-sessions root agent)))
+         (last (ogent-armory-ui--last-session sessions))
+         (finished (plist-get last :finished)))
+    (and (plist-get job :enabled)
+         (not (plist-get job :archived))
+         (or (null finished)
+             (> (float-time
+                 (time-subtract
+                  (current-time)
+                  (date-to-time finished)))
+                (* ogent-armory-stale-days 24 60 60))))))
+
+(defun ogent-armory-ui--format-tags (tags)
+  "Return TAGS as comma-separated text."
+  (string-join (or tags nil) ", "))
+
 (defun ogent-armory-ui--file-line (file line)
   "Visit FILE and move to LINE."
   (find-file file)
@@ -142,15 +272,37 @@
 
 (defun ogent-armory-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
-  (let ((buffer (find-file-noselect file)))
-    (with-current-buffer buffer
-      (org-mode)
-      (goto-char (point-min))
-      (unless (re-search-forward org-heading-regexp nil t)
-        (user-error "No Org heading found in %s" file))
-      (org-back-to-heading t)
-      (org-entry-put nil property value)
-      (save-buffer))))
+  (ogent-armory--update-first-heading-property file property value))
+
+(defun ogent-armory-ui--job-with-property (job property value)
+  "Return JOB copied with Org PROPERTY set to VALUE."
+  (let* ((copy (copy-sequence job))
+         (key (cdr (assoc property ogent-armory-job-property-keys))))
+    (unless key
+      (user-error "Unsupported Armory job property: %s" property))
+    (pcase property
+      ("OGENT_TAGS"
+       (plist-put copy key (ogent-armory--tags-from-string value)))
+      ("OGENT_ENABLED"
+       (plist-put copy :enabled-raw value)
+       (plist-put copy :enabled (ogent-armory--truth-value value)))
+      ("OGENT_ARCHIVED"
+       (plist-put copy :archived-raw value)
+       (plist-put copy :archived (ogent-armory--truth-value value)))
+      (_
+       (plist-put copy key value)))
+    copy))
+
+(defun ogent-armory-ui--visit-body (file)
+  "Visit FILE and move point to the first body line."
+  (find-file file)
+  (org-mode)
+  (goto-char (point-min))
+  (unless (re-search-forward org-heading-regexp nil t)
+    (user-error "No Org heading found in %s" file))
+  (org-back-to-heading t)
+  (org-end-of-meta-data t)
+  (skip-chars-forward " \t\n"))
 
 (defun ogent-armory-ui--insert-heading (label)
   "Insert Armory section heading LABEL."
@@ -178,6 +330,214 @@
                           mouse-face highlight
                           help-echo "RET visits this Armory item"))))
 
+;;; Armory Home
+
+(defvar ogent-armory-home-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-armory-home-visit))
+    (define-key map "g" #'ogent-armory-home-refresh)
+    (define-key map "q" #'quit-window)
+    (define-key map "a" #'ogent-armory-agents)
+    (define-key map "t" #'ogent-armory-tasks)
+    (define-key map "c" #'ogent-armory-conversations)
+    (define-key map "s" #'ogent-armory-search)
+    (define-key map "A" #'ogent-armory-apps)
+    (define-key map "G" #'ogent-armory-status)
+    (define-key map "e" #'ogent-armory-home-edit-metadata)
+    (define-key map "n" #'ogent-armory-home-next-item)
+    (define-key map "p" #'ogent-armory-home-previous-item)
+    map)
+  "Keymap for `ogent-armory-home-mode'.")
+
+(define-derived-mode ogent-armory-home-mode special-mode "Armory-Home"
+  "Major mode for Armory Home."
+  :group 'ogent-ui-armory
+  (setq-local revert-buffer-function #'ogent-armory-home-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (setq-local header-line-format (ogent-armory-home--header-line)))
+
+(defun ogent-armory-home--header-line ()
+  "Return header line for Armory Home."
+  "RET visit  g refresh  q quit  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  e Edit  n/p move")
+
+;;;###autoload
+(defun ogent-armory-home (&optional directory)
+  "Open Armory Home for DIRECTORY."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))))
+  (let* ((root (ogent-armory-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-armory-ui--buffer-name
+                   ogent-armory-home-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-armory-home-mode)
+      (setq ogent-armory-home--root root)
+      (setq default-directory (file-name-as-directory root))
+      (ogent-armory-home-refresh))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-armory-home-refresh (&rest _)
+  "Refresh Armory Home."
+  (interactive)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (ogent-armory-home--insert-buffer)
+    (goto-char (point-min))))
+
+(defun ogent-armory-home--insert-nav (label key command)
+  "Insert navigation LABEL for KEY dispatching to COMMAND."
+  (ogent-armory-ui--insert-item-line
+   (list :type 'command :command command)
+   (format "  [%s] %s" key label)))
+
+(defun ogent-armory-home--insert-buffer ()
+  "Insert Armory Home contents."
+  (let* ((root ogent-armory-home--root)
+         (index (ogent-armory-read-index root))
+         (agents (ogent-armory-ui--agent-slugs root))
+         (jobs (ogent-armory-ui--all-jobs root))
+         (sessions (ogent-armory-list-sessions root))
+         (failed (seq-filter
+                  (lambda (session)
+                    (not (zerop (or (plist-get session :exit-status) 0))))
+                  sessions))
+         (running (seq-filter #'ogent-armory-runner-running-p agents))
+         (archived (seq-filter
+                    (lambda (record)
+                      (plist-get record :archived))
+                    (append jobs sessions)))
+         (apps (ogent-armory-list-apps root))
+         (stale (seq-filter
+                 (lambda (job)
+                   (ogent-armory-ui--stale-job-p root job))
+                 jobs))
+         (missing-persona
+          (seq-filter
+           (lambda (slug)
+             (let ((agent (ogent-armory-read-agent root slug)))
+               (or (string-blank-p (or (plist-get agent :role) ""))
+                   (string-blank-p (or (plist-get agent :provider) ""))
+                   (string-blank-p (or (plist-get agent :body) "")))))
+           agents)))
+    (insert (propertize "Armory Home" 'face 'ogent-armory-ui-heading) "\n")
+    (ogent-armory-ui--insert-kv "Title" (plist-get index :name))
+    (ogent-armory-ui--insert-kv "Path" root)
+    (ogent-armory-ui--insert-kv "Kind" (plist-get index :kind))
+    (ogent-armory-ui--insert-kv "Tags" (ogent-armory-ui--format-tags
+                                         (plist-get index :tags)))
+    (ogent-armory-ui--insert-kv "Description" (plist-get index :description))
+    (insert "\n")
+    (ogent-armory-ui--insert-heading "Health")
+    (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n\n"
+                    (length agents)
+                    (length (seq-filter (lambda (job)
+                                          (and (plist-get job :enabled)
+                                               (not (plist-get job :archived))))
+                                        jobs))
+                    (length failed)
+                    (length running)
+                    (length archived)
+                    (length apps)))
+    (ogent-armory-ui--insert-heading "Navigate")
+    (ogent-armory-home--insert-nav "Agents" "a" #'ogent-armory-agents)
+    (ogent-armory-home--insert-nav "Tasks" "t" #'ogent-armory-tasks)
+    (ogent-armory-home--insert-nav "Conversations" "c" #'ogent-armory-conversations)
+    (ogent-armory-home--insert-nav "Search" "s" #'ogent-armory-search)
+    (ogent-armory-home--insert-nav "Apps" "A" #'ogent-armory-apps)
+    (ogent-armory-home--insert-nav "Graph" "G" #'ogent-armory-status)
+    (ogent-armory-ui--insert-item-line
+     (list :type 'file :path (ogent-armory-index-file root))
+     "  [e] Settings")
+    (ogent-armory-ui--insert-item-line
+     (list :type 'file :path (ogent-armory-index-file root))
+     "  Source Org")
+    (insert "\n")
+    (ogent-armory-ui--insert-heading "Recent Activity")
+    (if sessions
+        (dolist (session (seq-take sessions 5))
+          (ogent-armory-ui--insert-item-line
+           (list :type 'session :path (plist-get session :path)
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id))
+           (format "  %s  %s  %s"
+                   (or (plist-get session :status) "")
+                   (or (plist-get session :name) "")
+                   (or (plist-get session :finished) ""))))
+      (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim)))
+    (insert "\n")
+    (ogent-armory-ui--insert-heading "Needs Attention")
+    (if (or failed stale missing-persona)
+        (progn
+          (dolist (session failed)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'session :path (plist-get session :path)
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id))
+             (format "  failed session  %s" (plist-get session :name))))
+          (dolist (job stale)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'job :agent (plist-get job :agent)
+                   :job-id (plist-get job :id)
+                   :path (ogent-armory-job-file root
+                                                (plist-get job :agent)
+                                                (plist-get job :id)))
+             (format "  stale job       %s" (plist-get job :name))))
+          (dolist (slug missing-persona)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'agent :agent slug
+                   :path (ogent-armory-agent-file root slug))
+             (format "  missing persona %s" slug))))
+      (insert (propertize "  Nothing needs attention\n" 'face 'ogent-armory-ui-good)))))
+
+(defun ogent-armory-home-visit ()
+  "Visit or dispatch the item at point in Armory Home."
+  (interactive)
+  (let ((item (ogent-armory-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('command (funcall (plist-get item :command) ogent-armory-home--root))
+      ('session (ogent-armory-conversation ogent-armory-home--root
+                                            (plist-get item :path)))
+      ('job (ogent-armory-jobs ogent-armory-home--root
+                                (plist-get item :agent)))
+      ('agent (ogent-armory-agent ogent-armory-home--root
+                                   (plist-get item :agent)))
+      ('file (ogent-armory-ui--visit-path (plist-get item :path)))
+      (_ (user-error "No Armory Home item at point")))))
+
+(defun ogent-armory-home-edit-metadata ()
+  "Visit the Armory index Org file for metadata edits."
+  (interactive)
+  (ogent-armory-ui--visit-path
+   (ogent-armory-index-file ogent-armory-home--root)))
+
+(defun ogent-armory-home-next-item ()
+  "Move point to the next actionable Armory Home item."
+  (interactive)
+  (let ((next (next-single-property-change
+               (point) 'ogent-armory-item nil (point-max))))
+    (when next
+      (goto-char next)
+      (unless (get-text-property (point) 'ogent-armory-item)
+        (setq next (next-single-property-change
+                    (point) 'ogent-armory-item nil (point-max)))
+        (when next (goto-char next))))))
+
+(defun ogent-armory-home-previous-item ()
+  "Move point to the previous actionable Armory Home item."
+  (interactive)
+  (let ((previous (previous-single-property-change
+                   (point) 'ogent-armory-item nil (point-min))))
+    (when previous
+      (goto-char (max (point-min) (1- previous)))
+      (unless (get-text-property (point) 'ogent-armory-item)
+        (setq previous (previous-single-property-change
+                        (point) 'ogent-armory-item nil (point-min)))
+        (when previous (goto-char (max (point-min) (1- previous))))))))
+
 ;;; Agent List
 
 (defvar ogent-armory-agents-mode-map
@@ -198,15 +558,19 @@
   "Major mode for Armory agent lists."
   :group 'ogent-ui-armory
   (setq-local tabulated-list-format
-              [("Agent" 22 t)
-               ("Role" 24 t)
-               ("Provider" 12 t)
+              [("Name" 18 t)
+               ("Slug" 14 t)
+               ("Role" 18 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
                ("Active" 8 t)
                ("Jobs" 6 nil :right-align t)
-               ("Sessions" 9 nil :right-align t)
-               ("Workspace" 24 t)])
+               ("Conversations" 13 nil :right-align t)
+               ("Last Run" 18 t)
+               ("Workspace" 16 t)
+               ("Tags" 0 t)])
   (setq-local tabulated-list-padding 2)
-  (setq-local tabulated-list-sort-key '("Agent" . nil))
+  (setq-local tabulated-list-sort-key '("Name" . nil))
   (setq-local revert-buffer-function #'ogent-armory-agents-refresh)
   (tabulated-list-init-header))
 
@@ -217,20 +581,25 @@
      (let* ((agent (ogent-armory-read-agent ogent-armory-agents--root slug))
             (jobs (ogent-armory-ui--agent-jobs ogent-armory-agents--root slug))
             (sessions (ogent-armory-ui--agent-sessions ogent-armory-agents--root slug))
+            (last-session (ogent-armory-ui--last-session sessions))
             (active (if (plist-get agent :active) "yes" "no")))
        (list
         slug
         (vector
          (or (plist-get agent :name) slug)
+         slug
          (or (plist-get agent :role) "")
          (or (plist-get agent :provider) "")
+         (or (plist-get agent :model) "")
          (propertize active
                      'face (if (plist-get agent :active)
                                'ogent-armory-ui-good
                              'ogent-armory-ui-dim))
          (number-to-string (length jobs))
          (number-to-string (length sessions))
-         (or (plist-get agent :workspace) "")))))
+         (or (plist-get last-session :finished) "")
+         (or (plist-get agent :workspace) "")
+         (ogent-armory-ui--format-tags (plist-get agent :tags))))))
    (ogent-armory-ui--agent-slugs ogent-armory-agents--root)))
 
 ;;;###autoload
@@ -296,6 +665,7 @@
     (define-key map "c" #'ogent-armory-agent-compose)
     (define-key map "e" #'ogent-armory-agent-edit-property)
     (define-key map "R" #'ogent-armory-agent-run-at-point)
+    (define-key map "v" #'ogent-armory-agent-visit)
     (define-key map "g" #'ogent-armory-agent-refresh)
     (define-key map "t" #'ogent-armory-tasks)
     (define-key map "s" #'ogent-armory-search)
@@ -313,7 +683,7 @@
 
 (defun ogent-armory-agent--header-line ()
   "Return header text for the current Armory agent buffer."
-  (format "g refresh  RET visit  c compose  e edit  R run  t tasks  s search  q quit    %s/%s"
+  (format "g refresh  RET/v visit  c compose  e edit  R run/retry  t tasks  s search  q quit    %s/%s"
           (or (and ogent-armory-agent--root
                    (ogent-armory-ui--root-label ogent-armory-agent--root))
               "?")
@@ -370,6 +740,8 @@
     (ogent-armory-agent--insert-conversations sessions)
     (ogent-armory-agent--insert-recent-work sessions)
     (ogent-armory-agent--insert-schedule jobs)
+    (ogent-armory-agent--insert-memory root slug)
+    (ogent-armory-agent--insert-tools agent)
     (ogent-armory-agent--insert-details agent)
     (ogent-armory-agent--insert-persona agent)))
 
@@ -416,10 +788,15 @@
   (let ((recent (seq-take sessions 5)))
     (if recent
         (dolist (session recent)
-          (insert (format "  %s  %s\n"
-                          (or (plist-get session :status) "DONE")
-                          (or (plist-get session :name)
-                              (plist-get session :id)))))
+          (ogent-armory-ui--insert-item-line
+           (list :type 'session
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id)
+                 :path (plist-get session :path))
+           (format "  %s  %s"
+                   (or (plist-get session :status) "DONE")
+                   (or (plist-get session :name)
+                       (plist-get session :id)))))
       (insert (propertize "  No recent work\n" 'face 'ogent-armory-ui-dim))))
   (insert "\n"))
 
@@ -441,6 +818,28 @@
                  (or (plist-get job :name) (plist-get job :id))
                  (or (plist-get job :cron) "manual"))))
     (insert (propertize "  No scheduled jobs\n" 'face 'ogent-armory-ui-dim)))
+  (insert "\n"))
+
+(defun ogent-armory-agent--insert-memory (root slug)
+  "Insert Memory section for agent SLUG under ROOT."
+  (ogent-armory-ui--insert-heading "Memory")
+  (dolist (file (list (ogent-armory-agent-memory-file root slug "context.org")
+                      (ogent-armory-agent-memory-file root slug "decisions.org")
+                      (ogent-armory-agent-memory-file root slug "learnings.org")
+                      (ogent-armory-agent-inbox-file root slug)
+                      (ogent-armory-agent-schedule-file root slug)))
+    (ogent-armory-ui--insert-item-line
+     (list :type 'file :path file)
+     (format "  %s" (file-relative-name file (ogent-armory-agent-directory
+                                             root slug)))))
+  (insert "\n"))
+
+(defun ogent-armory-agent--insert-tools (agent)
+  "Insert Tools/Permissions section from AGENT."
+  (ogent-armory-ui--insert-heading "Tools/Permissions")
+  (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
+  (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
+  (ogent-armory-ui--insert-kv "Permission" (plist-get agent :permission-mode))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-details (agent)
@@ -524,6 +923,301 @@
     (ogent-armory-ui--put-property file property value)
     (ogent-armory-agent-refresh)))
 
+;;; Agent Management Commands
+
+;;;###autoload
+(defun ogent-armory-create-agent (&optional directory)
+  "Create a Armory agent under DIRECTORY."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))))
+  (let* ((root (ogent-armory-ui--root directory))
+         (name (read-string "Name: "))
+         (slug (read-string "Slug: " (ogent-armory--slug name "agent")))
+         (role (read-string "Role: " "Agent"))
+         (provider (read-string "Provider: " ogent-armory-default-agent-provider))
+         (model (read-string "Model: "))
+         (workspace (read-string "Workspace: " "/"))
+         (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
+         (persona (read-string "Persona: ")))
+    (when (file-exists-p (ogent-armory-agent-file root slug))
+      (user-error "Agent already exists: %s" slug))
+    (ogent-armory-write-agent
+     root
+     (list :slug slug
+           :name name
+           :role role
+           :provider provider
+           :model model
+           :active t
+           :workspace workspace
+           :tags tags)
+     persona)))
+
+;;;###autoload
+(defun ogent-armory-clone-agent (&optional directory agent-slug new-slug)
+  "Clone AGENT-SLUG under DIRECTORY to NEW-SLUG."
+  (interactive
+   (let* ((root (ogent-armory-ui--root
+                 (or (ogent-armory-find-root)
+                     (read-directory-name "Armory root: "))))
+          (slug (ogent-armory-ui--read-agent root)))
+     (list root slug (read-string "New slug: " (concat slug "-copy")))))
+  (let* ((root (ogent-armory-ui--root directory))
+         (agent (copy-sequence (ogent-armory-read-agent root agent-slug)))
+         (target (or new-slug (read-string "New slug: " (concat agent-slug "-copy")))))
+    (when (file-exists-p (ogent-armory-agent-file root target))
+      (user-error "Agent already exists: %s" target))
+    (plist-put agent :slug target)
+    (plist-put agent :name (format "%s Copy" (or (plist-get agent :name)
+                                                 agent-slug)))
+    (plist-put agent :active t)
+    (plist-put agent :archived nil)
+    (ogent-armory-write-agent root agent (plist-get agent :body))))
+
+;;;###autoload
+(defun ogent-armory-archive-agent (&optional directory agent-slug)
+  "Deactivate and archive AGENT-SLUG under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-armory-ui--root
+                 (or (ogent-armory-find-root)
+                     (read-directory-name "Armory root: "))))
+          (slug (ogent-armory-ui--read-agent root)))
+     (list root slug)))
+  (let ((root (ogent-armory-ui--root directory)))
+    (ogent-armory-update-agent-property root agent-slug "OGENT_ACTIVE" "nil")
+    (ogent-armory-update-agent-property root agent-slug "OGENT_ARCHIVED" "t")))
+
+;;; Jobs
+
+(defvar ogent-armory-jobs-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-armory-jobs-visit))
+    (define-key map "c" #'ogent-armory-create-job)
+    (define-key map "e" #'ogent-armory-jobs-edit)
+    (define-key map "P" #'ogent-armory-jobs-edit-prompt)
+    (define-key map "R" #'ogent-armory-jobs-run)
+    (define-key map "T" #'ogent-armory-jobs-toggle-enabled)
+    (define-key map "A" #'ogent-armory-jobs-archive)
+    (define-key map "g" #'ogent-armory-jobs-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-armory-jobs-mode'.")
+
+(define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
+  "Major mode for Armory jobs."
+  :group 'ogent-ui-armory
+  (setq-local tabulated-list-format
+              [("Agent" 14 t)
+               ("Job" 22 t)
+               ("Enabled" 8 t)
+               ("Next" 18 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
+               ("Workspace" 16 t)
+               ("Tags" 0 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Agent" . nil))
+  (setq-local revert-buffer-function #'ogent-armory-jobs-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-armory-job-next-run (job)
+  "Return a friendly next-run description for JOB."
+  (cond
+   ((plist-get job :archived) "archived")
+   ((not (plist-get job :enabled)) "disabled")
+   ((ogent-armory--blank-to-nil (plist-get job :cron))
+    (format "cron %s" (plist-get job :cron)))
+   ((ogent-armory--blank-to-nil (plist-get job :heartbeat))
+    (format "heartbeat %s" (plist-get job :heartbeat)))
+   (t "manual")))
+
+(defun ogent-armory-jobs--entry (job)
+  "Return a tabulated entry for JOB."
+  (let* ((agent (plist-get job :agent))
+         (job-id (plist-get job :id))
+         (file (ogent-armory-job-file ogent-armory-jobs--root agent job-id)))
+    (list
+     (append (list :type 'job :path file :agent agent :job-id job-id) job)
+     (vector
+      agent
+      (format "%s (%s)" (or (plist-get job :name) job-id) job-id)
+      (if (plist-get job :enabled) "yes" "no")
+      (ogent-armory-job-next-run job)
+      (or (plist-get job :provider) "")
+      (or (plist-get job :model) "")
+      (or (plist-get job :workspace) "")
+      (ogent-armory-ui--format-tags (plist-get job :tags))))))
+
+(defun ogent-armory-jobs--entries ()
+  "Return tabulated entries for the current jobs buffer."
+  (mapcar #'ogent-armory-jobs--entry
+          (ogent-armory-ui--all-jobs ogent-armory-jobs--root
+                                      ogent-armory-jobs--agent)))
+
+;;;###autoload
+(defun ogent-armory-jobs (&optional directory agent)
+  "Open Armory jobs for DIRECTORY, optionally narrowed to AGENT."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))
+         nil))
+  (let* ((root (ogent-armory-ui--root directory))
+         (suffix (or agent "all"))
+         (buffer (get-buffer-create
+                  (ogent-armory-ui--buffer-name
+                   ogent-armory-jobs-buffer-name-format root suffix))))
+    (with-current-buffer buffer
+      (ogent-armory-jobs-mode)
+      (setq ogent-armory-jobs--root root)
+      (setq ogent-armory-jobs--agent agent)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-armory-jobs--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-armory-agent-jobs (&optional directory agent)
+  "Open jobs for AGENT under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-armory-ui--root
+                 (or (ogent-armory-find-root)
+                     (read-directory-name "Armory root: "))))
+          (slug (ogent-armory-ui--read-agent root)))
+     (list root slug)))
+  (ogent-armory-jobs directory agent))
+
+(defun ogent-armory-jobs-refresh (&rest _)
+  "Refresh the Armory jobs buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-armory-jobs--goto (agent job-id)
+  "Move to AGENT JOB-ID in the current jobs buffer when visible."
+  (goto-char (point-min))
+  (let (found)
+    (while (and (not found) (not (eobp)))
+      (let ((item (tabulated-list-get-id)))
+        (when (and item
+                   (equal (plist-get item :agent) agent)
+                   (equal (plist-get item :job-id) job-id))
+          (setq found t)))
+      (unless found
+        (forward-line 1)))))
+
+(defun ogent-armory-jobs--item ()
+  "Return the job item at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Armory job at point")))
+
+(defun ogent-armory-jobs-visit ()
+  "Visit the Org file for the job at point."
+  (interactive)
+  (ogent-armory-ui--visit-path (plist-get (ogent-armory-jobs--item) :path)))
+
+(defun ogent-armory-jobs-run ()
+  "Run the job at point."
+  (interactive)
+  (let ((item (ogent-armory-jobs--item)))
+    (ogent-armory-run-job ogent-armory-jobs--root
+                           (plist-get item :agent)
+                           (plist-get item :job-id))))
+
+(defun ogent-armory-jobs-toggle-enabled ()
+  "Toggle enabled state for the job at point."
+  (interactive)
+  (let* ((item (ogent-armory-jobs--item))
+         (agent (plist-get item :agent))
+         (job-id (plist-get item :job-id))
+         (enabled (plist-get item :enabled)))
+    (ogent-armory-update-job-property
+     ogent-armory-jobs--root
+     agent
+     job-id
+     "OGENT_ENABLED"
+     (if enabled "nil" "t"))
+    (ogent-armory-jobs-refresh)
+    (ogent-armory-jobs--goto agent job-id)))
+
+(defun ogent-armory-jobs-archive ()
+  "Archive the job at point."
+  (interactive)
+  (let ((item (ogent-armory-jobs--item)))
+    (ogent-armory-update-job-property
+     ogent-armory-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     "OGENT_ARCHIVED"
+     "t")
+    (ogent-armory-update-job-property
+     ogent-armory-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     "OGENT_ENABLED"
+     "nil")
+    (ogent-armory-jobs-refresh)))
+
+(defun ogent-armory-jobs-edit ()
+  "Edit one metadata property for the job at point."
+  (interactive)
+  (let* ((item (ogent-armory-jobs--item))
+         (property (completing-read "Property: "
+                                    ogent-armory-job-editable-properties
+                                    nil t))
+         (value (read-string (format "%s: " property)))
+         (candidate (ogent-armory-ui--job-with-property item property value)))
+    (ogent-armory-validate-job candidate)
+    (ogent-armory-update-job-property
+     ogent-armory-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     property
+     value)
+    (ogent-armory-jobs-refresh)))
+
+(defun ogent-armory-jobs-edit-prompt ()
+  "Visit the job prompt/body for the job at point."
+  (interactive)
+  (ogent-armory-ui--visit-body
+   (plist-get (ogent-armory-jobs--item) :path)))
+
+;;;###autoload
+(defun ogent-armory-create-job (&optional directory agent)
+  "Create a Armory job under DIRECTORY for AGENT."
+  (interactive
+   (let* ((root (ogent-armory-ui--root
+                 (or (ogent-armory-find-root)
+                     (read-directory-name "Armory root: "))))
+          (slug (ogent-armory-ui--read-agent root)))
+     (list root slug)))
+  (let* ((root (ogent-armory-ui--root directory))
+         (slug (or agent (ogent-armory-ui--read-agent root)))
+         (name (read-string "Job name: "))
+         (job-id (read-string "Job id: " (ogent-armory--slug name "job")))
+         (cron (read-string "Cron: "))
+         (heartbeat (read-string "Heartbeat: "))
+         (provider (read-string "Provider override: "))
+         (model (read-string "Model override: "))
+         (workspace (read-string "Workspace: "))
+         (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
+         (prompt (read-string "Prompt: "))
+         (job (list :id job-id
+                    :agent slug
+                    :name name
+                    :cron cron
+                    :heartbeat heartbeat
+                    :enabled t
+                    :enabled-raw "t"
+                    :provider provider
+                    :model model
+                    :workspace workspace
+                    :tags tags)))
+    (when (file-exists-p (ogent-armory-job-file root slug job-id))
+      (user-error "Job already exists: %s" job-id))
+    (ogent-armory-validate-job job)
+    (ogent-armory-write-job root slug job prompt)))
+
 ;;; Tasks
 
 (defvar ogent-armory-tasks-mode-map
@@ -533,6 +1227,9 @@
     (define-key map (kbd "<kp-enter>") #'ogent-armory-tasks-visit)
     (define-key map "R" #'ogent-armory-tasks-run)
     (define-key map "A" #'ogent-armory-tasks-archive)
+    (define-key map "U" #'ogent-armory-tasks-unarchive)
+    (define-key map "e" #'ogent-armory-tasks-edit)
+    (define-key map "f" #'ogent-armory-tasks-filter)
     (define-key map "g" #'ogent-armory-tasks-refresh)
     (define-key map "s" #'ogent-armory-search)
     (define-key map "q" #'quit-window)
@@ -556,7 +1253,12 @@
 (defun ogent-armory-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
   (list :type 'job
-        :lane (if (plist-get job :enabled) "Inbox" "Archive")
+        :lane (cond
+               ((plist-get job :archived) "Archive")
+               ((not (plist-get job :enabled)) "Archive")
+               ((ogent-armory-ui--stale-job-p root job) "Stale")
+               ((ogent-armory--blank-to-nil (plist-get job :cron)) "Scheduled")
+               (t "Inbox"))
         :agent (plist-get job :agent)
         :job-id (plist-get job :id)
         :name (or (plist-get job :name) (plist-get job :id))
@@ -611,6 +1313,17 @@
     (dolist (session (ogent-armory-list-sessions root))
       (push (ogent-armory-tasks--session-item session) items))
     (setq items (append (ogent-armory-tasks--running-items root) items))
+    (let ((filters ogent-armory-tasks--filters))
+      (setq items
+            (seq-filter
+             (lambda (item)
+               (and (or (null (plist-get filters :agent))
+                        (equal (plist-get item :agent)
+                               (plist-get filters :agent)))
+                    (or (null (plist-get filters :status))
+                        (equal (plist-get item :state)
+                               (plist-get filters :status)))))
+             items)))
     (nreverse items)))
 
 (defun ogent-armory-tasks--entry (item)
@@ -660,6 +1373,7 @@
     (with-current-buffer buffer
       (ogent-armory-tasks-mode)
       (setq ogent-armory-tasks--root root)
+      (setq ogent-armory-tasks--filters nil)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-armory-tasks--entries)
       (tabulated-list-print t))
@@ -721,6 +1435,349 @@
        (user-error "No archivable Armory task at point"))))
   (ogent-armory-tasks-refresh))
 
+(defun ogent-armory-tasks-unarchive ()
+  "Unarchive the Armory task at point."
+  (interactive)
+  (let ((item (ogent-armory-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('job
+       (ogent-armory-ui--put-property (plist-get item :path) "OGENT_ARCHIVED" "nil")
+       (ogent-armory-ui--put-property (plist-get item :path) "OGENT_ENABLED" "t"))
+      ('session
+       (ogent-armory-ui--put-property (plist-get item :path) "OGENT_ARCHIVED" "nil"))
+      (_
+       (user-error "No archived Armory task at point"))))
+  (ogent-armory-tasks-refresh))
+
+(defun ogent-armory-tasks-edit ()
+  "Edit metadata for the Armory task at point."
+  (interactive)
+  (let* ((item (ogent-armory-ui--item-at-point))
+         (property (pcase (plist-get item :type)
+                     ('job (completing-read "Property: "
+                                            ogent-armory-job-editable-properties
+                                            nil t))
+                     ('session (completing-read "Property: "
+                                                '("OGENT_ARCHIVED" "OGENT_TAGS")
+                                                nil t))
+                     (_ (user-error "No editable Armory task at point"))))
+         (value (read-string (format "%s: " property))))
+    (when (eq (plist-get item :type) 'job)
+      (ogent-armory-validate-job
+       (ogent-armory-ui--job-with-property item property value)))
+    (ogent-armory-ui--put-property (plist-get item :path) property value)
+    (ogent-armory-tasks-refresh)))
+
+(defun ogent-armory-tasks-filter ()
+  "Set simple task board filters."
+  (interactive)
+  (setq ogent-armory-tasks--filters
+        (list :agent (ogent-armory--blank-to-nil
+                      (read-string "Agent filter: "))
+              :status (ogent-armory--blank-to-nil
+                       (read-string "Status filter: "))))
+  (ogent-armory-tasks-refresh))
+
+;;; Conversations
+
+(defvar ogent-armory-conversations-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-armory-conversations-open))
+    (define-key map "R" #'ogent-armory-conversations-retry)
+    (define-key map "A" #'ogent-armory-conversations-archive)
+    (define-key map "U" #'ogent-armory-conversations-unarchive)
+    (define-key map "v" #'ogent-armory-conversations-visit-source)
+    (define-key map "s" #'ogent-armory-conversations-search)
+    (define-key map "f" #'ogent-armory-conversations-filter)
+    (define-key map "g" #'ogent-armory-conversations-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-armory-conversations-mode'.")
+
+(define-derived-mode ogent-armory-conversations-mode tabulated-list-mode
+  "Armory-Conversations"
+  "Major mode for Armory conversation lists."
+  :group 'ogent-ui-armory
+  (setq-local tabulated-list-format
+              [("Status" 10 t)
+               ("Agent" 14 t)
+               ("Job" 18 t)
+               ("Conversation" 28 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
+               ("Duration" 10 t)
+               ("Finished" 22 t)
+               ("Archived" 8 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Finished" . t))
+  (setq-local revert-buffer-function #'ogent-armory-conversations-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-armory-conversations--matches-p (session)
+  "Return non-nil when SESSION matches current filters."
+  (let ((filters ogent-armory-conversations--filters))
+    (and (or (null (plist-get filters :agent))
+             (equal (plist-get session :agent) (plist-get filters :agent)))
+         (or (null (plist-get filters :job-id))
+             (equal (plist-get session :job-id) (plist-get filters :job-id)))
+         (or (null (plist-get filters :status))
+             (equal (plist-get session :status) (plist-get filters :status)))
+         (or (null (plist-get filters :provider))
+             (equal (plist-get session :provider) (plist-get filters :provider)))
+         (or (null (plist-get filters :model))
+             (equal (plist-get session :model) (plist-get filters :model)))
+         (or (null (plist-get filters :tag))
+             (member (plist-get filters :tag) (plist-get session :tags)))
+         (or (null (plist-get filters :archived))
+             (eq (plist-get session :archived)
+                 (ogent-armory--truth-value (plist-get filters :archived)))))))
+
+(defun ogent-armory-conversations--entry (session)
+  "Return tabulated entry for SESSION."
+  (list
+   (append (list :type 'session) session)
+   (vector
+    (or (plist-get session :status) "")
+    (or (plist-get session :agent) "")
+    (or (plist-get session :job-id) "")
+    (or (plist-get session :name) (plist-get session :id))
+    (or (plist-get session :provider) "")
+    (or (plist-get session :model) "")
+    (or (plist-get session :duration) "")
+    (or (plist-get session :finished) "")
+    (if (plist-get session :archived) "yes" "no"))))
+
+(defun ogent-armory-conversations--entries ()
+  "Return conversation entries for the current buffer."
+  (mapcar #'ogent-armory-conversations--entry
+          (seq-filter #'ogent-armory-conversations--matches-p
+                      (ogent-armory-list-sessions
+                       ogent-armory-conversations--root))))
+
+;;;###autoload
+(defun ogent-armory-conversations (&optional directory filters)
+  "Open Armory conversations for DIRECTORY with optional FILTERS."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))
+         nil))
+  (let* ((root (ogent-armory-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-armory-ui--buffer-name
+                   ogent-armory-conversations-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-armory-conversations-mode)
+      (setq ogent-armory-conversations--root root)
+      (setq ogent-armory-conversations--filters filters)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-armory-conversations--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-armory-conversations-refresh (&rest _)
+  "Refresh the Armory conversations buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-armory-conversations--item ()
+  "Return the conversation at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Armory conversation at point")))
+
+(defun ogent-armory-conversations-open ()
+  "Open the conversation at point."
+  (interactive)
+  (ogent-armory-conversation
+   ogent-armory-conversations--root
+   (plist-get (ogent-armory-conversations--item) :path)))
+
+(defun ogent-armory-conversations-visit-source ()
+  "Visit the Org source file for the conversation at point."
+  (interactive)
+  (ogent-armory-ui--visit-path
+   (plist-get (ogent-armory-conversations--item) :path)))
+
+(defun ogent-armory-conversations-retry ()
+  "Retry the conversation at point when it links to a job."
+  (interactive)
+  (let ((item (ogent-armory-conversations--item)))
+    (if-let ((job-id (plist-get item :job-id)))
+        (ogent-armory-run-job ogent-armory-conversations--root
+                               (plist-get item :agent)
+                               job-id)
+      (ogent-armory-run-agent ogent-armory-conversations--root
+                               (plist-get item :agent)
+                               (read-string "Instruction: ")))))
+
+(defun ogent-armory-conversations-archive ()
+  "Archive the conversation at point."
+  (interactive)
+  (ogent-armory-update-session-property
+   (plist-get (ogent-armory-conversations--item) :path)
+   "OGENT_ARCHIVED"
+   "t")
+  (ogent-armory-conversations-refresh))
+
+(defun ogent-armory-conversations-unarchive ()
+  "Unarchive the conversation at point."
+  (interactive)
+  (ogent-armory-update-session-property
+   (plist-get (ogent-armory-conversations--item) :path)
+   "OGENT_ARCHIVED"
+   "nil")
+  (ogent-armory-conversations-refresh))
+
+(defun ogent-armory-conversations-filter ()
+  "Set simple conversation filters."
+  (interactive)
+  (setq ogent-armory-conversations--filters
+        (list :agent (ogent-armory--blank-to-nil
+                      (read-string "Agent filter: "))
+              :status (ogent-armory--blank-to-nil
+                       (read-string "Status filter: "))
+              :tag (ogent-armory--blank-to-nil
+                    (read-string "Tag filter: "))))
+  (ogent-armory-conversations-refresh))
+
+(defun ogent-armory-conversations-search ()
+  "Search within Armory conversations."
+  (interactive)
+  (ogent-armory-search ogent-armory-conversations--root
+                        (read-string "Search conversations: ")
+                        (list :kind 'session)))
+
+(defvar ogent-armory-conversation-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
+      (define-key map (kbd key) #'ogent-armory-conversation-visit-source))
+    (define-key map "R" #'ogent-armory-conversation-retry)
+    (define-key map "A" #'ogent-armory-conversation-archive)
+    (define-key map "U" #'ogent-armory-conversation-unarchive)
+    (define-key map "g" #'ogent-armory-conversation-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-armory-conversation-mode'.")
+
+(define-derived-mode ogent-armory-conversation-mode special-mode
+  "Armory-Conversation"
+  "Major mode for a single Armory conversation."
+  :group 'ogent-ui-armory
+  (setq-local revert-buffer-function #'ogent-armory-conversation-refresh)
+  (setq-local truncate-lines nil)
+  (setq-local buffer-read-only t)
+  (setq header-line-format
+        "RET/v source  R retry/resume  A archive  U unarchive  g refresh  q quit"))
+
+;;;###autoload
+(defun ogent-armory-conversation (&optional directory file)
+  "Open Armory conversation FILE under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-armory-ui--root
+                 (or (ogent-armory-find-root)
+                     (read-directory-name "Armory root: "))))
+          (session (completing-read
+                    "Conversation: "
+                    (mapcar (lambda (item)
+                              (plist-get item :path))
+                            (ogent-armory-list-sessions root))
+                    nil t)))
+     (list root session)))
+  (let* ((root (ogent-armory-ui--root directory))
+         (path (or file (plist-get (ogent-armory-conversations--item) :path)))
+         (buffer (get-buffer-create
+                  (ogent-armory-ui--buffer-name
+                   ogent-armory-conversation-buffer-name-format
+                   root
+                   (file-name-base path)))))
+    (with-current-buffer buffer
+      (ogent-armory-conversation-mode)
+      (setq ogent-armory-conversation--root root)
+      (setq ogent-armory-conversation--file path)
+      (setq default-directory (file-name-as-directory root))
+      (ogent-armory-conversation-refresh))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-armory-conversation-refresh (&rest _)
+  "Refresh this conversation detail buffer."
+  (interactive)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (ogent-armory-conversation--insert-buffer)
+    (goto-char (point-min))))
+
+(defun ogent-armory-conversation--insert-buffer ()
+  "Insert the current conversation detail."
+  (let ((detail (ogent-armory-session-detail ogent-armory-conversation--file)))
+    (insert (propertize (or (plist-get detail :name)
+                            (plist-get detail :id))
+                        'face 'ogent-armory-ui-heading)
+            "\n\n")
+    (ogent-armory-ui--insert-heading "Metadata")
+    (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
+    (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
+    (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
+    (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
+    (ogent-armory-ui--insert-kv "Exit status"
+                                 (when (plist-get detail :exit-status)
+                                   (number-to-string
+                                    (plist-get detail :exit-status))))
+    (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
+    (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
+    (insert "\n")
+    (ogent-armory-ui--insert-heading "Prompt")
+    (insert (or (plist-get detail :prompt) "") "\n\n")
+    (ogent-armory-ui--insert-heading "Output")
+    (insert (or (plist-get detail :output) "") "\n\n")
+    (when (plist-get detail :tools)
+      (ogent-armory-ui--insert-heading "Tool Blocks")
+      (dolist (tool (plist-get detail :tools))
+        (insert (format "  %s\n%s\n" (plist-get tool :header)
+                        (plist-get tool :body))))
+      (insert "\n"))
+    (when (ogent-armory--blank-to-nil (plist-get detail :error))
+      (ogent-armory-ui--insert-heading "Error")
+      (insert (plist-get detail :error) "\n\n"))
+    (ogent-armory-ui--insert-heading "Source Org")
+    (ogent-armory-ui--insert-item-line
+     (list :type 'file :path (plist-get detail :path))
+     (format "  %s" (plist-get detail :path)))))
+
+(defun ogent-armory-conversation-visit-source ()
+  "Visit the Org source for this conversation."
+  (interactive)
+  (ogent-armory-ui--visit-path ogent-armory-conversation--file))
+
+(defun ogent-armory-conversation-retry ()
+  "Retry this conversation."
+  (interactive)
+  (let ((detail (ogent-armory-session-detail ogent-armory-conversation--file)))
+    (if-let ((job-id (plist-get detail :job-id)))
+        (ogent-armory-run-job ogent-armory-conversation--root
+                               (plist-get detail :agent)
+                               job-id)
+      (ogent-armory-run-agent ogent-armory-conversation--root
+                               (plist-get detail :agent)
+                               (read-string "Instruction: ")))))
+
+(defun ogent-armory-conversation-archive ()
+  "Archive this conversation."
+  (interactive)
+  (ogent-armory-update-session-property ogent-armory-conversation--file
+                                         "OGENT_ARCHIVED"
+                                         "t")
+  (ogent-armory-conversation-refresh))
+
+(defun ogent-armory-conversation-unarchive ()
+  "Unarchive this conversation."
+  (interactive)
+  (ogent-armory-update-session-property ogent-armory-conversation--file
+                                         "OGENT_ARCHIVED"
+                                         "nil")
+  (ogent-armory-conversation-refresh))
+
 ;;; Search
 
 (defvar ogent-armory-search-mode-map
@@ -747,23 +1804,26 @@
 
 (defun ogent-armory-search--entries ()
   "Return tabulated entries for the current Armory search buffer."
-  (mapcar
-   (lambda (result)
-     (let ((path (plist-get result :path)))
-       (list
-        result
-        (vector
-         (symbol-name (plist-get result :kind))
-         (file-relative-name path ogent-armory-search--root)
-         (number-to-string (plist-get result :line))
-         (plist-get result :text)))))
-   (ogent-armory-search-records
-    ogent-armory-search--root
-    ogent-armory-search--query)))
+  (if (string-blank-p (or ogent-armory-search--query ""))
+      (list (list nil (vector "" "" "" "Enter a search query to search this Armory.")))
+    (mapcar
+     (lambda (result)
+       (let ((path (plist-get result :path)))
+         (list
+          result
+          (vector
+           (symbol-name (plist-get result :kind))
+           (file-relative-name path ogent-armory-search--root)
+           (number-to-string (plist-get result :line))
+           (plist-get result :text)))))
+     (apply #'ogent-armory-search-records
+            ogent-armory-search--root
+            ogent-armory-search--query
+            ogent-armory-search--filters))))
 
 ;;;###autoload
-(defun ogent-armory-search (&optional directory query)
-  "Search Armory Org records under DIRECTORY for QUERY."
+(defun ogent-armory-search (&optional directory query filters)
+  "Search Armory Org records under DIRECTORY for QUERY and FILTERS."
   (interactive
    (let ((root (ogent-armory-ui--root
                 (or (ogent-armory-find-root)
@@ -780,6 +1840,7 @@
       (ogent-armory-search-mode)
       (setq ogent-armory-search--root root)
       (setq ogent-armory-search--query search-query)
+      (setq ogent-armory-search--filters filters)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-armory-search--entries)
       (tabulated-list-print t))
@@ -802,6 +1863,89 @@
      (plist-get result :line))))
 
 ;;; Apps
+
+(defvar ogent-armory-apps-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-armory-apps-open))
+    (define-key map "v" #'ogent-armory-apps-visit-directory)
+    (define-key map "g" #'ogent-armory-apps-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-armory-apps-mode'.")
+
+(define-derived-mode ogent-armory-apps-mode tabulated-list-mode "Armory-Apps"
+  "Major mode for Armory app artifacts."
+  :group 'ogent-ui-armory
+  (setq-local tabulated-list-format
+              [("Label" 30 t)
+               ("Owner" 18 t)
+               ("Modified" 18 t)
+               ("Path" 0 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Modified" . t))
+  (setq-local revert-buffer-function #'ogent-armory-apps-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-armory-apps--entry (app)
+  "Return a tabulated entry for APP."
+  (let ((owner (string-join
+                (delq nil (list (plist-get app :agent)
+                                (plist-get app :job-id)))
+                "/")))
+    (list
+     app
+     (vector
+      (plist-get app :label)
+      owner
+      (or (plist-get app :modified) "")
+      (plist-get app :path)))))
+
+(defun ogent-armory-apps--entries ()
+  "Return app entries for the current Armory apps buffer."
+  (let ((apps (ogent-armory-list-apps ogent-armory-apps--root)))
+    (if apps
+        (mapcar #'ogent-armory-apps--entry apps)
+      (list (list nil (vector "No app artifacts" "" "" ""))))))
+
+;;;###autoload
+(defun ogent-armory-apps (&optional directory)
+  "Open the Armory app artifact list for DIRECTORY."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))))
+  (let* ((root (ogent-armory-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-armory-ui--buffer-name
+                   ogent-armory-apps-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-armory-apps-mode)
+      (setq ogent-armory-apps--root root)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-armory-apps--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-armory-apps-refresh (&rest _)
+  "Refresh the Armory apps buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-armory-apps--item ()
+  "Return the app item at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Armory app at point")))
+
+(defun ogent-armory-apps-open ()
+  "Open the app artifact at point in a browser."
+  (interactive)
+  (browse-url-of-file (plist-get (ogent-armory-apps--item) :path)))
+
+(defun ogent-armory-apps-visit-directory ()
+  "Visit the app directory at point."
+  (interactive)
+  (dired (plist-get (ogent-armory-apps--item) :directory)))
 
 ;;;###autoload
 (defun ogent-armory-open-app (&optional directory)

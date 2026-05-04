@@ -226,6 +226,28 @@
   (should (assq 'session-load ogent-action-registry))
   (should (assq 'session-list ogent-action-registry)))
 
+(ert-deftest ogent-keys-armory-actions-present ()
+  "Armory actions expose the complete Org OS entry surface."
+  (dolist (action '(armory-home
+                    armory-status
+                    armory-agents
+                    armory-agent-profile
+                    armory-tasks
+                    armory-conversations
+                    armory-search
+                    armory-apps
+                    armory-create-agent
+                    armory-create-job))
+    (should (assq action ogent-action-registry))))
+
+(ert-deftest ogent-keys-armory-visible-dispatch-keys-are-unique ()
+  "Armory action keys in the visible dispatch registry do not collide."
+  (let ((keys nil))
+    (dolist (entry ogent-action-registry)
+      (when (string-prefix-p "armory-" (symbol-name (car entry)))
+        (push (plist-get (cdr entry) :key) keys)))
+    (should (= (length keys) (length (delete-dups (copy-sequence keys)))))))
+
 ;;; Review Bindings Tests
 
 (ert-deftest ogent-keys-review-bindings-setup ()

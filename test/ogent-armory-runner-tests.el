@@ -74,6 +74,65 @@
         (should (string-match-p "Keep the architecture honest" prompt))
         (should (string-match-p "Find risks" prompt))))))
 
+(ert-deftest ogent-armory-runner-job-overrides-provider-model-and-workspace ()
+  "Job metadata can override the owning agent's provider, model, and workspace."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (let ((workspace (expand-file-name "reports" dir)))
+      (make-directory workspace t)
+      (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent
+       dir
+       '(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :model "gpt-5.4"
+         :workspace "/")
+       "Keep the architecture honest.")
+      (ogent-armory-write-job
+       dir "cto"
+       '(:id "weekly-review"
+         :name "Weekly Review"
+         :provider "claude"
+         :model "sonnet"
+         :workspace "reports"
+         :enabled t)
+       "Find risks and write next actions.")
+      (let* ((plan (ogent-armory-runner-plan
+                    dir "cto" :job-id "weekly-review"))
+             (args (plist-get plan :args)))
+        (should (eq (plist-get plan :provider) 'claude))
+        (should (member "sonnet" args))
+        (should (equal (file-truename workspace)
+                       (directory-file-name
+                        (file-truename (plist-get plan :workspace)))))))))
+
+(ert-deftest ogent-armory-runner-rejects-malformed-job-metadata ()
+  "Runner planning stops on invalid job metadata with a Armory-level error."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :workspace "/")
+     "Keep the architecture honest.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review"
+       :name "Weekly Review"
+       :cron "not a cron"
+       :enabled t)
+     "Find risks and write next actions.")
+    (let* ((error (should-error
+                   (ogent-armory-runner-plan dir "cto" :job-id "weekly-review")
+                   :type 'user-error))
+           (message (cadr error)))
+      (should (string-match-p "Malformed Armory job metadata" message))
+      (should (string-match-p "weekly-review" message)))))
+
 (ert-deftest ogent-armory-runner-builds-claude-plan-from-agent ()
   "Claude plans use Claude Code with first-party subscription auth."
   (ogent-armory-runner-test-with-temp-dir dir
@@ -156,6 +215,40 @@
               (should (string-match-p ":OGENT_PROVIDER: codex" text))
               (should (string-match-p "Say hello" text))
               (should (string-match-p "fixture agent ok" text)))))))))
+
+(ert-deftest ogent-armory-runner-transcript-links-generated-apps ()
+  "Runner transcripts record generated index.html artifacts when output names them."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (let* ((workspace (expand-file-name "engineering" dir))
+           (app-file (expand-file-name "apps/dashboard/index.html" dir))
+           (fixture (ogent-armory-runner-test--make-executable
+                     dir
+                     (format "#!/bin/sh\nmkdir -p %s\nprintf '<!doctype html>' > %s\nprintf '%s\\n'\ncat >/dev/null\n"
+                             (shell-quote-argument (file-name-directory app-file))
+                             (shell-quote-argument app-file)
+                             (shell-quote-argument app-file)))))
+      (make-directory workspace t)
+      (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent
+       dir
+       '(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace "engineering")
+       "Keep the plan direct.")
+      (let* ((ogent-armory-codex-executable fixture)
+             (ogent-armory-runner-confirm-before-run nil)
+             (plan (ogent-armory-runner-plan
+                    dir "cto" :instruction "Build app."))
+             (process (ogent-armory-runner-start plan)))
+        (ogent-armory-runner-test--wait process)
+        (let ((session-file (process-get process 'ogent-armory-session-file)))
+          (should (and session-file (file-exists-p session-file)))
+          (with-temp-buffer
+            (insert-file-contents session-file)
+            (let ((text (buffer-string)))
+              (should (string-match-p ":OGENT_APP_PATHS: apps/dashboard" text)))))))))
 
 (provide 'ogent-armory-runner-tests)
 

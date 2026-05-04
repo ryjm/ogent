@@ -88,6 +88,55 @@
         (when (get-file-buffer index)
           (kill-buffer (get-file-buffer index)))))))
 
+(ert-deftest ogent-armory-status-graph-includes-sessions-apps-issues-and-hook ()
+  "The graph projection includes the full Armory relationship vocabulary."
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Zorp" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review" :name "Weekly Review" :enabled t)
+     "Review notes.")
+    (let ((session-dir (ogent-armory-sessions-directory dir "cto"))
+          (app-file (expand-file-name "apps/dashboard/index.html" dir))
+          (issue-file (expand-file-name "issue-link.org" dir))
+          (gastown-dir (expand-file-name ".gastown" dir)))
+      (make-directory session-dir t)
+      (make-directory (file-name-directory app-file) t)
+      (make-directory gastown-dir t)
+      (ogent-armory--write-file app-file "<!doctype html>")
+      (ogent-armory--write-file
+       (expand-file-name "failed.org" session-dir)
+       (concat "#+title: Failed\n\n* FAILED Failed\n"
+               (ogent-armory--format-properties
+                '(("OGENT_SESSION" . t)
+                  ("OGENT_AGENT" . "cto")
+                  ("OGENT_JOB_ID" . "weekly-review")
+                  ("OGENT_EXIT_STATUS" . 1)
+                  ("OGENT_APP_PATHS" . "apps/dashboard")))
+               "\n"))
+      (ogent-armory--write-file
+       issue-file
+       (concat "#+title: Issue Link\n\n* Issue Link\n"
+               (ogent-armory--format-properties
+                '(("OGENT_ISSUE_ID" . "ogent-123")
+                  ("OGENT_ASSIGNED_WORKER" . "cto")))
+               "\n"))
+      (let* ((graph (ogent-armory-build-graph dir))
+             (nodes (plist-get graph :nodes))
+             (edges (plist-get graph :edges)))
+        (dolist (kind '(session app issue gastown-hook))
+          (should (seq-find (lambda (node)
+                              (eq (plist-get node :kind) kind))
+                            nodes)))
+        (dolist (edge-kind '(produced failed-from linked-issue assigned-worker))
+          (should (seq-find (lambda (edge)
+                              (eq (plist-get edge :kind) edge-kind))
+                            edges)))))))
+
 (provide 'ogent-armory-status-tests)
 
 ;;; ogent-armory-status-tests.el ends here

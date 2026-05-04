@@ -37,10 +37,13 @@
        `(("OGENT_SESSION" . t)
          ("OGENT_AGENT" . ,agent-slug)
          ("OGENT_PROVIDER" . "codex")
+         ("OGENT_MODEL" . "gpt-5.4")
          ("OGENT_JOB_ID" . ,(or job-id ""))
          ("OGENT_EXIT_STATUS" . ,exit-status)
+         ("OGENT_DURATION" . "1.4s")
          ("OGENT_WORKSPACE" . ,root)
          ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+      "\n** Prompt\n#+begin_src text\nReview the project.\n#+end_src\n"
       "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"))
     file))
 
@@ -86,6 +89,30 @@
   (should (eq (lookup-key ogent-armory-agents-mode-map (kbd "R"))
               #'ogent-armory-agents-run)))
 
+(ert-deftest ogent-ui-armory-home-renders-operational-overview ()
+  "Armory Home is the single operational entry point for daily work."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((app-file (expand-file-name "apps/dashboard/index.html" root))
+          (buffer nil))
+      (make-directory (file-name-directory app-file) t)
+      (ogent-armory--write-file app-file "<!doctype html>")
+      (setq buffer (ogent-armory-home root))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-home-mode))
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
+                               "Needs Attention" "Agents" "Tasks" "Conversations"
+                               "Search" "Apps" "Graph" "Settings" "Source Org"))
+                (should (string-match-p label text)))
+              (should (string-match-p "failed-run" text))
+              (should (string-match-p "app artifacts: 1" text)))
+            (dolist (key '("RET" "g" "q" "a" "t" "c" "s" "A" "G" "e" "n" "p"))
+              (should (string-match-p key (format "%s" header-line-format)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (ert-deftest ogent-ui-armory-agents-lists-personas ()
   "The Armory agents buffer lists personas with job and session counts."
   (ogent-ui-armory-test-with-temp-dir root
@@ -98,6 +125,8 @@
               (should (string-match-p "CTO" text))
               (should (string-match-p "Architecture" text))
               (should (string-match-p "codex" text))
+              (should (string-match-p "gpt-5.4" text))
+              (should (string-match-p "strategy" text))
               (should (string-match-p "2" text))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
@@ -112,12 +141,135 @@
             (should (eq major-mode 'ogent-armory-agent-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Composer" "Inbox" "Conversations" "Recent Work"
-                               "Schedule" "Details" "Persona Instructions"))
+                               "Schedule" "Memory" "Tools/Permissions" "Details"
+                               "Persona Instructions"))
                 (should (string-match-p label text)))
+              (should (string-match-p "memory/context.org" text))
+              (should (string-match-p "inbox.org" text))
+              (should (string-match-p "schedule.org" text))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "Keep the technical plan clear" text))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-agent-profile-keybindings-are-discoverable ()
+  "The single-agent profile advertises and binds its main actions."
+  (dolist (pair `(("RET" . ,#'ogent-armory-agent-visit)
+                  ("c" . ,#'ogent-armory-agent-compose)
+                  ("e" . ,#'ogent-armory-agent-edit-property)
+                  ("R" . ,#'ogent-armory-agent-run-at-point)
+                  ("v" . ,#'ogent-armory-agent-visit)
+                  ("q" . ,#'quit-window)))
+    (should (eq (lookup-key ogent-armory-agent-mode-map (kbd (car pair)))
+                (cdr pair)))))
+
+(ert-deftest ogent-ui-armory-create-clone-and-archive-agent ()
+  "Agent management commands create, clone, and deactivate Org personas."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (prompt &optional _initial _history default)
+                 (cond
+                  ((string-match-p "Name" prompt) "Researcher")
+                  ((string-match-p "Slug" prompt) "researcher")
+                  ((string-match-p "Role" prompt) "Research")
+                  ((string-match-p "Provider" prompt) "codex")
+                  ((string-match-p "Model" prompt) "gpt-5.4")
+                  ((string-match-p "Workspace" prompt) "/")
+                  ((string-match-p "Tags" prompt) "research, strategy")
+                  ((string-match-p "Persona" prompt) "Read deeply.")
+                  (t (or default ""))))))
+      (ogent-armory-create-agent root))
+    (should (file-exists-p (ogent-armory-agent-file root "researcher")))
+    (cl-letf (((symbol-function 'read-string)
+               (lambda (&rest _) "cto-copy")))
+      (ogent-armory-clone-agent root "cto"))
+    (should (file-exists-p (ogent-armory-agent-file root "cto-copy")))
+    (ogent-armory-archive-agent root "cto-copy")
+    (let ((agent (ogent-armory-read-agent root "cto-copy")))
+      (should-not (plist-get agent :active))
+      (should (plist-get agent :archived)))))
+
+(ert-deftest ogent-ui-armory-jobs-renders-and-edits-job-records ()
+  "The jobs surface lists, toggles, and archives Org-backed jobs."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-jobs root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-jobs-mode))
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (string-match-p "Weekly Review" text))
+              (should (string-match-p "old-report" text)))
+            (should (eq (lookup-key ogent-armory-jobs-mode-map (kbd "P"))
+                        #'ogent-armory-jobs-edit-prompt))
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (let ((source (ogent-armory-job-file root "cto" "weekly-review")))
+              (ogent-armory-jobs-edit-prompt)
+              (should (equal (file-truename (buffer-file-name))
+                             (file-truename source)))
+              (should (looking-at-p "Review")))
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (ogent-armory-jobs-toggle-enabled)
+              (should-not (plist-get (ogent-armory-read-job root "cto" "weekly-review")
+                                     :enabled))
+              (ogent-armory-jobs-archive)
+              (should (plist-get (ogent-armory-read-job root "cto" "weekly-review")
+                                 :archived))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-jobs-edit-validates-metadata-before-write ()
+  "Interactive job metadata edits reject malformed values before touching Org."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-jobs root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'completing-read)
+                       (lambda (&rest _) "OGENT_CRON"))
+                      ((symbol-function 'read-string)
+                       (lambda (&rest _) "bad cron")))
+              (let* ((error (should-error (ogent-armory-jobs-edit)
+                                          :type 'user-error))
+                     (message (cadr error)))
+                (should (string-match-p "Malformed Armory job metadata" message))))
+            (should (equal (plist-get (ogent-armory-read-job root "cto" "weekly-review")
+                                      :cron)
+                           "0 9 * * 1")))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-conversations-list-and-detail ()
+  "Conversation browser opens detail buffers with transcript metadata."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-conversations root))
+          detail)
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-conversations-mode))
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (string-match-p "failed-run" text))
+              (should (string-match-p "FAILED" text)))
+            (goto-char (point-min))
+            (search-forward "failed-run")
+            (setq detail (ogent-armory-conversations-open))
+            (with-current-buffer detail
+              (should (eq major-mode 'ogent-armory-conversation-mode))
+              (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+                (dolist (label '("Metadata" "Prompt" "Output" "Source Org"
+                                 "Exit status" "Duration" "Agent" "Job"))
+                  (should (string-match-p label text))))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (and detail (buffer-live-p detail))
+          (kill-buffer detail))))))
 
 (ert-deftest ogent-ui-armory-agent-edit-property-updates-persona ()
   "Editing an agent identity property updates the Org persona drawer."
@@ -145,12 +297,25 @@
           (with-current-buffer buffer
             (should (eq major-mode 'ogent-armory-tasks-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
-              (dolist (lane '("Inbox" "Needs Reply" "Running" "Just Finished" "Archive"))
+              (dolist (lane '("Inbox" "Needs Reply" "Running" "Scheduled"
+                               "Just Finished" "Stale" "Archive"))
                 (should (string-match-p lane text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "failed-run" text))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-tasks-keybindings-cover-daily-actions ()
+  "Task board bindings include run, archive, unarchive, edit, and filters."
+  (dolist (pair `(("RET" . ,#'ogent-armory-tasks-visit)
+                  ("R" . ,#'ogent-armory-tasks-run)
+                  ("A" . ,#'ogent-armory-tasks-archive)
+                  ("U" . ,#'ogent-armory-tasks-unarchive)
+                  ("e" . ,#'ogent-armory-tasks-edit)
+                  ("f" . ,#'ogent-armory-tasks-filter)
+                  ("g" . ,#'ogent-armory-tasks-refresh)))
+    (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd (car pair)))
+                (cdr pair)))))
 
 (ert-deftest ogent-ui-armory-search-finds-org-records ()
   "Armory search finds matching Org records and opens a result buffer."
@@ -163,6 +328,36 @@
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (should (string-match-p "architecture" (downcase text)))
               (should (string-match-p "persona.org" text))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-search-empty-query-shows-empty-state ()
+  "Empty Armory search queries produce a helpful empty state."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-search root "")))
+      (unwind-protect
+          (with-current-buffer buffer
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (string-match-p "Enter a search query" text))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-apps-list-opens-artifacts ()
+  "The apps surface lists index.html artifacts with ownership hints."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((app-file (expand-file-name "apps/dashboard/index.html" root))
+          (buffer nil))
+      (make-directory (file-name-directory app-file) t)
+      (ogent-armory--write-file app-file "<!doctype html>")
+      (setq buffer (ogent-armory-apps root))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-apps-mode))
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (string-match-p "apps/dashboard" text))
+              (should (string-match-p "index.html" text))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -188,8 +383,10 @@
               #'ogent-armory-tasks))
   (should (eq (lookup-key ogent-armory-status-mode-map (kbd "s"))
               #'ogent-armory-search))
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "o"))
-              #'ogent-armory-open-app)))
+  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "c"))
+              #'ogent-armory-conversations))
+  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "A"))
+              #'ogent-armory-apps)))
 
 (provide 'ogent-ui-armory-tests)
 

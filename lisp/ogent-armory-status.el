@@ -17,8 +17,10 @@
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
 (autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-tasks "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-conversations "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-search "ogent-ui-armory" nil t)
-(autoload 'ogent-armory-open-app "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-apps "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-home "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 
@@ -92,10 +94,12 @@
     (define-key map "i" #'ogent-armory-status-open-issues)
     (define-key map "G" #'ogent-armory-status-open-gastown)
     (define-key map "R" #'ogent-armory-status-run)
+    (define-key map "h" #'ogent-armory-home)
     (define-key map "a" #'ogent-armory-agents)
     (define-key map "t" #'ogent-armory-tasks)
+    (define-key map "c" #'ogent-armory-conversations)
     (define-key map "s" #'ogent-armory-search)
-    (define-key map "o" #'ogent-armory-open-app)
+    (define-key map "A" #'ogent-armory-apps)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-status-mode'.")
@@ -160,7 +164,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status--header-line ()
   "Return header line text for the current Armory status buffer."
   (concat
-   "g refresh  RET visit  n/p move  a agents  t tasks  s search  o app  i issues  G gastown  R run  q quit"
+   "g refresh  RET visit  n/p move  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  R run  q quit"
    (when ogent-armory-status--root
      (concat "    "
              (propertize
@@ -194,6 +198,8 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (ogent-armory-status--insert-summary)
   (insert "\n")
   (ogent-armory-status--insert-agents)
+  (insert "\n")
+  (ogent-armory-status--insert-related)
   (insert "\n")
   (ogent-armory-status--insert-bridges))
 
@@ -271,6 +277,26 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                  (ogent-armory-status--format-job-line job)
                  "    ")))))
       (insert (propertize "  No agents yet\n"
+                          'face 'ogent-armory-status-dimmed)))))
+
+(defun ogent-armory-status--insert-related ()
+  "Insert non-agent graph nodes."
+  (let ((nodes (seq-filter
+                (lambda (node)
+                  (memq (plist-get node :kind)
+                        '(session app issue gastown-hook)))
+                (plist-get ogent-armory-status--graph :nodes))))
+    (ogent-armory-status--insert-heading "◇" "R" "Relationships" (length nodes))
+    (if nodes
+        (dolist (node nodes)
+          (ogent-armory-status--insert-node-line
+           node
+           (format "%s  %s"
+                   (propertize (symbol-name (plist-get node :kind))
+                               'face 'ogent-armory-status-dimmed)
+                   (propertize (or (plist-get node :label) "")
+                               'face 'ogent-armory-status-label))))
+      (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
                           'face 'ogent-armory-status-dimmed)))))
 
 (defun ogent-armory-status--format-job-line (job)
@@ -408,6 +434,16 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
         ogent-armory-status--root
         (plist-get data :agent)
         (plist-get data :id)))
+      ('session
+       (if-let ((job-id (plist-get data :job-id)))
+           (ogent-armory-run-job
+            ogent-armory-status--root
+            (plist-get data :agent)
+            job-id)
+         (ogent-armory-run-agent
+          ogent-armory-status--root
+          (plist-get data :agent)
+          (read-string "Instruction: "))))
       (_
        (user-error "No runnable Armory agent or job at point")))))
 

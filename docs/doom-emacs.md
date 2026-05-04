@@ -46,7 +46,17 @@ Add to your `~/.doom.d/config.el`:
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
-             ogent-edit-menu)
+             ogent-edit-menu
+             ogent-armory-home
+             ogent-armory-status
+             ogent-armory-agents
+             ogent-armory-agent
+             ogent-armory-tasks
+             ogent-armory-conversations
+             ogent-armory-search
+             ogent-armory-apps
+             ogent-armory-create-agent
+             ogent-armory-create-job)
   :init
   ;; Set ogent source directory for development/recompilation
   (setq ogent-source-directory "~/path/to/ogent")
@@ -105,6 +115,16 @@ All ogent commands are bound under `SPC o`:
 | `SPC o R` | `ogent-retry-request`      | Retry last request                   |
 | `SPC o ?` | `ogent-ask`                | Quick ask                            |
 | `SPC o m` | `ogent-codemap-buffer`     | Show project codemap                 |
+| `SPC o j` | `ogent-armory-home`       | Armory Home                         |
+| `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
+| `SPC o y` | `ogent-armory-agents`     | Armory agents                       |
+| `SPC o Y` | `ogent-armory-agent`      | Armory agent profile                |
+| `SPC o I` | `ogent-armory-tasks`      | Armory task board                   |
+| `SPC o O` | `ogent-armory-conversations` | Armory conversations             |
+| `SPC o V` | `ogent-armory-search`     | Armory-wide search                  |
+| `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
+| `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
+| `SPC o Z` | `ogent-armory-create-job` | Create Armory job                   |
 
 ## API Key Configuration
 
@@ -209,7 +229,17 @@ Here's a full, copy-paste ready configuration:
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
-             ogent-edit-menu)
+             ogent-edit-menu
+             ogent-armory-home
+             ogent-armory-status
+             ogent-armory-agents
+             ogent-armory-agent
+             ogent-armory-tasks
+             ogent-armory-conversations
+             ogent-armory-search
+             ogent-armory-apps
+             ogent-armory-create-agent
+             ogent-armory-create-job)
   :init
   (setq ogent-source-directory "~/projects/ogent")
 
@@ -235,7 +265,17 @@ Here's a full, copy-paste ready configuration:
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Abort request"       "a" #'ogent-abort-request
-         :desc "Codemap"             "M" #'ogent-codemap-buffer))
+         :desc "Codemap"             "M" #'ogent-codemap-buffer
+         :desc "Armory home"        "j" #'ogent-armory-home
+         :desc "Armory graph"       "K" #'ogent-armory-status
+         :desc "Armory agents"      "y" #'ogent-armory-agents
+         :desc "Armory agent"       "Y" #'ogent-armory-agent
+         :desc "Armory tasks"       "I" #'ogent-armory-tasks
+         :desc "Armory conversations" "O" #'ogent-armory-conversations
+         :desc "Armory search"      "V" #'ogent-armory-search
+         :desc "Armory apps"        "W" #'ogent-armory-apps
+         :desc "Create agent"        "X" #'ogent-armory-create-agent
+         :desc "Create job"          "Z" #'ogent-armory-create-job))
 
   :config
   ;; Companion buffer as right-side popup
