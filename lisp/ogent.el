@@ -121,6 +121,7 @@
 (require 'ogent-mcp)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-runner)
+(require 'ogent-ui-cabinet)
 (require 'ogent-cabinet-status)
 (require 'ogent-gastown)
 (require 'ogent-presets)

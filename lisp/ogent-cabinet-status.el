@@ -15,6 +15,10 @@
 
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
+(autoload 'ogent-cabinet-agents "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-tasks "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-search "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-open-app "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 
@@ -81,12 +85,17 @@
 (defvar ogent-cabinet-status-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'ogent-cabinet-status-refresh)
-    (define-key map (kbd "RET") #'ogent-cabinet-status-visit)
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-cabinet-status-visit))
     (define-key map "n" #'ogent-cabinet-status-next-item)
     (define-key map "p" #'ogent-cabinet-status-previous-item)
     (define-key map "i" #'ogent-cabinet-status-open-issues)
     (define-key map "G" #'ogent-cabinet-status-open-gastown)
     (define-key map "R" #'ogent-cabinet-status-run)
+    (define-key map "a" #'ogent-cabinet-agents)
+    (define-key map "t" #'ogent-cabinet-tasks)
+    (define-key map "s" #'ogent-cabinet-search)
+    (define-key map "o" #'ogent-cabinet-open-app)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-cabinet-status-mode'.")
@@ -151,7 +160,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
   (concat
-   "g refresh  RET visit  n/p move  i issues  G gastown  R run  q quit"
+   "g refresh  RET visit  n/p move  a agents  t tasks  s search  o app  i issues  G gastown  R run  q quit"
    (when ogent-cabinet-status--root
      (concat "    "
              (propertize

@@ -182,26 +182,27 @@ systems:
 
 The status buffer =ogent-cabinet-status= is the first projection surface. It
 renders the cabinet graph, lets users visit the source Org record with =RET=,
-and bridges to =ogent-issues= and =ogent-gastown-status= with the same refresh
-and navigation conventions used by the operational buffers.
+opens richer Cabinet surfaces with =a=, =t=, =s=, and =o=, and bridges to
+=ogent-issues= and =ogent-gastown-status= with the same refresh and navigation
+conventions used by the operational buffers.
 
 * UI Contract
 
-The first Emacs surfaces should be boring and powerful:
+The first Emacs surfaces are boring and powerful:
 
 - =ogent-cabinet-scaffold= creates an Org-backed cabinet directory.
 - =ogent-cabinet-status= shows the derived Cabinet graph and operational
   bridges to Issues and Gas Town. Press =R= on an agent or job to run it through
   the selected CLI provider.
-- =ogent-cabinet-agents= should show personas in a tabulated buffer.
-- =ogent-cabinet-agent= should open a single agent profile buffer with sections
+- =ogent-cabinet-agents= shows personas in a tabulated buffer.
+- =ogent-cabinet-agent= opens a single agent profile buffer with sections
   for composer, inbox, conversations, recent work, schedule, details, and
   persona instructions.
-- =ogent-cabinet-tasks= should show attention-first lanes: Inbox, Needs Reply,
+- =ogent-cabinet-tasks= shows attention-first lanes: Inbox, Needs Reply,
   Running, Just Finished, Archive.
-- =ogent-cabinet-search= should search cabinet Org files and conversation
+- =ogent-cabinet-search= searches cabinet Org files and conversation
   transcripts.
-- =ogent-cabinet-open-app= should open =index.html= artifacts referenced from
+- =ogent-cabinet-open-app= opens =index.html= artifacts referenced from
   Org nodes.
 
 The implementation should use existing ogent primitives whenever possible:
@@ -258,8 +259,9 @@ The implementation should use existing ogent primitives whenever possible:
 
 - Whether cron execution should live only in Emacs timers or also expose a
   detached automation bridge.
-- Whether the Cabinet task board should use =magit-section= everywhere or
-  =tabulated-list-mode= for dense keyboard sorting.
+- The Cabinet task board starts on =tabulated-list-mode= for dense keyboard
+  sorting; a later Magit-section projection can be added if nested sections
+  become important.
 - Whether the graph projection should gain an on-disk incremental cache, and
   which Org edit hooks should feed its change set.
 - Whether org-roam should become the recommended cross-cabinet index or remain

@@ -150,6 +150,11 @@ PROPERTIES is an alist of property names to values."
   (expand-file-name "jobs"
                     (ogent-cabinet-agent-directory directory agent-slug)))
 
+(defun ogent-cabinet-sessions-directory (directory agent-slug)
+  "Return the sessions directory for AGENT-SLUG under DIRECTORY."
+  (expand-file-name "sessions"
+                    (ogent-cabinet-agent-directory directory agent-slug)))
+
 (defun ogent-cabinet-root-p (directory)
   "Return non-nil when DIRECTORY has an Org cabinet index."
   (let ((index (ogent-cabinet-index-file directory)))
@@ -414,6 +419,144 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
               :enabled (ogent-cabinet--truth-value
                         (org-entry-get nil "OGENT_ENABLED"))
               :body (ogent-cabinet--heading-body))))))
+
+(defun ogent-cabinet--status-symbol (status exit-status)
+  "Return normalized session status from STATUS and EXIT-STATUS."
+  (cond
+   ((and exit-status (not (zerop exit-status))) "FAILED")
+   ((and status (not (string-blank-p status))) status)
+   (t "DONE")))
+
+(defun ogent-cabinet-read-session-file (file &optional agent-slug)
+  "Read Cabinet session transcript FILE and return a plist.
+When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
+  (unless (file-readable-p file)
+    (user-error "Cabinet session not found: %s" file))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (let* ((name (ogent-cabinet--first-heading-title))
+           (todo (nth 2 (org-heading-components)))
+           (exit-status-text (ogent-cabinet--blank-to-nil
+                              (org-entry-get nil "OGENT_EXIT_STATUS")))
+           (exit-status (when exit-status-text
+                          (string-to-number exit-status-text)))
+           (agent (or (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_AGENT"))
+                      agent-slug)))
+      (list :id (file-name-base file)
+            :name name
+            :agent agent
+            :provider (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_PROVIDER"))
+            :job-id (ogent-cabinet--blank-to-nil
+                     (org-entry-get nil "OGENT_JOB_ID"))
+            :exit-status exit-status
+            :status (ogent-cabinet--status-symbol todo exit-status)
+            :workspace (ogent-cabinet--blank-to-nil
+                        (org-entry-get nil "OGENT_WORKSPACE"))
+            :finished (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_FINISHED"))
+            :archived (ogent-cabinet--truth-value
+                       (org-entry-get nil "OGENT_ARCHIVED"))
+            :body (ogent-cabinet--heading-body)
+            :path file))))
+
+(defun ogent-cabinet-list-sessions (directory &optional agent-slug)
+  "Return Cabinet sessions under DIRECTORY.
+When AGENT-SLUG is non-nil, only return sessions for that agent."
+  (let* ((root (ogent-cabinet--directory directory))
+         (slugs (if agent-slug
+                    (list agent-slug)
+                  (ogent-cabinet-list-agents root)))
+         sessions)
+    (dolist (slug slugs)
+      (let ((sessions-dir (ogent-cabinet-sessions-directory root slug)))
+        (when (file-directory-p sessions-dir)
+          (dolist (file (directory-files sessions-dir t "\\.org\\'"))
+            (when (file-regular-p file)
+              (push (ogent-cabinet-read-session-file file slug) sessions))))))
+    (seq-sort
+     (lambda (left right)
+       (string> (or (plist-get left :finished) "")
+                (or (plist-get right :finished) "")))
+     sessions)))
+
+(defun ogent-cabinet--hidden-path-p (root file)
+  "Return non-nil when FILE below ROOT is internal Cabinet plumbing."
+  (let ((relative (file-relative-name file root)))
+    (string-match-p
+     "\\`\\(?:\\.git\\|\\.cabinet-state\\|\\.agents/.conversations\\)/"
+     relative)))
+
+(defun ogent-cabinet-org-files (directory)
+  "Return Cabinet Org files under DIRECTORY."
+  (let* ((root (ogent-cabinet--directory directory))
+         (files (directory-files-recursively root "\\.org\\'")))
+    (seq-filter
+     (lambda (file)
+       (not (ogent-cabinet--hidden-path-p root file)))
+     files)))
+
+(defun ogent-cabinet-record-kind (file)
+  "Return the Cabinet record kind represented by FILE."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 nil)
+    (org-mode)
+    (condition-case nil
+        (progn
+          (ogent-cabinet--first-heading-title)
+          (cond
+           ((org-entry-get nil "OGENT_CABINET") 'cabinet)
+           ((org-entry-get nil "OGENT_AGENT") 'agent)
+           ((org-entry-get nil "OGENT_JOB") 'job)
+           ((org-entry-get nil "OGENT_SESSION") 'session)
+           (t 'org)))
+      (error 'org))))
+
+(defun ogent-cabinet-search-records (directory query)
+  "Return Cabinet search matches for QUERY under DIRECTORY."
+  (let ((root (ogent-cabinet--directory directory))
+        (case-fold-search t)
+        (regexp (regexp-quote (or query "")))
+        results)
+    (unless (string-blank-p (or query ""))
+      (dolist (file (ogent-cabinet-org-files root))
+        (let ((kind (ogent-cabinet-record-kind file))
+              (line-number 0))
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (while (not (eobp))
+              (setq line-number (1+ line-number))
+              (let ((line (buffer-substring-no-properties
+                           (line-beginning-position)
+                           (line-end-position))))
+                (when (string-match-p regexp line)
+                  (push (list :kind kind
+                              :path file
+                              :line line-number
+                              :text (string-trim line))
+                        results)))
+              (forward-line 1))))))
+    (nreverse results)))
+
+(defun ogent-cabinet-list-apps (directory)
+  "Return Cabinet app artifacts under DIRECTORY.
+An app artifact is a directory containing an index.html file."
+  (let* ((root (ogent-cabinet--directory directory))
+         (files (directory-files-recursively root "index\\.html\\'"))
+         apps)
+    (dolist (file files)
+      (unless (ogent-cabinet--hidden-path-p root file)
+        (let* ((dir (file-name-directory file))
+               (relative (directory-file-name
+                          (file-relative-name dir root))))
+          (push (list :label (if (string-empty-p relative) "." relative)
+                      :directory (directory-file-name dir)
+                      :path file)
+                apps))))
+    (seq-sort-by (lambda (app) (plist-get app :label)) #'string< apps)))
 
 (defun ogent-cabinet--graph-node (id kind label path data)
   "Return a graph node plist for ID, KIND, LABEL, PATH, and DATA."

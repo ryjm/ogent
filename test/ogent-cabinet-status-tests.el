@@ -58,6 +58,36 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
+(ert-deftest ogent-cabinet-status-enter-variants-visit-records ()
+  "Main Enter, GUI Return, and keypad Enter all visit records."
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "RET"))
+              #'ogent-cabinet-status-visit))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "<return>"))
+              #'ogent-cabinet-status-visit))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "<kp-enter>"))
+              #'ogent-cabinet-status-visit)))
+
+(ert-deftest ogent-cabinet-status-visit-opens-cabinet-node-file ()
+  "Visiting the rendered cabinet node opens its Org source file."
+  (ogent-cabinet-status-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Zorp" :kind "root" :create-editor nil)
+    (let* ((index (ogent-cabinet-index-file dir))
+           (buffer (ogent-cabinet-status dir))
+           visited-file)
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Zorp")
+              (call-interactively #'ogent-cabinet-status-visit)
+              (setq visited-file buffer-file-name))
+            (should (equal (file-truename visited-file)
+                           (file-truename index))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (get-file-buffer index)
+          (kill-buffer (get-file-buffer index)))))))
+
 (provide 'ogent-cabinet-status-tests)
 
 ;;; ogent-cabinet-status-tests.el ends here

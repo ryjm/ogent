@@ -42,6 +42,10 @@
 
 ;; Declare Cabinet commands (defined in ogent-cabinet-status.el)
 (declare-function ogent-cabinet-status "ogent-cabinet-status")
+(declare-function ogent-cabinet-agents "ogent-ui-cabinet")
+(declare-function ogent-cabinet-tasks "ogent-ui-cabinet")
+(declare-function ogent-cabinet-search "ogent-ui-cabinet")
+(declare-function ogent-cabinet-open-app "ogent-ui-cabinet")
 
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
@@ -173,6 +177,14 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Gas Town menu")
     (cabinet-status   :key "K" :command ogent-cabinet-status
                       :desc "Cabinet status")
+    (cabinet-agents   :key "j" :command ogent-cabinet-agents
+                      :desc "Cabinet agents")
+    (cabinet-tasks    :key "y" :command ogent-cabinet-tasks
+                      :desc "Cabinet tasks")
+    (cabinet-search   :key "I" :command ogent-cabinet-search
+                      :desc "Cabinet search")
+    (cabinet-open-app :key "O" :command ogent-cabinet-open-app
+                      :desc "Open Cabinet app")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")
