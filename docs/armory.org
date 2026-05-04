@@ -92,7 +92,9 @@ text in those Org files. Manual edits remain part of the record.
 10. Inspect relationships:
 
     Use =M-x ogent-armory-status=. The graph includes armory, agent, job,
-    session, app, issue-link, and Gas Town hook nodes when available.
+    session, app, issue-link, and Gas Town hook nodes when available. Press
+    =m= for the action menu or =?= for help. Agent and job rows advertise the
+    fastest edit/run actions inline.
 
 * Keybindings
 
@@ -110,6 +112,22 @@ Main ogent dispatch bindings:
 | =C-c . W= / =SPC o W= | =ogent-armory-apps= |
 | =C-c . X= / =SPC o X= | =ogent-armory-create-agent= |
 | =C-c . Z= / =SPC o Z= | =ogent-armory-create-job= |
+
+Armory Status:
+
+| Key | Action |
+|-----+--------|
+| =m= | Open the Transient action menu |
+| =?= | Open status help |
+| =RET= | Visit the durable Org source |
+| =R= | Run or retry the selected agent, job, or session |
+| =e= | Edit selected metadata in the Org property drawer |
+| =E= | Visit the selected Org body or job prompt |
+| =P= | Open the selected agent profile |
+| =J= | Open the selected agent's jobs |
+| =C= | Create a job for the selected agent |
+| =g= | Refresh |
+| =n= / =p= | Move between graph rows |
 
 Armory Home:
 

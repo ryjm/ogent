@@ -7,8 +7,10 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'transient)
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
 (require 'ogent-ops-style)
@@ -21,8 +23,12 @@
 (autoload 'ogent-armory-search "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-apps "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-home "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-agent "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-jobs "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-create-job "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
+(declare-function ogent-armory-jobs--goto "ogent-ui-armory" (agent job-id))
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
@@ -81,6 +87,43 @@
   "Face for inactive operational bridges."
   :group 'ogent-armory-status)
 
+(defconst ogent-armory-status-agent-editable-properties
+  '("OGENT_ROLE"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_PERMISSION_MODE"
+    "OGENT_HEARTBEAT"
+    "OGENT_ACTIVE"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS")
+  "Agent properties editable from Armory status.")
+
+(defconst ogent-armory-status-job-editable-properties
+  '("OGENT_JOB_ID"
+    "OGENT_AGENT"
+    "OGENT_CRON"
+    "OGENT_HEARTBEAT"
+    "OGENT_ENABLED"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS"
+    "OGENT_ARCHIVED")
+  "Job properties editable from Armory status.")
+
+(defconst ogent-armory-status-job-property-keys
+  '(("OGENT_JOB_ID" . :id)
+    ("OGENT_AGENT" . :agent)
+    ("OGENT_CRON" . :cron)
+    ("OGENT_HEARTBEAT" . :heartbeat)
+    ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_PROVIDER" . :provider)
+    ("OGENT_MODEL" . :model)
+    ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TAGS" . :tags)
+    ("OGENT_ARCHIVED" . :archived-raw))
+  "Map editable job Org properties to Armory job plist keys.")
+
 (defvar-local ogent-armory-status--root nil
   "Armory root shown by the current status buffer.")
 
@@ -97,6 +140,13 @@
     (define-key map "i" #'ogent-armory-status-open-issues)
     (define-key map "G" #'ogent-armory-status-open-gastown)
     (define-key map "R" #'ogent-armory-status-run)
+    (define-key map "m" #'ogent-armory-status-dispatch)
+    (define-key map "?" #'ogent-armory-status-help)
+    (define-key map "e" #'ogent-armory-status-edit)
+    (define-key map "E" #'ogent-armory-status-edit-body)
+    (define-key map "P" #'ogent-armory-status-open-agent-profile)
+    (define-key map "J" #'ogent-armory-status-open-agent-jobs)
+    (define-key map "C" #'ogent-armory-status-create-job)
     (define-key map "h" #'ogent-armory-home)
     (define-key map "a" #'ogent-armory-agents)
     (define-key map "t" #'ogent-armory-tasks)
@@ -113,6 +163,8 @@
 \\<ogent-armory-status-mode-map>
 \\[ogent-armory-status-refresh] refreshes the graph.
 \\[ogent-armory-status-visit] visits the Org record at point.
+\\[ogent-armory-status-dispatch] opens the status action menu.
+\\[ogent-armory-status-help] shows status help.
 \\[ogent-armory-status-open-issues] opens Ogent Issues.
 \\[ogent-armory-status-open-gastown] opens Gas Town status."
   :group 'ogent-armory-status
@@ -167,7 +219,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status--header-line ()
   "Return header line text for the current Armory status buffer."
   (concat
-   "g refresh  RET visit  n/p move  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  R run  q quit"
+   "m menu  ? help  g refresh  RET visit  n/p move  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
    (when ogent-armory-status--root
      (concat "    "
              (propertize
@@ -258,7 +310,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                           (t 'idle))))
             (ogent-armory-status--insert-node-line
              agent
-             (format "%s %s  %s  %s  %s"
+             (format "%s %s  %s  %s  %s%s"
                      (propertize (ogent-ops-activity-symbol status)
                                  'face (if (memq status '(active working))
                                            'ogent-armory-status-connected
@@ -272,7 +324,9 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                                  'face 'ogent-armory-status-dimmed)
                      (propertize
                       (format "%d jobs" (length jobs))
-                      'face 'ogent-armory-status-dimmed)))
+                      'face 'ogent-armory-status-dimmed)
+                     (propertize "  [P profile] [C job] [R run]"
+                                 'face 'ogent-armory-status-id)))
             (dolist (job jobs)
               (when job
                 (ogent-armory-status--insert-node-line
@@ -307,7 +361,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (let* ((data (plist-get job :data))
          (enabled (plist-get data :enabled))
          (state (if enabled 'ready 'waiting)))
-    (format "%s %s  %s"
+    (format "%s %s  %s%s"
             (propertize (ogent-ops-status-symbol state)
                         'face (if enabled
                                   'ogent-armory-status-connected
@@ -315,7 +369,9 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
             (propertize (plist-get job :label)
                         'face 'ogent-armory-status-label)
             (propertize (or (plist-get data :cron) "manual")
-                        'face 'ogent-armory-status-dimmed))))
+                        'face 'ogent-armory-status-dimmed)
+            (propertize "  [R run] [e edit] [E prompt]"
+                        'face 'ogent-armory-status-id))))
 
 (defun ogent-armory-status--insert-bridges ()
   "Insert operational bridge section."
@@ -343,7 +399,16 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
      (point)
      `(ogent-armory-node ,node
                           mouse-face highlight
-                          help-echo "RET visits this Org record"))))
+                          help-echo ,(ogent-armory-status--node-help node)))))
+
+(defun ogent-armory-status--node-help (node)
+  "Return hover help for graph NODE."
+  (pcase (plist-get node :kind)
+    ('agent "RET visits source, P opens profile, C creates a job, e edits properties, R runs")
+    ('job "RET visits source, R runs job, e edits metadata, E edits prompt/body")
+    ('session "RET visits transcript, R retries when linked to an agent or job, e edits archive/tags")
+    ('app "RET visits source, E visits source body")
+    (_ "RET visits this Org record")))
 
 (defun ogent-armory-status--insert-bridge-line (name state key)
   "Insert bridge NAME with STATE and activation KEY."
@@ -399,10 +464,70 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (or (get-text-property (point) 'ogent-armory-node)
       (get-text-property (line-beginning-position) 'ogent-armory-node)))
 
+(defun ogent-armory-status--require-node ()
+  "Return the graph node at point or signal a Armory status error."
+  (or (ogent-armory-status--node-at-point)
+      (user-error "No Armory record at point")))
+
+(defun ogent-armory-status--node-agent (node)
+  "Return the agent slug associated with NODE."
+  (let ((data (plist-get node :data)))
+    (pcase (plist-get node :kind)
+      ('agent (plist-get data :slug))
+      ((or 'job 'session 'app) (plist-get data :agent))
+      (_ nil))))
+
+(defun ogent-armory-status--node-job-id (node)
+  "Return the job id associated with NODE."
+  (let ((data (plist-get node :data)))
+    (pcase (plist-get node :kind)
+      ('job (plist-get data :id))
+      ((or 'session 'app) (plist-get data :job-id))
+      (_ nil))))
+
+(defun ogent-armory-status--job-with-property (job property value)
+  "Return JOB copied with Org PROPERTY set to VALUE."
+  (let* ((copy (copy-sequence job))
+         (key (cdr (assoc property
+                          ogent-armory-status-job-property-keys))))
+    (unless key
+      (user-error "Unsupported Armory job property: %s" property))
+    (pcase property
+      ("OGENT_TAGS"
+       (plist-put copy key (ogent-armory--tags-from-string value)))
+      ("OGENT_ENABLED"
+       (plist-put copy :enabled-raw value)
+       (plist-put copy :enabled (ogent-armory--truth-value value)))
+      ("OGENT_ARCHIVED"
+       (plist-put copy :archived-raw value)
+       (plist-put copy :archived (ogent-armory--truth-value value)))
+      (_
+       (plist-put copy key value)))
+    copy))
+
+(defun ogent-armory-status--read-current-property (file property)
+  "Return PROPERTY from the first Org heading in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (ogent-armory--first-heading-title)
+    (org-entry-get nil property)))
+
+(defun ogent-armory-status--visit-body (file)
+  "Visit FILE and move to the first body line."
+  (find-file file)
+  (org-mode)
+  (goto-char (point-min))
+  (unless (re-search-forward org-heading-regexp nil t)
+    (user-error "No Org heading found in %s" file))
+  (org-back-to-heading t)
+  (org-end-of-meta-data t)
+  (skip-chars-forward " \t\n"))
+
 (defun ogent-armory-status-visit ()
   "Visit the Org record at point."
   (interactive)
-  (let* ((node (ogent-armory-status--node-at-point))
+  (let* ((node (ogent-armory-status--require-node))
          (path (plist-get node :path)))
     (unless (and path (file-exists-p path))
       (user-error "No Armory record at point"))
@@ -423,7 +548,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status-run ()
   "Run the Armory agent or job at point."
   (interactive)
-  (let* ((node (ogent-armory-status--node-at-point))
+  (let* ((node (ogent-armory-status--require-node))
          (kind (plist-get node :kind))
          (data (plist-get node :data)))
     (pcase kind
@@ -449,6 +574,119 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
           (read-string "Instruction: "))))
       (_
        (user-error "No runnable Armory agent or job at point")))))
+
+(defun ogent-armory-status-edit ()
+  "Edit metadata for the Armory agent, job, or session at point."
+  (interactive)
+  (let* ((node (ogent-armory-status--require-node))
+         (kind (plist-get node :kind))
+         (data (plist-get node :data))
+         (path (plist-get node :path)))
+    (pcase kind
+      ('agent
+       (let* ((slug (plist-get data :slug))
+              (property (completing-read
+                         "Agent property: "
+                         ogent-armory-status-agent-editable-properties
+                         nil t))
+              (current (ogent-armory-status--read-current-property
+                        (ogent-armory-agent-file ogent-armory-status--root
+                                                  slug)
+                        property))
+              (value (read-string (format "%s: " property) current)))
+         (ogent-armory-update-agent-property
+          ogent-armory-status--root slug property value)))
+      ('job
+       (let* ((agent (plist-get data :agent))
+              (job-id (plist-get data :id))
+              (property (completing-read
+                         "Job property: "
+                         ogent-armory-status-job-editable-properties
+                         nil t))
+              (current (ogent-armory-status--read-current-property
+                        (ogent-armory-job-file ogent-armory-status--root
+                                                agent
+                                                job-id)
+                        property))
+              (value (read-string (format "%s: " property) current))
+              (candidate (ogent-armory-status--job-with-property
+                          data property value)))
+         (ogent-armory-validate-job candidate)
+         (ogent-armory-update-job-property
+          ogent-armory-status--root agent job-id property value)))
+      ('session
+       (let* ((property (completing-read
+                         "Session property: "
+                         '("OGENT_ARCHIVED" "OGENT_TAGS")
+                         nil t))
+              (current (ogent-armory-status--read-current-property
+                        path property))
+              (value (read-string (format "%s: " property) current)))
+         (ogent-armory-update-session-property path property value)))
+      (_
+       (user-error "No editable Armory record at point"))))
+  (ogent-armory-status-refresh))
+
+(defun ogent-armory-status-edit-body ()
+  "Visit the selected Armory Org body or prompt."
+  (interactive)
+  (let* ((node (ogent-armory-status--require-node))
+         (path (plist-get node :path)))
+    (unless (and path (file-exists-p path))
+      (user-error "No Armory file at point"))
+    (ogent-armory-status--visit-body path)))
+
+(defun ogent-armory-status-open-agent-profile ()
+  "Open the agent profile associated with the current Armory node."
+  (interactive)
+  (let* ((node (ogent-armory-status--require-node))
+         (slug (ogent-armory-status--node-agent node)))
+    (unless slug
+      (user-error "No Armory agent at point"))
+    (ogent-armory-agent ogent-armory-status--root slug)))
+
+(defun ogent-armory-status-open-agent-jobs ()
+  "Open the jobs surface for the agent associated with the current node."
+  (interactive)
+  (let* ((node (ogent-armory-status--require-node))
+         (slug (ogent-armory-status--node-agent node))
+         (job-id (ogent-armory-status--node-job-id node)))
+    (unless slug
+      (user-error "No Armory agent at point"))
+    (let ((buffer (ogent-armory-jobs ogent-armory-status--root slug)))
+      (when (and job-id (fboundp 'ogent-armory-jobs--goto))
+        (with-current-buffer buffer
+          (ogent-armory-jobs--goto slug job-id)))
+      buffer)))
+
+(defun ogent-armory-status-create-job ()
+  "Create a Armory job for the agent associated with the current node."
+  (interactive)
+  (let* ((node (ogent-armory-status--require-node))
+         (slug (ogent-armory-status--node-agent node)))
+    (unless slug
+      (user-error "No Armory agent at point"))
+    (ogent-armory-create-job ogent-armory-status--root slug)))
+
+(defun ogent-armory-status-help ()
+  "Show Armory status keybindings and node actions."
+  (interactive)
+  (with-help-window "*Ogent Armory Status Help*"
+    (princ "Armory Status\n")
+    (princ "==============\n\n")
+    (princ "Move with n/p. RET visits the durable Org source for the item at point.\n\n")
+    (princ "Node actions\n")
+    (princ "------------\n")
+    (princ "Agent:   P opens profile, e edits identity properties, C creates a job, R runs with a prompt.\n")
+    (princ "Job:     R runs the job, e edits metadata, E edits the prompt/body, J opens the agent job list.\n")
+    (princ "Session: R retries linked work, e edits archive/tags, RET visits the transcript.\n")
+    (princ "App:     RET visits the source record when available.\n\n")
+    (princ "Surfaces\n")
+    (princ "--------\n")
+    (princ "h Home, a Agents, t Tasks, c Conversations, s Search, A Apps, i Issues, G Gas Town.\n\n")
+    (princ "Menus\n")
+    (princ "-----\n")
+    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")))
 
 (defun ogent-armory-status-next-item ()
   "Move point to the next Armory record line."
@@ -487,6 +725,55 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                         (point-min)))
         (when previous
           (goto-char (max (point-min) (1- previous))))))))
+
+(defun ogent-armory-status--transient-header ()
+  "Return the header text for `ogent-armory-status-dispatch'."
+  (let* ((root (and (boundp 'ogent-armory-status--root)
+                    ogent-armory-status--root))
+         (node (ignore-errors (ogent-armory-status--node-at-point)))
+         (kind (and node (plist-get node :kind)))
+         (label (and node (plist-get node :label))))
+    (concat
+     (propertize "Armory Status" 'face 'transient-heading)
+     (if root
+         (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
+       "")
+     (if node
+         (format "  %s %s"
+                 (propertize (symbol-name kind) 'face 'transient-heading)
+                 (propertize (or label "") 'face 'shadow))
+       ""))))
+
+;;;###autoload (autoload 'ogent-armory-status-dispatch "ogent-armory-status" nil t)
+(transient-define-prefix ogent-armory-status-dispatch ()
+  "Dispatch menu for Armory status buffers."
+  [:description ogent-armory-status--transient-header
+   ["Run"
+    ("R" "Run/retry selected" ogent-armory-status-run)
+    ("C" "Create job for agent" ogent-armory-status-create-job)]
+   ["Edit"
+    ("e" "Edit metadata" ogent-armory-status-edit)
+    ("E" "Edit body/prompt" ogent-armory-status-edit-body)
+    ("P" "Agent profile" ogent-armory-status-open-agent-profile)
+    ("J" "Agent jobs" ogent-armory-status-open-agent-jobs)]
+   ["Navigate"
+    ("RET" "Visit Org source" ogent-armory-status-visit)
+    ("n" "Next item" ogent-armory-status-next-item :transient t)
+    ("p" "Previous item" ogent-armory-status-previous-item :transient t)
+    ("g" "Refresh" ogent-armory-status-refresh :transient t)]]
+  [["Surfaces"
+    ("h" "Home" ogent-armory-home)
+    ("a" "Agents" ogent-armory-agents)
+    ("t" "Tasks" ogent-armory-tasks)
+    ("c" "Conversations" ogent-armory-conversations)
+    ("s" "Search" ogent-armory-search)
+    ("A" "Apps" ogent-armory-apps)]
+   ["Bridges"
+    ("i" "Ogent Issues" ogent-armory-status-open-issues)
+    ("G" "Gas Town" ogent-armory-status-open-gastown)]
+   ["Help"
+    ("?" "Help" ogent-armory-status-help)
+    ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-armory-status--setup-evil ()
   "Set up Evil integration for Armory status buffers."

@@ -10,6 +10,7 @@
 (require 'ogent-test-helper)
 (require 'transient)
 (require 'ogent)
+(require 'ogent-armory-status)
 (require 'ogent-gastown-status)
 (require 'ogent-gastown-status-transient)
 (require 'ogent-gastown-tmux)
@@ -20,6 +21,7 @@
 (defconst ogent-transient-audit-prefixes
   '(ogent-debug-tools-menu
     ogent-edit-menu
+    ogent-armory-status-dispatch
     ogent-gastown-dispatch
     ogent-gastown-status-dispatch
     ogent-gastown-tmux-dispatch
