@@ -46,7 +46,17 @@ Add to your `~/.doom.d/config.el`:
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
-             ogent-edit-menu)
+             ogent-edit-menu
+             ogent-cabinet-home
+             ogent-cabinet-status
+             ogent-cabinet-agents
+             ogent-cabinet-agent
+             ogent-cabinet-tasks
+             ogent-cabinet-conversations
+             ogent-cabinet-search
+             ogent-cabinet-apps
+             ogent-cabinet-create-agent
+             ogent-cabinet-create-job)
   :init
   ;; Set ogent source directory for development/recompilation
   (setq ogent-source-directory "~/path/to/ogent")
@@ -105,6 +115,16 @@ All ogent commands are bound under `SPC o`:
 | `SPC o R` | `ogent-retry-request`      | Retry last request                   |
 | `SPC o ?` | `ogent-ask`                | Quick ask                            |
 | `SPC o m` | `ogent-codemap-buffer`     | Show project codemap                 |
+| `SPC o j` | `ogent-cabinet-home`       | Cabinet Home                         |
+| `SPC o K` | `ogent-cabinet-status`     | Cabinet graph/status                 |
+| `SPC o y` | `ogent-cabinet-agents`     | Cabinet agents                       |
+| `SPC o Y` | `ogent-cabinet-agent`      | Cabinet agent profile                |
+| `SPC o I` | `ogent-cabinet-tasks`      | Cabinet task board                   |
+| `SPC o O` | `ogent-cabinet-conversations` | Cabinet conversations             |
+| `SPC o V` | `ogent-cabinet-search`     | Cabinet-wide search                  |
+| `SPC o W` | `ogent-cabinet-apps`       | Cabinet app artifacts                |
+| `SPC o X` | `ogent-cabinet-create-agent` | Create Cabinet agent               |
+| `SPC o Z` | `ogent-cabinet-create-job` | Create Cabinet job                   |
 
 ## API Key Configuration
 
@@ -209,7 +229,17 @@ Here's a full, copy-paste ready configuration:
              ogent-request-edit
              ogent-context-preview
              ogent-companion-display
-             ogent-edit-menu)
+             ogent-edit-menu
+             ogent-cabinet-home
+             ogent-cabinet-status
+             ogent-cabinet-agents
+             ogent-cabinet-agent
+             ogent-cabinet-tasks
+             ogent-cabinet-conversations
+             ogent-cabinet-search
+             ogent-cabinet-apps
+             ogent-cabinet-create-agent
+             ogent-cabinet-create-job)
   :init
   (setq ogent-source-directory "~/projects/ogent")
 
@@ -235,7 +265,17 @@ Here's a full, copy-paste ready configuration:
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Abort request"       "a" #'ogent-abort-request
-         :desc "Codemap"             "M" #'ogent-codemap-buffer))
+         :desc "Codemap"             "M" #'ogent-codemap-buffer
+         :desc "Cabinet home"        "j" #'ogent-cabinet-home
+         :desc "Cabinet graph"       "K" #'ogent-cabinet-status
+         :desc "Cabinet agents"      "y" #'ogent-cabinet-agents
+         :desc "Cabinet agent"       "Y" #'ogent-cabinet-agent
+         :desc "Cabinet tasks"       "I" #'ogent-cabinet-tasks
+         :desc "Cabinet conversations" "O" #'ogent-cabinet-conversations
+         :desc "Cabinet search"      "V" #'ogent-cabinet-search
+         :desc "Cabinet apps"        "W" #'ogent-cabinet-apps
+         :desc "Create agent"        "X" #'ogent-cabinet-create-agent
+         :desc "Create job"          "Z" #'ogent-cabinet-create-job))
 
   :config
   ;; Companion buffer as right-side popup

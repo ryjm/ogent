@@ -40,12 +40,17 @@
 ;; Declare Gas Town commands (defined in ogent-gastown.el)
 (declare-function ogent-gastown-dispatch "ogent-gastown")
 
-;; Declare Cabinet commands (defined in ogent-cabinet-status.el)
+;; Declare Cabinet commands (defined in ogent-cabinet-status.el and UI files)
+(declare-function ogent-cabinet-home "ogent-ui-cabinet")
 (declare-function ogent-cabinet-status "ogent-cabinet-status")
 (declare-function ogent-cabinet-agents "ogent-ui-cabinet")
+(declare-function ogent-cabinet-agent "ogent-ui-cabinet")
 (declare-function ogent-cabinet-tasks "ogent-ui-cabinet")
+(declare-function ogent-cabinet-conversations "ogent-ui-cabinet")
 (declare-function ogent-cabinet-search "ogent-ui-cabinet")
-(declare-function ogent-cabinet-open-app "ogent-ui-cabinet")
+(declare-function ogent-cabinet-apps "ogent-ui-cabinet")
+(declare-function ogent-cabinet-create-agent "ogent-ui-cabinet")
+(declare-function ogent-cabinet-create-job "ogent-ui-cabinet")
 
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
@@ -175,16 +180,30 @@ Set to nil to disable automatic evil binding setup."
     ;; Gas Town
     (gastown          :key "G" :command ogent-gastown-dispatch
                       :desc "Gas Town menu")
+    (cabinet-home     :key "j" :command ogent-cabinet-home
+                      :desc "Cabinet Home")
     (cabinet-status   :key "K" :command ogent-cabinet-status
-                      :desc "Cabinet status")
-    (cabinet-agents   :key "j" :command ogent-cabinet-agents
+                      :desc "Cabinet graph/status")
+    (cabinet-agents   :key "y" :command ogent-cabinet-agents
                       :desc "Cabinet agents")
-    (cabinet-tasks    :key "y" :command ogent-cabinet-tasks
+    (cabinet-agent-profile
+                      :key "Y" :command ogent-cabinet-agent
+                      :desc "Cabinet agent profile")
+    (cabinet-tasks    :key "I" :command ogent-cabinet-tasks
                       :desc "Cabinet tasks")
-    (cabinet-search   :key "I" :command ogent-cabinet-search
+    (cabinet-conversations
+                      :key "O" :command ogent-cabinet-conversations
+                      :desc "Cabinet conversations")
+    (cabinet-search   :key "V" :command ogent-cabinet-search
                       :desc "Cabinet search")
-    (cabinet-open-app :key "O" :command ogent-cabinet-open-app
-                      :desc "Open Cabinet app")
+    (cabinet-apps     :key "W" :command ogent-cabinet-apps
+                      :desc "Cabinet apps")
+    (cabinet-create-agent
+                      :key "X" :command ogent-cabinet-create-agent
+                      :desc "Create Cabinet agent")
+    (cabinet-create-job
+                      :key "Z" :command ogent-cabinet-create-job
+                      :desc "Create Cabinet job")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")

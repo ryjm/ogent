@@ -18,7 +18,7 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Native Agent**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output. This is the most important concept of `ogent` - it should act as a homunculus that can be instantiated at any point in your Emacs workflow. 
 - **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c . m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
 - **Model registry**: `lisp/ogent-models.el` lists every supported gptel backend (id, preset, stream support). The dispatcher and transport stack look up this registry so adding a provider is a data change plus tests, not a UI surgery.
-- **Org Cabinet graph and UI**: `ogent-cabinet-scaffold` creates Cabinet-style knowledge bases as Org files, then `ogent-cabinet-status` (`C-c . K`, `SPC o K`) renders cabinet, agent, and job records as a typed graph with bridges to Ogent Issues and Gas Town. From there, `a` opens the agents table, `t` opens task lanes, `s` searches Cabinet Org records, `o` opens app artifacts, and `R` runs an agent or job through the local Codex or Claude CLI subscription with the transcript saved as Org.
+- **Org Cabinet OS**: `ogent-cabinet-scaffold` creates Cabinet-style knowledge bases as Org files, then `ogent-cabinet-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
 
 ## Prompt Capture & Formatting
 - **Command palette**: `C-c . p` (`ogent-prompt-dispatch`) opens a transient that lets you pick one or more models, select prompt templates, and send the current subtree context with a single keystroke. Doom/Evil users get the same surface under `SPC o`.
@@ -69,6 +69,43 @@ Then run `doom sync` and add this to `~/.doom.d/config.el`:
   (ogent-setup-doom-bindings)
   (ogent-global-mode 1))
 ```
+
+## Cabinet Home
+
+`M-x ogent-cabinet-home` is the Cabinet entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Cabinet.
+
+Common commands:
+
+| Key | Command |
+|-----|---------|
+| `RET` | Visit the item at point |
+| `g` | Refresh |
+| `q` | Quit |
+| `a` | Agents |
+| `t` | Tasks |
+| `c` | Conversations |
+| `s` | Search |
+| `A` | Apps |
+| `G` | Graph/status |
+| `e` | Edit Cabinet metadata |
+| `n` / `p` | Move between actionable rows |
+
+The main ogent dispatch bindings include:
+
+| Key | Command |
+|-----|---------|
+| `C-c . j` / `SPC o j` | `ogent-cabinet-home` |
+| `C-c . K` / `SPC o K` | `ogent-cabinet-status` |
+| `C-c . y` / `SPC o y` | `ogent-cabinet-agents` |
+| `C-c . Y` / `SPC o Y` | `ogent-cabinet-agent` |
+| `C-c . I` / `SPC o I` | `ogent-cabinet-tasks` |
+| `C-c . O` / `SPC o O` | `ogent-cabinet-conversations` |
+| `C-c . V` / `SPC o V` | `ogent-cabinet-search` |
+| `C-c . W` / `SPC o W` | `ogent-cabinet-apps` |
+| `C-c . X` / `SPC o X` | `ogent-cabinet-create-agent` |
+| `C-c . Z` / `SPC o Z` | `ogent-cabinet-create-job` |
+
+See [docs/cabinet.org](docs/cabinet.org) for the first-ten-minutes workflow and import limits.
 
 ## AI & Knowledge Sources
 - **LLM backend**: ogent leans on `gptel`'s transport layer for streaming completions, credentials, and model selection.

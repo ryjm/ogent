@@ -226,6 +226,28 @@
   (should (assq 'session-load ogent-action-registry))
   (should (assq 'session-list ogent-action-registry)))
 
+(ert-deftest ogent-keys-cabinet-actions-present ()
+  "Cabinet actions expose the complete Org OS entry surface."
+  (dolist (action '(cabinet-home
+                    cabinet-status
+                    cabinet-agents
+                    cabinet-agent-profile
+                    cabinet-tasks
+                    cabinet-conversations
+                    cabinet-search
+                    cabinet-apps
+                    cabinet-create-agent
+                    cabinet-create-job))
+    (should (assq action ogent-action-registry))))
+
+(ert-deftest ogent-keys-cabinet-visible-dispatch-keys-are-unique ()
+  "Cabinet action keys in the visible dispatch registry do not collide."
+  (let ((keys nil))
+    (dolist (entry ogent-action-registry)
+      (when (string-prefix-p "cabinet-" (symbol-name (car entry)))
+        (push (plist-get (cdr entry) :key) keys)))
+    (should (= (length keys) (length (delete-dups (copy-sequence keys)))))))
+
 ;;; Review Bindings Tests
 
 (ert-deftest ogent-keys-review-bindings-setup ()

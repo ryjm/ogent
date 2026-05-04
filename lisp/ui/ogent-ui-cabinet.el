@@ -15,6 +15,8 @@
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-runner)
 
+(autoload 'ogent-cabinet-status "ogent-cabinet-status" nil t)
+
 (defgroup ogent-ui-cabinet nil
   "Richer UI surfaces for Org Cabinet records."
   :group 'ogent-cabinet
@@ -25,8 +27,30 @@
   :type 'string
   :group 'ogent-ui-cabinet)
 
+(defcustom ogent-cabinet-home-buffer-name-format "*ogent-cabinet-home: %s*"
+  "Format string used for Cabinet Home buffers."
+  :type 'string
+  :group 'ogent-ui-cabinet)
+
 (defcustom ogent-cabinet-agent-buffer-name-format "*ogent-cabinet-agent: %s*"
   "Format string used for single Cabinet agent buffers."
+  :type 'string
+  :group 'ogent-ui-cabinet)
+
+(defcustom ogent-cabinet-jobs-buffer-name-format "*ogent-cabinet-jobs: %s*"
+  "Format string used for Cabinet job buffers."
+  :type 'string
+  :group 'ogent-ui-cabinet)
+
+(defcustom ogent-cabinet-conversations-buffer-name-format
+  "*ogent-cabinet-conversations: %s*"
+  "Format string used for Cabinet conversation buffers."
+  :type 'string
+  :group 'ogent-ui-cabinet)
+
+(defcustom ogent-cabinet-conversation-buffer-name-format
+  "*ogent-cabinet-conversation: %s*"
+  "Format string used for a single Cabinet conversation buffer."
   :type 'string
   :group 'ogent-ui-cabinet)
 
@@ -38,6 +62,16 @@
 (defcustom ogent-cabinet-search-buffer-name-format "*ogent-cabinet-search: %s*"
   "Format string used for Cabinet search buffers."
   :type 'string
+  :group 'ogent-ui-cabinet)
+
+(defcustom ogent-cabinet-apps-buffer-name-format "*ogent-cabinet-apps: %s*"
+  "Format string used for Cabinet app artifact buffers."
+  :type 'string
+  :group 'ogent-ui-cabinet)
+
+(defcustom ogent-cabinet-stale-days 7
+  "Days after which scheduled Cabinet jobs read as stale."
+  :type 'integer
   :group 'ogent-ui-cabinet)
 
 (defface ogent-cabinet-ui-heading
@@ -71,9 +105,38 @@
     "OGENT_TAGS")
   "Agent identity properties editable from the profile buffer.")
 
+(defconst ogent-cabinet-job-editable-properties
+  '("OGENT_JOB_ID"
+    "OGENT_AGENT"
+    "OGENT_CRON"
+    "OGENT_HEARTBEAT"
+    "OGENT_ENABLED"
+    "OGENT_PROVIDER"
+    "OGENT_MODEL"
+    "OGENT_WORKSPACE"
+    "OGENT_TAGS"
+    "OGENT_ARCHIVED")
+  "Job properties editable from Cabinet job buffers.")
+
+(defconst ogent-cabinet-job-property-keys
+  '(("OGENT_JOB_ID" . :id)
+    ("OGENT_AGENT" . :agent)
+    ("OGENT_CRON" . :cron)
+    ("OGENT_HEARTBEAT" . :heartbeat)
+    ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_PROVIDER" . :provider)
+    ("OGENT_MODEL" . :model)
+    ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TAGS" . :tags)
+    ("OGENT_ARCHIVED" . :archived-raw))
+  "Map job Org property names to plist keys.")
+
 (defconst ogent-cabinet-task-lanes
-  '("Inbox" "Needs Reply" "Running" "Just Finished" "Archive")
+  '("Inbox" "Needs Reply" "Running" "Scheduled" "Just Finished" "Stale" "Archive")
   "Attention lanes displayed by `ogent-cabinet-tasks'.")
+
+(defvar-local ogent-cabinet-home--root nil
+  "Cabinet root for the current home buffer.")
 
 (defvar-local ogent-cabinet-agents--root nil
   "Cabinet root for the current agents buffer.")
@@ -84,14 +147,41 @@
 (defvar-local ogent-cabinet-agent--slug nil
   "Agent slug for the current single-agent buffer.")
 
+(defvar-local ogent-cabinet-jobs--root nil
+  "Cabinet root for the current jobs buffer.")
+
+(defvar-local ogent-cabinet-jobs--agent nil
+  "Optional agent filter for the current jobs buffer.")
+
+(defvar-local ogent-cabinet-conversations--root nil
+  "Cabinet root for the current conversations buffer.")
+
+(defvar-local ogent-cabinet-conversations--filters nil
+  "Filters for the current conversations buffer.")
+
+(defvar-local ogent-cabinet-conversation--root nil
+  "Cabinet root for the current conversation detail buffer.")
+
+(defvar-local ogent-cabinet-conversation--file nil
+  "Conversation file for the current detail buffer.")
+
 (defvar-local ogent-cabinet-tasks--root nil
   "Cabinet root for the current task buffer.")
+
+(defvar-local ogent-cabinet-tasks--filters nil
+  "Filters for the current task buffer.")
 
 (defvar-local ogent-cabinet-search--root nil
   "Cabinet root for the current search buffer.")
 
 (defvar-local ogent-cabinet-search--query nil
   "Search query for the current search buffer.")
+
+(defvar-local ogent-cabinet-search--filters nil
+  "Search filters for the current search buffer.")
+
+(defvar-local ogent-cabinet-apps--root nil
+  "Cabinet root for the current apps buffer.")
 
 (defun ogent-cabinet-ui--root (&optional directory)
   "Return the Cabinet root for DIRECTORY or the current context."
@@ -128,6 +218,46 @@
   "Return sessions for SLUG under ROOT."
   (or (ogent-cabinet-list-sessions root slug) nil))
 
+(defun ogent-cabinet-ui--all-jobs (root &optional agent)
+  "Return all Cabinet jobs under ROOT, optionally narrowed to AGENT."
+  (let (jobs)
+    (dolist (slug (if agent (list agent) (ogent-cabinet-ui--agent-slugs root)))
+      (setq jobs (append jobs (ogent-cabinet-ui--agent-jobs root slug))))
+    jobs))
+
+(defun ogent-cabinet-ui--last-session (sessions)
+  "Return the most recent session from SESSIONS."
+  (car (seq-sort
+        (lambda (left right)
+          (string> (or (plist-get left :finished) "")
+                   (or (plist-get right :finished) "")))
+        (copy-sequence sessions))))
+
+(defun ogent-cabinet-ui--stale-job-p (root job)
+  "Return non-nil when JOB under ROOT has no recent successful session."
+  (let* ((agent (plist-get job :agent))
+         (job-id (plist-get job :id))
+         (sessions (seq-filter
+                    (lambda (session)
+                      (and (equal (plist-get session :agent) agent)
+                           (equal (plist-get session :job-id) job-id)
+                           (zerop (or (plist-get session :exit-status) 0))))
+                    (ogent-cabinet-list-sessions root agent)))
+         (last (ogent-cabinet-ui--last-session sessions))
+         (finished (plist-get last :finished)))
+    (and (plist-get job :enabled)
+         (not (plist-get job :archived))
+         (or (null finished)
+             (> (float-time
+                 (time-subtract
+                  (current-time)
+                  (date-to-time finished)))
+                (* ogent-cabinet-stale-days 24 60 60))))))
+
+(defun ogent-cabinet-ui--format-tags (tags)
+  "Return TAGS as comma-separated text."
+  (string-join (or tags nil) ", "))
+
 (defun ogent-cabinet-ui--file-line (file line)
   "Visit FILE and move to LINE."
   (find-file file)
@@ -142,15 +272,37 @@
 
 (defun ogent-cabinet-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
-  (let ((buffer (find-file-noselect file)))
-    (with-current-buffer buffer
-      (org-mode)
-      (goto-char (point-min))
-      (unless (re-search-forward org-heading-regexp nil t)
-        (user-error "No Org heading found in %s" file))
-      (org-back-to-heading t)
-      (org-entry-put nil property value)
-      (save-buffer))))
+  (ogent-cabinet--update-first-heading-property file property value))
+
+(defun ogent-cabinet-ui--job-with-property (job property value)
+  "Return JOB copied with Org PROPERTY set to VALUE."
+  (let* ((copy (copy-sequence job))
+         (key (cdr (assoc property ogent-cabinet-job-property-keys))))
+    (unless key
+      (user-error "Unsupported Cabinet job property: %s" property))
+    (pcase property
+      ("OGENT_TAGS"
+       (plist-put copy key (ogent-cabinet--tags-from-string value)))
+      ("OGENT_ENABLED"
+       (plist-put copy :enabled-raw value)
+       (plist-put copy :enabled (ogent-cabinet--truth-value value)))
+      ("OGENT_ARCHIVED"
+       (plist-put copy :archived-raw value)
+       (plist-put copy :archived (ogent-cabinet--truth-value value)))
+      (_
+       (plist-put copy key value)))
+    copy))
+
+(defun ogent-cabinet-ui--visit-body (file)
+  "Visit FILE and move point to the first body line."
+  (find-file file)
+  (org-mode)
+  (goto-char (point-min))
+  (unless (re-search-forward org-heading-regexp nil t)
+    (user-error "No Org heading found in %s" file))
+  (org-back-to-heading t)
+  (org-end-of-meta-data t)
+  (skip-chars-forward " \t\n"))
 
 (defun ogent-cabinet-ui--insert-heading (label)
   "Insert Cabinet section heading LABEL."
@@ -178,6 +330,214 @@
                           mouse-face highlight
                           help-echo "RET visits this Cabinet item"))))
 
+;;; Cabinet Home
+
+(defvar ogent-cabinet-home-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-cabinet-home-visit))
+    (define-key map "g" #'ogent-cabinet-home-refresh)
+    (define-key map "q" #'quit-window)
+    (define-key map "a" #'ogent-cabinet-agents)
+    (define-key map "t" #'ogent-cabinet-tasks)
+    (define-key map "c" #'ogent-cabinet-conversations)
+    (define-key map "s" #'ogent-cabinet-search)
+    (define-key map "A" #'ogent-cabinet-apps)
+    (define-key map "G" #'ogent-cabinet-status)
+    (define-key map "e" #'ogent-cabinet-home-edit-metadata)
+    (define-key map "n" #'ogent-cabinet-home-next-item)
+    (define-key map "p" #'ogent-cabinet-home-previous-item)
+    map)
+  "Keymap for `ogent-cabinet-home-mode'.")
+
+(define-derived-mode ogent-cabinet-home-mode special-mode "Cabinet-Home"
+  "Major mode for Cabinet Home."
+  :group 'ogent-ui-cabinet
+  (setq-local revert-buffer-function #'ogent-cabinet-home-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (setq-local header-line-format (ogent-cabinet-home--header-line)))
+
+(defun ogent-cabinet-home--header-line ()
+  "Return header line for Cabinet Home."
+  "RET visit  g refresh  q quit  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  e Edit  n/p move")
+
+;;;###autoload
+(defun ogent-cabinet-home (&optional directory)
+  "Open Cabinet Home for DIRECTORY."
+  (interactive
+   (list (or (ogent-cabinet-find-root)
+             (read-directory-name "Cabinet root: "))))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-cabinet-ui--buffer-name
+                   ogent-cabinet-home-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-cabinet-home-mode)
+      (setq ogent-cabinet-home--root root)
+      (setq default-directory (file-name-as-directory root))
+      (ogent-cabinet-home-refresh))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-cabinet-home-refresh (&rest _)
+  "Refresh Cabinet Home."
+  (interactive)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (ogent-cabinet-home--insert-buffer)
+    (goto-char (point-min))))
+
+(defun ogent-cabinet-home--insert-nav (label key command)
+  "Insert navigation LABEL for KEY dispatching to COMMAND."
+  (ogent-cabinet-ui--insert-item-line
+   (list :type 'command :command command)
+   (format "  [%s] %s" key label)))
+
+(defun ogent-cabinet-home--insert-buffer ()
+  "Insert Cabinet Home contents."
+  (let* ((root ogent-cabinet-home--root)
+         (index (ogent-cabinet-read-index root))
+         (agents (ogent-cabinet-ui--agent-slugs root))
+         (jobs (ogent-cabinet-ui--all-jobs root))
+         (sessions (ogent-cabinet-list-sessions root))
+         (failed (seq-filter
+                  (lambda (session)
+                    (not (zerop (or (plist-get session :exit-status) 0))))
+                  sessions))
+         (running (seq-filter #'ogent-cabinet-runner-running-p agents))
+         (archived (seq-filter
+                    (lambda (record)
+                      (plist-get record :archived))
+                    (append jobs sessions)))
+         (apps (ogent-cabinet-list-apps root))
+         (stale (seq-filter
+                 (lambda (job)
+                   (ogent-cabinet-ui--stale-job-p root job))
+                 jobs))
+         (missing-persona
+          (seq-filter
+           (lambda (slug)
+             (let ((agent (ogent-cabinet-read-agent root slug)))
+               (or (string-blank-p (or (plist-get agent :role) ""))
+                   (string-blank-p (or (plist-get agent :provider) ""))
+                   (string-blank-p (or (plist-get agent :body) "")))))
+           agents)))
+    (insert (propertize "Cabinet Home" 'face 'ogent-cabinet-ui-heading) "\n")
+    (ogent-cabinet-ui--insert-kv "Title" (plist-get index :name))
+    (ogent-cabinet-ui--insert-kv "Path" root)
+    (ogent-cabinet-ui--insert-kv "Kind" (plist-get index :kind))
+    (ogent-cabinet-ui--insert-kv "Tags" (ogent-cabinet-ui--format-tags
+                                         (plist-get index :tags)))
+    (ogent-cabinet-ui--insert-kv "Description" (plist-get index :description))
+    (insert "\n")
+    (ogent-cabinet-ui--insert-heading "Health")
+    (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n\n"
+                    (length agents)
+                    (length (seq-filter (lambda (job)
+                                          (and (plist-get job :enabled)
+                                               (not (plist-get job :archived))))
+                                        jobs))
+                    (length failed)
+                    (length running)
+                    (length archived)
+                    (length apps)))
+    (ogent-cabinet-ui--insert-heading "Navigate")
+    (ogent-cabinet-home--insert-nav "Agents" "a" #'ogent-cabinet-agents)
+    (ogent-cabinet-home--insert-nav "Tasks" "t" #'ogent-cabinet-tasks)
+    (ogent-cabinet-home--insert-nav "Conversations" "c" #'ogent-cabinet-conversations)
+    (ogent-cabinet-home--insert-nav "Search" "s" #'ogent-cabinet-search)
+    (ogent-cabinet-home--insert-nav "Apps" "A" #'ogent-cabinet-apps)
+    (ogent-cabinet-home--insert-nav "Graph" "G" #'ogent-cabinet-status)
+    (ogent-cabinet-ui--insert-item-line
+     (list :type 'file :path (ogent-cabinet-index-file root))
+     "  [e] Settings")
+    (ogent-cabinet-ui--insert-item-line
+     (list :type 'file :path (ogent-cabinet-index-file root))
+     "  Source Org")
+    (insert "\n")
+    (ogent-cabinet-ui--insert-heading "Recent Activity")
+    (if sessions
+        (dolist (session (seq-take sessions 5))
+          (ogent-cabinet-ui--insert-item-line
+           (list :type 'session :path (plist-get session :path)
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id))
+           (format "  %s  %s  %s"
+                   (or (plist-get session :status) "")
+                   (or (plist-get session :name) "")
+                   (or (plist-get session :finished) ""))))
+      (insert (propertize "  No conversations yet\n" 'face 'ogent-cabinet-ui-dim)))
+    (insert "\n")
+    (ogent-cabinet-ui--insert-heading "Needs Attention")
+    (if (or failed stale missing-persona)
+        (progn
+          (dolist (session failed)
+            (ogent-cabinet-ui--insert-item-line
+             (list :type 'session :path (plist-get session :path)
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id))
+             (format "  failed session  %s" (plist-get session :name))))
+          (dolist (job stale)
+            (ogent-cabinet-ui--insert-item-line
+             (list :type 'job :agent (plist-get job :agent)
+                   :job-id (plist-get job :id)
+                   :path (ogent-cabinet-job-file root
+                                                (plist-get job :agent)
+                                                (plist-get job :id)))
+             (format "  stale job       %s" (plist-get job :name))))
+          (dolist (slug missing-persona)
+            (ogent-cabinet-ui--insert-item-line
+             (list :type 'agent :agent slug
+                   :path (ogent-cabinet-agent-file root slug))
+             (format "  missing persona %s" slug))))
+      (insert (propertize "  Nothing needs attention\n" 'face 'ogent-cabinet-ui-good)))))
+
+(defun ogent-cabinet-home-visit ()
+  "Visit or dispatch the item at point in Cabinet Home."
+  (interactive)
+  (let ((item (ogent-cabinet-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('command (funcall (plist-get item :command) ogent-cabinet-home--root))
+      ('session (ogent-cabinet-conversation ogent-cabinet-home--root
+                                            (plist-get item :path)))
+      ('job (ogent-cabinet-jobs ogent-cabinet-home--root
+                                (plist-get item :agent)))
+      ('agent (ogent-cabinet-agent ogent-cabinet-home--root
+                                   (plist-get item :agent)))
+      ('file (ogent-cabinet-ui--visit-path (plist-get item :path)))
+      (_ (user-error "No Cabinet Home item at point")))))
+
+(defun ogent-cabinet-home-edit-metadata ()
+  "Visit the Cabinet index Org file for metadata edits."
+  (interactive)
+  (ogent-cabinet-ui--visit-path
+   (ogent-cabinet-index-file ogent-cabinet-home--root)))
+
+(defun ogent-cabinet-home-next-item ()
+  "Move point to the next actionable Cabinet Home item."
+  (interactive)
+  (let ((next (next-single-property-change
+               (point) 'ogent-cabinet-item nil (point-max))))
+    (when next
+      (goto-char next)
+      (unless (get-text-property (point) 'ogent-cabinet-item)
+        (setq next (next-single-property-change
+                    (point) 'ogent-cabinet-item nil (point-max)))
+        (when next (goto-char next))))))
+
+(defun ogent-cabinet-home-previous-item ()
+  "Move point to the previous actionable Cabinet Home item."
+  (interactive)
+  (let ((previous (previous-single-property-change
+                   (point) 'ogent-cabinet-item nil (point-min))))
+    (when previous
+      (goto-char (max (point-min) (1- previous)))
+      (unless (get-text-property (point) 'ogent-cabinet-item)
+        (setq previous (previous-single-property-change
+                        (point) 'ogent-cabinet-item nil (point-min)))
+        (when previous (goto-char (max (point-min) (1- previous))))))))
+
 ;;; Agent List
 
 (defvar ogent-cabinet-agents-mode-map
@@ -198,15 +558,19 @@
   "Major mode for Cabinet agent lists."
   :group 'ogent-ui-cabinet
   (setq-local tabulated-list-format
-              [("Agent" 22 t)
-               ("Role" 24 t)
-               ("Provider" 12 t)
+              [("Name" 18 t)
+               ("Slug" 14 t)
+               ("Role" 18 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
                ("Active" 8 t)
                ("Jobs" 6 nil :right-align t)
-               ("Sessions" 9 nil :right-align t)
-               ("Workspace" 24 t)])
+               ("Conversations" 13 nil :right-align t)
+               ("Last Run" 18 t)
+               ("Workspace" 16 t)
+               ("Tags" 0 t)])
   (setq-local tabulated-list-padding 2)
-  (setq-local tabulated-list-sort-key '("Agent" . nil))
+  (setq-local tabulated-list-sort-key '("Name" . nil))
   (setq-local revert-buffer-function #'ogent-cabinet-agents-refresh)
   (tabulated-list-init-header))
 
@@ -217,20 +581,25 @@
      (let* ((agent (ogent-cabinet-read-agent ogent-cabinet-agents--root slug))
             (jobs (ogent-cabinet-ui--agent-jobs ogent-cabinet-agents--root slug))
             (sessions (ogent-cabinet-ui--agent-sessions ogent-cabinet-agents--root slug))
+            (last-session (ogent-cabinet-ui--last-session sessions))
             (active (if (plist-get agent :active) "yes" "no")))
        (list
         slug
         (vector
          (or (plist-get agent :name) slug)
+         slug
          (or (plist-get agent :role) "")
          (or (plist-get agent :provider) "")
+         (or (plist-get agent :model) "")
          (propertize active
                      'face (if (plist-get agent :active)
                                'ogent-cabinet-ui-good
                              'ogent-cabinet-ui-dim))
          (number-to-string (length jobs))
          (number-to-string (length sessions))
-         (or (plist-get agent :workspace) "")))))
+         (or (plist-get last-session :finished) "")
+         (or (plist-get agent :workspace) "")
+         (ogent-cabinet-ui--format-tags (plist-get agent :tags))))))
    (ogent-cabinet-ui--agent-slugs ogent-cabinet-agents--root)))
 
 ;;;###autoload
@@ -296,6 +665,7 @@
     (define-key map "c" #'ogent-cabinet-agent-compose)
     (define-key map "e" #'ogent-cabinet-agent-edit-property)
     (define-key map "R" #'ogent-cabinet-agent-run-at-point)
+    (define-key map "v" #'ogent-cabinet-agent-visit)
     (define-key map "g" #'ogent-cabinet-agent-refresh)
     (define-key map "t" #'ogent-cabinet-tasks)
     (define-key map "s" #'ogent-cabinet-search)
@@ -313,7 +683,7 @@
 
 (defun ogent-cabinet-agent--header-line ()
   "Return header text for the current Cabinet agent buffer."
-  (format "g refresh  RET visit  c compose  e edit  R run  t tasks  s search  q quit    %s/%s"
+  (format "g refresh  RET/v visit  c compose  e edit  R run/retry  t tasks  s search  q quit    %s/%s"
           (or (and ogent-cabinet-agent--root
                    (ogent-cabinet-ui--root-label ogent-cabinet-agent--root))
               "?")
@@ -370,6 +740,8 @@
     (ogent-cabinet-agent--insert-conversations sessions)
     (ogent-cabinet-agent--insert-recent-work sessions)
     (ogent-cabinet-agent--insert-schedule jobs)
+    (ogent-cabinet-agent--insert-memory root slug)
+    (ogent-cabinet-agent--insert-tools agent)
     (ogent-cabinet-agent--insert-details agent)
     (ogent-cabinet-agent--insert-persona agent)))
 
@@ -416,10 +788,15 @@
   (let ((recent (seq-take sessions 5)))
     (if recent
         (dolist (session recent)
-          (insert (format "  %s  %s\n"
-                          (or (plist-get session :status) "DONE")
-                          (or (plist-get session :name)
-                              (plist-get session :id)))))
+          (ogent-cabinet-ui--insert-item-line
+           (list :type 'session
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id)
+                 :path (plist-get session :path))
+           (format "  %s  %s"
+                   (or (plist-get session :status) "DONE")
+                   (or (plist-get session :name)
+                       (plist-get session :id)))))
       (insert (propertize "  No recent work\n" 'face 'ogent-cabinet-ui-dim))))
   (insert "\n"))
 
@@ -441,6 +818,28 @@
                  (or (plist-get job :name) (plist-get job :id))
                  (or (plist-get job :cron) "manual"))))
     (insert (propertize "  No scheduled jobs\n" 'face 'ogent-cabinet-ui-dim)))
+  (insert "\n"))
+
+(defun ogent-cabinet-agent--insert-memory (root slug)
+  "Insert Memory section for agent SLUG under ROOT."
+  (ogent-cabinet-ui--insert-heading "Memory")
+  (dolist (file (list (ogent-cabinet-agent-memory-file root slug "context.org")
+                      (ogent-cabinet-agent-memory-file root slug "decisions.org")
+                      (ogent-cabinet-agent-memory-file root slug "learnings.org")
+                      (ogent-cabinet-agent-inbox-file root slug)
+                      (ogent-cabinet-agent-schedule-file root slug)))
+    (ogent-cabinet-ui--insert-item-line
+     (list :type 'file :path file)
+     (format "  %s" (file-relative-name file (ogent-cabinet-agent-directory
+                                             root slug)))))
+  (insert "\n"))
+
+(defun ogent-cabinet-agent--insert-tools (agent)
+  "Insert Tools/Permissions section from AGENT."
+  (ogent-cabinet-ui--insert-heading "Tools/Permissions")
+  (ogent-cabinet-ui--insert-kv "Provider" (plist-get agent :provider))
+  (ogent-cabinet-ui--insert-kv "Model" (plist-get agent :model))
+  (ogent-cabinet-ui--insert-kv "Permission" (plist-get agent :permission-mode))
   (insert "\n"))
 
 (defun ogent-cabinet-agent--insert-details (agent)
@@ -524,6 +923,301 @@
     (ogent-cabinet-ui--put-property file property value)
     (ogent-cabinet-agent-refresh)))
 
+;;; Agent Management Commands
+
+;;;###autoload
+(defun ogent-cabinet-create-agent (&optional directory)
+  "Create a Cabinet agent under DIRECTORY."
+  (interactive
+   (list (or (ogent-cabinet-find-root)
+             (read-directory-name "Cabinet root: "))))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (name (read-string "Name: "))
+         (slug (read-string "Slug: " (ogent-cabinet--slug name "agent")))
+         (role (read-string "Role: " "Agent"))
+         (provider (read-string "Provider: " ogent-cabinet-default-agent-provider))
+         (model (read-string "Model: "))
+         (workspace (read-string "Workspace: " "/"))
+         (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
+         (persona (read-string "Persona: ")))
+    (when (file-exists-p (ogent-cabinet-agent-file root slug))
+      (user-error "Agent already exists: %s" slug))
+    (ogent-cabinet-write-agent
+     root
+     (list :slug slug
+           :name name
+           :role role
+           :provider provider
+           :model model
+           :active t
+           :workspace workspace
+           :tags tags)
+     persona)))
+
+;;;###autoload
+(defun ogent-cabinet-clone-agent (&optional directory agent-slug new-slug)
+  "Clone AGENT-SLUG under DIRECTORY to NEW-SLUG."
+  (interactive
+   (let* ((root (ogent-cabinet-ui--root
+                 (or (ogent-cabinet-find-root)
+                     (read-directory-name "Cabinet root: "))))
+          (slug (ogent-cabinet-ui--read-agent root)))
+     (list root slug (read-string "New slug: " (concat slug "-copy")))))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (agent (copy-sequence (ogent-cabinet-read-agent root agent-slug)))
+         (target (or new-slug (read-string "New slug: " (concat agent-slug "-copy")))))
+    (when (file-exists-p (ogent-cabinet-agent-file root target))
+      (user-error "Agent already exists: %s" target))
+    (plist-put agent :slug target)
+    (plist-put agent :name (format "%s Copy" (or (plist-get agent :name)
+                                                 agent-slug)))
+    (plist-put agent :active t)
+    (plist-put agent :archived nil)
+    (ogent-cabinet-write-agent root agent (plist-get agent :body))))
+
+;;;###autoload
+(defun ogent-cabinet-archive-agent (&optional directory agent-slug)
+  "Deactivate and archive AGENT-SLUG under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-cabinet-ui--root
+                 (or (ogent-cabinet-find-root)
+                     (read-directory-name "Cabinet root: "))))
+          (slug (ogent-cabinet-ui--read-agent root)))
+     (list root slug)))
+  (let ((root (ogent-cabinet-ui--root directory)))
+    (ogent-cabinet-update-agent-property root agent-slug "OGENT_ACTIVE" "nil")
+    (ogent-cabinet-update-agent-property root agent-slug "OGENT_ARCHIVED" "t")))
+
+;;; Jobs
+
+(defvar ogent-cabinet-jobs-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-cabinet-jobs-visit))
+    (define-key map "c" #'ogent-cabinet-create-job)
+    (define-key map "e" #'ogent-cabinet-jobs-edit)
+    (define-key map "P" #'ogent-cabinet-jobs-edit-prompt)
+    (define-key map "R" #'ogent-cabinet-jobs-run)
+    (define-key map "T" #'ogent-cabinet-jobs-toggle-enabled)
+    (define-key map "A" #'ogent-cabinet-jobs-archive)
+    (define-key map "g" #'ogent-cabinet-jobs-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-cabinet-jobs-mode'.")
+
+(define-derived-mode ogent-cabinet-jobs-mode tabulated-list-mode "Cabinet-Jobs"
+  "Major mode for Cabinet jobs."
+  :group 'ogent-ui-cabinet
+  (setq-local tabulated-list-format
+              [("Agent" 14 t)
+               ("Job" 22 t)
+               ("Enabled" 8 t)
+               ("Next" 18 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
+               ("Workspace" 16 t)
+               ("Tags" 0 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Agent" . nil))
+  (setq-local revert-buffer-function #'ogent-cabinet-jobs-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-cabinet-job-next-run (job)
+  "Return a friendly next-run description for JOB."
+  (cond
+   ((plist-get job :archived) "archived")
+   ((not (plist-get job :enabled)) "disabled")
+   ((ogent-cabinet--blank-to-nil (plist-get job :cron))
+    (format "cron %s" (plist-get job :cron)))
+   ((ogent-cabinet--blank-to-nil (plist-get job :heartbeat))
+    (format "heartbeat %s" (plist-get job :heartbeat)))
+   (t "manual")))
+
+(defun ogent-cabinet-jobs--entry (job)
+  "Return a tabulated entry for JOB."
+  (let* ((agent (plist-get job :agent))
+         (job-id (plist-get job :id))
+         (file (ogent-cabinet-job-file ogent-cabinet-jobs--root agent job-id)))
+    (list
+     (append (list :type 'job :path file :agent agent :job-id job-id) job)
+     (vector
+      agent
+      (format "%s (%s)" (or (plist-get job :name) job-id) job-id)
+      (if (plist-get job :enabled) "yes" "no")
+      (ogent-cabinet-job-next-run job)
+      (or (plist-get job :provider) "")
+      (or (plist-get job :model) "")
+      (or (plist-get job :workspace) "")
+      (ogent-cabinet-ui--format-tags (plist-get job :tags))))))
+
+(defun ogent-cabinet-jobs--entries ()
+  "Return tabulated entries for the current jobs buffer."
+  (mapcar #'ogent-cabinet-jobs--entry
+          (ogent-cabinet-ui--all-jobs ogent-cabinet-jobs--root
+                                      ogent-cabinet-jobs--agent)))
+
+;;;###autoload
+(defun ogent-cabinet-jobs (&optional directory agent)
+  "Open Cabinet jobs for DIRECTORY, optionally narrowed to AGENT."
+  (interactive
+   (list (or (ogent-cabinet-find-root)
+             (read-directory-name "Cabinet root: "))
+         nil))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (suffix (or agent "all"))
+         (buffer (get-buffer-create
+                  (ogent-cabinet-ui--buffer-name
+                   ogent-cabinet-jobs-buffer-name-format root suffix))))
+    (with-current-buffer buffer
+      (ogent-cabinet-jobs-mode)
+      (setq ogent-cabinet-jobs--root root)
+      (setq ogent-cabinet-jobs--agent agent)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-cabinet-jobs--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-cabinet-agent-jobs (&optional directory agent)
+  "Open jobs for AGENT under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-cabinet-ui--root
+                 (or (ogent-cabinet-find-root)
+                     (read-directory-name "Cabinet root: "))))
+          (slug (ogent-cabinet-ui--read-agent root)))
+     (list root slug)))
+  (ogent-cabinet-jobs directory agent))
+
+(defun ogent-cabinet-jobs-refresh (&rest _)
+  "Refresh the Cabinet jobs buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-cabinet-jobs--goto (agent job-id)
+  "Move to AGENT JOB-ID in the current jobs buffer when visible."
+  (goto-char (point-min))
+  (let (found)
+    (while (and (not found) (not (eobp)))
+      (let ((item (tabulated-list-get-id)))
+        (when (and item
+                   (equal (plist-get item :agent) agent)
+                   (equal (plist-get item :job-id) job-id))
+          (setq found t)))
+      (unless found
+        (forward-line 1)))))
+
+(defun ogent-cabinet-jobs--item ()
+  "Return the job item at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Cabinet job at point")))
+
+(defun ogent-cabinet-jobs-visit ()
+  "Visit the Org file for the job at point."
+  (interactive)
+  (ogent-cabinet-ui--visit-path (plist-get (ogent-cabinet-jobs--item) :path)))
+
+(defun ogent-cabinet-jobs-run ()
+  "Run the job at point."
+  (interactive)
+  (let ((item (ogent-cabinet-jobs--item)))
+    (ogent-cabinet-run-job ogent-cabinet-jobs--root
+                           (plist-get item :agent)
+                           (plist-get item :job-id))))
+
+(defun ogent-cabinet-jobs-toggle-enabled ()
+  "Toggle enabled state for the job at point."
+  (interactive)
+  (let* ((item (ogent-cabinet-jobs--item))
+         (agent (plist-get item :agent))
+         (job-id (plist-get item :job-id))
+         (enabled (plist-get item :enabled)))
+    (ogent-cabinet-update-job-property
+     ogent-cabinet-jobs--root
+     agent
+     job-id
+     "OGENT_ENABLED"
+     (if enabled "nil" "t"))
+    (ogent-cabinet-jobs-refresh)
+    (ogent-cabinet-jobs--goto agent job-id)))
+
+(defun ogent-cabinet-jobs-archive ()
+  "Archive the job at point."
+  (interactive)
+  (let ((item (ogent-cabinet-jobs--item)))
+    (ogent-cabinet-update-job-property
+     ogent-cabinet-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     "OGENT_ARCHIVED"
+     "t")
+    (ogent-cabinet-update-job-property
+     ogent-cabinet-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     "OGENT_ENABLED"
+     "nil")
+    (ogent-cabinet-jobs-refresh)))
+
+(defun ogent-cabinet-jobs-edit ()
+  "Edit one metadata property for the job at point."
+  (interactive)
+  (let* ((item (ogent-cabinet-jobs--item))
+         (property (completing-read "Property: "
+                                    ogent-cabinet-job-editable-properties
+                                    nil t))
+         (value (read-string (format "%s: " property)))
+         (candidate (ogent-cabinet-ui--job-with-property item property value)))
+    (ogent-cabinet-validate-job candidate)
+    (ogent-cabinet-update-job-property
+     ogent-cabinet-jobs--root
+     (plist-get item :agent)
+     (plist-get item :job-id)
+     property
+     value)
+    (ogent-cabinet-jobs-refresh)))
+
+(defun ogent-cabinet-jobs-edit-prompt ()
+  "Visit the job prompt/body for the job at point."
+  (interactive)
+  (ogent-cabinet-ui--visit-body
+   (plist-get (ogent-cabinet-jobs--item) :path)))
+
+;;;###autoload
+(defun ogent-cabinet-create-job (&optional directory agent)
+  "Create a Cabinet job under DIRECTORY for AGENT."
+  (interactive
+   (let* ((root (ogent-cabinet-ui--root
+                 (or (ogent-cabinet-find-root)
+                     (read-directory-name "Cabinet root: "))))
+          (slug (ogent-cabinet-ui--read-agent root)))
+     (list root slug)))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (slug (or agent (ogent-cabinet-ui--read-agent root)))
+         (name (read-string "Job name: "))
+         (job-id (read-string "Job id: " (ogent-cabinet--slug name "job")))
+         (cron (read-string "Cron: "))
+         (heartbeat (read-string "Heartbeat: "))
+         (provider (read-string "Provider override: "))
+         (model (read-string "Model override: "))
+         (workspace (read-string "Workspace: "))
+         (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
+         (prompt (read-string "Prompt: "))
+         (job (list :id job-id
+                    :agent slug
+                    :name name
+                    :cron cron
+                    :heartbeat heartbeat
+                    :enabled t
+                    :enabled-raw "t"
+                    :provider provider
+                    :model model
+                    :workspace workspace
+                    :tags tags)))
+    (when (file-exists-p (ogent-cabinet-job-file root slug job-id))
+      (user-error "Job already exists: %s" job-id))
+    (ogent-cabinet-validate-job job)
+    (ogent-cabinet-write-job root slug job prompt)))
+
 ;;; Tasks
 
 (defvar ogent-cabinet-tasks-mode-map
@@ -533,6 +1227,9 @@
     (define-key map (kbd "<kp-enter>") #'ogent-cabinet-tasks-visit)
     (define-key map "R" #'ogent-cabinet-tasks-run)
     (define-key map "A" #'ogent-cabinet-tasks-archive)
+    (define-key map "U" #'ogent-cabinet-tasks-unarchive)
+    (define-key map "e" #'ogent-cabinet-tasks-edit)
+    (define-key map "f" #'ogent-cabinet-tasks-filter)
     (define-key map "g" #'ogent-cabinet-tasks-refresh)
     (define-key map "s" #'ogent-cabinet-search)
     (define-key map "q" #'quit-window)
@@ -556,7 +1253,12 @@
 (defun ogent-cabinet-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
   (list :type 'job
-        :lane (if (plist-get job :enabled) "Inbox" "Archive")
+        :lane (cond
+               ((plist-get job :archived) "Archive")
+               ((not (plist-get job :enabled)) "Archive")
+               ((ogent-cabinet-ui--stale-job-p root job) "Stale")
+               ((ogent-cabinet--blank-to-nil (plist-get job :cron)) "Scheduled")
+               (t "Inbox"))
         :agent (plist-get job :agent)
         :job-id (plist-get job :id)
         :name (or (plist-get job :name) (plist-get job :id))
@@ -611,6 +1313,17 @@
     (dolist (session (ogent-cabinet-list-sessions root))
       (push (ogent-cabinet-tasks--session-item session) items))
     (setq items (append (ogent-cabinet-tasks--running-items root) items))
+    (let ((filters ogent-cabinet-tasks--filters))
+      (setq items
+            (seq-filter
+             (lambda (item)
+               (and (or (null (plist-get filters :agent))
+                        (equal (plist-get item :agent)
+                               (plist-get filters :agent)))
+                    (or (null (plist-get filters :status))
+                        (equal (plist-get item :state)
+                               (plist-get filters :status)))))
+             items)))
     (nreverse items)))
 
 (defun ogent-cabinet-tasks--entry (item)
@@ -660,6 +1373,7 @@
     (with-current-buffer buffer
       (ogent-cabinet-tasks-mode)
       (setq ogent-cabinet-tasks--root root)
+      (setq ogent-cabinet-tasks--filters nil)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-cabinet-tasks--entries)
       (tabulated-list-print t))
@@ -721,6 +1435,349 @@
        (user-error "No archivable Cabinet task at point"))))
   (ogent-cabinet-tasks-refresh))
 
+(defun ogent-cabinet-tasks-unarchive ()
+  "Unarchive the Cabinet task at point."
+  (interactive)
+  (let ((item (ogent-cabinet-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('job
+       (ogent-cabinet-ui--put-property (plist-get item :path) "OGENT_ARCHIVED" "nil")
+       (ogent-cabinet-ui--put-property (plist-get item :path) "OGENT_ENABLED" "t"))
+      ('session
+       (ogent-cabinet-ui--put-property (plist-get item :path) "OGENT_ARCHIVED" "nil"))
+      (_
+       (user-error "No archived Cabinet task at point"))))
+  (ogent-cabinet-tasks-refresh))
+
+(defun ogent-cabinet-tasks-edit ()
+  "Edit metadata for the Cabinet task at point."
+  (interactive)
+  (let* ((item (ogent-cabinet-ui--item-at-point))
+         (property (pcase (plist-get item :type)
+                     ('job (completing-read "Property: "
+                                            ogent-cabinet-job-editable-properties
+                                            nil t))
+                     ('session (completing-read "Property: "
+                                                '("OGENT_ARCHIVED" "OGENT_TAGS")
+                                                nil t))
+                     (_ (user-error "No editable Cabinet task at point"))))
+         (value (read-string (format "%s: " property))))
+    (when (eq (plist-get item :type) 'job)
+      (ogent-cabinet-validate-job
+       (ogent-cabinet-ui--job-with-property item property value)))
+    (ogent-cabinet-ui--put-property (plist-get item :path) property value)
+    (ogent-cabinet-tasks-refresh)))
+
+(defun ogent-cabinet-tasks-filter ()
+  "Set simple task board filters."
+  (interactive)
+  (setq ogent-cabinet-tasks--filters
+        (list :agent (ogent-cabinet--blank-to-nil
+                      (read-string "Agent filter: "))
+              :status (ogent-cabinet--blank-to-nil
+                       (read-string "Status filter: "))))
+  (ogent-cabinet-tasks-refresh))
+
+;;; Conversations
+
+(defvar ogent-cabinet-conversations-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-cabinet-conversations-open))
+    (define-key map "R" #'ogent-cabinet-conversations-retry)
+    (define-key map "A" #'ogent-cabinet-conversations-archive)
+    (define-key map "U" #'ogent-cabinet-conversations-unarchive)
+    (define-key map "v" #'ogent-cabinet-conversations-visit-source)
+    (define-key map "s" #'ogent-cabinet-conversations-search)
+    (define-key map "f" #'ogent-cabinet-conversations-filter)
+    (define-key map "g" #'ogent-cabinet-conversations-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-cabinet-conversations-mode'.")
+
+(define-derived-mode ogent-cabinet-conversations-mode tabulated-list-mode
+  "Cabinet-Conversations"
+  "Major mode for Cabinet conversation lists."
+  :group 'ogent-ui-cabinet
+  (setq-local tabulated-list-format
+              [("Status" 10 t)
+               ("Agent" 14 t)
+               ("Job" 18 t)
+               ("Conversation" 28 t)
+               ("Provider" 10 t)
+               ("Model" 12 t)
+               ("Duration" 10 t)
+               ("Finished" 22 t)
+               ("Archived" 8 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Finished" . t))
+  (setq-local revert-buffer-function #'ogent-cabinet-conversations-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-cabinet-conversations--matches-p (session)
+  "Return non-nil when SESSION matches current filters."
+  (let ((filters ogent-cabinet-conversations--filters))
+    (and (or (null (plist-get filters :agent))
+             (equal (plist-get session :agent) (plist-get filters :agent)))
+         (or (null (plist-get filters :job-id))
+             (equal (plist-get session :job-id) (plist-get filters :job-id)))
+         (or (null (plist-get filters :status))
+             (equal (plist-get session :status) (plist-get filters :status)))
+         (or (null (plist-get filters :provider))
+             (equal (plist-get session :provider) (plist-get filters :provider)))
+         (or (null (plist-get filters :model))
+             (equal (plist-get session :model) (plist-get filters :model)))
+         (or (null (plist-get filters :tag))
+             (member (plist-get filters :tag) (plist-get session :tags)))
+         (or (null (plist-get filters :archived))
+             (eq (plist-get session :archived)
+                 (ogent-cabinet--truth-value (plist-get filters :archived)))))))
+
+(defun ogent-cabinet-conversations--entry (session)
+  "Return tabulated entry for SESSION."
+  (list
+   (append (list :type 'session) session)
+   (vector
+    (or (plist-get session :status) "")
+    (or (plist-get session :agent) "")
+    (or (plist-get session :job-id) "")
+    (or (plist-get session :name) (plist-get session :id))
+    (or (plist-get session :provider) "")
+    (or (plist-get session :model) "")
+    (or (plist-get session :duration) "")
+    (or (plist-get session :finished) "")
+    (if (plist-get session :archived) "yes" "no"))))
+
+(defun ogent-cabinet-conversations--entries ()
+  "Return conversation entries for the current buffer."
+  (mapcar #'ogent-cabinet-conversations--entry
+          (seq-filter #'ogent-cabinet-conversations--matches-p
+                      (ogent-cabinet-list-sessions
+                       ogent-cabinet-conversations--root))))
+
+;;;###autoload
+(defun ogent-cabinet-conversations (&optional directory filters)
+  "Open Cabinet conversations for DIRECTORY with optional FILTERS."
+  (interactive
+   (list (or (ogent-cabinet-find-root)
+             (read-directory-name "Cabinet root: "))
+         nil))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-cabinet-ui--buffer-name
+                   ogent-cabinet-conversations-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-cabinet-conversations-mode)
+      (setq ogent-cabinet-conversations--root root)
+      (setq ogent-cabinet-conversations--filters filters)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-cabinet-conversations--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-cabinet-conversations-refresh (&rest _)
+  "Refresh the Cabinet conversations buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-cabinet-conversations--item ()
+  "Return the conversation at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Cabinet conversation at point")))
+
+(defun ogent-cabinet-conversations-open ()
+  "Open the conversation at point."
+  (interactive)
+  (ogent-cabinet-conversation
+   ogent-cabinet-conversations--root
+   (plist-get (ogent-cabinet-conversations--item) :path)))
+
+(defun ogent-cabinet-conversations-visit-source ()
+  "Visit the Org source file for the conversation at point."
+  (interactive)
+  (ogent-cabinet-ui--visit-path
+   (plist-get (ogent-cabinet-conversations--item) :path)))
+
+(defun ogent-cabinet-conversations-retry ()
+  "Retry the conversation at point when it links to a job."
+  (interactive)
+  (let ((item (ogent-cabinet-conversations--item)))
+    (if-let ((job-id (plist-get item :job-id)))
+        (ogent-cabinet-run-job ogent-cabinet-conversations--root
+                               (plist-get item :agent)
+                               job-id)
+      (ogent-cabinet-run-agent ogent-cabinet-conversations--root
+                               (plist-get item :agent)
+                               (read-string "Instruction: ")))))
+
+(defun ogent-cabinet-conversations-archive ()
+  "Archive the conversation at point."
+  (interactive)
+  (ogent-cabinet-update-session-property
+   (plist-get (ogent-cabinet-conversations--item) :path)
+   "OGENT_ARCHIVED"
+   "t")
+  (ogent-cabinet-conversations-refresh))
+
+(defun ogent-cabinet-conversations-unarchive ()
+  "Unarchive the conversation at point."
+  (interactive)
+  (ogent-cabinet-update-session-property
+   (plist-get (ogent-cabinet-conversations--item) :path)
+   "OGENT_ARCHIVED"
+   "nil")
+  (ogent-cabinet-conversations-refresh))
+
+(defun ogent-cabinet-conversations-filter ()
+  "Set simple conversation filters."
+  (interactive)
+  (setq ogent-cabinet-conversations--filters
+        (list :agent (ogent-cabinet--blank-to-nil
+                      (read-string "Agent filter: "))
+              :status (ogent-cabinet--blank-to-nil
+                       (read-string "Status filter: "))
+              :tag (ogent-cabinet--blank-to-nil
+                    (read-string "Tag filter: "))))
+  (ogent-cabinet-conversations-refresh))
+
+(defun ogent-cabinet-conversations-search ()
+  "Search within Cabinet conversations."
+  (interactive)
+  (ogent-cabinet-search ogent-cabinet-conversations--root
+                        (read-string "Search conversations: ")
+                        (list :kind 'session)))
+
+(defvar ogent-cabinet-conversation-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
+      (define-key map (kbd key) #'ogent-cabinet-conversation-visit-source))
+    (define-key map "R" #'ogent-cabinet-conversation-retry)
+    (define-key map "A" #'ogent-cabinet-conversation-archive)
+    (define-key map "U" #'ogent-cabinet-conversation-unarchive)
+    (define-key map "g" #'ogent-cabinet-conversation-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-cabinet-conversation-mode'.")
+
+(define-derived-mode ogent-cabinet-conversation-mode special-mode
+  "Cabinet-Conversation"
+  "Major mode for a single Cabinet conversation."
+  :group 'ogent-ui-cabinet
+  (setq-local revert-buffer-function #'ogent-cabinet-conversation-refresh)
+  (setq-local truncate-lines nil)
+  (setq-local buffer-read-only t)
+  (setq header-line-format
+        "RET/v source  R retry/resume  A archive  U unarchive  g refresh  q quit"))
+
+;;;###autoload
+(defun ogent-cabinet-conversation (&optional directory file)
+  "Open Cabinet conversation FILE under DIRECTORY."
+  (interactive
+   (let* ((root (ogent-cabinet-ui--root
+                 (or (ogent-cabinet-find-root)
+                     (read-directory-name "Cabinet root: "))))
+          (session (completing-read
+                    "Conversation: "
+                    (mapcar (lambda (item)
+                              (plist-get item :path))
+                            (ogent-cabinet-list-sessions root))
+                    nil t)))
+     (list root session)))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (path (or file (plist-get (ogent-cabinet-conversations--item) :path)))
+         (buffer (get-buffer-create
+                  (ogent-cabinet-ui--buffer-name
+                   ogent-cabinet-conversation-buffer-name-format
+                   root
+                   (file-name-base path)))))
+    (with-current-buffer buffer
+      (ogent-cabinet-conversation-mode)
+      (setq ogent-cabinet-conversation--root root)
+      (setq ogent-cabinet-conversation--file path)
+      (setq default-directory (file-name-as-directory root))
+      (ogent-cabinet-conversation-refresh))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-cabinet-conversation-refresh (&rest _)
+  "Refresh this conversation detail buffer."
+  (interactive)
+  (let ((inhibit-read-only t))
+    (erase-buffer)
+    (ogent-cabinet-conversation--insert-buffer)
+    (goto-char (point-min))))
+
+(defun ogent-cabinet-conversation--insert-buffer ()
+  "Insert the current conversation detail."
+  (let ((detail (ogent-cabinet-session-detail ogent-cabinet-conversation--file)))
+    (insert (propertize (or (plist-get detail :name)
+                            (plist-get detail :id))
+                        'face 'ogent-cabinet-ui-heading)
+            "\n\n")
+    (ogent-cabinet-ui--insert-heading "Metadata")
+    (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
+    (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
+    (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
+    (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
+    (ogent-cabinet-ui--insert-kv "Exit status"
+                                 (when (plist-get detail :exit-status)
+                                   (number-to-string
+                                    (plist-get detail :exit-status))))
+    (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
+    (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
+    (insert "\n")
+    (ogent-cabinet-ui--insert-heading "Prompt")
+    (insert (or (plist-get detail :prompt) "") "\n\n")
+    (ogent-cabinet-ui--insert-heading "Output")
+    (insert (or (plist-get detail :output) "") "\n\n")
+    (when (plist-get detail :tools)
+      (ogent-cabinet-ui--insert-heading "Tool Blocks")
+      (dolist (tool (plist-get detail :tools))
+        (insert (format "  %s\n%s\n" (plist-get tool :header)
+                        (plist-get tool :body))))
+      (insert "\n"))
+    (when (ogent-cabinet--blank-to-nil (plist-get detail :error))
+      (ogent-cabinet-ui--insert-heading "Error")
+      (insert (plist-get detail :error) "\n\n"))
+    (ogent-cabinet-ui--insert-heading "Source Org")
+    (ogent-cabinet-ui--insert-item-line
+     (list :type 'file :path (plist-get detail :path))
+     (format "  %s" (plist-get detail :path)))))
+
+(defun ogent-cabinet-conversation-visit-source ()
+  "Visit the Org source for this conversation."
+  (interactive)
+  (ogent-cabinet-ui--visit-path ogent-cabinet-conversation--file))
+
+(defun ogent-cabinet-conversation-retry ()
+  "Retry this conversation."
+  (interactive)
+  (let ((detail (ogent-cabinet-session-detail ogent-cabinet-conversation--file)))
+    (if-let ((job-id (plist-get detail :job-id)))
+        (ogent-cabinet-run-job ogent-cabinet-conversation--root
+                               (plist-get detail :agent)
+                               job-id)
+      (ogent-cabinet-run-agent ogent-cabinet-conversation--root
+                               (plist-get detail :agent)
+                               (read-string "Instruction: ")))))
+
+(defun ogent-cabinet-conversation-archive ()
+  "Archive this conversation."
+  (interactive)
+  (ogent-cabinet-update-session-property ogent-cabinet-conversation--file
+                                         "OGENT_ARCHIVED"
+                                         "t")
+  (ogent-cabinet-conversation-refresh))
+
+(defun ogent-cabinet-conversation-unarchive ()
+  "Unarchive this conversation."
+  (interactive)
+  (ogent-cabinet-update-session-property ogent-cabinet-conversation--file
+                                         "OGENT_ARCHIVED"
+                                         "nil")
+  (ogent-cabinet-conversation-refresh))
+
 ;;; Search
 
 (defvar ogent-cabinet-search-mode-map
@@ -747,23 +1804,26 @@
 
 (defun ogent-cabinet-search--entries ()
   "Return tabulated entries for the current Cabinet search buffer."
-  (mapcar
-   (lambda (result)
-     (let ((path (plist-get result :path)))
-       (list
-        result
-        (vector
-         (symbol-name (plist-get result :kind))
-         (file-relative-name path ogent-cabinet-search--root)
-         (number-to-string (plist-get result :line))
-         (plist-get result :text)))))
-   (ogent-cabinet-search-records
-    ogent-cabinet-search--root
-    ogent-cabinet-search--query)))
+  (if (string-blank-p (or ogent-cabinet-search--query ""))
+      (list (list nil (vector "" "" "" "Enter a search query to search this Cabinet.")))
+    (mapcar
+     (lambda (result)
+       (let ((path (plist-get result :path)))
+         (list
+          result
+          (vector
+           (symbol-name (plist-get result :kind))
+           (file-relative-name path ogent-cabinet-search--root)
+           (number-to-string (plist-get result :line))
+           (plist-get result :text)))))
+     (apply #'ogent-cabinet-search-records
+            ogent-cabinet-search--root
+            ogent-cabinet-search--query
+            ogent-cabinet-search--filters))))
 
 ;;;###autoload
-(defun ogent-cabinet-search (&optional directory query)
-  "Search Cabinet Org records under DIRECTORY for QUERY."
+(defun ogent-cabinet-search (&optional directory query filters)
+  "Search Cabinet Org records under DIRECTORY for QUERY and FILTERS."
   (interactive
    (let ((root (ogent-cabinet-ui--root
                 (or (ogent-cabinet-find-root)
@@ -780,6 +1840,7 @@
       (ogent-cabinet-search-mode)
       (setq ogent-cabinet-search--root root)
       (setq ogent-cabinet-search--query search-query)
+      (setq ogent-cabinet-search--filters filters)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-cabinet-search--entries)
       (tabulated-list-print t))
@@ -802,6 +1863,89 @@
      (plist-get result :line))))
 
 ;;; Apps
+
+(defvar ogent-cabinet-apps-mode-map
+  (let ((map (make-sparse-keymap)))
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-cabinet-apps-open))
+    (define-key map "v" #'ogent-cabinet-apps-visit-directory)
+    (define-key map "g" #'ogent-cabinet-apps-refresh)
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-cabinet-apps-mode'.")
+
+(define-derived-mode ogent-cabinet-apps-mode tabulated-list-mode "Cabinet-Apps"
+  "Major mode for Cabinet app artifacts."
+  :group 'ogent-ui-cabinet
+  (setq-local tabulated-list-format
+              [("Label" 30 t)
+               ("Owner" 18 t)
+               ("Modified" 18 t)
+               ("Path" 0 t)])
+  (setq-local tabulated-list-padding 2)
+  (setq-local tabulated-list-sort-key '("Modified" . t))
+  (setq-local revert-buffer-function #'ogent-cabinet-apps-refresh)
+  (tabulated-list-init-header))
+
+(defun ogent-cabinet-apps--entry (app)
+  "Return a tabulated entry for APP."
+  (let ((owner (string-join
+                (delq nil (list (plist-get app :agent)
+                                (plist-get app :job-id)))
+                "/")))
+    (list
+     app
+     (vector
+      (plist-get app :label)
+      owner
+      (or (plist-get app :modified) "")
+      (plist-get app :path)))))
+
+(defun ogent-cabinet-apps--entries ()
+  "Return app entries for the current Cabinet apps buffer."
+  (let ((apps (ogent-cabinet-list-apps ogent-cabinet-apps--root)))
+    (if apps
+        (mapcar #'ogent-cabinet-apps--entry apps)
+      (list (list nil (vector "No app artifacts" "" "" ""))))))
+
+;;;###autoload
+(defun ogent-cabinet-apps (&optional directory)
+  "Open the Cabinet app artifact list for DIRECTORY."
+  (interactive
+   (list (or (ogent-cabinet-find-root)
+             (read-directory-name "Cabinet root: "))))
+  (let* ((root (ogent-cabinet-ui--root directory))
+         (buffer (get-buffer-create
+                  (ogent-cabinet-ui--buffer-name
+                   ogent-cabinet-apps-buffer-name-format root))))
+    (with-current-buffer buffer
+      (ogent-cabinet-apps-mode)
+      (setq ogent-cabinet-apps--root root)
+      (setq default-directory (file-name-as-directory root))
+      (setq tabulated-list-entries #'ogent-cabinet-apps--entries)
+      (tabulated-list-print t))
+    (pop-to-buffer buffer)
+    buffer))
+
+(defun ogent-cabinet-apps-refresh (&rest _)
+  "Refresh the Cabinet apps buffer."
+  (interactive)
+  (tabulated-list-print t))
+
+(defun ogent-cabinet-apps--item ()
+  "Return the app item at point."
+  (or (tabulated-list-get-id)
+      (user-error "No Cabinet app at point")))
+
+(defun ogent-cabinet-apps-open ()
+  "Open the app artifact at point in a browser."
+  (interactive)
+  (browse-url-of-file (plist-get (ogent-cabinet-apps--item) :path)))
+
+(defun ogent-cabinet-apps-visit-directory ()
+  "Visit the app directory at point."
+  (interactive)
+  (dired (plist-get (ogent-cabinet-apps--item) :directory)))
 
 ;;;###autoload
 (defun ogent-cabinet-open-app (&optional directory)

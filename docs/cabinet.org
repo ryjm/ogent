@@ -1,0 +1,203 @@
+#+title: Cabinet User Guide
+
+* What Cabinet Is
+
+Cabinet is an Org-backed local knowledge OS for AI-team work inside Emacs. A
+Cabinet root is a directory with =index.org= plus agent, job, conversation,
+task, app, import, and relationship records stored as Org files.
+
+The main command is =M-x ogent-cabinet-home=. It opens a single operational UI
+with metadata, health counts, navigation, recent activity, and work needing
+attention. Failed work is shown in Cabinet Home and on the task board.
+
+* Durable Layout
+
+#+begin_example
+cabinet-root/
+  index.org
+  imports/
+  .agents/
+    editor/
+      persona.org
+      inbox.org
+      schedule.org
+      jobs/
+        weekly-review.org
+      memory/
+        context.org
+        decisions.org
+        learnings.org
+      sessions/
+        20260504T090000-weekly-review.org
+#+end_example
+
+Org is the durable source of truth. Commands edit property drawers and body
+text in those Org files. Manual edits remain part of the record.
+
+* First 10 Minutes
+
+1. Create a Cabinet:
+
+   #+begin_src emacs-lisp
+   (ogent-cabinet-scaffold "~/cabinet/acme" "Acme Cabinet" :kind "root")
+   #+end_src
+
+2. Open the operating surface:
+
+   #+begin_example
+   M-x ogent-cabinet-home
+   #+end_example
+
+3. Create an agent:
+
+   #+begin_example
+   M-x ogent-cabinet-create-agent
+   #+end_example
+
+   Fill in name, slug, role, provider, model, workspace, tags, and persona.
+
+4. Add a recurring job:
+
+   #+begin_example
+   M-x ogent-cabinet-create-job
+   #+end_example
+
+   The job is written under =.agents/<slug>/jobs/<job-id>.org=.
+
+5. Run the job:
+
+   Open =M-x ogent-cabinet-jobs=, move to the job, press =R=.
+
+6. Inspect the transcript:
+
+   Open =M-x ogent-cabinet-conversations= and press =RET= on the new run.
+   The detail buffer shows metadata, prompt, output, tool blocks, errors,
+   app links, duration, and source Org.
+
+7. Search the Cabinet:
+
+   Use =M-x ogent-cabinet-search=. Empty queries show an empty state. Search
+   can filter by kind, agent, status, tag, and archive state from Lisp callers.
+
+8. Open generated apps:
+
+   Use =M-x ogent-cabinet-apps=. Each =index.html= below the Cabinet root is
+   listed with label, path, modified time, and inferred owner when possible.
+
+9. Check the task board:
+
+   Use =M-x ogent-cabinet-tasks=. Lanes are Inbox, Needs Reply, Running,
+   Scheduled, Just Finished, Stale, and Archive.
+
+10. Inspect relationships:
+
+    Use =M-x ogent-cabinet-status=. The graph includes cabinet, agent, job,
+    session, app, issue-link, and Gas Town hook nodes when available.
+
+* Keybindings
+
+Main ogent dispatch bindings:
+
+| Key | Command |
+|-----+---------|
+| =C-c . j= / =SPC o j= | =ogent-cabinet-home= |
+| =C-c . K= / =SPC o K= | =ogent-cabinet-status= |
+| =C-c . y= / =SPC o y= | =ogent-cabinet-agents= |
+| =C-c . Y= / =SPC o Y= | =ogent-cabinet-agent= |
+| =C-c . I= / =SPC o I= | =ogent-cabinet-tasks= |
+| =C-c . O= / =SPC o O= | =ogent-cabinet-conversations= |
+| =C-c . V= / =SPC o V= | =ogent-cabinet-search= |
+| =C-c . W= / =SPC o W= | =ogent-cabinet-apps= |
+| =C-c . X= / =SPC o X= | =ogent-cabinet-create-agent= |
+| =C-c . Z= / =SPC o Z= | =ogent-cabinet-create-job= |
+
+Cabinet Home:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Visit the item at point |
+| =g= | Refresh |
+| =q= | Quit |
+| =a= | Agents |
+| =t= | Tasks |
+| =c= | Conversations |
+| =s= | Search |
+| =A= | Apps |
+| =G= | Graph/status |
+| =e= | Edit Cabinet metadata |
+| =n= / =p= | Move between actionable rows |
+
+Agent profile:
+
+| Key | Action |
+|-----+--------|
+| =RET= / =v= | Visit the file or record at point |
+| =c= | Compose and run the agent manually |
+| =e= | Edit identity metadata in the property drawer |
+| =R= | Run the job at point or retry the conversation at point |
+| =q= | Quit |
+
+Jobs:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Visit source Org |
+| =P= | Edit the job prompt/body |
+| =e= | Edit job metadata |
+| =R= | Run the job now |
+| =T= | Enable or disable |
+| =A= | Archive |
+| =g= | Refresh |
+
+Task board:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Visit source Org |
+| =R= | Run or retry |
+| =A= | Archive |
+| =U= | Unarchive |
+| =e= | Edit metadata |
+| =f= | Filter |
+| =g= | Refresh |
+
+* Importing Existing Artifacts
+
+=ogent-cabinet-import-artifacts= imports =.md=, =.html=, and =.txt= files from
+a source folder into =imports/*.org= records. Original files are kept by
+default. Markdown headings are converted to Org headings. HTML is preserved in
+an Org source block.
+
+Migration limits:
+
+- Import is conservative and does not delete originals.
+- Ambiguous metadata becomes a normal import record.
+- Agent and job creation from imported metadata is intentionally narrow; use
+  =ogent-cabinet-create-agent= and =ogent-cabinet-create-job= when the source
+  does not identify a clear agent or job.
+- Imported files become Cabinet Org records, but external links and rich HTML
+  behavior may need manual cleanup.
+
+* Doom Example
+
+#+begin_src emacs-lisp
+(use-package! ogent
+  :defer t
+  :commands (ogent-mode
+             ogent-cabinet-home
+             ogent-cabinet-status
+             ogent-cabinet-agents
+             ogent-cabinet-agent
+             ogent-cabinet-tasks
+             ogent-cabinet-conversations
+             ogent-cabinet-search
+             ogent-cabinet-apps
+             ogent-cabinet-create-agent
+             ogent-cabinet-create-job)
+  :init
+  (setq ogent-enable-doom-bindings t
+        ogent-doom-prefix "o")
+  :config
+  (ogent-setup-doom-bindings)
+  (ogent-global-mode 1))
+#+end_src

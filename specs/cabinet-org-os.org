@@ -120,7 +120,13 @@ Keep the technical plan brutally clear.
 :OGENT_JOB_ID: weekly-review
 :OGENT_AGENT: editor
 :OGENT_CRON: 0 9 * * 1
+:OGENT_HEARTBEAT:
+:OGENT_PROVIDER:
+:OGENT_MODEL:
+:OGENT_WORKSPACE:
+:OGENT_TAGS: review, weekly
 :OGENT_ENABLED: t
+:OGENT_ARCHIVED: nil
 :END:
 
 Review recent Org pages and file a summary.
@@ -144,8 +150,9 @@ process plans:
   cabinet root, or an absolute directory.
 
 Every manual run and job run writes an Org transcript under
-=.agents/<slug>/sessions/=. The transcript stores provider, job, workspace,
-exit status, prompt, stdout, and stderr in property drawers and src blocks.
+=.agents/<slug>/sessions/=. The transcript stores provider, model, job,
+workspace, duration, app paths, exit status, prompt, stdout, and stderr in
+property drawers and src blocks.
 
 * Graph and Projection Model
 
@@ -155,17 +162,28 @@ Org-native operational graph:
 #+begin_example
 Cabinet(id, path, name, kind)
 Agent(slug, path, name, role, provider, active)
-Job(agent_slug, job_id, path, name, cron, enabled)
+Job(agent_slug, job_id, path, name, cron, heartbeat, enabled)
+Session(agent_slug, session_id, path, status, provider, model)
+App(path, owner)
+Issue(id, worker)
+GasTownHook(root)
 
-contains : Cabinet -> Agent
-owns     : Agent   -> Job
+contains        : Cabinet -> Agent
+owns            : Agent   -> Job
+owns            : Agent   -> Session
+scheduled-by    : Job     -> Session
+produced        : Session -> App
+failed-from     : Job     -> failed Session
+archived-from   : Agent/Job/Session -> Cabinet
+linked-issue    : Record  -> Issue
+assigned-worker : Issue   -> Agent/GasTown worker
 #+end_example
 
-=ogent-cabinet-build-graph= materializes the first derived graph today. Nodes
-are plists with =:id=, =:kind=, =:label=, =:path=, and =:data=. Edges are plists
-with =:from=, =:to=, and =:kind=. The current edge vocabulary starts with
-=contains= and =owns=, leaving room for future =mentions=, =blocks=, =dispatches=,
-=backs=, and =observed-by= relations.
+=ogent-cabinet-build-graph= materializes the derived graph from Org files.
+Nodes are plists with =:id=, =:kind=, =:label=, =:path=, and =:data=. Edges are
+plists with =:from=, =:to=, and =:kind=. The graph is rebuildable from
+=index.org=, persona files, job files, transcripts, issue properties, discovered
+apps, and local Gas Town markers.
 
 This shape makes the Cabinet layer a natural extension of existing ogent
 systems:
@@ -180,30 +198,52 @@ systems:
   edits, following the same broad family of ideas as differential dataflow and
   incremental lambda calculus.
 
-The status buffer =ogent-cabinet-status= is the first projection surface. It
-renders the cabinet graph, lets users visit the source Org record with =RET=,
-opens richer Cabinet surfaces with =a=, =t=, =s=, and =o=, and bridges to
-=ogent-issues= and =ogent-gastown-status= with the same refresh and navigation
-conventions used by the operational buffers.
+The primary projection surface is =ogent-cabinet-home=. It summarizes Cabinet
+metadata, health, navigation, recent activity, and attention items. The graph
+surface remains available through =ogent-cabinet-status= and is keyboard
+navigable with =RET= for source visits, =R= for runnable nodes, and jumps to the
+richer surfaces with =a=, =t=, =c=, =s=, =A=, and =G=.
 
 * UI Contract
 
-The first Emacs surfaces are boring and powerful:
+The Emacs surfaces are boring and powerful:
 
 - =ogent-cabinet-scaffold= creates an Org-backed cabinet directory.
+- =ogent-cabinet-home= opens the operational home view with Cabinet metadata,
+  health counts, navigation, recent activity, app artifacts, and needs-attention
+  sections for failed sessions, stale jobs, missing persona fields, and open
+  conversations. Header-line keys are visible: =RET=, =g=, =q=, =a=, =t=,
+  =c=, =s=, =A=, =G=, =e=, =n=, and =p=.
 - =ogent-cabinet-status= shows the derived Cabinet graph and operational
-  bridges to Issues and Gas Town. Press =R= on an agent or job to run it through
-  the selected CLI provider.
-- =ogent-cabinet-agents= shows personas in a tabulated buffer.
+  bridges to Issues and Gas Town. Press =R= on an agent, job, or retryable
+  session to run it through the selected CLI provider.
+- =ogent-cabinet-agents= shows personas in a tabulated buffer with sortable
+  columns for name, slug, role, provider, model, active state, job count,
+  conversation count, last run, workspace, and tags.
 - =ogent-cabinet-agent= opens a single agent profile buffer with sections
-  for composer, inbox, conversations, recent work, schedule, details, and
-  persona instructions.
+  for composer, inbox, conversations, recent work, schedule, memory,
+  tools/permissions, details, and persona instructions. The profile header makes
+  =RET=, =c=, =e=, =R=, =v=, and =q= visible.
+- =ogent-cabinet-create-agent=, =ogent-cabinet-clone-agent=, and
+  =ogent-cabinet-archive-agent= manage agent lifecycle through Org files.
+- =ogent-cabinet-jobs= and =ogent-cabinet-agent-jobs= list jobs globally or for
+  one agent. =ogent-cabinet-create-job= writes job records under the owning
+  agent's =jobs/= directory. Job actions cover edit, enable/disable, run,
+  retry, archive, and source visits.
 - =ogent-cabinet-tasks= shows attention-first lanes: Inbox, Needs Reply,
-  Running, Just Finished, Archive.
-- =ogent-cabinet-search= searches cabinet Org files and conversation
-  transcripts.
-- =ogent-cabinet-open-app= opens =index.html= artifacts referenced from
-  Org nodes.
+  Running, Scheduled, Just Finished, Stale, and Archive.
+- =ogent-cabinet-conversations= lists all transcripts and filters by agent, job,
+  status, provider, model, tag, and archive state. =RET= opens a detail buffer
+  with metadata, prompt, output, tool blocks, exit status, duration, linked
+  agent/job, and source Org.
+- =ogent-cabinet-search= searches Cabinet Org files, personas, jobs, memory,
+  inboxes, schedules, imports, and conversations. Empty queries display a useful
+  empty state. Search skips =.git= and transient state directories.
+- =ogent-cabinet-apps= discovers =index.html= artifacts, shows owning
+  agent/job/session when inferable, opens artifacts in a browser, and visits app
+  directories.
+- =ogent-cabinet-import-artifacts= imports Markdown, HTML, and text artifacts as
+  Org records under the Cabinet while preserving originals by default.
 
 The implementation should use existing ogent primitives whenever possible:
 
@@ -223,8 +263,9 @@ The implementation should use existing ogent primitives whenever possible:
 - Scaffold cabinet directories with =index.org=.
 - Write/read =persona.org= agent files.
 - Write/read Org job files.
-- Build a typed graph projection over cabinet, agent, and job records.
-- Add a Cabinet status buffer that bridges to Issues and Gas Town.
+- Build a typed graph projection over cabinet, agent, job, session, app, issue,
+  and Gas Town hook records.
+- Add Cabinet home and status buffers that bridge to Issues and Gas Town.
 - Test that no Markdown files are emitted.
 
 ** Phase 2: Agent Profile Buffers
@@ -242,18 +283,24 @@ The implementation should use existing ogent primitives whenever possible:
   file with metadata properties.
 - Preserve current response src block and tool block rendering.
 - Add resume metadata without provider-specific sidecars.
+- Parse transcript detail views from Org files.
+- Link generated app artifacts back to sessions when runs produce apps.
 
 ** Phase 4: Schedule and Task Board
 
 - Add agenda-compatible views for enabled jobs and recent conversations.
-- Add a magit-section attention board with the Cabinet lanes.
+- Add an attention board with Cabinet lanes over =tabulated-list-mode=.
 - Add retry/resume/archive commands over Org metadata.
+- Add malformed metadata validation with friendly errors where job metadata is
+  edited or run.
 
 ** Phase 5: Search, Git, Apps
 
 - Add cabinet-scoped search commands.
 - Add optional Magit/VC history commands for changed Org files.
 - Add app artifact preview commands for directories with =index.html=.
+- Add a practical importer for Markdown, HTML, and text artifact folders.
+- Document migration limits and the first-ten-minutes workflow.
 
 * Open Decisions
 
@@ -266,4 +313,3 @@ The implementation should use existing ogent primitives whenever possible:
   which Org edit hooks should feed its change set.
 - Whether org-roam should become the recommended cross-cabinet index or remain
   optional.
-- Whether imported Cabinet markdown directories need a one-shot converter.

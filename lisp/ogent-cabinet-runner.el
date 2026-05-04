@@ -101,6 +101,11 @@
        ((file-name-absolute-p workspace) workspace)
        (t (expand-file-name workspace root)))))))
 
+(defun ogent-cabinet-runner--effective (agent job key)
+  "Return KEY from JOB when present, otherwise from AGENT."
+  (or (and job (ogent-cabinet-runner--blank-to-nil (plist-get job key)))
+      (ogent-cabinet-runner--blank-to-nil (plist-get agent key))))
+
 (defun ogent-cabinet-runner--session-file (root agent-slug &optional job-id)
   "Return a fresh session file under ROOT for AGENT-SLUG and JOB-ID."
   (let* ((timestamp (format-time-string "%Y%m%dT%H%M%S"))
@@ -158,13 +163,20 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                      candidate))))
          (agent (ogent-cabinet-read-agent root agent-slug))
          (job (when job-id
-                (ogent-cabinet-read-job root agent-slug job-id)))
+                (ogent-cabinet-validate-job
+                 (ogent-cabinet-read-job root agent-slug job-id))))
          (provider (ogent-cabinet-runner-normalize-provider
-                    (plist-get agent :provider)))
-         (workspace (ogent-cabinet-runner--workspace root agent))
+                    (or (ogent-cabinet-runner--effective agent job :provider)
+                        (plist-get agent :provider))))
+         (workspace (ogent-cabinet-runner--workspace
+                     root
+                     (if (and job (plist-get job :workspace))
+                         (plist-put (copy-sequence agent)
+                                    :workspace
+                                    (plist-get job :workspace))
+                       agent)))
          (prompt (ogent-cabinet-runner--prompt agent job instruction))
-         (model (ogent-cabinet-runner--blank-to-nil
-                 (plist-get agent :model)))
+         (model (ogent-cabinet-runner--effective agent job :model))
          (permission-mode (or (ogent-cabinet-runner--blank-to-nil
                                (plist-get agent :permission-mode))
                               ogent-cabinet-runner-claude-permission-mode))
@@ -235,6 +247,28 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
       (setcar (last args) "<prompt>"))
     (string-join (mapcar #'shell-quote-argument (cons program args)) " ")))
 
+(defun ogent-cabinet-runner--app-paths-from-output (root output error-output)
+  "Return app directories under ROOT mentioned in OUTPUT or ERROR-OUTPUT."
+  (let ((text (concat (or output "") "\n" (or error-output "")))
+        (true-root (file-name-as-directory (file-truename root)))
+        (case-fold-search t)
+        paths)
+    (with-temp-buffer
+      (insert text)
+      (goto-char (point-min))
+      (while (re-search-forward "\\([^[:space:]\n\r\"'()<>]+index\\.html\\)" nil t)
+        (let* ((candidate (match-string 1))
+               (file (file-truename
+                      (if (file-name-absolute-p candidate)
+                          candidate
+                        (expand-file-name candidate root)))))
+          (when (and (file-exists-p file)
+                     (file-in-directory-p file true-root))
+            (push (directory-file-name
+                   (file-relative-name (file-name-directory file) true-root))
+                  paths)))))
+    (delete-dups (nreverse paths))))
+
 (defun ogent-cabinet-runner--buffer-output (process)
   "Return generated stdout from PROCESS."
   (when (buffer-live-p (process-buffer process))
@@ -263,9 +297,17 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
       `(("OGENT_SESSION" . t)
         ("OGENT_AGENT" . ,(plist-get agent :slug))
         ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_MODEL" . ,(or (plist-get job :model)
+                              (plist-get agent :model)
+                              ""))
         ("OGENT_JOB_ID" . ,(or (plist-get job :id) ""))
         ("OGENT_EXIT_STATUS" . ,exit-status)
+        ("OGENT_DURATION" . ,(or (plist-get plan :duration) ""))
         ("OGENT_WORKSPACE" . ,(plist-get plan :workspace))
+        ("OGENT_APP_PATHS" . ,(ogent-cabinet-runner--app-paths-from-output
+                               (plist-get plan :root)
+                               output
+                               error-output))
         ("OGENT_FINISHED" . ,(format-time-string "%Y-%m-%dT%H:%M:%S%z"))))
      "\n** Prompt\n"
      "#+begin_src text\n"
@@ -297,10 +339,11 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (stdin (plist-get plan :stdin))
          (workspace (plist-get plan :workspace))
          (buffer (get-buffer-create
-                  (format "*ogent-cabinet-agent:%s*"
+                 (format "*ogent-cabinet-agent:%s*"
                           (plist-get (plist-get plan :agent) :slug))))
          (stderr-buffer (generate-new-buffer " *ogent-cabinet-agent-stderr*"))
          output-start
+         (started-at (float-time))
          proc)
     (unless (executable-find program)
       (user-error "Cabinet runner executable not found: %s" program))
@@ -331,8 +374,13 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                             (with-current-buffer stderr-buffer
                               (buffer-string)))))
                         (session-file
-                         (ogent-cabinet-runner--write-session
-                          plan output error-output exit-status)))
+                         (progn
+                           (plist-put plan
+                                      :duration
+                                      (format "%.2fs"
+                                              (- (float-time) started-at)))
+                           (ogent-cabinet-runner--write-session
+                            plan output error-output exit-status))))
                    (process-put process 'ogent-cabinet-session-file session-file)
                    (when (buffer-live-p stderr-buffer)
                      (kill-buffer stderr-buffer))

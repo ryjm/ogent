@@ -17,8 +17,10 @@
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
 (autoload 'ogent-cabinet-agents "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-tasks "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-conversations "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-search "ogent-ui-cabinet" nil t)
-(autoload 'ogent-cabinet-open-app "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-apps "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-home "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 
@@ -92,10 +94,12 @@
     (define-key map "i" #'ogent-cabinet-status-open-issues)
     (define-key map "G" #'ogent-cabinet-status-open-gastown)
     (define-key map "R" #'ogent-cabinet-status-run)
+    (define-key map "h" #'ogent-cabinet-home)
     (define-key map "a" #'ogent-cabinet-agents)
     (define-key map "t" #'ogent-cabinet-tasks)
+    (define-key map "c" #'ogent-cabinet-conversations)
     (define-key map "s" #'ogent-cabinet-search)
-    (define-key map "o" #'ogent-cabinet-open-app)
+    (define-key map "A" #'ogent-cabinet-apps)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-cabinet-status-mode'.")
@@ -160,7 +164,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
   (concat
-   "g refresh  RET visit  n/p move  a agents  t tasks  s search  o app  i issues  G gastown  R run  q quit"
+   "g refresh  RET visit  n/p move  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  R run  q quit"
    (when ogent-cabinet-status--root
      (concat "    "
              (propertize
@@ -194,6 +198,8 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (ogent-cabinet-status--insert-summary)
   (insert "\n")
   (ogent-cabinet-status--insert-agents)
+  (insert "\n")
+  (ogent-cabinet-status--insert-related)
   (insert "\n")
   (ogent-cabinet-status--insert-bridges))
 
@@ -271,6 +277,26 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                  (ogent-cabinet-status--format-job-line job)
                  "    ")))))
       (insert (propertize "  No agents yet\n"
+                          'face 'ogent-cabinet-status-dimmed)))))
+
+(defun ogent-cabinet-status--insert-related ()
+  "Insert non-agent graph nodes."
+  (let ((nodes (seq-filter
+                (lambda (node)
+                  (memq (plist-get node :kind)
+                        '(session app issue gastown-hook)))
+                (plist-get ogent-cabinet-status--graph :nodes))))
+    (ogent-cabinet-status--insert-heading "◇" "R" "Relationships" (length nodes))
+    (if nodes
+        (dolist (node nodes)
+          (ogent-cabinet-status--insert-node-line
+           node
+           (format "%s  %s"
+                   (propertize (symbol-name (plist-get node :kind))
+                               'face 'ogent-cabinet-status-dimmed)
+                   (propertize (or (plist-get node :label) "")
+                               'face 'ogent-cabinet-status-label))))
+      (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
                           'face 'ogent-cabinet-status-dimmed)))))
 
 (defun ogent-cabinet-status--format-job-line (job)
@@ -408,6 +434,16 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
         ogent-cabinet-status--root
         (plist-get data :agent)
         (plist-get data :id)))
+      ('session
+       (if-let ((job-id (plist-get data :job-id)))
+           (ogent-cabinet-run-job
+            ogent-cabinet-status--root
+            (plist-get data :agent)
+            job-id)
+         (ogent-cabinet-run-agent
+          ogent-cabinet-status--root
+          (plist-get data :agent)
+          (read-string "Instruction: "))))
       (_
        (user-error "No runnable Cabinet agent or job at point")))))
 
