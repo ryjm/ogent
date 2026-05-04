@@ -248,6 +248,64 @@
         (should (string-match-p "Boom" (plist-get detail :error)))
         (should (= 1 (length (plist-get detail :tools))))))))
 
+(ert-deftest ogent-armory-session-detail-treats-success-error-as-trace ()
+  "Older successful transcripts with Error sections read as runtime traces."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (let* ((session-dir (ogent-armory-sessions-directory dir "cto"))
+           (file (expand-file-name "successful.org" session-dir)))
+      (make-directory session-dir t)
+      (ogent-armory--write-file
+       file
+       (concat
+        "#+title: Successful Run\n\n"
+        "* DONE Successful Run\n"
+        (ogent-armory--format-properties
+         '(("OGENT_SESSION" . t)
+           ("OGENT_AGENT" . "cto")
+           ("OGENT_PROVIDER" . "codex")
+           ("OGENT_EXIT_STATUS" . 0)
+           ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+        "\n** Prompt\n#+begin_src text\nCheck the plan.\n#+end_src\n"
+        "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"
+        "\n** Error\n#+begin_src text\nCodex trace.\n#+end_src\n"))
+      (let ((detail (ogent-armory-session-detail file "cto")))
+        (should-not (plist-get detail :error))
+        (should (string-match-p "Codex trace"
+                                (plist-get detail :runtime-trace)))))))
+
+(ert-deftest ogent-armory-session-detail-keeps-legacy-failed-error ()
+  "Older failed transcripts without exit status keep Error sections as errors."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (let* ((session-dir (ogent-armory-sessions-directory dir "cto"))
+           (file (expand-file-name "failed.org" session-dir)))
+      (make-directory session-dir t)
+      (ogent-armory--write-file
+       file
+       (concat
+        "#+title: Failed Run\n\n"
+        "* FAILED Failed Run\n"
+        (ogent-armory--format-properties
+         '(("OGENT_SESSION" . t)
+           ("OGENT_AGENT" . "cto")
+           ("OGENT_PROVIDER" . "codex")
+           ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+        "\n** Output\n#+begin_src text\nNope.\n#+end_src\n"
+        "\n** Error\n#+begin_src text\nProvider failed.\n#+end_src\n"))
+      (let ((detail (ogent-armory-session-detail file "cto")))
+        (should (string-match-p "Provider failed"
+                                (plist-get detail :error)))
+        (should-not (plist-get detail :runtime-trace))))))
+
 (ert-deftest ogent-armory-search-filters-kind-agent-status-tag-and-archive ()
   "Armory search narrows matches by record metadata."
   (ogent-armory-test-with-temp-dir dir
@@ -282,6 +340,84 @@
       (should (= 2 (length tag-results)))
       (dolist (result tag-results)
         (should (member "strategy" (plist-get result :tags)))))))
+
+(ert-deftest ogent-armory-record-metadata-classifies-specific-records ()
+  "Record metadata does not mistake jobs or sessions for agents."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex")
+     "Keep the plan direct.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review"
+       :name "Weekly Review"
+       :enabled t)
+     "Find risks.")
+    (let ((session-file (expand-file-name
+                         "20260504T120000-run.org"
+                         (ogent-armory-sessions-directory dir "cto"))))
+      (ogent-armory--write-file
+       session-file
+       (concat
+        "#+title: CTO Run\n\n"
+        "* DONE CTO Run\n"
+        ":PROPERTIES:\n"
+        ":OGENT_SESSION: t\n"
+        ":OGENT_AGENT: cto\n"
+        ":OGENT_EXIT_STATUS: 0\n"
+        ":END:\n"))
+      (should (eq (ogent-armory-record-kind
+                   (ogent-armory-agent-file dir "cto"))
+                  'agent))
+      (should (equal (plist-get
+                      (ogent-armory-record-metadata
+                       (ogent-armory-agent-file dir "cto"))
+                      :agent)
+                     "cto"))
+      (should (eq (ogent-armory-record-kind
+                   (ogent-armory-job-file dir "cto" "weekly-review"))
+                  'job))
+      (should (eq (ogent-armory-record-kind session-file) 'session)))))
+
+(ert-deftest ogent-armory-list-apps-includes-linked-state-artifacts ()
+  "Session-linked app artifacts under Armory state are discoverable."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex")
+     "Keep the plan direct.")
+    (let* ((app-dir ".armory-state/dogfood-app")
+           (app-file (expand-file-name "index.html" (expand-file-name app-dir dir)))
+           (session-file (expand-file-name
+                          "20260504T120000-run.org"
+                          (ogent-armory-sessions-directory dir "cto"))))
+      (ogent-armory--write-file app-file "<!doctype html>")
+      (ogent-armory--write-file
+       session-file
+       (concat
+        "#+title: CTO Run\n\n"
+        "* DONE CTO Run\n"
+        ":PROPERTIES:\n"
+        ":OGENT_SESSION: t\n"
+        ":OGENT_AGENT: cto\n"
+        ":OGENT_EXIT_STATUS: 0\n"
+        ":OGENT_APP_PATHS: .armory-state/dogfood-app\n"
+        ":END:\n"))
+      (let ((app (car (ogent-armory-list-apps dir))))
+        (should app)
+        (should (equal (plist-get app :label) app-dir))
+        (should (equal (plist-get app :agent) "cto"))
+        (should (equal (plist-get app :session-id)
+                       "20260504T120000-run"))))))
 
 (ert-deftest ogent-armory-import-artifacts-writes-org-records ()
   "Importing Markdown, HTML, and text artifacts creates durable Org records."

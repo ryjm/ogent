@@ -1,0 +1,3308 @@
+#+title: Architecture Steward Run
+
+* DONE Architecture Steward Run
+:PROPERTIES:
+:OGENT_SESSION: t
+:OGENT_AGENT: architecture-steward
+:OGENT_PROVIDER: codex
+:OGENT_MODEL: gpt-5.4
+:OGENT_JOB_ID:
+:OGENT_EXIT_STATUS: 0
+:OGENT_DURATION: 153.76s
+:OGENT_WORKSPACE: /Users/jake/vault/projects/ogent/
+:OGENT_APP_PATHS: .armory-state/dogfood-app
+:OGENT_FINISHED: 2026-05-04T11:42:37-0700
+:OGENT_ARCHIVED: nil
+:END:
+
+** Prompt
+#+begin_src text
+You are the Org Armory agent named Architecture Steward.
+
+Role: Architecture and product steward
+
+Persona instructions:
+Maintain architectural clarity for ogent. Prefer simple Org-first designs, watch for confusing UI seams, and turn recurring maintenance into explicit jobs.
+
+User instruction:
+Create a tiny static HTML dogfood artifact at .armory-state/dogfood-app/index.html summarizing this Armory run. Keep it self-contained, no network assets, and print the full index.html path in your final answer. Do not edit code or docs.
+#+end_src
+
+** Output
+#+begin_src text
+Created [index.html](/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html:1), a self-contained static dogfood page that summarizes the Architecture Steward Armory run from the recorded session: run envelope, verdict, four findings, stale-doc drift, next actions, and validation. It uses only inline HTML/CSS, no network assets, and I left the existing code and docs untouched.
+
+Verified that the file exists and that the expected sections are present. I did not run browser rendering or repo tests because this request was artifact-only.
+
+Full path: `/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html`
+#+end_src
+
+** Runtime Trace
+#+begin_src text
+2026-05-04T18:40:04.252199Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when Client(HttpRequest(HttpRequest("http/request url is invalid: invalid port number")))
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/jake/vault/projects/ogent
+model: gpt-5.4
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/jake/.codex/memories]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019df44a-4e41-7d50-aa18-4004edb2f92a
+--------
+user
+You are the Org Armory agent named Architecture Steward.
+
+Role: Architecture and product steward
+
+Persona instructions:
+Maintain architectural clarity for ogent. Prefer simple Org-first designs, watch for confusing UI seams, and turn recurring maintenance into explicit jobs.
+
+User instruction:
+Create a tiny static HTML dogfood artifact at .armory-state/dogfood-app/index.html summarizing this Armory run. Keep it self-contained, no network assets, and print the full index.html path in your final answer. Do not edit code or docs.
+2026-05-04T18:40:04.849025Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://api.githubcopilot.com/.well-known/oauth-protected-resource/mcp/\"" })
+hook: SessionStart
+hook: SessionStart Completed
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+codex
+Using `frontend-design` for the artifact because this is a small self-contained HTML page. First I’m running the repo’s required onboarding step and reading the skill instructions, then I’ll build the artifact under `.armory-state` without touching code or docs.
+exec
+/bin/zsh -lc "sed -n '1,220p' /Users/jake/.agents/skills/frontend-design/SKILL.md" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+---
+name: frontend-design
+description: Create distinctive, production-grade frontend interfaces with high design quality. Generates creative, polished code that avoids generic AI aesthetics. Use when the user asks to build web components, pages, artifacts, posters, or applications, or when any design skill requires project context.
+license: Apache 2.0. Based on Anthropic's frontend-design skill. See NOTICE.md for attribution.
+---
+
+This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+
+## Context Gathering Protocol
+
+Design skills produce generic output without project context. You MUST have confirmed design context before doing any design work.
+
+**Required context** — every design skill needs at minimum:
+- **Target audience**: Who uses this product and in what context?
+- **Use cases**: What jobs are they trying to get done?
+- **Brand personality/tone**: How should the interface feel?
+
+Individual skills may require additional context — check the skill's preparation section for specifics.
+
+**CRITICAL**: You cannot infer this context by reading the codebase. Code tells you what was built, not who it's for or what it should feel like. Only the creator can provide this context.
+
+**Gathering order:**
+1. **Check current instructions (instant)**: If your loaded instructions already contain a **Design Context** section, proceed immediately.
+2. **Check .impeccable.md (fast)**: If not in instructions, read `.impeccable.md` from the project root. If it exists and contains the required context, proceed.
+3. **Run teach-impeccable (REQUIRED)**: If neither source has context, you MUST run /teach-impeccable NOW before doing anything else. Do NOT skip this step. Do NOT attempt to infer context from the codebase instead.
+
+---
+
+## Design Direction
+
+Commit to a BOLD aesthetic direction:
+- **Purpose**: What problem does this interface solve? Who uses it?
+- **Tone**: Pick an extreme: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc. There are so many flavors to choose from. Use these for inspiration but design one that is true to the aesthetic direction.
+- **Constraints**: Technical requirements (framework, performance, accessibility).
+- **Differentiation**: What makes this UNFORGETTABLE? What's the one thing someone will remember?
+
+**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work—the key is intentionality, not intensity.
+
+Then implement working code that is:
+- Production-grade and functional
+- Visually striking and memorable
+- Cohesive with a clear aesthetic point-of-view
+- Meticulously refined in every detail
+
+## Frontend Aesthetics Guidelines
+
+### Typography
+→ *Consult [typography reference](reference/typography.md) for scales, pairing, and loading strategies.*
+
+Choose fonts that are beautiful, unique, and interesting. Pair a distinctive display font with a refined body font.
+
+**DO**: Use a modular type scale with fluid sizing (clamp)
+**DO**: Vary font weights and sizes to create clear visual hierarchy
+**DON'T**: Use overused fonts—Inter, Roboto, Arial, Open Sans, system defaults
+**DON'T**: Use monospace typography as lazy shorthand for "technical/developer" vibes
+**DON'T**: Put large icons with rounded corners above every heading—they rarely add value and make sites look templated
+
+### Color & Theme
+→ *Consult [color reference](reference/color-and-contrast.md) for OKLCH, palettes, and dark mode.*
+
+Commit to a cohesive palette. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+
+**DO**: Use modern CSS color functions (oklch, color-mix, light-dark) for perceptually uniform, maintainable palettes
+**DO**: Tint your neutrals toward your brand hue—even a subtle hint creates subconscious cohesion
+**DON'T**: Use gray text on colored backgrounds—it looks washed out; use a shade of the background color instead
+**DON'T**: Use pure black (#000) or pure white (#fff)—always tint; pure black/white never appears in nature
+**DON'T**: Use the AI color palette: cyan-on-dark, purple-to-blue gradients, neon accents on dark backgrounds
+**DON'T**: Use gradient text for "impact"—especially on metrics or headings; it's decorative rather than meaningful
+**DON'T**: Default to dark mode with glowing accents—it looks "cool" without requiring actual design decisions
+
+### Layout & Space
+→ *Consult [spatial reference](reference/spatial-design.md) for grids, rhythm, and container queries.*
+
+Create visual rhythm through varied spacing—not the same padding everywhere. Embrace asymmetry and unexpected compositions. Break the grid intentionally for emphasis.
+
+**DO**: Create visual rhythm through varied spacing—tight groupings, generous separations
+**DO**: Use fluid spacing with clamp() that breathes on larger screens
+**DO**: Use asymmetry and unexpected compositions; break the grid intentionally for emphasis
+**DON'T**: Wrap everything in cards—not everything needs a container
+**DON'T**: Nest cards inside cards—visual noise, flatten the hierarchy
+**DON'T**: Use identical card grids—same-sized cards with icon + heading + text, repeated endlessly
+**DON'T**: Use the hero metric layout template—big number, small label, supporting stats, gradient accent
+**DON'T**: Center everything—left-aligned text with asymmetric layouts feels more designed
+**DON'T**: Use the same spacing everywhere—without rhythm, layouts feel monotonous
+
+### Visual Details
+**DO**: Use intentional, purposeful decorative elements that reinforce brand
+**DON'T**: Use glassmorphism everywhere—blur effects, glass cards, glow borders used decoratively rather than purposefully
+**DON'T**: Use rounded elements with thick colored border on one side—a lazy accent that almost never looks intentional
+**DON'T**: Use sparklines as decoration—tiny charts that look sophisticated but convey nothing meaningful
+**DON'T**: Use rounded rectangles with generic drop shadows—safe, forgettable, could be any AI output
+**DON'T**: Use modals unless there's truly no better alternative—modals are lazy
+
+### Motion
+→ *Consult [motion reference](reference/motion-design.md) for timing, easing, and reduced motion.*
+
+Focus on high-impact moments: one well-orchestrated page load with staggered reveals creates more delight than scattered micro-interactions.
+
+**DO**: Use motion to convey state changes—entrances, exits, feedback
+**DO**: Use exponential easing (ease-out-quart/quint/expo) for natural deceleration
+**DO**: For height animations, use grid-template-rows transitions instead of animating height directly
+**DON'T**: Animate layout properties (width, height, padding, margin)—use transform and opacity only
+**DON'T**: Use bounce or elastic easing—they feel dated and tacky; real objects decelerate smoothly
+
+### Interaction
+→ *Consult [interaction reference](reference/interaction-design.md) for forms, focus, and loading patterns.*
+
+Make interactions feel fast. Use optimistic UI—update immediately, sync later.
+
+**DO**: Use progressive disclosure—start simple, reveal sophistication through interaction (basic options first, advanced behind expandable sections; hover states that reveal secondary actions)
+**DO**: Design empty states that teach the interface, not just say "nothing here"
+**DO**: Make every interactive surface feel intentional and responsive
+**DON'T**: Repeat the same information—redundant headers, intros that restate the heading
+**DON'T**: Make every button primary—use ghost buttons, text links, secondary styles; hierarchy matters
+
+### Responsive
+→ *Consult [responsive reference](reference/responsive-design.md) for mobile-first, fluid design, and container queries.*
+
+**DO**: Use container queries (@container) for component-level responsiveness
+**DO**: Adapt the interface for different contexts—don't just shrink it
+**DON'T**: Hide critical functionality on mobile—adapt the interface, don't amputate it
+
+### UX Writing
+→ *Consult [ux-writing reference](reference/ux-writing.md) for labels, errors, and empty states.*
+
+**DO**: Make every word earn its place
+**DON'T**: Repeat information users can already see
+
+---
+
+## The AI Slop Test
+
+**Critical quality check**: If you showed this interface to someone and said "AI made this," would they believe you immediately? If yes, that's the problem.
+
+A distinctive interface should make someone ask "how was this made?" not "which AI made this?"
+
+Review the DON'T guidelines above—they are the fingerprints of AI-generated work from 2024-2025.
+
+---
+
+## Implementation Principles
+
+Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details.
+
+Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices across generations.
+
+Remember: the model is capable of extraordinary creative work. Don't hold back—show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
+exec
+/bin/zsh -lc 'bd onboard' in /Users/jake/vault/projects/ogent
+ succeeded in 211ms:
+
+bd Onboarding
+
+Add this minimal snippet to AGENTS.md (or create it):
+
+--- BEGIN AGENTS.MD CONTENT ---
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking.
+Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
+
+**Quick reference:**
+- `bd ready` - Find unblocked work
+- `bd create "Title" --type task --priority 2` - Create issue
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git (run at session end)
+
+For full workflow details: `bd prime`
+--- END AGENTS.MD CONTENT ---
+
+For GitHub Copilot users:
+Add the same content to .github/copilot-instructions.md
+
+How it works:
+   • bd prime provides dynamic workflow context (~80 lines)
+   • bd hooks install auto-injects bd prime at session start
+   • AGENTS.md only needs this minimal pointer, not full instructions
+
+This keeps AGENTS.md lean while bd prime provides up-to-date workflow details.
+
+
+codex
+Onboarding is done. I’m checking the repo’s workflow context, whether design context already exists, and what `.armory-state` already contains before I write the artifact.
+exec
+/bin/zsh -lc "if [ -f .impeccable.md ]; then sed -n '1,240p' .impeccable.md; else echo '__NO_IMPECCABLE__'; fi" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+__NO_IMPECCABLE__
+
+exec
+/bin/zsh -lc 'find .armory-state -maxdepth 3 -type f | sort' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+exec
+/bin/zsh -lc 'bd prime' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+# Gas Town Worker Context
+
+> **Context Recovery**: Run `gt prime` for full context after compaction or new session.
+
+## The Propulsion Principle (GUPP)
+
+**If you find work on your hook, YOU RUN IT.**
+
+No confirmation. No waiting. No announcements. The hook having work IS the assignment.
+This is physics, not politeness. Gas Town is a steam engine - you are a piston.
+
+**Failure mode we're preventing:**
+- Agent starts with work on hook
+- Agent announces itself and waits for human to say "ok go"
+- Human is AFK / trusting the engine to run
+- Work sits idle. The whole system stalls.
+
+## Startup Protocol
+
+1. Check your hook: `gt mol status`
+2. If work is hooked → EXECUTE (no announcement, no waiting)
+3. If hook empty → Check mail: `gt mail inbox`
+4. Still nothing? Wait for user instructions
+
+## Key Commands
+
+- `gt prime` - Get full role context (run after compaction)
+- `gt mol status` - Check your hooked work
+- `gt mail inbox` - Check for messages
+- `bd ready` - Find available work (no blockers)
+
+## Session Close Protocol
+
+Before signaling completion:
+1. git status (check what changed)
+2. git add <files> (stage code changes)
+3. git commit -m "..." (commit code)
+4. git push (push to remote)
+5. `gt done` (submit to merge queue and exit)
+
+**Polecats MUST call `gt done` - this submits work and exits the session.**
+
+exec
+/bin/zsh -lc 'gt mol status' in /Users/jake/vault/projects/ogent
+ exited 1 in 0ms:
+Error: not in a Gas Town workspace
+Usage:
+  gt mol status [target] [flags]
+
+Flags:
+  -h, --help   help for status
+      --json   Output as JSON
+
+
+codex
+The design skill wants explicit context from instructions or `.impeccable.md`. That file is absent here, so I’m checking the one-time setup skill to see the lightest compliant path for a small internal artifact.
+exec
+/bin/zsh -lc "sed -n '1,260p' /Users/jake/.agents/skills/teach-impeccable/SKILL.md" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+---
+name: teach-impeccable
+description: One-time setup that gathers design context for your project and saves it to your AI config file. Run once to establish persistent design guidelines.
+user-invocable: true
+---
+
+Gather design context for this project, then persist it for all future sessions.
+
+## Step 1: Explore the Codebase
+
+Before asking questions, thoroughly scan the project to discover what you can:
+
+- **README and docs**: Project purpose, target audience, any stated goals
+- **Package.json / config files**: Tech stack, dependencies, existing design libraries
+- **Existing components**: Current design patterns, spacing, typography in use
+- **Brand assets**: Logos, favicons, color values already defined
+- **Design tokens / CSS variables**: Existing color palettes, font stacks, spacing scales
+- **Any style guides or brand documentation**
+
+Note what you've learned and what remains unclear.
+
+## Step 2: Ask UX-Focused Questions
+
+ask the user directly to clarify what you cannot infer. Focus only on what you couldn't infer from the codebase:
+
+### Users & Purpose
+- Who uses this? What's their context when using it?
+- What job are they trying to get done?
+- What emotions should the interface evoke? (confidence, delight, calm, urgency, etc.)
+
+### Brand & Personality
+- How would you describe the brand personality in 3 words?
+- Any reference sites or apps that capture the right feel? What specifically about them?
+- What should this explicitly NOT look like? Any anti-references?
+
+### Aesthetic Preferences
+- Any strong preferences for visual direction? (minimal, bold, elegant, playful, technical, organic, etc.)
+- Light mode, dark mode, or both?
+- Any colors that must be used or avoided?
+
+### Accessibility & Inclusion
+- Specific accessibility requirements? (WCAG level, known user needs)
+- Considerations for reduced motion, color blindness, or other accommodations?
+
+Skip questions where the answer is already clear from the codebase exploration.
+
+## Step 3: Write Design Context
+
+Synthesize your findings and the user's answers into a `## Design Context` section:
+
+```markdown
+## Design Context
+
+### Users
+[Who they are, their context, the job to be done]
+
+### Brand Personality
+[Voice, tone, 3-word personality, emotional goals]
+
+### Aesthetic Direction
+[Visual tone, references, anti-references, theme]
+
+### Design Principles
+[3-5 principles derived from the conversation that should guide all design decisions]
+```
+
+Write this section to `.impeccable.md` in the project root. If the file already exists, update the Design Context section in place.
+
+Then ask the user directly to clarify what you cannot infer. whether they'd also like the Design Context appended to .github/copilot-instructions.md. If yes, append or update the section there as well.
+
+Confirm completion and summarize the key design principles that will now guide all future work.
+codex
+I’ve got the constraints. For this one-off artifact I’m using the explicit Armory role and user instruction as the design brief, because the usual design-context bootstrap wants to write `.impeccable.md`, and that would cut across the “do not edit code or docs” limit.
+exec
+/bin/zsh -lc pwd in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+/Users/jake/vault/projects/ogent
+
+exec
+/bin/zsh -lc "date '+%Y-%m-%d %H:%M:%S %Z'" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+2026-05-04 11:40:49 PDT
+
+exec
+/bin/zsh -lc "ls -la .armory-state 2>/dev/null || echo '__NO_ARMORY_STATE_DIR__'" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+total 0
+drwxr-xr-x   2 jake  staff    64 May  4 10:44 .
+drwxr-xr-x  32 jake  staff  1024 May  4 11:21 ..
+
+exec
+/bin/zsh -lc 'git status --short' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+ M lisp/ogent-armory-runner.el
+ M lisp/ogent-armory-status.el
+ M lisp/ogent-armory.el
+ M lisp/ui/ogent-ui-armory.el
+ M test/ogent-armory-runner-tests.el
+ M test/ogent-armory-status-tests.el
+ M test/ogent-armory-tests.el
+ M test/ui/ogent-ui-armory-tests.el
+?? .agents/architecture-steward/sessions/
+
+codex
+I’ve confirmed the worktree already has unrelated Armory changes, so I’m leaving those alone. I’m checking whether this agent has any existing session metadata I can reflect in the dogfood page, then I’ll write a single-file HTML summary.
+exec
+/bin/zsh -lc 'find .agents/architecture-steward -maxdepth 3 -type f | sort' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+.agents/architecture-steward/inbox.org
+.agents/architecture-steward/jobs/weekly-architecture-scan.org
+.agents/architecture-steward/memory/context.org
+.agents/architecture-steward/memory/decisions.org
+.agents/architecture-steward/memory/learnings.org
+.agents/architecture-steward/persona.org
+.agents/architecture-steward/schedule.org
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org
+
+exec
+/bin/zsh -lc 'rg -n "Architecture Steward|Armory" .agents/architecture-steward .armory-state -S' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+.agents/architecture-steward/jobs/weekly-architecture-scan.org:18:Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1:#+title: Architecture Steward Weekly Architecture Scan
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3:* DONE Architecture Steward Weekly Architecture Scan
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:19:You are the Org Armory agent named Architecture Steward.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:26:Run this Armory job: Weekly Architecture Scan.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:29:Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:34:No blocking defects showed up in the current uncommitted Evil integration. The Armory-specific tests passed, the changed Elisp files byte-compile cleanly, and the real problems are architectural drift and discoverability.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:37:[P2] Armory has two competing “primary surface” contracts.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:40:Reasoning: `specs/architecture.org` still says `ogent-armory-status` is the operational entry point, while the deeper Armory spec, README, user guide, and tests treat `ogent-armory-home` as the main surface.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:45:Impact: future Armory features can fork persistence across “official” paths with no obvious failure until users cannot find transcripts or job state.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:57:Impact: every new Armory mode now needs updates in two Evil registration helpers. Low blast radius, steady maintenance tax.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:59:Fix direction: centralize Armory Evil registration behind one shared helper or one shared mode list.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:64:The current Evil patch changes the lived behavior of Armory buffers, but there is no matching note in the Armory or Doom docs near the keybinding sections in [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:97) and [docs/doom-emacs.md](/Users/jake/vault/projects/ogent/docs/doom-emacs.md:118).
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:67:1. Create a doc-alignment bead to unify `specs/architecture.org`, `specs/armory-org-os.org`, `docs/armory.org`, and README on one Armory entry surface.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:70:4. Fold Evil setup into shared Armory UI plumbing, then add one short Doom/Evil note when that patch lands.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:72:Validation: reviewed the local Armory diff in [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019), [test/ogent-armory-status-tests.el](/Users/jake/vault/projects/ogent/test/ogent-armory-status-tests.el:137), and [test/ui/ogent-ui-armory-tests.el](/Users/jake/vault/projects/ogent/test/ui/ogent-ui-armory-tests.el:580). Ran targeted ERT for the two Armory test files, `29/29` passed. Byte-compiled the two changed Elisp files cleanly.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:90:You are the Org Armory agent named Architecture Steward.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:97:Run this Armory job: Weekly Architecture Scan.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:100:Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:107:Reviewing the Armory job and repo context first. I’m starting with the required `bd onboard` flow, then I’ll inspect the Armory, docs, and recent changes for architectural drift.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:143:The repo bootstrap is clear enough. Next I’m pulling the workflow context, checking whether there’s any hooked work, and locating the Armory and architecture docs that matter for this scan.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:157:/bin/zsh -lc 'rg -n "Armory|armory|Architecture Steward|Weekly Architecture Scan|Org Armory" -S AGENTS.md .' in /Users/jake/vault/projects/ogent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:159:./README.md:21:- **Org Armory OS**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:160:./README.md:73:## Armory Home
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:161:./README.md:75:`M-x ogent-armory-home` is the Armory entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Armory.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:162:./README.md:90:| `e` | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:174:./README.md:143:| `ogent-armory*.el`, `ui/ogent-ui-armory.el` | Org-native Armory storage, CLI runner, graph status, agents, profiles, tasks, search, and app opening |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:175:./README.md:158:- **Org Armory Foundation and Rich UI** (`ogent-armory.el`, `ogent-armory-runner.el`, `ogent-armory-status.el`, `ui/ogent-ui-armory.el`): Org-backed Armory roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with Issues/Gas Town bridges, agent profile buffers, attention lanes, search, and app artifact opening.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:186:./docs/doom-emacs.md:118:| `SPC o j` | `ogent-armory-home`       | Armory Home                         |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:187:./docs/doom-emacs.md:119:| `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:188:./docs/doom-emacs.md:120:| `SPC o y` | `ogent-armory-agents`     | Armory agents                       |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:189:./docs/doom-emacs.md:121:| `SPC o Y` | `ogent-armory-agent`      | Armory agent profile                |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:190:./docs/doom-emacs.md:122:| `SPC o I` | `ogent-armory-tasks`      | Armory task board                   |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:191:./docs/doom-emacs.md:123:| `SPC o O` | `ogent-armory-conversations` | Armory conversations             |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:192:./docs/doom-emacs.md:124:| `SPC o V` | `ogent-armory-search`     | Armory-wide search                  |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:193:./docs/doom-emacs.md:125:| `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:194:./docs/doom-emacs.md:126:| `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:195:./docs/doom-emacs.md:127:| `SPC o Z` | `ogent-armory-create-job` | Create Armory job                   |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:206:./docs/doom-emacs.md:269:         :desc "Armory home"        "j" #'ogent-armory-home
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:207:./docs/doom-emacs.md:270:         :desc "Armory graph"       "K" #'ogent-armory-status
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:208:./docs/doom-emacs.md:271:         :desc "Armory agents"      "y" #'ogent-armory-agents
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:209:./docs/doom-emacs.md:272:         :desc "Armory agent"       "Y" #'ogent-armory-agent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:210:./docs/doom-emacs.md:273:         :desc "Armory tasks"       "I" #'ogent-armory-tasks
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:211:./docs/doom-emacs.md:274:         :desc "Armory conversations" "O" #'ogent-armory-conversations
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:212:./docs/doom-emacs.md:275:         :desc "Armory search"      "V" #'ogent-armory-search
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:213:./docs/doom-emacs.md:276:         :desc "Armory apps"        "W" #'ogent-armory-apps
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:216:./docs/armory.org:1:#+title: Armory User Guide
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:217:./docs/armory.org:3:* What Armory Is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:218:./docs/armory.org:5:Armory is an Org-backed local knowledge OS for AI-team work inside Emacs. A
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:219:./docs/armory.org:6:Armory root is a directory with =index.org= plus agent, job, conversation,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:221:./docs/armory.org:11:attention. Failed work is shown in Armory Home and on the task board.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:223:./docs/armory.org:39:1. Create a Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:224:./docs/armory.org:42:   (ogent-armory-scaffold "~/armory/acme" "Acme Armory" :kind "root")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:230:./docs/armory.org:77:7. Search the Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:232:./docs/armory.org:84:   Use =M-x ogent-armory-apps=. Each =index.html= below the Armory root is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:245:./docs/armory.org:114:Armory Home:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:246:./docs/armory.org:127:| =e= | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:249:./docs/armory.org:178:- Imported files become Armory Org records, but external links and rich HTML
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:260:./specs/armory-org-os.org:1:#+title: Org Armory Integration
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:261:./specs/armory-org-os.org:6:the useful Armory product layer: local knowledge base, AI team, durable
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:262:./specs/armory-org-os.org:17:- Armory repository: https://github.com/hilash/armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:263:./specs/armory-org-os.org:18:- Armory docs reviewed locally after cloning: =README.md=, =docs/PRD.md=,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:264:./specs/armory-org-os.org:32:| Armory concept | Armory implementation | ogent implementation |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:266:./specs/armory-org-os.org:48:All new Armory-style records use Org:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:269:./specs/armory-org-os.org:68:** Armory Index
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:272:./specs/armory-org-os.org:143:  local =codex login= session. Armory runs pass =--skip-git-repo-check= by
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:274:./specs/armory-org-os.org:159:Armory storage is not just a file layout. It is the base relation layer for an
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:275:./specs/armory-org-os.org:163:Armory(id, path, name, kind)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:276:./specs/armory-org-os.org:171:contains        : Armory -> Agent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:277:./specs/armory-org-os.org:177:archived-from   : Agent/Job/Session -> Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:279:./specs/armory-org-os.org:188:This shape makes the Armory layer a natural extension of existing ogent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:281:./specs/armory-org-os.org:201:The primary projection surface is =ogent-armory-home=. It summarizes Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:284:./specs/armory-org-os.org:212:- =ogent-armory-home= opens the operational home view with Armory metadata,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:285:./specs/armory-org-os.org:217:- =ogent-armory-status= shows the derived Armory graph and operational
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:294:./specs/armory-org-os.org:239:- =ogent-armory-search= searches Armory Org files, personas, jobs, memory,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:297:./specs/armory-org-os.org:246:  Org records under the Armory while preserving originals by default.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:298:./specs/armory-org-os.org:255:- Beads and Gas Town stay as their own operational backends while Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:302:./specs/armory-org-os.org:268:- Add Armory home and status buffers that bridge to Issues and Gas Town.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:303:./specs/armory-org-os.org:292:- Add an attention board with Armory lanes over =tabulated-list-mode=.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:305:./specs/armory-org-os.org:309:- The Armory task board starts on =tabulated-list-mode= for dense keyboard
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:307:./specs/architecture.org:76:*** Org Armory Layer
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:308:./specs/architecture.org:77:Armory-style knowledge-base and AI-team features live behind an Org storage
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:312:./specs/architecture.org:88:- =ogent-armory-status= renders that graph as the Armory operational entry
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:314:./specs/architecture.org:94:See [[file:armory-org-os.org][Org Armory Integration]] for the full mapping from
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:315:./specs/architecture.org:95:Armory's repository architecture to ogent's Emacs/Org architecture.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:316:./specs/feature-playbooks.org:33:* Org Armory Features
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:320:./specs/feature-playbooks.org:44:  Armory records.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:324:./test/ogent-armory-runner-tests.el:1:;;; ogent-armory-runner-tests.el --- Tests for Armory CLI runners -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:325:./test/ogent-armory-runner-tests.el:4:;; Tests for running Org Armory agents through local CLI provider adapters.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:346:./test/ogent-armory-runner-tests.el:111:  "Runner planning stops on invalid job metadata with a Armory-level error."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:352:./test/ogent-armory-runner-tests.el:133:      (should (string-match-p "Malformed Armory job metadata" message))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:391:./test/ogent-keys-tests.el:230:  "Armory actions expose the complete Org OS entry surface."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:403:./test/ogent-keys-tests.el:244:  "Armory action keys in the visible dispatch registry do not collide."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:459:./test/ogent-armory-tests.el:209:      (should (string-match-p "Malformed Armory job metadata" message))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:469:./test/ogent-armory-tests.el:252:  "Armory search narrows matches by record metadata."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:481:./test/ogent-armory-tests.el:294:       "# Notes\n\nUseful Armory material.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:489:./test/ogent-armory-status-tests.el:1:;;; ogent-armory-status-tests.el --- Tests for Armory status -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:490:./test/ogent-armory-status-tests.el:4:;; Tests for the operational Armory graph buffer.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:496:./test/ogent-armory-status-tests.el:22:  "The Armory status buffer renders graph records and operational bridges."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:504:./test/ogent-armory-status-tests.el:50:              (should (string-match-p "Armory Graph" text))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:520:./test/ogent-armory-status-tests.el:92:  "The graph projection includes the full Armory relationship vocabulary."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:533:./test/ogent-armory-status-tests.el:141:  "Armory status dispatch keys remain active in Evil normal state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:541:./index.org:1:#+title: ogent Project Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:542:./index.org:3:* ogent Project Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:544:./test/ui/ogent-ui-armory-tests.el:1:;;; ogent-ui-armory-tests.el --- Tests for richer Armory UI -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:545:./test/ui/ogent-ui-armory-tests.el:4:;; Tests for Armory agent lists, profile buffers, task lanes, search, and app
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:550:./test/ui/ogent-ui-armory-tests.el:16:  "Bind VAR to a temporary Armory directory while running BODY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:553:./test/ui/ogent-ui-armory-tests.el:25:  "Write a Armory session fixture for AGENT-SLUG under ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:558:./test/ui/ogent-ui-armory-tests.el:51:  "Create a Armory fixture in ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:566:./test/ui/ogent-ui-armory-tests.el:84:  "Agent list mode exposes expected Armory navigation actions."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:574:./test/ui/ogent-ui-armory-tests.el:93:  "Armory Home is the single operational entry point for daily work."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:580:./test/ui/ogent-ui-armory-tests.el:105:              (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:582:./test/ui/ogent-ui-armory-tests.el:117:  "The Armory agents buffer lists personas with job and session counts."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:588:./test/ui/ogent-ui-armory-tests.el:135:  "The single-agent profile includes the richer Armory sections."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:612:./test/ui/ogent-ui-armory-tests.el:202:                    ((string-match-p "Name" prompt) "Architecture Steward")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:616:./test/ui/ogent-ui-armory-tests.el:226:  "Creating an agent refreshes an already-open Armory Home buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:620:./test/ui/ogent-ui-armory-tests.el:240:                          ((string-match-p "Name" prompt) "Architecture Steward")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:641:./test/ui/ogent-ui-armory-tests.el:323:  "Creating a job refreshes an already-open Armory Home buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:646:./test/ui/ogent-ui-armory-tests.el:354:                          ((string-match-p "Prompt" prompt) "Review the Armory.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:653:./test/ui/ogent-ui-armory-tests.el:385:     "Review the Armory.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:663:./test/ui/ogent-ui-armory-tests.el:418:                (should (string-match-p "Malformed Armory job metadata" message))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:673:./test/ui/ogent-ui-armory-tests.el:452:  "A new Armory conversation browser shows a usable empty state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:685:./test/ui/ogent-ui-armory-tests.el:484:  "The Armory tasks buffer groups jobs and sessions into attention lanes."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:700:./test/ui/ogent-ui-armory-tests.el:513:  "Armory search finds matching Org records and opens a result buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:706:./test/ui/ogent-ui-armory-tests.el:527:  "Empty Armory search queries produce a helpful empty state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:717:./test/ui/ogent-ui-armory-tests.el:557:  "Opening a Armory app browses an index.html artifact."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:723:./test/ui/ogent-ui-armory-tests.el:571:  "Armory status mode links to the richer UI entry points."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:735:./test/ui/ogent-ui-armory-tests.el:584:  "Armory UI dispatch keys remain active in Evil normal state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:780:./lisp/ogent-armory.el:4:;; Provides the file-backed storage foundation for Armory-style knowledge
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:782:./lisp/ogent-armory.el:15:  "Org-native Armory-style knowledge bases."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:844:./lisp/ogent-armory.el:225:      (user-error "Armory index not found: %s" file))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:856:./lisp/ogent-armory.el:265:   (list (read-directory-name "Armory directory: ")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:857:./lisp/ogent-armory.el:266:         (read-string "Armory name: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:941:./lisp/ogent-armory.el:532:      (user-error "Malformed Armory job metadata for %s: %s"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:945:./lisp/ogent-armory.el:550:  "Set Armory index PROPERTY to VALUE under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:958:./lisp/ogent-armory.el:582:  "Read Armory session transcript FILE and return a plist.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:959:./lisp/ogent-armory.el:585:    (user-error "Armory session not found: %s" file))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:987:./lisp/ogent-armory.el:688:  "Return Armory sessions under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:993:./lisp/ogent-armory.el:708:  "Return non-nil when FILE below ROOT is internal Armory plumbing."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:996:./lisp/ogent-armory.el:715:  "Return Armory Org files under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1000:./lisp/ogent-armory.el:724:  "Return metadata plist for the Armory Org record in FILE."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1011:./lisp/ogent-armory.el:760:  "Return the Armory record kind represented by FILE."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1016:./lisp/ogent-armory.el:775:  "Return Armory search matches for QUERY under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1024:./lisp/ogent-armory.el:817:  "Return Armory app artifacts under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1080:./lisp/ogent-armory.el:1045:  "Import ARTIFACT-DIRECTORY artifacts into Armory DIRECTORY as Org records.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1081:./lisp/ogent-armory.el:1047:place by default; this importer only writes Org Armory records."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1088:./lisp/ogent-armory-runner.el:4:;; Runs Armory agents through locally authenticated coding CLIs.  The runner
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1091:./lisp/ogent-armory-runner.el:17:  "Run Org Armory agents through subscription-authenticated CLIs."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1109:./lisp/ogent-armory-runner.el:66:  "Active Armory runner processes.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1111:./lisp/ogent-armory-runner.el:69:  "Return non-nil when AGENT-SLUG has a live Armory runner process."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1124:./lisp/ogent-armory-runner.el:129:     (format "You are the Org Armory agent named %s."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1127:./lisp/ogent-armory-runner.el:138:       (format "Run this Armory job: %s."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1147:./lisp/ogent-armory-runner.el:186:      (user-error "Armory agent workspace not found: %s" workspace))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1155:./lisp/ogent-armory-runner.el:223:       (user-error "Unsupported Armory agent provider: %s" provider)))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1174:./lisp/ogent-armory-runner.el:349:      (user-error "Armory runner executable not found: %s" program))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1182:./lisp/ogent-armory-runner.el:387:                   (message "Armory agent finished: %s (%s)"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1194:./lisp/ogent-armory-runner.el:425:                    (read-directory-name "Armory root: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1201:./lisp/ogent-armory-runner.el:438:                    (read-directory-name "Armory root: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1228:./lisp/ogent-armory-status.el:36:  "Format string used for Armory status buffer names."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1231:./lisp/ogent-armory-status.el:46:  "Face for Armory status section headings."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1234:./lisp/ogent-armory-status.el:53:  "Face for Armory graph identifiers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1237:./lisp/ogent-armory-status.el:60:  "Face for Armory graph labels."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1240:./lisp/ogent-armory-status.el:67:  "Face for secondary Armory status text."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1247:./lisp/ogent-armory-status.el:85:  "Armory root shown by the current status buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1249:./lisp/ogent-armory-status.el:88:  "Armory graph shown by the current status buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1265:./lisp/ogent-armory-status.el:110:(define-derived-mode ogent-armory-status-mode special-mode "Armory"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1266:./lisp/ogent-armory-status.el:111:  "Major mode for Armory graph status.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1276:./lisp/ogent-armory-status.el:127:  "Return the Armory status buffer name for ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1279:./lisp/ogent-armory-status.el:133:  "Open a Armory status buffer for DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1282:./lisp/ogent-armory-status.el:137:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1290:./lisp/ogent-armory-status.el:154:  "Refresh the current Armory status buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1294:./lisp/ogent-armory-status.el:159:              (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1299:./lisp/ogent-armory-status.el:168:  "Return header line text for the current Armory status buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1310:./lisp/ogent-armory-status.el:200:  "Insert the Armory status buffer contents."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1322:./lisp/ogent-armory-status.el:226:    (ogent-armory-status--insert-heading "◇" "C" "Armory Graph" 1)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1326:./lisp/ogent-armory-status.el:231:               (propertize (or (plist-get armory :label) "Armory")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1383:./lisp/ogent-armory-status.el:408:      (user-error "No Armory record at point"))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1385:./lisp/ogent-armory-status.el:412:  "Open Ogent Issues from the current Armory root."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1388:./lisp/ogent-armory-status.el:418:  "Open Gas Town status from the current Armory root."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1391:./lisp/ogent-armory-status.el:424:  "Run the Armory agent or job at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1401:./lisp/ogent-armory-status.el:451:       (user-error "No runnable Armory agent or job at point")))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1403:./lisp/ogent-armory-status.el:454:  "Move point to the next Armory record line."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1408:./lisp/ogent-armory-status.el:473:  "Move point to the previous Armory record line."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1413:./lisp/ogent-armory-status.el:492:  "Set up Evil integration for Armory status buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1420:./lisp/ogent-keys.el:43:;; Declare Armory commands (defined in ogent-armory-status.el and UI files)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1432:./lisp/ogent-keys.el:184:                      :desc "Armory Home")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1434:./lisp/ogent-keys.el:186:                      :desc "Armory graph/status")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1436:./lisp/ogent-keys.el:188:                      :desc "Armory agents")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1439:./lisp/ogent-keys.el:191:                      :desc "Armory agent profile")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1441:./lisp/ogent-keys.el:193:                      :desc "Armory tasks")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1444:./lisp/ogent-keys.el:196:                      :desc "Armory conversations")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1446:./lisp/ogent-keys.el:198:                      :desc "Armory search")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1448:./lisp/ogent-keys.el:200:                      :desc "Armory apps")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1451:./lisp/ogent-keys.el:203:                      :desc "Create Armory agent")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1454:./lisp/ogent-keys.el:206:                      :desc "Create Armory job")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1455:./lisp/ui/ogent-ui-armory.el:1:;;; ogent-ui-armory.el --- Richer Org Armory buffers -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1456:./lisp/ui/ogent-ui-armory.el:4:;; Interactive Armory surfaces over the Org-backed storage layer: agent lists,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1461:./lisp/ui/ogent-ui-armory.el:25:  "Richer UI surfaces for Org Armory records."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1465:./lisp/ui/ogent-ui-armory.el:30:  "Format string used for Armory agent list buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1468:./lisp/ui/ogent-ui-armory.el:35:  "Format string used for Armory Home buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1471:./lisp/ui/ogent-ui-armory.el:40:  "Format string used for single Armory agent buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1474:./lisp/ui/ogent-ui-armory.el:45:  "Format string used for Armory job buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1478:./lisp/ui/ogent-ui-armory.el:51:  "Format string used for Armory conversation buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1482:./lisp/ui/ogent-ui-armory.el:57:  "Format string used for a single Armory conversation buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1485:./lisp/ui/ogent-ui-armory.el:62:  "Format string used for Armory task lane buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1488:./lisp/ui/ogent-ui-armory.el:67:  "Format string used for Armory search buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1491:./lisp/ui/ogent-ui-armory.el:72:  "Format string used for Armory app artifact buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1494:./lisp/ui/ogent-ui-armory.el:77:  "Days after which scheduled Armory jobs read as stale."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1497:./lisp/ui/ogent-ui-armory.el:83:  "Face for Armory UI section headings."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1500:./lisp/ui/ogent-ui-armory.el:88:  "Face for secondary Armory UI text."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1503:./lisp/ui/ogent-ui-armory.el:93:  "Face for healthy Armory UI state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1506:./lisp/ui/ogent-ui-armory.el:98:  "Face for Armory UI state requiring attention."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1510:./lisp/ui/ogent-ui-armory.el:123:  "Job properties editable from Armory job buffers.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1515:./lisp/ui/ogent-ui-armory.el:143:  "Armory root for the current home buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1517:./lisp/ui/ogent-ui-armory.el:146:  "Armory root for the current agents buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1519:./lisp/ui/ogent-ui-armory.el:149:  "Armory root for the current single-agent buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1522:./lisp/ui/ogent-ui-armory.el:155:  "Armory root for the current jobs buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1525:./lisp/ui/ogent-ui-armory.el:161:  "Armory root for the current conversations buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1528:./lisp/ui/ogent-ui-armory.el:167:  "Armory root for the current conversation detail buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1531:./lisp/ui/ogent-ui-armory.el:173:  "Armory root for the current task buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1534:./lisp/ui/ogent-ui-armory.el:179:  "Armory root for the current search buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1538:./lisp/ui/ogent-ui-armory.el:188:  "Armory root for the current apps buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1540:./lisp/ui/ogent-ui-armory.el:191:  "Return the Armory root for DIRECTORY or the current context."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1545:./lisp/ui/ogent-ui-armory.el:203:  "Return a Armory UI buffer name for FORMAT-STRING, ROOT, and SUFFIX."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1557:./lisp/ui/ogent-ui-armory.el:226:  "Return all Armory jobs under ROOT, optionally narrowed to AGENT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1568:./lisp/ui/ogent-ui-armory.el:274:    (user-error "No Armory file at point"))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1573:./lisp/ui/ogent-ui-armory.el:286:      (user-error "Unsupported Armory job property: %s" property))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1580:./lisp/ui/ogent-ui-armory.el:322:  "Refresh the Armory Home buffer for ROOT when it is already open."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1587:./lisp/ui/ogent-ui-armory.el:333:  "Insert Armory section heading LABEL."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1592:./lisp/ui/ogent-ui-armory.el:342:  "Return Armory item metadata at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1596:./lisp/ui/ogent-ui-armory.el:348:  "Insert TEXT with Armory ITEM metadata."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1598:./lisp/ui/ogent-ui-armory.el:356:                          help-echo "RET visits this Armory item"))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1599:./lisp/ui/ogent-ui-armory.el:358:;;; Armory Home
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1613:./lisp/ui/ogent-ui-armory.el:378:(define-derived-mode ogent-armory-home-mode special-mode "Armory-Home"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1614:./lisp/ui/ogent-ui-armory.el:379:  "Major mode for Armory Home."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1619:./lisp/ui/ogent-ui-armory.el:387:  "Return header line for Armory Home."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1621:./lisp/ui/ogent-ui-armory.el:392:  "Open Armory Home for DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1623:./lisp/ui/ogent-ui-armory.el:395:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1631:./lisp/ui/ogent-ui-armory.el:409:  "Refresh Armory Home."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1636:./lisp/ui/ogent-ui-armory.el:423:  "Insert Armory Home contents."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1646:./lisp/ui/ogent-ui-armory.el:451:    (insert (propertize "Armory Home" 'face 'ogent-armory-ui-heading) "\n")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1675:./lisp/ui/ogent-ui-armory.el:522:  "Visit or dispatch the item at point in Armory Home."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1682:./lisp/ui/ogent-ui-armory.el:534:      (_ (user-error "No Armory Home item at point")))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1684:./lisp/ui/ogent-ui-armory.el:537:  "Visit the Armory index Org file for metadata edits."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1688:./lisp/ui/ogent-ui-armory.el:543:  "Move point to the next actionable Armory Home item."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1693:./lisp/ui/ogent-ui-armory.el:555:  "Move point to the previous actionable Armory Home item."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1707:./lisp/ui/ogent-ui-armory.el:582:(define-derived-mode ogent-armory-agents-mode tabulated-list-mode "Armory-Agents"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1708:./lisp/ui/ogent-ui-armory.el:583:  "Major mode for Armory agent lists."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1712:./lisp/ui/ogent-ui-armory.el:603:  "Return tabulated entries for the current Armory agents buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1722:./lisp/ui/ogent-ui-armory.el:632:  "Open a tabulated Armory agent list for DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1724:./lisp/ui/ogent-ui-armory.el:635:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1732:./lisp/ui/ogent-ui-armory.el:650:  "Refresh the Armory agents buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1734:./lisp/ui/ogent-ui-armory.el:657:      (user-error "No Armory agent at point")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1736:./lisp/ui/ogent-ui-armory.el:660:  "Open the Armory agent profile at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1741:./lisp/ui/ogent-ui-armory.el:667:  "Visit the persona Org file for the Armory agent at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1747:./lisp/ui/ogent-ui-armory.el:675:  "Run the Armory agent at point with an instruction."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1763:./lisp/ui/ogent-ui-armory.el:701:(define-derived-mode ogent-armory-agent-mode special-mode "Armory-Agent"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1764:./lisp/ui/ogent-ui-armory.el:702:  "Major mode for a single Armory agent profile."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1769:./lisp/ui/ogent-ui-armory.el:710:  "Return header text for the current Armory agent buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1774:./lisp/ui/ogent-ui-armory.el:719:  "Open a single Armory AGENT-SLUG profile for DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1777:./lisp/ui/ogent-ui-armory.el:723:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1788:./lisp/ui/ogent-ui-armory.el:741:  "Refresh the current Armory agent profile."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1791:./lisp/ui/ogent-ui-armory.el:749:  "Insert the current Armory agent profile."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1856:./lisp/ui/ogent-ui-armory.el:892:  "Visit the Armory item at point or this agent's persona file."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1863:./lisp/ui/ogent-ui-armory.el:902:  "Run this Armory agent with an instruction."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1868:./lisp/ui/ogent-ui-armory.el:910:  "Run the Armory job or session at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1886:./lisp/ui/ogent-ui-armory.el:955:  "Create a Armory agent under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1888:./lisp/ui/ogent-ui-armory.el:958:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1903:./lisp/ui/ogent-ui-armory.el:994:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1912:./lisp/ui/ogent-ui-armory.el:1015:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1927:./lisp/ui/ogent-ui-armory.el:1039:(define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1928:./lisp/ui/ogent-ui-armory.el:1040:  "Major mode for Armory jobs."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1943:./lisp/ui/ogent-ui-armory.el:1092:  "Open Armory jobs for DIRECTORY, optionally narrowed to AGENT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1945:./lisp/ui/ogent-ui-armory.el:1095:             (read-directory-name "Armory root: "))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1956:./lisp/ui/ogent-ui-armory.el:1117:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1960:./lisp/ui/ogent-ui-armory.el:1123:  "Refresh the Armory jobs buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1963:./lisp/ui/ogent-ui-armory.el:1143:      (user-error "No Armory job at point")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1994:./lisp/ui/ogent-ui-armory.el:1218:  "Create a Armory job under DIRECTORY for AGENT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:1997:./lisp/ui/ogent-ui-armory.el:1222:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2021:./lisp/ui/ogent-ui-armory.el:1274:(define-derived-mode ogent-armory-tasks-mode tabulated-list-mode "Armory-Tasks"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2022:./lisp/ui/ogent-ui-armory.el:1275:  "Major mode for Armory attention lanes."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2037:./lisp/ui/ogent-ui-armory.el:1342:  "Return task items for the current Armory task buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2048:./lisp/ui/ogent-ui-armory.el:1377:  "Return tabulated list entries for the current Armory task buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2054:./lisp/ui/ogent-ui-armory.el:1400:  "Open Armory attention lanes for DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2056:./lisp/ui/ogent-ui-armory.el:1403:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2065:./lisp/ui/ogent-ui-armory.el:1419:  "Refresh the Armory task lane buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2067:./lisp/ui/ogent-ui-armory.el:1424:  "Visit the Armory task item at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2069:./lisp/ui/ogent-ui-armory.el:1428:      (user-error "No Armory task at point"))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2072:./lisp/ui/ogent-ui-armory.el:1432:  "Run or retry the Armory task at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2080:./lisp/ui/ogent-ui-armory.el:1452:       (user-error "No runnable Armory task at point")))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2082:./lisp/ui/ogent-ui-armory.el:1455:  "Archive the Armory task at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2086:./lisp/ui/ogent-ui-armory.el:1470:       (user-error "No archivable Armory task at point"))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2089:./lisp/ui/ogent-ui-armory.el:1474:  "Unarchive the Armory task at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2094:./lisp/ui/ogent-ui-armory.el:1484:       (user-error "No archived Armory task at point"))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2097:./lisp/ui/ogent-ui-armory.el:1488:  "Edit metadata for the Armory task at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2100:./lisp/ui/ogent-ui-armory.el:1498:                     (_ (user-error "No editable Armory task at point"))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2121:./lisp/ui/ogent-ui-armory.el:1534:  "Armory-Conversations"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2122:./lisp/ui/ogent-ui-armory.el:1535:  "Major mode for Armory conversation lists."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2135:./lisp/ui/ogent-ui-armory.el:1604:  "Open Armory conversations for DIRECTORY with optional FILTERS."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2137:./lisp/ui/ogent-ui-armory.el:1607:             (read-directory-name "Armory root: "))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2146:./lisp/ui/ogent-ui-armory.el:1624:  "Refresh the Armory conversations buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2148:./lisp/ui/ogent-ui-armory.el:1631:      (user-error "No Armory conversation at point")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2175:./lisp/ui/ogent-ui-armory.el:1689:  "Search within Armory conversations."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2185:./lisp/ui/ogent-ui-armory.el:1708:  "Armory-Conversation"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2186:./lisp/ui/ogent-ui-armory.el:1709:  "Major mode for a single Armory conversation."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2190:./lisp/ui/ogent-ui-armory.el:1719:  "Open Armory conversation FILE under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2193:./lisp/ui/ogent-ui-armory.el:1723:                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2241:./lisp/ui/ogent-ui-armory.el:1837:(define-derived-mode ogent-armory-search-mode tabulated-list-mode "Armory-Search"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2242:./lisp/ui/ogent-ui-armory.el:1838:  "Major mode for Armory search results."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2246:./lisp/ui/ogent-ui-armory.el:1850:  "Return tabulated entries for the current Armory search buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2248:./lisp/ui/ogent-ui-armory.el:1852:      (list (list nil (vector "" "" "" "Enter a search query to search this Armory.")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2255:./lisp/ui/ogent-ui-armory.el:1870:  "Search Armory Org records under DIRECTORY for QUERY and FILTERS."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2258:./lisp/ui/ogent-ui-armory.el:1874:                    (read-directory-name "Armory root: ")))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2259:./lisp/ui/ogent-ui-armory.el:1875:     (list root (read-string "Search Armory: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2261:./lisp/ui/ogent-ui-armory.el:1877:         (search-query (or query (read-string "Search Armory: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2270:./lisp/ui/ogent-ui-armory.el:1895:  "Refresh the current Armory search results."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2272:./lisp/ui/ogent-ui-armory.el:1900:  "Visit the Armory search result at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2273:./lisp/ui/ogent-ui-armory.el:1904:      (user-error "No Armory search result at point"))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2280:./lisp/ui/ogent-ui-armory.el:1921:(define-derived-mode ogent-armory-apps-mode tabulated-list-mode "Armory-Apps"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2281:./lisp/ui/ogent-ui-armory.el:1922:  "Major mode for Armory app artifacts."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2286:./lisp/ui/ogent-ui-armory.el:1949:  "Return app entries for the current Armory apps buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2290:./lisp/ui/ogent-ui-armory.el:1957:  "Open the Armory app artifact list for DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2292:./lisp/ui/ogent-ui-armory.el:1960:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2300:./lisp/ui/ogent-ui-armory.el:1975:  "Refresh the Armory apps buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2302:./lisp/ui/ogent-ui-armory.el:1982:      (user-error "No Armory app at point")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2309:./lisp/ui/ogent-ui-armory.el:1999:             (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2312:./lisp/ui/ogent-ui-armory.el:2003:      (user-error "No Armory index.html apps under %s" root))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2314:./lisp/ui/ogent-ui-armory.el:2020:  "Set up Evil integration for Armory UI buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2400:I’ve got the repo state: there are local Armory-related edits already in flight, and this checkout is not inside a Gas Town workspace. I’m switching into review mode now, reading the architecture docs and the active Armory diffs side by side so the scan can call out drift rather than hand-wave it.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2408:#+title: Armory User Guide
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2410:* What Armory Is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2412:Armory is an Org-backed local knowledge OS for AI-team work inside Emacs. A
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2413:Armory root is a directory with =index.org= plus agent, job, conversation,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2418:attention. Failed work is shown in Armory Home and on the task board.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2446:1. Create a Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2449:   (ogent-armory-scaffold "~/armory/acme" "Acme Armory" :kind "root")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2484:7. Search the Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2491:   Use =M-x ogent-armory-apps=. Each =index.html= below the Armory root is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2521:Armory Home:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2534:| =e= | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2585:- Imported files become Armory Org records, but external links and rich HTML
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2758:*** Org Armory Layer
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2759:Armory-style knowledge-base and AI-team features live behind an Org storage
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2770:- =ogent-armory-status= renders that graph as the Armory operational entry
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2776:See [[file:armory-org-os.org][Org Armory Integration]] for the full mapping from
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2777:Armory's repository architecture to ogent's Emacs/Org architecture.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2852:7471e61 fix: render Armory task lanes on Emacs 29
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2853:8fb0bca feat: add richer Armory UI
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2864:The recent history shows a fast Armory build-out over a few commits, which is exactly where drift hides. I’m reading the active diffs and the current UI contracts now, looking for mismatches between the Org-first architecture on paper and the surface the code actually exposes.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2887:+  "Set up Evil integration for Armory status buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2912:   "Richer UI surfaces for Org Armory records."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2919:+  "Set up Evil integration for Armory UI buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2967:+  "Armory status dispatch keys remain active in Evil normal state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:2996:+  "Armory UI dispatch keys remain active in Evil normal state."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3068:## Armory Home
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3070:`M-x ogent-armory-home` is the Armory entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Armory.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3085:| `e` | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3138:| `ogent-armory*.el`, `ui/ogent-ui-armory.el` | Org-native Armory storage, CLI runner, graph status, agents, profiles, tasks, search, and app opening |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3153:- **Org Armory Foundation and Rich UI** (`ogent-armory.el`, `ogent-armory-runner.el`, `ogent-armory-status.el`, `ui/ogent-ui-armory.el`): Org-backed Armory roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with Issues/Gas Town bridges, agent profile buffers, attention lanes, search, and app artifact opening.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3178:/bin/zsh -lc 'rg -n "task board|Inbox|Needs Reply|Running|Scheduled|Just Finished|Stale|Archive|status graph|issue-link|Gas Town hook|app artifacts|Search Armory|Empty queries" lisp/ogent-armory-status.el lisp/ui/ogent-ui-armory.el docs/armory.org README.md' in /Users/jake/vault/projects/ogent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3180:docs/armory.org:11:attention. Failed work is shown in Armory Home and on the task board.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3188:README.md:21:- **Org Armory OS**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3189:README.md:75:`M-x ogent-armory-home` is the Armory entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Armory.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3204:lisp/ui/ogent-ui-armory.el:1455:  "Archive the Armory task at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3209:lisp/ui/ogent-ui-armory.el:1870:  "Search Armory Org records under DIRECTORY for QUERY and FILTERS."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3210:lisp/ui/ogent-ui-armory.el:1875:     (list root (read-string "Search Armory: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3211:lisp/ui/ogent-ui-armory.el:1877:         (search-query (or query (read-string "Search Armory: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3212:lisp/ui/ogent-ui-armory.el:1922:  "Major mode for Armory app artifacts."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3226:    76	*** Org Armory Layer
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3227:    77	Armory-style knowledge-base and AI-team features live behind an Org storage
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3238:    88	- =ogent-armory-status= renders that graph as the Armory operational entry
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3244:    94	See [[file:armory-org-os.org][Org Armory Integration]] for the full mapping from
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3245:    95	Armory's repository architecture to ogent's Emacs/Org architecture.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3275:     1	#+title: Armory User Guide
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3277:     3	* What Armory Is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3279:     5	Armory is an Org-backed local knowledge OS for AI-team work inside Emacs. A
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3280:     6	Armory root is a directory with =index.org= plus agent, job, conversation,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3285:    11	attention. Failed work is shown in Armory Home and on the task board.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3313:    39	1. Create a Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3316:    42	   (ogent-armory-scaffold "~/armory/acme" "Acme Armory" :kind "root")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3351:    77	7. Search the Armory:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3358:    84	   Use =M-x ogent-armory-apps=. Each =index.html= below the Armory root is
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3388:   114	Armory Home:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3401:   127	| =e= | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3425:    21	- **Org Armory OS**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3477:    73	## Armory Home
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3479:    75	`M-x ogent-armory-home` is the Armory entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Armory.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3494:    90	| `e` | Edit Armory metadata |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3520:README.md:158:- **Org Armory Foundation and Rich UI** (`ogent-armory.el`, `ogent-armory-runner.el`, `ogent-armory-status.el`, `ui/ogent-ui-armory.el`): Org-backed Armory roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with Issues/Gas Town bridges, agent profile buffers, attention lanes, search, and app artifact opening.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3522:docs/doom-emacs.md:119:| `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3524:docs/doom-emacs.md:270:         :desc "Armory graph"       "K" #'ogent-armory-status
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3566:lisp/ogent-armory-status.el:110:(define-derived-mode ogent-armory-status-mode special-mode "Armory"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3610:lisp/ogent-armory-status.el:226:    (ogent-armory-status--insert-heading "◇" "C" "Armory Graph" 1)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3775:   994	                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3796:  1015	                     (read-directory-name "Armory root: "))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3820:  1039	(define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3821:  1040	  "Major mode for Armory jobs."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3873:  1092	  "Open Armory jobs for DIRECTORY, optionally narrowed to AGENT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3876:  1095	             (read-directory-name "Armory root: "))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3899:    88	  "Armory graph shown by the current status buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3921:   110	(define-derived-mode ogent-armory-status-mode special-mode "Armory"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3922:   111	  "Major mode for Armory graph status.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3938:   127	  "Return the Armory status buffer name for ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:3948:  2020	  "Set up Evil integration for Armory UI buffers."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4195:   200	  "Insert the Armory status buffer contents."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4221:   226	    (ogent-armory-status--insert-heading "◇" "C" "Armory Graph" 1)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4226:   231	               (propertize (or (plist-get armory :label) "Armory")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4408:   408	      (user-error "No Armory record at point"))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4412:   412	  "Open Ogent Issues from the current Armory root."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4418:   418	  "Open Gas Town status from the current Armory root."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4424:   424	  "Run the Armory agent or job at point."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4451:   451	       (user-error "No runnable Armory agent or job at point")))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4454:   454	  "Move point to the next Armory record line."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4474:     4	;; Provides the file-backed storage foundation for Armory-style knowledge
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4485:    15	  "Org-native Armory-style knowledge bases."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4738:   265	   (list (read-directory-name "Armory directory: ")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4739:   266	         (read-string "Armory name: ")))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4808:README.md:21:- **Org Armory OS**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4817:lisp/ui/ogent-ui-armory.el:161:  "Armory root for the current conversations buffer.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4849:lisp/ui/ogent-ui-armory.el:1604:  "Open Armory conversations for DIRECTORY with optional FILTERS."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4856:lisp/ui/ogent-ui-armory.el:1624:  "Refresh the Armory conversations buffer."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4877:lisp/ui/ogent-ui-armory.el:1689:  "Search within Armory conversations."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4903:   688	  "Return Armory sessions under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4923:   708	  "Return non-nil when FILE below ROOT is internal Armory plumbing."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4930:   715	  "Return Armory Org files under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4939:   724	  "Return metadata plist for the Armory Org record in FILE."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4975:   760	  "Return the Armory record kind represented by FILE."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:4990:   775	  "Return Armory search matches for QUERY under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5032:   817	  "Return Armory app artifacts under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5041:     4	;; Runs Armory agents through locally authenticated coding CLIs.  The runner
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5054:    17	  "Run Org Armory agents through subscription-authenticated CLIs."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5103:    66	  "Active Armory runner processes.")
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5106:    69	  "Return non-nil when AGENT-SLUG has a live Armory runner process."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5166:   129	     (format "You are the Org Armory agent named %s."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5175:   138	       (format "Run this Armory job: %s."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5223:   186	      (user-error "Armory agent workspace not found: %s" workspace))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5260:   223	       (user-error "Unsupported Armory agent provider: %s" provider)))))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5358:There’s another drift seam in the storage model. The user guide documents the friendly agent-level Org layout, but the implementation also manages hidden runtime directories and a global `.jobs/` area. I’m checking the deeper Armory spec now to see which layout is meant to be canonical and which one has gone stale.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5362:#+title: Org Armory Integration
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5367:the useful Armory product layer: local knowledge base, AI team, durable
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5378:- Armory repository: https://github.com/hilash/armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5379:- Armory docs reviewed locally after cloning: =README.md=, =docs/PRD.md=,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5393:| Armory concept | Armory implementation | ogent implementation |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5409:All new Armory-style records use Org:
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5429:** Armory Index
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5504:  local =codex login= session. Armory runs pass =--skip-git-repo-check= by
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5520:Armory storage is not just a file layout. It is the base relation layer for an
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5524:Armory(id, path, name, kind)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5532:contains        : Armory -> Agent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5538:archived-from   : Agent/Job/Session -> Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5549:This shape makes the Armory layer a natural extension of existing ogent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5562:The primary projection surface is =ogent-armory-home=. It summarizes Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5573:- =ogent-armory-home= opens the operational home view with Armory metadata,
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5578:- =ogent-armory-status= shows the derived Armory graph and operational
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5596:   118	| `SPC o j` | `ogent-armory-home`       | Armory Home                         |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5597:   119	| `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5598:   120	| `SPC o y` | `ogent-armory-agents`     | Armory agents                       |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5599:   121	| `SPC o Y` | `ogent-armory-agent`      | Armory agent profile                |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5600:   122	| `SPC o I` | `ogent-armory-tasks`      | Armory task board                   |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5601:   123	| `SPC o O` | `ogent-armory-conversations` | Armory conversations             |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5602:   124	| `SPC o V` | `ogent-armory-search`     | Armory-wide search                  |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5603:   125	| `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5604:   126	| `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5605:   127	| `SPC o Z` | `ogent-armory-create-job` | Create Armory job                   |
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5635:7471e61 fix: render Armory task lanes on Emacs 29
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5638:8fb0bca feat: add richer Armory UI
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5826:test/ogent-armory-status-tests.el:1:;;; ogent-armory-status-tests.el --- Tests for Armory status -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5831:test/ui/ogent-ui-armory-tests.el:1:;;; ogent-ui-armory-tests.el --- Tests for richer Armory UI -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5844:;;; ogent-ui-armory-tests.el --- Tests for richer Armory UI -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5847:;; Tests for Armory agent lists, profile buffers, task lanes, search, and app
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5859:  "Bind VAR to a temporary Armory directory while running BODY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5868:  "Write a Armory session fixture for AGENT-SLUG under ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5894:  "Create a Armory fixture in ROOT."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5927:  "Agent list mode exposes expected Armory navigation actions."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5936:  "Armory Home is the single operational entry point for daily work."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5948:              (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5960:  "The Armory agents buffer lists personas with job and session counts."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5966:;;; ogent-armory-status-tests.el --- Tests for Armory status -*- lexical-binding: t; -*-
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5969:;; Tests for the operational Armory graph buffer.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:5987:  "The Armory status buffer renders graph records and operational bridges."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6015:              (should (string-match-p "Armory Graph" text))
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6057:  "The graph projection includes the full Armory relationship vocabulary."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6318:I’ve got enough context to be precise. I’m running the Armory test files that cover the modified status/UI buffers now, then I’ll finish the scan with findings, stale-doc callouts, and concrete next jobs.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6382:   688	  "Return Armory sessions under DIRECTORY.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6402:   708	  "Return non-nil when FILE below ROOT is internal Armory plumbing."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6409:   715	  "Return Armory Org files under DIRECTORY."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6436:    68	** Armory Index
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6470:   159	Armory storage is not just a file layout. It is the base relation layer for an
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6474:   163	Armory(id, path, name, kind)
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6482:   171	contains        : Armory -> Agent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6488:   177	archived-from   : Agent/Job/Session -> Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6499:   188	This shape makes the Armory layer a natural extension of existing ogent
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6512:   201	The primary projection surface is =ogent-armory-home=. It summarizes Armory
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6575:  1039	(define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6576:  1040	  "Major mode for Armory jobs."
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6579:No blocking defects showed up in the current uncommitted Evil integration. The Armory-specific tests passed, the changed Elisp files byte-compile cleanly, and the real problems are architectural drift and discoverability.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6582:[P2] Armory has two competing “primary surface” contracts.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6585:Reasoning: `specs/architecture.org` still says `ogent-armory-status` is the operational entry point, while the deeper Armory spec, README, user guide, and tests treat `ogent-armory-home` as the main surface.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6590:Impact: future Armory features can fork persistence across “official” paths with no obvious failure until users cannot find transcripts or job state.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6602:Impact: every new Armory mode now needs updates in two Evil registration helpers. Low blast radius, steady maintenance tax.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6604:Fix direction: centralize Armory Evil registration behind one shared helper or one shared mode list.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6609:The current Evil patch changes the lived behavior of Armory buffers, but there is no matching note in the Armory or Doom docs near the keybinding sections in [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:97) and [docs/doom-emacs.md](/Users/jake/vault/projects/ogent/docs/doom-emacs.md:118).
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6612:1. Create a doc-alignment bead to unify `specs/architecture.org`, `specs/armory-org-os.org`, `docs/armory.org`, and README on one Armory entry surface.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6615:4. Fold Evil setup into shared Armory UI plumbing, then add one short Doom/Evil note when that patch lands.
+.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org:6617:Validation: reviewed the local Armory diff in [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019), [test/ogent-armory-status-tests.el](/Users/jake/vault/projects/ogent/test/ogent-armory-status-tests.el:137), and [test/ui/ogent-ui-armory-tests.el](/Users/jake/vault/projects/ogent/test/ui/ogent-ui-armory-tests.el:580). Ran targeted ERT for the two Armory test files, `29/29` passed. Byte-compiled the two changed Elisp files cleanly.
+.agents/architecture-steward/persona.org:1:#+title: Architecture Steward
+.agents/architecture-steward/persona.org:3:* Architecture Steward
+
+codex
+There is existing Architecture Steward session metadata for today, and it already contains the high-signal findings. I’m pulling the top section and the final findings block from that session so the HTML summary reflects the actual run, not a generic placeholder.
+exec
+/bin/zsh -lc "sed -n '6578,6622p' .agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org" in /Users/jake/vault/projects/ogent
+exec
+/bin/zsh -lc "sed -n '1,140p' .agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+codex
+No blocking defects showed up in the current uncommitted Evil integration. The Armory-specific tests passed, the changed Elisp files byte-compile cleanly, and the real problems are architectural drift and discoverability.
+
+**Findings**
+[P2] Armory has two competing “primary surface” contracts.
+Files: [specs/architecture.org](/Users/jake/vault/projects/ogent/specs/architecture.org:76), [specs/armory-org-os.org](/Users/jake/vault/projects/ogent/specs/armory-org-os.org:201), [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:9), [README.md](/Users/jake/vault/projects/ogent/README.md:21)
+Impact: contributors can land new work on the wrong surface, and the docs already give opposite guidance depending on which file they read first.
+Reasoning: `specs/architecture.org` still says `ogent-armory-status` is the operational entry point, while the deeper Armory spec, README, user guide, and tests treat `ogent-armory-home` as the main surface.
+Fix direction: choose one canonical entry surface and align the rest. The smallest coherent move is updating `specs/architecture.org` to match Home-first behavior.
+
+[P2] The storage contract advertises directories that the runtime does not use.
+Files: [specs/armory-org-os.org](/Users/jake/vault/projects/ogent/specs/armory-org-os.org:50), [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:31), [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:687), [lisp/ogent-armory-runner.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-runner.el:109)
+Impact: future Armory features can fork persistence across “official” paths with no obvious failure until users cannot find transcripts or job state.
+Reasoning: scaffold creates `.agents/.conversations` and `.jobs`, but live session reads and writes go through `.agents/<slug>/sessions/`, and `.agents/.conversations` is explicitly hidden from discovery.
+Fix direction: either remove the unused scaffold dirs and spec mentions, or wire them into the live model. Current code already points toward per-agent `sessions/` as canonical.
+
+[P2] Jobs are documented as a first-class workflow, but the primary UI does not expose them.
+Files: [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:67), [README.md](/Users/jake/vault/projects/ogent/README.md:95), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:360), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:1024)
+Impact: the “first 10 minutes” flow tells users to open `ogent-armory-jobs`, but Home and Status never advertise a jobs surface. That is a UX seam, not a power-user feature.
+Reasoning: `ogent-armory-jobs` exists and is tested, but Home navigation only surfaces agents, tasks, conversations, search, apps, and graph. README keybindings omit jobs entirely.
+Fix direction: add a Jobs entry point from Home or Status, or rewrite the onboarding flow around agent profiles if that is the intended path.
+
+[P3] The new Evil support is correct, but it adds another recurring sync point.
+Files: [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019)
+Impact: every new Armory mode now needs updates in two Evil registration helpers. Low blast radius, steady maintenance tax.
+Reasoning: the local patch duplicates mode registration and overriding-map setup across the status module and the richer UI module.
+Fix direction: centralize Armory Evil registration behind one shared helper or one shared mode list.
+
+**Stale Docs**
+`docs/armory.org` still says the graph includes `issue-link` nodes at [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:94), while the graph projection and UI use `issue` nodes in [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:964) and [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:287).
+
+The current Evil patch changes the lived behavior of Armory buffers, but there is no matching note in the Armory or Doom docs near the keybinding sections in [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:97) and [docs/doom-emacs.md](/Users/jake/vault/projects/ogent/docs/doom-emacs.md:118).
+
+**Next Actions**
+1. Create a doc-alignment bead to unify `specs/architecture.org`, `specs/armory-org-os.org`, `docs/armory.org`, and README on one Armory entry surface.
+2. Create a storage-contract cleanup bead to remove or justify `.agents/.conversations` and `.jobs`, then document the canonical transcript location.
+3. Create a jobs-discoverability bead to expose jobs from Home/Status or change the onboarding docs to match the real navigation path.
+4. Fold Evil setup into shared Armory UI plumbing, then add one short Doom/Evil note when that patch lands.
+
+Validation: reviewed the local Armory diff in [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019), [test/ogent-armory-status-tests.el](/Users/jake/vault/projects/ogent/test/ogent-armory-status-tests.el:137), and [test/ui/ogent-ui-armory-tests.el](/Users/jake/vault/projects/ogent/test/ui/ogent-ui-armory-tests.el:580). Ran targeted ERT for the two Armory test files, `29/29` passed. Byte-compiled the two changed Elisp files cleanly.
+hook: Stop
+hook: Stop Completed
+tokens used
+124,784
+,#+end_src
+
+ succeeded in 0ms:
+#+title: Architecture Steward Weekly Architecture Scan
+
+* DONE Architecture Steward Weekly Architecture Scan
+:PROPERTIES:
+:OGENT_SESSION: t
+:OGENT_AGENT: architecture-steward
+:OGENT_PROVIDER: codex
+:OGENT_MODEL: gpt-5.4
+:OGENT_JOB_ID: weekly-architecture-scan
+:OGENT_EXIT_STATUS: 0
+:OGENT_DURATION: 240.70s
+:OGENT_WORKSPACE: /Users/jake/vault/projects/ogent/
+:OGENT_APP_PATHS:
+:OGENT_FINISHED: 2026-05-04T11:34:46-0700
+:END:
+
+** Prompt
+#+begin_src text
+You are the Org Armory agent named Architecture Steward.
+
+Role: Architecture and product steward
+
+Persona instructions:
+Maintain architectural clarity for ogent. Prefer simple Org-first designs, watch for confusing UI seams, and turn recurring maintenance into explicit jobs.
+
+Run this Armory job: Weekly Architecture Scan.
+
+Job instructions:
+Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+,#+end_src
+
+** Output
+#+begin_src text
+No blocking defects showed up in the current uncommitted Evil integration. The Armory-specific tests passed, the changed Elisp files byte-compile cleanly, and the real problems are architectural drift and discoverability.
+
+**Findings**
+[P2] Armory has two competing “primary surface” contracts.
+Files: [specs/architecture.org](/Users/jake/vault/projects/ogent/specs/architecture.org:76), [specs/armory-org-os.org](/Users/jake/vault/projects/ogent/specs/armory-org-os.org:201), [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:9), [README.md](/Users/jake/vault/projects/ogent/README.md:21)
+Impact: contributors can land new work on the wrong surface, and the docs already give opposite guidance depending on which file they read first.
+Reasoning: `specs/architecture.org` still says `ogent-armory-status` is the operational entry point, while the deeper Armory spec, README, user guide, and tests treat `ogent-armory-home` as the main surface.
+Fix direction: choose one canonical entry surface and align the rest. The smallest coherent move is updating `specs/architecture.org` to match Home-first behavior.
+
+[P2] The storage contract advertises directories that the runtime does not use.
+Files: [specs/armory-org-os.org](/Users/jake/vault/projects/ogent/specs/armory-org-os.org:50), [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:31), [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:687), [lisp/ogent-armory-runner.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-runner.el:109)
+Impact: future Armory features can fork persistence across “official” paths with no obvious failure until users cannot find transcripts or job state.
+Reasoning: scaffold creates `.agents/.conversations` and `.jobs`, but live session reads and writes go through `.agents/<slug>/sessions/`, and `.agents/.conversations` is explicitly hidden from discovery.
+Fix direction: either remove the unused scaffold dirs and spec mentions, or wire them into the live model. Current code already points toward per-agent `sessions/` as canonical.
+
+[P2] Jobs are documented as a first-class workflow, but the primary UI does not expose them.
+Files: [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:67), [README.md](/Users/jake/vault/projects/ogent/README.md:95), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:360), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:1024)
+Impact: the “first 10 minutes” flow tells users to open `ogent-armory-jobs`, but Home and Status never advertise a jobs surface. That is a UX seam, not a power-user feature.
+Reasoning: `ogent-armory-jobs` exists and is tested, but Home navigation only surfaces agents, tasks, conversations, search, apps, and graph. README keybindings omit jobs entirely.
+Fix direction: add a Jobs entry point from Home or Status, or rewrite the onboarding flow around agent profiles if that is the intended path.
+
+[P3] The new Evil support is correct, but it adds another recurring sync point.
+Files: [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019)
+Impact: every new Armory mode now needs updates in two Evil registration helpers. Low blast radius, steady maintenance tax.
+Reasoning: the local patch duplicates mode registration and overriding-map setup across the status module and the richer UI module.
+Fix direction: centralize Armory Evil registration behind one shared helper or one shared mode list.
+
+**Stale Docs**
+`docs/armory.org` still says the graph includes `issue-link` nodes at [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:94), while the graph projection and UI use `issue` nodes in [lisp/ogent-armory.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory.el:964) and [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:287).
+
+The current Evil patch changes the lived behavior of Armory buffers, but there is no matching note in the Armory or Doom docs near the keybinding sections in [docs/armory.org](/Users/jake/vault/projects/ogent/docs/armory.org:97) and [docs/doom-emacs.md](/Users/jake/vault/projects/ogent/docs/doom-emacs.md:118).
+
+**Next Actions**
+1. Create a doc-alignment bead to unify `specs/architecture.org`, `specs/armory-org-os.org`, `docs/armory.org`, and README on one Armory entry surface.
+2. Create a storage-contract cleanup bead to remove or justify `.agents/.conversations` and `.jobs`, then document the canonical transcript location.
+3. Create a jobs-discoverability bead to expose jobs from Home/Status or change the onboarding docs to match the real navigation path.
+4. Fold Evil setup into shared Armory UI plumbing, then add one short Doom/Evil note when that patch lands.
+
+Validation: reviewed the local Armory diff in [lisp/ogent-armory-status.el](/Users/jake/vault/projects/ogent/lisp/ogent-armory-status.el:491), [lisp/ui/ogent-ui-armory.el](/Users/jake/vault/projects/ogent/lisp/ui/ogent-ui-armory.el:2019), [test/ogent-armory-status-tests.el](/Users/jake/vault/projects/ogent/test/ogent-armory-status-tests.el:137), and [test/ui/ogent-ui-armory-tests.el](/Users/jake/vault/projects/ogent/test/ui/ogent-ui-armory-tests.el:580). Ran targeted ERT for the two Armory test files, `29/29` passed. Byte-compiled the two changed Elisp files cleanly.
+,#+end_src
+
+** Runtime Trace
+#+begin_src text
+2026-05-04T18:30:46.610544Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when Client(HttpRequest(HttpRequest("http/request url is invalid: invalid port number")))
+OpenAI Codex v0.128.0 (research preview)
+--------
+workdir: /Users/jake/vault/projects/ogent
+model: gpt-5.4
+provider: openai
+approval: never
+sandbox: workspace-write [workdir, /tmp, $TMPDIR, /Users/jake/.codex/memories]
+reasoning effort: xhigh
+reasoning summaries: none
+session id: 019df441-cbd1-7983-b8e9-a16264a57b50
+--------
+user
+You are the Org Armory agent named Architecture Steward.
+
+Role: Architecture and product steward
+
+Persona instructions:
+Maintain architectural clarity for ogent. Prefer simple Org-first designs, watch for confusing UI seams, and turn recurring maintenance into explicit jobs.
+
+Run this Armory job: Weekly Architecture Scan.
+
+Job instructions:
+Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+2026-05-04T18:30:47.037048Z ERROR rmcp::transport::worker: worker quit with fatal: Transport channel closed, when AuthRequired(AuthRequiredError { www_authenticate_header: "Bearer error=\"invalid_request\", error_description=\"No access token was provided in this request\", resource_metadata=\"https://api.githubcopilot.com/.well-known/oauth-protected-resource/mcp/\"" })
+hook: SessionStart
+hook: SessionStart Completed
+hook: UserPromptSubmit
+hook: UserPromptSubmit Completed
+codex
+Reviewing the Armory job and repo context first. I’m starting with the required `bd onboard` flow, then I’ll inspect the Armory, docs, and recent changes for architectural drift.
+exec
+/bin/zsh -lc 'bd onboard' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+
+bd Onboarding
+
+Add this minimal snippet to AGENTS.md (or create it):
+
+--- BEGIN AGENTS.MD CONTENT ---
+## Issue Tracking
+
+This project uses **bd (beads)** for issue tracking.
+Run `bd prime` for workflow context, or install hooks (`bd hooks install`) for auto-injection.
+
+**Quick reference:**
+- `bd ready` - Find unblocked work
+- `bd create "Title" --type task --priority 2` - Create issue
+- `bd close <id>` - Complete work
+- `bd sync` - Sync with git (run at session end)
+
+For full workflow details: `bd prime`
+--- END AGENTS.MD CONTENT ---
+
+For GitHub Copilot users:
+Add the same content to .github/copilot-instructions.md
+
+How it works:
+   • bd prime provides dynamic workflow context (~80 lines)
+   • bd hooks install auto-injects bd prime at session start
+   • AGENTS.md only needs this minimal pointer, not full instructions
+
+This keeps AGENTS.md lean while bd prime provides up-to-date workflow details.
+
+
+exec
+/bin/zsh -lc "sed -n '1,120p' .agents/architecture-steward/jobs/weekly-architecture-scan.org" in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+#+title: Weekly Architecture Scan
+
+* TODO Weekly Architecture Scan
+:PROPERTIES:
+:OGENT_JOB: t
+:OGENT_JOB_ID: weekly-architecture-scan
+:OGENT_AGENT: architecture-steward
+:OGENT_CRON: 0 8 * * 1
+:OGENT_HEARTBEAT:
+:OGENT_ENABLED: t
+:OGENT_PROVIDER:
+:OGENT_MODEL:
+:OGENT_WORKSPACE: /
+:OGENT_TAGS: architecture, weekly, maintenance
+:OGENT_ARCHIVED:
+:END:
+
+Review the Armory, docs, and recent changes for architectural drift. Summarize risks, stale docs, confusing UX, and concrete next actions.
+
+codex
+I have the real session data I need. I’m creating a single self-contained HTML page that shows the run envelope, the four architecture findings, stale-doc drift, next actions, and validation, with no external assets or code/doc edits.
+exec
+/bin/zsh -lc 'mkdir -p .armory-state/dogfood-app' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+apply patch
+patch: completed
+/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html
+diff --git a/.armory-state/dogfood-app/index.html b/.armory-state/dogfood-app/index.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bbc11fea755dbb91540903c7b7cb3f74ef87483
+--- /dev/null
++++ b/.armory-state/dogfood-app/index.html
+@@ -0,0 +1,517 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Architecture Steward Armory Run</title>
++  <style>
++    :root {
++      --paper: #f3ede2;
++      --paper-strong: #fffaf0;
++      --ink: #1f1a17;
++      --muted: #6f655b;
++      --line: rgba(31, 26, 23, 0.14);
++      --accent: #8a4d37;
++      --accent-soft: rgba(138, 77, 55, 0.12);
++      --moss: #495644;
++      --moss-soft: rgba(73, 86, 68, 0.12);
++      --warn: #7f5a14;
++      --shadow: 0 20px 60px rgba(54, 38, 24, 0.12);
++      --radius: 24px;
++    }
++
++    * {
++      box-sizing: border-box;
++    }
++
++    html {
++      color-scheme: light;
++    }
++
++    body {
++      margin: 0;
++      min-height: 100vh;
++      background:
++        radial-gradient(circle at top left, rgba(138, 77, 55, 0.12), transparent 30rem),
++        radial-gradient(circle at bottom right, rgba(73, 86, 68, 0.12), transparent 28rem),
++        var(--paper);
++      color: var(--ink);
++      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
++      line-height: 1.45;
++    }
++
++    .page {
++      width: min(1120px, calc(100vw - 2rem));
++      margin: 0 auto;
++      padding: clamp(1.5rem, 3vw, 2.75rem) 0 4rem;
++    }
++
++    .hero {
++      display: grid;
++      gap: 1.5rem;
++      grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr);
++      align-items: start;
++      margin-bottom: 1.75rem;
++    }
++
++    .hero-panel,
++    .stats,
++    .section,
++    .finding,
++    .note {
++      background: rgba(255, 250, 240, 0.72);
++      backdrop-filter: blur(8px);
++      border: 1px solid var(--line);
++      border-radius: var(--radius);
++      box-shadow: var(--shadow);
++    }
++
++    .hero-panel {
++      padding: clamp(1.5rem, 3vw, 2.6rem);
++    }
++
++    .eyebrow,
++    .severity,
++    .kicker {
++      display: inline-flex;
++      align-items: center;
++      gap: 0.45rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.82rem;
++      font-weight: 700;
++      letter-spacing: 0.11em;
++      text-transform: uppercase;
++    }
++
++    .eyebrow {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    h1,
++    h2,
++    h3 {
++      margin: 0;
++      font-weight: 700;
++      letter-spacing: -0.03em;
++      line-height: 0.95;
++    }
++
++    h1 {
++      font-size: clamp(2.8rem, 8vw, 5.8rem);
++      max-width: 10ch;
++    }
++
++    .lede {
++      max-width: 42rem;
++      margin: 1rem 0 0;
++      font-size: clamp(1.02rem, 1.8vw, 1.16rem);
++      color: var(--muted);
++    }
++
++    .stats {
++      padding: 1.4rem 1.4rem 1.1rem;
++    }
++
++    .stats h2 {
++      font-size: 1.05rem;
++      margin-bottom: 1rem;
++      line-height: 1.1;
++    }
++
++    .stats-grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 0.9rem 1rem;
++    }
++
++    .stat {
++      padding-top: 0.8rem;
++      border-top: 1px solid var(--line);
++    }
++
++    .stat dt {
++      margin: 0 0 0.3rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .stat dd {
++      margin: 0;
++      font-size: 1rem;
++    }
++
++    .section {
++      padding: 1.3rem;
++      margin-bottom: 1.3rem;
++    }
++
++    .section-head {
++      display: flex;
++      flex-wrap: wrap;
++      gap: 0.8rem;
++      align-items: baseline;
++      justify-content: space-between;
++      margin-bottom: 1rem;
++    }
++
++    .section h2 {
++      font-size: clamp(1.55rem, 3vw, 2.2rem);
++      line-height: 1;
++    }
++
++    .section p {
++      margin: 0;
++      color: var(--muted);
++    }
++
++    .grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .finding {
++      padding: 1.15rem;
++      position: relative;
++      overflow: hidden;
++    }
++
++    .finding::before {
++      content: "";
++      position: absolute;
++      inset: 0 auto 0 0;
++      width: 0.45rem;
++      background: var(--accent);
++    }
++
++    .finding.p3::before {
++      background: var(--moss);
++    }
++
++    .severity {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    .finding.p3 .severity {
++      color: var(--moss);
++    }
++
++    .finding h3 {
++      font-size: 1.4rem;
++      line-height: 1;
++      margin-bottom: 0.85rem;
++      padding-right: 1rem;
++    }
++
++    .finding dl {
++      margin: 0;
++      display: grid;
++      gap: 0.75rem;
++    }
++
++    .finding dt,
++    .note strong {
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .finding dd {
++      margin: 0.2rem 0 0;
++      color: var(--ink);
++    }
++
++    ul,
++    ol {
++      margin: 0;
++      padding-left: 1.2rem;
++    }
++
++    li + li {
++      margin-top: 0.65rem;
++    }
++
++    code {
++      font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
++      font-size: 0.92em;
++      background: rgba(31, 26, 23, 0.06);
++      padding: 0.08rem 0.3rem;
++      border-radius: 0.35rem;
++    }
++
++    .notes {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .note {
++      padding: 1.15rem;
++    }
++
++    .note p + p,
++    .note p + ul,
++    .note p + ol {
++      margin-top: 0.8rem;
++    }
++
++    .footer {
++      margin-top: 1.25rem;
++      color: var(--muted);
++      font-size: 0.95rem;
++    }
++
++    @media (max-width: 900px) {
++      .hero,
++      .grid,
++      .notes {
++        grid-template-columns: 1fr;
++      }
++
++      .page {
++        width: min(100vw - 1rem, 46rem);
++      }
++    }
++
++    @media (prefers-reduced-motion: no-preference) {
++      .hero-panel,
++      .stats,
++      .section,
++      .finding,
++      .note {
++        animation: rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
++      }
++
++      .stats { animation-delay: 80ms; }
++      .section:nth-of-type(1) { animation-delay: 120ms; }
++      .section:nth-of-type(2) { animation-delay: 160ms; }
++      .section:nth-of-type(3) { animation-delay: 200ms; }
++    }
++
++    @keyframes rise {
++      from {
++        opacity: 0;
++        transform: translateY(18px);
++      }
++      to {
++        opacity: 1;
++        transform: translateY(0);
++      }
++    }
++  </style>
++</head>
++<body>
++  <main class="page">
++    <header class="hero">
++      <section class="hero-panel">
++        <div class="eyebrow">Org Armory dogfood artifact</div>
++        <h1>Architecture Steward armory run</h1>
++        <p class="lede">
++          Weekly architecture scan for <code>ogent</code>, captured as a tiny local artifact.
++          The run cleared functional blockers, then surfaced drift in entry-point contracts,
++          storage shape, jobs discoverability, and recurring Evil-mode plumbing.
++        </p>
++      </section>
++
++      <aside class="stats">
++        <h2>Run envelope</h2>
++        <dl class="stats-grid">
++          <div class="stat">
++            <dt>Agent</dt>
++            <dd>Architecture Steward</dd>
++          </div>
++          <div class="stat">
++            <dt>Job</dt>
++            <dd>Weekly Architecture Scan</dd>
++          </div>
++          <div class="stat">
++            <dt>Finished</dt>
++            <dd>2026-05-04 11:34 PDT</dd>
++          </div>
++          <div class="stat">
++            <dt>Duration</dt>
++            <dd>240.70s</dd>
++          </div>
++          <div class="stat">
++            <dt>Model</dt>
++            <dd>gpt-5.4</dd>
++          </div>
++          <div class="stat">
++            <dt>Status</dt>
++            <dd>Exit 0, no blocking defects</dd>
++          </div>
++          <div class="stat">
++            <dt>Workspace</dt>
++            <dd><code>/Users/jake/vault/projects/ogent</code></dd>
++          </div>
++          <div class="stat">
++            <dt>Source</dt>
++            <dd><code>.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org</code></dd>
++          </div>
++        </dl>
++      </aside>
++    </header>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Steward verdict</h2>
++        <div class="kicker">4 findings, 2 stale-doc callouts, 4 follow-up jobs</div>
++      </div>
++      <p>
++        The current uncommitted Evil integration looks sound. The bigger issue is that the
++        product story and runtime story are not lined up in a few important places, which
++        leaves contributors and users with more than one "official" path through Armory.
++      </p>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Findings</h2>
++        <p>Ordered by the run's severity labels and written from the session output.</p>
++      </div>
++      <div class="grid">
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Two competing primary surfaces</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd><code>ogent-armory-status</code> and <code>ogent-armory-home</code> both read as the main entry point, depending on which doc a contributor opens first.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>New work can land on the wrong surface and deepen product confusion.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Choose one canonical entry point and align the rest, with Home-first behavior looking like the cleanest fit.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Storage contract drift</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>The scaffold advertises <code>.agents/.conversations</code> and <code>.jobs</code>, while live session traffic actually uses per-agent <code>sessions/</code>.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Future work can split state across documented and undocumented paths with no early warning.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Delete the unused story or wire it up for real, then document one canonical transcript location.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Jobs are first-class on paper, hidden in practice</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Docs and onboarding point users at <code>ogent-armory-jobs</code>, but Home and Status do not advertise that surface.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>The first-run workflow has a UX seam right where Armory is supposed to feel operationally clear.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Expose Jobs from Home or Status, or rewrite the onboarding path around the real navigation model.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding p3">
++          <div class="severity">P3</div>
++          <h3>Evil support adds a maintenance sync point</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Mode registration and overriding-map setup are duplicated across Armory status and richer UI modules.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Low immediate risk, steady future tax every time another Armory mode appears.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Centralize Evil registration behind one helper or one shared mode list.</dd>
++            </div>
++          </dl>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Drift and follow-up</h2>
++        <p>The run called out stale docs and converted the recurring maintenance into explicit jobs.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Stale docs</strong>
++          <ul>
++            <li><code>docs/armory.org</code> still describes <code>issue-link</code> graph nodes while the runtime uses <code>issue</code>.</li>
++            <li>Armory and Doom docs do not mention the lived Evil behavior around the current patch.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Next actions</strong>
++          <ol>
++            <li>Create a doc-alignment bead for entry-surface consistency across specs, docs, and README.</li>
++            <li>Create a storage-contract cleanup bead for unused scaffold paths and transcript location clarity.</li>
++            <li>Create a jobs-discoverability bead for Home/Status navigation or adjust onboarding to match reality.</li>
++            <li>Fold Evil setup into shared Armory UI plumbing, then land one short Doom/Evil note.</li>
++          </ol>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Validation</h2>
++        <p>What the recorded session verified before it closed.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Run validation</strong>
++          <ul>
++            <li>Reviewed the local Armory diff in status and richer UI code paths.</li>
++            <li>Ran targeted ERT for the two Armory test files, with 29 of 29 tests passing.</li>
++            <li>Byte-compiled the two changed Elisp files cleanly.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Artifact notes</strong>
++          <ul>
++            <li>This page is self-contained and uses no network assets.</li>
++            <li>The worktree already had Armory-related edits when this artifact was generated; they were left untouched.</li>
++            <li><code>gt mol status</code> reported that this checkout is not in a Gas Town workspace.</li>
++          </ul>
++        </article>
++      </div>
++    </section>
++
++    <p class="footer">
++      Generated locally on 2026-05-04 for Armory dogfooding. Simple page, explicit seams, no mystery meat.
++    </p>
++  </main>
++</body>
++</html>
+
+diff --git a/.armory-state/dogfood-app/index.html b/.armory-state/dogfood-app/index.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bbc11fea755dbb91540903c7b7cb3f74ef87483
+--- /dev/null
++++ b/.armory-state/dogfood-app/index.html
+@@ -0,0 +1,517 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Architecture Steward Armory Run</title>
++  <style>
++    :root {
++      --paper: #f3ede2;
++      --paper-strong: #fffaf0;
++      --ink: #1f1a17;
++      --muted: #6f655b;
++      --line: rgba(31, 26, 23, 0.14);
++      --accent: #8a4d37;
++      --accent-soft: rgba(138, 77, 55, 0.12);
++      --moss: #495644;
++      --moss-soft: rgba(73, 86, 68, 0.12);
++      --warn: #7f5a14;
++      --shadow: 0 20px 60px rgba(54, 38, 24, 0.12);
++      --radius: 24px;
++    }
++
++    * {
++      box-sizing: border-box;
++    }
++
++    html {
++      color-scheme: light;
++    }
++
++    body {
++      margin: 0;
++      min-height: 100vh;
++      background:
++        radial-gradient(circle at top left, rgba(138, 77, 55, 0.12), transparent 30rem),
++        radial-gradient(circle at bottom right, rgba(73, 86, 68, 0.12), transparent 28rem),
++        var(--paper);
++      color: var(--ink);
++      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
++      line-height: 1.45;
++    }
++
++    .page {
++      width: min(1120px, calc(100vw - 2rem));
++      margin: 0 auto;
++      padding: clamp(1.5rem, 3vw, 2.75rem) 0 4rem;
++    }
++
++    .hero {
++      display: grid;
++      gap: 1.5rem;
++      grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr);
++      align-items: start;
++      margin-bottom: 1.75rem;
++    }
++
++    .hero-panel,
++    .stats,
++    .section,
++    .finding,
++    .note {
++      background: rgba(255, 250, 240, 0.72);
++      backdrop-filter: blur(8px);
++      border: 1px solid var(--line);
++      border-radius: var(--radius);
++      box-shadow: var(--shadow);
++    }
++
++    .hero-panel {
++      padding: clamp(1.5rem, 3vw, 2.6rem);
++    }
++
++    .eyebrow,
++    .severity,
++    .kicker {
++      display: inline-flex;
++      align-items: center;
++      gap: 0.45rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.82rem;
++      font-weight: 700;
++      letter-spacing: 0.11em;
++      text-transform: uppercase;
++    }
++
++    .eyebrow {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    h1,
++    h2,
++    h3 {
++      margin: 0;
++      font-weight: 700;
++      letter-spacing: -0.03em;
++      line-height: 0.95;
++    }
++
++    h1 {
++      font-size: clamp(2.8rem, 8vw, 5.8rem);
++      max-width: 10ch;
++    }
++
++    .lede {
++      max-width: 42rem;
++      margin: 1rem 0 0;
++      font-size: clamp(1.02rem, 1.8vw, 1.16rem);
++      color: var(--muted);
++    }
++
++    .stats {
++      padding: 1.4rem 1.4rem 1.1rem;
++    }
++
++    .stats h2 {
++      font-size: 1.05rem;
++      margin-bottom: 1rem;
++      line-height: 1.1;
++    }
++
++    .stats-grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 0.9rem 1rem;
++    }
++
++    .stat {
++      padding-top: 0.8rem;
++      border-top: 1px solid var(--line);
++    }
++
++    .stat dt {
++      margin: 0 0 0.3rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .stat dd {
++      margin: 0;
++      font-size: 1rem;
++    }
++
++    .section {
++      padding: 1.3rem;
++      margin-bottom: 1.3rem;
++    }
++
++    .section-head {
++      display: flex;
++      flex-wrap: wrap;
++      gap: 0.8rem;
++      align-items: baseline;
++      justify-content: space-between;
++      margin-bottom: 1rem;
++    }
++
++    .section h2 {
++      font-size: clamp(1.55rem, 3vw, 2.2rem);
++      line-height: 1;
++    }
++
++    .section p {
++      margin: 0;
++      color: var(--muted);
++    }
++
++    .grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .finding {
++      padding: 1.15rem;
++      position: relative;
++      overflow: hidden;
++    }
++
++    .finding::before {
++      content: "";
++      position: absolute;
++      inset: 0 auto 0 0;
++      width: 0.45rem;
++      background: var(--accent);
++    }
++
++    .finding.p3::before {
++      background: var(--moss);
++    }
++
++    .severity {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    .finding.p3 .severity {
++      color: var(--moss);
++    }
++
++    .finding h3 {
++      font-size: 1.4rem;
++      line-height: 1;
++      margin-bottom: 0.85rem;
++      padding-right: 1rem;
++    }
++
++    .finding dl {
++      margin: 0;
++      display: grid;
++      gap: 0.75rem;
++    }
++
++    .finding dt,
++    .note strong {
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .finding dd {
++      margin: 0.2rem 0 0;
++      color: var(--ink);
++    }
++
++    ul,
++    ol {
++      margin: 0;
++      padding-left: 1.2rem;
++    }
++
++    li + li {
++      margin-top: 0.65rem;
++    }
++
++    code {
++      font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
++      font-size: 0.92em;
++      background: rgba(31, 26, 23, 0.06);
++      padding: 0.08rem 0.3rem;
++      border-radius: 0.35rem;
++    }
++
++    .notes {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .note {
++      padding: 1.15rem;
++    }
++
++    .note p + p,
++    .note p + ul,
++    .note p + ol {
++      margin-top: 0.8rem;
++    }
++
++    .footer {
++      margin-top: 1.25rem;
++      color: var(--muted);
++      font-size: 0.95rem;
++    }
++
++    @media (max-width: 900px) {
++      .hero,
++      .grid,
++      .notes {
++        grid-template-columns: 1fr;
++      }
++
++      .page {
++        width: min(100vw - 1rem, 46rem);
++      }
++    }
++
++    @media (prefers-reduced-motion: no-preference) {
++      .hero-panel,
++      .stats,
++      .section,
++      .finding,
++      .note {
++        animation: rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
++      }
++
++      .stats { animation-delay: 80ms; }
++      .section:nth-of-type(1) { animation-delay: 120ms; }
++      .section:nth-of-type(2) { animation-delay: 160ms; }
++      .section:nth-of-type(3) { animation-delay: 200ms; }
++    }
++
++    @keyframes rise {
++      from {
++        opacity: 0;
++        transform: translateY(18px);
++      }
++      to {
++        opacity: 1;
++        transform: translateY(0);
++      }
++    }
++  </style>
++</head>
++<body>
++  <main class="page">
++    <header class="hero">
++      <section class="hero-panel">
++        <div class="eyebrow">Org Armory dogfood artifact</div>
++        <h1>Architecture Steward armory run</h1>
++        <p class="lede">
++          Weekly architecture scan for <code>ogent</code>, captured as a tiny local artifact.
++          The run cleared functional blockers, then surfaced drift in entry-point contracts,
++          storage shape, jobs discoverability, and recurring Evil-mode plumbing.
++        </p>
++      </section>
++
++      <aside class="stats">
++        <h2>Run envelope</h2>
++        <dl class="stats-grid">
++          <div class="stat">
++            <dt>Agent</dt>
++            <dd>Architecture Steward</dd>
++          </div>
++          <div class="stat">
++            <dt>Job</dt>
++            <dd>Weekly Architecture Scan</dd>
++          </div>
++          <div class="stat">
++            <dt>Finished</dt>
++            <dd>2026-05-04 11:34 PDT</dd>
++          </div>
++          <div class="stat">
++            <dt>Duration</dt>
++            <dd>240.70s</dd>
++          </div>
++          <div class="stat">
++            <dt>Model</dt>
++            <dd>gpt-5.4</dd>
++          </div>
++          <div class="stat">
++            <dt>Status</dt>
++            <dd>Exit 0, no blocking defects</dd>
++          </div>
++          <div class="stat">
++            <dt>Workspace</dt>
++            <dd><code>/Users/jake/vault/projects/ogent</code></dd>
++          </div>
++          <div class="stat">
++            <dt>Source</dt>
++            <dd><code>.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org</code></dd>
++          </div>
++        </dl>
++      </aside>
++    </header>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Steward verdict</h2>
++        <div class="kicker">4 findings, 2 stale-doc callouts, 4 follow-up jobs</div>
++      </div>
++      <p>
++        The current uncommitted Evil integration looks sound. The bigger issue is that the
++        product story and runtime story are not lined up in a few important places, which
++        leaves contributors and users with more than one "official" path through Armory.
++      </p>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Findings</h2>
++        <p>Ordered by the run's severity labels and written from the session output.</p>
++      </div>
++      <div class="grid">
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Two competing primary surfaces</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd><code>ogent-armory-status</code> and <code>ogent-armory-home</code> both read as the main entry point, depending on which doc a contributor opens first.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>New work can land on the wrong surface and deepen product confusion.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Choose one canonical entry point and align the rest, with Home-first behavior looking like the cleanest fit.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Storage contract drift</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>The scaffold advertises <code>.agents/.conversations</code> and <code>.jobs</code>, while live session traffic actually uses per-agent <code>sessions/</code>.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Future work can split state across documented and undocumented paths with no early warning.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Delete the unused story or wire it up for real, then document one canonical transcript location.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Jobs are first-class on paper, hidden in practice</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Docs and onboarding point users at <code>ogent-armory-jobs</code>, but Home and Status do not advertise that surface.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>The first-run workflow has a UX seam right where Armory is supposed to feel operationally clear.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Expose Jobs from Home or Status, or rewrite the onboarding path around the real navigation model.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding p3">
++          <div class="severity">P3</div>
++          <h3>Evil support adds a maintenance sync point</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Mode registration and overriding-map setup are duplicated across Armory status and richer UI modules.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Low immediate risk, steady future tax every time another Armory mode appears.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Centralize Evil registration behind one helper or one shared mode list.</dd>
++            </div>
++          </dl>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Drift and follow-up</h2>
++        <p>The run called out stale docs and converted the recurring maintenance into explicit jobs.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Stale docs</strong>
++          <ul>
++            <li><code>docs/armory.org</code> still describes <code>issue-link</code> graph nodes while the runtime uses <code>issue</code>.</li>
++            <li>Armory and Doom docs do not mention the lived Evil behavior around the current patch.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Next actions</strong>
++          <ol>
++            <li>Create a doc-alignment bead for entry-surface consistency across specs, docs, and README.</li>
++            <li>Create a storage-contract cleanup bead for unused scaffold paths and transcript location clarity.</li>
++            <li>Create a jobs-discoverability bead for Home/Status navigation or adjust onboarding to match reality.</li>
++            <li>Fold Evil setup into shared Armory UI plumbing, then land one short Doom/Evil note.</li>
++          </ol>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Validation</h2>
++        <p>What the recorded session verified before it closed.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Run validation</strong>
++          <ul>
++            <li>Reviewed the local Armory diff in status and richer UI code paths.</li>
++            <li>Ran targeted ERT for the two Armory test files, with 29 of 29 tests passing.</li>
++            <li>Byte-compiled the two changed Elisp files cleanly.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Artifact notes</strong>
++          <ul>
++            <li>This page is self-contained and uses no network assets.</li>
++            <li>The worktree already had Armory-related edits when this artifact was generated; they were left untouched.</li>
++            <li><code>gt mol status</code> reported that this checkout is not in a Gas Town workspace.</li>
++          </ul>
++        </article>
++      </div>
++    </section>
++
++    <p class="footer">
++      Generated locally on 2026-05-04 for Armory dogfooding. Simple page, explicit seams, no mystery meat.
++    </p>
++  </main>
++</body>
++</html>
+
+codex
+The page is written. I’m doing a quick local verification pass now: confirm the file path, confirm the expected sections are present, and stop there since you asked for an artifact, not a browser walkthrough.
+exec
+/bin/zsh -lc 'realpath .armory-state/dogfood-app/index.html' in /Users/jake/vault/projects/ogent
+exec
+/bin/zsh -lc 'rg -n "Run envelope|Steward verdict|Findings|Drift and follow-up|Validation|Artifact notes" .armory-state/dogfood-app/index.html' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html
+
+ succeeded in 0ms:
+326:        <h2>Run envelope</h2>
+366:        <h2>Steward verdict</h2>
+378:        <h2>Findings</h2>
+462:        <h2>Drift and follow-up</h2>
+488:        <h2>Validation</h2>
+502:          <strong>Artifact notes</strong>
+
+exec
+/bin/zsh -lc 'git status --short .armory-state/dogfood-app/index.html' in /Users/jake/vault/projects/ogent
+ succeeded in 0ms:
+?? .armory-state/dogfood-app/index.html
+
+diff --git a/.armory-state/dogfood-app/index.html b/.armory-state/dogfood-app/index.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bbc11fea755dbb91540903c7b7cb3f74ef87483
+--- /dev/null
++++ b/.armory-state/dogfood-app/index.html
+@@ -0,0 +1,517 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Architecture Steward Armory Run</title>
++  <style>
++    :root {
++      --paper: #f3ede2;
++      --paper-strong: #fffaf0;
++      --ink: #1f1a17;
++      --muted: #6f655b;
++      --line: rgba(31, 26, 23, 0.14);
++      --accent: #8a4d37;
++      --accent-soft: rgba(138, 77, 55, 0.12);
++      --moss: #495644;
++      --moss-soft: rgba(73, 86, 68, 0.12);
++      --warn: #7f5a14;
++      --shadow: 0 20px 60px rgba(54, 38, 24, 0.12);
++      --radius: 24px;
++    }
++
++    * {
++      box-sizing: border-box;
++    }
++
++    html {
++      color-scheme: light;
++    }
++
++    body {
++      margin: 0;
++      min-height: 100vh;
++      background:
++        radial-gradient(circle at top left, rgba(138, 77, 55, 0.12), transparent 30rem),
++        radial-gradient(circle at bottom right, rgba(73, 86, 68, 0.12), transparent 28rem),
++        var(--paper);
++      color: var(--ink);
++      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
++      line-height: 1.45;
++    }
++
++    .page {
++      width: min(1120px, calc(100vw - 2rem));
++      margin: 0 auto;
++      padding: clamp(1.5rem, 3vw, 2.75rem) 0 4rem;
++    }
++
++    .hero {
++      display: grid;
++      gap: 1.5rem;
++      grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr);
++      align-items: start;
++      margin-bottom: 1.75rem;
++    }
++
++    .hero-panel,
++    .stats,
++    .section,
++    .finding,
++    .note {
++      background: rgba(255, 250, 240, 0.72);
++      backdrop-filter: blur(8px);
++      border: 1px solid var(--line);
++      border-radius: var(--radius);
++      box-shadow: var(--shadow);
++    }
++
++    .hero-panel {
++      padding: clamp(1.5rem, 3vw, 2.6rem);
++    }
++
++    .eyebrow,
++    .severity,
++    .kicker {
++      display: inline-flex;
++      align-items: center;
++      gap: 0.45rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.82rem;
++      font-weight: 700;
++      letter-spacing: 0.11em;
++      text-transform: uppercase;
++    }
++
++    .eyebrow {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    h1,
++    h2,
++    h3 {
++      margin: 0;
++      font-weight: 700;
++      letter-spacing: -0.03em;
++      line-height: 0.95;
++    }
++
++    h1 {
++      font-size: clamp(2.8rem, 8vw, 5.8rem);
++      max-width: 10ch;
++    }
++
++    .lede {
++      max-width: 42rem;
++      margin: 1rem 0 0;
++      font-size: clamp(1.02rem, 1.8vw, 1.16rem);
++      color: var(--muted);
++    }
++
++    .stats {
++      padding: 1.4rem 1.4rem 1.1rem;
++    }
++
++    .stats h2 {
++      font-size: 1.05rem;
++      margin-bottom: 1rem;
++      line-height: 1.1;
++    }
++
++    .stats-grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 0.9rem 1rem;
++    }
++
++    .stat {
++      padding-top: 0.8rem;
++      border-top: 1px solid var(--line);
++    }
++
++    .stat dt {
++      margin: 0 0 0.3rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .stat dd {
++      margin: 0;
++      font-size: 1rem;
++    }
++
++    .section {
++      padding: 1.3rem;
++      margin-bottom: 1.3rem;
++    }
++
++    .section-head {
++      display: flex;
++      flex-wrap: wrap;
++      gap: 0.8rem;
++      align-items: baseline;
++      justify-content: space-between;
++      margin-bottom: 1rem;
++    }
++
++    .section h2 {
++      font-size: clamp(1.55rem, 3vw, 2.2rem);
++      line-height: 1;
++    }
++
++    .section p {
++      margin: 0;
++      color: var(--muted);
++    }
++
++    .grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .finding {
++      padding: 1.15rem;
++      position: relative;
++      overflow: hidden;
++    }
++
++    .finding::before {
++      content: "";
++      position: absolute;
++      inset: 0 auto 0 0;
++      width: 0.45rem;
++      background: var(--accent);
++    }
++
++    .finding.p3::before {
++      background: var(--moss);
++    }
++
++    .severity {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    .finding.p3 .severity {
++      color: var(--moss);
++    }
++
++    .finding h3 {
++      font-size: 1.4rem;
++      line-height: 1;
++      margin-bottom: 0.85rem;
++      padding-right: 1rem;
++    }
++
++    .finding dl {
++      margin: 0;
++      display: grid;
++      gap: 0.75rem;
++    }
++
++    .finding dt,
++    .note strong {
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .finding dd {
++      margin: 0.2rem 0 0;
++      color: var(--ink);
++    }
++
++    ul,
++    ol {
++      margin: 0;
++      padding-left: 1.2rem;
++    }
++
++    li + li {
++      margin-top: 0.65rem;
++    }
++
++    code {
++      font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
++      font-size: 0.92em;
++      background: rgba(31, 26, 23, 0.06);
++      padding: 0.08rem 0.3rem;
++      border-radius: 0.35rem;
++    }
++
++    .notes {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .note {
++      padding: 1.15rem;
++    }
++
++    .note p + p,
++    .note p + ul,
++    .note p + ol {
++      margin-top: 0.8rem;
++    }
++
++    .footer {
++      margin-top: 1.25rem;
++      color: var(--muted);
++      font-size: 0.95rem;
++    }
++
++    @media (max-width: 900px) {
++      .hero,
++      .grid,
++      .notes {
++        grid-template-columns: 1fr;
++      }
++
++      .page {
++        width: min(100vw - 1rem, 46rem);
++      }
++    }
++
++    @media (prefers-reduced-motion: no-preference) {
++      .hero-panel,
++      .stats,
++      .section,
++      .finding,
++      .note {
++        animation: rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
++      }
++
++      .stats { animation-delay: 80ms; }
++      .section:nth-of-type(1) { animation-delay: 120ms; }
++      .section:nth-of-type(2) { animation-delay: 160ms; }
++      .section:nth-of-type(3) { animation-delay: 200ms; }
++    }
++
++    @keyframes rise {
++      from {
++        opacity: 0;
++        transform: translateY(18px);
++      }
++      to {
++        opacity: 1;
++        transform: translateY(0);
++      }
++    }
++  </style>
++</head>
++<body>
++  <main class="page">
++    <header class="hero">
++      <section class="hero-panel">
++        <div class="eyebrow">Org Armory dogfood artifact</div>
++        <h1>Architecture Steward armory run</h1>
++        <p class="lede">
++          Weekly architecture scan for <code>ogent</code>, captured as a tiny local artifact.
++          The run cleared functional blockers, then surfaced drift in entry-point contracts,
++          storage shape, jobs discoverability, and recurring Evil-mode plumbing.
++        </p>
++      </section>
++
++      <aside class="stats">
++        <h2>Run envelope</h2>
++        <dl class="stats-grid">
++          <div class="stat">
++            <dt>Agent</dt>
++            <dd>Architecture Steward</dd>
++          </div>
++          <div class="stat">
++            <dt>Job</dt>
++            <dd>Weekly Architecture Scan</dd>
++          </div>
++          <div class="stat">
++            <dt>Finished</dt>
++            <dd>2026-05-04 11:34 PDT</dd>
++          </div>
++          <div class="stat">
++            <dt>Duration</dt>
++            <dd>240.70s</dd>
++          </div>
++          <div class="stat">
++            <dt>Model</dt>
++            <dd>gpt-5.4</dd>
++          </div>
++          <div class="stat">
++            <dt>Status</dt>
++            <dd>Exit 0, no blocking defects</dd>
++          </div>
++          <div class="stat">
++            <dt>Workspace</dt>
++            <dd><code>/Users/jake/vault/projects/ogent</code></dd>
++          </div>
++          <div class="stat">
++            <dt>Source</dt>
++            <dd><code>.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org</code></dd>
++          </div>
++        </dl>
++      </aside>
++    </header>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Steward verdict</h2>
++        <div class="kicker">4 findings, 2 stale-doc callouts, 4 follow-up jobs</div>
++      </div>
++      <p>
++        The current uncommitted Evil integration looks sound. The bigger issue is that the
++        product story and runtime story are not lined up in a few important places, which
++        leaves contributors and users with more than one "official" path through Armory.
++      </p>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Findings</h2>
++        <p>Ordered by the run's severity labels and written from the session output.</p>
++      </div>
++      <div class="grid">
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Two competing primary surfaces</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd><code>ogent-armory-status</code> and <code>ogent-armory-home</code> both read as the main entry point, depending on which doc a contributor opens first.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>New work can land on the wrong surface and deepen product confusion.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Choose one canonical entry point and align the rest, with Home-first behavior looking like the cleanest fit.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Storage contract drift</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>The scaffold advertises <code>.agents/.conversations</code> and <code>.jobs</code>, while live session traffic actually uses per-agent <code>sessions/</code>.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Future work can split state across documented and undocumented paths with no early warning.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Delete the unused story or wire it up for real, then document one canonical transcript location.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Jobs are first-class on paper, hidden in practice</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Docs and onboarding point users at <code>ogent-armory-jobs</code>, but Home and Status do not advertise that surface.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>The first-run workflow has a UX seam right where Armory is supposed to feel operationally clear.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Expose Jobs from Home or Status, or rewrite the onboarding path around the real navigation model.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding p3">
++          <div class="severity">P3</div>
++          <h3>Evil support adds a maintenance sync point</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Mode registration and overriding-map setup are duplicated across Armory status and richer UI modules.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Low immediate risk, steady future tax every time another Armory mode appears.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Centralize Evil registration behind one helper or one shared mode list.</dd>
++            </div>
++          </dl>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Drift and follow-up</h2>
++        <p>The run called out stale docs and converted the recurring maintenance into explicit jobs.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Stale docs</strong>
++          <ul>
++            <li><code>docs/armory.org</code> still describes <code>issue-link</code> graph nodes while the runtime uses <code>issue</code>.</li>
++            <li>Armory and Doom docs do not mention the lived Evil behavior around the current patch.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Next actions</strong>
++          <ol>
++            <li>Create a doc-alignment bead for entry-surface consistency across specs, docs, and README.</li>
++            <li>Create a storage-contract cleanup bead for unused scaffold paths and transcript location clarity.</li>
++            <li>Create a jobs-discoverability bead for Home/Status navigation or adjust onboarding to match reality.</li>
++            <li>Fold Evil setup into shared Armory UI plumbing, then land one short Doom/Evil note.</li>
++          </ol>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Validation</h2>
++        <p>What the recorded session verified before it closed.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Run validation</strong>
++          <ul>
++            <li>Reviewed the local Armory diff in status and richer UI code paths.</li>
++            <li>Ran targeted ERT for the two Armory test files, with 29 of 29 tests passing.</li>
++            <li>Byte-compiled the two changed Elisp files cleanly.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Artifact notes</strong>
++          <ul>
++            <li>This page is self-contained and uses no network assets.</li>
++            <li>The worktree already had Armory-related edits when this artifact was generated; they were left untouched.</li>
++            <li><code>gt mol status</code> reported that this checkout is not in a Gas Town workspace.</li>
++          </ul>
++        </article>
++      </div>
++    </section>
++
++    <p class="footer">
++      Generated locally on 2026-05-04 for Armory dogfooding. Simple page, explicit seams, no mystery meat.
++    </p>
++  </main>
++</body>
++</html>
+
+codex
+Created [index.html](/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html:1), a self-contained static dogfood page that summarizes the Architecture Steward Armory run from the recorded session: run envelope, verdict, four findings, stale-doc drift, next actions, and validation. It uses only inline HTML/CSS, no network assets, and I left the existing code and docs untouched.
+
+Verified that the file exists and that the expected sections are present. I did not run browser rendering or repo tests because this request was artifact-only.
+
+Full path: `/Users/jake/vault/projects/ogent/.armory-state/dogfood-app/index.html`
+diff --git a/.armory-state/dogfood-app/index.html b/.armory-state/dogfood-app/index.html
+new file mode 100644
+index 0000000000000000000000000000000000000000..8bbc11fea755dbb91540903c7b7cb3f74ef87483
+--- /dev/null
++++ b/.armory-state/dogfood-app/index.html
+@@ -0,0 +1,517 @@
++<!doctype html>
++<html lang="en">
++<head>
++  <meta charset="utf-8">
++  <meta name="viewport" content="width=device-width, initial-scale=1">
++  <title>Architecture Steward Armory Run</title>
++  <style>
++    :root {
++      --paper: #f3ede2;
++      --paper-strong: #fffaf0;
++      --ink: #1f1a17;
++      --muted: #6f655b;
++      --line: rgba(31, 26, 23, 0.14);
++      --accent: #8a4d37;
++      --accent-soft: rgba(138, 77, 55, 0.12);
++      --moss: #495644;
++      --moss-soft: rgba(73, 86, 68, 0.12);
++      --warn: #7f5a14;
++      --shadow: 0 20px 60px rgba(54, 38, 24, 0.12);
++      --radius: 24px;
++    }
++
++    * {
++      box-sizing: border-box;
++    }
++
++    html {
++      color-scheme: light;
++    }
++
++    body {
++      margin: 0;
++      min-height: 100vh;
++      background:
++        radial-gradient(circle at top left, rgba(138, 77, 55, 0.12), transparent 30rem),
++        radial-gradient(circle at bottom right, rgba(73, 86, 68, 0.12), transparent 28rem),
++        var(--paper);
++      color: var(--ink);
++      font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Palatino, Georgia, serif;
++      line-height: 1.45;
++    }
++
++    .page {
++      width: min(1120px, calc(100vw - 2rem));
++      margin: 0 auto;
++      padding: clamp(1.5rem, 3vw, 2.75rem) 0 4rem;
++    }
++
++    .hero {
++      display: grid;
++      gap: 1.5rem;
++      grid-template-columns: minmax(0, 1.6fr) minmax(18rem, 0.9fr);
++      align-items: start;
++      margin-bottom: 1.75rem;
++    }
++
++    .hero-panel,
++    .stats,
++    .section,
++    .finding,
++    .note {
++      background: rgba(255, 250, 240, 0.72);
++      backdrop-filter: blur(8px);
++      border: 1px solid var(--line);
++      border-radius: var(--radius);
++      box-shadow: var(--shadow);
++    }
++
++    .hero-panel {
++      padding: clamp(1.5rem, 3vw, 2.6rem);
++    }
++
++    .eyebrow,
++    .severity,
++    .kicker {
++      display: inline-flex;
++      align-items: center;
++      gap: 0.45rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.82rem;
++      font-weight: 700;
++      letter-spacing: 0.11em;
++      text-transform: uppercase;
++    }
++
++    .eyebrow {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    h1,
++    h2,
++    h3 {
++      margin: 0;
++      font-weight: 700;
++      letter-spacing: -0.03em;
++      line-height: 0.95;
++    }
++
++    h1 {
++      font-size: clamp(2.8rem, 8vw, 5.8rem);
++      max-width: 10ch;
++    }
++
++    .lede {
++      max-width: 42rem;
++      margin: 1rem 0 0;
++      font-size: clamp(1.02rem, 1.8vw, 1.16rem);
++      color: var(--muted);
++    }
++
++    .stats {
++      padding: 1.4rem 1.4rem 1.1rem;
++    }
++
++    .stats h2 {
++      font-size: 1.05rem;
++      margin-bottom: 1rem;
++      line-height: 1.1;
++    }
++
++    .stats-grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 0.9rem 1rem;
++    }
++
++    .stat {
++      padding-top: 0.8rem;
++      border-top: 1px solid var(--line);
++    }
++
++    .stat dt {
++      margin: 0 0 0.3rem;
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .stat dd {
++      margin: 0;
++      font-size: 1rem;
++    }
++
++    .section {
++      padding: 1.3rem;
++      margin-bottom: 1.3rem;
++    }
++
++    .section-head {
++      display: flex;
++      flex-wrap: wrap;
++      gap: 0.8rem;
++      align-items: baseline;
++      justify-content: space-between;
++      margin-bottom: 1rem;
++    }
++
++    .section h2 {
++      font-size: clamp(1.55rem, 3vw, 2.2rem);
++      line-height: 1;
++    }
++
++    .section p {
++      margin: 0;
++      color: var(--muted);
++    }
++
++    .grid {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .finding {
++      padding: 1.15rem;
++      position: relative;
++      overflow: hidden;
++    }
++
++    .finding::before {
++      content: "";
++      position: absolute;
++      inset: 0 auto 0 0;
++      width: 0.45rem;
++      background: var(--accent);
++    }
++
++    .finding.p3::before {
++      background: var(--moss);
++    }
++
++    .severity {
++      color: var(--accent);
++      margin-bottom: 0.75rem;
++    }
++
++    .finding.p3 .severity {
++      color: var(--moss);
++    }
++
++    .finding h3 {
++      font-size: 1.4rem;
++      line-height: 1;
++      margin-bottom: 0.85rem;
++      padding-right: 1rem;
++    }
++
++    .finding dl {
++      margin: 0;
++      display: grid;
++      gap: 0.75rem;
++    }
++
++    .finding dt,
++    .note strong {
++      font-family: "Avenir Next Condensed", "Arial Narrow", "Helvetica Neue", sans-serif;
++      font-size: 0.74rem;
++      font-weight: 700;
++      letter-spacing: 0.12em;
++      text-transform: uppercase;
++      color: var(--muted);
++    }
++
++    .finding dd {
++      margin: 0.2rem 0 0;
++      color: var(--ink);
++    }
++
++    ul,
++    ol {
++      margin: 0;
++      padding-left: 1.2rem;
++    }
++
++    li + li {
++      margin-top: 0.65rem;
++    }
++
++    code {
++      font-family: "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
++      font-size: 0.92em;
++      background: rgba(31, 26, 23, 0.06);
++      padding: 0.08rem 0.3rem;
++      border-radius: 0.35rem;
++    }
++
++    .notes {
++      display: grid;
++      grid-template-columns: repeat(2, minmax(0, 1fr));
++      gap: 1rem;
++    }
++
++    .note {
++      padding: 1.15rem;
++    }
++
++    .note p + p,
++    .note p + ul,
++    .note p + ol {
++      margin-top: 0.8rem;
++    }
++
++    .footer {
++      margin-top: 1.25rem;
++      color: var(--muted);
++      font-size: 0.95rem;
++    }
++
++    @media (max-width: 900px) {
++      .hero,
++      .grid,
++      .notes {
++        grid-template-columns: 1fr;
++      }
++
++      .page {
++        width: min(100vw - 1rem, 46rem);
++      }
++    }
++
++    @media (prefers-reduced-motion: no-preference) {
++      .hero-panel,
++      .stats,
++      .section,
++      .finding,
++      .note {
++        animation: rise 560ms cubic-bezier(0.22, 1, 0.36, 1) both;
++      }
++
++      .stats { animation-delay: 80ms; }
++      .section:nth-of-type(1) { animation-delay: 120ms; }
++      .section:nth-of-type(2) { animation-delay: 160ms; }
++      .section:nth-of-type(3) { animation-delay: 200ms; }
++    }
++
++    @keyframes rise {
++      from {
++        opacity: 0;
++        transform: translateY(18px);
++      }
++      to {
++        opacity: 1;
++        transform: translateY(0);
++      }
++    }
++  </style>
++</head>
++<body>
++  <main class="page">
++    <header class="hero">
++      <section class="hero-panel">
++        <div class="eyebrow">Org Armory dogfood artifact</div>
++        <h1>Architecture Steward armory run</h1>
++        <p class="lede">
++          Weekly architecture scan for <code>ogent</code>, captured as a tiny local artifact.
++          The run cleared functional blockers, then surfaced drift in entry-point contracts,
++          storage shape, jobs discoverability, and recurring Evil-mode plumbing.
++        </p>
++      </section>
++
++      <aside class="stats">
++        <h2>Run envelope</h2>
++        <dl class="stats-grid">
++          <div class="stat">
++            <dt>Agent</dt>
++            <dd>Architecture Steward</dd>
++          </div>
++          <div class="stat">
++            <dt>Job</dt>
++            <dd>Weekly Architecture Scan</dd>
++          </div>
++          <div class="stat">
++            <dt>Finished</dt>
++            <dd>2026-05-04 11:34 PDT</dd>
++          </div>
++          <div class="stat">
++            <dt>Duration</dt>
++            <dd>240.70s</dd>
++          </div>
++          <div class="stat">
++            <dt>Model</dt>
++            <dd>gpt-5.4</dd>
++          </div>
++          <div class="stat">
++            <dt>Status</dt>
++            <dd>Exit 0, no blocking defects</dd>
++          </div>
++          <div class="stat">
++            <dt>Workspace</dt>
++            <dd><code>/Users/jake/vault/projects/ogent</code></dd>
++          </div>
++          <div class="stat">
++            <dt>Source</dt>
++            <dd><code>.agents/architecture-steward/sessions/20260504T113040-weekly-architecture-scan.org</code></dd>
++          </div>
++        </dl>
++      </aside>
++    </header>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Steward verdict</h2>
++        <div class="kicker">4 findings, 2 stale-doc callouts, 4 follow-up jobs</div>
++      </div>
++      <p>
++        The current uncommitted Evil integration looks sound. The bigger issue is that the
++        product story and runtime story are not lined up in a few important places, which
++        leaves contributors and users with more than one "official" path through Armory.
++      </p>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Findings</h2>
++        <p>Ordered by the run's severity labels and written from the session output.</p>
++      </div>
++      <div class="grid">
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Two competing primary surfaces</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd><code>ogent-armory-status</code> and <code>ogent-armory-home</code> both read as the main entry point, depending on which doc a contributor opens first.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>New work can land on the wrong surface and deepen product confusion.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Choose one canonical entry point and align the rest, with Home-first behavior looking like the cleanest fit.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Storage contract drift</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>The scaffold advertises <code>.agents/.conversations</code> and <code>.jobs</code>, while live session traffic actually uses per-agent <code>sessions/</code>.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Future work can split state across documented and undocumented paths with no early warning.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Delete the unused story or wire it up for real, then document one canonical transcript location.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding">
++          <div class="severity">P2</div>
++          <h3>Jobs are first-class on paper, hidden in practice</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Docs and onboarding point users at <code>ogent-armory-jobs</code>, but Home and Status do not advertise that surface.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>The first-run workflow has a UX seam right where Armory is supposed to feel operationally clear.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Expose Jobs from Home or Status, or rewrite the onboarding path around the real navigation model.</dd>
++            </div>
++          </dl>
++        </article>
++
++        <article class="finding p3">
++          <div class="severity">P3</div>
++          <h3>Evil support adds a maintenance sync point</h3>
++          <dl>
++            <div>
++              <dt>Problem</dt>
++              <dd>Mode registration and overriding-map setup are duplicated across Armory status and richer UI modules.</dd>
++            </div>
++            <div>
++              <dt>Impact</dt>
++              <dd>Low immediate risk, steady future tax every time another Armory mode appears.</dd>
++            </div>
++            <div>
++              <dt>Fix direction</dt>
++              <dd>Centralize Evil registration behind one helper or one shared mode list.</dd>
++            </div>
++          </dl>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Drift and follow-up</h2>
++        <p>The run called out stale docs and converted the recurring maintenance into explicit jobs.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Stale docs</strong>
++          <ul>
++            <li><code>docs/armory.org</code> still describes <code>issue-link</code> graph nodes while the runtime uses <code>issue</code>.</li>
++            <li>Armory and Doom docs do not mention the lived Evil behavior around the current patch.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Next actions</strong>
++          <ol>
++            <li>Create a doc-alignment bead for entry-surface consistency across specs, docs, and README.</li>
++            <li>Create a storage-contract cleanup bead for unused scaffold paths and transcript location clarity.</li>
++            <li>Create a jobs-discoverability bead for Home/Status navigation or adjust onboarding to match reality.</li>
++            <li>Fold Evil setup into shared Armory UI plumbing, then land one short Doom/Evil note.</li>
++          </ol>
++        </article>
++      </div>
++    </section>
++
++    <section class="section">
++      <div class="section-head">
++        <h2>Validation</h2>
++        <p>What the recorded session verified before it closed.</p>
++      </div>
++      <div class="notes">
++        <article class="note">
++          <strong>Run validation</strong>
++          <ul>
++            <li>Reviewed the local Armory diff in status and richer UI code paths.</li>
++            <li>Ran targeted ERT for the two Armory test files, with 29 of 29 tests passing.</li>
++            <li>Byte-compiled the two changed Elisp files cleanly.</li>
++          </ul>
++        </article>
++
++        <article class="note">
++          <strong>Artifact notes</strong>
++          <ul>
++            <li>This page is self-contained and uses no network assets.</li>
++            <li>The worktree already had Armory-related edits when this artifact was generated; they were left untouched.</li>
++            <li><code>gt mol status</code> reported that this checkout is not in a Gas Town workspace.</li>
++          </ul>
++        </article>
++      </div>
++    </section>
++
++    <p class="footer">
++      Generated locally on 2026-05-04 for Armory dogfooding. Simple page, explicit seams, no mystery meat.
++    </p>
++  </main>
++</body>
++</html>
+
+hook: Stop
+hook: Stop Completed
+tokens used
+64,368
+#+end_src

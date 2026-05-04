@@ -17,6 +17,10 @@
 
 (autoload 'ogent-armory-status "ogent-armory-status" nil t)
 
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
+
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."
   :group 'ogent-armory
@@ -1777,6 +1781,9 @@
         (insert (format "  %s\n%s\n" (plist-get tool :header)
                         (plist-get tool :body))))
       (insert "\n"))
+    (when (ogent-armory--blank-to-nil (plist-get detail :runtime-trace))
+      (ogent-armory-ui--insert-heading "Runtime Trace")
+      (insert (plist-get detail :runtime-trace) "\n\n"))
     (when (ogent-armory--blank-to-nil (plist-get detail :error))
       (ogent-armory-ui--insert-heading "Error")
       (insert (plist-get detail :error) "\n\n"))
@@ -2011,6 +2018,43 @@
            (path (plist-get app :path)))
       (browse-url-of-file path)
       path)))
+
+(defun ogent-armory-ui--setup-evil ()
+  "Set up Evil integration for Armory UI buffers."
+  (when (fboundp 'evil-set-initial-state)
+    (dolist (mode '(ogent-armory-home-mode
+                    ogent-armory-agents-mode
+                    ogent-armory-agent-mode
+                    ogent-armory-jobs-mode
+                    ogent-armory-tasks-mode
+                    ogent-armory-conversations-mode
+                    ogent-armory-conversation-mode
+                    ogent-armory-search-mode
+                    ogent-armory-apps-mode))
+      (evil-set-initial-state mode 'normal))
+    (dolist (map (list ogent-armory-home-mode-map
+                       ogent-armory-agents-mode-map
+                       ogent-armory-agent-mode-map
+                       ogent-armory-jobs-mode-map
+                       ogent-armory-tasks-mode-map
+                       ogent-armory-conversations-mode-map
+                       ogent-armory-conversation-mode-map
+                       ogent-armory-search-mode-map
+                       ogent-armory-apps-mode-map))
+      (evil-make-overriding-map map 'all))
+    (dolist (hook '(ogent-armory-home-mode-hook
+                    ogent-armory-agents-mode-hook
+                    ogent-armory-agent-mode-hook
+                    ogent-armory-jobs-mode-hook
+                    ogent-armory-tasks-mode-hook
+                    ogent-armory-conversations-mode-hook
+                    ogent-armory-conversation-mode-hook
+                    ogent-armory-search-mode-hook
+                    ogent-armory-apps-mode-hook))
+      (add-hook hook #'evil-normalize-keymaps))))
+
+(with-eval-after-load 'evil
+  (ogent-armory-ui--setup-evil))
 
 (provide 'ogent-ui-armory)
 

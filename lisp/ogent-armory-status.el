@@ -23,6 +23,9 @@
 (autoload 'ogent-armory-home "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
 
 (defgroup ogent-armory-status nil
   "Operational status view for Org armories."
@@ -484,6 +487,16 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                         (point-min)))
         (when previous
           (goto-char (max (point-min) (1- previous))))))))
+
+(defun ogent-armory-status--setup-evil ()
+  "Set up Evil integration for Armory status buffers."
+  (when (fboundp 'evil-set-initial-state)
+    (evil-set-initial-state 'ogent-armory-status-mode 'normal)
+    (evil-make-overriding-map ogent-armory-status-mode-map 'all)
+    (add-hook 'ogent-armory-status-mode-hook #'evil-normalize-keymaps)))
+
+(with-eval-after-load 'evil
+  (ogent-armory-status--setup-evil))
 
 (provide 'ogent-armory-status)
 

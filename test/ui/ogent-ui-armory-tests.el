@@ -448,6 +448,38 @@
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
 
+(ert-deftest ogent-ui-armory-conversation-renders-success-trace ()
+  "Successful conversation traces do not render as errors."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-ui-armory-test--write-session
+                 root "cto" "successful-run" "DONE" 0)))
+      (ogent-armory--write-file
+       file
+       (concat
+        (with-temp-buffer
+          (insert-file-contents file)
+          (buffer-string))
+        "\n** Runtime Trace\n#+begin_src text\nTool trace.\n#+end_src\n"))
+      (let ((buffer (ogent-armory-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (let ((text (buffer-substring-no-properties
+                           (point-min)
+                           (point-max))))
+                (should (string-match-p "Runtime Trace" text))
+                (should-not (string-match-p "\nError\n" text))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
 (ert-deftest ogent-ui-armory-conversations-empty-state ()
   "A new Armory conversation browser shows a usable empty state."
   (ogent-ui-armory-test-with-temp-dir root
@@ -579,6 +611,59 @@
               #'ogent-armory-conversations))
   (should (eq (lookup-key ogent-armory-status-mode-map (kbd "A"))
               #'ogent-armory-apps)))
+
+(ert-deftest ogent-ui-armory-evil-overrides-dispatch-keymaps ()
+  "Armory UI dispatch keys remain active in Evil normal state."
+  (let ((ogent-armory-home-mode-hook nil)
+        (ogent-armory-agents-mode-hook nil)
+        (ogent-armory-agent-mode-hook nil)
+        (ogent-armory-jobs-mode-hook nil)
+        (ogent-armory-tasks-mode-hook nil)
+        (ogent-armory-conversations-mode-hook nil)
+        (ogent-armory-conversation-mode-hook nil)
+        (ogent-armory-search-mode-hook nil)
+        (ogent-armory-apps-mode-hook nil)
+        states
+        maps)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state)
+                 (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (map state)
+                 (push (cons map state) maps)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil)))
+      (ogent-armory-ui--setup-evil))
+    (dolist (mode '(ogent-armory-home-mode
+                    ogent-armory-agents-mode
+                    ogent-armory-agent-mode
+                    ogent-armory-jobs-mode
+                    ogent-armory-tasks-mode
+                    ogent-armory-conversations-mode
+                    ogent-armory-conversation-mode
+                    ogent-armory-search-mode
+                    ogent-armory-apps-mode))
+      (should (member (cons mode 'normal) states)))
+    (dolist (map (list ogent-armory-home-mode-map
+                       ogent-armory-agents-mode-map
+                       ogent-armory-agent-mode-map
+                       ogent-armory-jobs-mode-map
+                       ogent-armory-tasks-mode-map
+                       ogent-armory-conversations-mode-map
+                       ogent-armory-conversation-mode-map
+                       ogent-armory-search-mode-map
+                       ogent-armory-apps-mode-map))
+      (should (member (cons map 'all) maps)))
+    (dolist (hook (list ogent-armory-home-mode-hook
+                        ogent-armory-agents-mode-hook
+                        ogent-armory-agent-mode-hook
+                        ogent-armory-jobs-mode-hook
+                        ogent-armory-tasks-mode-hook
+                        ogent-armory-conversations-mode-hook
+                        ogent-armory-conversation-mode-hook
+                        ogent-armory-search-mode-hook
+                        ogent-armory-apps-mode-hook))
+      (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-armory-tests)
 

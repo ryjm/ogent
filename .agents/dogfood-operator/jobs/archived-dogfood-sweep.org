@@ -1,0 +1,18 @@
+#+title: Archived Dogfood Sweep
+
+* TODO Archived Dogfood Sweep
+:PROPERTIES:
+:OGENT_JOB: t
+:OGENT_JOB_ID: archived-dogfood-sweep
+:OGENT_AGENT: dogfood-operator
+:OGENT_CRON:
+:OGENT_HEARTBEAT:
+:OGENT_ENABLED: nil
+:OGENT_PROVIDER:
+:OGENT_MODEL:
+:OGENT_WORKSPACE: /
+:OGENT_TAGS: dogfood, archive
+:OGENT_ARCHIVED: t
+:END:
+
+A throwaway archived job used to exercise Armory archive UX.

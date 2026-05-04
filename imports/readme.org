@@ -1,0 +1,17 @@
+#+title: README
+
+* README
+:PROPERTIES:
+:OGENT_IMPORT: t
+:OGENT_SOURCE_PATH: /Users/jake/vault/projects/ogent/.armory-state/import-source/README.md
+:OGENT_SOURCE_FORMAT: md
+:END:
+
+* Armory Dogfood Import
+
+This Markdown artifact checks that Armory migration writes durable Org records.
+
+** Notes
+
+- The original Markdown file should remain in place.
+- The imported record should be searchable from Armory Search.

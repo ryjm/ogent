@@ -183,6 +183,24 @@
       (should (string-match-p ",#\\+end_src" session))
       (should-not (string-match-p "\n#\\+end_src\n#\\+end_src" session)))))
 
+(ert-deftest ogent-armory-runner-success-stderr-is-runtime-trace ()
+  "Successful runs store stderr as trace output, not as an error transcript."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex")
+     "Keep the plan direct.")
+    (let* ((plan (ogent-armory-runner-plan
+                  dir "cto" :instruction "Review."))
+           (session (ogent-armory-runner--format-session
+                     plan "Done." "tool trace" 0)))
+      (should (string-match-p "\\*\\* Runtime Trace" session))
+      (should-not (string-match-p "\\*\\* Error" session)))))
+
 (ert-deftest ogent-armory-runner-start-writes-session-transcript ()
   "Runner starts a real local process and writes an Org transcript."
   (ogent-armory-runner-test-with-temp-dir dir

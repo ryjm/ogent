@@ -1,0 +1,18 @@
+#+title: Armory Ergonomics Sweep
+
+* TODO Armory Ergonomics Sweep
+:PROPERTIES:
+:OGENT_JOB: t
+:OGENT_JOB_ID: armory-ergonomics-sweep
+:OGENT_AGENT: dogfood-operator
+:OGENT_CRON: 0 10 * * 2
+:OGENT_HEARTBEAT:
+:OGENT_ENABLED: t
+:OGENT_PROVIDER:
+:OGENT_MODEL:
+:OGENT_WORKSPACE: /
+:OGENT_TAGS: dogfood, qa
+:OGENT_ARCHIVED:
+:END:
+
+Review Armory UI ergonomics and summarize friction points.
