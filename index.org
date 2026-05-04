@@ -1,0 +1,11 @@
+#+title: ogent Project Cabinet
+
+* ogent Project Cabinet
+:PROPERTIES:
+:OGENT_CABINET: t
+:OGENT_CABINET_ID: ogent-project-cabinet-root
+:OGENT_KIND: root
+:OGENT_DESCRIPTION: 
+:OGENT_TAGS: 
+:END:
+

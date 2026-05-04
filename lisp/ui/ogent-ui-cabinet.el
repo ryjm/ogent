@@ -247,12 +247,12 @@
          (finished (plist-get last :finished)))
     (and (plist-get job :enabled)
          (not (plist-get job :archived))
-         (or (null finished)
-             (> (float-time
-                 (time-subtract
-                  (current-time)
-                  (date-to-time finished)))
-                (* ogent-cabinet-stale-days 24 60 60))))))
+         finished
+         (> (float-time
+             (time-subtract
+              (current-time)
+              (date-to-time finished)))
+            (* ogent-cabinet-stale-days 24 60 60)))))
 
 (defun ogent-cabinet-ui--format-tags (tags)
   "Return TAGS as comma-separated text."
@@ -303,6 +303,27 @@
   (org-back-to-heading t)
   (org-end-of-meta-data t)
   (skip-chars-forward " \t\n"))
+
+(defun ogent-cabinet-ui--read-string-default (prompt default)
+  "Read string for PROMPT with DEFAULT shown as an Emacs default value."
+  (let ((shown-prompt
+         (if (and default (not (string-empty-p default)))
+             (format "%s (default %s): "
+                     (string-trim-right prompt "[: \t\n]+")
+                     default)
+           prompt)))
+    (read-string shown-prompt nil nil default)))
+
+(defun ogent-cabinet-ui--refresh-home-buffer (root)
+  "Refresh the Cabinet Home buffer for ROOT when it is already open."
+  (when-let ((buffer (get-buffer
+                      (ogent-cabinet-ui--buffer-name
+                       ogent-cabinet-home-buffer-name-format root))))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (derived-mode-p 'ogent-cabinet-home-mode)
+          (setq ogent-cabinet-home--root root)
+          (ogent-cabinet-home-refresh))))))
 
 (defun ogent-cabinet-ui--insert-heading (label)
   "Insert Cabinet section heading LABEL."
@@ -933,26 +954,32 @@
              (read-directory-name "Cabinet root: "))))
   (let* ((root (ogent-cabinet-ui--root directory))
          (name (read-string "Name: "))
-         (slug (read-string "Slug: " (ogent-cabinet--slug name "agent")))
-         (role (read-string "Role: " "Agent"))
-         (provider (read-string "Provider: " ogent-cabinet-default-agent-provider))
+         (slug (ogent-cabinet-ui--read-string-default
+                "Slug: "
+                (ogent-cabinet--slug name "agent")))
+         (role (ogent-cabinet-ui--read-string-default "Role: " "Agent"))
+         (provider (ogent-cabinet-ui--read-string-default
+                    "Provider: "
+                    ogent-cabinet-default-agent-provider))
          (model (read-string "Model: "))
-         (workspace (read-string "Workspace: " "/"))
+         (workspace (ogent-cabinet-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
          (persona (read-string "Persona: ")))
     (when (file-exists-p (ogent-cabinet-agent-file root slug))
       (user-error "Agent already exists: %s" slug))
-    (ogent-cabinet-write-agent
-     root
-     (list :slug slug
-           :name name
-           :role role
-           :provider provider
-           :model model
-           :active t
-           :workspace workspace
-           :tags tags)
-     persona)))
+    (let ((file (ogent-cabinet-write-agent
+                 root
+                 (list :slug slug
+                       :name name
+                       :role role
+                       :provider provider
+                       :model model
+                       :active t
+                       :workspace workspace
+                       :tags tags)
+                 persona)))
+      (ogent-cabinet-ui--refresh-home-buffer root)
+      file)))
 
 ;;;###autoload
 (defun ogent-cabinet-clone-agent (&optional directory agent-slug new-slug)
@@ -1194,12 +1221,14 @@
   (let* ((root (ogent-cabinet-ui--root directory))
          (slug (or agent (ogent-cabinet-ui--read-agent root)))
          (name (read-string "Job name: "))
-         (job-id (read-string "Job id: " (ogent-cabinet--slug name "job")))
+         (job-id (ogent-cabinet-ui--read-string-default
+                  "Job id: "
+                  (ogent-cabinet--slug name "job")))
          (cron (read-string "Cron: "))
          (heartbeat (read-string "Heartbeat: "))
          (provider (read-string "Provider override: "))
          (model (read-string "Model override: "))
-         (workspace (read-string "Workspace: "))
+         (workspace (ogent-cabinet-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
          (prompt (read-string "Prompt: "))
          (job (list :id job-id
@@ -1216,7 +1245,9 @@
     (when (file-exists-p (ogent-cabinet-job-file root slug job-id))
       (user-error "Job already exists: %s" job-id))
     (ogent-cabinet-validate-job job)
-    (ogent-cabinet-write-job root slug job prompt)))
+    (let ((file (ogent-cabinet-write-job root slug job prompt)))
+      (ogent-cabinet-ui--refresh-home-buffer root)
+      file)))
 
 ;;; Tasks
 
@@ -1550,10 +1581,19 @@
 
 (defun ogent-cabinet-conversations--entries ()
   "Return conversation entries for the current buffer."
-  (mapcar #'ogent-cabinet-conversations--entry
-          (seq-filter #'ogent-cabinet-conversations--matches-p
-                      (ogent-cabinet-list-sessions
-                       ogent-cabinet-conversations--root))))
+  (let* ((sessions (ogent-cabinet-list-sessions
+                    ogent-cabinet-conversations--root))
+         (matches (seq-filter #'ogent-cabinet-conversations--matches-p
+                              sessions)))
+    (if matches
+        (mapcar #'ogent-cabinet-conversations--entry matches)
+      (list
+       (list nil
+             (vector "" "" ""
+                     (if sessions
+                         "No conversations match filters"
+                       "No conversations yet")
+                     "" "" "" "" ""))))))
 
 ;;;###autoload
 (defun ogent-cabinet-conversations (&optional directory filters)
