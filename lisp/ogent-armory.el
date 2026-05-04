@@ -150,6 +150,11 @@ PROPERTIES is an alist of property names to values."
   (expand-file-name "jobs"
                     (ogent-armory-agent-directory directory agent-slug)))
 
+(defun ogent-armory-sessions-directory (directory agent-slug)
+  "Return the sessions directory for AGENT-SLUG under DIRECTORY."
+  (expand-file-name "sessions"
+                    (ogent-armory-agent-directory directory agent-slug)))
+
 (defun ogent-armory-root-p (directory)
   "Return non-nil when DIRECTORY has an Org armory index."
   (let ((index (ogent-armory-index-file directory)))
@@ -414,6 +419,144 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
               :enabled (ogent-armory--truth-value
                         (org-entry-get nil "OGENT_ENABLED"))
               :body (ogent-armory--heading-body))))))
+
+(defun ogent-armory--status-symbol (status exit-status)
+  "Return normalized session status from STATUS and EXIT-STATUS."
+  (cond
+   ((and exit-status (not (zerop exit-status))) "FAILED")
+   ((and status (not (string-blank-p status))) status)
+   (t "DONE")))
+
+(defun ogent-armory-read-session-file (file &optional agent-slug)
+  "Read Armory session transcript FILE and return a plist.
+When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
+  (unless (file-readable-p file)
+    (user-error "Armory session not found: %s" file))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (let* ((name (ogent-armory--first-heading-title))
+           (todo (nth 2 (org-heading-components)))
+           (exit-status-text (ogent-armory--blank-to-nil
+                              (org-entry-get nil "OGENT_EXIT_STATUS")))
+           (exit-status (when exit-status-text
+                          (string-to-number exit-status-text)))
+           (agent (or (ogent-armory--blank-to-nil
+                       (org-entry-get nil "OGENT_AGENT"))
+                      agent-slug)))
+      (list :id (file-name-base file)
+            :name name
+            :agent agent
+            :provider (ogent-armory--blank-to-nil
+                       (org-entry-get nil "OGENT_PROVIDER"))
+            :job-id (ogent-armory--blank-to-nil
+                     (org-entry-get nil "OGENT_JOB_ID"))
+            :exit-status exit-status
+            :status (ogent-armory--status-symbol todo exit-status)
+            :workspace (ogent-armory--blank-to-nil
+                        (org-entry-get nil "OGENT_WORKSPACE"))
+            :finished (ogent-armory--blank-to-nil
+                       (org-entry-get nil "OGENT_FINISHED"))
+            :archived (ogent-armory--truth-value
+                       (org-entry-get nil "OGENT_ARCHIVED"))
+            :body (ogent-armory--heading-body)
+            :path file))))
+
+(defun ogent-armory-list-sessions (directory &optional agent-slug)
+  "Return Armory sessions under DIRECTORY.
+When AGENT-SLUG is non-nil, only return sessions for that agent."
+  (let* ((root (ogent-armory--directory directory))
+         (slugs (if agent-slug
+                    (list agent-slug)
+                  (ogent-armory-list-agents root)))
+         sessions)
+    (dolist (slug slugs)
+      (let ((sessions-dir (ogent-armory-sessions-directory root slug)))
+        (when (file-directory-p sessions-dir)
+          (dolist (file (directory-files sessions-dir t "\\.org\\'"))
+            (when (file-regular-p file)
+              (push (ogent-armory-read-session-file file slug) sessions))))))
+    (seq-sort
+     (lambda (left right)
+       (string> (or (plist-get left :finished) "")
+                (or (plist-get right :finished) "")))
+     sessions)))
+
+(defun ogent-armory--hidden-path-p (root file)
+  "Return non-nil when FILE below ROOT is internal Armory plumbing."
+  (let ((relative (file-relative-name file root)))
+    (string-match-p
+     "\\`\\(?:\\.git\\|\\.armory-state\\|\\.agents/.conversations\\)/"
+     relative)))
+
+(defun ogent-armory-org-files (directory)
+  "Return Armory Org files under DIRECTORY."
+  (let* ((root (ogent-armory--directory directory))
+         (files (directory-files-recursively root "\\.org\\'")))
+    (seq-filter
+     (lambda (file)
+       (not (ogent-armory--hidden-path-p root file)))
+     files)))
+
+(defun ogent-armory-record-kind (file)
+  "Return the Armory record kind represented by FILE."
+  (with-temp-buffer
+    (insert-file-contents file nil 0 nil)
+    (org-mode)
+    (condition-case nil
+        (progn
+          (ogent-armory--first-heading-title)
+          (cond
+           ((org-entry-get nil "OGENT_ARMORY") 'armory)
+           ((org-entry-get nil "OGENT_AGENT") 'agent)
+           ((org-entry-get nil "OGENT_JOB") 'job)
+           ((org-entry-get nil "OGENT_SESSION") 'session)
+           (t 'org)))
+      (error 'org))))
+
+(defun ogent-armory-search-records (directory query)
+  "Return Armory search matches for QUERY under DIRECTORY."
+  (let ((root (ogent-armory--directory directory))
+        (case-fold-search t)
+        (regexp (regexp-quote (or query "")))
+        results)
+    (unless (string-blank-p (or query ""))
+      (dolist (file (ogent-armory-org-files root))
+        (let ((kind (ogent-armory-record-kind file))
+              (line-number 0))
+          (with-temp-buffer
+            (insert-file-contents file)
+            (goto-char (point-min))
+            (while (not (eobp))
+              (setq line-number (1+ line-number))
+              (let ((line (buffer-substring-no-properties
+                           (line-beginning-position)
+                           (line-end-position))))
+                (when (string-match-p regexp line)
+                  (push (list :kind kind
+                              :path file
+                              :line line-number
+                              :text (string-trim line))
+                        results)))
+              (forward-line 1))))))
+    (nreverse results)))
+
+(defun ogent-armory-list-apps (directory)
+  "Return Armory app artifacts under DIRECTORY.
+An app artifact is a directory containing an index.html file."
+  (let* ((root (ogent-armory--directory directory))
+         (files (directory-files-recursively root "index\\.html\\'"))
+         apps)
+    (dolist (file files)
+      (unless (ogent-armory--hidden-path-p root file)
+        (let* ((dir (file-name-directory file))
+               (relative (directory-file-name
+                          (file-relative-name dir root))))
+          (push (list :label (if (string-empty-p relative) "." relative)
+                      :directory (directory-file-name dir)
+                      :path file)
+                apps))))
+    (seq-sort-by (lambda (app) (plist-get app :label)) #'string< apps)))
 
 (defun ogent-armory--graph-node (id kind label path data)
   "Return a graph node plist for ID, KIND, LABEL, PATH, and DATA."

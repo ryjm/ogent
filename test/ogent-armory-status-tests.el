@@ -58,6 +58,36 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
+(ert-deftest ogent-armory-status-enter-variants-visit-records ()
+  "Main Enter, GUI Return, and keypad Enter all visit records."
+  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "RET"))
+              #'ogent-armory-status-visit))
+  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "<return>"))
+              #'ogent-armory-status-visit))
+  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "<kp-enter>"))
+              #'ogent-armory-status-visit)))
+
+(ert-deftest ogent-armory-status-visit-opens-armory-node-file ()
+  "Visiting the rendered armory node opens its Org source file."
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Zorp" :kind "root" :create-editor nil)
+    (let* ((index (ogent-armory-index-file dir))
+           (buffer (ogent-armory-status dir))
+           visited-file)
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Zorp")
+              (call-interactively #'ogent-armory-status-visit)
+              (setq visited-file buffer-file-name))
+            (should (equal (file-truename visited-file)
+                           (file-truename index))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (get-file-buffer index)
+          (kill-buffer (get-file-buffer index)))))))
+
 (provide 'ogent-armory-status-tests)
 
 ;;; ogent-armory-status-tests.el ends here

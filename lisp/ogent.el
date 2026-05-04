@@ -121,6 +121,7 @@
 (require 'ogent-mcp)
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
+(require 'ogent-ui-armory)
 (require 'ogent-armory-status)
 (require 'ogent-gastown)
 (require 'ogent-presets)

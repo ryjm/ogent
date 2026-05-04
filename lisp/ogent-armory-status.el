@@ -15,6 +15,10 @@
 
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
+(autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-tasks "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-search "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-open-app "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 
@@ -81,12 +85,17 @@
 (defvar ogent-armory-status-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'ogent-armory-status-refresh)
-    (define-key map (kbd "RET") #'ogent-armory-status-visit)
+    (dolist (key '("RET" "<return>" "<kp-enter>"))
+      (define-key map (kbd key) #'ogent-armory-status-visit))
     (define-key map "n" #'ogent-armory-status-next-item)
     (define-key map "p" #'ogent-armory-status-previous-item)
     (define-key map "i" #'ogent-armory-status-open-issues)
     (define-key map "G" #'ogent-armory-status-open-gastown)
     (define-key map "R" #'ogent-armory-status-run)
+    (define-key map "a" #'ogent-armory-agents)
+    (define-key map "t" #'ogent-armory-tasks)
+    (define-key map "s" #'ogent-armory-search)
+    (define-key map "o" #'ogent-armory-open-app)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-status-mode'.")
@@ -151,7 +160,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status--header-line ()
   "Return header line text for the current Armory status buffer."
   (concat
-   "g refresh  RET visit  n/p move  i issues  G gastown  R run  q quit"
+   "g refresh  RET visit  n/p move  a agents  t tasks  s search  o app  i issues  G gastown  R run  q quit"
    (when ogent-armory-status--root
      (concat "    "
              (propertize

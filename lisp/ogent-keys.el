@@ -42,6 +42,10 @@
 
 ;; Declare Armory commands (defined in ogent-armory-status.el)
 (declare-function ogent-armory-status "ogent-armory-status")
+(declare-function ogent-armory-agents "ogent-ui-armory")
+(declare-function ogent-armory-tasks "ogent-ui-armory")
+(declare-function ogent-armory-search "ogent-ui-armory")
+(declare-function ogent-armory-open-app "ogent-ui-armory")
 
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
@@ -173,6 +177,14 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Gas Town menu")
     (armory-status   :key "K" :command ogent-armory-status
                       :desc "Armory status")
+    (armory-agents   :key "j" :command ogent-armory-agents
+                      :desc "Armory agents")
+    (armory-tasks    :key "y" :command ogent-armory-tasks
+                      :desc "Armory tasks")
+    (armory-search   :key "I" :command ogent-armory-search
+                      :desc "Armory search")
+    (armory-open-app :key "O" :command ogent-armory-open-app
+                      :desc "Open Armory app")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")
