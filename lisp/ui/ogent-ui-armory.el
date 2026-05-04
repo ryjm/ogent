@@ -247,12 +247,12 @@
          (finished (plist-get last :finished)))
     (and (plist-get job :enabled)
          (not (plist-get job :archived))
-         (or (null finished)
-             (> (float-time
-                 (time-subtract
-                  (current-time)
-                  (date-to-time finished)))
-                (* ogent-armory-stale-days 24 60 60))))))
+         finished
+         (> (float-time
+             (time-subtract
+              (current-time)
+              (date-to-time finished)))
+            (* ogent-armory-stale-days 24 60 60)))))
 
 (defun ogent-armory-ui--format-tags (tags)
   "Return TAGS as comma-separated text."
@@ -303,6 +303,27 @@
   (org-back-to-heading t)
   (org-end-of-meta-data t)
   (skip-chars-forward " \t\n"))
+
+(defun ogent-armory-ui--read-string-default (prompt default)
+  "Read string for PROMPT with DEFAULT shown as an Emacs default value."
+  (let ((shown-prompt
+         (if (and default (not (string-empty-p default)))
+             (format "%s (default %s): "
+                     (string-trim-right prompt "[: \t\n]+")
+                     default)
+           prompt)))
+    (read-string shown-prompt nil nil default)))
+
+(defun ogent-armory-ui--refresh-home-buffer (root)
+  "Refresh the Armory Home buffer for ROOT when it is already open."
+  (when-let ((buffer (get-buffer
+                      (ogent-armory-ui--buffer-name
+                       ogent-armory-home-buffer-name-format root))))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (derived-mode-p 'ogent-armory-home-mode)
+          (setq ogent-armory-home--root root)
+          (ogent-armory-home-refresh))))))
 
 (defun ogent-armory-ui--insert-heading (label)
   "Insert Armory section heading LABEL."
@@ -933,26 +954,32 @@
              (read-directory-name "Armory root: "))))
   (let* ((root (ogent-armory-ui--root directory))
          (name (read-string "Name: "))
-         (slug (read-string "Slug: " (ogent-armory--slug name "agent")))
-         (role (read-string "Role: " "Agent"))
-         (provider (read-string "Provider: " ogent-armory-default-agent-provider))
+         (slug (ogent-armory-ui--read-string-default
+                "Slug: "
+                (ogent-armory--slug name "agent")))
+         (role (ogent-armory-ui--read-string-default "Role: " "Agent"))
+         (provider (ogent-armory-ui--read-string-default
+                    "Provider: "
+                    ogent-armory-default-agent-provider))
          (model (read-string "Model: "))
-         (workspace (read-string "Workspace: " "/"))
+         (workspace (ogent-armory-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
          (persona (read-string "Persona: ")))
     (when (file-exists-p (ogent-armory-agent-file root slug))
       (user-error "Agent already exists: %s" slug))
-    (ogent-armory-write-agent
-     root
-     (list :slug slug
-           :name name
-           :role role
-           :provider provider
-           :model model
-           :active t
-           :workspace workspace
-           :tags tags)
-     persona)))
+    (let ((file (ogent-armory-write-agent
+                 root
+                 (list :slug slug
+                       :name name
+                       :role role
+                       :provider provider
+                       :model model
+                       :active t
+                       :workspace workspace
+                       :tags tags)
+                 persona)))
+      (ogent-armory-ui--refresh-home-buffer root)
+      file)))
 
 ;;;###autoload
 (defun ogent-armory-clone-agent (&optional directory agent-slug new-slug)
@@ -1194,12 +1221,14 @@
   (let* ((root (ogent-armory-ui--root directory))
          (slug (or agent (ogent-armory-ui--read-agent root)))
          (name (read-string "Job name: "))
-         (job-id (read-string "Job id: " (ogent-armory--slug name "job")))
+         (job-id (ogent-armory-ui--read-string-default
+                  "Job id: "
+                  (ogent-armory--slug name "job")))
          (cron (read-string "Cron: "))
          (heartbeat (read-string "Heartbeat: "))
          (provider (read-string "Provider override: "))
          (model (read-string "Model override: "))
-         (workspace (read-string "Workspace: "))
+         (workspace (ogent-armory-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
          (prompt (read-string "Prompt: "))
          (job (list :id job-id
@@ -1216,7 +1245,9 @@
     (when (file-exists-p (ogent-armory-job-file root slug job-id))
       (user-error "Job already exists: %s" job-id))
     (ogent-armory-validate-job job)
-    (ogent-armory-write-job root slug job prompt)))
+    (let ((file (ogent-armory-write-job root slug job prompt)))
+      (ogent-armory-ui--refresh-home-buffer root)
+      file)))
 
 ;;; Tasks
 
@@ -1550,10 +1581,19 @@
 
 (defun ogent-armory-conversations--entries ()
   "Return conversation entries for the current buffer."
-  (mapcar #'ogent-armory-conversations--entry
-          (seq-filter #'ogent-armory-conversations--matches-p
-                      (ogent-armory-list-sessions
-                       ogent-armory-conversations--root))))
+  (let* ((sessions (ogent-armory-list-sessions
+                    ogent-armory-conversations--root))
+         (matches (seq-filter #'ogent-armory-conversations--matches-p
+                              sessions)))
+    (if matches
+        (mapcar #'ogent-armory-conversations--entry matches)
+      (list
+       (list nil
+             (vector "" "" ""
+                     (if sessions
+                         "No conversations match filters"
+                       "No conversations yet")
+                     "" "" "" "" ""))))))
 
 ;;;###autoload
 (defun ogent-armory-conversations (&optional directory filters)

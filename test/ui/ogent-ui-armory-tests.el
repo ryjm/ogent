@@ -190,6 +190,71 @@
       (should-not (plist-get agent :active))
       (should (plist-get agent :archived)))))
 
+(ert-deftest ogent-ui-armory-create-agent-prompts-use-default-values ()
+  "Agent creation defaults do not become editable initial input."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (let (calls)
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (prompt &optional initial history default inherit)
+                   (push (list prompt initial history default inherit) calls)
+                   (cond
+                    ((string-match-p "Name" prompt) "Architecture Steward")
+                    ((string-match-p "Slug" prompt) "architecture-steward")
+                    ((string-match-p "Role" prompt) "Architecture")
+                    ((string-match-p "Provider" prompt) "codex")
+                    ((string-match-p "Model" prompt) "gpt-5.4")
+                    ((string-match-p "Workspace" prompt) "/")
+                    ((string-match-p "Tags" prompt) "architecture")
+                    ((string-match-p "Persona" prompt) "Keep the project clear.")
+                    (t "")))))
+        (ogent-armory-create-agent root))
+      (dolist (label '("Slug" "Role" "Provider" "Workspace"))
+        (let ((call (seq-find (lambda (entry)
+                                (string-match-p label (car entry)))
+                              calls)))
+          (should call)
+          (should-not (nth 1 call))
+          (should (nth 3 call))
+          (should (string-match-p (regexp-quote (nth 3 call))
+                                  (car call)))))
+      (should (equal (plist-get (ogent-armory-read-agent root "architecture-steward")
+                                :role)
+                     "Architecture")))))
+
+(ert-deftest ogent-ui-armory-create-agent-refreshes-open-home ()
+  "Creating an agent refreshes an already-open Armory Home buffer."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (let ((buffer (ogent-armory-home root)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (should (string-match-p "agents: 0"
+                                      (buffer-substring-no-properties
+                                       (point-min)
+                                       (point-max)))))
+            (cl-letf (((symbol-function 'read-string)
+                       (lambda (prompt &optional _initial _history default)
+                         (cond
+                          ((string-match-p "Name" prompt) "Architecture Steward")
+                          ((string-match-p "Slug" prompt) "architecture-steward")
+                          ((string-match-p "Role" prompt) "Architecture")
+                          ((string-match-p "Provider" prompt) "codex")
+                          ((string-match-p "Model" prompt) "gpt-5.4")
+                          ((string-match-p "Workspace" prompt) "/")
+                          ((string-match-p "Tags" prompt) "architecture")
+                          ((string-match-p "Persona" prompt) "Keep it clear.")
+                          (t (or default ""))))))
+              (ogent-armory-create-agent root))
+            (with-current-buffer buffer
+              (should (string-match-p "agents: 1"
+                                      (buffer-substring-no-properties
+                                       (point-min)
+                                       (point-max))))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (ert-deftest ogent-ui-armory-jobs-renders-and-edits-job-records ()
   "The jobs surface lists, toggles, and archives Org-backed jobs."
   (ogent-ui-armory-test-with-temp-dir root
@@ -219,6 +284,118 @@
               (ogent-armory-jobs-archive)
               (should (plist-get (ogent-armory-read-job root "cto" "weekly-review")
                                  :archived))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-create-job-prompts-use-default-values ()
+  "Job creation defaults do not become editable initial input."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let (calls)
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (prompt &optional initial history default inherit)
+                   (push (list prompt initial history default inherit) calls)
+                   (cond
+                    ((string-match-p "Job name" prompt) "Architecture Scan")
+                    ((string-match-p "Job id" prompt) "architecture-scan")
+                    ((string-match-p "Cron" prompt) "0 8 * * 1")
+                    ((string-match-p "Heartbeat" prompt) "")
+                    ((string-match-p "Provider" prompt) "")
+                    ((string-match-p "Model" prompt) "")
+                    ((string-match-p "Workspace" prompt) "/")
+                    ((string-match-p "Tags" prompt) "architecture")
+                    ((string-match-p "Prompt" prompt) "Review architecture docs.")
+                    (t "")))))
+        (ogent-armory-create-job root "cto"))
+      (dolist (label '("Job id" "Workspace"))
+        (let ((call (seq-find (lambda (entry)
+                                (string-match-p label (car entry)))
+                              calls)))
+          (should call)
+          (should-not (nth 1 call))
+          (should (nth 3 call))
+          (should (string-match-p (regexp-quote (nth 3 call))
+                                  (car call)))))
+      (should (file-exists-p
+               (ogent-armory-job-file root "cto" "architecture-scan"))))))
+
+(ert-deftest ogent-ui-armory-create-job-refreshes-open-home ()
+  "Creating a job refreshes an already-open Armory Home buffer."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "architect"
+       :name "Architect"
+       :role "Architecture"
+       :provider "codex"
+       :model "gpt-5.4"
+       :active t)
+     "Keep the project structure legible.")
+    (let ((buffer (ogent-armory-home root)))
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (should (string-match-p "enabled jobs: 0"
+                                      (buffer-substring-no-properties
+                                       (point-min)
+                                       (point-max)))))
+            (cl-letf (((symbol-function 'read-string)
+                       (lambda (prompt &optional _initial _history default)
+                         (cond
+                          ((string-match-p "Job name" prompt) "Daily Scan")
+                          ((string-match-p "Job id" prompt) "daily-scan")
+                          ((string-match-p "Cron" prompt) "0 8 * * *")
+                          ((string-match-p "Heartbeat" prompt) "")
+                          ((string-match-p "Provider" prompt) "")
+                          ((string-match-p "Model" prompt) "")
+                          ((string-match-p "Workspace" prompt) "/")
+                          ((string-match-p "Tags" prompt) "architecture")
+                          ((string-match-p "Prompt" prompt) "Review the Armory.")
+                          (t (or default ""))))))
+              (ogent-armory-create-job root "architect"))
+            (with-current-buffer buffer
+              (should (string-match-p "enabled jobs: 1"
+                                      (buffer-substring-no-properties
+                                       (point-min)
+                                       (point-max))))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-new-scheduled-job-is-not-stale ()
+  "A new scheduled job remains scheduled until it has run and aged out."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "architect"
+       :name "Architect"
+       :role "Architecture"
+       :provider "codex"
+       :model "gpt-5.4"
+       :active t)
+     "Keep the project structure legible.")
+    (ogent-armory-write-job
+     root
+     "architect"
+     '(:id "fresh-scan"
+       :name "Fresh Scan"
+       :cron "0 8 * * 1"
+       :enabled t)
+     "Review the Armory.")
+    (let ((job (ogent-armory-read-job root "architect" "fresh-scan")))
+      (should-not (ogent-armory-ui--stale-job-p root job))
+      (should (equal (plist-get (ogent-armory-tasks--job-item root job)
+                                :lane)
+                     "Scheduled")))
+    (let ((buffer (ogent-armory-home root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should-not
+             (string-match-p "stale job Fresh Scan"
+                             (buffer-substring-no-properties
+                              (point-min)
+                              (point-max)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -270,6 +447,21 @@
           (kill-buffer buffer))
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
+
+(ert-deftest ogent-ui-armory-conversations-empty-state ()
+  "A new Armory conversation browser shows a usable empty state."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (let ((buffer (ogent-armory-conversations root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-conversations-mode))
+            (should (string-match-p "No conversations yet"
+                                    (buffer-substring-no-properties
+                                     (point-min)
+                                     (point-max)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-agent-edit-property-updates-persona ()
   "Editing an agent identity property updates the Org persona drawer."
