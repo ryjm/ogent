@@ -8,6 +8,7 @@
 
 (require 'cl-lib)
 (require 'ogent-test-helper)
+(require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-status)
 (require 'ogent-ui-cabinet)
@@ -103,15 +104,100 @@
             (should (eq major-mode 'ogent-cabinet-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Cabinet Home" "Health" "Navigate" "Recent Activity"
-                               "Needs Attention" "Agents" "Tasks" "Conversations"
+                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+                               "Tasks" "Conversations"
                                "Search" "Apps" "Graph" "Settings" "Source Org"))
                 (should (string-match-p label text)))
+              (should (string-match-p "Weekly Review" text))
+              (should (string-match-p "\\[R run\\]" text))
+              (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("RET" "g" "q" "a" "t" "c" "s" "A" "G" "e" "n" "p"))
+            (dolist (key '("m" "?" "RET" "g" "q" "j" "J" "a" "t" "c" "s" "A"
+                           "G" "R" "E" "e" "n" "p"))
               (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-home-daily-work-keybindings ()
+  "Cabinet Home exposes the daily job development commands."
+  (dolist (pair `(("m" . ,#'ogent-cabinet-home-dispatch)
+                  ("?" . ,#'ogent-cabinet-home-help)
+                  ("j" . ,#'ogent-cabinet-jobs)
+                  ("R" . ,#'ogent-cabinet-home-run)
+                  ("E" . ,#'ogent-cabinet-home-edit-item)
+                  ("J" . ,#'ogent-cabinet-home-open-jobs)))
+    (should (eq (lookup-key ogent-cabinet-home-mode-map (kbd (car pair)))
+                (cdr pair)))))
+
+(ert-deftest ogent-ui-cabinet-home-runs-and-edits-active-job ()
+  "Cabinet Home can run a job and jump straight to its prompt."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-home root))
+          called
+          body-file)
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'ogent-cabinet-run-job)
+                       (lambda (run-root agent job-id)
+                         (setq called (list run-root agent job-id)))))
+              (ogent-cabinet-home-run))
+            (should (equal called (list (file-truename root)
+                                        "cto"
+                                        "weekly-review")))
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (ogent-cabinet-home-edit-item)
+            (setq body-file buffer-file-name)
+            (should (looking-at-p "Review architecture notes"))
+            (should (equal (file-truename body-file)
+                           (file-truename
+                            (ogent-cabinet-job-file root "cto" "weekly-review")))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (get-file-buffer (ogent-cabinet-job-file root "cto" "weekly-review"))
+          (kill-buffer (get-file-buffer
+                        (ogent-cabinet-job-file root "cto" "weekly-review"))))))))
+
+(ert-deftest ogent-ui-cabinet-home-opens-jobs-focused ()
+  "Cabinet Home opens the jobs surface from the selected job."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-home root))
+          jobs-buffer)
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (setq jobs-buffer (ogent-cabinet-home-open-jobs)))
+            (with-current-buffer jobs-buffer
+              (should (eq major-mode 'ogent-cabinet-jobs-mode))
+              (should (equal (plist-get (tabulated-list-get-id) :job-id)
+                             "weekly-review"))))
+        (dolist (buf (list buffer jobs-buffer))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+(ert-deftest ogent-ui-cabinet-home-help-and-transient-render ()
+  "Cabinet Home help and transient menu render without errors."
+  (save-window-excursion
+    (ogent-cabinet-home-help)
+    (with-current-buffer "*Ogent Cabinet Home Help*"
+      (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+        (should (string-match-p "Cabinet Home" text))
+        (should (string-match-p "R runs" text))
+        (should (string-match-p "j opens Jobs" text))
+        (should (string-match-p "m opens the Transient menu" text)))))
+  (unwind-protect
+      (progn
+        (transient-setup 'ogent-cabinet-home-dispatch)
+        (should (get 'ogent-cabinet-home-dispatch 'transient--prefix)))
+    (when transient-current-prefix
+      (transient-quit-one))))
 
 (ert-deftest ogent-ui-cabinet-agents-lists-personas ()
   "The Cabinet agents buffer lists personas with job and session counts."

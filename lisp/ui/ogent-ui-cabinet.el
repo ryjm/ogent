@@ -12,6 +12,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'tabulated-list)
+(require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-runner)
 
@@ -361,8 +362,14 @@
   (let ((map (make-sparse-keymap)))
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-cabinet-home-visit))
+    (define-key map "m" #'ogent-cabinet-home-dispatch)
+    (define-key map "?" #'ogent-cabinet-home-help)
     (define-key map "g" #'ogent-cabinet-home-refresh)
     (define-key map "q" #'quit-window)
+    (define-key map "j" #'ogent-cabinet-jobs)
+    (define-key map "J" #'ogent-cabinet-home-open-jobs)
+    (define-key map "R" #'ogent-cabinet-home-run)
+    (define-key map "E" #'ogent-cabinet-home-edit-item)
     (define-key map "a" #'ogent-cabinet-agents)
     (define-key map "t" #'ogent-cabinet-tasks)
     (define-key map "c" #'ogent-cabinet-conversations)
@@ -385,7 +392,7 @@
 
 (defun ogent-cabinet-home--header-line ()
   "Return header line for Cabinet Home."
-  "RET visit  g refresh  q quit  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  e Edit  n/p move")
+  "m menu  ? help  RET visit  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
 
 ;;;###autoload
 (defun ogent-cabinet-home (&optional directory)
@@ -469,6 +476,7 @@
                     (length apps)))
     (ogent-cabinet-ui--insert-heading "Navigate")
     (ogent-cabinet-home--insert-nav "Agents" "a" #'ogent-cabinet-agents)
+    (ogent-cabinet-home--insert-nav "Jobs" "j" #'ogent-cabinet-jobs)
     (ogent-cabinet-home--insert-nav "Tasks" "t" #'ogent-cabinet-tasks)
     (ogent-cabinet-home--insert-nav "Conversations" "c" #'ogent-cabinet-conversations)
     (ogent-cabinet-home--insert-nav "Search" "s" #'ogent-cabinet-search)
@@ -480,6 +488,8 @@
     (ogent-cabinet-ui--insert-item-line
      (list :type 'file :path (ogent-cabinet-index-file root))
      "  Source Org")
+    (insert "\n")
+    (ogent-cabinet-home--insert-active-jobs jobs root)
     (insert "\n")
     (ogent-cabinet-ui--insert-heading "Recent Activity")
     (if sessions
@@ -518,6 +528,30 @@
              (format "  missing persona %s" slug))))
       (insert (propertize "  Nothing needs attention\n" 'face 'ogent-cabinet-ui-good)))))
 
+(defun ogent-cabinet-home--insert-active-jobs (jobs root)
+  "Insert active development JOBS for ROOT."
+  (let ((active (seq-filter (lambda (job)
+                              (and (plist-get job :enabled)
+                                   (not (plist-get job :archived))))
+                            jobs)))
+    (ogent-cabinet-ui--insert-heading "Active Jobs")
+    (if active
+        (dolist (job active)
+          (let ((agent (plist-get job :agent))
+                (job-id (plist-get job :id)))
+            (ogent-cabinet-ui--insert-item-line
+             (list :type 'job
+                   :agent agent
+                   :job-id job-id
+                   :path (ogent-cabinet-job-file root agent job-id))
+             (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
+                     agent
+                     (or (plist-get job :name) job-id)
+                     (or (plist-get job :cron)
+                         (plist-get job :heartbeat)
+                         "manual")))))
+      (insert (propertize "  No active jobs\n" 'face 'ogent-cabinet-ui-dim)))))
+
 (defun ogent-cabinet-home-visit ()
   "Visit or dispatch the item at point in Cabinet Home."
   (interactive)
@@ -533,11 +567,121 @@
       ('file (ogent-cabinet-ui--visit-path (plist-get item :path)))
       (_ (user-error "No Cabinet Home item at point")))))
 
+(defun ogent-cabinet-home-run ()
+  "Run or retry the Cabinet Home item at point."
+  (interactive)
+  (let ((item (ogent-cabinet-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('job
+       (ogent-cabinet-run-job
+        ogent-cabinet-home--root
+        (plist-get item :agent)
+        (plist-get item :job-id)))
+      ('session
+       (if-let ((job-id (plist-get item :job-id)))
+           (ogent-cabinet-run-job
+            ogent-cabinet-home--root
+            (plist-get item :agent)
+            job-id)
+         (ogent-cabinet-run-agent
+          ogent-cabinet-home--root
+          (plist-get item :agent)
+          (read-string "Instruction: "))))
+      ('agent
+       (ogent-cabinet-run-agent
+        ogent-cabinet-home--root
+        (plist-get item :agent)
+        (read-string "Instruction: ")))
+      (_
+       (user-error "No runnable Cabinet Home item at point")))))
+
+(defun ogent-cabinet-home-edit-item ()
+  "Visit the editable body or source for the Cabinet Home item at point."
+  (interactive)
+  (let* ((item (ogent-cabinet-ui--item-at-point))
+         (path (plist-get item :path)))
+    (unless (and path (file-exists-p path))
+      (user-error "No editable Cabinet item at point"))
+    (pcase (plist-get item :type)
+      ((or 'job 'agent)
+       (ogent-cabinet-ui--visit-body path))
+      (_
+       (ogent-cabinet-ui--visit-path path)))))
+
+(defun ogent-cabinet-home-open-jobs ()
+  "Open Cabinet jobs related to the item at point."
+  (interactive)
+  (let* ((item (ogent-cabinet-ui--item-at-point))
+         (agent (plist-get item :agent))
+         (job-id (plist-get item :job-id))
+         (buffer (ogent-cabinet-jobs ogent-cabinet-home--root agent)))
+    (when (and agent job-id (fboundp 'ogent-cabinet-jobs--goto))
+      (with-current-buffer buffer
+        (ogent-cabinet-jobs--goto agent job-id)))
+    buffer))
+
 (defun ogent-cabinet-home-edit-metadata ()
   "Visit the Cabinet index Org file for metadata edits."
   (interactive)
   (ogent-cabinet-ui--visit-path
    (ogent-cabinet-index-file ogent-cabinet-home--root)))
+
+(defun ogent-cabinet-home-help ()
+  "Show Cabinet Home keybindings and daily-work actions."
+  (interactive)
+  (with-help-window "*Ogent Cabinet Home Help*"
+    (princ "Cabinet Home\n")
+    (princ "============\n\n")
+    (princ "Home is the cockpit for developing a project with Cabinet.\n\n")
+    (princ "Daily work\n")
+    (princ "----------\n")
+    (princ "j opens Jobs. J opens jobs related to the item at point.\n")
+    (princ "R runs or retries the selected agent, job, or conversation.\n")
+    (princ "E edits the selected agent persona, job prompt, or source Org record.\n")
+    (princ "RET opens the richer surface or durable source for the item at point.\n\n")
+    (princ "Navigation\n")
+    (princ "----------\n")
+    (princ "a Agents, t Tasks, c Conversations, s Search, A Apps, G Graph.\n")
+    (princ "n and p move between actionable rows. g refreshes. q quits.\n\n")
+    (princ "Menus\n")
+    (princ "-----\n")
+    (princ "m opens the Transient menu. ? opens this help buffer.\n")))
+
+(defun ogent-cabinet-home--transient-header ()
+  "Return the header text for `ogent-cabinet-home-dispatch'."
+  (let ((root (and (boundp 'ogent-cabinet-home--root)
+                   ogent-cabinet-home--root)))
+    (concat
+     (propertize "Cabinet Home" 'face 'transient-heading)
+     (if root
+         (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
+       ""))))
+
+;;;###autoload (autoload 'ogent-cabinet-home-dispatch "ogent-ui-cabinet" nil t)
+(transient-define-prefix ogent-cabinet-home-dispatch ()
+  "Dispatch menu for Cabinet Home."
+  [:description ogent-cabinet-home--transient-header
+   ["Daily Work"
+    ("j" "Jobs" ogent-cabinet-jobs)
+    ("J" "Related jobs" ogent-cabinet-home-open-jobs)
+    ("R" "Run/retry selected" ogent-cabinet-home-run)
+    ("E" "Edit selected" ogent-cabinet-home-edit-item)]
+   ["Navigate"
+    ("RET" "Visit selected" ogent-cabinet-home-visit)
+    ("n" "Next item" ogent-cabinet-home-next-item :transient t)
+    ("p" "Previous item" ogent-cabinet-home-previous-item :transient t)
+    ("g" "Refresh" ogent-cabinet-home-refresh :transient t)]]
+  [["Surfaces"
+    ("a" "Agents" ogent-cabinet-agents)
+    ("t" "Tasks" ogent-cabinet-tasks)
+    ("c" "Conversations" ogent-cabinet-conversations)
+    ("s" "Search" ogent-cabinet-search)
+    ("A" "Apps" ogent-cabinet-apps)
+    ("G" "Graph" ogent-cabinet-status)]
+   ["Cabinet"
+    ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
+    ("?" "Help" ogent-cabinet-home-help)
+    ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-cabinet-home-next-item ()
   "Move point to the next actionable Cabinet Home item."

@@ -79,8 +79,14 @@ Common commands:
 | Key | Command |
 |-----|---------|
 | `RET` | Visit the item at point |
+| `m` | Open the Home transient menu |
+| `?` | Open Home help |
 | `g` | Refresh |
 | `q` | Quit |
+| `j` | Jobs |
+| `J` | Jobs related to the item at point |
+| `R` | Run or retry the selected job, agent, or conversation |
+| `E` | Edit the selected agent persona, job prompt, or source record |
 | `a` | Agents |
 | `t` | Tasks |
 | `c` | Conversations |
