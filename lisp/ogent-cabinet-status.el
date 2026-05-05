@@ -15,6 +15,13 @@
 (require 'ogent-cabinet-runner)
 (require 'ogent-ops-style)
 
+(eval-and-compile
+  (defvar ogent-cabinet-status--magit-section-available
+    (require 'magit-section nil t)
+    "Non-nil when `magit-section' is available for Cabinet status.")
+  (when ogent-cabinet-status--magit-section-available
+    (require 'magit-section)))
+
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
 (autoload 'ogent-cabinet-agents "ogent-ui-cabinet" nil t)
@@ -32,6 +39,26 @@
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function evil-local-set-key "ext:evil-core")
+(declare-function evil-goto-first-line "ext:evil-commands")
+(declare-function evil-goto-line "ext:evil-commands")
+(declare-function evil-next-line "ext:evil-commands")
+(declare-function evil-previous-line "ext:evil-commands")
+(declare-function magit-current-section "ext:magit-section")
+(declare-function magit-insert-heading "ext:magit-section")
+(declare-function magit-insert-section--create "ext:magit-section")
+(declare-function magit-insert-section--finish "ext:magit-section")
+(declare-function magit-section-backward-sibling "ext:magit-section")
+(declare-function magit-section-cycle-global "ext:magit-section")
+(declare-function magit-section-forward-sibling "ext:magit-section")
+(declare-function magit-section-toggle "ext:magit-section")
+(declare-function magit-section-up "ext:magit-section")
+(defvar magit-section-mode-map)
+(defvar magit-section-visibility-indicator)
+(defvar magit-insert-section--current)
+(defvar magit-insert-section--oldroot)
+(defvar magit-insert-section--parent)
+(defvar magit-root-section)
 
 (defgroup ogent-cabinet-status nil
   "Operational status view for Org cabinets."
@@ -147,6 +174,12 @@
     (define-key map "P" #'ogent-cabinet-status-open-agent-profile)
     (define-key map "J" #'ogent-cabinet-status-open-agent-jobs)
     (define-key map "C" #'ogent-cabinet-status-create-job)
+    (define-key map (kbd "TAB") #'ogent-cabinet-status-toggle-section)
+    (define-key map (kbd "<tab>") #'ogent-cabinet-status-toggle-section)
+    (define-key map (kbd "<backtab>") #'ogent-cabinet-status-cycle-sections)
+    (define-key map (kbd "M-n") #'ogent-cabinet-status-next-section)
+    (define-key map (kbd "M-p") #'ogent-cabinet-status-previous-section)
+    (define-key map (kbd "^") #'ogent-cabinet-status-up-section)
     (define-key map "h" #'ogent-cabinet-home)
     (define-key map "a" #'ogent-cabinet-agents)
     (define-key map "t" #'ogent-cabinet-tasks)
@@ -157,23 +190,64 @@
     map)
   "Keymap for `ogent-cabinet-status-mode'.")
 
-(define-derived-mode ogent-cabinet-status-mode special-mode "Cabinet"
-  "Major mode for Cabinet graph status.
+(defun ogent-cabinet-status--refresh-magit-section-availability ()
+  "Refresh `magit-section' availability for Cabinet status."
+  (setq ogent-cabinet-status--magit-section-available
+        (or ogent-cabinet-status--magit-section-available
+            (require 'magit-section nil t)))
+  (when (and ogent-cabinet-status--magit-section-available
+             (not (featurep 'magit-section)))
+    (require 'magit-section))
+  ogent-cabinet-status--magit-section-available)
+
+(defun ogent-cabinet-status--magit-section-usable-p ()
+  "Return non-nil when Magit section APIs are usable."
+  (and (ogent-cabinet-status--refresh-magit-section-availability)
+       (fboundp 'magit-current-section)
+       (fboundp 'magit-insert-heading)
+       (fboundp 'magit-section-toggle)
+       (fboundp 'magit-section-forward-sibling)
+       (fboundp 'magit-section-backward-sibling)))
+
+(defun ogent-cabinet-status--mode-parent ()
+  "Return the parent mode for Cabinet status."
+  (if (ogent-cabinet-status--magit-section-usable-p)
+      'magit-section-mode
+    'special-mode))
+
+(defun ogent-cabinet-status--mode-setup ()
+  "Set up local state for Cabinet status buffers."
+  (setq-local revert-buffer-function #'ogent-cabinet-status-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (font-lock-mode -1)
+  (ogent-ops-protect-face-properties)
+  (when (ogent-cabinet-status--magit-section-usable-p)
+    (when (boundp 'magit-section-mode-map)
+      (set-keymap-parent ogent-cabinet-status-mode-map magit-section-mode-map))
+    (setq-local magit-section-visibility-indicator '("..." . t)))
+  (setq header-line-format '(:eval (ogent-cabinet-status--header-line))))
+
+(defmacro ogent-cabinet-status--define-mode ()
+  "Define `ogent-cabinet-status-mode' with the available parent mode."
+  (let ((parent (if (bound-and-true-p ogent-cabinet-status--magit-section-available)
+                    'magit-section-mode
+                  'special-mode)))
+    `(define-derived-mode ogent-cabinet-status-mode ,parent "Cabinet"
+       "Major mode for Cabinet graph status.
 
 \\<ogent-cabinet-status-mode-map>
 \\[ogent-cabinet-status-refresh] refreshes the graph.
 \\[ogent-cabinet-status-visit] visits the Org record at point.
 \\[ogent-cabinet-status-dispatch] opens the status action menu.
 \\[ogent-cabinet-status-help] shows status help.
+\\[ogent-cabinet-status-toggle-section] toggles section visibility.
 \\[ogent-cabinet-status-open-issues] opens Ogent Issues.
 \\[ogent-cabinet-status-open-gastown] opens Gas Town status."
-  :group 'ogent-cabinet-status
-  (setq-local revert-buffer-function #'ogent-cabinet-status-refresh)
-  (setq-local truncate-lines t)
-  (setq-local buffer-read-only t)
-  (font-lock-mode -1)
-  (ogent-ops-protect-face-properties)
-  (setq header-line-format '(:eval (ogent-cabinet-status--header-line))))
+       :group 'ogent-cabinet-status
+       (ogent-cabinet-status--mode-setup))))
+
+(ogent-cabinet-status--define-mode)
 
 (defun ogent-cabinet-status--buffer-name (root)
   "Return the Cabinet status buffer name for ROOT."
@@ -219,7 +293,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
   (concat
-   "m menu  ? help  g refresh  RET visit  n/p move  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
+   "m menu  ? help  g refresh  RET visit  n/p move  TAB section  M-n/p sections  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
    (when ogent-cabinet-status--root
      (concat "    "
              (propertize
@@ -248,8 +322,53 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
      (equal (plist-get node :id) node-id))
    (plist-get ogent-cabinet-status--graph :nodes)))
 
+(defmacro ogent-cabinet-status--with-section (section heading &rest body)
+  "Insert collapsible SECTION with HEADING around BODY when Magit is present."
+  (declare (indent 2) (debug t))
+  (let ((type (car section)))
+    `(if (ogent-cabinet-status--magit-section-usable-p)
+         (let* ((section (magit-insert-section--create ',type nil nil))
+                (magit-insert-section--current section)
+                (magit-insert-section--oldroot
+                 (or magit-insert-section--oldroot
+                     (and (not magit-insert-section--parent)
+                          (prog1 magit-root-section
+                            (setq magit-root-section section)))))
+                (magit-insert-section--parent section))
+           (catch 'cancel-section
+             (magit-insert-heading ,heading)
+             ,@body
+             (magit-insert-section--finish section))
+           section)
+       (insert ,heading "\n")
+       ,@body)))
+
+(defmacro ogent-cabinet-status--with-root-section (section &rest body)
+  "Insert root SECTION around BODY when Magit is present."
+  (declare (indent 1) (debug t))
+  (let ((type (car section)))
+    `(if (ogent-cabinet-status--magit-section-usable-p)
+         (let* ((section (magit-insert-section--create ',type nil nil))
+                (magit-insert-section--current section)
+                (magit-insert-section--oldroot
+                 (or magit-insert-section--oldroot
+                     (and (not magit-insert-section--parent)
+                          (prog1 magit-root-section
+                            (setq magit-root-section section)))))
+                (magit-insert-section--parent section))
+           (catch 'cancel-section
+             ,@body
+             (magit-insert-section--finish section))
+           section)
+       ,@body)))
+
 (defun ogent-cabinet-status--insert-buffer ()
   "Insert the Cabinet status buffer contents."
+  (ogent-cabinet-status--with-root-section (ogent-cabinet-status-root)
+    (ogent-cabinet-status--insert-buffer-content)))
+
+(defun ogent-cabinet-status--insert-buffer-content ()
+  "Insert the Cabinet status content sections."
   (ogent-cabinet-status--insert-summary)
   (insert "\n")
   (ogent-cabinet-status--insert-agents)
@@ -258,83 +377,87 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (insert "\n")
   (ogent-cabinet-status--insert-bridges))
 
+(defun ogent-cabinet-status--heading-text (icon ascii label &optional count)
+  "Return heading text with ICON, ASCII fallback, LABEL, and optional COUNT."
+  (propertize
+   (ogent-ops-section-heading
+    (ogent-ops-section-prefix icon ascii)
+    label
+    count
+    'ogent-cabinet-status-dimmed)
+   'face 'ogent-cabinet-status-heading))
+
 (defun ogent-cabinet-status--insert-heading (icon ascii label &optional count)
   "Insert a heading with ICON, ASCII fallback, LABEL, and optional COUNT."
-  (insert
-   (propertize
-    (ogent-ops-section-heading
-     (ogent-ops-section-prefix icon ascii)
-     label
-     count
-     'ogent-cabinet-status-dimmed)
-    'face 'ogent-cabinet-status-heading)
-   "\n"))
+  (insert (ogent-cabinet-status--heading-text icon ascii label count) "\n"))
 
 (defun ogent-cabinet-status--insert-summary ()
   "Insert graph summary section."
   (let* ((cabinet (car (ogent-cabinet-status--nodes-by-kind 'cabinet)))
          (nodes (plist-get ogent-cabinet-status--graph :nodes))
          (edges (plist-get ogent-cabinet-status--graph :edges)))
-    (ogent-cabinet-status--insert-heading "◇" "C" "Cabinet Graph" 1)
-    (when cabinet
-      (ogent-cabinet-status--insert-node-line
-       cabinet
-       (format "%s  %s nodes, %s edges"
-               (propertize (or (plist-get cabinet :label) "Cabinet")
-                           'face 'ogent-cabinet-status-label)
-               (length nodes)
-               (length edges))))
-    (insert "  ")
-    (insert (propertize "Projection: " 'face 'ogent-cabinet-status-dimmed))
-    (insert "Org files -> typed graph -> operational views\n")))
+    (ogent-cabinet-status--with-section (ogent-cabinet-status-summary)
+        (ogent-cabinet-status--heading-text "◇" "C" "Cabinet Graph" 1)
+      (when cabinet
+        (ogent-cabinet-status--insert-node-line
+         cabinet
+         (format "%s  %s nodes, %s edges"
+                 (propertize (or (plist-get cabinet :label) "Cabinet")
+                             'face 'ogent-cabinet-status-label)
+                 (length nodes)
+                 (length edges))))
+      (insert "  ")
+      (insert (propertize "Projection: " 'face 'ogent-cabinet-status-dimmed))
+      (insert "Org files -> typed graph -> operational views\n"))))
 
 (defun ogent-cabinet-status--insert-agents ()
   "Insert agents and their scheduled jobs."
   (let ((agents (ogent-cabinet-status--nodes-by-kind 'agent)))
-    (ogent-cabinet-status--insert-heading "◆" "A" "Agents" (length agents))
-    (if agents
-        (dolist (agent agents)
-          (let* ((data (plist-get agent :data))
-                 (id (plist-get agent :id))
-                 (jobs (mapcar
-                        (lambda (edge)
-                          (ogent-cabinet-status--node-by-id
-                           (plist-get edge :to)))
-                        (ogent-cabinet-status--edges-from id 'owns)))
-                 (provider (or (plist-get data :provider) "codex"))
-                 (status (cond
-                          ((ogent-cabinet-runner-running-p
-                            (plist-get data :slug))
-                           'working)
-                          ((plist-get data :active) 'active)
-                          (t 'idle))))
-            (ogent-cabinet-status--insert-node-line
-             agent
-             (format "%s %s  %s  %s  %s%s"
-                     (propertize (ogent-ops-activity-symbol status)
-                                 'face (if (memq status '(active working))
-                                           'ogent-cabinet-status-connected
-                                         'ogent-cabinet-status-disconnected))
-                     (propertize (plist-get agent :label)
-                                 'face 'ogent-cabinet-status-label)
-                     (propertize
-                      (or (plist-get data :role) "Agent")
-                      'face 'ogent-cabinet-status-dimmed)
-                     (propertize provider
-                                 'face 'ogent-cabinet-status-dimmed)
-                     (propertize
-                      (format "%d jobs" (length jobs))
-                      'face 'ogent-cabinet-status-dimmed)
-                     (propertize "  [P profile] [C job] [R run]"
-                                 'face 'ogent-cabinet-status-id)))
-            (dolist (job jobs)
-              (when job
-                (ogent-cabinet-status--insert-node-line
-                 job
-                 (ogent-cabinet-status--format-job-line job)
-                 "    ")))))
-      (insert (propertize "  No agents yet\n"
-                          'face 'ogent-cabinet-status-dimmed)))))
+    (ogent-cabinet-status--with-section (ogent-cabinet-status-agents)
+        (ogent-cabinet-status--heading-text "◆" "A" "Agents" (length agents))
+      (if agents
+          (dolist (agent agents)
+            (let* ((data (plist-get agent :data))
+                   (id (plist-get agent :id))
+                   (jobs (mapcar
+                          (lambda (edge)
+                            (ogent-cabinet-status--node-by-id
+                             (plist-get edge :to)))
+                          (ogent-cabinet-status--edges-from id 'owns)))
+                   (provider (or (plist-get data :provider) "codex"))
+                   (status (cond
+                            ((ogent-cabinet-runner-running-p
+                              (plist-get data :slug))
+                             'working)
+                            ((plist-get data :active) 'active)
+                            (t 'idle))))
+              (ogent-cabinet-status--insert-node-line
+               agent
+               (format "%s %s  %s  %s  %s%s"
+                       (propertize (ogent-ops-activity-symbol status)
+                                   'face (if (memq status '(active working))
+                                             'ogent-cabinet-status-connected
+                                           'ogent-cabinet-status-disconnected))
+                       (propertize (plist-get agent :label)
+                                   'face 'ogent-cabinet-status-label)
+                       (propertize
+                        (or (plist-get data :role) "Agent")
+                        'face 'ogent-cabinet-status-dimmed)
+                       (propertize provider
+                                   'face 'ogent-cabinet-status-dimmed)
+                       (propertize
+                        (format "%d jobs" (length jobs))
+                        'face 'ogent-cabinet-status-dimmed)
+                       (propertize "  [P profile] [C job] [R run]"
+                                   'face 'ogent-cabinet-status-id)))
+              (dolist (job jobs)
+                (when job
+                  (ogent-cabinet-status--insert-node-line
+                   job
+                   (ogent-cabinet-status--format-job-line job)
+                   "    ")))))
+        (insert (propertize "  No agents yet\n"
+                            'face 'ogent-cabinet-status-dimmed))))))
 
 (defun ogent-cabinet-status--insert-related ()
   "Insert non-agent graph nodes."
@@ -343,18 +466,19 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                   (memq (plist-get node :kind)
                         '(session app issue gastown-hook)))
                 (plist-get ogent-cabinet-status--graph :nodes))))
-    (ogent-cabinet-status--insert-heading "◇" "R" "Relationships" (length nodes))
-    (if nodes
-        (dolist (node nodes)
-          (ogent-cabinet-status--insert-node-line
-           node
-           (format "%s  %s"
-                   (propertize (symbol-name (plist-get node :kind))
-                               'face 'ogent-cabinet-status-dimmed)
-                   (propertize (or (plist-get node :label) "")
-                               'face 'ogent-cabinet-status-label))))
-      (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
-                          'face 'ogent-cabinet-status-dimmed)))))
+    (ogent-cabinet-status--with-section (ogent-cabinet-status-relationships)
+        (ogent-cabinet-status--heading-text "◇" "R" "Relationships" (length nodes))
+      (if nodes
+          (dolist (node nodes)
+            (ogent-cabinet-status--insert-node-line
+             node
+             (format "%s  %s"
+                     (propertize (symbol-name (plist-get node :kind))
+                                 'face 'ogent-cabinet-status-dimmed)
+                     (propertize (or (plist-get node :label) "")
+                                 'face 'ogent-cabinet-status-label))))
+        (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
+                            'face 'ogent-cabinet-status-dimmed))))))
 
 (defun ogent-cabinet-status--format-job-line (job)
   "Return display text for JOB."
@@ -375,15 +499,16 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 
 (defun ogent-cabinet-status--insert-bridges ()
   "Insert operational bridge section."
-  (ogent-cabinet-status--insert-heading "◈" "B" "Operational Bridges")
-  (ogent-cabinet-status--insert-bridge-line
-   "Ogent Issues"
-   (ogent-cabinet-status--issues-state)
-   "i")
-  (ogent-cabinet-status--insert-bridge-line
-   "Gas Town"
-   (ogent-cabinet-status--gastown-state)
-   "G"))
+  (ogent-cabinet-status--with-section (ogent-cabinet-status-bridges)
+      (ogent-cabinet-status--heading-text "◈" "B" "Operational Bridges")
+    (ogent-cabinet-status--insert-bridge-line
+     "Ogent Issues"
+     (ogent-cabinet-status--issues-state)
+     "i")
+    (ogent-cabinet-status--insert-bridge-line
+     "Gas Town"
+     (ogent-cabinet-status--gastown-state)
+     "G")))
 
 (defun ogent-cabinet-status--insert-node-line (node text &optional prefix)
   "Insert TEXT for NODE with optional PREFIX and visit metadata."
@@ -463,6 +588,39 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   "Return the graph node at point."
   (or (get-text-property (point) 'ogent-cabinet-node)
       (get-text-property (line-beginning-position) 'ogent-cabinet-node)))
+
+(defun ogent-cabinet-status--visible-node-position (direction)
+  "Return the next visible node position in DIRECTION.
+DIRECTION is either `next' or `previous'."
+  (let ((limit (if (eq direction 'next) (point-max) (point-min)))
+        (pos (point))
+        found)
+    (while (and (not found)
+                (if (eq direction 'next)
+                    (< pos limit)
+                  (> pos limit)))
+      (setq pos
+            (if (eq direction 'next)
+                (next-single-property-change
+                 pos
+                 'ogent-cabinet-node
+                 nil
+                 limit)
+              (previous-single-property-change
+               pos
+               'ogent-cabinet-node
+               nil
+               limit)))
+      (when pos
+        (when (eq direction 'previous)
+          (setq pos (max (point-min) (1- pos))))
+        (if (and (get-text-property pos 'ogent-cabinet-node)
+                 (not (invisible-p pos)))
+            (setq found pos)
+          (setq pos (if (eq direction 'next)
+                        (min (point-max) (1+ pos))
+                      (max (point-min) (1- pos)))))))
+    found))
 
 (defun ogent-cabinet-status--require-node ()
   "Return the graph node at point or signal a Cabinet status error."
@@ -686,45 +844,61 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     (princ "h Home, a Agents, t Tasks, c Conversations, s Search, A Apps, i Issues, G Gas Town.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
-    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")))
+    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")
+    (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n")
+    (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n")))
+
+(defun ogent-cabinet-status-toggle-section ()
+  "Toggle the current Cabinet status section."
+  (interactive)
+  (if (ogent-cabinet-status--magit-section-usable-p)
+      (if-let ((section (magit-current-section)))
+          (condition-case err
+              (magit-section-toggle section)
+            (user-error (message "%s" (error-message-string err))))
+        (message "No section at point"))
+    (message "Section toggling requires magit-section")))
+
+(defun ogent-cabinet-status-cycle-sections ()
+  "Cycle visibility for all Cabinet status sections."
+  (interactive)
+  (if (and (ogent-cabinet-status--magit-section-usable-p)
+           (fboundp 'magit-section-cycle-global))
+      (magit-section-cycle-global)
+    (message "Section cycling requires magit-section")))
+
+(defun ogent-cabinet-status-next-section ()
+  "Move to the next sibling Cabinet status section."
+  (interactive)
+  (when (ogent-cabinet-status--magit-section-usable-p)
+    (magit-section-forward-sibling)))
+
+(defun ogent-cabinet-status-previous-section ()
+  "Move to the previous sibling Cabinet status section."
+  (interactive)
+  (when (ogent-cabinet-status--magit-section-usable-p)
+    (magit-section-backward-sibling)))
+
+(defun ogent-cabinet-status-up-section ()
+  "Move to the parent Cabinet status section."
+  (interactive)
+  (when (and (ogent-cabinet-status--magit-section-usable-p)
+             (fboundp 'magit-section-up))
+    (magit-section-up)))
 
 (defun ogent-cabinet-status-next-item ()
   "Move point to the next Cabinet record line."
   (interactive)
-  (let ((next (next-single-property-change
-               (point)
-               'ogent-cabinet-node
-               nil
-               (point-max))))
+  (let ((next (ogent-cabinet-status--visible-node-position 'next)))
     (when next
-      (goto-char next)
-      (unless (get-text-property (point) 'ogent-cabinet-node)
-        (setq next (next-single-property-change
-                    (point)
-                    'ogent-cabinet-node
-                    nil
-                    (point-max)))
-        (when next
-          (goto-char next))))))
+      (goto-char next))))
 
 (defun ogent-cabinet-status-previous-item ()
   "Move point to the previous Cabinet record line."
   (interactive)
-  (let ((previous (previous-single-property-change
-                   (point)
-                   'ogent-cabinet-node
-                   nil
-                   (point-min))))
+  (let ((previous (ogent-cabinet-status--visible-node-position 'previous)))
     (when previous
-      (goto-char (max (point-min) (1- previous)))
-      (unless (get-text-property (point) 'ogent-cabinet-node)
-        (setq previous (previous-single-property-change
-                        (point)
-                        'ogent-cabinet-node
-                        nil
-                        (point-min)))
-        (when previous
-          (goto-char (max (point-min) (1- previous))))))))
+      (goto-char previous))))
 
 (defun ogent-cabinet-status--transient-header ()
   "Return the header text for `ogent-cabinet-status-dispatch'."
@@ -758,6 +932,10 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     ("J" "Agent jobs" ogent-cabinet-status-open-agent-jobs)]
    ["Navigate"
     ("RET" "Visit Org source" ogent-cabinet-status-visit)
+    ("TAB" "Toggle section" ogent-cabinet-status-toggle-section :transient t)
+    ("M-n" "Next section" ogent-cabinet-status-next-section :transient t)
+    ("M-p" "Previous section" ogent-cabinet-status-previous-section :transient t)
+    ("^" "Up section" ogent-cabinet-status-up-section :transient t)
     ("n" "Next item" ogent-cabinet-status-next-item :transient t)
     ("p" "Previous item" ogent-cabinet-status-previous-item :transient t)
     ("g" "Refresh" ogent-cabinet-status-refresh :transient t)]]
@@ -775,11 +953,31 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     ("?" "Help" ogent-cabinet-status-help)
     ("q" "Quit menu" transient-quit-one)]])
 
+(defun ogent-cabinet-status--evil-bind-local (key command)
+  "Bind Evil normal-state KEY to COMMAND when COMMAND is available."
+  (when (and (fboundp 'evil-local-set-key)
+             (fboundp command))
+    (evil-local-set-key 'normal key command)))
+
+(defun ogent-cabinet-status--evil-local-keys ()
+  "Install local Evil normal-state keys for Cabinet status."
+  (ogent-cabinet-status--evil-bind-local "j" 'evil-next-line)
+  (ogent-cabinet-status--evil-bind-local "k" 'evil-previous-line)
+  (ogent-cabinet-status--evil-bind-local "gg" 'evil-goto-first-line)
+  (ogent-cabinet-status--evil-bind-local "G" 'evil-goto-line)
+  (ogent-cabinet-status--evil-bind-local "gr" 'ogent-cabinet-status-refresh)
+  (ogent-cabinet-status--evil-bind-local "gj" 'ogent-cabinet-status-next-section)
+  (ogent-cabinet-status--evil-bind-local "gk" 'ogent-cabinet-status-previous-section)
+  (ogent-cabinet-status--evil-bind-local "ZZ" 'quit-window)
+  (ogent-cabinet-status--evil-bind-local "ZQ" 'quit-window))
+
 (defun ogent-cabinet-status--setup-evil ()
   "Set up Evil integration for Cabinet status buffers."
   (when (fboundp 'evil-set-initial-state)
     (evil-set-initial-state 'ogent-cabinet-status-mode 'normal)
     (evil-make-overriding-map ogent-cabinet-status-mode-map 'all)
+    (add-hook 'ogent-cabinet-status-mode-hook
+              #'ogent-cabinet-status--evil-local-keys)
     (add-hook 'ogent-cabinet-status-mode-hook #'evil-normalize-keymaps)))
 
 (with-eval-after-load 'evil

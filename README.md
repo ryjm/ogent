@@ -79,6 +79,10 @@ Common commands:
 | Key | Command |
 |-----|---------|
 | `RET` | Visit the item at point |
+| `TAB` | Collapse or expand the section at point |
+| `M-n` / `M-p` | Move between sibling sections |
+| `<backtab>` | Cycle section visibility |
+| `^` | Move to the parent section |
 | `m` | Open the Home transient menu |
 | `?` | Open Home help |
 | `g` | Refresh |
@@ -95,6 +99,8 @@ Common commands:
 | `G` | Graph/status |
 | `e` | Edit Cabinet metadata |
 | `n` / `p` | Move between actionable rows |
+
+In Evil normal state, `j`/`k` keep line movement, `gg`/`G` move through the buffer, `gr` refreshes, `gj`/`gk` move between sections, and `ZZ`/`ZQ` quit.
 
 The main ogent dispatch bindings include:
 

@@ -113,8 +113,8 @@
               (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("m" "?" "RET" "g" "q" "j" "J" "a" "t" "c" "s" "A"
-                           "G" "R" "E" "e" "n" "p"))
+            (dolist (key '("m" "?" "RET" "TAB" "M-n" "g" "q" "j" "J" "a"
+                           "t" "c" "s" "A" "G" "R" "E" "e" "n" "p"))
               (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
@@ -129,6 +129,189 @@
                   ("J" . ,#'ogent-cabinet-home-open-jobs)))
     (should (eq (lookup-key ogent-cabinet-home-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-cabinet-section-keybindings-are-consistent ()
+  "Cabinet special buffers expose Magit-style section navigation."
+  (dolist (map (list ogent-cabinet-home-mode-map
+                     ogent-cabinet-agent-mode-map
+                     ogent-cabinet-conversation-mode-map))
+    (dolist (pair `(("TAB" . ,#'ogent-cabinet-ui-toggle-section)
+                    ("<tab>" . ,#'ogent-cabinet-ui-toggle-section)
+                    ("<backtab>" . ,#'ogent-cabinet-ui-cycle-sections)
+                    ("M-n" . ,#'ogent-cabinet-ui-next-section)
+                    ("M-p" . ,#'ogent-cabinet-ui-previous-section)
+                    ("^" . ,#'ogent-cabinet-ui-up-section)))
+      (should (eq (lookup-key map (kbd (car pair))) (cdr pair))))))
+
+(ert-deftest ogent-ui-cabinet-section-modes-derive-from-magit-section ()
+  "Cabinet section buffers inherit Magit section behavior when available."
+  (unless (ogent-cabinet-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (dolist (mode '(ogent-cabinet-home-mode
+                  ogent-cabinet-agent-mode
+                  ogent-cabinet-conversation-mode))
+    (with-temp-buffer
+      (funcall mode)
+      (should (derived-mode-p 'magit-section-mode)))))
+
+(ert-deftest ogent-ui-cabinet-evil-overrides-all-ui-keymaps ()
+  "Cabinet UI maps remain active while Evil normal state owns movement."
+  (let ((ogent-cabinet-home-mode-hook nil)
+        (ogent-cabinet-agents-mode-hook nil)
+        (ogent-cabinet-agent-mode-hook nil)
+        (ogent-cabinet-jobs-mode-hook nil)
+        (ogent-cabinet-tasks-mode-hook nil)
+        (ogent-cabinet-conversations-mode-hook nil)
+        (ogent-cabinet-conversation-mode-hook nil)
+        (ogent-cabinet-search-mode-hook nil)
+        (ogent-cabinet-apps-mode-hook nil)
+        states
+        maps)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state)
+                 (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (map state)
+                 (push (cons map state) maps)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil)))
+      (ogent-cabinet-ui--setup-evil))
+    (dolist (mode '(ogent-cabinet-home-mode
+                    ogent-cabinet-agents-mode
+                    ogent-cabinet-agent-mode
+                    ogent-cabinet-jobs-mode
+                    ogent-cabinet-tasks-mode
+                    ogent-cabinet-conversations-mode
+                    ogent-cabinet-conversation-mode
+                    ogent-cabinet-search-mode
+                    ogent-cabinet-apps-mode))
+      (should (member (cons mode 'normal) states)))
+    (dolist (map (list ogent-cabinet-home-mode-map
+                       ogent-cabinet-agents-mode-map
+                       ogent-cabinet-agent-mode-map
+                       ogent-cabinet-jobs-mode-map
+                       ogent-cabinet-tasks-mode-map
+                       ogent-cabinet-conversations-mode-map
+                       ogent-cabinet-conversation-mode-map
+                       ogent-cabinet-search-mode-map
+                       ogent-cabinet-apps-mode-map))
+      (should (member (cons map 'all) maps)))
+    (dolist (hook (list ogent-cabinet-home-mode-hook
+                        ogent-cabinet-agents-mode-hook
+                        ogent-cabinet-agent-mode-hook
+                        ogent-cabinet-jobs-mode-hook
+                        ogent-cabinet-tasks-mode-hook
+                        ogent-cabinet-conversations-mode-hook
+                        ogent-cabinet-conversation-mode-hook
+                        ogent-cabinet-search-mode-hook
+                        ogent-cabinet-apps-mode-hook))
+      (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
+      (should (memq #'evil-normalize-keymaps hook)))))
+
+(ert-deftest ogent-ui-cabinet-evil-local-keys-match-magit-navigation ()
+  "Cabinet section buffers add Evil normal-state Magit navigation keys."
+  (let (keys)
+    (with-temp-buffer
+      (ogent-cabinet-home-mode)
+      (cl-letf (((symbol-function 'evil-local-set-key)
+                 (lambda (state key command)
+                   (push (list state key command) keys)))
+                ((symbol-function 'evil-goto-first-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-goto-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-next-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-previous-line)
+                 (lambda () (interactive))))
+        (ogent-cabinet-ui--evil-local-keys)))
+    (dolist (binding '(("j" evil-next-line)
+                       ("k" evil-previous-line)
+                       ("gg" evil-goto-first-line)
+                       ("G" evil-goto-line)
+                       ("gr" ogent-cabinet-home-refresh)
+                       ("gj" ogent-cabinet-ui-next-section)
+                       ("gk" ogent-cabinet-ui-previous-section)
+                       ("ZZ" quit-window)
+                       ("ZQ" quit-window)))
+      (should (member (list 'normal (car binding) (cadr binding)) keys)))))
+
+(ert-deftest ogent-ui-cabinet-home-magit-sections-collapse ()
+  "Cabinet Home headings are real collapsible sections when Magit is present."
+  (unless (ogent-cabinet-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-home root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Active Jobs")
+            (beginning-of-line)
+            (let ((section (magit-current-section)))
+              (should section)
+              (should-not (oref section hidden))
+              (ogent-cabinet-ui-toggle-section)
+              (should (oref section hidden))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-home-navigation-skips-collapsed-sections ()
+  "Cabinet Home item navigation ignores hidden section bodies."
+  (unless (ogent-cabinet-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-home root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Active Jobs")
+            (beginning-of-line)
+            (ogent-cabinet-ui-toggle-section)
+            (goto-char (point-min))
+            (search-forward "Source Org")
+            (beginning-of-line)
+            (ogent-cabinet-home-next-item)
+            (should-not (invisible-p (point)))
+            (should (eq (plist-get (ogent-cabinet-ui--item-at-point) :type)
+                        'session)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-agent-and-conversation-sections-collapse ()
+  "Agent and conversation detail buffers expose collapsible sections."
+  (unless (ogent-cabinet-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((agent-buffer (ogent-cabinet-agent root "cto"))
+          (conversation-buffer
+           (ogent-cabinet-conversation
+            root
+            (expand-file-name ".agents/cto/sessions/weekly-review-run.org"
+                              root))))
+      (unwind-protect
+          (progn
+            (with-current-buffer agent-buffer
+              (goto-char (point-min))
+              (search-forward "Inbox")
+              (beginning-of-line)
+              (let ((section (magit-current-section)))
+                (should section)
+                (ogent-cabinet-ui-toggle-section)
+                (should (oref section hidden))))
+            (with-current-buffer conversation-buffer
+              (goto-char (point-min))
+              (search-forward "Prompt")
+              (beginning-of-line)
+              (let ((section (magit-current-section)))
+                (should section)
+                (ogent-cabinet-ui-toggle-section)
+                (should (oref section hidden)))))
+        (dolist (buffer (list agent-buffer conversation-buffer))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
 
 (ert-deftest ogent-ui-cabinet-home-runs-and-edits-active-job ()
   "Cabinet Home can run a job and jump straight to its prompt."
@@ -191,6 +374,7 @@
         (should (string-match-p "Cabinet Home" text))
         (should (string-match-p "R runs" text))
         (should (string-match-p "j opens Jobs" text))
+        (should (string-match-p "TAB toggles" text))
         (should (string-match-p "m opens the Transient menu" text)))))
   (unwind-protect
       (progn

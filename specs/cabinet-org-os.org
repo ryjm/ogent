@@ -215,15 +215,20 @@ The Emacs surfaces are boring and powerful:
   health counts, navigation, active jobs, recent activity, app artifacts, and
   needs-attention sections for failed sessions, stale jobs, missing persona
   fields, and open conversations. Header-line keys are visible: =m=, =?=,
-  =RET=, =g=, =q=, =j=, =J=, =R=, =E=, =a=, =t=, =c=, =s=, =A=, =G=, =e=,
-  =n=, and =p=.
+  =RET=, =TAB=, =M-n=, =M-p=, =<backtab>=, =^=, =g=, =q=, =j=, =J=, =R=,
+	  =E=, =a=, =t=, =c=, =s=, =A=, =G=, =e=, =n=, and =p=. Section-capable
+	  Cabinet buffers use =magit-section= when available and skip collapsed bodies
+	  during item navigation. Evil normal state keeps =j=/=k= line movement,
+	  =gg=/=G= buffer movement, =gr= refresh, =gj=/=gk= section movement, and
+	  =ZZ=/=ZQ= quit.
 - =ogent-cabinet-status= shows the derived Cabinet graph and operational
   bridges to Issues and Gas Town. Press =R= on an agent, job, or retryable
   session to run it through the selected CLI provider. Press =e= to edit
   metadata in the durable Org property drawer, =E= to edit a body or job
   prompt, =P= for an agent profile, =J= for the selected agent's jobs, =C= to
-  create a job for the selected agent, =m= for the Transient menu, and =?= for
-  help.
+  create a job for the selected agent, =TAB= to collapse/expand sections,
+  =M-n=/=M-p= to move between sibling sections, =^= to move to the parent
+  section, =m= for the Transient menu, and =?= for help.
 - =ogent-cabinet-agents= shows personas in a tabulated buffer with sortable
   columns for name, slug, role, provider, model, active state, job count,
   conversation count, last run, workspace, and tags.
