@@ -12,6 +12,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'tabulated-list)
+(require 'transient)
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
 
@@ -361,8 +362,14 @@
   (let ((map (make-sparse-keymap)))
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-home-visit))
+    (define-key map "m" #'ogent-armory-home-dispatch)
+    (define-key map "?" #'ogent-armory-home-help)
     (define-key map "g" #'ogent-armory-home-refresh)
     (define-key map "q" #'quit-window)
+    (define-key map "j" #'ogent-armory-jobs)
+    (define-key map "J" #'ogent-armory-home-open-jobs)
+    (define-key map "R" #'ogent-armory-home-run)
+    (define-key map "E" #'ogent-armory-home-edit-item)
     (define-key map "a" #'ogent-armory-agents)
     (define-key map "t" #'ogent-armory-tasks)
     (define-key map "c" #'ogent-armory-conversations)
@@ -385,7 +392,7 @@
 
 (defun ogent-armory-home--header-line ()
   "Return header line for Armory Home."
-  "RET visit  g refresh  q quit  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  e Edit  n/p move")
+  "m menu  ? help  RET visit  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  R run  E edit item  e Edit Armory  n/p move")
 
 ;;;###autoload
 (defun ogent-armory-home (&optional directory)
@@ -469,6 +476,7 @@
                     (length apps)))
     (ogent-armory-ui--insert-heading "Navigate")
     (ogent-armory-home--insert-nav "Agents" "a" #'ogent-armory-agents)
+    (ogent-armory-home--insert-nav "Jobs" "j" #'ogent-armory-jobs)
     (ogent-armory-home--insert-nav "Tasks" "t" #'ogent-armory-tasks)
     (ogent-armory-home--insert-nav "Conversations" "c" #'ogent-armory-conversations)
     (ogent-armory-home--insert-nav "Search" "s" #'ogent-armory-search)
@@ -480,6 +488,8 @@
     (ogent-armory-ui--insert-item-line
      (list :type 'file :path (ogent-armory-index-file root))
      "  Source Org")
+    (insert "\n")
+    (ogent-armory-home--insert-active-jobs jobs root)
     (insert "\n")
     (ogent-armory-ui--insert-heading "Recent Activity")
     (if sessions
@@ -518,6 +528,30 @@
              (format "  missing persona %s" slug))))
       (insert (propertize "  Nothing needs attention\n" 'face 'ogent-armory-ui-good)))))
 
+(defun ogent-armory-home--insert-active-jobs (jobs root)
+  "Insert active development JOBS for ROOT."
+  (let ((active (seq-filter (lambda (job)
+                              (and (plist-get job :enabled)
+                                   (not (plist-get job :archived))))
+                            jobs)))
+    (ogent-armory-ui--insert-heading "Active Jobs")
+    (if active
+        (dolist (job active)
+          (let ((agent (plist-get job :agent))
+                (job-id (plist-get job :id)))
+            (ogent-armory-ui--insert-item-line
+             (list :type 'job
+                   :agent agent
+                   :job-id job-id
+                   :path (ogent-armory-job-file root agent job-id))
+             (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
+                     agent
+                     (or (plist-get job :name) job-id)
+                     (or (plist-get job :cron)
+                         (plist-get job :heartbeat)
+                         "manual")))))
+      (insert (propertize "  No active jobs\n" 'face 'ogent-armory-ui-dim)))))
+
 (defun ogent-armory-home-visit ()
   "Visit or dispatch the item at point in Armory Home."
   (interactive)
@@ -533,11 +567,121 @@
       ('file (ogent-armory-ui--visit-path (plist-get item :path)))
       (_ (user-error "No Armory Home item at point")))))
 
+(defun ogent-armory-home-run ()
+  "Run or retry the Armory Home item at point."
+  (interactive)
+  (let ((item (ogent-armory-ui--item-at-point)))
+    (pcase (plist-get item :type)
+      ('job
+       (ogent-armory-run-job
+        ogent-armory-home--root
+        (plist-get item :agent)
+        (plist-get item :job-id)))
+      ('session
+       (if-let ((job-id (plist-get item :job-id)))
+           (ogent-armory-run-job
+            ogent-armory-home--root
+            (plist-get item :agent)
+            job-id)
+         (ogent-armory-run-agent
+          ogent-armory-home--root
+          (plist-get item :agent)
+          (read-string "Instruction: "))))
+      ('agent
+       (ogent-armory-run-agent
+        ogent-armory-home--root
+        (plist-get item :agent)
+        (read-string "Instruction: ")))
+      (_
+       (user-error "No runnable Armory Home item at point")))))
+
+(defun ogent-armory-home-edit-item ()
+  "Visit the editable body or source for the Armory Home item at point."
+  (interactive)
+  (let* ((item (ogent-armory-ui--item-at-point))
+         (path (plist-get item :path)))
+    (unless (and path (file-exists-p path))
+      (user-error "No editable Armory item at point"))
+    (pcase (plist-get item :type)
+      ((or 'job 'agent)
+       (ogent-armory-ui--visit-body path))
+      (_
+       (ogent-armory-ui--visit-path path)))))
+
+(defun ogent-armory-home-open-jobs ()
+  "Open Armory jobs related to the item at point."
+  (interactive)
+  (let* ((item (ogent-armory-ui--item-at-point))
+         (agent (plist-get item :agent))
+         (job-id (plist-get item :job-id))
+         (buffer (ogent-armory-jobs ogent-armory-home--root agent)))
+    (when (and agent job-id (fboundp 'ogent-armory-jobs--goto))
+      (with-current-buffer buffer
+        (ogent-armory-jobs--goto agent job-id)))
+    buffer))
+
 (defun ogent-armory-home-edit-metadata ()
   "Visit the Armory index Org file for metadata edits."
   (interactive)
   (ogent-armory-ui--visit-path
    (ogent-armory-index-file ogent-armory-home--root)))
+
+(defun ogent-armory-home-help ()
+  "Show Armory Home keybindings and daily-work actions."
+  (interactive)
+  (with-help-window "*Ogent Armory Home Help*"
+    (princ "Armory Home\n")
+    (princ "============\n\n")
+    (princ "Home is the cockpit for developing a project with Armory.\n\n")
+    (princ "Daily work\n")
+    (princ "----------\n")
+    (princ "j opens Jobs. J opens jobs related to the item at point.\n")
+    (princ "R runs or retries the selected agent, job, or conversation.\n")
+    (princ "E edits the selected agent persona, job prompt, or source Org record.\n")
+    (princ "RET opens the richer surface or durable source for the item at point.\n\n")
+    (princ "Navigation\n")
+    (princ "----------\n")
+    (princ "a Agents, t Tasks, c Conversations, s Search, A Apps, G Graph.\n")
+    (princ "n and p move between actionable rows. g refreshes. q quits.\n\n")
+    (princ "Menus\n")
+    (princ "-----\n")
+    (princ "m opens the Transient menu. ? opens this help buffer.\n")))
+
+(defun ogent-armory-home--transient-header ()
+  "Return the header text for `ogent-armory-home-dispatch'."
+  (let ((root (and (boundp 'ogent-armory-home--root)
+                   ogent-armory-home--root)))
+    (concat
+     (propertize "Armory Home" 'face 'transient-heading)
+     (if root
+         (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
+       ""))))
+
+;;;###autoload (autoload 'ogent-armory-home-dispatch "ogent-ui-armory" nil t)
+(transient-define-prefix ogent-armory-home-dispatch ()
+  "Dispatch menu for Armory Home."
+  [:description ogent-armory-home--transient-header
+   ["Daily Work"
+    ("j" "Jobs" ogent-armory-jobs)
+    ("J" "Related jobs" ogent-armory-home-open-jobs)
+    ("R" "Run/retry selected" ogent-armory-home-run)
+    ("E" "Edit selected" ogent-armory-home-edit-item)]
+   ["Navigate"
+    ("RET" "Visit selected" ogent-armory-home-visit)
+    ("n" "Next item" ogent-armory-home-next-item :transient t)
+    ("p" "Previous item" ogent-armory-home-previous-item :transient t)
+    ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
+  [["Surfaces"
+    ("a" "Agents" ogent-armory-agents)
+    ("t" "Tasks" ogent-armory-tasks)
+    ("c" "Conversations" ogent-armory-conversations)
+    ("s" "Search" ogent-armory-search)
+    ("A" "Apps" ogent-armory-apps)
+    ("G" "Graph" ogent-armory-status)]
+   ["Armory"
+    ("e" "Edit metadata" ogent-armory-home-edit-metadata)
+    ("?" "Help" ogent-armory-home-help)
+    ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-armory-home-next-item ()
   "Move point to the next actionable Armory Home item."

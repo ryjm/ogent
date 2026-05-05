@@ -21,6 +21,7 @@
 (defconst ogent-transient-audit-prefixes
   '(ogent-debug-tools-menu
     ogent-edit-menu
+    ogent-armory-home-dispatch
     ogent-armory-status-dispatch
     ogent-gastown-dispatch
     ogent-gastown-status-dispatch

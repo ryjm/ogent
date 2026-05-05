@@ -134,8 +134,14 @@ Armory Home:
 | Key | Action |
 |-----+--------|
 | =RET= | Visit the item at point |
+| =m= | Open the Home transient menu |
+| =?= | Open Home help |
 | =g= | Refresh |
 | =q= | Quit |
+| =j= | Open all jobs |
+| =J= | Open jobs related to the item at point |
+| =R= | Run or retry the selected agent, job, or conversation |
+| =E= | Edit the selected agent persona, job prompt, or source Org record |
 | =a= | Agents |
 | =t= | Tasks |
 | =c= | Conversations |

@@ -212,10 +212,11 @@ The Emacs surfaces are boring and powerful:
 
 - =ogent-armory-scaffold= creates an Org-backed armory directory.
 - =ogent-armory-home= opens the operational home view with Armory metadata,
-  health counts, navigation, recent activity, app artifacts, and needs-attention
-  sections for failed sessions, stale jobs, missing persona fields, and open
-  conversations. Header-line keys are visible: =RET=, =g=, =q=, =a=, =t=,
-  =c=, =s=, =A=, =G=, =e=, =n=, and =p=.
+  health counts, navigation, active jobs, recent activity, app artifacts, and
+  needs-attention sections for failed sessions, stale jobs, missing persona
+  fields, and open conversations. Header-line keys are visible: =m=, =?=,
+  =RET=, =g=, =q=, =j=, =J=, =R=, =E=, =a=, =t=, =c=, =s=, =A=, =G=, =e=,
+  =n=, and =p=.
 - =ogent-armory-status= shows the derived Armory graph and operational
   bridges to Issues and Gas Town. Press =R= on an agent, job, or retryable
   session to run it through the selected CLI provider. Press =e= to edit

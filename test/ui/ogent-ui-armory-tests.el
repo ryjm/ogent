@@ -8,6 +8,7 @@
 
 (require 'cl-lib)
 (require 'ogent-test-helper)
+(require 'transient)
 (require 'ogent-armory)
 (require 'ogent-armory-status)
 (require 'ogent-ui-armory)
@@ -103,15 +104,100 @@
             (should (eq major-mode 'ogent-armory-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
-                               "Needs Attention" "Agents" "Tasks" "Conversations"
+                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+                               "Tasks" "Conversations"
                                "Search" "Apps" "Graph" "Settings" "Source Org"))
                 (should (string-match-p label text)))
+              (should (string-match-p "Weekly Review" text))
+              (should (string-match-p "\\[R run\\]" text))
+              (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("RET" "g" "q" "a" "t" "c" "s" "A" "G" "e" "n" "p"))
+            (dolist (key '("m" "?" "RET" "g" "q" "j" "J" "a" "t" "c" "s" "A"
+                           "G" "R" "E" "e" "n" "p"))
               (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-home-daily-work-keybindings ()
+  "Armory Home exposes the daily job development commands."
+  (dolist (pair `(("m" . ,#'ogent-armory-home-dispatch)
+                  ("?" . ,#'ogent-armory-home-help)
+                  ("j" . ,#'ogent-armory-jobs)
+                  ("R" . ,#'ogent-armory-home-run)
+                  ("E" . ,#'ogent-armory-home-edit-item)
+                  ("J" . ,#'ogent-armory-home-open-jobs)))
+    (should (eq (lookup-key ogent-armory-home-mode-map (kbd (car pair)))
+                (cdr pair)))))
+
+(ert-deftest ogent-ui-armory-home-runs-and-edits-active-job ()
+  "Armory Home can run a job and jump straight to its prompt."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-home root))
+          called
+          body-file)
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'ogent-armory-run-job)
+                       (lambda (run-root agent job-id)
+                         (setq called (list run-root agent job-id)))))
+              (ogent-armory-home-run))
+            (should (equal called (list (file-truename root)
+                                        "cto"
+                                        "weekly-review")))
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (ogent-armory-home-edit-item)
+            (setq body-file buffer-file-name)
+            (should (looking-at-p "Review architecture notes"))
+            (should (equal (file-truename body-file)
+                           (file-truename
+                            (ogent-armory-job-file root "cto" "weekly-review")))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (get-file-buffer (ogent-armory-job-file root "cto" "weekly-review"))
+          (kill-buffer (get-file-buffer
+                        (ogent-armory-job-file root "cto" "weekly-review"))))))))
+
+(ert-deftest ogent-ui-armory-home-opens-jobs-focused ()
+  "Armory Home opens the jobs surface from the selected job."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-home root))
+          jobs-buffer)
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review")
+              (setq jobs-buffer (ogent-armory-home-open-jobs)))
+            (with-current-buffer jobs-buffer
+              (should (eq major-mode 'ogent-armory-jobs-mode))
+              (should (equal (plist-get (tabulated-list-get-id) :job-id)
+                             "weekly-review"))))
+        (dolist (buf (list buffer jobs-buffer))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+(ert-deftest ogent-ui-armory-home-help-and-transient-render ()
+  "Armory Home help and transient menu render without errors."
+  (save-window-excursion
+    (ogent-armory-home-help)
+    (with-current-buffer "*Ogent Armory Home Help*"
+      (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+        (should (string-match-p "Armory Home" text))
+        (should (string-match-p "R runs" text))
+        (should (string-match-p "j opens Jobs" text))
+        (should (string-match-p "m opens the Transient menu" text)))))
+  (unwind-protect
+      (progn
+        (transient-setup 'ogent-armory-home-dispatch)
+        (should (get 'ogent-armory-home-dispatch 'transient--prefix)))
+    (when transient-current-prefix
+      (transient-quit-one))))
 
 (ert-deftest ogent-ui-armory-agents-lists-personas ()
   "The Armory agents buffer lists personas with job and session counts."
