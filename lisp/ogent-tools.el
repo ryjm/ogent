@@ -315,6 +315,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
          (default-directory dir)
          (output-buffer (generate-new-buffer " *ogent-grep*"))
          (start-time (current-time))
+         output-chunks
          exit-code output)
     ;; Signal start
     (ogent-tools--stream-start 'grep
@@ -333,18 +334,21 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                        :sentinel #'ignore
                        :noquery t
                        :filter (lambda (_proc chunk)
-                                 (with-current-buffer output-buffer
-                                   (goto-char (point-max))
-                                   (insert chunk))
+                                 (push chunk output-chunks)
+                                 (ogent-tools--append-to-buffer-if-live
+                                  output-buffer chunk)
                                  (ogent-tools--stream-output 'grep 'stdout chunk)))))
             ;; Wait for completion (grep is usually fast, but can be slow on large codebases)
             (while (process-live-p proc)
               (accept-process-output proc 0.1))
+            ;; Emacs 29 can deliver the last process filter chunk just after
+            ;; the process exits. Drain once before reading collected output.
+            (accept-process-output proc 0.1)
+            (set-process-filter proc nil)
             (setq exit-code (process-exit-status proc)))
-          (setq output (with-current-buffer output-buffer
-                         (buffer-string))))
+          (setq output (apply #'concat (nreverse output-chunks))))
       ;; Cleanup
-      (kill-buffer output-buffer))
+      (ogent-tools--kill-buffer-if-live output-buffer))
     ;; Signal completion
     (ogent-tools--stream-done 'grep exit-code)
     ;; Format result
