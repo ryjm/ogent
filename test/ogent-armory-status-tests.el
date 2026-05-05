@@ -92,8 +92,98 @@
           (with-current-buffer buffer
             (let ((header (ogent-armory-status--header-line)))
               (dolist (key '("m menu" "? help" "e edit" "E body"
-                             "P profile" "J jobs" "C job" "R run"))
+                             "P profile" "J jobs" "C job" "R run"
+                             "TAB section" "M-n/p sections"))
                 (should (string-match-p (regexp-quote key) header)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-status-section-keybindings-are-discoverable ()
+  "Armory status exposes Magit-style section controls."
+  (dolist (pair `(("TAB" . ,#'ogent-armory-status-toggle-section)
+                  ("<tab>" . ,#'ogent-armory-status-toggle-section)
+                  ("<backtab>" . ,#'ogent-armory-status-cycle-sections)
+                  ("M-n" . ,#'ogent-armory-status-next-section)
+                  ("M-p" . ,#'ogent-armory-status-previous-section)
+                  ("^" . ,#'ogent-armory-status-up-section)))
+    (should (eq (lookup-key ogent-armory-status-mode-map (kbd (car pair)))
+                (cdr pair)))))
+
+(ert-deftest ogent-armory-status-magit-sections-collapse ()
+  "Armory status graph sections are collapsible when Magit is present."
+  (unless (ogent-armory-status--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex-cli"
+       :active t)
+     "Maintain architecture.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review"
+       :name "Weekly Review"
+       :cron "0 9 * * 1"
+       :enabled t)
+     "Review architecture notes.")
+    (let ((buffer (ogent-armory-status dir)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (derived-mode-p 'magit-section-mode))
+            (should (get-text-property (point-min) 'magit-section))
+            (goto-char (point-min))
+            (search-forward "Agents")
+            (beginning-of-line)
+            (let ((section (magit-current-section)))
+              (should section)
+              (should-not (oref section hidden))
+              (ogent-armory-status-toggle-section)
+              (should (oref section hidden))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-status-navigation-skips-collapsed-sections ()
+  "Armory status node navigation ignores hidden section bodies."
+  (unless (ogent-armory-status--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex-cli"
+       :active t)
+     "Maintain architecture.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review"
+       :name "Weekly Review"
+       :cron "0 9 * * 1"
+       :enabled t)
+     "Review architecture notes.")
+    (let ((buffer (ogent-armory-status dir)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Agents")
+            (beginning-of-line)
+            (ogent-armory-status-toggle-section)
+            (goto-char (point-min))
+            (search-forward "Company")
+            (beginning-of-line)
+            (let ((start (point)))
+              (ogent-armory-status-next-item)
+              (should-not (invisible-p (point)))
+              (when (/= (point) start)
+                (should-not (eq (plist-get (ogent-armory-status--node-at-point)
+                                           :kind)
+                                'agent)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -117,6 +207,7 @@
         (should (string-match-p "Job" text))
         (should (string-match-p "R runs" text))
         (should (string-match-p "e edits" text))
+        (should (string-match-p "TAB toggles" text))
         (should (string-match-p "m opens this Transient menu" text))))))
 
 (defun ogent-armory-status-test--seed-agent-and-job (dir)
@@ -320,7 +411,37 @@
       (ogent-armory-status--setup-evil))
     (should (member (cons 'ogent-armory-status-mode 'normal) states))
     (should (member (cons ogent-armory-status-mode-map 'all) maps))
+    (should (memq #'ogent-armory-status--evil-local-keys
+                  ogent-armory-status-mode-hook))
     (should (memq #'evil-normalize-keymaps ogent-armory-status-mode-hook))))
+
+(ert-deftest ogent-armory-status-evil-local-keys-match-magit-navigation ()
+  "Armory status adds Evil normal-state Magit navigation keys."
+  (let (keys)
+    (with-temp-buffer
+      (ogent-armory-status-mode)
+      (cl-letf (((symbol-function 'evil-local-set-key)
+                 (lambda (state key command)
+                   (push (list state key command) keys)))
+                ((symbol-function 'evil-goto-first-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-goto-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-next-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-previous-line)
+                 (lambda () (interactive))))
+        (ogent-armory-status--evil-local-keys)))
+    (dolist (binding '(("j" evil-next-line)
+                       ("k" evil-previous-line)
+                       ("gg" evil-goto-first-line)
+                       ("G" evil-goto-line)
+                       ("gr" ogent-armory-status-refresh)
+                       ("gj" ogent-armory-status-next-section)
+                       ("gk" ogent-armory-status-previous-section)
+                       ("ZZ" quit-window)
+                       ("ZQ" quit-window)))
+      (should (member (list 'normal (car binding) (cadr binding)) keys)))))
 
 (provide 'ogent-armory-status-tests)
 

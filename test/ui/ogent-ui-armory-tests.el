@@ -113,8 +113,8 @@
               (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("m" "?" "RET" "g" "q" "j" "J" "a" "t" "c" "s" "A"
-                           "G" "R" "E" "e" "n" "p"))
+            (dolist (key '("m" "?" "RET" "TAB" "M-n" "g" "q" "j" "J" "a"
+                           "t" "c" "s" "A" "G" "R" "E" "e" "n" "p"))
               (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
@@ -129,6 +129,189 @@
                   ("J" . ,#'ogent-armory-home-open-jobs)))
     (should (eq (lookup-key ogent-armory-home-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-armory-section-keybindings-are-consistent ()
+  "Armory special buffers expose Magit-style section navigation."
+  (dolist (map (list ogent-armory-home-mode-map
+                     ogent-armory-agent-mode-map
+                     ogent-armory-conversation-mode-map))
+    (dolist (pair `(("TAB" . ,#'ogent-armory-ui-toggle-section)
+                    ("<tab>" . ,#'ogent-armory-ui-toggle-section)
+                    ("<backtab>" . ,#'ogent-armory-ui-cycle-sections)
+                    ("M-n" . ,#'ogent-armory-ui-next-section)
+                    ("M-p" . ,#'ogent-armory-ui-previous-section)
+                    ("^" . ,#'ogent-armory-ui-up-section)))
+      (should (eq (lookup-key map (kbd (car pair))) (cdr pair))))))
+
+(ert-deftest ogent-ui-armory-section-modes-derive-from-magit-section ()
+  "Armory section buffers inherit Magit section behavior when available."
+  (unless (ogent-armory-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (dolist (mode '(ogent-armory-home-mode
+                  ogent-armory-agent-mode
+                  ogent-armory-conversation-mode))
+    (with-temp-buffer
+      (funcall mode)
+      (should (derived-mode-p 'magit-section-mode)))))
+
+(ert-deftest ogent-ui-armory-evil-overrides-all-ui-keymaps ()
+  "Armory UI maps remain active while Evil normal state owns movement."
+  (let ((ogent-armory-home-mode-hook nil)
+        (ogent-armory-agents-mode-hook nil)
+        (ogent-armory-agent-mode-hook nil)
+        (ogent-armory-jobs-mode-hook nil)
+        (ogent-armory-tasks-mode-hook nil)
+        (ogent-armory-conversations-mode-hook nil)
+        (ogent-armory-conversation-mode-hook nil)
+        (ogent-armory-search-mode-hook nil)
+        (ogent-armory-apps-mode-hook nil)
+        states
+        maps)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state)
+                 (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (map state)
+                 (push (cons map state) maps)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil)))
+      (ogent-armory-ui--setup-evil))
+    (dolist (mode '(ogent-armory-home-mode
+                    ogent-armory-agents-mode
+                    ogent-armory-agent-mode
+                    ogent-armory-jobs-mode
+                    ogent-armory-tasks-mode
+                    ogent-armory-conversations-mode
+                    ogent-armory-conversation-mode
+                    ogent-armory-search-mode
+                    ogent-armory-apps-mode))
+      (should (member (cons mode 'normal) states)))
+    (dolist (map (list ogent-armory-home-mode-map
+                       ogent-armory-agents-mode-map
+                       ogent-armory-agent-mode-map
+                       ogent-armory-jobs-mode-map
+                       ogent-armory-tasks-mode-map
+                       ogent-armory-conversations-mode-map
+                       ogent-armory-conversation-mode-map
+                       ogent-armory-search-mode-map
+                       ogent-armory-apps-mode-map))
+      (should (member (cons map 'all) maps)))
+    (dolist (hook (list ogent-armory-home-mode-hook
+                        ogent-armory-agents-mode-hook
+                        ogent-armory-agent-mode-hook
+                        ogent-armory-jobs-mode-hook
+                        ogent-armory-tasks-mode-hook
+                        ogent-armory-conversations-mode-hook
+                        ogent-armory-conversation-mode-hook
+                        ogent-armory-search-mode-hook
+                        ogent-armory-apps-mode-hook))
+      (should (memq #'ogent-armory-ui--evil-local-keys hook))
+      (should (memq #'evil-normalize-keymaps hook)))))
+
+(ert-deftest ogent-ui-armory-evil-local-keys-match-magit-navigation ()
+  "Armory section buffers add Evil normal-state Magit navigation keys."
+  (let (keys)
+    (with-temp-buffer
+      (ogent-armory-home-mode)
+      (cl-letf (((symbol-function 'evil-local-set-key)
+                 (lambda (state key command)
+                   (push (list state key command) keys)))
+                ((symbol-function 'evil-goto-first-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-goto-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-next-line)
+                 (lambda () (interactive)))
+                ((symbol-function 'evil-previous-line)
+                 (lambda () (interactive))))
+        (ogent-armory-ui--evil-local-keys)))
+    (dolist (binding '(("j" evil-next-line)
+                       ("k" evil-previous-line)
+                       ("gg" evil-goto-first-line)
+                       ("G" evil-goto-line)
+                       ("gr" ogent-armory-home-refresh)
+                       ("gj" ogent-armory-ui-next-section)
+                       ("gk" ogent-armory-ui-previous-section)
+                       ("ZZ" quit-window)
+                       ("ZQ" quit-window)))
+      (should (member (list 'normal (car binding) (cadr binding)) keys)))))
+
+(ert-deftest ogent-ui-armory-home-magit-sections-collapse ()
+  "Armory Home headings are real collapsible sections when Magit is present."
+  (unless (ogent-armory-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-home root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Active Jobs")
+            (beginning-of-line)
+            (let ((section (magit-current-section)))
+              (should section)
+              (should-not (oref section hidden))
+              (ogent-armory-ui-toggle-section)
+              (should (oref section hidden))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-home-navigation-skips-collapsed-sections ()
+  "Armory Home item navigation ignores hidden section bodies."
+  (unless (ogent-armory-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-home root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Active Jobs")
+            (beginning-of-line)
+            (ogent-armory-ui-toggle-section)
+            (goto-char (point-min))
+            (search-forward "Source Org")
+            (beginning-of-line)
+            (ogent-armory-home-next-item)
+            (should-not (invisible-p (point)))
+            (should (eq (plist-get (ogent-armory-ui--item-at-point) :type)
+                        'session)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-agent-and-conversation-sections-collapse ()
+  "Agent and conversation detail buffers expose collapsible sections."
+  (unless (ogent-armory-ui--magit-section-usable-p)
+    (ert-skip "magit-section not available"))
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((agent-buffer (ogent-armory-agent root "cto"))
+          (conversation-buffer
+           (ogent-armory-conversation
+            root
+            (expand-file-name ".agents/cto/sessions/weekly-review-run.org"
+                              root))))
+      (unwind-protect
+          (progn
+            (with-current-buffer agent-buffer
+              (goto-char (point-min))
+              (search-forward "Inbox")
+              (beginning-of-line)
+              (let ((section (magit-current-section)))
+                (should section)
+                (ogent-armory-ui-toggle-section)
+                (should (oref section hidden))))
+            (with-current-buffer conversation-buffer
+              (goto-char (point-min))
+              (search-forward "Prompt")
+              (beginning-of-line)
+              (let ((section (magit-current-section)))
+                (should section)
+                (ogent-armory-ui-toggle-section)
+                (should (oref section hidden)))))
+        (dolist (buffer (list agent-buffer conversation-buffer))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
 
 (ert-deftest ogent-ui-armory-home-runs-and-edits-active-job ()
   "Armory Home can run a job and jump straight to its prompt."
@@ -191,6 +374,7 @@
         (should (string-match-p "Armory Home" text))
         (should (string-match-p "R runs" text))
         (should (string-match-p "j opens Jobs" text))
+        (should (string-match-p "TAB toggles" text))
         (should (string-match-p "m opens the Transient menu" text)))))
   (unwind-protect
       (progn

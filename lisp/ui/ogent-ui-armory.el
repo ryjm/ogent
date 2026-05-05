@@ -16,11 +16,38 @@
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
 
+(eval-and-compile
+  (defvar ogent-armory-ui--magit-section-available
+    (require 'magit-section nil t)
+    "Non-nil when `magit-section' is available for Armory UI buffers.")
+  (when ogent-armory-ui--magit-section-available
+    (require 'magit-section)))
+
 (autoload 'ogent-armory-status "ogent-armory-status" nil t)
 
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function evil-local-set-key "ext:evil-core")
+(declare-function evil-goto-first-line "ext:evil-commands")
+(declare-function evil-goto-line "ext:evil-commands")
+(declare-function evil-next-line "ext:evil-commands")
+(declare-function evil-previous-line "ext:evil-commands")
+(declare-function magit-current-section "ext:magit-section")
+(declare-function magit-insert-heading "ext:magit-section")
+(declare-function magit-insert-section--create "ext:magit-section")
+(declare-function magit-insert-section--finish "ext:magit-section")
+(declare-function magit-section-backward-sibling "ext:magit-section")
+(declare-function magit-section-cycle-global "ext:magit-section")
+(declare-function magit-section-forward-sibling "ext:magit-section")
+(declare-function magit-section-toggle "ext:magit-section")
+(declare-function magit-section-up "ext:magit-section")
+(defvar magit-section-mode-map)
+(defvar magit-section-visibility-indicator)
+(defvar magit-insert-section--current)
+(defvar magit-insert-section--oldroot)
+(defvar magit-insert-section--parent)
+(defvar magit-root-section)
 
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."
@@ -330,9 +357,125 @@
           (setq ogent-armory-home--root root)
           (ogent-armory-home-refresh))))))
 
+(defun ogent-armory-ui--heading-text (label)
+  "Return Armory section heading LABEL."
+  (propertize label 'face 'ogent-armory-ui-heading))
+
 (defun ogent-armory-ui--insert-heading (label)
   "Insert Armory section heading LABEL."
-  (insert (propertize label 'face 'ogent-armory-ui-heading) "\n"))
+  (insert (ogent-armory-ui--heading-text label) "\n"))
+
+(defun ogent-armory-ui--refresh-magit-section-availability ()
+  "Refresh `magit-section' availability for Armory UI buffers."
+  (setq ogent-armory-ui--magit-section-available
+        (or ogent-armory-ui--magit-section-available
+            (require 'magit-section nil t)))
+  (when (and ogent-armory-ui--magit-section-available
+             (not (featurep 'magit-section)))
+    (require 'magit-section))
+  ogent-armory-ui--magit-section-available)
+
+(defun ogent-armory-ui--magit-section-usable-p ()
+  "Return non-nil when Magit section APIs are usable."
+  (and (ogent-armory-ui--refresh-magit-section-availability)
+       (fboundp 'magit-current-section)
+       (fboundp 'magit-insert-heading)
+       (fboundp 'magit-section-toggle)
+       (fboundp 'magit-section-forward-sibling)
+       (fboundp 'magit-section-backward-sibling)))
+
+(defmacro ogent-armory-ui--with-section (section heading &rest body)
+  "Insert collapsible SECTION with HEADING around BODY when Magit is present."
+  (declare (indent 2) (debug t))
+  (let ((type (car section)))
+    `(if (ogent-armory-ui--magit-section-usable-p)
+         (let* ((section (magit-insert-section--create ',type nil nil))
+                (magit-insert-section--current section)
+                (magit-insert-section--oldroot
+                 (or magit-insert-section--oldroot
+                     (and (not magit-insert-section--parent)
+                          (prog1 magit-root-section
+                            (setq magit-root-section section)))))
+                (magit-insert-section--parent section))
+           (catch 'cancel-section
+             (magit-insert-heading ,heading)
+             ,@body
+             (magit-insert-section--finish section))
+           section)
+       (insert ,heading "\n")
+       ,@body)))
+
+(defmacro ogent-armory-ui--with-root-section (section &rest body)
+  "Insert root SECTION around BODY when Magit is present."
+  (declare (indent 1) (debug t))
+  (let ((type (car section)))
+    `(if (ogent-armory-ui--magit-section-usable-p)
+         (let* ((section (magit-insert-section--create ',type nil nil))
+                (magit-insert-section--current section)
+                (magit-insert-section--oldroot
+                 (or magit-insert-section--oldroot
+                     (and (not magit-insert-section--parent)
+                          (prog1 magit-root-section
+                            (setq magit-root-section section)))))
+                (magit-insert-section--parent section))
+           (catch 'cancel-section
+             ,@body
+             (magit-insert-section--finish section))
+           section)
+       ,@body)))
+
+(defmacro ogent-armory-ui--define-section-mode (mode name docstring &rest body)
+  "Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
+  (declare (indent 3) (debug t))
+  (let ((parent (if (bound-and-true-p ogent-armory-ui--magit-section-available)
+                    'magit-section-mode
+                  'special-mode)))
+    `(define-derived-mode ,mode ,parent ,name ,docstring
+       :group 'ogent-ui-armory
+       ,@body)))
+
+(defun ogent-armory-ui-toggle-section ()
+  "Toggle the current Armory UI section."
+  (interactive)
+  (if (ogent-armory-ui--magit-section-usable-p)
+      (if-let ((section (magit-current-section)))
+          (condition-case err
+              (magit-section-toggle section)
+            (user-error (message "%s" (error-message-string err))))
+        (message "No section at point"))
+    (message "Section toggling requires magit-section")))
+
+(defun ogent-armory-ui-cycle-sections ()
+  "Cycle visibility for all Armory UI sections."
+  (interactive)
+  (if (and (ogent-armory-ui--magit-section-usable-p)
+           (fboundp 'magit-section-cycle-global))
+      (magit-section-cycle-global)
+    (message "Section cycling requires magit-section")))
+
+(defun ogent-armory-ui-next-section ()
+  "Move to the next sibling Armory UI section."
+  (interactive)
+  (when (ogent-armory-ui--magit-section-usable-p)
+    (magit-section-forward-sibling)))
+
+(defun ogent-armory-ui-previous-section ()
+  "Move to the previous sibling Armory UI section."
+  (interactive)
+  (when (ogent-armory-ui--magit-section-usable-p)
+    (magit-section-backward-sibling)))
+
+(defun ogent-armory-ui-up-section ()
+  "Move to the parent Armory UI section."
+  (interactive)
+  (when (and (ogent-armory-ui--magit-section-usable-p)
+             (fboundp 'magit-section-up))
+    (magit-section-up)))
+
+(defun ogent-armory-ui--configure-section-buffer ()
+  "Configure local Magit section affordances for the current buffer."
+  (when (ogent-armory-ui--magit-section-usable-p)
+    (setq-local magit-section-visibility-indicator '("..." . t))))
 
 (defun ogent-armory-ui--insert-kv (label value)
   "Insert LABEL and VALUE as one detail line."
@@ -344,6 +487,31 @@
   (or (get-text-property (point) 'ogent-armory-item)
       (get-text-property (line-beginning-position) 'ogent-armory-item)
       (tabulated-list-get-id)))
+
+(defun ogent-armory-ui--visible-property-position (property direction)
+  "Return the next visible position with PROPERTY in DIRECTION.
+DIRECTION is either `next' or `previous'."
+  (let ((limit (if (eq direction 'next) (point-max) (point-min)))
+        (pos (point))
+        found)
+    (while (and (not found)
+                (if (eq direction 'next)
+                    (< pos limit)
+                  (> pos limit)))
+      (setq pos
+            (if (eq direction 'next)
+                (next-single-property-change pos property nil limit)
+              (previous-single-property-change pos property nil limit)))
+      (when pos
+        (when (eq direction 'previous)
+          (setq pos (max (point-min) (1- pos))))
+        (if (and (get-text-property pos property)
+                 (not (invisible-p pos)))
+            (setq found pos)
+          (setq pos (if (eq direction 'next)
+                        (min (point-max) (1+ pos))
+                      (max (point-min) (1- pos)))))))
+    found))
 
 (defun ogent-armory-ui--insert-item-line (item text)
   "Insert TEXT with Armory ITEM metadata."
@@ -370,6 +538,12 @@
     (define-key map "J" #'ogent-armory-home-open-jobs)
     (define-key map "R" #'ogent-armory-home-run)
     (define-key map "E" #'ogent-armory-home-edit-item)
+    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
+    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
+    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
+    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
     (define-key map "a" #'ogent-armory-agents)
     (define-key map "t" #'ogent-armory-tasks)
     (define-key map "c" #'ogent-armory-conversations)
@@ -382,17 +556,17 @@
     map)
   "Keymap for `ogent-armory-home-mode'.")
 
-(define-derived-mode ogent-armory-home-mode special-mode "Armory-Home"
+(ogent-armory-ui--define-section-mode ogent-armory-home-mode "Armory-Home"
   "Major mode for Armory Home."
-  :group 'ogent-ui-armory
   (setq-local revert-buffer-function #'ogent-armory-home-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
+  (ogent-armory-ui--configure-section-buffer)
   (setq-local header-line-format (ogent-armory-home--header-line)))
 
 (defun ogent-armory-home--header-line ()
   "Return header line for Armory Home."
-  "m menu  ? help  RET visit  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  R run  E edit item  e Edit Armory  n/p move")
+  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  R run  E edit item  e Edit Armory  n/p move")
 
 ;;;###autoload
 (defun ogent-armory-home (&optional directory)
@@ -428,6 +602,11 @@
 
 (defun ogent-armory-home--insert-buffer ()
   "Insert Armory Home contents."
+  (ogent-armory-ui--with-root-section (ogent-armory-home-root)
+    (ogent-armory-home--insert-buffer-content)))
+
+(defun ogent-armory-home--insert-buffer-content ()
+  "Insert Armory Home content sections."
   (let* ((root ogent-armory-home--root)
          (index (ogent-armory-read-index root))
          (agents (ogent-armory-ui--agent-slugs root))
@@ -463,70 +642,75 @@
                                          (plist-get index :tags)))
     (ogent-armory-ui--insert-kv "Description" (plist-get index :description))
     (insert "\n")
-    (ogent-armory-ui--insert-heading "Health")
-    (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n\n"
-                    (length agents)
-                    (length (seq-filter (lambda (job)
-                                          (and (plist-get job :enabled)
-                                               (not (plist-get job :archived))))
-                                        jobs))
-                    (length failed)
-                    (length running)
-                    (length archived)
-                    (length apps)))
-    (ogent-armory-ui--insert-heading "Navigate")
-    (ogent-armory-home--insert-nav "Agents" "a" #'ogent-armory-agents)
-    (ogent-armory-home--insert-nav "Jobs" "j" #'ogent-armory-jobs)
-    (ogent-armory-home--insert-nav "Tasks" "t" #'ogent-armory-tasks)
-    (ogent-armory-home--insert-nav "Conversations" "c" #'ogent-armory-conversations)
-    (ogent-armory-home--insert-nav "Search" "s" #'ogent-armory-search)
-    (ogent-armory-home--insert-nav "Apps" "A" #'ogent-armory-apps)
-    (ogent-armory-home--insert-nav "Graph" "G" #'ogent-armory-status)
-    (ogent-armory-ui--insert-item-line
-     (list :type 'file :path (ogent-armory-index-file root))
-     "  [e] Settings")
-    (ogent-armory-ui--insert-item-line
-     (list :type 'file :path (ogent-armory-index-file root))
-     "  Source Org")
+    (ogent-armory-ui--with-section (ogent-armory-home-health)
+        (ogent-armory-ui--heading-text "Health")
+      (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n"
+                      (length agents)
+                      (length (seq-filter (lambda (job)
+                                            (and (plist-get job :enabled)
+                                                 (not (plist-get job :archived))))
+                                          jobs))
+                      (length failed)
+                      (length running)
+                      (length archived)
+                      (length apps))))
+    (insert "\n")
+    (ogent-armory-ui--with-section (ogent-armory-home-navigate)
+        (ogent-armory-ui--heading-text "Navigate")
+      (ogent-armory-home--insert-nav "Agents" "a" #'ogent-armory-agents)
+      (ogent-armory-home--insert-nav "Jobs" "j" #'ogent-armory-jobs)
+      (ogent-armory-home--insert-nav "Tasks" "t" #'ogent-armory-tasks)
+      (ogent-armory-home--insert-nav "Conversations" "c" #'ogent-armory-conversations)
+      (ogent-armory-home--insert-nav "Search" "s" #'ogent-armory-search)
+      (ogent-armory-home--insert-nav "Apps" "A" #'ogent-armory-apps)
+      (ogent-armory-home--insert-nav "Graph" "G" #'ogent-armory-status)
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path (ogent-armory-index-file root))
+       "  [e] Settings")
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path (ogent-armory-index-file root))
+       "  Source Org"))
     (insert "\n")
     (ogent-armory-home--insert-active-jobs jobs root)
     (insert "\n")
-    (ogent-armory-ui--insert-heading "Recent Activity")
-    (if sessions
-        (dolist (session (seq-take sessions 5))
-          (ogent-armory-ui--insert-item-line
-           (list :type 'session :path (plist-get session :path)
-                 :agent (plist-get session :agent)
-                 :job-id (plist-get session :job-id))
-           (format "  %s  %s  %s"
-                   (or (plist-get session :status) "")
-                   (or (plist-get session :name) "")
-                   (or (plist-get session :finished) ""))))
-      (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim)))
-    (insert "\n")
-    (ogent-armory-ui--insert-heading "Needs Attention")
-    (if (or failed stale missing-persona)
-        (progn
-          (dolist (session failed)
+    (ogent-armory-ui--with-section (ogent-armory-home-recent)
+        (ogent-armory-ui--heading-text "Recent Activity")
+      (if sessions
+          (dolist (session (seq-take sessions 5))
             (ogent-armory-ui--insert-item-line
              (list :type 'session :path (plist-get session :path)
                    :agent (plist-get session :agent)
                    :job-id (plist-get session :job-id))
-             (format "  failed session  %s" (plist-get session :name))))
-          (dolist (job stale)
-            (ogent-armory-ui--insert-item-line
-             (list :type 'job :agent (plist-get job :agent)
-                   :job-id (plist-get job :id)
-                   :path (ogent-armory-job-file root
-                                                (plist-get job :agent)
-                                                (plist-get job :id)))
-             (format "  stale job       %s" (plist-get job :name))))
-          (dolist (slug missing-persona)
-            (ogent-armory-ui--insert-item-line
-             (list :type 'agent :agent slug
-                   :path (ogent-armory-agent-file root slug))
-             (format "  missing persona %s" slug))))
-      (insert (propertize "  Nothing needs attention\n" 'face 'ogent-armory-ui-good)))))
+             (format "  %s  %s  %s"
+                     (or (plist-get session :status) "")
+                     (or (plist-get session :name) "")
+                     (or (plist-get session :finished) ""))))
+        (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim))))
+    (insert "\n")
+    (ogent-armory-ui--with-section (ogent-armory-home-attention)
+        (ogent-armory-ui--heading-text "Needs Attention")
+      (if (or failed stale missing-persona)
+          (progn
+            (dolist (session failed)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'session :path (plist-get session :path)
+                     :agent (plist-get session :agent)
+                     :job-id (plist-get session :job-id))
+               (format "  failed session  %s" (plist-get session :name))))
+            (dolist (job stale)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'job :agent (plist-get job :agent)
+                     :job-id (plist-get job :id)
+                     :path (ogent-armory-job-file root
+                                                  (plist-get job :agent)
+                                                  (plist-get job :id)))
+               (format "  stale job       %s" (plist-get job :name))))
+            (dolist (slug missing-persona)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'agent :agent slug
+                     :path (ogent-armory-agent-file root slug))
+               (format "  missing persona %s" slug))))
+        (insert (propertize "  Nothing needs attention\n" 'face 'ogent-armory-ui-good))))))
 
 (defun ogent-armory-home--insert-active-jobs (jobs root)
   "Insert active development JOBS for ROOT."
@@ -534,23 +718,24 @@
                               (and (plist-get job :enabled)
                                    (not (plist-get job :archived))))
                             jobs)))
-    (ogent-armory-ui--insert-heading "Active Jobs")
-    (if active
-        (dolist (job active)
-          (let ((agent (plist-get job :agent))
-                (job-id (plist-get job :id)))
-            (ogent-armory-ui--insert-item-line
-             (list :type 'job
-                   :agent agent
-                   :job-id job-id
-                   :path (ogent-armory-job-file root agent job-id))
-             (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
-                     agent
-                     (or (plist-get job :name) job-id)
-                     (or (plist-get job :cron)
-                         (plist-get job :heartbeat)
-                         "manual")))))
-      (insert (propertize "  No active jobs\n" 'face 'ogent-armory-ui-dim)))))
+    (ogent-armory-ui--with-section (ogent-armory-home-active-jobs)
+        (ogent-armory-ui--heading-text "Active Jobs")
+      (if active
+          (dolist (job active)
+            (let ((agent (plist-get job :agent))
+                  (job-id (plist-get job :id)))
+              (ogent-armory-ui--insert-item-line
+               (list :type 'job
+                     :agent agent
+                     :job-id job-id
+                     :path (ogent-armory-job-file root agent job-id))
+               (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
+                       agent
+                       (or (plist-get job :name) job-id)
+                       (or (plist-get job :cron)
+                           (plist-get job :heartbeat)
+                           "manual")))))
+        (insert (propertize "  No active jobs\n" 'face 'ogent-armory-ui-dim))))))
 
 (defun ogent-armory-home-visit ()
   "Visit or dispatch the item at point in Armory Home."
@@ -642,7 +827,9 @@
     (princ "Navigation\n")
     (princ "----------\n")
     (princ "a Agents, t Tasks, c Conversations, s Search, A Apps, G Graph.\n")
-    (princ "n and p move between actionable rows. g refreshes. q quits.\n\n")
+    (princ "n and p move between actionable rows. g refreshes. q quits.\n")
+    (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
+    (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
     (princ "m opens the Transient menu. ? opens this help buffer.\n")))
@@ -668,6 +855,10 @@
     ("E" "Edit selected" ogent-armory-home-edit-item)]
    ["Navigate"
     ("RET" "Visit selected" ogent-armory-home-visit)
+    ("TAB" "Toggle section" ogent-armory-ui-toggle-section :transient t)
+    ("M-n" "Next section" ogent-armory-ui-next-section :transient t)
+    ("M-p" "Previous section" ogent-armory-ui-previous-section :transient t)
+    ("^" "Up section" ogent-armory-ui-up-section :transient t)
     ("n" "Next item" ogent-armory-home-next-item :transient t)
     ("p" "Previous item" ogent-armory-home-previous-item :transient t)
     ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
@@ -686,26 +877,20 @@
 (defun ogent-armory-home-next-item ()
   "Move point to the next actionable Armory Home item."
   (interactive)
-  (let ((next (next-single-property-change
-               (point) 'ogent-armory-item nil (point-max))))
+  (let ((next (ogent-armory-ui--visible-property-position
+               'ogent-armory-item
+               'next)))
     (when next
-      (goto-char next)
-      (unless (get-text-property (point) 'ogent-armory-item)
-        (setq next (next-single-property-change
-                    (point) 'ogent-armory-item nil (point-max)))
-        (when next (goto-char next))))))
+      (goto-char next))))
 
 (defun ogent-armory-home-previous-item ()
   "Move point to the previous actionable Armory Home item."
   (interactive)
-  (let ((previous (previous-single-property-change
-                   (point) 'ogent-armory-item nil (point-min))))
+  (let ((previous (ogent-armory-ui--visible-property-position
+                   'ogent-armory-item
+                   'previous)))
     (when previous
-      (goto-char (max (point-min) (1- previous)))
-      (unless (get-text-property (point) 'ogent-armory-item)
-        (setq previous (previous-single-property-change
-                        (point) 'ogent-armory-item nil (point-min)))
-        (when previous (goto-char (max (point-min) (1- previous))))))))
+      (goto-char previous))))
 
 ;;; Agent List
 
@@ -836,23 +1021,29 @@
     (define-key map "R" #'ogent-armory-agent-run-at-point)
     (define-key map "v" #'ogent-armory-agent-visit)
     (define-key map "g" #'ogent-armory-agent-refresh)
+    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
+    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
+    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
+    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
     (define-key map "t" #'ogent-armory-tasks)
     (define-key map "s" #'ogent-armory-search)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-agent-mode'.")
 
-(define-derived-mode ogent-armory-agent-mode special-mode "Armory-Agent"
+(ogent-armory-ui--define-section-mode ogent-armory-agent-mode "Armory-Agent"
   "Major mode for a single Armory agent profile."
-  :group 'ogent-ui-armory
   (setq-local revert-buffer-function #'ogent-armory-agent-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
+  (ogent-armory-ui--configure-section-buffer)
   (setq header-line-format '(:eval (ogent-armory-agent--header-line))))
 
 (defun ogent-armory-agent--header-line ()
   "Return header text for the current Armory agent buffer."
-  (format "g refresh  RET/v visit  c compose  e edit  R run/retry  t tasks  s search  q quit    %s/%s"
+  (format "g refresh  RET/v visit  TAB section  M-n/p sections  c compose  e edit  R run/retry  t tasks  s search  q quit    %s/%s"
           (or (and ogent-armory-agent--root
                    (ogent-armory-ui--root-label ogent-armory-agent--root))
               "?")
@@ -891,6 +1082,11 @@
 
 (defun ogent-armory-agent--insert-buffer ()
   "Insert the current Armory agent profile."
+  (ogent-armory-ui--with-root-section (ogent-armory-agent-root)
+    (ogent-armory-agent--insert-buffer-content)))
+
+(defun ogent-armory-agent--insert-buffer-content ()
+  "Insert the current Armory agent profile sections."
   (let* ((root ogent-armory-agent--root)
          (slug ogent-armory-agent--slug)
          (agent (ogent-armory-read-agent root slug))
@@ -902,9 +1098,11 @@
     (insert (propertize (or (plist-get agent :role) "Agent")
                         'face 'ogent-armory-ui-dim)
             "\n\n")
-    (ogent-armory-ui--insert-heading "Composer")
-    (insert "  c compose instruction and run this agent\n")
-    (insert "  R run job or session at point\n\n")
+    (ogent-armory-ui--with-section (ogent-armory-agent-composer)
+        (ogent-armory-ui--heading-text "Composer")
+      (insert "  c compose instruction and run this agent\n")
+      (insert "  R run job or session at point\n"))
+    (insert "\n")
     (ogent-armory-agent--insert-inbox jobs)
     (ogent-armory-agent--insert-conversations sessions)
     (ogent-armory-agent--insert-recent-work sessions)
@@ -916,10 +1114,68 @@
 
 (defun ogent-armory-agent--insert-inbox (jobs)
   "Insert Inbox section from JOBS."
-  (ogent-armory-ui--insert-heading "Inbox")
-  (let ((enabled (seq-filter (lambda (job) (plist-get job :enabled)) jobs)))
-    (if enabled
-        (dolist (job enabled)
+  (ogent-armory-ui--with-section (ogent-armory-agent-inbox)
+      (ogent-armory-ui--heading-text "Inbox")
+    (let ((enabled (seq-filter (lambda (job) (plist-get job :enabled)) jobs)))
+      (if enabled
+          (dolist (job enabled)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'job
+                   :agent (plist-get job :agent)
+                   :job-id (plist-get job :id)
+                   :path (ogent-armory-job-file
+                          ogent-armory-agent--root
+                          (plist-get job :agent)
+                          (plist-get job :id)))
+             (format "  TODO %s  %s"
+                     (or (plist-get job :name) (plist-get job :id))
+                     (or (plist-get job :cron) "manual"))))
+        (insert (propertize "  No enabled jobs\n" 'face 'ogent-armory-ui-dim)))))
+  (insert "\n"))
+
+(defun ogent-armory-agent--insert-conversations (sessions)
+  "Insert Conversations section from SESSIONS."
+  (ogent-armory-ui--with-section (ogent-armory-agent-conversations)
+      (ogent-armory-ui--heading-text "Conversations")
+    (if sessions
+        (dolist (session sessions)
+          (ogent-armory-ui--insert-item-line
+           (list :type 'session
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id)
+                 :path (plist-get session :path))
+           (format "  %s  %s  %s"
+                   (or (plist-get session :status) "DONE")
+                   (or (plist-get session :name) (plist-get session :id))
+                   (or (plist-get session :finished) ""))))
+      (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim))))
+  (insert "\n"))
+
+(defun ogent-armory-agent--insert-recent-work (sessions)
+  "Insert Recent Work section from SESSIONS."
+  (ogent-armory-ui--with-section (ogent-armory-agent-recent-work)
+      (ogent-armory-ui--heading-text "Recent Work")
+    (let ((recent (seq-take sessions 5)))
+      (if recent
+          (dolist (session recent)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'session
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id)
+                   :path (plist-get session :path))
+             (format "  %s  %s"
+                     (or (plist-get session :status) "DONE")
+                     (or (plist-get session :name)
+                         (plist-get session :id)))))
+        (insert (propertize "  No recent work\n" 'face 'ogent-armory-ui-dim)))))
+  (insert "\n"))
+
+(defun ogent-armory-agent--insert-schedule (jobs)
+  "Insert Schedule section from JOBS."
+  (ogent-armory-ui--with-section (ogent-armory-agent-schedule)
+      (ogent-armory-ui--heading-text "Schedule")
+    (if jobs
+        (dolist (job jobs)
           (ogent-armory-ui--insert-item-line
            (list :type 'job
                  :agent (plist-get job :agent)
@@ -928,109 +1184,59 @@
                         ogent-armory-agent--root
                         (plist-get job :agent)
                         (plist-get job :id)))
-           (format "  TODO %s  %s"
+           (format "  %s  %s  %s"
+                   (if (plist-get job :enabled) "enabled" "disabled")
                    (or (plist-get job :name) (plist-get job :id))
                    (or (plist-get job :cron) "manual"))))
-      (insert (propertize "  No enabled jobs\n" 'face 'ogent-armory-ui-dim))))
-  (insert "\n"))
-
-(defun ogent-armory-agent--insert-conversations (sessions)
-  "Insert Conversations section from SESSIONS."
-  (ogent-armory-ui--insert-heading "Conversations")
-  (if sessions
-      (dolist (session sessions)
-        (ogent-armory-ui--insert-item-line
-         (list :type 'session
-               :agent (plist-get session :agent)
-               :job-id (plist-get session :job-id)
-               :path (plist-get session :path))
-         (format "  %s  %s  %s"
-                 (or (plist-get session :status) "DONE")
-                 (or (plist-get session :name) (plist-get session :id))
-                 (or (plist-get session :finished) ""))))
-    (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim)))
-  (insert "\n"))
-
-(defun ogent-armory-agent--insert-recent-work (sessions)
-  "Insert Recent Work section from SESSIONS."
-  (ogent-armory-ui--insert-heading "Recent Work")
-  (let ((recent (seq-take sessions 5)))
-    (if recent
-        (dolist (session recent)
-          (ogent-armory-ui--insert-item-line
-           (list :type 'session
-                 :agent (plist-get session :agent)
-                 :job-id (plist-get session :job-id)
-                 :path (plist-get session :path))
-           (format "  %s  %s"
-                   (or (plist-get session :status) "DONE")
-                   (or (plist-get session :name)
-                       (plist-get session :id)))))
-      (insert (propertize "  No recent work\n" 'face 'ogent-armory-ui-dim))))
-  (insert "\n"))
-
-(defun ogent-armory-agent--insert-schedule (jobs)
-  "Insert Schedule section from JOBS."
-  (ogent-armory-ui--insert-heading "Schedule")
-  (if jobs
-      (dolist (job jobs)
-        (ogent-armory-ui--insert-item-line
-         (list :type 'job
-               :agent (plist-get job :agent)
-               :job-id (plist-get job :id)
-               :path (ogent-armory-job-file
-                      ogent-armory-agent--root
-                      (plist-get job :agent)
-                      (plist-get job :id)))
-         (format "  %s  %s  %s"
-                 (if (plist-get job :enabled) "enabled" "disabled")
-                 (or (plist-get job :name) (plist-get job :id))
-                 (or (plist-get job :cron) "manual"))))
-    (insert (propertize "  No scheduled jobs\n" 'face 'ogent-armory-ui-dim)))
+      (insert (propertize "  No scheduled jobs\n" 'face 'ogent-armory-ui-dim))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-memory (root slug)
   "Insert Memory section for agent SLUG under ROOT."
-  (ogent-armory-ui--insert-heading "Memory")
-  (dolist (file (list (ogent-armory-agent-memory-file root slug "context.org")
-                      (ogent-armory-agent-memory-file root slug "decisions.org")
-                      (ogent-armory-agent-memory-file root slug "learnings.org")
-                      (ogent-armory-agent-inbox-file root slug)
-                      (ogent-armory-agent-schedule-file root slug)))
-    (ogent-armory-ui--insert-item-line
-     (list :type 'file :path file)
-     (format "  %s" (file-relative-name file (ogent-armory-agent-directory
-                                             root slug)))))
+  (ogent-armory-ui--with-section (ogent-armory-agent-memory)
+      (ogent-armory-ui--heading-text "Memory")
+    (dolist (file (list (ogent-armory-agent-memory-file root slug "context.org")
+                        (ogent-armory-agent-memory-file root slug "decisions.org")
+                        (ogent-armory-agent-memory-file root slug "learnings.org")
+                        (ogent-armory-agent-inbox-file root slug)
+                        (ogent-armory-agent-schedule-file root slug)))
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path file)
+       (format "  %s" (file-relative-name file (ogent-armory-agent-directory
+                                               root slug))))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-tools (agent)
   "Insert Tools/Permissions section from AGENT."
-  (ogent-armory-ui--insert-heading "Tools/Permissions")
-  (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
-  (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
-  (ogent-armory-ui--insert-kv "Permission" (plist-get agent :permission-mode))
+  (ogent-armory-ui--with-section (ogent-armory-agent-tools)
+      (ogent-armory-ui--heading-text "Tools/Permissions")
+    (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
+    (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
+    (ogent-armory-ui--insert-kv "Permission" (plist-get agent :permission-mode)))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-details (agent)
   "Insert Details section from AGENT."
-  (ogent-armory-ui--insert-heading "Details")
-  (ogent-armory-ui--insert-kv "Slug" (plist-get agent :slug))
-  (ogent-armory-ui--insert-kv "Role" (plist-get agent :role))
-  (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
-  (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
-  (ogent-armory-ui--insert-kv "Heartbeat" (plist-get agent :heartbeat))
-  (ogent-armory-ui--insert-kv "Active" (if (plist-get agent :active) "t" "nil"))
-  (ogent-armory-ui--insert-kv "Workspace" (plist-get agent :workspace))
-  (ogent-armory-ui--insert-kv "Tags" (string-join (or (plist-get agent :tags) nil) ", "))
+  (ogent-armory-ui--with-section (ogent-armory-agent-details)
+      (ogent-armory-ui--heading-text "Details")
+    (ogent-armory-ui--insert-kv "Slug" (plist-get agent :slug))
+    (ogent-armory-ui--insert-kv "Role" (plist-get agent :role))
+    (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
+    (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
+    (ogent-armory-ui--insert-kv "Heartbeat" (plist-get agent :heartbeat))
+    (ogent-armory-ui--insert-kv "Active" (if (plist-get agent :active) "t" "nil"))
+    (ogent-armory-ui--insert-kv "Workspace" (plist-get agent :workspace))
+    (ogent-armory-ui--insert-kv "Tags" (string-join (or (plist-get agent :tags) nil) ", ")))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-persona (agent)
   "Insert Persona Instructions section from AGENT."
-  (ogent-armory-ui--insert-heading "Persona Instructions")
-  (let ((body (plist-get agent :body)))
-    (if (and body (not (string-blank-p body)))
-        (insert body "\n")
-      (insert (propertize "No persona instructions.\n" 'face 'ogent-armory-ui-dim)))))
+  (ogent-armory-ui--with-section (ogent-armory-agent-persona)
+      (ogent-armory-ui--heading-text "Persona Instructions")
+    (let ((body (plist-get agent :body)))
+      (if (and body (not (string-blank-p body)))
+          (insert body "\n")
+        (insert (propertize "No persona instructions.\n" 'face 'ogent-armory-ui-dim))))))
 
 (defun ogent-armory-agent-visit ()
   "Visit the Armory item at point or this agent's persona file."
@@ -1844,19 +2050,25 @@
     (define-key map "A" #'ogent-armory-conversation-archive)
     (define-key map "U" #'ogent-armory-conversation-unarchive)
     (define-key map "g" #'ogent-armory-conversation-refresh)
+    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
+    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
+    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
+    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
+    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-conversation-mode'.")
 
-(define-derived-mode ogent-armory-conversation-mode special-mode
+(ogent-armory-ui--define-section-mode ogent-armory-conversation-mode
   "Armory-Conversation"
   "Major mode for a single Armory conversation."
-  :group 'ogent-ui-armory
   (setq-local revert-buffer-function #'ogent-armory-conversation-refresh)
   (setq-local truncate-lines nil)
   (setq-local buffer-read-only t)
+  (ogent-armory-ui--configure-section-buffer)
   (setq header-line-format
-        "RET/v source  R retry/resume  A archive  U unarchive  g refresh  q quit"))
+        "RET/v source  TAB section  M-n/p sections  R retry/resume  A archive  U unarchive  g refresh  q quit"))
 
 ;;;###autoload
 (defun ogent-armory-conversation (&optional directory file)
@@ -1898,43 +2110,59 @@
 
 (defun ogent-armory-conversation--insert-buffer ()
   "Insert the current conversation detail."
+  (ogent-armory-ui--with-root-section (ogent-armory-conversation-root)
+    (ogent-armory-conversation--insert-buffer-content)))
+
+(defun ogent-armory-conversation--insert-buffer-content ()
+  "Insert the current conversation detail sections."
   (let ((detail (ogent-armory-session-detail ogent-armory-conversation--file)))
     (insert (propertize (or (plist-get detail :name)
                             (plist-get detail :id))
                         'face 'ogent-armory-ui-heading)
             "\n\n")
-    (ogent-armory-ui--insert-heading "Metadata")
-    (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
-    (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
-    (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
-    (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
-    (ogent-armory-ui--insert-kv "Exit status"
-                                 (when (plist-get detail :exit-status)
-                                   (number-to-string
-                                    (plist-get detail :exit-status))))
-    (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
-    (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
+    (ogent-armory-ui--with-section (ogent-armory-conversation-metadata)
+        (ogent-armory-ui--heading-text "Metadata")
+      (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
+      (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
+      (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
+      (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
+      (ogent-armory-ui--insert-kv "Exit status"
+                                   (when (plist-get detail :exit-status)
+                                     (number-to-string
+                                      (plist-get detail :exit-status))))
+      (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
+      (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished)))
     (insert "\n")
-    (ogent-armory-ui--insert-heading "Prompt")
-    (insert (or (plist-get detail :prompt) "") "\n\n")
-    (ogent-armory-ui--insert-heading "Output")
-    (insert (or (plist-get detail :output) "") "\n\n")
+    (ogent-armory-ui--with-section (ogent-armory-conversation-prompt)
+        (ogent-armory-ui--heading-text "Prompt")
+      (insert (or (plist-get detail :prompt) "") "\n"))
+    (insert "\n")
+    (ogent-armory-ui--with-section (ogent-armory-conversation-output)
+        (ogent-armory-ui--heading-text "Output")
+      (insert (or (plist-get detail :output) "") "\n"))
+    (insert "\n")
     (when (plist-get detail :tools)
-      (ogent-armory-ui--insert-heading "Tool Blocks")
-      (dolist (tool (plist-get detail :tools))
-        (insert (format "  %s\n%s\n" (plist-get tool :header)
-                        (plist-get tool :body))))
+      (ogent-armory-ui--with-section (ogent-armory-conversation-tools)
+          (ogent-armory-ui--heading-text "Tool Blocks")
+        (dolist (tool (plist-get detail :tools))
+          (insert (format "  %s\n%s\n" (plist-get tool :header)
+                          (plist-get tool :body)))))
       (insert "\n"))
     (when (ogent-armory--blank-to-nil (plist-get detail :runtime-trace))
-      (ogent-armory-ui--insert-heading "Runtime Trace")
-      (insert (plist-get detail :runtime-trace) "\n\n"))
+      (ogent-armory-ui--with-section (ogent-armory-conversation-runtime-trace)
+          (ogent-armory-ui--heading-text "Runtime Trace")
+        (insert (plist-get detail :runtime-trace) "\n"))
+      (insert "\n"))
     (when (ogent-armory--blank-to-nil (plist-get detail :error))
-      (ogent-armory-ui--insert-heading "Error")
-      (insert (plist-get detail :error) "\n\n"))
-    (ogent-armory-ui--insert-heading "Source Org")
-    (ogent-armory-ui--insert-item-line
-     (list :type 'file :path (plist-get detail :path))
-     (format "  %s" (plist-get detail :path)))))
+      (ogent-armory-ui--with-section (ogent-armory-conversation-error)
+          (ogent-armory-ui--heading-text "Error")
+        (insert (plist-get detail :error) "\n"))
+      (insert "\n"))
+    (ogent-armory-ui--with-section (ogent-armory-conversation-source)
+        (ogent-armory-ui--heading-text "Source Org")
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path (plist-get detail :path))
+       (format "  %s" (plist-get detail :path))))))
 
 (defun ogent-armory-conversation-visit-source ()
   "Visit the Org source for this conversation."
@@ -2163,6 +2391,64 @@
       (browse-url-of-file path)
       path)))
 
+(defun ogent-armory-ui--section-keymaps ()
+  "Return Armory UI keymaps that contain collapsible sections."
+  (list ogent-armory-home-mode-map
+        ogent-armory-agent-mode-map
+        ogent-armory-conversation-mode-map))
+
+(defun ogent-armory-ui--setup-section-keymaps ()
+  "Wire Magit section parent keymaps into section-capable Armory buffers."
+  (when (and (ogent-armory-ui--magit-section-usable-p)
+             (boundp 'magit-section-mode-map))
+    (dolist (map (ogent-armory-ui--section-keymaps))
+      (set-keymap-parent map magit-section-mode-map))))
+
+(ogent-armory-ui--setup-section-keymaps)
+
+(with-eval-after-load 'magit-section
+  (ogent-armory-ui--setup-section-keymaps))
+
+(defun ogent-armory-ui--evil-refresh-command ()
+  "Return the refresh command for the current Armory UI mode."
+  (pcase major-mode
+    ('ogent-armory-home-mode 'ogent-armory-home-refresh)
+    ('ogent-armory-agents-mode 'ogent-armory-agents-refresh)
+    ('ogent-armory-agent-mode 'ogent-armory-agent-refresh)
+    ('ogent-armory-jobs-mode 'ogent-armory-jobs-refresh)
+    ('ogent-armory-tasks-mode 'ogent-armory-tasks-refresh)
+    ('ogent-armory-conversations-mode 'ogent-armory-conversations-refresh)
+    ('ogent-armory-conversation-mode 'ogent-armory-conversation-refresh)
+    ('ogent-armory-search-mode 'ogent-armory-search-refresh)
+    ('ogent-armory-apps-mode 'ogent-armory-apps-refresh)))
+
+(defun ogent-armory-ui--evil-section-mode-p ()
+  "Return non-nil when the current Armory UI mode has collapsible sections."
+  (memq major-mode
+        '(ogent-armory-home-mode
+          ogent-armory-agent-mode
+          ogent-armory-conversation-mode)))
+
+(defun ogent-armory-ui--evil-bind-local (key command)
+  "Bind Evil normal-state KEY to COMMAND when COMMAND is available."
+  (when (and (fboundp 'evil-local-set-key)
+             (fboundp command))
+    (evil-local-set-key 'normal key command)))
+
+(defun ogent-armory-ui--evil-local-keys ()
+  "Install local Evil normal-state keys for Armory UI buffers."
+  (ogent-armory-ui--evil-bind-local "j" 'evil-next-line)
+  (ogent-armory-ui--evil-bind-local "k" 'evil-previous-line)
+  (ogent-armory-ui--evil-bind-local "gg" 'evil-goto-first-line)
+  (ogent-armory-ui--evil-bind-local "G" 'evil-goto-line)
+  (when-let ((refresh (ogent-armory-ui--evil-refresh-command)))
+    (ogent-armory-ui--evil-bind-local "gr" refresh))
+  (when (ogent-armory-ui--evil-section-mode-p)
+    (ogent-armory-ui--evil-bind-local "gj" 'ogent-armory-ui-next-section)
+    (ogent-armory-ui--evil-bind-local "gk" 'ogent-armory-ui-previous-section))
+  (ogent-armory-ui--evil-bind-local "ZZ" 'quit-window)
+  (ogent-armory-ui--evil-bind-local "ZQ" 'quit-window))
+
 (defun ogent-armory-ui--setup-evil ()
   "Set up Evil integration for Armory UI buffers."
   (when (fboundp 'evil-set-initial-state)
@@ -2195,6 +2481,7 @@
                     ogent-armory-conversation-mode-hook
                     ogent-armory-search-mode-hook
                     ogent-armory-apps-mode-hook))
+      (add-hook hook #'ogent-armory-ui--evil-local-keys)
       (add-hook hook #'evil-normalize-keymaps))))
 
 (with-eval-after-load 'evil
