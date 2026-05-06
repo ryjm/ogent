@@ -25,11 +25,19 @@
   :type 'string
   :group 'ogent-armory)
 
+(defcustom ogent-armory-global-agents-root nil
+  "Optional directory containing user-global Armory agents.
+When nil, each Armory stores global agents in its own `.global-agents'
+directory."
+  :type '(choice (const :tag "Armory-local .global-agents" nil)
+                 directory)
+  :group 'ogent-armory)
+
 (defconst ogent-armory--index-file "index.org"
   "File name for the root Org entry in a armory.")
 
 (defconst ogent-armory--managed-directories
-  '(".agents" ".agents/.conversations" ".jobs" ".armory-state")
+  '(".agents" ".agents/.conversations" ".global-agents" ".jobs" ".armory-state")
   "Directories managed by the Org armory scaffold.")
 
 (defun ogent-armory--directory (directory)
@@ -53,7 +61,7 @@ Use FALLBACK when VALUE normalizes to the empty string."
    ((null value) nil)
    ((stringp value)
     (not (null (member (downcase (string-trim value))
-	                       '("t" "true" "yes" "1")))))
+                       '("t" "true" "yes" "1")))))
    (t nil)))
 
 (defun ogent-armory--boolean-property-valid-p (value)
@@ -147,14 +155,31 @@ PROPERTIES is an alist of property names to values."
   "Return the armory agents directory under DIRECTORY."
   (expand-file-name ".agents" (ogent-armory--directory directory)))
 
+(defun ogent-armory-global-agents-directory (directory)
+  "Return the global agents directory visible from DIRECTORY."
+  (file-name-as-directory
+   (expand-file-name
+    (or ogent-armory-global-agents-root
+        (expand-file-name ".global-agents"
+                          (ogent-armory--directory directory))))))
+
 (defun ogent-armory-agent-directory (directory slug)
   "Return the directory for agent SLUG under DIRECTORY."
   (expand-file-name slug (ogent-armory-agents-directory directory)))
+
+(defun ogent-armory-global-agent-directory (directory slug)
+  "Return the global directory for agent SLUG under DIRECTORY."
+  (expand-file-name slug (ogent-armory-global-agents-directory directory)))
 
 (defun ogent-armory-agent-file (directory slug)
   "Return the persona file for agent SLUG under DIRECTORY."
   (expand-file-name "persona.org"
                     (ogent-armory-agent-directory directory slug)))
+
+(defun ogent-armory-global-agent-file (directory slug)
+  "Return the global persona file for agent SLUG under DIRECTORY."
+  (expand-file-name "persona.org"
+                    (ogent-armory-global-agent-directory directory slug)))
 
 (defun ogent-armory-job-file (directory agent-slug job-id)
   "Return the job file for JOB-ID owned by AGENT-SLUG under DIRECTORY."
@@ -218,6 +243,11 @@ START defaults to `default-directory'."
     (when found
       (directory-file-name found))))
 
+(defun ogent-armory--armory-kind (metadata)
+  "Return the Armory kind from METADATA."
+  (or (plist-get metadata :armory-kind)
+      (plist-get metadata :kind)))
+
 (defun ogent-armory-read-index (directory)
   "Read the armory index under DIRECTORY and return a plist."
   (let ((file (ogent-armory-index-file directory)))
@@ -229,8 +259,19 @@ START defaults to `default-directory'."
       (let ((name (ogent-armory--first-heading-title)))
         (list :id (or (org-entry-get nil "OGENT_ARMORY_ID") "armory")
               :name name
-              :kind (org-entry-get nil "OGENT_KIND")
+              :kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
+                        (org-entry-get nil "OGENT_KIND"))
+              :armory-kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
+                                (org-entry-get nil "OGENT_KIND"))
+              :parent (ogent-armory--blank-to-nil
+                       (org-entry-get nil "OGENT_ARMORY_PARENT"))
               :description (org-entry-get nil "OGENT_DESCRIPTION")
+              :entry (ogent-armory--blank-to-nil
+                      (org-entry-get nil "OGENT_ARMORY_ENTRY"))
+              :access (ogent-armory--blank-to-nil
+                       (org-entry-get nil "OGENT_ARMORY_ACCESS"))
+              :shared-context (ogent-armory--tags-from-string
+                               (org-entry-get nil "OGENT_ARMORY_SHARED_CONTEXT"))
               :tags (ogent-armory--tags-from-string
                      (org-entry-get nil "OGENT_TAGS"))
               :body (ogent-armory--heading-body)
@@ -247,6 +288,11 @@ KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
       `(("OGENT_ARMORY" . t)
         ("OGENT_ARMORY_ID" . ,armory-id)
         ("OGENT_KIND" . ,kind)
+        ("OGENT_ARMORY_KIND" . ,kind)
+        ("OGENT_ARMORY_PARENT" . "")
+        ("OGENT_ARMORY_ENTRY" . "")
+        ("OGENT_ARMORY_ACCESS" . "")
+        ("OGENT_ARMORY_SHARED_CONTEXT" . "")
         ("OGENT_DESCRIPTION" . ,(or description ""))
         ("OGENT_TAGS" . ,tags)))
      "\n"
@@ -278,13 +324,13 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
       (ogent-armory-write-agent
        root
        `(:slug "editor"
-         :name "Editor"
-         :role "Knowledge base editor"
-         :provider ,ogent-armory-default-agent-provider
-         :heartbeat ,ogent-armory-default-heartbeat
-         :active t
-         :workspace "/"
-         :tags ("editor" "knowledge"))
+               :name "Editor"
+               :role "Knowledge base editor"
+               :provider ,ogent-armory-default-agent-provider
+               :heartbeat ,ogent-armory-default-heartbeat
+               :active t
+               :workspace "/"
+               :tags ("editor" "knowledge"))
        "Maintain Org pages, links, summaries, and agent-facing context."))
     root))
 
@@ -317,14 +363,44 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
                 (ogent-armory--agent-plist-value agent :slug nil)
                 "agent"))
          (name (ogent-armory--agent-plist-value agent :name slug))
+         (display-name (ogent-armory--agent-plist-value
+                        agent :display-name nil))
+         (icon (ogent-armory--agent-plist-value agent :icon nil))
+         (color (ogent-armory--agent-plist-value agent :color nil))
+         (avatar (ogent-armory--agent-plist-value agent :avatar nil))
          (role (ogent-armory--agent-plist-value agent :role "Agent"))
+         (department (ogent-armory--agent-plist-value
+                      agent :department nil))
+         (type (ogent-armory--agent-plist-value agent :type nil))
+         (scope (ogent-armory--agent-plist-value agent :scope "armory"))
+         (can-dispatch (ogent-armory--agent-plist-value
+                        agent :can-dispatch nil))
          (provider (ogent-armory--agent-plist-value
                     agent :provider ogent-armory-default-agent-provider))
+         (adapter (ogent-armory--agent-plist-value agent :adapter nil))
+         (adapter-config (ogent-armory--agent-plist-value
+                          agent :adapter-config nil))
          (model (ogent-armory--agent-plist-value agent :model nil))
+         (effort (ogent-armory--agent-plist-value agent :effort nil))
+         (runtime-mode (ogent-armory--agent-plist-value
+                        agent :runtime-mode nil))
          (permission-mode (ogent-armory--agent-plist-value
                            agent :permission-mode nil))
+         (budget (ogent-armory--agent-plist-value agent :budget nil))
+         (focus (ogent-armory--agent-plist-value agent :focus nil))
+         (goals (ogent-armory--agent-plist-value agent :goals nil))
+         (channels (ogent-armory--agent-plist-value agent :channels nil))
+         (skills (ogent-armory--agent-plist-value agent :skills nil))
+         (recommended-skills (ogent-armory--agent-plist-value
+                              agent :recommended-skills nil))
+         (setup-complete (ogent-armory--agent-plist-value
+                          agent :setup-complete nil))
          (heartbeat (ogent-armory--agent-plist-value
                      agent :heartbeat ogent-armory-default-heartbeat))
+         (last-heartbeat (ogent-armory--agent-plist-value
+                          agent :last-heartbeat nil))
+         (next-heartbeat (ogent-armory--agent-plist-value
+                          agent :next-heartbeat nil))
          (active (ogent-armory--agent-plist-value agent :active t))
          (archived (ogent-armory--agent-plist-value agent :archived nil))
          (workspace (ogent-armory--agent-plist-value agent :workspace "/"))
@@ -335,11 +411,32 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
      (ogent-armory--format-properties
       `(("OGENT_AGENT" . t)
         ("OGENT_SLUG" . ,slug)
+        ("OGENT_AGENT_SCOPE" . ,scope)
+        ("OGENT_DISPLAY_NAME" . ,display-name)
+        ("OGENT_ICON" . ,icon)
+        ("OGENT_COLOR" . ,color)
+        ("OGENT_AVATAR" . ,avatar)
         ("OGENT_ROLE" . ,role)
+        ("OGENT_DEPARTMENT" . ,department)
+        ("OGENT_TYPE" . ,type)
+        ("OGENT_CAN_DISPATCH" . ,can-dispatch)
         ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_ADAPTER" . ,adapter)
+        ("OGENT_ADAPTER_CONFIG" . ,adapter-config)
         ("OGENT_MODEL" . ,model)
+        ("OGENT_EFFORT" . ,effort)
+        ("OGENT_RUNTIME_MODE" . ,runtime-mode)
         ("OGENT_PERMISSION_MODE" . ,permission-mode)
+        ("OGENT_BUDGET" . ,budget)
+        ("OGENT_FOCUS" . ,focus)
+        ("OGENT_GOALS" . ,goals)
+        ("OGENT_CHANNELS" . ,channels)
+        ("OGENT_SKILLS" . ,skills)
+        ("OGENT_RECOMMENDED_SKILLS" . ,recommended-skills)
+        ("OGENT_SETUP_COMPLETE" . ,setup-complete)
         ("OGENT_HEARTBEAT" . ,heartbeat)
+        ("OGENT_LAST_HEARTBEAT" . ,last-heartbeat)
+        ("OGENT_NEXT_HEARTBEAT" . ,next-heartbeat)
         ("OGENT_ACTIVE" . ,active)
         ("OGENT_ARCHIVED" . ,archived)
         ("OGENT_WORKSPACE" . ,workspace)
@@ -348,47 +445,118 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
      (when body
        (concat (string-trim body) "\n")))))
 
-(defun ogent-armory-write-agent (directory agent &optional body)
-  "Write AGENT persona under DIRECTORY using BODY as instructions.
-AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
-`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
-`:active', `:workspace', and `:tags'."
+(defun ogent-armory--write-agent-to (directory agent scope &optional body)
+  "Write AGENT persona under DIRECTORY in SCOPE using BODY."
   (let* ((slug (ogent-armory--slug
                 (ogent-armory--agent-plist-value agent :slug nil)
                 "agent"))
-         (agent-dir (ogent-armory-agent-directory directory slug))
-         (file (ogent-armory-agent-file directory slug)))
+         (agent (plist-put (copy-sequence agent)
+                           :scope (symbol-name scope)))
+         (agent-dir (if (eq scope 'global)
+                        (ogent-armory-global-agent-directory directory slug)
+                      (ogent-armory-agent-directory directory slug)))
+         (file (if (eq scope 'global)
+                   (ogent-armory-global-agent-file directory slug)
+                 (ogent-armory-agent-file directory slug))))
     (make-directory agent-dir t)
     (ogent-armory--ensure-agent-support-files agent-dir)
     (ogent-armory--write-file file (ogent-armory--format-agent agent body))
     file))
 
+(defun ogent-armory-write-agent (directory agent &optional body)
+  "Write armory-local AGENT persona under DIRECTORY using BODY as instructions.
+AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
+`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
+`:active', `:workspace', and `:tags'."
+  (ogent-armory--write-agent-to directory agent 'armory body))
+
+(defun ogent-armory-write-global-agent (directory agent &optional body)
+  "Write global AGENT persona visible from DIRECTORY using BODY."
+  (ogent-armory--write-agent-to directory agent 'global body))
+
+(defun ogent-armory--read-agent-file (file slug scope-fallback)
+  "Read agent persona FILE for SLUG with SCOPE-FALLBACK."
+  (unless (file-readable-p file)
+    (user-error "Agent persona not found: %s" file))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (let ((name (ogent-armory--first-heading-title)))
+      (list :slug (or (org-entry-get nil "OGENT_SLUG") slug)
+            :name name
+            :display-name (ogent-armory--blank-to-nil
+                           (org-entry-get nil "OGENT_DISPLAY_NAME"))
+            :icon (ogent-armory--blank-to-nil
+                   (org-entry-get nil "OGENT_ICON"))
+            :color (ogent-armory--blank-to-nil
+                    (org-entry-get nil "OGENT_COLOR"))
+            :avatar (ogent-armory--blank-to-nil
+                     (org-entry-get nil "OGENT_AVATAR"))
+            :role (org-entry-get nil "OGENT_ROLE")
+            :department (ogent-armory--blank-to-nil
+                         (org-entry-get nil "OGENT_DEPARTMENT"))
+            :type (ogent-armory--blank-to-nil
+                   (org-entry-get nil "OGENT_TYPE"))
+            :scope (or (ogent-armory--blank-to-nil
+                        (org-entry-get nil "OGENT_AGENT_SCOPE"))
+                       scope-fallback)
+            :can-dispatch (ogent-armory--truth-value
+                           (org-entry-get nil "OGENT_CAN_DISPATCH"))
+            :provider (org-entry-get nil "OGENT_PROVIDER")
+            :adapter (ogent-armory--blank-to-nil
+                      (org-entry-get nil "OGENT_ADAPTER"))
+            :adapter-config (ogent-armory--blank-to-nil
+                             (org-entry-get nil "OGENT_ADAPTER_CONFIG"))
+            :model (ogent-armory--blank-to-nil
+                    (org-entry-get nil "OGENT_MODEL"))
+            :effort (ogent-armory--blank-to-nil
+                     (org-entry-get nil "OGENT_EFFORT"))
+            :runtime-mode (ogent-armory--blank-to-nil
+                           (org-entry-get nil "OGENT_RUNTIME_MODE"))
+            :permission-mode (ogent-armory--blank-to-nil
+                              (org-entry-get nil "OGENT_PERMISSION_MODE"))
+            :budget (ogent-armory--blank-to-nil
+                     (org-entry-get nil "OGENT_BUDGET"))
+            :focus (ogent-armory--tags-from-string
+                    (org-entry-get nil "OGENT_FOCUS"))
+            :goals (ogent-armory--tags-from-string
+                    (org-entry-get nil "OGENT_GOALS"))
+            :channels (ogent-armory--tags-from-string
+                       (org-entry-get nil "OGENT_CHANNELS"))
+            :skills (ogent-armory--tags-from-string
+                     (org-entry-get nil "OGENT_SKILLS"))
+            :recommended-skills (ogent-armory--tags-from-string
+                                 (org-entry-get nil "OGENT_RECOMMENDED_SKILLS"))
+            :setup-complete (ogent-armory--truth-value
+                             (org-entry-get nil "OGENT_SETUP_COMPLETE"))
+            :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
+            :last-heartbeat (ogent-armory--blank-to-nil
+                             (org-entry-get nil "OGENT_LAST_HEARTBEAT"))
+            :next-heartbeat (ogent-armory--blank-to-nil
+                             (org-entry-get nil "OGENT_NEXT_HEARTBEAT"))
+            :active (ogent-armory--truth-value
+                     (org-entry-get nil "OGENT_ACTIVE"))
+            :archived (ogent-armory--truth-value
+                       (org-entry-get nil "OGENT_ARCHIVED"))
+            :workspace (org-entry-get nil "OGENT_WORKSPACE")
+            :tags (ogent-armory--tags-from-string
+                   (org-entry-get nil "OGENT_TAGS"))
+            :body (ogent-armory--heading-body)
+            :path file))))
+
 (defun ogent-armory-read-agent (directory slug)
-  "Read agent SLUG from DIRECTORY and return a plist."
+  "Read armory-local agent SLUG from DIRECTORY and return a plist."
   (let ((file (ogent-armory-agent-file directory slug)))
     (unless (file-readable-p file)
       (user-error "Agent persona not found: %s" file))
-    (with-temp-buffer
-      (insert-file-contents file)
-      (org-mode)
-      (let ((name (ogent-armory--first-heading-title)))
-        (list :slug (or (org-entry-get nil "OGENT_SLUG") slug)
-              :name name
-              :role (org-entry-get nil "OGENT_ROLE")
-              :provider (org-entry-get nil "OGENT_PROVIDER")
-              :model (ogent-armory--blank-to-nil
-                      (org-entry-get nil "OGENT_MODEL"))
-              :permission-mode (ogent-armory--blank-to-nil
-                                (org-entry-get nil "OGENT_PERMISSION_MODE"))
-              :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
-              :active (ogent-armory--truth-value
-                       (org-entry-get nil "OGENT_ACTIVE"))
-              :archived (ogent-armory--truth-value
-                         (org-entry-get nil "OGENT_ARCHIVED"))
-              :workspace (org-entry-get nil "OGENT_WORKSPACE")
-              :tags (ogent-armory--tags-from-string
-                     (org-entry-get nil "OGENT_TAGS"))
-              :body (ogent-armory--heading-body))))))
+    (ogent-armory--read-agent-file file slug "armory")))
+
+(defun ogent-armory-read-global-agent (directory slug)
+  "Read global agent SLUG visible from DIRECTORY and return a plist."
+  (let ((file (ogent-armory-global-agent-file directory slug)))
+    (unless (file-readable-p file)
+      (user-error "Global agent persona not found: %s" file))
+    (ogent-armory--read-agent-file file slug "global")))
 
 (defun ogent-armory-list-agents (directory)
   "Return agent slugs present in DIRECTORY."
@@ -402,6 +570,172 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
                (file-exists-p
                 (ogent-armory-agent-file directory name))))
         (directory-files agents-dir nil directory-files-no-dot-files-regexp))))))
+
+(defun ogent-armory-list-global-agents (directory)
+  "Return global agent slugs visible from DIRECTORY."
+  (let ((agents-dir (ogent-armory-global-agents-directory directory)))
+    (when (file-directory-p agents-dir)
+      (seq-sort
+       #'string<
+       (seq-filter
+        (lambda (name)
+          (and (not (string-prefix-p "." name))
+               (file-exists-p
+                (ogent-armory-global-agent-file directory name))))
+        (directory-files agents-dir nil directory-files-no-dot-files-regexp))))))
+
+(defun ogent-armory--agent-with-source (agent scope source-root path)
+  "Return AGENT annotated with SCOPE, SOURCE-ROOT, and PATH."
+  (let ((record (copy-sequence agent)))
+    (setq record (plist-put record :scope scope))
+    (setq record (plist-put record :source-root
+                            (directory-file-name
+                             (file-truename
+                              (ogent-armory--directory source-root)))))
+    (setq record (plist-put record :path path))
+    record))
+
+(defun ogent-armory-child-armories (directory)
+  "Return immediate child Armory roots below DIRECTORY."
+  (let* ((root (ogent-armory--directory directory))
+         children)
+    (dolist (entry (directory-files root t directory-files-no-dot-files-regexp))
+      (when (and (file-directory-p entry)
+                 (not (string-prefix-p "."
+                                       (file-name-nondirectory entry)))
+                 (ogent-armory-root-p entry))
+        (push (directory-file-name (file-truename entry)) children)))
+    (seq-sort #'string< children)))
+
+(defun ogent-armory-visible-armories (directory)
+  "Return Armory roots visible from DIRECTORY."
+  (delete-dups
+   (cons (directory-file-name
+          (file-truename (ogent-armory--directory directory)))
+         (ogent-armory-child-armories directory))))
+
+(cl-defun ogent-armory-resolve-agent (directory slug &key include-visible)
+  "Resolve agent SLUG from DIRECTORY.
+Armory-local agents win first, followed by global agents.  When
+INCLUDE-VISIBLE is non-nil, slug-unique agents in visible child Armories are
+also candidates."
+  (let* ((root (ogent-armory--directory directory))
+         (local-file (ogent-armory-agent-file root slug))
+         (global-file (ogent-armory-global-agent-file root slug)))
+    (cond
+     ((file-readable-p local-file)
+      (ogent-armory--agent-with-source
+       (ogent-armory-read-agent root slug)
+       'armory
+       root
+       local-file))
+     ((file-readable-p global-file)
+      (ogent-armory--agent-with-source
+       (ogent-armory-read-global-agent root slug)
+       'global
+       root
+       global-file))
+     (include-visible
+      (let (matches)
+        (dolist (visible-root (cdr (ogent-armory-visible-armories root)))
+          (let ((file (ogent-armory-agent-file visible-root slug)))
+            (when (file-readable-p file)
+              (push (ogent-armory--agent-with-source
+                     (ogent-armory-read-agent visible-root slug)
+                     'visible
+                     visible-root
+                     file)
+                    matches))))
+        (pcase (length matches)
+          (0 (user-error "Agent persona not found: %s" slug))
+          (1 (car matches))
+          (_ (user-error "Ambiguous visible Armory agent: %s" slug)))))
+     (t (user-error "Agent persona not found: %s" slug)))))
+
+(cl-defun ogent-armory-agent-records (directory &key include-visible)
+  "Return agent records visible from DIRECTORY.
+Local records are listed first, then non-shadowed global records.  When
+INCLUDE-VISIBLE is non-nil, non-shadowed child Armory agents are appended."
+  (let* ((root (ogent-armory--directory directory))
+         (seen (make-hash-table :test 'equal))
+         records)
+    (dolist (slug (ogent-armory-list-agents root))
+      (puthash slug t seen)
+      (push (ogent-armory--agent-with-source
+             (ogent-armory-read-agent root slug)
+             'armory
+             root
+             (ogent-armory-agent-file root slug))
+            records))
+    (dolist (slug (ogent-armory-list-global-agents root))
+      (unless (gethash slug seen)
+        (puthash slug t seen)
+        (push (ogent-armory--agent-with-source
+               (ogent-armory-read-global-agent root slug)
+               'global
+               root
+               (ogent-armory-global-agent-file root slug))
+              records)))
+    (when include-visible
+      (dolist (visible-root (cdr (ogent-armory-visible-armories root)))
+        (dolist (slug (ogent-armory-list-agents visible-root))
+          (unless (gethash slug seen)
+            (puthash slug t seen)
+            (push (ogent-armory--agent-with-source
+                   (ogent-armory-read-agent visible-root slug)
+                   'visible
+                   visible-root
+                   (ogent-armory-agent-file visible-root slug))
+                  records)))))
+    (seq-sort-by (lambda (agent)
+                   (or (plist-get agent :display-name)
+                       (plist-get agent :name)
+                       (plist-get agent :slug)))
+                 #'string<
+                 records)))
+
+(cl-defun ogent-armory-list-visible-agents (directory &key include-visible)
+  "Return visible agent slugs for DIRECTORY."
+  (mapcar (lambda (agent) (plist-get agent :slug))
+          (ogent-armory-agent-records
+           directory
+           :include-visible include-visible)))
+
+(defun ogent-armory-agent-lead-p (agent)
+  "Return non-nil when AGENT is a lead or can dispatch actions."
+  (or (equal (plist-get agent :type) "lead")
+      (plist-get agent :can-dispatch)))
+
+(cl-defun ogent-armory-agents-by-department (directory &key include-visible)
+  "Return visible agents under DIRECTORY grouped by department."
+  (let ((groups (make-hash-table :test 'equal)))
+    (dolist (agent (ogent-armory-agent-records
+                    directory
+                    :include-visible include-visible))
+      (let* ((department (or (plist-get agent :department) "Unassigned"))
+             (agents (gethash department groups)))
+        (puthash department (cons agent agents) groups)))
+    (seq-sort-by
+     (lambda (group)
+       (plist-get group :department))
+     #'string<
+     (let (records)
+       (maphash
+        (lambda (department agents)
+          (let* ((ordered (seq-sort-by
+                           (lambda (agent)
+                             (or (plist-get agent :display-name)
+                                 (plist-get agent :name)
+                                 (plist-get agent :slug)))
+                           #'string<
+                           agents))
+                 (lead (seq-find #'ogent-armory-agent-lead-p ordered)))
+            (push (list :department department
+                        :lead lead
+                        :agents ordered)
+                  records)))
+        groups)
+       records))))
 
 (defun ogent-armory-list-jobs (directory agent-slug)
   "Return jobs owned by AGENT-SLUG under DIRECTORY."
@@ -591,7 +925,7 @@ When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
                      (when (string-match "\\`\\(DONE\\|FAILED\\|TODO\\)\\_>" name)
                        (match-string 1 name))))
            (exit-status-text (ogent-armory--blank-to-nil
-                               (org-entry-get nil "OGENT_EXIT_STATUS")))
+                              (org-entry-get nil "OGENT_EXIT_STATUS")))
            (exit-status (when exit-status-text
                           (string-to-number exit-status-text)))
            (agent (or (ogent-armory--blank-to-nil
@@ -747,8 +1081,8 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
                  (slug-property (ogent-armory--blank-to-nil
                                  (org-entry-get nil "OGENT_SLUG")))
                  (agent (if (and agent-property
-                                  (not (member (downcase agent-property)
-                                               '("t" "true" "yes"))))
+                                 (not (member (downcase agent-property)
+                                              '("t" "true" "yes"))))
                             agent-property
                           slug-property)))
             (list
@@ -822,6 +1156,37 @@ Optional filters narrow by KIND, AGENT, STATUS, TAG, and ARCHIVED state."
                             results)))
                   (forward-line 1))))))))
     (nreverse results)))
+
+(defun ogent-armory-overview (directory)
+  "Return a Armory overview plist for DIRECTORY."
+  (let* ((root (directory-file-name
+                (file-truename (ogent-armory--directory directory))))
+         (index (ogent-armory-read-index root))
+         (agents (ogent-armory-agent-records root :include-visible t))
+         (jobs nil))
+    (dolist (agent agents)
+      (when (eq (plist-get agent :scope) 'armory)
+        (setq jobs
+              (append jobs
+                      (ogent-armory-list-jobs
+                       root
+                       (plist-get agent :slug))))))
+    (list :root root
+          :id (plist-get index :id)
+          :name (plist-get index :name)
+          :kind (ogent-armory--armory-kind index)
+          :parent (plist-get index :parent)
+          :description (plist-get index :description)
+          :entry (plist-get index :entry)
+          :access (plist-get index :access)
+          :shared-context (plist-get index :shared-context)
+          :children (ogent-armory-child-armories root)
+          :visible-armories (ogent-armory-visible-armories root)
+          :agents agents
+          :global-agents (seq-filter (lambda (agent)
+                                       (eq (plist-get agent :scope) 'global))
+                                     agents)
+          :jobs jobs)))
 
 (defun ogent-armory--app-owner (root relative)
   "Return owner metadata for app RELATIVE under ROOT."

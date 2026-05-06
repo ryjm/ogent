@@ -66,13 +66,17 @@
 
 (defun ogent-armory-compose--agent-record (root token)
   "Return an agent mention record for TOKEN under ROOT."
-  (when (member token (ogent-armory-list-agents root))
-    (let ((agent (ogent-armory-read-agent root token)))
-      (list :type 'agent
-            :key token
-            :path (ogent-armory-agent-file root token)
-            :title (plist-get agent :name)
-            :body (plist-get agent :body)))))
+  (condition-case nil
+      (let ((agent (ogent-armory-resolve-agent
+                    root token :include-visible t)))
+        (list :type 'agent
+              :key token
+              :path (plist-get agent :path)
+              :title (or (plist-get agent :display-name)
+                         (plist-get agent :name))
+              :scope (plist-get agent :scope)
+              :body (plist-get agent :body)))
+    (user-error nil)))
 
 (defun ogent-armory-compose--job-record (root token)
   "Return a job mention record for TOKEN under ROOT."
@@ -157,7 +161,8 @@
   (append
    (mapcar (lambda (agent)
              (concat "@agent:" agent))
-           (ogent-armory-list-agents root))
+           (ogent-armory-list-visible-agents
+            root :include-visible t))
    (apply
     #'append
     (mapcar

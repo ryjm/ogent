@@ -45,8 +45,10 @@
 (declare-function ogent-armory-status "ogent-armory-status")
 (declare-function ogent-armory-agents "ogent-ui-armory")
 (declare-function ogent-armory-agent "ogent-ui-armory")
+(declare-function ogent-armory-org-chart "ogent-ui-armory")
 (declare-function ogent-armory-tasks "ogent-ui-armory")
 (declare-function ogent-armory-conversations "ogent-ui-armory")
+(declare-function ogent-armory-actions "ogent-armory-actions")
 (declare-function ogent-armory-search "ogent-ui-armory")
 (declare-function ogent-armory-apps "ogent-ui-armory")
 (declare-function ogent-armory-create-agent "ogent-ui-armory")
@@ -133,9 +135,9 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Fix diagnostic"
                       :visual t)
     (fix-buffer-diagnostics
-                      :key "F" :command ogent-fix-buffer-diagnostics
-                      :desc "Fix buffer diagnostics"
-                      :visual t)
+     :key "F" :command ogent-fix-buffer-diagnostics
+     :desc "Fix buffer diagnostics"
+     :visual t)
     (quick-edit       :key "k" :command ogent-quick-edit
                       :desc "Quick inline edit"
                       :visual t)
@@ -187,23 +189,28 @@ Set to nil to disable automatic evil binding setup."
     (armory-agents   :key "y" :command ogent-armory-agents
                       :desc "Armory agents")
     (armory-agent-profile
-                      :key "Y" :command ogent-armory-agent
-                      :desc "Armory agent profile")
+     :key "Y" :command ogent-armory-agent
+     :desc "Armory agent profile")
+    (armory-org-chart
+     :key "B" :command ogent-armory-org-chart
+     :desc "Armory org chart")
     (armory-tasks    :key "I" :command ogent-armory-tasks
                       :desc "Armory tasks")
     (armory-conversations
-                      :key "O" :command ogent-armory-conversations
-                      :desc "Armory conversations")
+     :key "O" :command ogent-armory-conversations
+     :desc "Armory conversations")
+    (armory-actions  :key "N" :command ogent-armory-actions
+                      :desc "Armory action approvals")
     (armory-search   :key "V" :command ogent-armory-search
                       :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps
                       :desc "Armory apps")
     (armory-create-agent
-                      :key "X" :command ogent-armory-create-agent
-                      :desc "Create Armory agent")
+     :key "X" :command ogent-armory-create-agent
+     :desc "Create Armory agent")
     (armory-create-job
-                      :key "Z" :command ogent-armory-create-job
-                      :desc "Create Armory job")
+     :key "Z" :command ogent-armory-create-job
+     :desc "Create Armory job")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")
@@ -281,11 +288,11 @@ When PREFIX is non-nil, bind each action under PREFIX."
              (visual-p (plist-get props :visual)))
         ;; Normal state binding
         (evil-define-key* 'normal keymap
-          (kbd (concat ogent-evil-prefix " " key)) cmd)
+                          (kbd (concat ogent-evil-prefix " " key)) cmd)
         ;; Visual state for region-based actions
         (when visual-p
           (evil-define-key* 'visual keymap
-            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
+                            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
 
 (defun ogent-setup-evil-bindings (keymap)
   "Set up evil keybindings in KEYMAP from action registry.
@@ -324,7 +331,7 @@ return nil rather than signaling if Doom is unavailable."
                             doom-leader-key
                           "SPC")))
             (which-key-add-key-based-replacements
-              (concat leader " " ogent-doom-prefix) "ogent")))
+             (concat leader " " ogent-doom-prefix) "ogent")))
         prefix-map)))))
 
 (defun ogent-setup-which-key ()

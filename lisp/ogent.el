@@ -124,6 +124,7 @@
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-skills)
 (require 'ogent-armory-compose)
+(require 'ogent-armory-actions)
 (require 'ogent-armory-runner)
 (require 'ogent-ui-armory)
 (require 'ogent-armory-status)

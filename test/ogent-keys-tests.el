@@ -229,12 +229,14 @@
 (ert-deftest ogent-keys-armory-actions-present ()
   "Armory actions expose the complete Org OS entry surface."
   (dolist (action '(armory-home
-                    armory-status
-                    armory-agents
-                    armory-agent-profile
-                    armory-tasks
-                    armory-conversations
-                    armory-search
+	                    armory-status
+	                    armory-agents
+	                    armory-agent-profile
+	                    armory-org-chart
+	                    armory-tasks
+	                    armory-conversations
+	                    armory-actions
+	                    armory-search
                     armory-apps
                     armory-create-agent
                     armory-create-job))

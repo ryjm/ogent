@@ -51,8 +51,10 @@ Add to your `~/.doom.d/config.el`:
              ogent-armory-status
              ogent-armory-agents
              ogent-armory-agent
+             ogent-armory-org-chart
              ogent-armory-tasks
              ogent-armory-conversations
+             ogent-armory-actions
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent
@@ -119,8 +121,10 @@ All ogent commands are bound under `SPC o`:
 | `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
 | `SPC o y` | `ogent-armory-agents`     | Armory agents                       |
 | `SPC o Y` | `ogent-armory-agent`      | Armory agent profile                |
+| `SPC o B` | `ogent-armory-org-chart`  | Armory org chart                    |
 | `SPC o I` | `ogent-armory-tasks`      | Armory task board                   |
 | `SPC o O` | `ogent-armory-conversations` | Armory conversations             |
+| `SPC o N` | `ogent-armory-actions`    | Armory action approvals             |
 | `SPC o V` | `ogent-armory-search`     | Armory-wide search                  |
 | `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
 | `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
@@ -234,8 +238,10 @@ Here's a full, copy-paste ready configuration:
              ogent-armory-status
              ogent-armory-agents
              ogent-armory-agent
+             ogent-armory-org-chart
              ogent-armory-tasks
              ogent-armory-conversations
+             ogent-armory-actions
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent
@@ -270,8 +276,10 @@ Here's a full, copy-paste ready configuration:
          :desc "Armory graph"       "K" #'ogent-armory-status
          :desc "Armory agents"      "y" #'ogent-armory-agents
          :desc "Armory agent"       "Y" #'ogent-armory-agent
+         :desc "Armory org chart"   "B" #'ogent-armory-org-chart
          :desc "Armory tasks"       "I" #'ogent-armory-tasks
          :desc "Armory conversations" "O" #'ogent-armory-conversations
+         :desc "Armory actions"     "N" #'ogent-armory-actions
          :desc "Armory search"      "V" #'ogent-armory-search
          :desc "Armory apps"        "W" #'ogent-armory-apps
          :desc "Create agent"        "X" #'ogent-armory-create-agent
