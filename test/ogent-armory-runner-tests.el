@@ -60,6 +60,8 @@
              (args (plist-get plan :args))
              (prompt (plist-get plan :prompt)))
         (should (eq (plist-get plan :provider) 'codex))
+        (should (equal (plist-get plan :adapter-id) "codex-cli"))
+        (should (eq (plist-get plan :runtime-mode) 'native))
         (should (equal (plist-get plan :program)
                        ogent-armory-codex-executable))
         (should (member "exec" args))
@@ -150,9 +152,10 @@
     (let* ((plan (ogent-armory-runner-plan
                   dir "editor" :instruction "Summarize today."))
            (args (plist-get plan :args)))
-      (should (eq (plist-get plan :provider) 'claude))
-      (should (equal (plist-get plan :program)
-                     ogent-armory-claude-executable))
+        (should (eq (plist-get plan :provider) 'claude))
+        (should (equal (plist-get plan :adapter-id) "claude-code"))
+        (should (equal (plist-get plan :program)
+                       ogent-armory-claude-executable))
       (should (member "-p" args))
       (should (member "--permission-mode" args))
       (should (member "plan" args))
@@ -222,7 +225,9 @@
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
              (plan (ogent-armory-runner-plan
-                    dir "cto" :instruction "Say hello."))
+                    dir "cto"
+                    :instruction "Say hello."
+                    :runtime-mode 'terminal))
              (process (ogent-armory-runner-start plan)))
         (ogent-armory-runner-test--wait process)
         (let* ((conversation-file
@@ -236,6 +241,8 @@
           (should (and conversation-file (file-exists-p conversation-file)))
           (should (equal (plist-get conversation :status) "done"))
           (should (equal (plist-get conversation :provider) "codex"))
+          (should (equal (plist-get conversation :adapter) "codex-cli"))
+          (should (equal (plist-get conversation :runtime-mode) "terminal"))
           (should (= 2 (length turns)))
           (should (string-match-p "Say hello"
                                   (plist-get (car turns) :content)))
@@ -275,6 +282,38 @@
                 (ogent-armory-conversation-read dir conversation-id)))
           (should (member "apps/dashboard"
                           (plist-get conversation :artifact-paths))))))))
+
+(ert-deftest ogent-armory-runner-classifies-adapter-errors ()
+  "Failed runs store canonical adapter error metadata."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (let* ((workspace (expand-file-name "engineering" dir))
+           (fixture (ogent-armory-runner-test--make-executable
+                     dir
+                     "#!/bin/sh\nprintf 'Please login again\\n' >&2\ncat >/dev/null\nexit 1\n")))
+      (make-directory workspace t)
+      (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent
+       dir
+       '(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace "engineering")
+       "Keep the plan direct.")
+      (let* ((ogent-armory-codex-executable fixture)
+             (ogent-armory-runner-confirm-before-run nil)
+             (plan (ogent-armory-runner-plan
+                    dir "cto" :instruction "Say hello."))
+             (process (ogent-armory-runner-start plan)))
+        (ogent-armory-runner-test--wait process)
+        (let* ((conversation-id
+                (process-get process 'ogent-armory-conversation-id))
+               (conversation
+                (ogent-armory-conversation-read dir conversation-id)))
+          (should (equal (plist-get conversation :status) "failed"))
+          (should (equal (plist-get conversation :error-kind) "auth-expired"))
+          (should (string-match-p "Please login"
+                                  (plist-get conversation :error-hint))))))))
 
 (provide 'ogent-armory-runner-tests)
 

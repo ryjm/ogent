@@ -137,8 +137,9 @@ Review recent Org pages and file a summary.
 =ogent-armory-runner.el= turns persona and job records into concrete CLI
 process plans:
 
-- =OGENT_PROVIDER= selects the runner. Supported values normalize to =codex=
-  or =claude=.
+- =OGENT_PROVIDER= selects a provider adapter. Supported values normalize
+  through =ogent-armory-adapter.el=, covering Codex, Claude, Gemini, Cursor,
+  OpenCode, Pi, Grok metadata, and GitHub Copilot.
 - Codex agents run through =codex exec= with the prompt on stdin and inherit the
   local =codex login= session. Armory runs pass =--skip-git-repo-check= by
   default because a knowledge root may not be a git checkout.
@@ -148,6 +149,9 @@ process plans:
 - =OGENT_PERMISSION_MODE= passes the Claude Code permission mode when present.
 - =OGENT_WORKSPACE= chooses the process working directory relative to the
   armory root, or an absolute directory.
+- =M-x ogent-armory-providers= lists registered adapters, runtime modes,
+  executable status, and resume support. =M-x ogent-armory-provider-verify=
+  runs a focused executable check.
 
 Every manual run and job run writes an Org transcript under
 =.agents/<slug>/sessions/=. The transcript stores provider, model, job,

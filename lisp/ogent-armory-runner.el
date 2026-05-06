@@ -12,6 +12,7 @@
 (require 'org)
 (require 'subr-x)
 (require 'ogent-armory)
+(require 'ogent-armory-adapter)
 (require 'ogent-armory-conversations)
 
 (defgroup ogent-armory-runner nil
@@ -26,6 +27,36 @@
 
 (defcustom ogent-armory-claude-executable "claude"
   "Executable used for Claude Code agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-gemini-executable "gemini"
+  "Executable used for Gemini CLI agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-cursor-executable "cursor-agent"
+  "Executable used for Cursor Agent CLI agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-opencode-executable "opencode"
+  "Executable used for OpenCode agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-pi-executable "pi"
+  "Executable used for Pi CLI agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-grok-executable "grok"
+  "Executable used for Grok CLI agents."
+  :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-copilot-executable "copilot"
+  "Executable used for GitHub Copilot CLI agents."
   :type 'string
   :group 'ogent-armory-runner)
 
@@ -83,13 +114,7 @@
 
 (defun ogent-armory-runner-normalize-provider (provider)
   "Return canonical provider symbol for PROVIDER."
-  (let ((value (downcase (string-trim (format "%s" (or provider "codex"))))))
-    (cond
-     ((member value '("" "default" "codex" "codex-cli" "openai-codex"))
-      'codex)
-     ((member value '("claude" "claude-code" "anthropic" "anthropic-claude"))
-      'claude)
-     (t (intern value)))))
+  (ogent-armory-adapter-normalize-provider provider))
 
 (defun ogent-armory-runner--workspace (root agent)
   "Return the workspace path for AGENT under ROOT."
@@ -154,16 +179,10 @@
        (format "User instruction:\n%s" user-instruction))))
    "\n\n"))
 
-(defun ogent-armory-runner--append-option (args option value)
-  "Append OPTION and VALUE to ARGS when VALUE is nonblank."
-  (if (ogent-armory-runner--blank-to-nil value)
-      (append args (list option value))
-    args))
-
 (cl-defun ogent-armory-runner-plan
     (directory agent-slug
                &key job-id instruction conversation-id conversation-title
-               turn-content trigger last-resume-result)
+               turn-content trigger last-resume-result runtime-mode)
   "Return a process plan for AGENT-SLUG under DIRECTORY.
 JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
   (let* ((candidate (ogent-armory--directory directory))
@@ -175,9 +194,10 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (job (when job-id
                 (ogent-armory-validate-job
                  (ogent-armory-read-job root agent-slug job-id))))
-         (provider (ogent-armory-runner-normalize-provider
-                    (or (ogent-armory-runner--effective agent job :provider)
-                        (plist-get agent :provider))))
+         (adapter (ogent-armory-adapter-resolve-provider
+                   (or (ogent-armory-runner--effective agent job :provider)
+                       (plist-get agent :provider))))
+         (provider (plist-get adapter :provider-symbol))
          (workspace (ogent-armory-runner--workspace
                      root
                      (if (and job (plist-get job :workspace))
@@ -191,54 +211,38 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                (plist-get agent :permission-mode))
                               ogent-armory-runner-claude-permission-mode))
          (conversation-id (or conversation-id
-                              (ogent-armory-runner--conversation-id job-id))))
+                              (ogent-armory-runner--conversation-id job-id)))
+         (invocation
+          (ogent-armory-adapter-build-invocation
+           adapter
+           (list :root root
+                 :workspace workspace
+                 :agent agent
+                 :job job
+                 :prompt prompt
+                 :model model
+                 :permission-mode permission-mode
+                 :runtime-mode (or runtime-mode 'native)))))
     (unless (file-directory-p workspace)
       (user-error "Armory agent workspace not found: %s" workspace))
-    (pcase provider
-      ('codex
-       (let ((args (list "--ask-for-approval"
-                         ogent-armory-runner-codex-approval
-                         "exec"
-                         "--cd" workspace
-                         "--sandbox" ogent-armory-runner-codex-sandbox)))
-         (when ogent-armory-runner-codex-skip-git-repo-check
-           (setq args (append args (list "--skip-git-repo-check"))))
-         (setq args (ogent-armory-runner--append-option args "--model" model))
-         (list :provider provider
-               :program ogent-armory-codex-executable
-               :args (append args (list "-"))
-               :prompt prompt
-               :stdin prompt
-               :root root
-	       :workspace workspace
-	       :agent agent
-	       :job job
-               :conversation-id conversation-id
-               :conversation-title conversation-title
-               :turn-content turn-content
-               :trigger trigger
-               :last-resume-result last-resume-result)))
-      ('claude
-       (let ((args (list "-p"
-                         "--permission-mode" permission-mode
-                         "--add-dir" root)))
-         (setq args (ogent-armory-runner--append-option args "--model" model))
-         (list :provider provider
-               :program ogent-armory-claude-executable
-               :args (append args (list prompt))
-               :prompt prompt
-               :stdin nil
-               :root root
-	       :workspace workspace
-	       :agent agent
-	       :job job
-               :conversation-id conversation-id
-               :conversation-title conversation-title
-               :turn-content turn-content
-               :trigger trigger
-               :last-resume-result last-resume-result)))
-      (_
-       (user-error "Unsupported Armory agent provider: %s" provider)))))
+    (append
+     (list :provider provider
+           :adapter adapter
+           :adapter-id (plist-get adapter :id)
+           :program (plist-get invocation :program)
+           :args (plist-get invocation :args)
+           :prompt prompt
+           :stdin (plist-get invocation :stdin)
+           :root root
+           :workspace workspace
+           :agent agent
+           :job job
+           :conversation-id conversation-id
+           :conversation-title conversation-title
+           :turn-content turn-content
+           :trigger trigger
+           :runtime-mode (plist-get invocation :runtime-mode)
+           :last-resume-result last-resume-result))))
 
 (defun ogent-armory-runner--org-src-text (text)
   "Return TEXT escaped for insertion in an Org src block."
@@ -384,6 +388,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
            ("OGENT_EXIT_CODE" . "")
            ("OGENT_DURATION" . "")
            ("OGENT_TRIGGER" . ,trigger)
+           ("OGENT_ADAPTER" . ,(plist-get plan :adapter-id))
+           ("OGENT_RUNTIME_MODE" .
+            ,(symbol-name (or (plist-get plan :runtime-mode) 'native)))
            ("OGENT_LAST_RESUME_RESULT" .
             ,(plist-get plan :last-resume-result))))
       (setq file
@@ -398,11 +405,13 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
               :started started
               :last-activity started
               :provider (plist-get plan :provider)
+              :adapter (plist-get plan :adapter-id)
               :model (or (plist-get job :model)
                          (plist-get agent :model))
               :job-id (plist-get job :id)
               :job-name (plist-get job :name)
-              :runtime-mode "native"))))
+              :runtime-mode (symbol-name
+                             (or (plist-get plan :runtime-mode) 'native))))))
     (ogent-armory-conversation-append-turn
      root conversation-id "user"
      (or (plist-get plan :turn-content)
@@ -436,7 +445,12 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                           (append (copy-sequence
                                    (plist-get parsed :artifact-paths))
                                   app-paths)))
-         (status (ogent-armory-runner--final-status plan exit-status parsed)))
+         (status (ogent-armory-runner--final-status plan exit-status parsed))
+         (error-info (unless (zerop exit-status)
+                       (ogent-armory-adapter-classify-error
+                        (plist-get plan :adapter)
+                        error-output
+                        exit-status))))
     (ogent-armory-conversation-append-turn
      root conversation-id "agent" output
      :ts finished
@@ -454,7 +468,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
        ("OGENT_ARTIFACTS" . ,artifact-paths)
        ("OGENT_SUMMARY" . ,(plist-get parsed :summary))
        ("OGENT_CONTEXT_SUMMARY" . ,(plist-get parsed :context-summary))
-       ("OGENT_AWAITING_INPUT" . ,(plist-get parsed :awaiting-input))))
+       ("OGENT_AWAITING_INPUT" . ,(plist-get parsed :awaiting-input))
+       ("OGENT_ERROR_KIND" . ,(plist-get error-info :kind))
+       ("OGENT_ERROR_HINT" . ,(plist-get error-info :message))))
     (ogent-armory-conversation-append-event
      root conversation-id "task.updated"
      :ts finished
