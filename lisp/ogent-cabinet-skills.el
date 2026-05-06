@@ -133,6 +133,20 @@
             :origin origin
             :path file))))
 
+(defun ogent-cabinet-skill--direct-file (directory key)
+  "Return the direct Org skill file for KEY below DIRECTORY."
+  (expand-file-name (concat (ogent-cabinet-skill--slug key) ".org")
+                    directory))
+
+(defun ogent-cabinet-skill--direct-match (directory key origin)
+  "Return direct skill KEY metadata under DIRECTORY for ORIGIN."
+  (let ((file (ogent-cabinet-skill--direct-file directory key)))
+    (when (file-readable-p file)
+      (let ((skill (ogent-cabinet-skill--read-metadata file origin)))
+        (when (equal (plist-get skill :key)
+                     (ogent-cabinet-skill--slug key))
+          skill)))))
+
 (defun ogent-cabinet-skill-list (directory)
   "Return skill metadata records for DIRECTORY."
   (let (skills)
@@ -154,6 +168,9 @@
       (dolist (root (ogent-cabinet-skill--roots directory))
         (let ((origin (car root))
               (dir (cdr root)))
+          (when-let ((skill (ogent-cabinet-skill--direct-match
+                             dir wanted origin)))
+            (throw 'skill skill))
           (dolist (file (ogent-cabinet-skill--org-files dir))
             (let ((skill (ogent-cabinet-skill--read-metadata file origin)))
               (when (equal (plist-get skill :key) wanted)

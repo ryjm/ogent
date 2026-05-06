@@ -121,6 +121,20 @@
         (should (string-match-p "Read carefully"
                                 (plist-get skill :body)))))))
 
+(ert-deftest ogent-cabinet-compose-skill-read-prefers-direct-key-file ()
+  "Skill reads prefer canonical key files before nested aliases."
+  (ogent-cabinet-compose-test-with-temp-dir root
+    (ogent-cabinet-compose-test--seed root)
+    (let ((alias (expand-file-name ".agents/skills/nested/alias.org" root)))
+      (ogent-cabinet--write-file
+       alias
+       "#+title: Nested Alias\n\n* Nested Alias\n:PROPERTIES:\n:OGENT_SKILL_KEY: review\n:END:\n\nNested alias.\n")
+      (let ((skill (ogent-cabinet-skill-read root "review")))
+        (should (string-suffix-p ".agents/skills/review.org"
+                                 (plist-get skill :path)))
+        (should (string-match-p "Read carefully"
+                                (plist-get skill :body)))))))
+
 (ert-deftest ogent-cabinet-compose-skill-read-stops-after-first-match ()
   "Skill reads return cabinet-local matches without walking later roots."
   (let* ((codex-home (file-truename
