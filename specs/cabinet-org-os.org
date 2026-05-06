@@ -152,6 +152,18 @@ process plans:
 - =M-x ogent-cabinet-providers= lists registered adapters, runtime modes,
   executable status, and resume support. =M-x ogent-cabinet-provider-verify=
   runs a focused executable check.
+- =M-x ogent-cabinet-compose= and =M-x ogent-cabinet-compose-buffer= build a
+  shared run prompt from an instruction, resolved mentions, staged attachments,
+  selected skills, and a runtime adapter choice.
+- Composer mentions cover =@agent:<slug>=, =@page:<path>=, =@skill:<key>=,
+  =@job:<id>=, and =@conversation:<id>=. Mention records include type, key,
+  source path, title, and body excerpt in the provider prompt.
+- Attachment staging copies selected files into a pending conversation folder,
+  then moves them into =.agents/.conversations/<id>/attachments/= when the
+  process starts.
+- =M-x ogent-cabinet-skills= displays the skill catalog. Skill metadata is read
+  from Org headings on demand across cabinet-scoped skills, cabinet root skills,
+  repo-local =.codex/skills=, =$CODEX_HOME/skills=, and =~/.agents/skills=.
 
 Every manual run and job run writes an Org transcript under
 =.agents/<slug>/sessions/=. The transcript stores provider, model, job,
@@ -240,6 +252,12 @@ The Emacs surfaces are boring and powerful:
   for composer, inbox, conversations, recent work, schedule, memory,
   tools/permissions, details, and persona instructions. The profile header makes
   =RET=, =c=, =e=, =R=, =v=, and =q= visible.
+- =ogent-cabinet-compose= and =ogent-cabinet-compose-buffer= provide the shared
+  prompt composer. Completion-at-point offers Cabinet mention candidates, and
+  the composer writes mention, attachment, and skill metadata into the canonical
+  conversation record.
+- =ogent-cabinet-skills= exposes Org skill sources in a tabulated catalog with
+  provenance, lazy body loading, source visits, and refresh.
 - =ogent-cabinet-create-agent=, =ogent-cabinet-clone-agent=, and
   =ogent-cabinet-archive-agent= manage agent lifecycle through Org files.
 - =ogent-cabinet-jobs= and =ogent-cabinet-agent-jobs= list jobs globally or for

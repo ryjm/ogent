@@ -68,40 +68,65 @@ text in those Org files. Manual edits remain part of the record.
 
    Open =M-x ogent-cabinet-jobs=, move to the job, press =R=.
 
-6. Inspect the transcript:
+6. Compose an ad hoc run:
+
+   Use =M-x ogent-cabinet-compose= for a minibuffer prompt, or
+   =M-x ogent-cabinet-compose-buffer= for an Org composer buffer. Mentions are
+   resolved before the provider runs and copied into the canonical conversation
+   metadata.
+
+   #+begin_example
+   @agent:cto
+   @page:notes/plan.org
+   @skill:review
+   @job:weekly-review
+   @conversation:20260506T100000-run
+   #+end_example
+
+   Attach files from the composer buffer with =C-c C-a=. Staged attachments are
+   copied into =.agents/.conversations/<id>/attachments/= when the run starts.
+
+7. Inspect the transcript:
 
    Open =M-x ogent-cabinet-conversations= and press =RET= on the new run.
    The detail buffer shows actions, metadata, runtime state, turns, prompt,
    output, tool blocks, artifacts, event logs, errors, duration, and source Org.
 
-7. Search the Cabinet:
+8. Search the Cabinet:
 
    Use =M-x ogent-cabinet-search=. Empty queries show an empty state. Search
    can filter by kind, agent, status, tag, and archive state from Lisp callers.
 
-8. Open generated apps:
+9. Open generated apps:
 
    Use =M-x ogent-cabinet-apps=. Each =index.html= below the Cabinet root is
    listed with label, path, modified time, and inferred owner when possible.
 
-9. Check the task board:
+10. Check the task board:
 
    Use =M-x ogent-cabinet-tasks=. Lanes are Inbox, Needs Reply, Running,
    Just Finished, and Archive. Scheduled and stale states appear as item
    metadata. Press =b= for board, =l= for list, and =S= for schedule view.
 
-10. Inspect relationships:
+11. Inspect relationships:
 
     Use =M-x ogent-cabinet-status=. The graph includes cabinet, agent, job,
     session, app, issue-link, and Gas Town hook nodes when available. Press
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
-11. Check provider adapters:
+12. Check provider adapters:
 
     Use =M-x ogent-cabinet-providers= to inspect registered runtime adapters,
     executable availability, supported modes, and resume support. Use
     =M-x ogent-cabinet-provider-verify= for a focused executable check.
+
+13. Browse skills:
+
+    Use =M-x ogent-cabinet-skills= to inspect the skill catalog. The catalog
+    reads skill metadata from =.agents/skills/=, =skills/=, =.codex/skills/=,
+    =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
+    a prompt with =@skill:<key>= or pass the key through the composer.
 
 * Keybindings
 
@@ -174,6 +199,22 @@ Agent profile:
 | =c= | Compose and run the agent manually |
 | =e= | Edit identity metadata in the property drawer |
 | =R= | Run the job at point or retry the conversation at point |
+| =q= | Quit |
+
+Composer buffer:
+
+| Key | Action |
+|-----+--------|
+| =C-c C-c= | Submit the composed run |
+| =C-c C-a= | Add an attachment |
+| =C-c C-k= | Cancel |
+
+Skill catalog:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Open the skill source |
+| =g= | Refresh |
 | =q= | Quit |
 
 Jobs:

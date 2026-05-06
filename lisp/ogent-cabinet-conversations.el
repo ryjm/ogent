@@ -53,6 +53,20 @@
                     (ogent-cabinet-conversation-directory
                      directory conversation-id)))
 
+(defun ogent-cabinet-conversation-pending-directory (directory pending-id)
+  "Return pending conversation directory PENDING-ID under DIRECTORY."
+  (expand-file-name pending-id
+                    (expand-file-name
+                     "_pending"
+                     (ogent-cabinet-conversations-directory directory))))
+
+(defun ogent-cabinet-conversation-pending-attachments-directory
+    (directory pending-id)
+  "Return pending attachments directory PENDING-ID under DIRECTORY."
+  (expand-file-name "attachments"
+                    (ogent-cabinet-conversation-pending-directory
+                     directory pending-id)))
+
 (defun ogent-cabinet-conversation-artifacts-file (directory conversation-id)
   "Return the artifacts Org file for CONVERSATION-ID under DIRECTORY."
   (expand-file-name "artifacts.org"
@@ -76,6 +90,62 @@
   (format "%s-%06x"
           (format-time-string "%Y%m%dT%H%M%S")
           (random #x1000000)))
+
+(defun ogent-cabinet-conversations--copy-name (file seen)
+  "Return a unique attachment name for FILE using SEEN hash table."
+  (let* ((base (file-name-nondirectory file))
+         (name base)
+         (index 2))
+    (while (gethash name seen)
+      (setq name (if-let ((extension (file-name-extension base)))
+                     (format "%s-%d.%s"
+                             (file-name-sans-extension base)
+                             index
+                             extension)
+                   (format "%s-%d" base index)))
+      (setq index (1+ index)))
+    (puthash name t seen)
+    name))
+
+(defun ogent-cabinet-conversation-stage-attachments (directory files)
+  "Copy FILES into a pending attachment folder under DIRECTORY."
+  (let* ((pending-id (ogent-cabinet-conversations--new-id))
+         (target-dir (ogent-cabinet-conversation-pending-attachments-directory
+                      directory pending-id))
+         (seen (make-hash-table :test 'equal))
+         staged)
+    (make-directory target-dir t)
+    (dolist (file files)
+      (unless (file-readable-p file)
+        (user-error "Attachment not readable: %s" file))
+      (let* ((name (ogent-cabinet-conversations--copy-name file seen))
+             (target (expand-file-name name target-dir)))
+        (copy-file file target t)
+        (push target staged)))
+    (list :pending-id pending-id
+          :attachment-paths (nreverse staged))))
+
+(defun ogent-cabinet-conversation-finalize-attachments
+    (directory pending-id conversation-id)
+  "Move PENDING-ID attachments into CONVERSATION-ID under DIRECTORY."
+  (let ((source-dir (ogent-cabinet-conversation-pending-attachments-directory
+                    directory pending-id))
+        (target-dir (ogent-cabinet-conversation-attachments-directory
+                     directory conversation-id))
+        attachments)
+    (when (file-directory-p source-dir)
+      (make-directory target-dir t)
+      (dolist (file (directory-files source-dir t directory-files-no-dot-files-regexp))
+        (when (file-regular-p file)
+          (let ((target (expand-file-name (file-name-nondirectory file)
+                                          target-dir)))
+            (rename-file file target t)
+            (push (file-relative-name target directory) attachments))))
+      (let ((pending-root (ogent-cabinet-conversation-pending-directory
+                           directory pending-id)))
+        (when (file-directory-p pending-root)
+          (delete-directory pending-root t))))
+    (nreverse attachments)))
 
 (defun ogent-cabinet-conversations--plist-value (plist key fallback)
   "Return PLIST KEY or FALLBACK."
@@ -468,7 +538,7 @@ PROPERTIES is an alist of Org property names to values."
 (cl-defun ogent-cabinet-conversation-append-turn
     (directory conversation-id role content
                &key turn id ts session-id tokens awaiting-input pending
-               exit-code error mentioned-paths attachment-paths artifacts)
+               exit-code error mentioned-paths attachment-paths artifacts skills)
   "Append a ROLE turn with CONTENT to CONVERSATION-ID under DIRECTORY."
   (let* ((role (downcase role))
          (turn (or turn
@@ -500,6 +570,7 @@ PROPERTIES is an alist of Org property names to values."
          ("OGENT_ERROR" . ,error)
          ("OGENT_MENTIONED_PATHS" . ,mentioned-paths)
          ("OGENT_ATTACHMENTS" . ,attachment-paths)
+         ("OGENT_SKILLS" . ,skills)
          ("OGENT_ARTIFACTS" . ,artifacts)))
       "\n"
       (string-trim-right (or content ""))
@@ -554,6 +625,8 @@ PROPERTIES is an alist of Org property names to values."
                          (org-entry-get nil "OGENT_MENTIONED_PATHS"))
        :attachment-paths (ogent-cabinet-conversations--list-property
                           (org-entry-get nil "OGENT_ATTACHMENTS"))
+       :skills (ogent-cabinet-conversations--list-property
+                (org-entry-get nil "OGENT_SKILLS"))
        :artifacts (ogent-cabinet-conversations--list-property
                    (org-entry-get nil "OGENT_ARTIFACTS"))
        :content (ogent-cabinet--heading-body)
