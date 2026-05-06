@@ -103,7 +103,7 @@
   :group 'ogent-ui-cabinet)
 
 (defcustom ogent-cabinet-stale-days 7
-  "Days after which scheduled Cabinet jobs read as stale."
+  "Days after which scheduled Cabinet jobs count as stale."
   :type 'integer
   :group 'ogent-ui-cabinet)
 
@@ -165,7 +165,7 @@
   "Map job Org property names to plist keys.")
 
 (defconst ogent-cabinet-task-lanes
-  '("Inbox" "Needs Reply" "Running" "Scheduled" "Just Finished" "Stale" "Archive")
+  '("Inbox" "Needs Reply" "Running" "Just Finished" "Archive")
   "Attention lanes displayed by `ogent-cabinet-tasks'.")
 
 (defvar-local ogent-cabinet-home--root nil
@@ -1709,22 +1709,30 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
-  (list :type 'job
-        :lane (cond
-               ((plist-get job :archived) "Archive")
-               ((not (plist-get job :enabled)) "Archive")
-               ((ogent-cabinet-ui--stale-job-p root job) "Stale")
-               ((ogent-cabinet--blank-to-nil (plist-get job :cron)) "Scheduled")
-               (t "Inbox"))
-        :agent (plist-get job :agent)
-        :job-id (plist-get job :id)
-        :name (or (plist-get job :name) (plist-get job :id))
-        :state (if (plist-get job :enabled) "enabled" "disabled")
-        :when (or (plist-get job :cron) "manual")
-        :path (ogent-cabinet-job-file
-               root
-               (plist-get job :agent)
-               (plist-get job :id))))
+  (let ((stale (ogent-cabinet-ui--stale-job-p root job))
+        (scheduled (ogent-cabinet--blank-to-nil (plist-get job :cron))))
+    (list :type 'job
+          :lane (cond
+                 ((plist-get job :archived) "Archive")
+                 ((not (plist-get job :enabled)) "Archive")
+                 (stale "Needs Reply")
+                 (t "Inbox"))
+          :agent (plist-get job :agent)
+          :job-id (plist-get job :id)
+          :name (or (plist-get job :name) (plist-get job :id))
+          :state (cond
+                  ((plist-get job :archived) "archived")
+                  ((not (plist-get job :enabled)) "disabled")
+                  (stale "stale")
+                  (scheduled "scheduled")
+                  (t "enabled"))
+          :scheduled scheduled
+          :stale stale
+          :when (or scheduled "manual")
+          :path (ogent-cabinet-job-file
+                 root
+                 (plist-get job :agent)
+                 (plist-get job :id)))))
 
 (defun ogent-cabinet-tasks--session-lane (session)
   "Return the attention lane for SESSION."

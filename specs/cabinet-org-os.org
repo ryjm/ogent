@@ -242,8 +242,9 @@ The Emacs surfaces are boring and powerful:
   one agent. =ogent-cabinet-create-job= writes job records under the owning
   agent's =jobs/= directory. Job actions cover edit, enable/disable, run,
   retry, archive, and source visits.
-- =ogent-cabinet-tasks= shows attention-first lanes: Inbox, Needs Reply,
-  Running, Scheduled, Just Finished, Stale, and Archive.
+- =ogent-cabinet-tasks= shows Cabinet v2 attention lanes: Inbox, Needs Reply,
+  Running, Just Finished, and Archive. Scheduled and stale states stay attached
+  to each task item as metadata.
 - =ogent-cabinet-conversations= lists all transcripts and filters by agent, job,
   status, provider, model, tag, and archive state. =RET= opens a detail buffer
   with metadata, prompt, output, tool blocks, exit status, duration, linked

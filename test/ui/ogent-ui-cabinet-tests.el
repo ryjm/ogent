@@ -22,7 +22,8 @@
        (when (file-directory-p ,var)
          (delete-directory ,var t)))))
 
-(defun ogent-ui-cabinet-test--write-session (root agent-slug name status exit-status &optional job-id)
+(defun ogent-ui-cabinet-test--write-session
+    (root agent-slug name status exit-status &optional job-id finished)
   "Write a Cabinet session fixture for AGENT-SLUG under ROOT."
   (let* ((session-dir (expand-file-name
                        "sessions"
@@ -43,7 +44,7 @@
          ("OGENT_EXIT_STATUS" . ,exit-status)
          ("OGENT_DURATION" . "1.4s")
          ("OGENT_WORKSPACE" . ,root)
-         ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+         ("OGENT_FINISHED" . ,(or finished "2026-05-04T09:00:00-0700"))))
       "\n** Prompt\n#+begin_src text\nReview the project.\n#+end_src\n"
       "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"))
     file))
@@ -632,8 +633,8 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
-(ert-deftest ogent-ui-cabinet-new-scheduled-job-is-not-stale ()
-  "A new scheduled job remains scheduled until it has run and aged out."
+(ert-deftest ogent-ui-cabinet-new-scheduled-job-stays-inbox ()
+  "A new scheduled job remains Inbox work until it has run and aged out."
   (ogent-ui-cabinet-test-with-temp-dir root
     (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
     (ogent-cabinet-write-agent
@@ -655,9 +656,10 @@
      "Review the Cabinet.")
     (let ((job (ogent-cabinet-read-job root "architect" "fresh-scan")))
       (should-not (ogent-cabinet-ui--stale-job-p root job))
-      (should (equal (plist-get (ogent-cabinet-tasks--job-item root job)
-                                :lane)
-                     "Scheduled")))
+      (let ((item (ogent-cabinet-tasks--job-item root job)))
+        (should (equal (plist-get item :lane) "Inbox"))
+        (should (equal (plist-get item :state) "scheduled"))
+        (should (equal (plist-get item :scheduled) "0 8 * * 1"))))
     (let ((buffer (ogent-cabinet-home root)))
       (unwind-protect
           (with-current-buffer buffer
@@ -668,6 +670,37 @@
                               (point-max)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-stale-scheduled-job-needs-reply ()
+  "An overdue scheduled job appears as attention work."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "architect"
+       :name "Architect"
+       :role "Architecture"
+       :provider "codex"
+       :model "gpt-5.4"
+       :active t)
+     "Keep the project structure legible.")
+    (ogent-cabinet-write-job
+     root
+     "architect"
+     '(:id "fresh-scan"
+       :name "Fresh Scan"
+       :cron "0 8 * * 1"
+       :enabled t)
+     "Review the Cabinet.")
+    (ogent-ui-cabinet-test--write-session
+     root "architect" "fresh-scan-run" "DONE" 0 "fresh-scan"
+     "2000-01-01T00:00:00-0000")
+    (let* ((job (ogent-cabinet-read-job root "architect" "fresh-scan"))
+           (item (ogent-cabinet-tasks--job-item root job)))
+      (should (ogent-cabinet-ui--stale-job-p root job))
+      (should (equal (plist-get item :lane) "Needs Reply"))
+      (should (equal (plist-get item :state) "stale"))
+      (should (plist-get item :stale)))))
 
 (ert-deftest ogent-ui-cabinet-jobs-edit-validates-metadata-before-write ()
   "Interactive job metadata edits reject malformed values before touching Org."
@@ -844,9 +877,12 @@
           (with-current-buffer buffer
             (should (eq major-mode 'ogent-cabinet-tasks-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
-              (dolist (lane '("Inbox" "Needs Reply" "Running" "Scheduled"
-                               "Just Finished" "Stale" "Archive"))
+              (dolist (lane '("Inbox" "Needs Reply" "Running"
+                               "Just Finished" "Archive"))
                 (should (string-match-p lane text)))
+              (let ((case-fold-search nil))
+                (should-not (string-match-p "Scheduled" text))
+                (should-not (string-match-p "Stale" text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "failed-run" text))))
         (when (buffer-live-p buffer)
