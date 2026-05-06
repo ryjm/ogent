@@ -423,6 +423,45 @@
         (should (string-match-p "Codex trace"
                                 (plist-get detail :runtime-trace)))))))
 
+(ert-deftest ogent-armory-session-detail-keeps-src-block-headings-in-trace ()
+  "Runtime trace parsing survives Org-looking text inside the log."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (let* ((session-dir (ogent-armory-sessions-directory dir "cto"))
+           (file (expand-file-name "successful.org" session-dir)))
+      (make-directory session-dir t)
+      (ogent-armory--write-file
+       file
+       (concat
+        "#+title: Successful Run\n\n"
+        "* DONE Successful Run\n"
+        (ogent-armory--format-properties
+         '(("OGENT_SESSION" . t)
+           ("OGENT_AGENT" . "cto")
+           ("OGENT_PROVIDER" . "codex")
+           ("OGENT_EXIT_STATUS" . 0)
+           ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+        "\n** Prompt\n#+begin_src text\nCheck the plan.\n#+end_src\n"
+        "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"
+        "\n** Runtime Trace\n#+begin_src text\n"
+        "first line\n"
+        "** Output\n"
+        "#+begin_src text\n"
+        "inner block text\n"
+        ",#+end_src\n"
+        "last line\n"
+        "#+end_src\n"))
+      (let ((trace (plist-get (ogent-armory-session-detail file "cto")
+                              :runtime-trace)))
+        (should (string-prefix-p "first line" trace))
+        (should (string-match-p "inner block text" trace))
+        (should (string-match-p "last line" trace))
+        (should-not (string-prefix-p "#+begin_src" trace))))))
+
 (ert-deftest ogent-armory-session-detail-keeps-legacy-failed-error ()
   "Older failed transcripts without exit status keep Error sections as errors."
   (ogent-armory-test-with-temp-dir dir

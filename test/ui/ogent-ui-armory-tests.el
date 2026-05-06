@@ -23,7 +23,7 @@
          (delete-directory ,var t)))))
 
 (defun ogent-ui-armory-test--write-session
-    (root agent-slug name status exit-status &optional job-id finished)
+    (root agent-slug name status exit-status &optional job-id finished trace)
   "Write a Armory session fixture for AGENT-SLUG under ROOT."
   (let* ((session-dir (expand-file-name
                        "sessions"
@@ -46,7 +46,11 @@
          ("OGENT_WORKSPACE" . ,root)
          ("OGENT_FINISHED" . ,(or finished "2026-05-04T09:00:00-0700"))))
       "\n** Prompt\n#+begin_src text\nReview the project.\n#+end_src\n"
-      "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"))
+      "\n** Output\n#+begin_src text\nDone.\n#+end_src\n"
+      (when trace
+        (concat "\n** Runtime Trace\n#+begin_src text\n"
+                trace
+                "#+end_src\n"))))
     file))
 
 (defun ogent-ui-armory-test--seed (root)
@@ -170,6 +174,57 @@
     (should (eq (lookup-key ogent-armory-conversation-mode-map
                             (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-armory-conversation-reader-prioritizes-output ()
+  "Conversation detail opens as a reader with output before metadata."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let* ((path (expand-file-name ".agents/cto/sessions/weekly-review-run.org"
+                                   root))
+           (buffer (ogent-armory-conversation root path)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq major-mode 'ogent-armory-conversation-mode))
+            (let* ((text (buffer-substring-no-properties (point-min) (point-max)))
+                   (output (string-match-p "Output" text))
+                   (details (string-match-p "Details" text))
+                   (prompt (string-match-p "Prompt" text)))
+              (should output)
+              (should details)
+              (should prompt)
+              (should (string-match-p "Done." text))
+              (should (string-match-p "Source Org" text))
+              (should (< output details))
+              (should (< details prompt))
+              (should-not (string-match-p "^Actions$" text))
+              (should-not (string-match-p "D delete" header-line-format))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-conversation-runtime-trace-is-previewed ()
+  "Conversation detail summarizes long runtime traces."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Zorp" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Keep the technical plan clear.")
+    (let* ((trace "line 1\nline 2\nline 3\nline 4\nline 5\n")
+           (path (ogent-ui-armory-test--write-session
+                  root "cto" "long-run" "DONE" 0 nil nil trace))
+           (ogent-armory-conversation-runtime-trace-preview-lines 3)
+           (buffer (ogent-armory-conversation root path)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (string-match-p "Runtime Trace" text))
+              (should (string-match-p "line 1" text))
+              (should (string-match-p "line 3" text))
+              (should-not (string-match-p "line 4" text))
+              (should (string-match-p "2 more lines" text))
+              (should (string-match-p "Press l for logs" text))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-section-modes-derive-from-magit-section ()
   "Armory section buffers inherit Magit section behavior when available."
@@ -770,7 +825,7 @@
             (with-current-buffer detail
               (should (eq major-mode 'ogent-armory-conversation-mode))
               (let ((text (buffer-substring-no-properties (point-min) (point-max))))
-                (dolist (label '("Metadata" "Prompt" "Output" "Source Org"
+                (dolist (label '("Details" "Prompt" "Output" "Source Org"
                                  "Exit status" "Duration" "Agent" "Job"))
                   (should (string-match-p label text))))))
         (when (buffer-live-p buffer)
@@ -828,9 +883,9 @@
 	              (let ((text (buffer-substring-no-properties
                            (point-min)
                            (point-max))))
-                (dolist (label '("Actions" "Turns" "Artifacts" "Events"
-                                 "Runtime"))
+                (dolist (label '("Turns" "Artifacts" "Events" "Details"))
                   (should (string-match-p label text)))
+                (should-not (string-match-p "^Actions$" text))
                 (should (string-match-p "Review this" text))
                 (should (string-match-p "Looks solid" text))
                 (should (string-match-p "apps/report" text))

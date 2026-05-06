@@ -1167,6 +1167,29 @@ When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
           (string-trim
            (buffer-substring-no-properties begin end)))))))
 
+(defun ogent-armory--section-src-text (heading)
+  "Return source block body under Org subsection HEADING."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t)
+          found)
+      (while (and (not found)
+                  (re-search-forward org-heading-regexp nil t))
+        (when (equal (downcase (string-trim (nth 4 (org-heading-components))))
+                     (downcase heading))
+          (setq found t)))
+      (when found
+        (forward-line 1)
+        (skip-chars-forward " \t\n")
+        (when (looking-at "^[ \t]*#\\+begin_src[^\n]*$")
+          (goto-char (line-end-position))
+          (let ((begin (line-beginning-position 2)))
+            (when (re-search-forward "^[ \t]*#\\+end_src[ \t]*$" nil t)
+              (string-trim
+               (buffer-substring-no-properties
+                begin
+                (line-beginning-position))))))))))
+
 (defun ogent-armory--strip-src-wrapper (text)
   "Return TEXT with one surrounding Org src block removed when present."
   (let ((value (string-trim (or text ""))))
@@ -1205,18 +1228,24 @@ AGENT-SLUG is a fallback for older transcripts with sparse properties."
                              (zerop exit-status)
                            (equal (plist-get record :status) "DONE")))
              (error-text (ogent-armory--strip-src-wrapper
-                          (ogent-armory--section-text "Error")))
+                          (or (ogent-armory--section-src-text "Error")
+                              (ogent-armory--section-text "Error"))))
              (trace-text (or (ogent-armory--blank-to-nil
-                              (ogent-armory--strip-src-wrapper
-                               (ogent-armory--section-text "Runtime Trace")))
+                              (or (ogent-armory--section-src-text
+                                   "Runtime Trace")
+                                  (ogent-armory--strip-src-wrapper
+                                   (ogent-armory--section-text
+                                    "Runtime Trace"))))
                              (when successful
                                (ogent-armory--blank-to-nil error-text)))))
         (append
          record
-         (list :prompt (ogent-armory--strip-src-wrapper
-                        (ogent-armory--section-text "Prompt"))
-               :output (ogent-armory--strip-src-wrapper
-                        (ogent-armory--section-text "Output"))
+         (list :prompt (or (ogent-armory--section-src-text "Prompt")
+                           (ogent-armory--strip-src-wrapper
+                            (ogent-armory--section-text "Prompt")))
+               :output (or (ogent-armory--section-src-text "Output")
+                           (ogent-armory--strip-src-wrapper
+                            (ogent-armory--section-text "Output")))
                :error (unless successful
                         error-text)
                :runtime-trace trace-text

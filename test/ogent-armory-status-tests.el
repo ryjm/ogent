@@ -404,6 +404,45 @@
         (when (get-file-buffer index)
           (kill-buffer (get-file-buffer index)))))))
 
+(ert-deftest ogent-armory-status-visit-session-opens-reader ()
+  "Visiting a Recent Work row opens the conversation reader."
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-status-test--seed-agent-and-job dir)
+    (let* ((session-dir (ogent-armory-sessions-directory dir "cto"))
+           (session-file (expand-file-name "weekly-review-run.org" session-dir))
+           (buffer nil)
+           reader-buffer)
+      (make-directory session-dir t)
+      (ogent-armory--write-file
+       session-file
+       (concat "#+title: Weekly Review Run\n\n* DONE Weekly Review Run\n"
+               (ogent-armory--format-properties
+                '(("OGENT_SESSION" . t)
+                  ("OGENT_AGENT" . "cto")
+                  ("OGENT_JOB_ID" . "weekly-review")
+                  ("OGENT_EXIT_STATUS" . 0)
+                  ("OGENT_FINISHED" . "2026-05-04T09:00:00-0700")))
+               "\n** Prompt\n#+begin_src text\nReview notes.\n#+end_src\n"
+               "\n** Output\n#+begin_src text\nLooks good.\n#+end_src\n"))
+      (setq buffer (ogent-armory-status dir))
+      (unwind-protect
+          (progn
+            (with-current-buffer buffer
+              (goto-char (point-min))
+              (search-forward "Weekly Review Run")
+              (ogent-armory-status-visit)
+              (setq reader-buffer (current-buffer)))
+            (with-current-buffer reader-buffer
+              (should (eq major-mode 'ogent-armory-conversation-mode))
+              (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+                (should (string-match-p "Looks good" text))
+                (should-not (string-match-p ":OGENT_SESSION:" text)))))
+        (dolist (buf (list buffer reader-buffer))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))
+        (when (get-file-buffer session-file)
+          (kill-buffer (get-file-buffer session-file)))))))
+
 (ert-deftest ogent-armory-status-graph-includes-sessions-apps-issues-and-hook ()
   "The graph projection includes the full Armory relationship vocabulary."
   (ogent-armory-status-test-with-temp-dir dir

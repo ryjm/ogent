@@ -34,6 +34,7 @@
 (autoload 'ogent-armory-agent "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-jobs "ogent-ui-armory" nil t)
 (autoload 'ogent-armory-create-job "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-conversation "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 (declare-function ogent-armory-jobs--goto "ogent-ui-armory" (agent job-id))
@@ -940,10 +941,15 @@ DIRECTION is either `next' or `previous'."
   "Visit the Org record at point."
   (interactive)
   (let* ((node (ogent-armory-status--require-node))
+         (kind (plist-get node :kind))
          (path (plist-get node :path)))
     (unless (and path (file-exists-p path))
       (user-error "No Armory record at point"))
-    (find-file path)))
+    (if (eq kind 'session)
+        (let ((display-buffer-overriding-action
+               '((display-buffer-same-window))))
+          (ogent-armory-conversation ogent-armory-status--root path))
+      (find-file path))))
 
 (defun ogent-armory-status-open-issues ()
   "Open Ogent Issues from the current Armory root."
