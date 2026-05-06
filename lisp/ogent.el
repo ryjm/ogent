@@ -122,6 +122,8 @@
 (require 'ogent-armory)
 (require 'ogent-armory-adapter)
 (require 'ogent-armory-conversations)
+(require 'ogent-armory-skills)
+(require 'ogent-armory-compose)
 (require 'ogent-armory-runner)
 (require 'ogent-ui-armory)
 (require 'ogent-armory-status)

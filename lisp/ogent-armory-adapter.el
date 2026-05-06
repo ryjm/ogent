@@ -225,6 +225,11 @@
            :runtime-mode (or (plist-get context :runtime-mode) 'native))
      (funcall builder adapter context))))
 
+(defun ogent-armory-adapter-skill-mounts (adapter skills)
+  "Return adapter-native skill mounts for ADAPTER and SKILLS."
+  (when-let ((mount (plist-get adapter :skill-mount-function)))
+    (funcall mount adapter skills)))
+
 (defun ogent-armory-adapter-classify-error (_adapter text &optional exit-status)
   "Classify adapter error TEXT and EXIT-STATUS."
   (let* ((raw (or text ""))

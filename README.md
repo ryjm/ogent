@@ -12,11 +12,11 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 
 ## Key Concepts
 - **Atomic subtrees**: Any subtree can declare an `OGENT_ID` or use the headline title as its handle. Within sibling or descendant headings, reference another subtree by typing `@handle`. ogent resolves the reference, injects its content into the prompt, and keeps backlinks so you can audit provenance.
-- **Context scoping**: Invoking `M-x ogent-request` collects the current heading, all ancestor headings, and any `@handle` dependencies into a structured payload. Handles can point to other buffers or Org-roam files, so the request can include folders that “fill out” missing knowledge while still rooting the prompt in the active subtree.
+- **Context scoping**: Invoking `M-x ogent-request` collects the current heading, all ancestor headings, and any `@handle` dependencies into a structured payload. Handles can point to other buffers or Org-roam files, letting the request include folders that "fill out" missing knowledge while still rooting the prompt in the active subtree.
 - **Context preview**: Before dispatching, ogent renders the same hydrated payload it will send to the model, including the root subtree, resolved `@handle` content, source buffer or region, and pins.
-- **Prompt templates**: Users can store reusable AI instructions inside dedicated “Prompt” subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
-- **Native Agent**: Each buffer acts as both the chat surface and the canonical plan—responses appear inline, can be edited like any Org node, and remain linked to their source prompts so the evolving document stays in sync with agent output. This is the most important concept of `ogent` - it should act as a homunculus that can be instantiated at any point in your Emacs workflow. 
-- **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize “codemaps” that resemble Windsurf’s maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c . m` to refresh the map so contributors always see a high-level architecture next to the agent transcript.
+- **Prompt templates**: Users can store reusable AI instructions inside dedicated "Prompt" subtrees. Because they are just Org nodes, the same `@handle` syntax applies.
+- **Native Agent**: Each buffer acts as both the chat surface and the canonical plan. Responses appear inline, can be edited like any Org node, and remain linked to their source prompts, keeping the evolving document in sync with agent output. This is the most important concept of `ogent`: it should act as a homunculus that can be instantiated at any point in your Emacs workflow.
+- **Codemaps**: ogent can scan the repository (or referenced folders) to synthesize "codemaps" that resemble Windsurf's maps. Each codemap is an Org subtree listing modules, entry points, and data flows with bullet links back to files (e.g., `[[file:lisp/ogent-context.el::ogent-context-build][context builder]]`). Use `C-c . m` to refresh the map, giving contributors a high-level architecture next to the agent transcript.
 - **Model registry**: `lisp/ogent-models.el` lists every supported gptel backend (id, preset, stream support). The dispatcher and transport stack look up this registry so adding a provider is a data change plus tests, not a UI surgery.
 - **Org Armory OS**: `ogent-armory-scaffold` creates Armory-style knowledge bases as Org files, then `ogent-armory-home` (`C-c . j`, `SPC o j`) opens the operational home view. From there a user can manage agents, jobs, tasks, conversations, search, generated app artifacts, and the graph/status projection. All durable records stay in Org, including personas, jobs, transcripts, imports, and metadata edits.
 
@@ -33,10 +33,10 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Context hydration**: The dispatcher resolves referenced `@handles`, includes their content in the model payload, and offers a `C-c . c` preview of that payload before dispatch.
 
 ## Codemap Overview
-- `M-x ogent-codemap-buffer` (bound to `C-c . m`) analyzes the repository or selected folders, extracts public definitions, and emits an Org subtree titled “Codemap”. Each entry includes inline links such as `[[file:lisp/ogent-context.el::ogent-context-build][Context Builder]]` so you can jump straight to the code.
+- `M-x ogent-codemap-buffer` (bound to `C-c . m`) analyzes the repository or selected folders, extracts public definitions, and emits an Org subtree titled "Codemap". Each entry includes inline links such as `[[file:lisp/ogent-context.el::ogent-context-build][Context Builder]]` for direct jumps to the code.
 - Codemaps update incrementally: rerun the command to refresh sections impacted by recent changes while preserving manual annotations.
-- The codemap subtree doubles as a navigational aid and a prompt attachment—mark it with an `OGENT_ID` (`OGENT_ID: codemap-core`) and reference it via `@codemap-core` whenever you want the model to understand the project layout.
-- Inspired by Windsurf’s codemaps, ogent surfaces data-flow descriptions (“`ogent-prompt-dispatch -> ogent-context-build -> gptel-send`”) directly under each bullet, so the map reads like an architecture digest next to your agent transcript.
+- The codemap subtree doubles as a navigational aid and a prompt attachment. Mark it with an `OGENT_ID` (`OGENT_ID: codemap-core`) and reference it via `@codemap-core` whenever you want the model to understand the project layout.
+- Inspired by Windsurf's codemaps, ogent surfaces data-flow descriptions ("`ogent-prompt-dispatch -> ogent-context-build -> gptel-send`") directly under each bullet, making the map read like an architecture digest next to your agent transcript.
 
 ## Planned Workflow
 1. Author Org content as usual, tagging reusable sections with unique `OGENT_ID`s.
@@ -73,6 +73,8 @@ Then run `doom sync` and add this to `~/.doom.d/config.el`:
 ## Armory Home
 
 `M-x ogent-armory-home` is the Armory entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Armory.
+
+`M-x ogent-armory-compose` and `M-x ogent-armory-compose-buffer` run agents from a shared composer with `@agent:`, `@page:`, `@skill:`, `@job:`, and `@conversation:` mentions. Attachments are staged into the canonical conversation folder, and `M-x ogent-armory-skills` opens the Org-backed skill catalog.
 
 Common commands:
 
@@ -164,7 +166,7 @@ The following features were added recently:
 
 - **Request Pause/Resume** (`ogent-ui.el`): Pause active requests and resume later with full context preservation. Commands `ogent-pause-request` and `ogent-resume-request`.
 - **Tool Result Streaming** (`ogent-tools.el`): Async tool execution with streaming callbacks for bash, grep, and other long-running operations. Supports `:stream` and `:match` callback styles.
-- **Inline Diff Display** (`inline-diff.el`): Word-level inline diff highlighting as an alternative to smerge. Toggle with `ogent-edit-toggle-display-method` (cycles smerge → overlay → inline-diff).
+- **Inline Diff Display** (`inline-diff.el`): Word-level inline diff highlighting as an alternative to smerge. Toggle with `ogent-edit-toggle-display-method` (cycles smerge, overlay, inline-diff).
 - **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads issues with inline filtering, transient menus, and dependency graph visualization.
 - **Gas Town Multi-Agent** (`ogent-gastown.el`): Status buffer and tmux integration for coordinating multiple AI agent workspaces.
 - **Org Armory Foundation and Rich UI** (`ogent-armory.el`, `ogent-armory-runner.el`, `ogent-armory-status.el`, `ui/ogent-ui-armory.el`): Org-backed Armory roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with Issues/Gas Town bridges, agent profile buffers, attention lanes, search, and app artifact opening.

@@ -182,7 +182,8 @@
 (cl-defun ogent-armory-runner-plan
     (directory agent-slug
                &key job-id instruction conversation-id conversation-title
-               turn-content trigger last-resume-result runtime-mode)
+               turn-content trigger last-resume-result runtime-mode mentions
+               skills pending-attachment-id attachment-paths)
   "Return a process plan for AGENT-SLUG under DIRECTORY.
 JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
   (let* ((candidate (ogent-armory--directory directory))
@@ -242,6 +243,11 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
            :turn-content turn-content
            :trigger trigger
            :runtime-mode (plist-get invocation :runtime-mode)
+           :mentions mentions
+           :skills skills
+           :skill-mounts (ogent-armory-adapter-skill-mounts adapter skills)
+           :pending-attachment-id pending-attachment-id
+           :attachment-paths attachment-paths
            :last-resume-result last-resume-result))))
 
 (defun ogent-armory-runner--org-src-text (text)
@@ -376,8 +382,14 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (conversation-id (plist-get plan :conversation-id))
          (file (ogent-armory-conversation-file root conversation-id))
          (existing (file-exists-p file))
+         (attachments (if-let ((pending-id
+                                (plist-get plan :pending-attachment-id)))
+                          (ogent-armory-conversation-finalize-attachments
+                           root pending-id conversation-id)
+                        (plist-get plan :attachment-paths)))
          (trigger (or (plist-get plan :trigger)
                       (if job "job" "manual"))))
+    (plist-put plan :attachment-paths attachments)
     (if existing
         (ogent-armory-conversation-update-properties
          root conversation-id
@@ -391,6 +403,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
            ("OGENT_ADAPTER" . ,(plist-get plan :adapter-id))
            ("OGENT_RUNTIME_MODE" .
             ,(symbol-name (or (plist-get plan :runtime-mode) 'native)))
+           ("OGENT_MENTIONS" . ,(plist-get plan :mentions))
+           ("OGENT_SKILLS" . ,(plist-get plan :skills))
+           ("OGENT_ATTACHMENTS" . ,attachments)
            ("OGENT_LAST_RESUME_RESULT" .
             ,(plist-get plan :last-resume-result))))
       (setq file
@@ -410,13 +425,19 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                          (plist-get agent :model))
               :job-id (plist-get job :id)
               :job-name (plist-get job :name)
+              :mentioned-paths (plist-get plan :mentions)
+              :skills (plist-get plan :skills)
+              :attachment-paths attachments
               :runtime-mode (symbol-name
                              (or (plist-get plan :runtime-mode) 'native))))))
     (ogent-armory-conversation-append-turn
      root conversation-id "user"
      (or (plist-get plan :turn-content)
          (plist-get plan :prompt))
-     :ts started)
+     :ts started
+     :mentioned-paths (plist-get plan :mentions)
+     :attachment-paths attachments
+     :skills (plist-get plan :skills))
     (ogent-armory-conversation-append-event
      root conversation-id
      (if existing "conversation.continued" "task.started")

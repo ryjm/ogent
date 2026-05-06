@@ -152,6 +152,18 @@ process plans:
 - =M-x ogent-armory-providers= lists registered adapters, runtime modes,
   executable status, and resume support. =M-x ogent-armory-provider-verify=
   runs a focused executable check.
+- =M-x ogent-armory-compose= and =M-x ogent-armory-compose-buffer= build a
+  shared run prompt from an instruction, resolved mentions, staged attachments,
+  selected skills, and a runtime adapter choice.
+- Composer mentions cover =@agent:<slug>=, =@page:<path>=, =@skill:<key>=,
+  =@job:<id>=, and =@conversation:<id>=. Mention records include type, key,
+  source path, title, and body excerpt in the provider prompt.
+- Attachment staging copies selected files into a pending conversation folder,
+  then moves them into =.agents/.conversations/<id>/attachments/= when the
+  process starts.
+- =M-x ogent-armory-skills= displays the skill catalog. Skill metadata is read
+  from Org headings on demand across armory-scoped skills, armory root skills,
+  repo-local =.codex/skills=, =$CODEX_HOME/skills=, and =~/.agents/skills=.
 
 Every manual run and job run writes an Org transcript under
 =.agents/<slug>/sessions/=. The transcript stores provider, model, job,
@@ -240,6 +252,12 @@ The Emacs surfaces are boring and powerful:
   for composer, inbox, conversations, recent work, schedule, memory,
   tools/permissions, details, and persona instructions. The profile header makes
   =RET=, =c=, =e=, =R=, =v=, and =q= visible.
+- =ogent-armory-compose= and =ogent-armory-compose-buffer= provide the shared
+  prompt composer. Completion-at-point offers Armory mention candidates, and
+  the composer writes mention, attachment, and skill metadata into the canonical
+  conversation record.
+- =ogent-armory-skills= exposes Org skill sources in a tabulated catalog with
+  provenance, lazy body loading, source visits, and refresh.
 - =ogent-armory-create-agent=, =ogent-armory-clone-agent=, and
   =ogent-armory-archive-agent= manage agent lifecycle through Org files.
 - =ogent-armory-jobs= and =ogent-armory-agent-jobs= list jobs globally or for
