@@ -153,7 +153,8 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 Cabinet turns a directory of Org files into a local AI-team workspace. Open
 =M-x ogent-cabinet-home= or press =C-c . j=. The Cabinet surface includes
 agents, jobs, conversations, lead action approvals, data browsing, ranked
-palette search, git state, app artifacts, and a schedule calendar.
+palette search, git state, settings, backup, registry import, help, app
+artifacts, and a schedule calendar.
 
 | Key       | Command                         | Description                 |
 |-----------+---------------------------------+-----------------------------|
@@ -170,6 +171,11 @@ palette search, git state, app artifacts, and a schedule calendar.
 | =C-c . Q= | =ogent-cabinet-agenda=          | Org agenda over Cabinet     |
 | =C-c . := | =ogent-cabinet-git-status=      | Cabinet git status          |
 | =C-c . /= | =ogent-cabinet-command-palette= | Ranked command palette      |
+| =C-c . ,= | =ogent-cabinet-settings=        | Cabinet settings            |
+| =C-c . .= | =ogent-cabinet-help=            | Cabinet help                |
+| =C-c . '= | =ogent-cabinet-onboard=         | Onboard Cabinet             |
+| ~C-c . =~ | =ogent-cabinet-registry-import= | Import Cabinet template     |
+| =C-c . _= | =ogent-cabinet-backup=          | Back up Cabinet             |
 | =C-c . V= | =ogent-cabinet-search=          | Cabinet-wide search         |
 | =C-c . W= | =ogent-cabinet-apps=            | Generated app artifacts     |
 | =C-c . X= | =ogent-cabinet-create-agent=    | Create Cabinet agent        |

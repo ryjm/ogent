@@ -15,6 +15,7 @@
 (require 'ogent-cabinet-data)
 (require 'ogent-cabinet-schedule)
 (require 'ogent-cabinet-git)
+(require 'ogent-cabinet-settings)
 
 (defgroup ogent-cabinet-palette nil
   "Ranked search and command palette for Cabinets."
@@ -43,6 +44,16 @@
      :path ,root :text "generated apps html")
     (:kind command :title "Cabinet Git Status"
      :command ogent-cabinet-git-status :path ,root :text "git dirty status")
+    (:kind command :title "Cabinet Settings"
+     :command ogent-cabinet-settings :path ,root :text "settings providers storage")
+    (:kind command :title "Cabinet Help"
+     :command ogent-cabinet-help :path ,root :text "help shortcuts demo")
+    (:kind command :title "Cabinet Onboard"
+     :command ogent-cabinet-onboard :path ,root :text "setup storage provider team")
+    (:kind command :title "Cabinet Registry Import"
+     :command ogent-cabinet-registry-import-into :path ,root :text "template manifest import")
+    (:kind command :title "Cabinet Backup"
+     :command ogent-cabinet-backup :path ,root :text "backup durable org data")
     (:kind command :title "Cabinet Agenda"
      :command ogent-cabinet-agenda :path ,root :text "org agenda")))
 

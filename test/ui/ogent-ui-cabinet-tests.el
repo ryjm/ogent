@@ -105,27 +105,35 @@
             (should (eq major-mode 'ogent-cabinet-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Cabinet Home" "Health" "Navigate" "Recent Activity"
-                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
-                               "Tasks" "Conversations"
-                               "Search" "Apps" "Graph" "Settings" "Source Org"))
+	                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+	                               "Tasks" "Conversations"
+	                               "Data" "Search" "Apps" "Git" "Palette"
+	                               "Settings" "Help" "Graph" "Cabinet metadata"
+	                               "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "\\[R run\\]" text))
               (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("m" "?" "RET" "TAB" "M-n" "g" "q" "j" "J" "a"
-                           "t" "c" "s" "A" "G" "R" "E" "e" "n" "p"))
-              (should (string-match-p key (format "%s" header-line-format)))))
+	            (dolist (key '("m" "?" "." "RET" "TAB" "M-n" "g" "q" "j" "J"
+	                           "D" "a" "t" "c" "s" "A" "h" "/" "," "G" "R"
+	                           "E" "e" "n" "p"))
+	              (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-home-daily-work-keybindings ()
   "Cabinet Home exposes the daily job development commands."
   (dolist (pair `(("m" . ,#'ogent-cabinet-home-dispatch)
-                  ("?" . ,#'ogent-cabinet-home-help)
-                  ("j" . ,#'ogent-cabinet-jobs)
-                  ("R" . ,#'ogent-cabinet-home-run)
+	                  ("?" . ,#'ogent-cabinet-home-help)
+	                  ("j" . ,#'ogent-cabinet-jobs)
+	                  ("D" . ,#'ogent-cabinet-data)
+	                  ("h" . ,#'ogent-cabinet-git-status)
+	                  ("/" . ,#'ogent-cabinet-command-palette)
+	                  ("," . ,#'ogent-cabinet-settings)
+	                  ("." . ,#'ogent-cabinet-help)
+	                  ("R" . ,#'ogent-cabinet-home-run)
                   ("E" . ,#'ogent-cabinet-home-edit-item)
                   ("J" . ,#'ogent-cabinet-home-open-jobs)))
     (should (eq (lookup-key ogent-cabinet-home-mode-map (kbd (car pair)))

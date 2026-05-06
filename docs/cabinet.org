@@ -125,39 +125,55 @@ text in those Org files. Manual edits remain part of the record.
     can commit, diff, log, restore, and pull through Magit when present or plain
     git fallbacks.
 
-13. Check the task board:
+13. Configure the Cabinet:
+
+    Use =M-x ogent-cabinet-settings= for profile, provider, runtime, skills,
+    storage, integration, notification, appearance, git, automation, and about
+    settings. Settings are stored in =.cabinet-state/settings.org= and can be
+    exported or imported as Org.
+
+14. Import, demo, and back up:
+
+    Use =M-x ogent-cabinet-onboard= for first-run setup, storage defaults, and
+    an initial team. Use =M-x ogent-cabinet-registry-import= to scaffold a
+    Cabinet from a JSON template manifest. Use =M-x ogent-cabinet-demo= to
+    create a small example Cabinet. Use =M-x ogent-cabinet-backup= to copy
+    durable Org state while skipping git metadata, process state, derived search
+    cache, and previous backups.
+
+15. Check the task board:
 
     Use =M-x ogent-cabinet-tasks=. Lanes are Inbox, Needs Reply, Running,
     Just Finished, and Archive. Scheduled and stale states appear as item
     metadata. Press =b= for board, =l= for list, and =S= for schedule view.
 
-14. Inspect relationships:
+16. Inspect relationships:
 
     Use =M-x ogent-cabinet-status=. The graph includes cabinet, agent, job,
     session, app, issue-link, and Gas Town hook nodes when available. Press
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
-15. Check provider adapters:
+17. Check provider adapters:
 
     Use =M-x ogent-cabinet-providers= to inspect registered runtime adapters,
     executable availability, supported modes, and resume support. Use
     =M-x ogent-cabinet-provider-verify= for a focused executable check.
 
-16. Browse skills:
+18. Browse skills:
 
     Use =M-x ogent-cabinet-skills= to inspect the skill catalog. The catalog
     reads skill metadata from =.agents/skills/=, =skills/=, =.codex/skills/=,
     =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
     a prompt with =@skill:<key>= or pass the key through the composer.
 
-17. Review departments and approvals:
+19. Review departments and approvals:
 
     Use =M-x ogent-cabinet-org-chart= for a department tree grouped by lead and
     scope. Use =M-x ogent-cabinet-actions= on a conversation with pending lead
     proposals to approve, reject, or dispatch actions.
 
-18. Open the Cabinet schedule:
+20. Open the Cabinet schedule:
 
     Use =M-x ogent-cabinet-schedule= for day, week, and month schedule views.
     Jobs with =OGENT_CRON=, agent heartbeats with cron heartbeats, one-shot
@@ -165,7 +181,7 @@ text in those Org files. Manual edits remain part of the record.
     event stream. Past slots without a matching =OGENT_SCHEDULED_KEY= show as
     missed and can be run from the schedule buffer.
 
-19. Bridge into Org agenda:
+21. Bridge into Org agenda:
 
     Use =M-x ogent-cabinet-agenda= to open =org-agenda= over the Cabinet root,
     visible child Cabinets, personas, inboxes, schedules, jobs, and memory Org
@@ -191,6 +207,11 @@ Main ogent dispatch bindings:
 | =C-c . Q= / =SPC o Q= | =ogent-cabinet-agenda= |
 | =C-c . := / =SPC o := | =ogent-cabinet-git-status= |
 | =C-c . /= / =SPC o /= | =ogent-cabinet-command-palette= |
+| =C-c . ,= / =SPC o ,= | =ogent-cabinet-settings= |
+| =C-c . .= / =SPC o .= | =ogent-cabinet-help= |
+| =C-c . '= / =SPC o '= | =ogent-cabinet-onboard= |
+| ~C-c . =~ / ~SPC o =~ | =ogent-cabinet-registry-import= |
+| =C-c . _= / =SPC o _= | =ogent-cabinet-backup= |
 | =C-c . V= / =SPC o V= | =ogent-cabinet-search= |
 | =C-c . W= / =SPC o W= | =ogent-cabinet-apps= |
 | =C-c . X= / =SPC o X= | =ogent-cabinet-create-agent= |
@@ -224,6 +245,8 @@ Cabinet Home:
 | =D= | Open the data browser |
 | =h= | Open Cabinet git status |
 | =/= | Open the command palette |
+| =,= | Open Cabinet settings |
+| =.= | Open Cabinet help |
 | =m= | Open the Home transient menu |
 | =?= | Open Home help |
 | =g= | Refresh |
@@ -294,8 +317,26 @@ Cabinet Home transient menu:
 | =A= | Apps |
 | =h= | Git status |
 | =/= | Command palette |
+| =,= | Cabinet settings |
+| =.= | Cabinet help |
 | =G= | Graph/status |
+| ='= | Run onboarding |
+| ~=~ | Import a registry template |
+| =_= | Back up durable Cabinet state |
 | =e= | Edit Cabinet metadata |
+
+Cabinet Settings:
+
+| Key | Action |
+|-----+--------|
+| =e= | Edit one setting |
+| =E= | Export settings as Org |
+| =I= | Import settings from Org |
+| =o= | Run onboarding |
+| =b= | Back up the Cabinet |
+| =?= | Open Cabinet help |
+| =g= | Refresh |
+| =q= | Quit |
 
 Cabinet Schedule:
 
@@ -399,6 +440,11 @@ Migration limits:
              ogent-cabinet-agenda
              ogent-cabinet-git-status
              ogent-cabinet-command-palette
+             ogent-cabinet-settings
+             ogent-cabinet-help
+             ogent-cabinet-onboard
+             ogent-cabinet-registry-import
+             ogent-cabinet-backup
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent

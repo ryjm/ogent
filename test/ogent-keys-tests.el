@@ -236,8 +236,18 @@
 	                    cabinet-tasks
 	                    cabinet-conversations
 	                    cabinet-actions
+	                    cabinet-data
+	                    cabinet-schedule
+	                    cabinet-agenda
+	                    cabinet-git
+	                    cabinet-palette
+	                    cabinet-settings
+	                    cabinet-help
+	                    cabinet-onboard
+	                    cabinet-registry-import
+	                    cabinet-backup
 	                    cabinet-search
-                    cabinet-apps
+	                    cabinet-apps
                     cabinet-create-agent
                     cabinet-create-job))
     (should (assq action ogent-action-registry))))

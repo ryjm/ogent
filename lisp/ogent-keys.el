@@ -54,6 +54,11 @@
 (declare-function ogent-cabinet-agenda "ogent-cabinet-schedule")
 (declare-function ogent-cabinet-git-status "ogent-cabinet-git")
 (declare-function ogent-cabinet-command-palette "ogent-cabinet-palette")
+(declare-function ogent-cabinet-settings "ogent-cabinet-settings")
+(declare-function ogent-cabinet-help "ogent-cabinet-settings")
+(declare-function ogent-cabinet-onboard "ogent-cabinet-settings")
+(declare-function ogent-cabinet-registry-import "ogent-cabinet-settings")
+(declare-function ogent-cabinet-backup "ogent-cabinet-settings")
 (declare-function ogent-cabinet-search "ogent-ui-cabinet")
 (declare-function ogent-cabinet-apps "ogent-ui-cabinet")
 (declare-function ogent-cabinet-create-agent "ogent-ui-cabinet")
@@ -216,6 +221,17 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Cabinet git status")
     (cabinet-palette  :key "/" :command ogent-cabinet-command-palette
                       :desc "Cabinet command palette")
+    (cabinet-settings :key "," :command ogent-cabinet-settings
+                      :desc "Cabinet settings")
+    (cabinet-help     :key "." :command ogent-cabinet-help
+                      :desc "Cabinet help")
+    (cabinet-onboard  :key "'" :command ogent-cabinet-onboard
+                      :desc "Onboard Cabinet")
+    (cabinet-registry-import
+     :key "=" :command ogent-cabinet-registry-import
+     :desc "Import Cabinet registry")
+    (cabinet-backup   :key "_" :command ogent-cabinet-backup
+                      :desc "Back up Cabinet")
     (cabinet-search   :key "V" :command ogent-cabinet-search
                       :desc "Cabinet search")
     (cabinet-apps     :key "W" :command ogent-cabinet-apps

@@ -60,6 +60,11 @@ Add to your `~/.doom.d/config.el`:
              ogent-cabinet-agenda
              ogent-cabinet-git-status
              ogent-cabinet-command-palette
+             ogent-cabinet-settings
+             ogent-cabinet-help
+             ogent-cabinet-onboard
+             ogent-cabinet-registry-import
+             ogent-cabinet-backup
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -135,6 +140,11 @@ All ogent commands are bound under `SPC o`:
 | `SPC o Q` | `ogent-cabinet-agenda`     | Cabinet Org agenda                   |
 | `SPC o :` | `ogent-cabinet-git-status` | Cabinet git status                   |
 | `SPC o /` | `ogent-cabinet-command-palette` | Ranked command palette          |
+| `SPC o ,` | `ogent-cabinet-settings`   | Cabinet settings                     |
+| `SPC o .` | `ogent-cabinet-help`       | Cabinet help                         |
+| `SPC o '` | `ogent-cabinet-onboard`    | Onboard Cabinet                      |
+| `SPC o =` | `ogent-cabinet-registry-import` | Import Cabinet template        |
+| `SPC o _` | `ogent-cabinet-backup`     | Back up Cabinet                      |
 | `SPC o V` | `ogent-cabinet-search`     | Cabinet-wide search                  |
 | `SPC o W` | `ogent-cabinet-apps`       | Cabinet app artifacts                |
 | `SPC o X` | `ogent-cabinet-create-agent` | Create Cabinet agent               |
@@ -257,6 +267,11 @@ Here's a full, copy-paste ready configuration:
              ogent-cabinet-agenda
              ogent-cabinet-git-status
              ogent-cabinet-command-palette
+             ogent-cabinet-settings
+             ogent-cabinet-help
+             ogent-cabinet-onboard
+             ogent-cabinet-registry-import
+             ogent-cabinet-backup
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -300,6 +315,11 @@ Here's a full, copy-paste ready configuration:
          :desc "Cabinet agenda"      "Q" #'ogent-cabinet-agenda
          :desc "Cabinet git"         ":" #'ogent-cabinet-git-status
          :desc "Cabinet palette"     "/" #'ogent-cabinet-command-palette
+         :desc "Cabinet settings"    "," #'ogent-cabinet-settings
+         :desc "Cabinet help"        "." #'ogent-cabinet-help
+         :desc "Onboard Cabinet"     "'" #'ogent-cabinet-onboard
+         :desc "Import Cabinet"      "=" #'ogent-cabinet-registry-import
+         :desc "Back up Cabinet"     "_" #'ogent-cabinet-backup
          :desc "Cabinet search"      "V" #'ogent-cabinet-search
          :desc "Cabinet apps"        "W" #'ogent-cabinet-apps
          :desc "Create agent"        "X" #'ogent-cabinet-create-agent

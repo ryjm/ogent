@@ -321,6 +321,20 @@ The Emacs surfaces are boring and powerful:
 - =ogent-cabinet-open-file= dispatches HTML and URLs to browser commands,
   directories to Dired, and images, PDF, CSV/TSV, source, media, and plain files
   to native Emacs file viewers.
+- =ogent-cabinet-settings= stores Cabinet-local profile, provider, runtime,
+  skills, storage, integration, notification, appearance, git, automation, and
+  about settings in =.cabinet-state/settings.org=. Settings export and import
+  use Org files.
+- =ogent-cabinet-onboard= scaffolds a Cabinet, writes settings defaults, and
+  creates an initial team with provider and runtime defaults applied.
+- =ogent-cabinet-registry-import= reads JSON Cabinet template manifests and
+  creates Org-backed Cabinet roots, agents, jobs, pages, and settings.
+- =ogent-cabinet-backup= creates filtered directory backups of durable Cabinet
+  state while excluding git metadata, derived search cache, process state, and
+  prior backups.
+- =ogent-cabinet-help= documents core surfaces, shortcuts, registry import, demo
+  creation, backup, and the durable state model. =ogent-cabinet-demo= creates a
+  complete demo Cabinet fixture.
 - =ogent-cabinet-import-artifacts= imports Markdown, HTML, and text artifacts as
   Org records under the Cabinet while preserving originals by default.
 

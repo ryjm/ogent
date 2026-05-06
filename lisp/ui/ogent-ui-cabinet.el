@@ -16,6 +16,7 @@
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-data)
+(require 'ogent-cabinet-settings)
 (require 'ogent-cabinet-runner)
 
 (eval-and-compile
@@ -745,6 +746,8 @@ DIRECTION is either `next' or `previous'."
     (define-key map "A" #'ogent-cabinet-apps)
     (define-key map "h" #'ogent-cabinet-git-status)
     (define-key map "/" #'ogent-cabinet-command-palette)
+    (define-key map "," #'ogent-cabinet-settings)
+    (define-key map "." #'ogent-cabinet-help)
     (define-key map "G" #'ogent-cabinet-status)
     (define-key map "e" #'ogent-cabinet-home-edit-metadata)
     (define-key map "n" #'ogent-cabinet-home-next-item)
@@ -762,7 +765,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-home--header-line ()
   "Return header line for Cabinet Home."
-  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
+  "m menu  ? home help  . Cabinet help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  , settings  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
 
 ;;;###autoload
 (defun ogent-cabinet-home (&optional directory)
@@ -863,10 +866,12 @@ DIRECTION is either `next' or `previous'."
                                     (ogent-cabinet-home--insert-nav "Apps" "A" #'ogent-cabinet-apps)
                                     (ogent-cabinet-home--insert-nav "Git" "h" #'ogent-cabinet-git-status)
                                     (ogent-cabinet-home--insert-nav "Palette" "/" #'ogent-cabinet-command-palette)
+                                    (ogent-cabinet-home--insert-nav "Settings" "," #'ogent-cabinet-settings)
+                                    (ogent-cabinet-home--insert-nav "Help" "." #'ogent-cabinet-help)
                                     (ogent-cabinet-home--insert-nav "Graph" "G" #'ogent-cabinet-status)
                                     (ogent-cabinet-ui--insert-item-line
                                      (list :type 'file :path (ogent-cabinet-index-file root))
-                                     "  [e] Settings")
+                                     "  [e] Cabinet metadata")
                                     (ogent-cabinet-ui--insert-item-line
                                      (list :type 'file :path (ogent-cabinet-index-file root))
                                      "  Source Org"))
@@ -1026,7 +1031,7 @@ DIRECTION is either `next' or `previous'."
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
     (princ "Navigation\n")
     (princ "----------\n")
-    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, G Graph.\n")
+    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, , Settings, . Help, G Graph.\n")
     (princ "n and p move between actionable rows. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
@@ -1072,13 +1077,18 @@ DIRECTION is either `next' or `previous'."
                            ("N" "Action approvals" ogent-cabinet-actions)
                            ("s" "Search" ogent-cabinet-search)
                            ("A" "Apps" ogent-cabinet-apps)
-                           ("h" "Git" ogent-cabinet-git-status)
-                           ("/" "Palette" ogent-cabinet-command-palette)
-                           ("G" "Graph" ogent-cabinet-status)]
-                          ["Cabinet"
-                           ("Q" "Agenda" ogent-cabinet-agenda)
-                           ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
-                           ("?" "Help" ogent-cabinet-home-help)
+	                           ("h" "Git" ogent-cabinet-git-status)
+	                           ("/" "Palette" ogent-cabinet-command-palette)
+	                           ("," "Settings" ogent-cabinet-settings)
+	                           ("." "Help" ogent-cabinet-help)
+	                           ("G" "Graph" ogent-cabinet-status)]
+	                          ["Cabinet"
+	                           ("Q" "Agenda" ogent-cabinet-agenda)
+	                           ("'" "Onboard" ogent-cabinet-onboard)
+	                           ("=" "Registry import" ogent-cabinet-registry-import)
+	                           ("_" "Backup" ogent-cabinet-backup)
+	                           ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
+	                           ("?" "Help" ogent-cabinet-home-help)
                            ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-cabinet-home-next-item ()

@@ -130,6 +130,7 @@
 (require 'ogent-cabinet-runner)
 (require 'ogent-cabinet-schedule)
 (require 'ogent-cabinet-palette)
+(require 'ogent-cabinet-settings)
 (require 'ogent-ui-cabinet)
 (require 'ogent-cabinet-status)
 (require 'ogent-gastown)
