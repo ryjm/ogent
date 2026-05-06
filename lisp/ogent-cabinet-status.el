@@ -697,7 +697,7 @@ DIRECTION is either `next' or `previous'."
   "Return PROPERTY from the first Org heading in FILE."
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (ogent-cabinet--first-heading-title)
     (org-entry-get nil property)))
 

@@ -344,7 +344,7 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
     (when (file-readable-p file)
       (with-temp-buffer
         (insert-file-contents file)
-        (org-mode)
+        (ogent-cabinet--org-mode)
         (org-map-entries
          (lambda ()
            (when (org-entry-get nil "OGENT_ACTION")

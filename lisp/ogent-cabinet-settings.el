@@ -191,7 +191,7 @@
   (let ((settings (ogent-cabinet-settings-defaults directory)))
     (with-temp-buffer
       (insert-file-contents file)
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (ogent-cabinet--first-heading-title)
       (dolist (field ogent-cabinet-settings--fields)
         (setq settings

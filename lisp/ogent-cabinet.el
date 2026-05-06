@@ -44,6 +44,12 @@ directory."
   "Return DIRECTORY as an expanded directory path."
   (file-name-as-directory (expand-file-name directory)))
 
+(defun ogent-cabinet--org-mode ()
+  "Enable Org parsing for Cabinet machine readers without user hooks."
+  (let ((org-inhibit-startup t))
+    (delay-mode-hooks
+      (org-mode))))
+
 (defun ogent-cabinet--slug (value &optional fallback)
   "Return VALUE normalized as a filesystem-safe slug.
 Use FALLBACK when VALUE normalizes to the empty string."
@@ -367,7 +373,7 @@ START defaults to `default-directory'."
       (user-error "Cabinet index not found: %s" file))
     (with-temp-buffer
       (insert-file-contents file)
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (let ((name (ogent-cabinet--first-heading-title)))
         (list :id (or (org-entry-get nil "OGENT_CABINET_ID") "cabinet")
               :name name
@@ -592,7 +598,7 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
     (user-error "Agent persona not found: %s" file))
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (let ((name (ogent-cabinet--first-heading-title)))
       (list :slug (or (org-entry-get nil "OGENT_SLUG") slug)
             :name name
@@ -953,7 +959,7 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
       (user-error "Agent job not found: %s" file))
     (with-temp-buffer
       (insert-file-contents file)
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (let ((name (ogent-cabinet--first-heading-title)))
         (list :id (or (org-entry-get nil "OGENT_JOB_ID") job-id)
               :agent (or (org-entry-get nil "OGENT_AGENT") agent-slug)
@@ -1056,7 +1062,7 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
   "Set PROPERTY to VALUE in the first Org heading of FILE."
   (let ((buffer (find-file-noselect file)))
     (with-current-buffer buffer
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (goto-char (point-min))
       (unless (re-search-forward org-heading-regexp nil t)
         (user-error "No Org heading found in %s" file))
@@ -1103,7 +1109,7 @@ When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
     (user-error "Cabinet session not found: %s" file))
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (let* ((name (ogent-cabinet--first-heading-title))
            (todo (or (nth 2 (org-heading-components))
                      (when (string-match "\\`\\(DONE\\|FAILED\\|TODO\\)\\_>" name)
@@ -1193,7 +1199,7 @@ AGENT-SLUG is a fallback for older transcripts with sparse properties."
   (let ((record (ogent-cabinet-read-session-file file agent-slug)))
     (with-temp-buffer
       (insert-file-contents file)
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (let* ((exit-status (plist-get record :exit-status))
              (successful (if exit-status
                              (zerop exit-status)
@@ -1256,7 +1262,7 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
   "Return metadata plist for the Cabinet Org record in FILE."
   (with-temp-buffer
     (insert-file-contents file nil 0 nil)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (condition-case nil
         (progn
           (let* ((heading (ogent-cabinet--first-heading-title))
@@ -1398,7 +1404,7 @@ Optional filters narrow by KIND, AGENT, STATUS, TAG, and ARCHIVED state."
           (when (and (not owner) (file-readable-p file))
             (with-temp-buffer
               (insert-file-contents file)
-              (org-mode)
+              (ogent-cabinet--org-mode)
               (condition-case nil
                   (progn
                     (ogent-cabinet--first-heading-title)

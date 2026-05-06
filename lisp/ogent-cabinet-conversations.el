@@ -299,7 +299,7 @@ ID is the fallback conversation id."
     (user-error "Cabinet conversation not found: %s" file))
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (let ((title (ogent-cabinet--first-heading-title)))
       (list
        :id (or (ogent-cabinet--blank-to-nil
@@ -585,7 +585,7 @@ PROPERTIES is an alist of Org property names to values."
   "Read turn FILE using FALLBACK metadata."
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (let ((fallback-turn (plist-get fallback :turn))
           (fallback-role (plist-get fallback :role)))
       (ogent-cabinet--first-heading-title)
@@ -700,7 +700,7 @@ PROPERTIES is an alist of Org property names to values."
     (when (file-readable-p events-file)
       (with-temp-buffer
         (insert-file-contents events-file)
-        (org-mode)
+        (ogent-cabinet--org-mode)
         (goto-char (point-min))
         (while (re-search-forward org-heading-regexp nil t)
           (org-back-to-heading t)

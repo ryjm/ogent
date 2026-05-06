@@ -1638,7 +1638,7 @@ DIRECTION is either `next' or `previous'."
                     nil t))
          (current (with-temp-buffer
                     (insert-file-contents file)
-                    (org-mode)
+                    (ogent-cabinet--org-mode)
                     (ogent-cabinet--first-heading-title)
                     (org-entry-get nil property)))
          (value (read-string (format "%s: " property) current)))

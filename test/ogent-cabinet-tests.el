@@ -58,6 +58,27 @@
         (should (equal (file-truename dir)
                        (file-truename (ogent-cabinet-find-root))))))))
 
+(ert-deftest ogent-cabinet-graph-build-ignores-user-org-hooks ()
+  "Machine readers tolerate Org docs containing drawer-like examples."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Ops" :kind "root" :create-editor t)
+    (make-directory (expand-file-name "specs" dir) t)
+    (ogent-cabinet--write-file
+     (expand-file-name "specs/parity.org" dir)
+     (concat
+      "#+title: Cabinet Parity\n\n"
+      "* Notes\n"
+      "#+begin_example\n"
+      ":OGENT_AGENT_SCOPE: cabinet | global\n"
+      ":OGENT_DISPLAY_NAME:\n"
+      "#+end_example\n"))
+    (let ((org-mode-hook (cons (lambda ()
+                                 (org-cycle-hide-drawers))
+                               org-mode-hook)))
+      (let ((graph (ogent-cabinet-build-graph dir)))
+        (should (plist-get graph :nodes))
+        (should (plist-get graph :edges))))))
+
 (ert-deftest ogent-cabinet-agent-round-trips-org-persona ()
   "Agent personas are written and read as Org headings."
   (ogent-cabinet-test-with-temp-dir dir

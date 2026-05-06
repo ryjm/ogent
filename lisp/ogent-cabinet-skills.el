@@ -60,7 +60,7 @@
   "Read skill FILE metadata for ORIGIN without loading the full body."
   (with-temp-buffer
     (insert-file-contents file nil 0 4096)
-    (org-mode)
+    (ogent-cabinet--org-mode)
     (let ((title (or (ogent-cabinet--first-heading-title)
                      (file-name-base file))))
       (list :key (ogent-cabinet-skill--slug
@@ -97,7 +97,7 @@
       (user-error "Cabinet skill not found: %s" key))
     (with-temp-buffer
       (insert-file-contents (plist-get skill :path))
-      (org-mode)
+      (ogent-cabinet--org-mode)
       (ogent-cabinet--first-heading-title)
       (append skill
               (list :body (ogent-cabinet--heading-body))))))
