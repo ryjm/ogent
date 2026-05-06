@@ -55,6 +55,10 @@ text in those Org files. Manual edits remain part of the record.
    #+end_example
 
    Fill in name, slug, role, provider, model, workspace, tags, and persona.
+   Persona files also support Cabinet identity fields for display name, icon,
+   color, avatar, department, type, dispatch permission, adapter, effort,
+   runtime mode, budget, focus paths, goals, channels, selected skills,
+   recommended skills, setup status, and heartbeat state.
 
 4. Add a recurring job:
 
@@ -128,6 +132,12 @@ text in those Org files. Manual edits remain part of the record.
     =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
     a prompt with =@skill:<key>= or pass the key through the composer.
 
+14. Review departments and approvals:
+
+    Use =M-x ogent-cabinet-org-chart= for a department tree grouped by lead and
+    scope. Use =M-x ogent-cabinet-actions= on a conversation with pending lead
+    proposals to approve, reject, or dispatch actions.
+
 * Keybindings
 
 Main ogent dispatch bindings:
@@ -138,8 +148,10 @@ Main ogent dispatch bindings:
 | =C-c . K= / =SPC o K= | =ogent-cabinet-status= |
 | =C-c . y= / =SPC o y= | =ogent-cabinet-agents= |
 | =C-c . Y= / =SPC o Y= | =ogent-cabinet-agent= |
+| =C-c . B= / =SPC o B= | =ogent-cabinet-org-chart= |
 | =C-c . I= / =SPC o I= | =ogent-cabinet-tasks= |
 | =C-c . O= / =SPC o O= | =ogent-cabinet-conversations= |
+| =C-c . N= / =SPC o N= | =ogent-cabinet-actions= |
 | =C-c . V= / =SPC o V= | =ogent-cabinet-search= |
 | =C-c . W= / =SPC o W= | =ogent-cabinet-apps= |
 | =C-c . X= / =SPC o X= | =ogent-cabinet-create-agent= |
@@ -172,6 +184,27 @@ Cabinet Home:
 | =^= | Move to the parent section |
 | =m= | Open the Home transient menu |
 | =?= | Open Home help |
+| =g= | Refresh |
+| =q= | Quit |
+
+Org chart:
+
+| Key | Action |
+|-----+--------|
+| =TAB= | Collapse or expand the department at point |
+| =M-n= / =M-p= | Move between departments |
+| =g= | Refresh |
+| =q= | Quit |
+
+Action approvals:
+
+| Key | Action |
+|-----+--------|
+| =a= | Approve action at point |
+| =r= | Reject action at point |
+| =A= | Approve all actions |
+| =R= | Reject all actions |
+| =d= | Dispatch approved actions |
 | =g= | Refresh |
 | =q= | Quit |
 | =j= | Open all jobs |

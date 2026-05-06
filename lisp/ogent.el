@@ -124,6 +124,7 @@
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-skills)
 (require 'ogent-cabinet-compose)
+(require 'ogent-cabinet-actions)
 (require 'ogent-cabinet-runner)
 (require 'ogent-ui-cabinet)
 (require 'ogent-cabinet-status)

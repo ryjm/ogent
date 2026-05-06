@@ -45,8 +45,10 @@
 (declare-function ogent-cabinet-status "ogent-cabinet-status")
 (declare-function ogent-cabinet-agents "ogent-ui-cabinet")
 (declare-function ogent-cabinet-agent "ogent-ui-cabinet")
+(declare-function ogent-cabinet-org-chart "ogent-ui-cabinet")
 (declare-function ogent-cabinet-tasks "ogent-ui-cabinet")
 (declare-function ogent-cabinet-conversations "ogent-ui-cabinet")
+(declare-function ogent-cabinet-actions "ogent-cabinet-actions")
 (declare-function ogent-cabinet-search "ogent-ui-cabinet")
 (declare-function ogent-cabinet-apps "ogent-ui-cabinet")
 (declare-function ogent-cabinet-create-agent "ogent-ui-cabinet")
@@ -133,9 +135,9 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Fix diagnostic"
                       :visual t)
     (fix-buffer-diagnostics
-                      :key "F" :command ogent-fix-buffer-diagnostics
-                      :desc "Fix buffer diagnostics"
-                      :visual t)
+     :key "F" :command ogent-fix-buffer-diagnostics
+     :desc "Fix buffer diagnostics"
+     :visual t)
     (quick-edit       :key "k" :command ogent-quick-edit
                       :desc "Quick inline edit"
                       :visual t)
@@ -187,23 +189,28 @@ Set to nil to disable automatic evil binding setup."
     (cabinet-agents   :key "y" :command ogent-cabinet-agents
                       :desc "Cabinet agents")
     (cabinet-agent-profile
-                      :key "Y" :command ogent-cabinet-agent
-                      :desc "Cabinet agent profile")
+     :key "Y" :command ogent-cabinet-agent
+     :desc "Cabinet agent profile")
+    (cabinet-org-chart
+     :key "B" :command ogent-cabinet-org-chart
+     :desc "Cabinet org chart")
     (cabinet-tasks    :key "I" :command ogent-cabinet-tasks
                       :desc "Cabinet tasks")
     (cabinet-conversations
-                      :key "O" :command ogent-cabinet-conversations
-                      :desc "Cabinet conversations")
+     :key "O" :command ogent-cabinet-conversations
+     :desc "Cabinet conversations")
+    (cabinet-actions  :key "N" :command ogent-cabinet-actions
+                      :desc "Cabinet action approvals")
     (cabinet-search   :key "V" :command ogent-cabinet-search
                       :desc "Cabinet search")
     (cabinet-apps     :key "W" :command ogent-cabinet-apps
                       :desc "Cabinet apps")
     (cabinet-create-agent
-                      :key "X" :command ogent-cabinet-create-agent
-                      :desc "Create Cabinet agent")
+     :key "X" :command ogent-cabinet-create-agent
+     :desc "Create Cabinet agent")
     (cabinet-create-job
-                      :key "Z" :command ogent-cabinet-create-job
-                      :desc "Create Cabinet job")
+     :key "Z" :command ogent-cabinet-create-job
+     :desc "Create Cabinet job")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")
@@ -281,11 +288,11 @@ When PREFIX is non-nil, bind each action under PREFIX."
              (visual-p (plist-get props :visual)))
         ;; Normal state binding
         (evil-define-key* 'normal keymap
-          (kbd (concat ogent-evil-prefix " " key)) cmd)
+                          (kbd (concat ogent-evil-prefix " " key)) cmd)
         ;; Visual state for region-based actions
         (when visual-p
           (evil-define-key* 'visual keymap
-            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
+                            (kbd (concat ogent-evil-prefix " " key)) cmd))))))
 
 (defun ogent-setup-evil-bindings (keymap)
   "Set up evil keybindings in KEYMAP from action registry.
@@ -324,7 +331,7 @@ return nil rather than signaling if Doom is unavailable."
                             doom-leader-key
                           "SPC")))
             (which-key-add-key-based-replacements
-              (concat leader " " ogent-doom-prefix) "ogent")))
+             (concat leader " " ogent-doom-prefix) "ogent")))
         prefix-map)))))
 
 (defun ogent-setup-which-key ()

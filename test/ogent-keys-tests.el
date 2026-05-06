@@ -229,12 +229,14 @@
 (ert-deftest ogent-keys-cabinet-actions-present ()
   "Cabinet actions expose the complete Org OS entry surface."
   (dolist (action '(cabinet-home
-                    cabinet-status
-                    cabinet-agents
-                    cabinet-agent-profile
-                    cabinet-tasks
-                    cabinet-conversations
-                    cabinet-search
+	                    cabinet-status
+	                    cabinet-agents
+	                    cabinet-agent-profile
+	                    cabinet-org-chart
+	                    cabinet-tasks
+	                    cabinet-conversations
+	                    cabinet-actions
+	                    cabinet-search
                     cabinet-apps
                     cabinet-create-agent
                     cabinet-create-job))

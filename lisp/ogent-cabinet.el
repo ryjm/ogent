@@ -25,11 +25,19 @@
   :type 'string
   :group 'ogent-cabinet)
 
+(defcustom ogent-cabinet-global-agents-root nil
+  "Optional directory containing user-global Cabinet agents.
+When nil, each Cabinet stores global agents in its own `.global-agents'
+directory."
+  :type '(choice (const :tag "Cabinet-local .global-agents" nil)
+                 directory)
+  :group 'ogent-cabinet)
+
 (defconst ogent-cabinet--index-file "index.org"
   "File name for the root Org entry in a cabinet.")
 
 (defconst ogent-cabinet--managed-directories
-  '(".agents" ".agents/.conversations" ".jobs" ".cabinet-state")
+  '(".agents" ".agents/.conversations" ".global-agents" ".jobs" ".cabinet-state")
   "Directories managed by the Org cabinet scaffold.")
 
 (defun ogent-cabinet--directory (directory)
@@ -53,7 +61,7 @@ Use FALLBACK when VALUE normalizes to the empty string."
    ((null value) nil)
    ((stringp value)
     (not (null (member (downcase (string-trim value))
-	                       '("t" "true" "yes" "1")))))
+                       '("t" "true" "yes" "1")))))
    (t nil)))
 
 (defun ogent-cabinet--boolean-property-valid-p (value)
@@ -147,14 +155,31 @@ PROPERTIES is an alist of property names to values."
   "Return the cabinet agents directory under DIRECTORY."
   (expand-file-name ".agents" (ogent-cabinet--directory directory)))
 
+(defun ogent-cabinet-global-agents-directory (directory)
+  "Return the global agents directory visible from DIRECTORY."
+  (file-name-as-directory
+   (expand-file-name
+    (or ogent-cabinet-global-agents-root
+        (expand-file-name ".global-agents"
+                          (ogent-cabinet--directory directory))))))
+
 (defun ogent-cabinet-agent-directory (directory slug)
   "Return the directory for agent SLUG under DIRECTORY."
   (expand-file-name slug (ogent-cabinet-agents-directory directory)))
+
+(defun ogent-cabinet-global-agent-directory (directory slug)
+  "Return the global directory for agent SLUG under DIRECTORY."
+  (expand-file-name slug (ogent-cabinet-global-agents-directory directory)))
 
 (defun ogent-cabinet-agent-file (directory slug)
   "Return the persona file for agent SLUG under DIRECTORY."
   (expand-file-name "persona.org"
                     (ogent-cabinet-agent-directory directory slug)))
+
+(defun ogent-cabinet-global-agent-file (directory slug)
+  "Return the global persona file for agent SLUG under DIRECTORY."
+  (expand-file-name "persona.org"
+                    (ogent-cabinet-global-agent-directory directory slug)))
 
 (defun ogent-cabinet-job-file (directory agent-slug job-id)
   "Return the job file for JOB-ID owned by AGENT-SLUG under DIRECTORY."
@@ -218,6 +243,11 @@ START defaults to `default-directory'."
     (when found
       (directory-file-name found))))
 
+(defun ogent-cabinet--cabinet-kind (metadata)
+  "Return the Cabinet kind from METADATA."
+  (or (plist-get metadata :cabinet-kind)
+      (plist-get metadata :kind)))
+
 (defun ogent-cabinet-read-index (directory)
   "Read the cabinet index under DIRECTORY and return a plist."
   (let ((file (ogent-cabinet-index-file directory)))
@@ -229,8 +259,19 @@ START defaults to `default-directory'."
       (let ((name (ogent-cabinet--first-heading-title)))
         (list :id (or (org-entry-get nil "OGENT_CABINET_ID") "cabinet")
               :name name
-              :kind (org-entry-get nil "OGENT_KIND")
+              :kind (or (org-entry-get nil "OGENT_CABINET_KIND")
+                        (org-entry-get nil "OGENT_KIND"))
+              :cabinet-kind (or (org-entry-get nil "OGENT_CABINET_KIND")
+                                (org-entry-get nil "OGENT_KIND"))
+              :parent (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_CABINET_PARENT"))
               :description (org-entry-get nil "OGENT_DESCRIPTION")
+              :entry (ogent-cabinet--blank-to-nil
+                      (org-entry-get nil "OGENT_CABINET_ENTRY"))
+              :access (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_CABINET_ACCESS"))
+              :shared-context (ogent-cabinet--tags-from-string
+                               (org-entry-get nil "OGENT_CABINET_SHARED_CONTEXT"))
               :tags (ogent-cabinet--tags-from-string
                      (org-entry-get nil "OGENT_TAGS"))
               :body (ogent-cabinet--heading-body)
@@ -247,6 +288,11 @@ KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
       `(("OGENT_CABINET" . t)
         ("OGENT_CABINET_ID" . ,cabinet-id)
         ("OGENT_KIND" . ,kind)
+        ("OGENT_CABINET_KIND" . ,kind)
+        ("OGENT_CABINET_PARENT" . "")
+        ("OGENT_CABINET_ENTRY" . "")
+        ("OGENT_CABINET_ACCESS" . "")
+        ("OGENT_CABINET_SHARED_CONTEXT" . "")
         ("OGENT_DESCRIPTION" . ,(or description ""))
         ("OGENT_TAGS" . ,tags)))
      "\n"
@@ -278,13 +324,13 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
       (ogent-cabinet-write-agent
        root
        `(:slug "editor"
-         :name "Editor"
-         :role "Knowledge base editor"
-         :provider ,ogent-cabinet-default-agent-provider
-         :heartbeat ,ogent-cabinet-default-heartbeat
-         :active t
-         :workspace "/"
-         :tags ("editor" "knowledge"))
+               :name "Editor"
+               :role "Knowledge base editor"
+               :provider ,ogent-cabinet-default-agent-provider
+               :heartbeat ,ogent-cabinet-default-heartbeat
+               :active t
+               :workspace "/"
+               :tags ("editor" "knowledge"))
        "Maintain Org pages, links, summaries, and agent-facing context."))
     root))
 
@@ -317,14 +363,44 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
                 (ogent-cabinet--agent-plist-value agent :slug nil)
                 "agent"))
          (name (ogent-cabinet--agent-plist-value agent :name slug))
+         (display-name (ogent-cabinet--agent-plist-value
+                        agent :display-name nil))
+         (icon (ogent-cabinet--agent-plist-value agent :icon nil))
+         (color (ogent-cabinet--agent-plist-value agent :color nil))
+         (avatar (ogent-cabinet--agent-plist-value agent :avatar nil))
          (role (ogent-cabinet--agent-plist-value agent :role "Agent"))
+         (department (ogent-cabinet--agent-plist-value
+                      agent :department nil))
+         (type (ogent-cabinet--agent-plist-value agent :type nil))
+         (scope (ogent-cabinet--agent-plist-value agent :scope "cabinet"))
+         (can-dispatch (ogent-cabinet--agent-plist-value
+                        agent :can-dispatch nil))
          (provider (ogent-cabinet--agent-plist-value
                     agent :provider ogent-cabinet-default-agent-provider))
+         (adapter (ogent-cabinet--agent-plist-value agent :adapter nil))
+         (adapter-config (ogent-cabinet--agent-plist-value
+                          agent :adapter-config nil))
          (model (ogent-cabinet--agent-plist-value agent :model nil))
+         (effort (ogent-cabinet--agent-plist-value agent :effort nil))
+         (runtime-mode (ogent-cabinet--agent-plist-value
+                        agent :runtime-mode nil))
          (permission-mode (ogent-cabinet--agent-plist-value
                            agent :permission-mode nil))
+         (budget (ogent-cabinet--agent-plist-value agent :budget nil))
+         (focus (ogent-cabinet--agent-plist-value agent :focus nil))
+         (goals (ogent-cabinet--agent-plist-value agent :goals nil))
+         (channels (ogent-cabinet--agent-plist-value agent :channels nil))
+         (skills (ogent-cabinet--agent-plist-value agent :skills nil))
+         (recommended-skills (ogent-cabinet--agent-plist-value
+                              agent :recommended-skills nil))
+         (setup-complete (ogent-cabinet--agent-plist-value
+                          agent :setup-complete nil))
          (heartbeat (ogent-cabinet--agent-plist-value
                      agent :heartbeat ogent-cabinet-default-heartbeat))
+         (last-heartbeat (ogent-cabinet--agent-plist-value
+                          agent :last-heartbeat nil))
+         (next-heartbeat (ogent-cabinet--agent-plist-value
+                          agent :next-heartbeat nil))
          (active (ogent-cabinet--agent-plist-value agent :active t))
          (archived (ogent-cabinet--agent-plist-value agent :archived nil))
          (workspace (ogent-cabinet--agent-plist-value agent :workspace "/"))
@@ -335,11 +411,32 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
      (ogent-cabinet--format-properties
       `(("OGENT_AGENT" . t)
         ("OGENT_SLUG" . ,slug)
+        ("OGENT_AGENT_SCOPE" . ,scope)
+        ("OGENT_DISPLAY_NAME" . ,display-name)
+        ("OGENT_ICON" . ,icon)
+        ("OGENT_COLOR" . ,color)
+        ("OGENT_AVATAR" . ,avatar)
         ("OGENT_ROLE" . ,role)
+        ("OGENT_DEPARTMENT" . ,department)
+        ("OGENT_TYPE" . ,type)
+        ("OGENT_CAN_DISPATCH" . ,can-dispatch)
         ("OGENT_PROVIDER" . ,provider)
+        ("OGENT_ADAPTER" . ,adapter)
+        ("OGENT_ADAPTER_CONFIG" . ,adapter-config)
         ("OGENT_MODEL" . ,model)
+        ("OGENT_EFFORT" . ,effort)
+        ("OGENT_RUNTIME_MODE" . ,runtime-mode)
         ("OGENT_PERMISSION_MODE" . ,permission-mode)
+        ("OGENT_BUDGET" . ,budget)
+        ("OGENT_FOCUS" . ,focus)
+        ("OGENT_GOALS" . ,goals)
+        ("OGENT_CHANNELS" . ,channels)
+        ("OGENT_SKILLS" . ,skills)
+        ("OGENT_RECOMMENDED_SKILLS" . ,recommended-skills)
+        ("OGENT_SETUP_COMPLETE" . ,setup-complete)
         ("OGENT_HEARTBEAT" . ,heartbeat)
+        ("OGENT_LAST_HEARTBEAT" . ,last-heartbeat)
+        ("OGENT_NEXT_HEARTBEAT" . ,next-heartbeat)
         ("OGENT_ACTIVE" . ,active)
         ("OGENT_ARCHIVED" . ,archived)
         ("OGENT_WORKSPACE" . ,workspace)
@@ -348,47 +445,118 @@ When SKIP-EXISTING is non-nil, keep an existing index file."
      (when body
        (concat (string-trim body) "\n")))))
 
-(defun ogent-cabinet-write-agent (directory agent &optional body)
-  "Write AGENT persona under DIRECTORY using BODY as instructions.
-AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
-`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
-`:active', `:workspace', and `:tags'."
+(defun ogent-cabinet--write-agent-to (directory agent scope &optional body)
+  "Write AGENT persona under DIRECTORY in SCOPE using BODY."
   (let* ((slug (ogent-cabinet--slug
                 (ogent-cabinet--agent-plist-value agent :slug nil)
                 "agent"))
-         (agent-dir (ogent-cabinet-agent-directory directory slug))
-         (file (ogent-cabinet-agent-file directory slug)))
+         (agent (plist-put (copy-sequence agent)
+                           :scope (symbol-name scope)))
+         (agent-dir (if (eq scope 'global)
+                        (ogent-cabinet-global-agent-directory directory slug)
+                      (ogent-cabinet-agent-directory directory slug)))
+         (file (if (eq scope 'global)
+                   (ogent-cabinet-global-agent-file directory slug)
+                 (ogent-cabinet-agent-file directory slug))))
     (make-directory agent-dir t)
     (ogent-cabinet--ensure-agent-support-files agent-dir)
     (ogent-cabinet--write-file file (ogent-cabinet--format-agent agent body))
     file))
 
+(defun ogent-cabinet-write-agent (directory agent &optional body)
+  "Write cabinet-local AGENT persona under DIRECTORY using BODY as instructions.
+AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
+`:role', `:provider', `:model', `:permission-mode', `:heartbeat',
+`:active', `:workspace', and `:tags'."
+  (ogent-cabinet--write-agent-to directory agent 'cabinet body))
+
+(defun ogent-cabinet-write-global-agent (directory agent &optional body)
+  "Write global AGENT persona visible from DIRECTORY using BODY."
+  (ogent-cabinet--write-agent-to directory agent 'global body))
+
+(defun ogent-cabinet--read-agent-file (file slug scope-fallback)
+  "Read agent persona FILE for SLUG with SCOPE-FALLBACK."
+  (unless (file-readable-p file)
+    (user-error "Agent persona not found: %s" file))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (org-mode)
+    (let ((name (ogent-cabinet--first-heading-title)))
+      (list :slug (or (org-entry-get nil "OGENT_SLUG") slug)
+            :name name
+            :display-name (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_DISPLAY_NAME"))
+            :icon (ogent-cabinet--blank-to-nil
+                   (org-entry-get nil "OGENT_ICON"))
+            :color (ogent-cabinet--blank-to-nil
+                    (org-entry-get nil "OGENT_COLOR"))
+            :avatar (ogent-cabinet--blank-to-nil
+                     (org-entry-get nil "OGENT_AVATAR"))
+            :role (org-entry-get nil "OGENT_ROLE")
+            :department (ogent-cabinet--blank-to-nil
+                         (org-entry-get nil "OGENT_DEPARTMENT"))
+            :type (ogent-cabinet--blank-to-nil
+                   (org-entry-get nil "OGENT_TYPE"))
+            :scope (or (ogent-cabinet--blank-to-nil
+                        (org-entry-get nil "OGENT_AGENT_SCOPE"))
+                       scope-fallback)
+            :can-dispatch (ogent-cabinet--truth-value
+                           (org-entry-get nil "OGENT_CAN_DISPATCH"))
+            :provider (org-entry-get nil "OGENT_PROVIDER")
+            :adapter (ogent-cabinet--blank-to-nil
+                      (org-entry-get nil "OGENT_ADAPTER"))
+            :adapter-config (ogent-cabinet--blank-to-nil
+                             (org-entry-get nil "OGENT_ADAPTER_CONFIG"))
+            :model (ogent-cabinet--blank-to-nil
+                    (org-entry-get nil "OGENT_MODEL"))
+            :effort (ogent-cabinet--blank-to-nil
+                     (org-entry-get nil "OGENT_EFFORT"))
+            :runtime-mode (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_RUNTIME_MODE"))
+            :permission-mode (ogent-cabinet--blank-to-nil
+                              (org-entry-get nil "OGENT_PERMISSION_MODE"))
+            :budget (ogent-cabinet--blank-to-nil
+                     (org-entry-get nil "OGENT_BUDGET"))
+            :focus (ogent-cabinet--tags-from-string
+                    (org-entry-get nil "OGENT_FOCUS"))
+            :goals (ogent-cabinet--tags-from-string
+                    (org-entry-get nil "OGENT_GOALS"))
+            :channels (ogent-cabinet--tags-from-string
+                       (org-entry-get nil "OGENT_CHANNELS"))
+            :skills (ogent-cabinet--tags-from-string
+                     (org-entry-get nil "OGENT_SKILLS"))
+            :recommended-skills (ogent-cabinet--tags-from-string
+                                 (org-entry-get nil "OGENT_RECOMMENDED_SKILLS"))
+            :setup-complete (ogent-cabinet--truth-value
+                             (org-entry-get nil "OGENT_SETUP_COMPLETE"))
+            :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
+            :last-heartbeat (ogent-cabinet--blank-to-nil
+                             (org-entry-get nil "OGENT_LAST_HEARTBEAT"))
+            :next-heartbeat (ogent-cabinet--blank-to-nil
+                             (org-entry-get nil "OGENT_NEXT_HEARTBEAT"))
+            :active (ogent-cabinet--truth-value
+                     (org-entry-get nil "OGENT_ACTIVE"))
+            :archived (ogent-cabinet--truth-value
+                       (org-entry-get nil "OGENT_ARCHIVED"))
+            :workspace (org-entry-get nil "OGENT_WORKSPACE")
+            :tags (ogent-cabinet--tags-from-string
+                   (org-entry-get nil "OGENT_TAGS"))
+            :body (ogent-cabinet--heading-body)
+            :path file))))
+
 (defun ogent-cabinet-read-agent (directory slug)
-  "Read agent SLUG from DIRECTORY and return a plist."
+  "Read cabinet-local agent SLUG from DIRECTORY and return a plist."
   (let ((file (ogent-cabinet-agent-file directory slug)))
     (unless (file-readable-p file)
       (user-error "Agent persona not found: %s" file))
-    (with-temp-buffer
-      (insert-file-contents file)
-      (org-mode)
-      (let ((name (ogent-cabinet--first-heading-title)))
-        (list :slug (or (org-entry-get nil "OGENT_SLUG") slug)
-              :name name
-              :role (org-entry-get nil "OGENT_ROLE")
-              :provider (org-entry-get nil "OGENT_PROVIDER")
-              :model (ogent-cabinet--blank-to-nil
-                      (org-entry-get nil "OGENT_MODEL"))
-              :permission-mode (ogent-cabinet--blank-to-nil
-                                (org-entry-get nil "OGENT_PERMISSION_MODE"))
-              :heartbeat (org-entry-get nil "OGENT_HEARTBEAT")
-              :active (ogent-cabinet--truth-value
-                       (org-entry-get nil "OGENT_ACTIVE"))
-              :archived (ogent-cabinet--truth-value
-                         (org-entry-get nil "OGENT_ARCHIVED"))
-              :workspace (org-entry-get nil "OGENT_WORKSPACE")
-              :tags (ogent-cabinet--tags-from-string
-                     (org-entry-get nil "OGENT_TAGS"))
-              :body (ogent-cabinet--heading-body))))))
+    (ogent-cabinet--read-agent-file file slug "cabinet")))
+
+(defun ogent-cabinet-read-global-agent (directory slug)
+  "Read global agent SLUG visible from DIRECTORY and return a plist."
+  (let ((file (ogent-cabinet-global-agent-file directory slug)))
+    (unless (file-readable-p file)
+      (user-error "Global agent persona not found: %s" file))
+    (ogent-cabinet--read-agent-file file slug "global")))
 
 (defun ogent-cabinet-list-agents (directory)
   "Return agent slugs present in DIRECTORY."
@@ -402,6 +570,172 @@ AGENT is a plist.  Required key: `:slug'.  Common keys include `:name',
                (file-exists-p
                 (ogent-cabinet-agent-file directory name))))
         (directory-files agents-dir nil directory-files-no-dot-files-regexp))))))
+
+(defun ogent-cabinet-list-global-agents (directory)
+  "Return global agent slugs visible from DIRECTORY."
+  (let ((agents-dir (ogent-cabinet-global-agents-directory directory)))
+    (when (file-directory-p agents-dir)
+      (seq-sort
+       #'string<
+       (seq-filter
+        (lambda (name)
+          (and (not (string-prefix-p "." name))
+               (file-exists-p
+                (ogent-cabinet-global-agent-file directory name))))
+        (directory-files agents-dir nil directory-files-no-dot-files-regexp))))))
+
+(defun ogent-cabinet--agent-with-source (agent scope source-root path)
+  "Return AGENT annotated with SCOPE, SOURCE-ROOT, and PATH."
+  (let ((record (copy-sequence agent)))
+    (setq record (plist-put record :scope scope))
+    (setq record (plist-put record :source-root
+                            (directory-file-name
+                             (file-truename
+                              (ogent-cabinet--directory source-root)))))
+    (setq record (plist-put record :path path))
+    record))
+
+(defun ogent-cabinet-child-cabinets (directory)
+  "Return immediate child Cabinet roots below DIRECTORY."
+  (let* ((root (ogent-cabinet--directory directory))
+         children)
+    (dolist (entry (directory-files root t directory-files-no-dot-files-regexp))
+      (when (and (file-directory-p entry)
+                 (not (string-prefix-p "."
+                                       (file-name-nondirectory entry)))
+                 (ogent-cabinet-root-p entry))
+        (push (directory-file-name (file-truename entry)) children)))
+    (seq-sort #'string< children)))
+
+(defun ogent-cabinet-visible-cabinets (directory)
+  "Return Cabinet roots visible from DIRECTORY."
+  (delete-dups
+   (cons (directory-file-name
+          (file-truename (ogent-cabinet--directory directory)))
+         (ogent-cabinet-child-cabinets directory))))
+
+(cl-defun ogent-cabinet-resolve-agent (directory slug &key include-visible)
+  "Resolve agent SLUG from DIRECTORY.
+Cabinet-local agents win first, followed by global agents.  When
+INCLUDE-VISIBLE is non-nil, slug-unique agents in visible child Cabinets are
+also candidates."
+  (let* ((root (ogent-cabinet--directory directory))
+         (local-file (ogent-cabinet-agent-file root slug))
+         (global-file (ogent-cabinet-global-agent-file root slug)))
+    (cond
+     ((file-readable-p local-file)
+      (ogent-cabinet--agent-with-source
+       (ogent-cabinet-read-agent root slug)
+       'cabinet
+       root
+       local-file))
+     ((file-readable-p global-file)
+      (ogent-cabinet--agent-with-source
+       (ogent-cabinet-read-global-agent root slug)
+       'global
+       root
+       global-file))
+     (include-visible
+      (let (matches)
+        (dolist (visible-root (cdr (ogent-cabinet-visible-cabinets root)))
+          (let ((file (ogent-cabinet-agent-file visible-root slug)))
+            (when (file-readable-p file)
+              (push (ogent-cabinet--agent-with-source
+                     (ogent-cabinet-read-agent visible-root slug)
+                     'visible
+                     visible-root
+                     file)
+                    matches))))
+        (pcase (length matches)
+          (0 (user-error "Agent persona not found: %s" slug))
+          (1 (car matches))
+          (_ (user-error "Ambiguous visible Cabinet agent: %s" slug)))))
+     (t (user-error "Agent persona not found: %s" slug)))))
+
+(cl-defun ogent-cabinet-agent-records (directory &key include-visible)
+  "Return agent records visible from DIRECTORY.
+Local records are listed first, then non-shadowed global records.  When
+INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
+  (let* ((root (ogent-cabinet--directory directory))
+         (seen (make-hash-table :test 'equal))
+         records)
+    (dolist (slug (ogent-cabinet-list-agents root))
+      (puthash slug t seen)
+      (push (ogent-cabinet--agent-with-source
+             (ogent-cabinet-read-agent root slug)
+             'cabinet
+             root
+             (ogent-cabinet-agent-file root slug))
+            records))
+    (dolist (slug (ogent-cabinet-list-global-agents root))
+      (unless (gethash slug seen)
+        (puthash slug t seen)
+        (push (ogent-cabinet--agent-with-source
+               (ogent-cabinet-read-global-agent root slug)
+               'global
+               root
+               (ogent-cabinet-global-agent-file root slug))
+              records)))
+    (when include-visible
+      (dolist (visible-root (cdr (ogent-cabinet-visible-cabinets root)))
+        (dolist (slug (ogent-cabinet-list-agents visible-root))
+          (unless (gethash slug seen)
+            (puthash slug t seen)
+            (push (ogent-cabinet--agent-with-source
+                   (ogent-cabinet-read-agent visible-root slug)
+                   'visible
+                   visible-root
+                   (ogent-cabinet-agent-file visible-root slug))
+                  records)))))
+    (seq-sort-by (lambda (agent)
+                   (or (plist-get agent :display-name)
+                       (plist-get agent :name)
+                       (plist-get agent :slug)))
+                 #'string<
+                 records)))
+
+(cl-defun ogent-cabinet-list-visible-agents (directory &key include-visible)
+  "Return visible agent slugs for DIRECTORY."
+  (mapcar (lambda (agent) (plist-get agent :slug))
+          (ogent-cabinet-agent-records
+           directory
+           :include-visible include-visible)))
+
+(defun ogent-cabinet-agent-lead-p (agent)
+  "Return non-nil when AGENT is a lead or can dispatch actions."
+  (or (equal (plist-get agent :type) "lead")
+      (plist-get agent :can-dispatch)))
+
+(cl-defun ogent-cabinet-agents-by-department (directory &key include-visible)
+  "Return visible agents under DIRECTORY grouped by department."
+  (let ((groups (make-hash-table :test 'equal)))
+    (dolist (agent (ogent-cabinet-agent-records
+                    directory
+                    :include-visible include-visible))
+      (let* ((department (or (plist-get agent :department) "Unassigned"))
+             (agents (gethash department groups)))
+        (puthash department (cons agent agents) groups)))
+    (seq-sort-by
+     (lambda (group)
+       (plist-get group :department))
+     #'string<
+     (let (records)
+       (maphash
+        (lambda (department agents)
+          (let* ((ordered (seq-sort-by
+                           (lambda (agent)
+                             (or (plist-get agent :display-name)
+                                 (plist-get agent :name)
+                                 (plist-get agent :slug)))
+                           #'string<
+                           agents))
+                 (lead (seq-find #'ogent-cabinet-agent-lead-p ordered)))
+            (push (list :department department
+                        :lead lead
+                        :agents ordered)
+                  records)))
+        groups)
+       records))))
 
 (defun ogent-cabinet-list-jobs (directory agent-slug)
   "Return jobs owned by AGENT-SLUG under DIRECTORY."
@@ -591,7 +925,7 @@ When AGENT-SLUG is non-nil, use it as a fallback for missing metadata."
                      (when (string-match "\\`\\(DONE\\|FAILED\\|TODO\\)\\_>" name)
                        (match-string 1 name))))
            (exit-status-text (ogent-cabinet--blank-to-nil
-                               (org-entry-get nil "OGENT_EXIT_STATUS")))
+                              (org-entry-get nil "OGENT_EXIT_STATUS")))
            (exit-status (when exit-status-text
                           (string-to-number exit-status-text)))
            (agent (or (ogent-cabinet--blank-to-nil
@@ -747,8 +1081,8 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
                  (slug-property (ogent-cabinet--blank-to-nil
                                  (org-entry-get nil "OGENT_SLUG")))
                  (agent (if (and agent-property
-                                  (not (member (downcase agent-property)
-                                               '("t" "true" "yes"))))
+                                 (not (member (downcase agent-property)
+                                              '("t" "true" "yes"))))
                             agent-property
                           slug-property)))
             (list
@@ -822,6 +1156,37 @@ Optional filters narrow by KIND, AGENT, STATUS, TAG, and ARCHIVED state."
                             results)))
                   (forward-line 1))))))))
     (nreverse results)))
+
+(defun ogent-cabinet-overview (directory)
+  "Return a Cabinet overview plist for DIRECTORY."
+  (let* ((root (directory-file-name
+                (file-truename (ogent-cabinet--directory directory))))
+         (index (ogent-cabinet-read-index root))
+         (agents (ogent-cabinet-agent-records root :include-visible t))
+         (jobs nil))
+    (dolist (agent agents)
+      (when (eq (plist-get agent :scope) 'cabinet)
+        (setq jobs
+              (append jobs
+                      (ogent-cabinet-list-jobs
+                       root
+                       (plist-get agent :slug))))))
+    (list :root root
+          :id (plist-get index :id)
+          :name (plist-get index :name)
+          :kind (ogent-cabinet--cabinet-kind index)
+          :parent (plist-get index :parent)
+          :description (plist-get index :description)
+          :entry (plist-get index :entry)
+          :access (plist-get index :access)
+          :shared-context (plist-get index :shared-context)
+          :children (ogent-cabinet-child-cabinets root)
+          :visible-cabinets (ogent-cabinet-visible-cabinets root)
+          :agents agents
+          :global-agents (seq-filter (lambda (agent)
+                                       (eq (plist-get agent :scope) 'global))
+                                     agents)
+          :jobs jobs)))
 
 (defun ogent-cabinet--app-owner (root relative)
   "Return owner metadata for app RELATIVE under ROOT."

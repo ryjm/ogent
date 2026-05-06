@@ -66,13 +66,17 @@
 
 (defun ogent-cabinet-compose--agent-record (root token)
   "Return an agent mention record for TOKEN under ROOT."
-  (when (member token (ogent-cabinet-list-agents root))
-    (let ((agent (ogent-cabinet-read-agent root token)))
-      (list :type 'agent
-            :key token
-            :path (ogent-cabinet-agent-file root token)
-            :title (plist-get agent :name)
-            :body (plist-get agent :body)))))
+  (condition-case nil
+      (let ((agent (ogent-cabinet-resolve-agent
+                    root token :include-visible t)))
+        (list :type 'agent
+              :key token
+              :path (plist-get agent :path)
+              :title (or (plist-get agent :display-name)
+                         (plist-get agent :name))
+              :scope (plist-get agent :scope)
+              :body (plist-get agent :body)))
+    (user-error nil)))
 
 (defun ogent-cabinet-compose--job-record (root token)
   "Return a job mention record for TOKEN under ROOT."
@@ -157,7 +161,8 @@
   (append
    (mapcar (lambda (agent)
              (concat "@agent:" agent))
-           (ogent-cabinet-list-agents root))
+           (ogent-cabinet-list-visible-agents
+            root :include-visible t))
    (apply
     #'append
     (mapcar

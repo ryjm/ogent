@@ -91,6 +91,130 @@
     (should (file-directory-p (expand-file-name ".agents/cto/jobs" dir)))
     (should (file-directory-p (expand-file-name ".agents/cto/memory" dir)))))
 
+(ert-deftest ogent-cabinet-agent-round-trips-cabinet-identity ()
+  "Agent personas include Cabinet identity, dispatch, and skill fields."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :display-name "Chief Architect"
+       :icon "lambda"
+       :color "#2255ff"
+       :avatar "avatars/cto.png"
+       :role "Architecture"
+       :department "Engineering"
+       :type "lead"
+       :scope "cabinet"
+       :can-dispatch t
+       :provider "codex-cli"
+       :adapter "codex-cli"
+       :adapter-config "sandbox=workspace-write"
+       :model "gpt-5.4"
+       :effort "high"
+       :runtime-mode "terminal"
+       :budget "200000"
+       :focus ("lisp" "specs")
+       :goals ("ship parity" "keep Org durable")
+       :channels ("org" "mail")
+       :skills ("review" "planning")
+       :recommended-skills ("security")
+       :setup-complete t
+       :last-heartbeat "2026-05-06T09:00:00-0700"
+       :next-heartbeat "2026-05-07T09:00:00-0700"
+       :active t
+       :workspace "engineering"
+       :tags ("engineering" "strategy"))
+     "Keep the technical plan brutally clear.")
+    (let ((agent (ogent-cabinet-read-agent dir "cto")))
+      (should (equal (plist-get agent :display-name) "Chief Architect"))
+      (should (equal (plist-get agent :icon) "lambda"))
+      (should (equal (plist-get agent :department) "Engineering"))
+      (should (equal (plist-get agent :type) "lead"))
+      (should (equal (plist-get agent :scope) "cabinet"))
+      (should (plist-get agent :can-dispatch))
+      (should (equal (plist-get agent :adapter) "codex-cli"))
+      (should (equal (plist-get agent :effort) "high"))
+      (should (equal (plist-get agent :runtime-mode) "terminal"))
+      (should (equal (plist-get agent :focus) '("lisp" "specs")))
+      (should (equal (plist-get agent :skills) '("review" "planning")))
+      (should (equal (plist-get agent :recommended-skills) '("security")))
+      (should (plist-get agent :setup-complete)))))
+
+(ert-deftest ogent-cabinet-agent-resolution-prefers-local-then-global ()
+  "Agent resolution prefers cabinet-local personas before global personas."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-global-agent
+     dir
+     '(:slug "cto" :name "Global CTO" :department "Executive")
+     "Global guidance.")
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto" :name "Local CTO" :department "Engineering")
+     "Local guidance.")
+    (let ((agent (ogent-cabinet-resolve-agent dir "cto")))
+      (should (equal (plist-get agent :name) "Local CTO"))
+      (should (eq (plist-get agent :scope) 'cabinet)))
+    (delete-directory (ogent-cabinet-agent-directory dir "cto") t)
+    (let ((agent (ogent-cabinet-resolve-agent dir "cto")))
+      (should (equal (plist-get agent :name) "Global CTO"))
+      (should (eq (plist-get agent :scope) 'global)))))
+
+(ert-deftest ogent-cabinet-agent-resolution-uses-visible-unique-cabinets ()
+  "Agent resolution can fall through to slug-unique visible child cabinets."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Root" :kind "root" :create-editor nil)
+    (let ((child (expand-file-name "research" dir)))
+      (ogent-cabinet-scaffold
+       child "Research" :kind "child" :description "Lab" :create-editor nil)
+      (ogent-cabinet-write-agent
+       child
+       '(:slug "analyst" :name "Analyst" :department "Research")
+       "Analyze notes.")
+      (let ((agent (ogent-cabinet-resolve-agent
+                    dir "analyst" :include-visible t)))
+        (should (equal (plist-get agent :name) "Analyst"))
+        (should (eq (plist-get agent :scope) 'visible))
+        (should (equal (file-truename child)
+                       (file-truename (plist-get agent :source-root))))))))
+
+(ert-deftest ogent-cabinet-agents-group-by-department-and-lead ()
+  "Department projection groups agents and identifies dispatch-capable leads."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :department "Engineering" :type "lead"
+       :can-dispatch t)
+     "Lead engineering.")
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "builder" :name "Builder" :department "Engineering"
+       :type "specialist")
+     "Build systems.")
+    (ogent-cabinet-write-global-agent
+     dir
+     '(:slug "ops" :name "Ops" :department "Operations" :type "support")
+     "Handle ops.")
+    (let* ((groups (ogent-cabinet-agents-by-department dir))
+           (engineering (seq-find
+                         (lambda (group)
+                           (equal (plist-get group :department)
+                                  "Engineering"))
+                         groups))
+           (operations (seq-find
+                        (lambda (group)
+                          (equal (plist-get group :department)
+                                 "Operations"))
+                        groups)))
+      (should engineering)
+      (should operations)
+      (should (equal (plist-get (plist-get engineering :lead) :slug) "cto"))
+      (should (= 2 (length (plist-get engineering :agents))))
+      (should (= 1 (length (plist-get operations :agents)))))))
+
 (ert-deftest ogent-cabinet-job-round-trips-org-file ()
   "Agent jobs are written and read as Org task files."
   (ogent-cabinet-test-with-temp-dir dir

@@ -74,7 +74,7 @@ Then run `doom sync` and add this to `~/.doom.d/config.el`:
 
 `M-x ogent-cabinet-home` is the Cabinet entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Cabinet.
 
-`M-x ogent-cabinet-compose` and `M-x ogent-cabinet-compose-buffer` run agents from a shared composer with `@agent:`, `@page:`, `@skill:`, `@job:`, and `@conversation:` mentions. Attachments are staged into the canonical conversation folder, and `M-x ogent-cabinet-skills` opens the Org-backed skill catalog.
+`M-x ogent-cabinet-compose` and `M-x ogent-cabinet-compose-buffer` run agents from a shared composer with `@agent:`, `@page:`, `@skill:`, `@job:`, and `@conversation:` mentions. Attachments are staged into the canonical conversation folder, and `M-x ogent-cabinet-skills` opens the Org-backed skill catalog. Agents now support local, global, and visible-cabinet resolution, department/type identity, skill selections, runtime inheritance, and lead action approvals through `M-x ogent-cabinet-actions`.
 
 Common commands:
 
@@ -112,8 +112,10 @@ The main ogent dispatch bindings include:
 | `C-c . K` / `SPC o K` | `ogent-cabinet-status` |
 | `C-c . y` / `SPC o y` | `ogent-cabinet-agents` |
 | `C-c . Y` / `SPC o Y` | `ogent-cabinet-agent` |
+| `C-c . B` / `SPC o B` | `ogent-cabinet-org-chart` |
 | `C-c . I` / `SPC o I` | `ogent-cabinet-tasks` |
 | `C-c . O` / `SPC o O` | `ogent-cabinet-conversations` |
+| `C-c . N` / `SPC o N` | `ogent-cabinet-actions` |
 | `C-c . V` / `SPC o V` | `ogent-cabinet-search` |
 | `C-c . W` / `SPC o W` | `ogent-cabinet-apps` |
 | `C-c . X` / `SPC o X` | `ogent-cabinet-create-agent` |

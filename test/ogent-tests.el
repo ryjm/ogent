@@ -28,6 +28,7 @@
   (should (featurep 'ogent-cabinet-adapter))
   (should (featurep 'ogent-cabinet-skills))
   (should (featurep 'ogent-cabinet-compose))
+  (should (featurep 'ogent-cabinet-actions))
   (should (featurep 'ogent-cabinet-conversations)))
 
 (ert-deftest ogent-org-capture-contexts-compat-defines-missing-var ()

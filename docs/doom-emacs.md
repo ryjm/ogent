@@ -51,8 +51,10 @@ Add to your `~/.doom.d/config.el`:
              ogent-cabinet-status
              ogent-cabinet-agents
              ogent-cabinet-agent
+             ogent-cabinet-org-chart
              ogent-cabinet-tasks
              ogent-cabinet-conversations
+             ogent-cabinet-actions
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -119,8 +121,10 @@ All ogent commands are bound under `SPC o`:
 | `SPC o K` | `ogent-cabinet-status`     | Cabinet graph/status                 |
 | `SPC o y` | `ogent-cabinet-agents`     | Cabinet agents                       |
 | `SPC o Y` | `ogent-cabinet-agent`      | Cabinet agent profile                |
+| `SPC o B` | `ogent-cabinet-org-chart`  | Cabinet org chart                    |
 | `SPC o I` | `ogent-cabinet-tasks`      | Cabinet task board                   |
 | `SPC o O` | `ogent-cabinet-conversations` | Cabinet conversations             |
+| `SPC o N` | `ogent-cabinet-actions`    | Cabinet action approvals             |
 | `SPC o V` | `ogent-cabinet-search`     | Cabinet-wide search                  |
 | `SPC o W` | `ogent-cabinet-apps`       | Cabinet app artifacts                |
 | `SPC o X` | `ogent-cabinet-create-agent` | Create Cabinet agent               |
@@ -234,8 +238,10 @@ Here's a full, copy-paste ready configuration:
              ogent-cabinet-status
              ogent-cabinet-agents
              ogent-cabinet-agent
+             ogent-cabinet-org-chart
              ogent-cabinet-tasks
              ogent-cabinet-conversations
+             ogent-cabinet-actions
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -270,8 +276,10 @@ Here's a full, copy-paste ready configuration:
          :desc "Cabinet graph"       "K" #'ogent-cabinet-status
          :desc "Cabinet agents"      "y" #'ogent-cabinet-agents
          :desc "Cabinet agent"       "Y" #'ogent-cabinet-agent
+         :desc "Cabinet org chart"   "B" #'ogent-cabinet-org-chart
          :desc "Cabinet tasks"       "I" #'ogent-cabinet-tasks
          :desc "Cabinet conversations" "O" #'ogent-cabinet-conversations
+         :desc "Cabinet actions"     "N" #'ogent-cabinet-actions
          :desc "Cabinet search"      "V" #'ogent-cabinet-search
          :desc "Cabinet apps"        "W" #'ogent-cabinet-apps
          :desc "Create agent"        "X" #'ogent-cabinet-create-agent
