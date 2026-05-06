@@ -105,6 +105,40 @@
       (should (equal (plist-get (car events) :type) "turn.appended"))
       (should (= (plist-get (car events) :seq) 1)))))
 
+(ert-deftest ogent-cabinet-conversation-demotes-turn-headings ()
+  "Org headings in turn content remain nested inside the turn record."
+  (ogent-cabinet-conversations-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-conversation-create
+     dir
+     '(:id "conv-headings"
+       :agent "editor"
+       :title "Heading safety"
+       :status "idle"))
+    (let* ((content (concat
+                     "* Findings\n"
+                     "Body.\n"
+                     "** Detail\n"
+                     "#+begin_src text\n"
+                     "* literal code line\n"
+                     "#+end_src\n"))
+           (file (ogent-cabinet-conversation-append-turn
+                  dir "conv-headings" "agent" content))
+           (raw (with-temp-buffer
+                  (insert-file-contents file)
+                  (buffer-string)))
+           (turns (ogent-cabinet-conversation-read-turns
+                   dir "conv-headings"))
+           (read-content (plist-get (car turns) :content)))
+      (should (string-match-p "^\\* Agent turn 1$" raw))
+      (should (string-match-p "^\\*\\* Findings$" raw))
+      (should (string-match-p "^\\*\\*\\* Detail$" raw))
+      (should (string-match-p "^,\\* literal code line$" raw))
+      (should-not (string-match-p "^\\* Findings$" raw))
+      (should (string-match-p "\\*\\* Findings" read-content))
+      (should (string-match-p "\\*\\*\\* Detail" read-content))
+      (should (string-match-p ",\\* literal code line" read-content)))))
+
 (ert-deftest ogent-cabinet-conversation-parses-cabinet-blocks ()
   "Cabinet metadata blocks and ask-user markers are parsed from output."
   (let* ((output (concat

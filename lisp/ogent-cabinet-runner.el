@@ -65,6 +65,28 @@
   :type 'boolean
   :group 'ogent-cabinet-runner)
 
+(defcustom ogent-cabinet-runner-response-contract
+  (string-join
+   '("Cabinet response contract:"
+     "- Write the visible answer as Org markup for an Org subtree."
+     "- Use Org headings at level ** or deeper. Do not start sections with single-star headings."
+     "- Use Org syntax, not Markdown # headings or [label](url) links."
+     "- Use Org lists, TODO items, tables, links, and named src blocks where they improve navigation."
+     "- Use #+begin_src and #+end_src for code or logs. Do not use Markdown triple-backtick fences."
+     "- Use Org file links for durable artifacts, for example [[file:notes/plan.org][plan]]."
+     "- Put exactly one Cabinet metadata block at the end of the response."
+     "- The metadata block may contain multiple ARTIFACT lines. Use ARTIFACT: none when no artifact exists."
+     "#+begin_cabinet"
+     "SUMMARY: one short sentence"
+     "CONTEXT: optional durable memory note, or none"
+     "ARTIFACT: relative/path/to/file.org"
+     "#+end_cabinet"
+     "- Use <ask_user>...</ask_user> only when the run cannot continue without user input.")
+   "\n")
+  "Prompt contract appended to Cabinet runner prompts."
+  :type 'string
+  :group 'ogent-cabinet-runner)
+
 (defcustom ogent-cabinet-runner-codex-sandbox "workspace-write"
   "Sandbox mode passed to `codex exec'."
   :type '(choice (const "read-only")
@@ -176,7 +198,9 @@
        (format "Job instructions:\n%s" job-body))
      (when-let ((user-instruction
                  (ogent-cabinet-runner--blank-to-nil instruction)))
-       (format "User instruction:\n%s" user-instruction))))
+       (format "User instruction:\n%s" user-instruction))
+     (ogent-cabinet-runner--blank-to-nil
+      ogent-cabinet-runner-response-contract)))
    "\n\n"))
 
 (cl-defun ogent-cabinet-runner-plan
