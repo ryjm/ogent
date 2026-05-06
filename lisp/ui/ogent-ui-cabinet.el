@@ -204,6 +204,9 @@
 (defvar-local ogent-cabinet-tasks--filters nil
   "Filters for the current task buffer.")
 
+(defvar-local ogent-cabinet-tasks--view 'board
+  "Current task view: `board', `list', or `schedule'.")
+
 (defvar-local ogent-cabinet-search--root nil
   "Cabinet root for the current search buffer.")
 
@@ -373,6 +376,62 @@ When AGENT is non-nil, narrow to that agent."
   (if (ogent-cabinet-ui--canonical-conversation-path-p path)
       (ogent-cabinet-ui--canonical-conversation-detail root path)
     (ogent-cabinet-session-detail path)))
+
+(defun ogent-cabinet-ui--canonical-conversation-id (path)
+  "Return the canonical conversation id from PATH."
+  (file-name-nondirectory
+   (directory-file-name (file-name-directory path))))
+
+(defun ogent-cabinet-ui--iso-now ()
+  "Return the current time as a UTC timestamp."
+  (format-time-string "%Y-%m-%dT%H:%M:%SZ" nil t))
+
+(defun ogent-cabinet-ui--conversation-append-event
+    (root path type &optional payload)
+  "Append TYPE event with PAYLOAD for canonical conversation PATH."
+  (when (ogent-cabinet-ui--canonical-conversation-path-p path)
+    (ogent-cabinet-conversation-append-event
+     root
+     (ogent-cabinet-ui--canonical-conversation-id path)
+     type
+     :ts (ogent-cabinet-ui--iso-now)
+     :payload payload)))
+
+(defun ogent-cabinet-ui--conversation-update-properties
+    (root path properties &optional event payload)
+  "Update conversation PATH with Org PROPERTIES.
+When EVENT is non-nil, append it to the canonical event log."
+  (if (ogent-cabinet-ui--canonical-conversation-path-p path)
+      (let ((id (ogent-cabinet-ui--canonical-conversation-id path)))
+        (ogent-cabinet-conversation-update-properties root id properties)
+        (when event
+          (ogent-cabinet-conversation-append-event
+           root id event
+           :ts (ogent-cabinet-ui--iso-now)
+           :payload payload)))
+    (dolist (property properties)
+      (ogent-cabinet-update-session-property path (car property) (cdr property)))))
+
+(defun ogent-cabinet-ui--conversation-artifacts (detail)
+  "Return artifact paths declared by DETAIL and its turns."
+  (delete-dups
+   (delq
+    nil
+    (append
+     (copy-sequence (plist-get detail :artifact-paths))
+     (copy-sequence (plist-get detail :app-paths))
+     (apply
+      #'append
+      (mapcar (lambda (turn)
+                (copy-sequence (plist-get turn :artifacts)))
+              (plist-get detail :turns)))))))
+
+(defun ogent-cabinet-ui--artifact-path (root artifact)
+  "Return ARTIFACT expanded under ROOT when needed."
+  (when artifact
+    (if (file-name-absolute-p artifact)
+        artifact
+      (expand-file-name artifact root))))
 
 (defun ogent-cabinet-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
@@ -1683,11 +1742,14 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "<return>") #'ogent-cabinet-tasks-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-cabinet-tasks-visit)
     (define-key map "R" #'ogent-cabinet-tasks-run)
-    (define-key map "A" #'ogent-cabinet-tasks-archive)
-    (define-key map "U" #'ogent-cabinet-tasks-unarchive)
-    (define-key map "e" #'ogent-cabinet-tasks-edit)
-    (define-key map "f" #'ogent-cabinet-tasks-filter)
-    (define-key map "g" #'ogent-cabinet-tasks-refresh)
+	    (define-key map "A" #'ogent-cabinet-tasks-archive)
+	    (define-key map "U" #'ogent-cabinet-tasks-unarchive)
+    (define-key map "b" #'ogent-cabinet-tasks-board-view)
+    (define-key map "l" #'ogent-cabinet-tasks-list-view)
+    (define-key map "S" #'ogent-cabinet-tasks-schedule-view)
+	    (define-key map "e" #'ogent-cabinet-tasks-edit)
+	    (define-key map "f" #'ogent-cabinet-tasks-filter)
+	    (define-key map "g" #'ogent-cabinet-tasks-refresh)
     (define-key map "s" #'ogent-cabinet-search)
     (define-key map "q" #'quit-window)
     map)
@@ -1742,6 +1804,9 @@ DIRECTION is either `next' or `previous'."
      ((equal status "RUNNING") "Running")
      ((member status '("AWAITING-INPUT" "FAILED")) "Needs Reply")
      ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
+     ((and (plist-get session :muted)
+           (member status '("DONE" "CANCELLED")))
+      "Archive")
      ((member status '("TODO" "IDLE")) "Inbox")
      (t "Just Finished"))))
 
@@ -1754,6 +1819,12 @@ DIRECTION is either `next' or `previous'."
         :name (or (plist-get session :name) (plist-get session :id))
         :state (or (plist-get session :status) "DONE")
         :when (or (plist-get session :finished) "")
+        :last-activity (or (plist-get session :last-activity)
+                           (plist-get session :finished))
+        :scheduled-at (plist-get session :scheduled-at)
+        :scheduled-key (plist-get session :scheduled-key)
+        :board-order (plist-get session :board-order)
+        :muted (plist-get session :muted)
         :path (plist-get session :path)))
 
 (defun ogent-cabinet-tasks--running-items (root)
@@ -1793,7 +1864,41 @@ DIRECTION is either `next' or `previous'."
                         (equal (plist-get item :state)
                                (plist-get filters :status)))))
              items)))
-    (nreverse items)))
+    (ogent-cabinet-tasks--sort-items (nreverse items))))
+
+(defun ogent-cabinet-tasks--item-time (item)
+  "Return the best sortable timestamp for ITEM."
+  (or (plist-get item :scheduled-at)
+      (plist-get item :last-activity)
+      (plist-get item :when)
+      ""))
+
+(defun ogent-cabinet-tasks--item-less-p (left right)
+  "Return non-nil when LEFT should sort before RIGHT."
+  (let ((left-order (plist-get left :board-order))
+        (right-order (plist-get right :board-order)))
+    (cond
+     ((and left-order right-order (not (= left-order right-order)))
+      (< left-order right-order))
+     (left-order t)
+     (right-order nil)
+     ((not (equal (ogent-cabinet-tasks--item-time left)
+                  (ogent-cabinet-tasks--item-time right)))
+      (string> (ogent-cabinet-tasks--item-time left)
+               (ogent-cabinet-tasks--item-time right)))
+     (t
+      (string< (or (plist-get left :name) "")
+               (or (plist-get right :name) ""))))))
+
+(defun ogent-cabinet-tasks--sort-items (items)
+  "Return ITEMS in task-board display order."
+  (seq-sort #'ogent-cabinet-tasks--item-less-p items))
+
+(defun ogent-cabinet-tasks--scheduled-item-p (item)
+  "Return non-nil when ITEM has scheduling metadata."
+  (or (ogent-cabinet--blank-to-nil (plist-get item :scheduled))
+      (ogent-cabinet--blank-to-nil (plist-get item :scheduled-at))
+      (ogent-cabinet--blank-to-nil (plist-get item :scheduled-key))))
 
 (defun ogent-cabinet-tasks--entry (item)
   "Return a tabulated list entry for ITEM."
@@ -1810,24 +1915,32 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-cabinet-tasks--entries ()
   "Return tabulated list entries for the current Cabinet task buffer."
   (let ((items (ogent-cabinet-tasks--items)))
-    (apply
-     #'append
-     (mapcar
-      (lambda (lane)
-        (let ((lane-items (seq-filter
-                           (lambda (item)
-                             (equal (plist-get item :lane) lane))
-                           items)))
-          (if lane-items
-              (mapcar #'ogent-cabinet-tasks--entry lane-items)
-            (list (ogent-cabinet-tasks--entry
-                   (list :type 'empty
-                         :lane lane
-                         :agent ""
-                         :name "(empty)"
-                         :state ""
-                         :when ""))))))
-      ogent-cabinet-task-lanes))))
+    (pcase ogent-cabinet-tasks--view
+      ('list
+       (mapcar #'ogent-cabinet-tasks--entry items))
+      ('schedule
+       (mapcar #'ogent-cabinet-tasks--entry
+               (seq-filter #'ogent-cabinet-tasks--scheduled-item-p items)))
+      (_
+       (apply
+        #'append
+        (mapcar
+         (lambda (lane)
+           (let ((lane-items (seq-filter
+                              (lambda (item)
+                                (equal (plist-get item :lane) lane))
+                              items)))
+             (if lane-items
+                 (mapcar #'ogent-cabinet-tasks--entry
+                         (ogent-cabinet-tasks--sort-items lane-items))
+               (list (ogent-cabinet-tasks--entry
+                      (list :type 'empty
+                            :lane lane
+                            :agent ""
+                            :name "(empty)"
+                            :state ""
+                            :when ""))))))
+         ogent-cabinet-task-lanes))))))
 
 ;;;###autoload
 (defun ogent-cabinet-tasks (&optional directory)
@@ -1843,6 +1956,7 @@ DIRECTION is either `next' or `previous'."
       (ogent-cabinet-tasks-mode)
       (setq ogent-cabinet-tasks--root root)
       (setq ogent-cabinet-tasks--filters nil)
+      (setq ogent-cabinet-tasks--view 'board)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-cabinet-tasks--entries)
       (tabulated-list-print t))
@@ -1853,6 +1967,24 @@ DIRECTION is either `next' or `previous'."
   "Refresh the Cabinet task lane buffer."
   (interactive)
   (tabulated-list-print t))
+
+(defun ogent-cabinet-tasks-board-view ()
+  "Show Cabinet tasks as attention lanes."
+  (interactive)
+  (setq ogent-cabinet-tasks--view 'board)
+  (ogent-cabinet-tasks-refresh))
+
+(defun ogent-cabinet-tasks-list-view ()
+  "Show Cabinet tasks as a flat list."
+  (interactive)
+  (setq ogent-cabinet-tasks--view 'list)
+  (ogent-cabinet-tasks-refresh))
+
+(defun ogent-cabinet-tasks-schedule-view ()
+  "Show Cabinet tasks with scheduling metadata."
+  (interactive)
+  (setq ogent-cabinet-tasks--view 'schedule)
+  (ogent-cabinet-tasks-refresh))
 
 (defun ogent-cabinet-tasks-visit ()
   "Visit the Cabinet task item at point."
@@ -2092,19 +2224,23 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-cabinet-conversations-archive ()
   "Archive the conversation at point."
   (interactive)
-  (ogent-cabinet-update-session-property
-   (plist-get (ogent-cabinet-conversations--item) :path)
-   "OGENT_ARCHIVED"
-   "t")
+  (let ((path (plist-get (ogent-cabinet-conversations--item) :path)))
+    (ogent-cabinet-ui--conversation-update-properties
+     ogent-cabinet-conversations--root path
+     '(("OGENT_ARCHIVED" . "t")
+       ("OGENT_STATUS" . "archived"))
+     "conversation.archived"))
   (ogent-cabinet-conversations-refresh))
 
 (defun ogent-cabinet-conversations-unarchive ()
   "Unarchive the conversation at point."
   (interactive)
-  (ogent-cabinet-update-session-property
-   (plist-get (ogent-cabinet-conversations--item) :path)
-   "OGENT_ARCHIVED"
-   "nil")
+  (let ((path (plist-get (ogent-cabinet-conversations--item) :path)))
+    (ogent-cabinet-ui--conversation-update-properties
+     ogent-cabinet-conversations--root path
+     '(("OGENT_ARCHIVED" . "nil")
+       ("OGENT_STATUS" . "done"))
+     "conversation.unarchived"))
   (ogent-cabinet-conversations-refresh))
 
 (defun ogent-cabinet-conversations-filter ()
@@ -2128,12 +2264,22 @@ DIRECTION is either `next' or `previous'."
 
 (defvar ogent-cabinet-conversation-mode-map
   (let ((map (make-sparse-keymap)))
-    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
+	    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
       (define-key map (kbd key) #'ogent-cabinet-conversation-visit-source))
-    (define-key map "R" #'ogent-cabinet-conversation-retry)
-    (define-key map "A" #'ogent-cabinet-conversation-archive)
-    (define-key map "U" #'ogent-cabinet-conversation-unarchive)
-    (define-key map "g" #'ogent-cabinet-conversation-refresh)
+    (define-key map "c" #'ogent-cabinet-conversation-continue)
+    (define-key map "k" #'ogent-cabinet-conversation-stop)
+	    (define-key map "R" #'ogent-cabinet-conversation-retry)
+    (define-key map "d" #'ogent-cabinet-conversation-mark-done)
+	    (define-key map "A" #'ogent-cabinet-conversation-archive)
+	    (define-key map "U" #'ogent-cabinet-conversation-unarchive)
+    (define-key map "m" #'ogent-cabinet-conversation-mute)
+    (define-key map "M" #'ogent-cabinet-conversation-unmute)
+    (define-key map "C" #'ogent-cabinet-conversation-compact)
+    (define-key map "D" #'ogent-cabinet-conversation-delete)
+    (define-key map "y" #'ogent-cabinet-conversation-copy-link)
+    (define-key map "o" #'ogent-cabinet-conversation-open-artifacts)
+    (define-key map "l" #'ogent-cabinet-conversation-open-logs)
+	    (define-key map "g" #'ogent-cabinet-conversation-refresh)
     (define-key map (kbd "TAB") #'ogent-cabinet-ui-toggle-section)
     (define-key map (kbd "<tab>") #'ogent-cabinet-ui-toggle-section)
     (define-key map (kbd "<backtab>") #'ogent-cabinet-ui-cycle-sections)
@@ -2152,7 +2298,7 @@ DIRECTION is either `next' or `previous'."
   (setq-local buffer-read-only t)
   (ogent-cabinet-ui--configure-section-buffer)
   (setq header-line-format
-        "RET/v source  TAB section  M-n/p sections  R retry/resume  A archive  U unarchive  g refresh  q quit"))
+        "c continue  k stop  R retry  d done  A/U archive  m/M mute  C compact  D delete  y link  o artifacts  l logs"))
 
 ;;;###autoload
 (defun ogent-cabinet-conversation (&optional directory file)
@@ -2169,7 +2315,10 @@ DIRECTION is either `next' or `previous'."
                     nil t)))
      (list root session)))
   (let* ((root (ogent-cabinet-ui--root directory))
-         (path (or file (plist-get (ogent-cabinet-conversations--item) :path)))
+         (raw-path (or file (plist-get (ogent-cabinet-conversations--item) :path)))
+         (path (if (and raw-path (file-exists-p raw-path))
+                   (file-truename raw-path)
+                 raw-path))
          (buffer (get-buffer-create
                   (ogent-cabinet-ui--buffer-name
                    ogent-cabinet-conversation-buffer-name-format
@@ -2197,19 +2346,109 @@ DIRECTION is either `next' or `previous'."
   (ogent-cabinet-ui--with-root-section (ogent-cabinet-conversation-root)
     (ogent-cabinet-conversation--insert-buffer-content)))
 
+(defun ogent-cabinet-conversation--insert-actions (detail)
+  "Insert the action panel for DETAIL."
+  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-actions)
+      (ogent-cabinet-ui--heading-text "Actions")
+    (insert "  c continue   k stop       R retry      d mark done\n")
+    (insert "  A archive    U unarchive  m mute       M unmute\n")
+    (insert "  C compact    D delete     y copy link  o artifacts  l logs\n")
+    (when (plist-get detail :awaiting-input)
+      (insert (propertize "  Awaiting user input\n"
+                          'face 'ogent-cabinet-ui-warning)))))
+
+(defun ogent-cabinet-conversation--insert-turns (turns)
+  "Insert conversation TURNS."
+  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-turns)
+      (ogent-cabinet-ui--heading-text "Turns")
+    (if turns
+        (dolist (turn turns)
+          (insert
+           (propertize
+            (format "  %03d %s %s\n"
+                    (or (plist-get turn :turn) 0)
+                    (upcase (or (plist-get turn :role) "turn"))
+                    (or (plist-get turn :ts) ""))
+            'face 'ogent-cabinet-ui-dim))
+          (when-let ((tokens (plist-get turn :tokens)))
+            (insert
+             (format "  tokens input=%s output=%s cache=%s\n"
+                     (or (plist-get tokens :input) "")
+                     (or (plist-get tokens :output) "")
+                     (or (plist-get tokens :cache) ""))))
+          (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
+      (insert (propertize "  No turn files recorded\n"
+                          'face 'ogent-cabinet-ui-dim)))))
+
+(defun ogent-cabinet-conversation--insert-artifacts (root detail)
+  "Insert artifacts listed by DETAIL under ROOT."
+  (let ((artifacts (ogent-cabinet-ui--conversation-artifacts detail)))
+    (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-artifacts)
+        (ogent-cabinet-ui--heading-text "Artifacts")
+      (if artifacts
+          (dolist (artifact artifacts)
+            (let ((path (ogent-cabinet-ui--artifact-path root artifact)))
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'artifact :path path)
+               (format "  %s" artifact))))
+        (insert (propertize "  No artifacts recorded\n"
+                            'face 'ogent-cabinet-ui-dim))))))
+
+(defun ogent-cabinet-conversation--insert-events (events)
+  "Insert conversation EVENTS."
+  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-events)
+      (ogent-cabinet-ui--heading-text "Events")
+    (if events
+        (dolist (event events)
+          (insert
+           (format "  %06d %-24s %s\n"
+                   (or (plist-get event :seq) 0)
+                   (or (plist-get event :type) "")
+                   (or (plist-get event :ts) "")))
+          (when-let ((payload (ogent-cabinet--blank-to-nil
+                               (plist-get event :payload))))
+            (insert "  " (string-trim payload) "\n")))
+      (insert (propertize "  No events recorded\n"
+                          'face 'ogent-cabinet-ui-dim)))))
+
+(defun ogent-cabinet-conversation--insert-runtime (detail)
+  "Insert runtime metadata for DETAIL."
+  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-runtime)
+      (ogent-cabinet-ui--heading-text "Runtime")
+    (ogent-cabinet-ui--insert-kv "Adapter" (plist-get detail :adapter))
+    (ogent-cabinet-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
+    (ogent-cabinet-ui--insert-kv "Effort" (plist-get detail :effort))
+    (ogent-cabinet-ui--insert-kv "Context" (plist-get detail :context-window))
+    (ogent-cabinet-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
+    (when (or (plist-get detail :tokens-input)
+              (plist-get detail :tokens-output)
+              (plist-get detail :tokens-cache)
+              (plist-get detail :tokens-total))
+      (ogent-cabinet-ui--insert-kv
+       "Tokens"
+       (format "input=%s output=%s cache=%s total=%s"
+               (or (plist-get detail :tokens-input) "")
+               (or (plist-get detail :tokens-output) "")
+               (or (plist-get detail :tokens-cache) "")
+               (or (plist-get detail :tokens-total) ""))))))
+
 (defun ogent-cabinet-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
   (let ((detail (ogent-cabinet-ui--conversation-detail
                  ogent-cabinet-conversation--root
                  ogent-cabinet-conversation--file)))
     (insert (propertize (or (plist-get detail :name)
-                            (plist-get detail :id))
+	                            (plist-get detail :id))
                         'face 'ogent-cabinet-ui-heading)
             "\n\n")
+    (ogent-cabinet-conversation--insert-actions detail)
+    (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-metadata)
         (ogent-cabinet-ui--heading-text "Metadata")
+      (ogent-cabinet-ui--insert-kv "Status" (plist-get detail :status))
       (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
       (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
+      (ogent-cabinet-ui--insert-kv "Trigger" (plist-get detail :trigger))
       (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
       (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
       (ogent-cabinet-ui--insert-kv "Exit status"
@@ -2217,8 +2456,29 @@ DIRECTION is either `next' or `previous'."
                                      (number-to-string
                                       (plist-get detail :exit-status))))
       (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
-      (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished)))
+      (ogent-cabinet-ui--insert-kv "Started" (plist-get detail :started))
+      (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
+      (ogent-cabinet-ui--insert-kv "Last activity"
+                                   (plist-get detail :last-activity))
+      (ogent-cabinet-ui--insert-kv "Archived"
+                                   (if (plist-get detail :archived) "yes" "no"))
+      (ogent-cabinet-ui--insert-kv "Muted"
+                                   (if (plist-get detail :muted) "yes" "no")))
     (insert "\n")
+    (ogent-cabinet-conversation--insert-runtime detail)
+    (insert "\n")
+    (when (or (plist-get detail :summary)
+              (plist-get detail :context-summary))
+      (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-summary)
+          (ogent-cabinet-ui--heading-text "Summary")
+        (when-let ((summary (plist-get detail :summary)))
+          (insert summary "\n"))
+        (when-let ((context (plist-get detail :context-summary)))
+          (insert "\nContext\n" context "\n")))
+      (insert "\n"))
+    (when (plist-get detail :turns)
+      (ogent-cabinet-conversation--insert-turns (plist-get detail :turns))
+      (insert "\n"))
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-prompt)
         (ogent-cabinet-ui--heading-text "Prompt")
       (insert (or (plist-get detail :prompt) "") "\n"))
@@ -2242,8 +2502,13 @@ DIRECTION is either `next' or `previous'."
     (when (ogent-cabinet--blank-to-nil (plist-get detail :error))
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-error)
           (ogent-cabinet-ui--heading-text "Error")
-        (insert (plist-get detail :error) "\n"))
+      (insert (plist-get detail :error) "\n"))
       (insert "\n"))
+    (ogent-cabinet-conversation--insert-artifacts
+     ogent-cabinet-conversation--root detail)
+    (insert "\n")
+    (ogent-cabinet-conversation--insert-events (plist-get detail :events))
+    (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-source)
         (ogent-cabinet-ui--heading-text "Source Org")
       (ogent-cabinet-ui--insert-item-line
@@ -2255,12 +2520,66 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (ogent-cabinet-ui--visit-path ogent-cabinet-conversation--file))
 
+(defun ogent-cabinet-conversation--detail ()
+  "Return detail for the current conversation buffer."
+  (ogent-cabinet-ui--conversation-detail
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file))
+
+(defun ogent-cabinet-conversation--canonical-id ()
+  "Return current canonical conversation id or nil."
+  (when (ogent-cabinet-ui--canonical-conversation-path-p
+         ogent-cabinet-conversation--file)
+    (ogent-cabinet-ui--canonical-conversation-id
+     ogent-cabinet-conversation--file)))
+
+(defun ogent-cabinet-conversation-continue (instruction)
+  "Continue this conversation with INSTRUCTION."
+  (interactive (list (read-string "Continue: ")))
+  (let* ((detail (ogent-cabinet-conversation--detail))
+         (agent (plist-get detail :agent))
+         (job-id (plist-get detail :job-id))
+         (conversation-id (ogent-cabinet-conversation--canonical-id)))
+    (unless agent
+      (user-error "Conversation has no agent"))
+    (if conversation-id
+        (let* ((replay
+                (ogent-cabinet-conversation-replay-prompt
+                 ogent-cabinet-conversation--root conversation-id instruction))
+               (keywords
+                (append
+                 (when job-id (list :job-id job-id))
+                 (list :instruction replay
+                       :conversation-id conversation-id
+                       :conversation-title (plist-get detail :name)
+                       :turn-content instruction
+                       :trigger "manual"
+                       :last-resume-result "replay")))
+               (plan (apply #'ogent-cabinet-runner-plan
+                            ogent-cabinet-conversation--root
+                            agent
+                            keywords)))
+          (when (ogent-cabinet-runner--confirm plan)
+            (ogent-cabinet-runner-start plan)
+            (ogent-cabinet-conversation-refresh)))
+      (ogent-cabinet-run-agent
+       ogent-cabinet-conversation--root agent instruction))))
+
+(defun ogent-cabinet-conversation-stop ()
+  "Stop this conversation when it has a live process."
+  (interactive)
+  (let ((conversation-id (ogent-cabinet-conversation--canonical-id)))
+    (unless conversation-id
+      (user-error "Only canonical conversations can be stopped"))
+    (unless (ogent-cabinet-runner-stop-conversation
+             ogent-cabinet-conversation--root conversation-id)
+      (user-error "No live process for conversation %s" conversation-id)))
+  (ogent-cabinet-conversation-refresh))
+
 (defun ogent-cabinet-conversation-retry ()
   "Retry this conversation."
   (interactive)
-  (let ((detail (ogent-cabinet-ui--conversation-detail
-                 ogent-cabinet-conversation--root
-                 ogent-cabinet-conversation--file)))
+  (let ((detail (ogent-cabinet-conversation--detail)))
     (if-let ((job-id (plist-get detail :job-id)))
         (ogent-cabinet-run-job ogent-cabinet-conversation--root
                                (plist-get detail :agent)
@@ -2269,21 +2588,125 @@ DIRECTION is either `next' or `previous'."
                                (plist-get detail :agent)
                                (read-string "Instruction: ")))))
 
+(defun ogent-cabinet-conversation-mark-done ()
+  "Mark this conversation done."
+  (interactive)
+  (ogent-cabinet-ui--conversation-update-properties
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file
+   `(("OGENT_STATUS" . "done")
+     ("OGENT_AWAITING_INPUT" . "nil")
+     ("OGENT_EXIT_CODE" . "0")
+     ("OGENT_COMPLETED_AT" . ,(ogent-cabinet-ui--iso-now)))
+   "conversation.marked_done")
+  (ogent-cabinet-conversation-refresh))
+
 (defun ogent-cabinet-conversation-archive ()
   "Archive this conversation."
   (interactive)
-  (ogent-cabinet-update-session-property ogent-cabinet-conversation--file
-                                         "OGENT_ARCHIVED"
-                                         "t")
+  (ogent-cabinet-ui--conversation-update-properties
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file
+   '(("OGENT_ARCHIVED" . "t")
+     ("OGENT_STATUS" . "archived"))
+   "conversation.archived")
   (ogent-cabinet-conversation-refresh))
 
 (defun ogent-cabinet-conversation-unarchive ()
   "Unarchive this conversation."
   (interactive)
-  (ogent-cabinet-update-session-property ogent-cabinet-conversation--file
-                                         "OGENT_ARCHIVED"
-                                         "nil")
+  (ogent-cabinet-ui--conversation-update-properties
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file
+   '(("OGENT_ARCHIVED" . "nil")
+     ("OGENT_STATUS" . "done"))
+   "conversation.unarchived")
   (ogent-cabinet-conversation-refresh))
+
+(defun ogent-cabinet-conversation-mute ()
+  "Mute this conversation."
+  (interactive)
+  (ogent-cabinet-ui--conversation-update-properties
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file
+   '(("OGENT_MUTED" . "t"))
+   "conversation.muted")
+  (ogent-cabinet-conversation-refresh))
+
+(defun ogent-cabinet-conversation-unmute ()
+  "Unmute this conversation."
+  (interactive)
+  (ogent-cabinet-ui--conversation-update-properties
+   ogent-cabinet-conversation--root
+   ogent-cabinet-conversation--file
+   '(("OGENT_MUTED" . "nil"))
+   "conversation.unmuted")
+  (ogent-cabinet-conversation-refresh))
+
+(defun ogent-cabinet-conversation-compact (&optional summary)
+  "Compact this canonical conversation with optional SUMMARY."
+  (interactive)
+  (let ((conversation-id (ogent-cabinet-conversation--canonical-id)))
+    (unless conversation-id
+      (user-error "Only canonical conversations can be compacted"))
+    (ogent-cabinet-conversation-compact-record
+     ogent-cabinet-conversation--root
+     conversation-id
+     summary))
+  (ogent-cabinet-conversation-refresh))
+
+(defun ogent-cabinet-conversation-delete (&optional force)
+  "Delete this conversation.
+With FORCE, skip confirmation."
+  (interactive "P")
+  (let ((path ogent-cabinet-conversation--file)
+        (buffer (current-buffer)))
+    (when (or force
+              (yes-or-no-p
+               (format "Delete Cabinet conversation %s? "
+                       (abbreviate-file-name path))))
+      (if (ogent-cabinet-ui--canonical-conversation-path-p path)
+          (delete-directory (file-name-directory path) t)
+        (delete-file path))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(defun ogent-cabinet-conversation-copy-link ()
+  "Copy a stable link to this conversation."
+  (interactive)
+  (let ((link (if-let ((conversation-id
+                       (ogent-cabinet-conversation--canonical-id)))
+                  (format "ogent-cabinet:%s" conversation-id)
+                ogent-cabinet-conversation--file)))
+    (kill-new link)
+    (message "Copied %s" link)))
+
+(defun ogent-cabinet-conversation-open-artifacts ()
+  "Open the first artifact declared by this conversation."
+  (interactive)
+  (let* ((detail (ogent-cabinet-conversation--detail))
+         (artifact (car (ogent-cabinet-ui--conversation-artifacts detail)))
+         (path (ogent-cabinet-ui--artifact-path
+                ogent-cabinet-conversation--root artifact)))
+    (unless (and path (file-exists-p path))
+      (user-error "No artifact path recorded for this conversation"))
+    (cond
+     ((and (file-directory-p path)
+           (file-exists-p (expand-file-name "index.html" path)))
+      (browse-url-of-file (expand-file-name "index.html" path)))
+     ((string-suffix-p ".html" path t)
+      (browse-url-of-file path))
+     (t
+      (find-file path)))))
+
+(defun ogent-cabinet-conversation-open-logs ()
+  "Open the event log for this conversation."
+  (interactive)
+  (if-let ((conversation-id (ogent-cabinet-conversation--canonical-id)))
+      (find-file
+       (ogent-cabinet-conversation-events-file
+        ogent-cabinet-conversation--root conversation-id))
+    (ogent-cabinet-conversation-visit-source)))
 
 ;;; Search
 

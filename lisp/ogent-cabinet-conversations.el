@@ -399,6 +399,11 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
         :tags nil
         :app-paths (plist-get conversation :artifact-paths)
         :archived (plist-get conversation :archived)
+        :muted (plist-get conversation :muted)
+        :board-order (plist-get conversation :board-order)
+        :last-activity (plist-get conversation :last-activity)
+        :scheduled-at (plist-get conversation :scheduled-at)
+        :scheduled-key (plist-get conversation :scheduled-key)
         :body (plist-get conversation :body)
         :path (plist-get conversation :path)))
 
@@ -718,6 +723,93 @@ PROPERTIES is an alist of Org property names to values."
                           directory conversation-id)
                   :events (ogent-cabinet-conversation-read-events
                            directory conversation-id)))))
+
+(defun ogent-cabinet-conversations--turn-label (turn)
+  "Return a compact label for TURN."
+  (format "%03d %s %s"
+          (or (plist-get turn :turn) 0)
+          (upcase (or (plist-get turn :role) "turn"))
+          (or (plist-get turn :ts) "")))
+
+(defun ogent-cabinet-conversation-replay-prompt
+    (directory conversation-id instruction)
+  "Return a replay prompt for continuing CONVERSATION-ID with INSTRUCTION."
+  (let* ((detail (ogent-cabinet-conversation-detail directory conversation-id))
+         (turns (plist-get detail :turns)))
+    (string-join
+     (delq
+      nil
+      (list
+       "Continue this existing Org Cabinet conversation."
+       (format "Conversation: %s"
+               (or (plist-get detail :title) conversation-id))
+       (format "Status: %s" (or (plist-get detail :status) "idle"))
+       (when-let ((summary (ogent-cabinet--blank-to-nil
+                            (plist-get detail :context-summary))))
+         (format "Context summary:\n%s" summary))
+       (when turns
+         (concat
+          "Prior turns:\n"
+          (string-join
+           (mapcar
+            (lambda (turn)
+              (format "[%s]\n%s"
+                      (ogent-cabinet-conversations--turn-label turn)
+                      (string-trim (or (plist-get turn :content) ""))))
+            turns)
+           "\n\n")))
+       (format "New user instruction:\n%s" instruction)))
+     "\n\n")))
+
+(defun ogent-cabinet-conversations--compact-summary (detail)
+  "Return a deterministic compact summary for DETAIL."
+  (let* ((turns (last (plist-get detail :turns) 6))
+         (turn-summary
+          (string-join
+           (mapcar
+            (lambda (turn)
+              (let ((content (string-trim
+                              (or (plist-get turn :content) ""))))
+                (format "- %s: %s"
+                        (ogent-cabinet-conversations--turn-label turn)
+                        (truncate-string-to-width content 240 nil nil t))))
+            turns)
+           "\n")))
+    (string-join
+     (delq
+      nil
+      (list
+       (format "Conversation %s is %s."
+               (or (plist-get detail :title) (plist-get detail :id))
+               (or (plist-get detail :status) "idle"))
+       (when-let ((summary (ogent-cabinet--blank-to-nil
+                            (plist-get detail :summary))))
+         (format "Latest summary: %s" summary))
+       (when (ogent-cabinet--blank-to-nil turn-summary)
+         (format "Recent turns:\n%s" turn-summary))))
+     "\n\n")))
+
+(defun ogent-cabinet-conversation-compact-record
+    (directory conversation-id &optional summary)
+  "Store a compact digest for CONVERSATION-ID under DIRECTORY."
+  (let* ((detail (ogent-cabinet-conversation-detail directory conversation-id))
+         (digest (or (ogent-cabinet--blank-to-nil summary)
+                     (ogent-cabinet-conversations--compact-summary detail)))
+         (ts (format-time-string "%Y-%m-%dT%H:%M:%SZ" nil t)))
+    (ogent-cabinet-conversation-append-turn
+     directory conversation-id "system"
+     (concat "Context digest:\n\n" digest)
+     :ts ts
+     :awaiting-input (plist-get detail :awaiting-input))
+    (ogent-cabinet-conversation-update-properties
+     directory conversation-id
+     `(("OGENT_CONTEXT_SUMMARY" . ,digest)
+       ("OGENT_LAST_ACTIVITY_AT" . ,ts)))
+    (ogent-cabinet-conversation-append-event
+     directory conversation-id "conversation.compacted"
+     :ts ts
+     :payload "context digest refreshed")
+    digest))
 
 (defun ogent-cabinet-conversation-migrate-session
     (directory session-file &optional agent-slug)

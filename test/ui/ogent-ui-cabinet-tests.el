@@ -16,7 +16,7 @@
 (defmacro ogent-ui-cabinet-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Cabinet directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-ui-cabinet-" t)))
+  `(let ((,var (file-truename (make-temp-file "ogent-ui-cabinet-" t))))
      (unwind-protect
          (progn ,@body)
        (when (file-directory-p ,var)
@@ -141,8 +141,27 @@
                     ("<backtab>" . ,#'ogent-cabinet-ui-cycle-sections)
                     ("M-n" . ,#'ogent-cabinet-ui-next-section)
                     ("M-p" . ,#'ogent-cabinet-ui-previous-section)
-                    ("^" . ,#'ogent-cabinet-ui-up-section)))
+	                    ("^" . ,#'ogent-cabinet-ui-up-section)))
       (should (eq (lookup-key map (kbd (car pair))) (cdr pair))))))
+
+(ert-deftest ogent-ui-cabinet-conversation-keybindings-cover-detail-actions ()
+  "Conversation detail exposes Cabinet task actions."
+  (dolist (pair `(("c" . ,#'ogent-cabinet-conversation-continue)
+                  ("k" . ,#'ogent-cabinet-conversation-stop)
+                  ("R" . ,#'ogent-cabinet-conversation-retry)
+                  ("d" . ,#'ogent-cabinet-conversation-mark-done)
+                  ("A" . ,#'ogent-cabinet-conversation-archive)
+                  ("U" . ,#'ogent-cabinet-conversation-unarchive)
+                  ("m" . ,#'ogent-cabinet-conversation-mute)
+                  ("M" . ,#'ogent-cabinet-conversation-unmute)
+                  ("C" . ,#'ogent-cabinet-conversation-compact)
+                  ("D" . ,#'ogent-cabinet-conversation-delete)
+                  ("y" . ,#'ogent-cabinet-conversation-copy-link)
+                  ("o" . ,#'ogent-cabinet-conversation-open-artifacts)
+                  ("l" . ,#'ogent-cabinet-conversation-open-logs)))
+    (should (eq (lookup-key ogent-cabinet-conversation-mode-map
+                            (kbd (car pair)))
+                (cdr pair)))))
 
 (ert-deftest ogent-ui-cabinet-section-modes-derive-from-magit-section ()
   "Cabinet section buffers inherit Magit section behavior when available."
@@ -763,7 +782,7 @@
        :provider "codex"
        :active t)
      "Maintain architecture.")
-    (ogent-cabinet-conversation-create
+	    (ogent-cabinet-conversation-create
      root
      '(:id "conv-ui"
        :agent "cto"
@@ -773,13 +792,18 @@
        :model "gpt-5.4"
        :started "2026-05-06T10:00:00Z"
        :completed "2026-05-06T10:01:00Z"
-       :duration "1s"))
+       :duration "1s"
+       :artifact-paths ("apps/report")))
     (ogent-cabinet-conversation-append-turn
      root "conv-ui" "user" "Review this."
      :ts "2026-05-06T10:00:00Z")
     (ogent-cabinet-conversation-append-turn
      root "conv-ui" "agent" "Looks solid."
      :ts "2026-05-06T10:01:00Z")
+    (ogent-cabinet-conversation-append-event
+     root "conv-ui" "task.updated"
+     :ts "2026-05-06T10:01:00Z"
+     :payload "status=done")
     (let ((buffer (ogent-cabinet-conversations root))
           detail)
       (unwind-protect
@@ -793,16 +817,157 @@
             (search-forward "Canonical Review")
             (setq detail (ogent-cabinet-conversations-open))
             (with-current-buffer detail
-              (let ((text (buffer-substring-no-properties
+	              (let ((text (buffer-substring-no-properties
                            (point-min)
                            (point-max))))
+                (dolist (label '("Actions" "Turns" "Artifacts" "Events"
+                                 "Runtime"))
+                  (should (string-match-p label text)))
                 (should (string-match-p "Review this" text))
                 (should (string-match-p "Looks solid" text))
+                (should (string-match-p "apps/report" text))
+                (should (string-match-p "task.updated" text))
                 (should (string-match-p "gpt-5.4" text)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
+
+(ert-deftest ogent-ui-cabinet-conversation-actions-update-canonical-org ()
+  "Conversation detail actions mutate canonical Org metadata and events."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-cabinet-conversation-create
+                 root
+                 '(:id "conv-actions"
+                   :agent "cto"
+                   :title "Action Review"
+                   :status "awaiting-input"
+                   :awaiting-input t
+                   :provider "codex"))))
+      (ogent-cabinet-conversation-append-turn
+       root "conv-actions" "user" "Review this."
+       :ts "2026-05-06T10:00:00Z")
+      (let ((buffer (ogent-cabinet-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (ogent-cabinet-conversation-mute)
+              (should (plist-get (ogent-cabinet-conversation-read
+                                  root "conv-actions")
+                                 :muted))
+              (ogent-cabinet-conversation-mark-done)
+              (let ((record (ogent-cabinet-conversation-read
+                             root "conv-actions")))
+                (should (equal (plist-get record :status) "done"))
+                (should-not (plist-get record :awaiting-input)))
+              (ogent-cabinet-conversation-compact "Short digest")
+              (should (equal (plist-get (ogent-cabinet-conversation-read
+                                         root "conv-actions")
+                                        :context-summary)
+                             "Short digest"))
+              (ogent-cabinet-conversation-archive)
+              (should (plist-get (ogent-cabinet-conversation-read
+                                  root "conv-actions")
+                                 :archived))
+              (ogent-cabinet-conversation-unarchive)
+              (should-not (plist-get (ogent-cabinet-conversation-read
+                                      root "conv-actions")
+                                     :archived))
+              (let ((events (mapcar
+                             (lambda (event)
+                               (plist-get event :type))
+                             (ogent-cabinet-conversation-read-events
+                              root "conv-actions"))))
+                (dolist (event '("conversation.muted"
+                                 "conversation.marked_done"
+                                 "conversation.compacted"
+                                 "conversation.archived"
+                                 "conversation.unarchived"))
+                  (should (member event events)))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
+(ert-deftest ogent-ui-cabinet-conversation-continue-replays-canonical-turns ()
+  "Continuation builds a replay prompt and keeps the canonical id."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-cabinet-conversation-create
+                 root
+                 '(:id "conv-continue"
+                   :agent "cto"
+                   :title "Continue Review"
+                   :status "done"
+                   :provider "codex")))
+          captured)
+      (ogent-cabinet-conversation-append-turn
+       root "conv-continue" "user" "Initial ask."
+       :ts "2026-05-06T10:00:00Z")
+      (ogent-cabinet-conversation-append-turn
+       root "conv-continue" "agent" "Initial answer."
+       :ts "2026-05-06T10:01:00Z")
+      (let ((buffer (ogent-cabinet-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (cl-letf (((symbol-function 'ogent-cabinet-runner--confirm)
+                         (lambda (_plan) t))
+                        ((symbol-function 'ogent-cabinet-runner-start)
+                         (lambda (plan)
+                           (setq captured plan)
+                           :started)))
+                (ogent-cabinet-conversation-continue "Follow up."))
+              (should (equal (plist-get captured :conversation-id)
+                             "conv-continue"))
+              (should (equal (plist-get captured :turn-content)
+                             "Follow up."))
+              (should (equal (plist-get captured :last-resume-result)
+                             "replay"))
+              (should (string-match-p "Prior turns"
+                                      (plist-get captured :prompt)))
+              (should (string-match-p "Initial answer"
+                                      (plist-get captured :prompt))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
+(ert-deftest ogent-ui-cabinet-conversation-delete-removes-record ()
+  "Conversation delete removes the canonical record directory."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let* ((file (ogent-cabinet-conversation-create
+                  root
+                  '(:id "conv-delete"
+                    :agent "cto"
+                    :title "Delete Review"
+                    :status "done")))
+           (directory (file-name-directory file))
+           (buffer (ogent-cabinet-conversation root file)))
+      (with-current-buffer buffer
+        (ogent-cabinet-conversation-delete t))
+      (should-not (file-exists-p directory))
+      (should-not (buffer-live-p buffer)))))
 
 (ert-deftest ogent-ui-cabinet-conversation-renders-success-trace ()
   "Successful conversation traces do not render as errors."
@@ -889,16 +1054,107 @@
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-tasks-keybindings-cover-daily-actions ()
-  "Task board bindings include run, archive, unarchive, edit, and filters."
+  "Task board bindings include run, archive, view modes, edit, and filters."
   (dolist (pair `(("RET" . ,#'ogent-cabinet-tasks-visit)
                   ("R" . ,#'ogent-cabinet-tasks-run)
                   ("A" . ,#'ogent-cabinet-tasks-archive)
                   ("U" . ,#'ogent-cabinet-tasks-unarchive)
+                  ("b" . ,#'ogent-cabinet-tasks-board-view)
+                  ("l" . ,#'ogent-cabinet-tasks-list-view)
+                  ("S" . ,#'ogent-cabinet-tasks-schedule-view)
                   ("e" . ,#'ogent-cabinet-tasks-edit)
                   ("f" . ,#'ogent-cabinet-tasks-filter)
                   ("g" . ,#'ogent-cabinet-tasks-refresh)))
     (should (eq (lookup-key ogent-cabinet-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-cabinet-tasks-switches-list-and-schedule-views ()
+  "Task board can switch between board, list, and schedule views."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq ogent-cabinet-tasks--view 'board))
+            (ogent-cabinet-tasks-list-view)
+            (should (eq ogent-cabinet-tasks--view 'list))
+            (let ((list-text (buffer-substring-no-properties
+                              (point-min)
+                              (point-max))))
+              (should (string-match-p "Weekly Review" list-text))
+              (should-not (string-match-p "(empty)" list-text)))
+            (ogent-cabinet-tasks-schedule-view)
+            (should (eq ogent-cabinet-tasks--view 'schedule))
+            (let ((schedule-text (buffer-substring-no-properties
+                                  (point-min)
+                                  (point-max))))
+              (should (string-match-p "Weekly Review" schedule-text))
+              (should-not (string-match-p "Old Report" schedule-text)))
+            (ogent-cabinet-tasks-board-view)
+            (should (eq ogent-cabinet-tasks--view 'board)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-tasks-sort-by-board-order-and-muted-state ()
+  "Canonical task items honor board order and muted completed state."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (ogent-cabinet-conversation-create
+     root
+     '(:id "late"
+       :agent "cto"
+       :title "Late Card"
+       :status "done"
+       :completed "2026-05-06T11:00:00Z"
+       :last-activity "2026-05-06T11:00:00Z"
+       :board-order 20))
+    (ogent-cabinet-conversation-create
+     root
+     '(:id "early"
+       :agent "cto"
+       :title "Early Card"
+       :status "done"
+       :completed "2026-05-06T10:00:00Z"
+       :last-activity "2026-05-06T10:00:00Z"
+       :board-order 1))
+    (ogent-cabinet-conversation-create
+     root
+     '(:id "muted"
+       :agent "cto"
+       :title "Muted Card"
+       :status "done"
+       :completed "2026-05-06T09:00:00Z"
+       :last-activity "2026-05-06T09:00:00Z"
+       :muted t))
+    (let ((sessions (ogent-cabinet-conversation-list-sessions root)))
+      (should (equal (plist-get
+                      (ogent-cabinet-tasks--session-item
+                       (seq-find (lambda (session)
+                                   (equal (plist-get session :id) "muted"))
+                                 sessions))
+                      :lane)
+                     "Archive")))
+    (let ((buffer (ogent-cabinet-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (let* ((text (buffer-substring-no-properties
+                          (point-min)
+                          (point-max)))
+                   (early (string-match-p "Early Card" text))
+                   (late (string-match-p "Late Card" text)))
+              (should early)
+              (should late)
+              (should (< early late))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-search-finds-org-records ()
   "Cabinet search finds matching Org records and opens a result buffer."
