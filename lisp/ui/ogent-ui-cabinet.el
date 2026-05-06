@@ -15,6 +15,7 @@
 (require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-conversations)
+(require 'ogent-cabinet-data)
 (require 'ogent-cabinet-runner)
 
 (eval-and-compile
@@ -28,6 +29,8 @@
 (autoload 'ogent-cabinet-actions "ogent-cabinet-actions" nil t)
 (autoload 'ogent-cabinet-schedule "ogent-cabinet-schedule" nil t)
 (autoload 'ogent-cabinet-agenda "ogent-cabinet-schedule" nil t)
+(autoload 'ogent-cabinet-git-status "ogent-cabinet-git" nil t)
+(autoload 'ogent-cabinet-command-palette "ogent-cabinet-palette" nil t)
 
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
@@ -734,11 +737,14 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "M-p") #'ogent-cabinet-ui-previous-section)
     (define-key map (kbd "^") #'ogent-cabinet-ui-up-section)
     (define-key map "a" #'ogent-cabinet-agents)
+    (define-key map "D" #'ogent-cabinet-data)
     (define-key map "t" #'ogent-cabinet-tasks)
     (define-key map "c" #'ogent-cabinet-conversations)
     (define-key map "u" #'ogent-cabinet-schedule)
     (define-key map "s" #'ogent-cabinet-search)
     (define-key map "A" #'ogent-cabinet-apps)
+    (define-key map "h" #'ogent-cabinet-git-status)
+    (define-key map "/" #'ogent-cabinet-command-palette)
     (define-key map "G" #'ogent-cabinet-status)
     (define-key map "e" #'ogent-cabinet-home-edit-metadata)
     (define-key map "n" #'ogent-cabinet-home-next-item)
@@ -756,7 +762,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-home--header-line ()
   "Return header line for Cabinet Home."
-  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
+  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
 
 ;;;###autoload
 (defun ogent-cabinet-home (&optional directory)
@@ -847,6 +853,7 @@ DIRECTION is either `next' or `previous'."
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-navigate)
                                     (ogent-cabinet-ui--heading-text "Navigate")
+                                    (ogent-cabinet-home--insert-nav "Data" "D" #'ogent-cabinet-data)
                                     (ogent-cabinet-home--insert-nav "Agents" "a" #'ogent-cabinet-agents)
                                     (ogent-cabinet-home--insert-nav "Jobs" "j" #'ogent-cabinet-jobs)
                                     (ogent-cabinet-home--insert-nav "Tasks" "t" #'ogent-cabinet-tasks)
@@ -854,6 +861,8 @@ DIRECTION is either `next' or `previous'."
                                     (ogent-cabinet-home--insert-nav "Schedule" "u" #'ogent-cabinet-schedule)
                                     (ogent-cabinet-home--insert-nav "Search" "s" #'ogent-cabinet-search)
                                     (ogent-cabinet-home--insert-nav "Apps" "A" #'ogent-cabinet-apps)
+                                    (ogent-cabinet-home--insert-nav "Git" "h" #'ogent-cabinet-git-status)
+                                    (ogent-cabinet-home--insert-nav "Palette" "/" #'ogent-cabinet-command-palette)
                                     (ogent-cabinet-home--insert-nav "Graph" "G" #'ogent-cabinet-status)
                                     (ogent-cabinet-ui--insert-item-line
                                      (list :type 'file :path (ogent-cabinet-index-file root))
@@ -1017,7 +1026,7 @@ DIRECTION is either `next' or `previous'."
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
     (princ "Navigation\n")
     (princ "----------\n")
-    (princ "a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, G Graph.\n")
+    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, G Graph.\n")
     (princ "n and p move between actionable rows. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
@@ -1054,6 +1063,7 @@ DIRECTION is either `next' or `previous'."
                                         ("p" "Previous item" ogent-cabinet-home-previous-item :transient t)
                                         ("g" "Refresh" ogent-cabinet-home-refresh :transient t)]]
                          [["Surfaces"
+                           ("D" "Data" ogent-cabinet-data)
                            ("a" "Agents" ogent-cabinet-agents)
                            ("B" "Org chart" ogent-cabinet-org-chart)
                            ("t" "Tasks" ogent-cabinet-tasks)
@@ -1062,6 +1072,8 @@ DIRECTION is either `next' or `previous'."
                            ("N" "Action approvals" ogent-cabinet-actions)
                            ("s" "Search" ogent-cabinet-search)
                            ("A" "Apps" ogent-cabinet-apps)
+                           ("h" "Git" ogent-cabinet-git-status)
+                           ("/" "Palette" ogent-cabinet-command-palette)
                            ("G" "Graph" ogent-cabinet-status)]
                           ["Cabinet"
                            ("Q" "Agenda" ogent-cabinet-agenda)
@@ -3068,7 +3080,7 @@ With FORCE, skip confirmation."
 (defun ogent-cabinet-apps-open ()
   "Open the app artifact at point in a browser."
   (interactive)
-  (browse-url-of-file (plist-get (ogent-cabinet-apps--item) :path)))
+  (ogent-cabinet-open-file (plist-get (ogent-cabinet-apps--item) :path)))
 
 (defun ogent-cabinet-apps-visit-directory ()
   "Visit the app directory at point."

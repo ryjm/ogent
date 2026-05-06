@@ -306,9 +306,21 @@ The Emacs surfaces are boring and powerful:
 - =ogent-cabinet-search= searches Cabinet Org files, personas, jobs, memory,
   inboxes, schedules, imports, and conversations. Empty queries display a useful
   empty state. Search skips =.git= and transient state directories.
+- =ogent-cabinet-data= lists Cabinet pages, files, folders, and apps from the
+  durable tree. Page operations create, rename, move, trash, and export Org
+  records while keeping property drawers and body text intact.
+- =ogent-cabinet-command-palette= builds a persisted derived index across
+  commands, pages, agents, jobs, conversations, apps, paths, and page text.
+  Exact titles rank above prefix, substring, path, and body matches.
+- =ogent-cabinet-git-status= exposes dirty paths for the Cabinet git root.
+  Magit is used for interactive status when available; plain git fallbacks cover
+  status, commit, pull, page log, page diff, and restore.
 - =ogent-cabinet-apps= discovers =index.html= artifacts, shows owning
-  agent/job/session when inferable, opens artifacts in a browser, and visits app
-  directories.
+  agent/job/session/conversation when inferable, opens artifacts through shared
+  viewer dispatch, and visits app directories.
+- =ogent-cabinet-open-file= dispatches HTML and URLs to browser commands,
+  directories to Dired, and images, PDF, CSV/TSV, source, media, and plain files
+  to native Emacs file viewers.
 - =ogent-cabinet-import-artifacts= imports Markdown, HTML, and text artifacts as
   Org records under the Cabinet while preserving originals by default.
 

@@ -1379,9 +1379,51 @@ Optional filters narrow by KIND, AGENT, STATUS, TAG, and ARCHIVED state."
     (lambda (session)
       (member relative (plist-get session :app-paths)))
     (ogent-cabinet-list-sessions root))
+   (ogent-cabinet--canonical-app-owner root relative)
    (let ((parts (split-string relative "/" t)))
      (when (and (equal (car parts) ".agents") (cadr parts))
        (list :agent (cadr parts))))))
+
+(defun ogent-cabinet--canonical-app-owner (root relative)
+  "Return canonical conversation owner for app RELATIVE under ROOT."
+  (let ((conversations-dir (expand-file-name ".agents/.conversations" root))
+        owner)
+    (when (file-directory-p conversations-dir)
+      (dolist (conversation-id
+               (directory-files conversations-dir nil
+                                directory-files-no-dot-files-regexp))
+        (let ((file (expand-file-name
+                     "index.org"
+                     (expand-file-name conversation-id conversations-dir))))
+          (when (and (not owner) (file-readable-p file))
+            (with-temp-buffer
+              (insert-file-contents file)
+              (org-mode)
+              (condition-case nil
+                  (progn
+                    (ogent-cabinet--first-heading-title)
+                    (let ((artifacts
+                           (ogent-cabinet--tags-from-string
+                            (org-entry-get nil "OGENT_ARTIFACTS"))))
+                      (when (seq-some
+                             (lambda (artifact)
+                               (or (equal artifact relative)
+                                   (equal (directory-file-name artifact)
+                                          relative)
+                                   (equal (file-name-directory
+                                           (directory-file-name artifact))
+                                          (file-name-as-directory relative))))
+                             artifacts)
+                        (setq owner
+                              (list :id conversation-id
+                                    :conversation-id conversation-id
+                                    :agent (ogent-cabinet--blank-to-nil
+                                            (org-entry-get nil "OGENT_AGENT"))
+                                    :job-id (ogent-cabinet--blank-to-nil
+                                             (org-entry-get nil "OGENT_JOB_ID"))
+                                    :path file)))))
+                (error nil)))))))
+    owner))
 
 (defun ogent-cabinet-list-apps (directory)
   "Return Cabinet app artifacts under DIRECTORY.
@@ -1405,6 +1447,7 @@ An app artifact is a directory containing an index.html file."
                                    (file-attribute-modification-time attrs))
                         :agent (plist-get owner :agent)
                         :job-id (plist-get owner :job-id)
+                        :conversation-id (plist-get owner :conversation-id)
                         :session-id (plist-get owner :id)
                         :session-path (plist-get owner :path))
                   apps)))))

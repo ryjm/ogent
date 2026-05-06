@@ -101,44 +101,63 @@ text in those Org files. Manual edits remain part of the record.
    Use =M-x ogent-cabinet-search=. Empty queries show an empty state. Search
    can filter by kind, agent, status, tag, and archive state from Lisp callers.
 
-9. Open generated apps:
+9. Browse durable data:
 
-   Use =M-x ogent-cabinet-apps=. Each =index.html= below the Cabinet root is
-   listed with label, path, modified time, and inferred owner when possible.
+   Use =M-x ogent-cabinet-data=. The data browser lists pages, files, apps, and
+   folders under the Cabinet root. Page commands create, rename, move, delete,
+   and export Org records while preserving the source property drawer and body.
 
-10. Check the task board:
+10. Open the command palette:
 
-   Use =M-x ogent-cabinet-tasks=. Lanes are Inbox, Needs Reply, Running,
-   Just Finished, and Archive. Scheduled and stale states appear as item
-   metadata. Press =b= for board, =l= for list, and =S= for schedule view.
+    Use =M-x ogent-cabinet-command-palette=. The palette ranks commands, pages,
+    agents, jobs, conversations, apps, paths, and page text through a persisted
+    derived index at =.cabinet-state/search.el=.
 
-11. Inspect relationships:
+11. Open generated apps:
+
+    Use =M-x ogent-cabinet-apps=. Each =index.html= below the Cabinet root is
+    listed with label, path, modified time, and inferred owner when possible.
+    HTML artifacts open through the shared Cabinet viewer dispatch.
+
+12. Check git state:
+
+    Use =M-x ogent-cabinet-git-status=. The status buffer lists dirty paths and
+    can commit, diff, log, restore, and pull through Magit when present or plain
+    git fallbacks.
+
+13. Check the task board:
+
+    Use =M-x ogent-cabinet-tasks=. Lanes are Inbox, Needs Reply, Running,
+    Just Finished, and Archive. Scheduled and stale states appear as item
+    metadata. Press =b= for board, =l= for list, and =S= for schedule view.
+
+14. Inspect relationships:
 
     Use =M-x ogent-cabinet-status=. The graph includes cabinet, agent, job,
     session, app, issue-link, and Gas Town hook nodes when available. Press
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
-12. Check provider adapters:
+15. Check provider adapters:
 
     Use =M-x ogent-cabinet-providers= to inspect registered runtime adapters,
     executable availability, supported modes, and resume support. Use
     =M-x ogent-cabinet-provider-verify= for a focused executable check.
 
-13. Browse skills:
+16. Browse skills:
 
     Use =M-x ogent-cabinet-skills= to inspect the skill catalog. The catalog
     reads skill metadata from =.agents/skills/=, =skills/=, =.codex/skills/=,
     =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
     a prompt with =@skill:<key>= or pass the key through the composer.
 
-14. Review departments and approvals:
+17. Review departments and approvals:
 
     Use =M-x ogent-cabinet-org-chart= for a department tree grouped by lead and
     scope. Use =M-x ogent-cabinet-actions= on a conversation with pending lead
     proposals to approve, reject, or dispatch actions.
 
-15. Open the Cabinet schedule:
+18. Open the Cabinet schedule:
 
     Use =M-x ogent-cabinet-schedule= for day, week, and month schedule views.
     Jobs with =OGENT_CRON=, agent heartbeats with cron heartbeats, one-shot
@@ -146,7 +165,7 @@ text in those Org files. Manual edits remain part of the record.
     event stream. Past slots without a matching =OGENT_SCHEDULED_KEY= show as
     missed and can be run from the schedule buffer.
 
-16. Bridge into Org agenda:
+19. Bridge into Org agenda:
 
     Use =M-x ogent-cabinet-agenda= to open =org-agenda= over the Cabinet root,
     visible child Cabinets, personas, inboxes, schedules, jobs, and memory Org
@@ -164,11 +183,14 @@ Main ogent dispatch bindings:
 | =C-c . y= / =SPC o y= | =ogent-cabinet-agents= |
 | =C-c . Y= / =SPC o Y= | =ogent-cabinet-agent= |
 | =C-c . B= / =SPC o B= | =ogent-cabinet-org-chart= |
+| =C-c . ;= / =SPC o ;= | =ogent-cabinet-data= |
 | =C-c . I= / =SPC o I= | =ogent-cabinet-tasks= |
 | =C-c . O= / =SPC o O= | =ogent-cabinet-conversations= |
 | =C-c . N= / =SPC o N= | =ogent-cabinet-actions= |
 | =C-c . J= / =SPC o J= | =ogent-cabinet-schedule= |
 | =C-c . Q= / =SPC o Q= | =ogent-cabinet-agenda= |
+| =C-c . := / =SPC o := | =ogent-cabinet-git-status= |
+| =C-c . /= / =SPC o /= | =ogent-cabinet-command-palette= |
 | =C-c . V= / =SPC o V= | =ogent-cabinet-search= |
 | =C-c . W= / =SPC o W= | =ogent-cabinet-apps= |
 | =C-c . X= / =SPC o X= | =ogent-cabinet-create-agent= |
@@ -199,8 +221,35 @@ Cabinet Home:
 | =M-n= / =M-p= | Move between sibling sections |
 | =<backtab>= | Cycle section visibility |
 | =^= | Move to the parent section |
+| =D= | Open the data browser |
+| =h= | Open Cabinet git status |
+| =/= | Open the command palette |
 | =m= | Open the Home transient menu |
 | =?= | Open Home help |
+| =g= | Refresh |
+| =q= | Quit |
+
+Cabinet Data:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Open the selected file through Cabinet viewer dispatch |
+| =c= | Create an Org page |
+| =r= | Rename the selected Org page |
+| =m= | Move the selected Org page |
+| =D= | Move the selected Org page to Cabinet trash |
+| =e= | Export the selected Org page |
+| =g= | Refresh |
+| =q= | Quit |
+
+Cabinet Git:
+
+| Key | Action |
+|-----+--------|
+| =d= | Show diff for the selected path |
+| =l= | Show log for the selected path |
+| =R= | Restore the selected path |
+| =c= | Commit dirty paths |
 | =g= | Refresh |
 | =q= | Quit |
 
@@ -224,17 +273,27 @@ Action approvals:
 | =d= | Dispatch approved actions |
 | =g= | Refresh |
 | =q= | Quit |
+
+Cabinet Home transient menu:
+
+| Key | Action |
+|-----+--------|
 | =j= | Open all jobs |
 | =J= | Open jobs related to the item at point |
 | =R= | Run or retry the selected agent, job, or conversation |
 | =E= | Edit the selected agent persona, job prompt, or source Org record |
+| =D= | Data browser |
 | =a= | Agents |
+| =B= | Org chart |
 | =t= | Tasks |
 | =c= | Conversations |
 | =u= | Schedule |
+| =N= | Action approvals |
 | =Q= | Cabinet Org agenda |
 | =s= | Search |
 | =A= | Apps |
+| =h= | Git status |
+| =/= | Command palette |
 | =G= | Graph/status |
 | =e= | Edit Cabinet metadata |
 
@@ -332,8 +391,14 @@ Migration limits:
              ogent-cabinet-status
              ogent-cabinet-agents
              ogent-cabinet-agent
+             ogent-cabinet-data
              ogent-cabinet-tasks
              ogent-cabinet-conversations
+             ogent-cabinet-actions
+             ogent-cabinet-schedule
+             ogent-cabinet-agenda
+             ogent-cabinet-git-status
+             ogent-cabinet-command-palette
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent

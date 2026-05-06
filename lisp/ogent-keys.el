@@ -48,9 +48,12 @@
 (declare-function ogent-cabinet-org-chart "ogent-ui-cabinet")
 (declare-function ogent-cabinet-tasks "ogent-ui-cabinet")
 (declare-function ogent-cabinet-conversations "ogent-ui-cabinet")
+(declare-function ogent-cabinet-data "ogent-cabinet-data")
 (declare-function ogent-cabinet-actions "ogent-cabinet-actions")
 (declare-function ogent-cabinet-schedule "ogent-cabinet-schedule")
 (declare-function ogent-cabinet-agenda "ogent-cabinet-schedule")
+(declare-function ogent-cabinet-git-status "ogent-cabinet-git")
+(declare-function ogent-cabinet-command-palette "ogent-cabinet-palette")
 (declare-function ogent-cabinet-search "ogent-ui-cabinet")
 (declare-function ogent-cabinet-apps "ogent-ui-cabinet")
 (declare-function ogent-cabinet-create-agent "ogent-ui-cabinet")
@@ -196,6 +199,8 @@ Set to nil to disable automatic evil binding setup."
     (cabinet-org-chart
      :key "B" :command ogent-cabinet-org-chart
      :desc "Cabinet org chart")
+    (cabinet-data     :key ";" :command ogent-cabinet-data
+                      :desc "Cabinet data browser")
     (cabinet-tasks    :key "I" :command ogent-cabinet-tasks
                       :desc "Cabinet tasks")
     (cabinet-conversations
@@ -207,6 +212,10 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Cabinet schedule")
     (cabinet-agenda   :key "Q" :command ogent-cabinet-agenda
                       :desc "Cabinet agenda")
+    (cabinet-git      :key ":" :command ogent-cabinet-git-status
+                      :desc "Cabinet git status")
+    (cabinet-palette  :key "/" :command ogent-cabinet-command-palette
+                      :desc "Cabinet command palette")
     (cabinet-search   :key "V" :command ogent-cabinet-search
                       :desc "Cabinet search")
     (cabinet-apps     :key "W" :command ogent-cabinet-apps
