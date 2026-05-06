@@ -177,9 +177,11 @@
         ("OGENT_SKILLS" . ,(plist-get conversation :skills))
         ("OGENT_ATTACHMENTS" . ,(plist-get conversation :attachment-paths))
         ("OGENT_ARTIFACTS" . ,(plist-get conversation :artifact-paths))
+        ("OGENT_DURATION" . ,(plist-get conversation :duration))
         ("OGENT_SUMMARY" . ,(plist-get conversation :summary))
         ("OGENT_CONTEXT_SUMMARY" . ,(plist-get conversation :context-summary))
         ("OGENT_AWAITING_INPUT" . ,(plist-get conversation :awaiting-input))
+        ("OGENT_ARCHIVED" . ,(plist-get conversation :archived))
         ("OGENT_TITLE_PINNED" . ,(plist-get conversation :title-pinned))
         ("OGENT_BOARD_ORDER" . ,(plist-get conversation :board-order))
         ("OGENT_MUTED" . ,(plist-get conversation :muted))
@@ -289,12 +291,19 @@ ID is the fallback conversation id."
                           (org-entry-get nil "OGENT_ATTACHMENTS"))
        :artifact-paths (ogent-armory-conversations--list-property
                         (org-entry-get nil "OGENT_ARTIFACTS"))
+       :duration (ogent-armory--blank-to-nil
+                  (org-entry-get nil "OGENT_DURATION"))
        :summary (ogent-armory--blank-to-nil
                  (org-entry-get nil "OGENT_SUMMARY"))
        :context-summary (ogent-armory--blank-to-nil
                          (org-entry-get nil "OGENT_CONTEXT_SUMMARY"))
        :awaiting-input (ogent-armory--truth-value
                         (org-entry-get nil "OGENT_AWAITING_INPUT"))
+       :archived (or (equal (ogent-armory-conversations--status
+                             (org-entry-get nil "OGENT_STATUS"))
+                            "archived")
+                     (ogent-armory--truth-value
+                      (org-entry-get nil "OGENT_ARCHIVED")))
        :title-pinned (ogent-armory--truth-value
                       (org-entry-get nil "OGENT_TITLE_PINNED"))
        :board-order (ogent-armory-conversations--number-property
@@ -358,6 +367,52 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
                     "")))
      conversations)))
 
+(defun ogent-armory-conversations--session-status (status)
+  "Return legacy display status for canonical STATUS."
+  (pcase (ogent-armory-conversations--status status)
+    ("done" "DONE")
+    ("failed" "FAILED")
+    ("running" "RUNNING")
+    ("awaiting-input" "AWAITING-INPUT")
+    ("archived" "ARCHIVED")
+    ("cancelled" "CANCELLED")
+    (_ "TODO")))
+
+(defun ogent-armory-conversations--as-session (conversation)
+  "Return CONVERSATION as a session-shaped plist for legacy UI surfaces."
+  (list :id (plist-get conversation :id)
+        :conversation-id (plist-get conversation :id)
+        :record-kind 'conversation
+        :name (plist-get conversation :title)
+        :agent (plist-get conversation :agent)
+        :provider (plist-get conversation :provider)
+        :model (plist-get conversation :model)
+        :job-id (plist-get conversation :job-id)
+        :exit-status (plist-get conversation :exit-code)
+        :status (ogent-armory-conversations--session-status
+                 (plist-get conversation :status))
+        :workspace nil
+        :duration (plist-get conversation :duration)
+        :finished (or (plist-get conversation :completed)
+                      (plist-get conversation :last-activity)
+                      (plist-get conversation :started))
+        :tags nil
+        :app-paths (plist-get conversation :artifact-paths)
+        :archived (plist-get conversation :archived)
+        :body (plist-get conversation :body)
+        :path (plist-get conversation :path)))
+
+(cl-defun ogent-armory-conversation-list-sessions
+    (directory &key agent status trigger)
+  "Return canonical conversations as session-shaped plists under DIRECTORY."
+  (mapcar
+   #'ogent-armory-conversations--as-session
+   (ogent-armory-conversation-list
+    directory
+    :agent agent
+    :status status
+    :trigger trigger)))
+
 (defun ogent-armory-conversations--update-index-properties
     (directory conversation-id properties)
   "Update CONVERSATION-ID PROPERTIES under DIRECTORY."
@@ -375,6 +430,13 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
                            (car property)
                            (ogent-armory--property-value (cdr property))))
           (save-buffer))))))
+
+(defun ogent-armory-conversation-update-properties
+    (directory conversation-id properties)
+  "Update CONVERSATION-ID PROPERTIES under DIRECTORY.
+PROPERTIES is an alist of Org property names to values."
+  (ogent-armory-conversations--update-index-properties
+   directory conversation-id properties))
 
 (defun ogent-armory-conversations--next-turn-number
     (directory conversation-id role)

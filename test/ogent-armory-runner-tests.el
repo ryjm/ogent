@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'ogent-test-helper)
 (require 'ogent-armory)
+(require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 
 (defmacro ogent-armory-runner-test-with-temp-dir (var &rest body)
@@ -201,8 +202,8 @@
       (should (string-match-p "\\*\\* Runtime Trace" session))
       (should-not (string-match-p "\\*\\* Error" session)))))
 
-(ert-deftest ogent-armory-runner-start-writes-session-transcript ()
-  "Runner starts a real local process and writes an Org transcript."
+(ert-deftest ogent-armory-runner-start-writes-canonical-conversation ()
+  "Runner starts a real local process and writes a canonical conversation."
   (ogent-armory-runner-test-with-temp-dir dir
     (let* ((workspace (expand-file-name "engineering" dir))
            (fixture (ogent-armory-runner-test--make-executable
@@ -224,15 +225,22 @@
                     dir "cto" :instruction "Say hello."))
              (process (ogent-armory-runner-start plan)))
         (ogent-armory-runner-test--wait process)
-        (let ((session-file (process-get process 'ogent-armory-session-file)))
-          (should (and session-file (file-exists-p session-file)))
-          (with-temp-buffer
-            (insert-file-contents session-file)
-            (let ((text (buffer-string)))
-              (should (string-match-p ":OGENT_SESSION: t" text))
-              (should (string-match-p ":OGENT_PROVIDER: codex" text))
-              (should (string-match-p "Say hello" text))
-              (should (string-match-p "fixture agent ok" text)))))))))
+        (let* ((conversation-file
+                (process-get process 'ogent-armory-conversation-file))
+               (conversation-id
+                (process-get process 'ogent-armory-conversation-id))
+               (conversation
+                (ogent-armory-conversation-read dir conversation-id))
+               (turns
+                (ogent-armory-conversation-read-turns dir conversation-id)))
+          (should (and conversation-file (file-exists-p conversation-file)))
+          (should (equal (plist-get conversation :status) "done"))
+          (should (equal (plist-get conversation :provider) "codex"))
+          (should (= 2 (length turns)))
+          (should (string-match-p "Say hello"
+                                  (plist-get (car turns) :content)))
+          (should (string-match-p "fixture agent ok"
+                                  (plist-get (cadr turns) :content))))))))
 
 (ert-deftest ogent-armory-runner-transcript-links-generated-apps ()
   "Runner transcripts record generated index.html artifacts when output names them."
@@ -261,12 +269,12 @@
                     dir "cto" :instruction "Build app."))
              (process (ogent-armory-runner-start plan)))
         (ogent-armory-runner-test--wait process)
-        (let ((session-file (process-get process 'ogent-armory-session-file)))
-          (should (and session-file (file-exists-p session-file)))
-          (with-temp-buffer
-            (insert-file-contents session-file)
-            (let ((text (buffer-string)))
-              (should (string-match-p ":OGENT_APP_PATHS: apps/dashboard" text)))))))))
+        (let* ((conversation-id
+                (process-get process 'ogent-armory-conversation-id))
+               (conversation
+                (ogent-armory-conversation-read dir conversation-id)))
+          (should (member "apps/dashboard"
+                          (plist-get conversation :artifact-paths))))))))
 
 (provide 'ogent-armory-runner-tests)
 

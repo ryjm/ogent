@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-armory)
+(require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 
 (eval-and-compile
@@ -248,7 +249,18 @@
 
 (defun ogent-armory-ui--agent-sessions (root slug)
   "Return sessions for SLUG under ROOT."
-  (or (ogent-armory-list-sessions root slug) nil))
+  (or (ogent-armory-ui--all-sessions root slug) nil))
+
+(defun ogent-armory-ui--all-sessions (root &optional agent)
+  "Return canonical conversations and legacy sessions under ROOT.
+When AGENT is non-nil, narrow to that agent."
+  (seq-sort
+   (lambda (left right)
+     (string> (or (plist-get left :finished) "")
+              (or (plist-get right :finished) "")))
+   (append
+    (ogent-armory-conversation-list-sessions root :agent agent)
+    (ogent-armory-list-sessions root agent))))
 
 (defun ogent-armory-ui--all-jobs (root &optional agent)
   "Return all Armory jobs under ROOT, optionally narrowed to AGENT."
@@ -274,7 +286,7 @@
                       (and (equal (plist-get session :agent) agent)
                            (equal (plist-get session :job-id) job-id)
                            (zerop (or (plist-get session :exit-status) 0))))
-                    (ogent-armory-list-sessions root agent)))
+                    (ogent-armory-ui--all-sessions root agent)))
          (last (ogent-armory-ui--last-session sessions))
          (finished (plist-get last :finished)))
     (and (plist-get job :enabled)
@@ -301,6 +313,66 @@
   (unless (and path (file-exists-p path))
     (user-error "No Armory file at point"))
   (find-file path))
+
+(defun ogent-armory-ui--canonical-conversation-path-p (path)
+  "Return non-nil when PATH is a canonical conversation index."
+  (and path
+       (file-readable-p path)
+       (string-equal (file-name-nondirectory path) "index.org")
+       (string-match-p "/\\.agents/\\.conversations/[^/]+/index\\.org\\'"
+                       path)
+       (with-temp-buffer
+         (insert-file-contents path nil 0 4096)
+         (goto-char (point-min))
+         (re-search-forward
+          "^[ \t]*:OGENT_CONVERSATION:[ \t]+t[ \t]*$"
+          nil t))))
+
+(defun ogent-armory-ui--turns-by-role (turns role)
+  "Return content strings from TURNS matching ROLE."
+  (delq
+   nil
+   (mapcar
+    (lambda (turn)
+      (when (equal (plist-get turn :role) role)
+        (plist-get turn :content)))
+    turns)))
+
+(defun ogent-armory-ui--canonical-conversation-detail (root path)
+  "Return a detail plist for canonical conversation PATH under ROOT."
+  (let* ((id (file-name-nondirectory
+              (directory-file-name (file-name-directory path))))
+         (detail (ogent-armory-conversation-detail root id))
+         (turns (plist-get detail :turns))
+         (agent-turns (seq-filter
+                       (lambda (turn)
+                         (equal (plist-get turn :role) "agent"))
+                       turns))
+         (last-agent (car (last agent-turns))))
+    (append
+     (list :name (plist-get detail :title)
+           :status (ogent-armory-conversations--session-status
+                    (plist-get detail :status))
+           :finished (or (plist-get detail :completed)
+                         (plist-get detail :last-activity)
+                         (plist-get detail :started))
+           :exit-status (plist-get detail :exit-code)
+           :prompt (string-join
+                    (ogent-armory-ui--turns-by-role turns "user")
+                    "\n\n---\n\n")
+           :output (string-join
+                    (ogent-armory-ui--turns-by-role turns "agent")
+                    "\n\n---\n\n")
+           :error (plist-get last-agent :error)
+           :runtime-trace nil
+           :tools nil)
+     detail)))
+
+(defun ogent-armory-ui--conversation-detail (root path)
+  "Return detail metadata for conversation PATH under ROOT."
+  (if (ogent-armory-ui--canonical-conversation-path-p path)
+      (ogent-armory-ui--canonical-conversation-detail root path)
+    (ogent-armory-session-detail path)))
 
 (defun ogent-armory-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
@@ -611,7 +683,7 @@ DIRECTION is either `next' or `previous'."
          (index (ogent-armory-read-index root))
          (agents (ogent-armory-ui--agent-slugs root))
          (jobs (ogent-armory-ui--all-jobs root))
-         (sessions (ogent-armory-list-sessions root))
+         (sessions (ogent-armory-ui--all-sessions root))
          (failed (seq-filter
                   (lambda (session)
                     (not (zerop (or (plist-get session :exit-status) 0))))
@@ -1656,10 +1728,14 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-armory-tasks--session-lane (session)
   "Return the attention lane for SESSION."
-  (cond
-   ((plist-get session :archived) "Archive")
-   ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
-   (t "Just Finished")))
+  (let ((status (upcase (or (plist-get session :status) ""))))
+    (cond
+     ((plist-get session :archived) "Archive")
+     ((equal status "RUNNING") "Running")
+     ((member status '("AWAITING-INPUT" "FAILED")) "Needs Reply")
+     ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
+     ((member status '("TODO" "IDLE")) "Inbox")
+     (t "Just Finished"))))
 
 (defun ogent-armory-tasks--session-item (session)
   "Return a task item for SESSION."
@@ -1695,7 +1771,7 @@ DIRECTION is either `next' or `previous'."
     (dolist (slug (ogent-armory-ui--agent-slugs root))
       (dolist (job (ogent-armory-ui--agent-jobs root slug))
         (push (ogent-armory-tasks--job-item root job) items)))
-    (dolist (session (ogent-armory-list-sessions root))
+    (dolist (session (ogent-armory-ui--all-sessions root))
       (push (ogent-armory-tasks--session-item session) items))
     (setq items (append (ogent-armory-tasks--running-items root) items))
     (let ((filters ogent-armory-tasks--filters))
@@ -1935,7 +2011,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-armory-conversations--entries ()
   "Return conversation entries for the current buffer."
-  (let* ((sessions (ogent-armory-list-sessions
+  (let* ((sessions (ogent-armory-ui--all-sessions
                     ogent-armory-conversations--root))
          (matches (seq-filter #'ogent-armory-conversations--matches-p
                               sessions)))
@@ -2081,7 +2157,7 @@ DIRECTION is either `next' or `previous'."
                     "Conversation: "
                     (mapcar (lambda (item)
                               (plist-get item :path))
-                            (ogent-armory-list-sessions root))
+                            (ogent-armory-ui--all-sessions root))
                     nil t)))
      (list root session)))
   (let* ((root (ogent-armory-ui--root directory))
@@ -2115,7 +2191,9 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-armory-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
-  (let ((detail (ogent-armory-session-detail ogent-armory-conversation--file)))
+  (let ((detail (ogent-armory-ui--conversation-detail
+                 ogent-armory-conversation--root
+                 ogent-armory-conversation--file)))
     (insert (propertize (or (plist-get detail :name)
                             (plist-get detail :id))
                         'face 'ogent-armory-ui-heading)
@@ -2172,7 +2250,9 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-armory-conversation-retry ()
   "Retry this conversation."
   (interactive)
-  (let ((detail (ogent-armory-session-detail ogent-armory-conversation--file)))
+  (let ((detail (ogent-armory-ui--conversation-detail
+                 ogent-armory-conversation--root
+                 ogent-armory-conversation--file)))
     (if-let ((job-id (plist-get detail :job-id)))
         (ogent-armory-run-job ogent-armory-conversation--root
                                (plist-get detail :agent)
