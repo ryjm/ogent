@@ -68,23 +68,67 @@
 (defcustom ogent-armory-runner-response-contract
   (string-join
    '("Armory response contract:"
-     "- Write the visible answer as Org markup for an Org subtree."
-     "- Use Org headings at level ** or deeper. Do not start sections with single-star headings."
-     "- Use Org syntax, not Markdown # headings or [label](url) links."
+     "Output grammar:"
+     "- Return one Org subtree body that can be inserted below an existing level-one turn heading."
+     "- Start visible sections at level ** or deeper. Never emit a single-star Org heading."
+     "- Use Org markup and syntax, not Markdown # headings or [label](url) links."
      "- Use Org lists, TODO items, tables, links, and named src blocks where they improve navigation."
      "- Use #+begin_src and #+end_src for code or logs. Do not use Markdown triple-backtick fences."
      "- Use Org file links for durable artifacts, for example [[file:notes/plan.org][plan]]."
-     "- Put exactly one Armory metadata block at the end of the response."
-     "- The metadata block may contain multiple ARTIFACT lines. Use ARTIFACT: none when no artifact exists."
-     "#+begin_armory"
-     "SUMMARY: one short sentence"
-     "CONTEXT: optional durable memory note, or none"
-     "ARTIFACT: relative/path/to/file.org"
-     "#+end_armory"
-     "- Use <ask_user>...</ask_user> only when the run cannot continue without user input.")
+     "- Keep preambles out. Begin with the first useful Org heading or list item."
+     "Common failures to avoid:"
+     "- Do not emit raw JSON outside Armory protocol blocks."
+     "- Do not put the answer in a Markdown code fence."
+     "- Do not write naked file paths when an Org file link is clearer."
+     "- Do not copy the example content below.")
    "\n")
-  "Prompt contract appended to Armory runner prompts."
+  "Shared Armory response grammar appended to runner prompts."
   :type 'string
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-response-templates
+  '((implementation .
+     "Implementation response shape:
+** Changed
+- ...
+** Verification
+- ...
+** Notes
+- ...")
+    (review .
+     "Review response shape:
+** Findings
+- ...
+** Risks
+- ...
+** Tests
+- ...")
+    (research .
+     "Research response shape:
+** Answer
+- ...
+** Sources
+- ...
+** Open Questions
+- ...")
+    (planning .
+     "Planning response shape:
+** Decision
+- ...
+** Tradeoffs
+- ...
+** Milestones
+- ...")
+    (general .
+     "General response shape:
+** Summary
+- ...
+** Details
+- ...
+** Next Actions
+- ..."))
+  "Response shape templates keyed by Armory run type."
+  :type '(alist :key-type symbol :value-type string)
   :group 'ogent-armory-runner)
 
 (defcustom ogent-armory-runner-codex-sandbox "workspace-write"
@@ -154,6 +198,150 @@
   (or (and job (ogent-armory-runner--blank-to-nil (plist-get job key)))
       (ogent-armory-runner--blank-to-nil (plist-get agent key))))
 
+(defun ogent-armory-runner--format-context-value (label value)
+  "Return a Armory run context line for LABEL and VALUE."
+  (when-let ((text (ogent-armory-runner--blank-to-nil
+                    (and value (format "%s" value)))))
+    (format "- %s: %s" label text)))
+
+(defun ogent-armory-runner--run-context-contract (context)
+  "Return prompt text describing Armory runtime CONTEXT."
+  (string-join
+   (delq
+    nil
+    (list
+     "Armory run context:"
+     (ogent-armory-runner--format-context-value
+      "Armory root" (plist-get context :root))
+     (ogent-armory-runner--format-context-value
+      "Workspace" (plist-get context :workspace))
+     (ogent-armory-runner--format-context-value
+      "Provider" (plist-get context :provider))
+     (ogent-armory-runner--format-context-value
+      "Model" (plist-get context :model))
+     (ogent-armory-runner--format-context-value
+      "Effort" (plist-get context :effort))
+     (ogent-armory-runner--format-context-value
+      "Runtime" (plist-get context :runtime-mode))))
+   "\n"))
+
+(defun ogent-armory-runner--response-kind (agent job instruction)
+  "Return the response template kind for AGENT, JOB, and INSTRUCTION."
+  (let* ((tags (append (plist-get agent :tags)
+                       (and job (plist-get job :tags))))
+         (text (downcase
+                (string-join
+                 (delq
+                  nil
+                  (append
+                   (list (plist-get agent :role)
+                         (plist-get agent :body)
+                         (and job (plist-get job :id))
+                         (and job (plist-get job :name))
+                         (and job (plist-get job :body))
+                         instruction)
+                   tags))
+                 " "))))
+    (cond
+     ((string-match-p
+       "implement\\|build\\|fix\\|patch\\|refactor\\|ship\\|edit\\|code\\|change"
+       text)
+      'implementation)
+     ((string-match-p
+       "review\\|audit\\|critique\\|verify\\|validation\\|test\\|risk\\|qa"
+       text)
+      'review)
+     ((string-match-p
+       "research\\|investigate\\|source\\|study\\|compare\\|survey"
+       text)
+      'research)
+     ((string-match-p
+       "plan\\|design\\|spec\\|roadmap\\|milestone\\|tradeoff\\|decision"
+       text)
+      'planning)
+     (t 'general))))
+
+(defun ogent-armory-runner--response-template (agent job instruction)
+  "Return the selected response template for AGENT, JOB, and INSTRUCTION."
+  (or (cdr (assq (ogent-armory-runner--response-kind
+                  agent job instruction)
+                 ogent-armory-runner-response-templates))
+      (cdr (assq 'general ogent-armory-runner-response-templates))))
+
+(defun ogent-armory-runner--response-example ()
+  "Return a compact good Armory response example."
+  (string-join
+   '("Example Armory response:"
+     "** Summary"
+     "- Shipped the focused change and kept the durable record readable."
+     "** Findings"
+     "- [[file:lisp/ogent-armory-runner.el][runner]] now emits a stricter Org response contract."
+     "** Verification"
+     "- =make test= passed for the touched Armory suites."
+     "#+begin_armory"
+     "SUMMARY: Tightened Armory output shape."
+     "CONTEXT: Future runs should read cleanly in the conversation buffer."
+     "ARTIFACT: lisp/ogent-armory-runner.el"
+     "#+end_armory")
+   "\n"))
+
+(defun ogent-armory-runner--machine-footer-contract ()
+  "Return the machine-readable Armory footer contract."
+  (string-join
+   '("Machine footer:"
+     "- Put exactly one Armory metadata block at the very end of the response."
+     "- The visible answer should stand alone without this footer."
+     "- The metadata block may contain multiple ARTIFACT lines."
+     "- Use ARTIFACT: none when no artifact exists."
+     "#+begin_armory"
+     "SUMMARY: one short sentence"
+     "CONTEXT: optional durable memory note, or none"
+     "ARTIFACT: relative/path/to/file.org"
+     "#+end_armory")
+   "\n"))
+
+(defun ogent-armory-runner--action-contract (agent)
+  "Return action proposal instructions for dispatch-capable AGENT."
+  (when (plist-get agent :can-dispatch)
+    (string-join
+     '("Action proposal contract:"
+       "- When clear follow-up work belongs to another agent, add an optional Armory actions block before the machine footer."
+       "- Keep action prompts Org-ready and specific."
+       "- Omit this block when there is no useful delegated work."
+       "#+begin_armory-actions"
+       "["
+       "  {\"type\":\"launch-task\",\"target-agent\":\"agent-slug\",\"title\":\"Short title\",\"prompt\":\"Org-ready prompt\"}"
+       "]"
+       "#+end_armory-actions")
+     "\n")))
+
+(defun ogent-armory-runner--self-check-contract ()
+  "Return the final response self-check."
+  (string-join
+   '("Before sending, verify:"
+     "- The response can be inserted under a level-one Org turn heading without changing the tree shape."
+     "- Visible sections begin at level ** or deeper."
+     "- File references use Org links in the visible answer."
+     "- The final block is one #+begin_armory metadata footer."
+     "- Any <ask_user>...</ask_user> marker is present only when user input is mandatory.")
+   "\n"))
+
+(defun ogent-armory-runner--response-contract (agent job instruction context)
+  "Return the full Armory response contract for a runner prompt."
+  (string-join
+   (delq
+    nil
+    (list
+     (ogent-armory-runner--run-context-contract context)
+     (ogent-armory-runner--blank-to-nil
+      ogent-armory-runner-response-contract)
+     (ogent-armory-runner--response-template agent job instruction)
+     (ogent-armory-runner--response-example)
+     (ogent-armory-runner--action-contract agent)
+     (ogent-armory-runner--machine-footer-contract)
+     (ogent-armory-runner--self-check-contract)))
+   "\n\n"))
+
 (defun ogent-armory-runner--session-file (root agent-slug &optional job-id)
   "Return a fresh session file under ROOT for AGENT-SLUG and JOB-ID."
   (let* ((timestamp (format-time-string "%Y%m%dT%H%M%S"))
@@ -175,8 +363,8 @@
           (or job-id "run")
           (random #x1000000)))
 
-(defun ogent-armory-runner--prompt (agent &optional job instruction)
-  "Return a CLI prompt from AGENT, optional JOB, and INSTRUCTION."
+(defun ogent-armory-runner--prompt (agent &optional job instruction context)
+  "Return a CLI prompt from AGENT, optional JOB, INSTRUCTION, and CONTEXT."
   (string-join
    (delq
     nil
@@ -199,8 +387,8 @@
      (when-let ((user-instruction
                  (ogent-armory-runner--blank-to-nil instruction)))
        (format "User instruction:\n%s" user-instruction))
-     (ogent-armory-runner--blank-to-nil
-      ogent-armory-runner-response-contract)))
+     (ogent-armory-runner--response-contract
+      agent job instruction context)))
    "\n\n"))
 
 (cl-defun ogent-armory-runner-plan
@@ -237,7 +425,6 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                     :workspace
                                     (plist-get job :workspace))
                        agent)))
-         (prompt (ogent-armory-runner--prompt agent job instruction))
          (model (or model
                     (ogent-armory-runner--effective agent job :model)))
          (effort (or effort
@@ -245,6 +432,17 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (permission-mode (or (ogent-armory-runner--blank-to-nil
                                (plist-get agent :permission-mode))
                               ogent-armory-runner-claude-permission-mode))
+         (runtime-mode (or runtime-mode 'native))
+         (prompt (ogent-armory-runner--prompt
+                  agent
+                  job
+                  instruction
+                  (list :root root
+                        :workspace workspace
+                        :provider provider-symbol
+                        :model model
+                        :effort effort
+                        :runtime-mode runtime-mode)))
          (conversation-id (or conversation-id
                               (ogent-armory-runner--conversation-id job-id)))
          (invocation
@@ -257,7 +455,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                  :prompt prompt
                  :model model
                  :permission-mode permission-mode
-                 :runtime-mode (or runtime-mode 'native)))))
+                 :runtime-mode runtime-mode))))
     (unless (file-directory-p workspace)
       (user-error "Armory agent workspace not found: %s" workspace))
     (append

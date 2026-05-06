@@ -97,7 +97,78 @@
       (should (string-match-p "level \\*\\*" prompt))
       (should (string-match-p "#\\+begin_armory" prompt))
       (should (string-match-p "SUMMARY:" prompt))
-      (should (string-match-p "ARTIFACT:" prompt)))))
+      (should (string-match-p "ARTIFACT:" prompt))
+      (should (string-match-p "Example Armory response" prompt))
+      (should (string-match-p "Machine footer" prompt))
+      (should (string-match-p "Before sending" prompt))
+      (should (string-match-p "Armory run context" prompt))
+      (should (string-match-p "Runtime: native" prompt)))))
+
+(ert-deftest ogent-armory-runner-selects-implementation-template ()
+  "Implementation prompts ask for sections that map cleanly to the reader."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "builder"
+       :name "Builder"
+       :role "Implementation"
+       :provider "codex"
+       :workspace "/")
+     "Ship small patches.")
+    (let* ((plan (ogent-armory-runner-plan
+                  dir "builder" :instruction "Implement the dashboard fix."))
+           (prompt (plist-get plan :prompt)))
+      (should (string-match-p "Implementation response shape" prompt))
+      (should (string-match-p "\\*\\* Changed" prompt))
+      (should (string-match-p "\\*\\* Verification" prompt))
+      (should (string-match-p "\\*\\* Notes" prompt)))))
+
+(ert-deftest ogent-armory-runner-selects-review-template-from-job ()
+  "Review jobs get findings, risks, and test sections."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :workspace "/")
+     "Keep the architecture honest.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review"
+       :name "Weekly Review"
+       :enabled t)
+     "Review recent work.")
+    (let* ((plan (ogent-armory-runner-plan
+                  dir "cto" :job-id "weekly-review"))
+           (prompt (plist-get plan :prompt)))
+      (should (string-match-p "Review response shape" prompt))
+      (should (string-match-p "\\*\\* Findings" prompt))
+      (should (string-match-p "\\*\\* Risks" prompt))
+      (should (string-match-p "\\*\\* Tests" prompt)))))
+
+(ert-deftest ogent-armory-runner-adds-action-contract-for-leads ()
+  "Dispatch-capable agents receive the action proposal protocol."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "lead"
+       :name "Lead"
+       :role "Lead agent"
+       :provider "codex"
+       :can-dispatch t
+       :workspace "/")
+     "Coordinate follow-up work.")
+    (let* ((plan (ogent-armory-runner-plan
+                  dir "lead" :instruction "Plan follow-up tasks."))
+           (prompt (plist-get plan :prompt)))
+      (should (string-match-p "Action proposal contract" prompt))
+      (should (string-match-p "#\\+begin_armory-actions" prompt))
+      (should (string-match-p "launch-task" prompt)))))
 
 (ert-deftest ogent-armory-runner-job-overrides-provider-model-and-workspace ()
   "Job metadata can override the owning agent's provider, model, and workspace."
