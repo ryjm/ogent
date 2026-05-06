@@ -66,20 +66,68 @@
 
 (defun ogent-armory-skill--org-files (directory)
   "Return readable Org skill files below DIRECTORY."
-  (when (and (file-directory-p directory)
-             (file-readable-p directory))
-    (directory-files-recursively directory "\\.org\\'" nil t)))
+  (let (files)
+    (cl-labels
+        ((walk
+          (dir)
+          (when (and (file-directory-p dir)
+                     (file-readable-p dir))
+            (dolist (entry (directory-files
+                            dir t directory-files-no-dot-files-regexp))
+              (cond
+               ((and (file-directory-p entry)
+                     (not (file-symlink-p entry)))
+                (walk entry))
+               ((and (file-regular-p entry)
+                     (string-match-p "\\.org\\'" entry))
+                (push entry files)))))))
+      (walk directory))
+    (nreverse files)))
+
+(defun ogent-armory-skill--buffer-title ()
+  "Return the first heading title in the current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^\\*+[ \t]+\\(.+?\\)[ \t]*$" nil t)
+      (string-trim (match-string 1)))))
+
+(defun ogent-armory-skill--buffer-property (property)
+  "Return Org drawer PROPERTY from the first heading."
+  (save-excursion
+    (goto-char (point-min))
+    (when (re-search-forward "^\\*+[ \t]+.+$" nil t)
+      (forward-line 1)
+      (when (looking-at-p "[ \t]*:PROPERTIES:[ \t]*$")
+        (let ((end (save-excursion
+                     (and (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+                          (point)))))
+          (when end
+            (let ((regexp (format "^[ \t]*:%s:[ \t]*\\(.+?\\)[ \t]*$"
+                                  (regexp-quote property))))
+              (when (re-search-forward regexp end t)
+                (string-trim (match-string 1))))))))))
+
+(defun ogent-armory-skill--buffer-body ()
+  "Return the body text under the first heading in the current buffer."
+  (save-excursion
+    (goto-char (point-min))
+    (if (not (re-search-forward "^\\*+[ \t]+.+$" nil t))
+        (string-trim (buffer-string))
+      (forward-line 1)
+      (when (looking-at-p "[ \t]*:PROPERTIES:[ \t]*$")
+        (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+          (forward-line 1)))
+      (string-trim (buffer-substring-no-properties (point) (point-max))))))
 
 (defun ogent-armory-skill--read-metadata (file origin)
   "Read skill FILE metadata for ORIGIN without loading the full body."
   (with-temp-buffer
     (insert-file-contents file nil 0 4096)
-    (ogent-armory--org-mode)
-    (let ((title (or (ogent-armory--first-heading-title)
-                     (file-name-base file))))
+    (let ((title (or (ogent-armory-skill--buffer-title)
+                     (file-name-base file)))
+          (key (ogent-armory-skill--buffer-property "OGENT_SKILL_KEY")))
       (list :key (ogent-armory-skill--slug
-                  (or (ogent-armory--blank-to-nil
-                       (org-entry-get nil "OGENT_SKILL_KEY"))
+                  (or (ogent-armory--blank-to-nil key)
                       (file-name-base file)))
             :title title
             :origin origin
@@ -118,10 +166,8 @@
       (user-error "Armory skill not found: %s" key))
     (with-temp-buffer
       (insert-file-contents (plist-get skill :path))
-      (ogent-armory--org-mode)
-      (ogent-armory--first-heading-title)
       (append skill
-              (list :body (ogent-armory--heading-body))))))
+              (list :body (ogent-armory-skill--buffer-body))))))
 
 (defun ogent-armory-skill-import (directory file &optional key origin)
   "Import skill FILE into DIRECTORY and return the new skill path.
