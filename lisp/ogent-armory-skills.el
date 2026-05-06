@@ -60,7 +60,7 @@
   "Read skill FILE metadata for ORIGIN without loading the full body."
   (with-temp-buffer
     (insert-file-contents file nil 0 4096)
-    (org-mode)
+    (ogent-armory--org-mode)
     (let ((title (or (ogent-armory--first-heading-title)
                      (file-name-base file))))
       (list :key (ogent-armory-skill--slug
@@ -97,7 +97,7 @@
       (user-error "Armory skill not found: %s" key))
     (with-temp-buffer
       (insert-file-contents (plist-get skill :path))
-      (org-mode)
+      (ogent-armory--org-mode)
       (ogent-armory--first-heading-title)
       (append skill
               (list :body (ogent-armory--heading-body))))))

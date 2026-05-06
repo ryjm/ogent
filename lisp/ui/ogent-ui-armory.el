@@ -1638,7 +1638,7 @@ DIRECTION is either `next' or `previous'."
                     nil t))
          (current (with-temp-buffer
                     (insert-file-contents file)
-                    (org-mode)
+                    (ogent-armory--org-mode)
                     (ogent-armory--first-heading-title)
                     (org-entry-get nil property)))
          (value (read-string (format "%s: " property) current)))

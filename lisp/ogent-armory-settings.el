@@ -191,7 +191,7 @@
   (let ((settings (ogent-armory-settings-defaults directory)))
     (with-temp-buffer
       (insert-file-contents file)
-      (org-mode)
+      (ogent-armory--org-mode)
       (ogent-armory--first-heading-title)
       (dolist (field ogent-armory-settings--fields)
         (setq settings

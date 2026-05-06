@@ -93,7 +93,7 @@
       (condition-case nil
           (with-temp-buffer
             (insert-file-contents file nil 0 nil)
-            (org-mode)
+            (ogent-armory--org-mode)
             (let* ((keywords (org-collect-keywords '("TITLE")))
                    (title (cadr (assoc "TITLE" keywords))))
               (or (ogent-armory--blank-to-nil title)
@@ -173,7 +173,7 @@ PATH is relative to the Armory root unless absolute."
     (user-error "Armory page not readable: %s" file))
   (with-temp-buffer
     (insert-file-contents file)
-    (org-mode)
+    (ogent-armory--org-mode)
     (let ((heading (condition-case nil
                        (ogent-armory--first-heading-title)
                      (error nil))))
