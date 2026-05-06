@@ -141,17 +141,20 @@
 (ert-deftest ogent-cabinet-status-formats-recent-work-quietly ()
   "Recent work hides redundant slugs and compresses timestamps."
   (let* ((year (format-time-string "%Y" (current-time)))
+         (timestamp (format "%s-05-05T11:42:37-0700" year))
          (node `(:kind session
                  :label "Architecture Steward Weekly Architecture Scan"
                  :data (:status "FAILED"
                         :agent "architecture-steward"
                         :duration "153.76s"
-                        :finished ,(format "%s-05-05T11:42:37-0700" year))))
+                        :finished ,timestamp)))
          (text (substring-no-properties
                 (ogent-cabinet-status--format-session-line node))))
     (should (string-match-p "failed" text))
     (should (string-match-p "153.76s" text))
-    (should (string-match-p "May 05 11:42" text))
+    (should (string-match-p
+             (regexp-quote (ogent-cabinet-status--short-time timestamp))
+             text))
     (should-not (string-match-p "architecture-steward" text))
     (should-not (string-match-p "T11:42:37" text))))
 
