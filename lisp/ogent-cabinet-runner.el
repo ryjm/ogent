@@ -68,23 +68,67 @@
 (defcustom ogent-cabinet-runner-response-contract
   (string-join
    '("Cabinet response contract:"
-     "- Write the visible answer as Org markup for an Org subtree."
-     "- Use Org headings at level ** or deeper. Do not start sections with single-star headings."
-     "- Use Org syntax, not Markdown # headings or [label](url) links."
+     "Output grammar:"
+     "- Return one Org subtree body that can be inserted below an existing level-one turn heading."
+     "- Start visible sections at level ** or deeper. Never emit a single-star Org heading."
+     "- Use Org markup and syntax, not Markdown # headings or [label](url) links."
      "- Use Org lists, TODO items, tables, links, and named src blocks where they improve navigation."
      "- Use #+begin_src and #+end_src for code or logs. Do not use Markdown triple-backtick fences."
      "- Use Org file links for durable artifacts, for example [[file:notes/plan.org][plan]]."
-     "- Put exactly one Cabinet metadata block at the end of the response."
-     "- The metadata block may contain multiple ARTIFACT lines. Use ARTIFACT: none when no artifact exists."
-     "#+begin_cabinet"
-     "SUMMARY: one short sentence"
-     "CONTEXT: optional durable memory note, or none"
-     "ARTIFACT: relative/path/to/file.org"
-     "#+end_cabinet"
-     "- Use <ask_user>...</ask_user> only when the run cannot continue without user input.")
+     "- Keep preambles out. Begin with the first useful Org heading or list item."
+     "Common failures to avoid:"
+     "- Do not emit raw JSON outside Cabinet protocol blocks."
+     "- Do not put the answer in a Markdown code fence."
+     "- Do not write naked file paths when an Org file link is clearer."
+     "- Do not copy the example content below.")
    "\n")
-  "Prompt contract appended to Cabinet runner prompts."
+  "Shared Cabinet response grammar appended to runner prompts."
   :type 'string
+  :group 'ogent-cabinet-runner)
+
+(defcustom ogent-cabinet-runner-response-templates
+  '((implementation .
+     "Implementation response shape:
+** Changed
+- ...
+** Verification
+- ...
+** Notes
+- ...")
+    (review .
+     "Review response shape:
+** Findings
+- ...
+** Risks
+- ...
+** Tests
+- ...")
+    (research .
+     "Research response shape:
+** Answer
+- ...
+** Sources
+- ...
+** Open Questions
+- ...")
+    (planning .
+     "Planning response shape:
+** Decision
+- ...
+** Tradeoffs
+- ...
+** Milestones
+- ...")
+    (general .
+     "General response shape:
+** Summary
+- ...
+** Details
+- ...
+** Next Actions
+- ..."))
+  "Response shape templates keyed by Cabinet run type."
+  :type '(alist :key-type symbol :value-type string)
   :group 'ogent-cabinet-runner)
 
 (defcustom ogent-cabinet-runner-codex-sandbox "workspace-write"
@@ -154,6 +198,150 @@
   (or (and job (ogent-cabinet-runner--blank-to-nil (plist-get job key)))
       (ogent-cabinet-runner--blank-to-nil (plist-get agent key))))
 
+(defun ogent-cabinet-runner--format-context-value (label value)
+  "Return a Cabinet run context line for LABEL and VALUE."
+  (when-let ((text (ogent-cabinet-runner--blank-to-nil
+                    (and value (format "%s" value)))))
+    (format "- %s: %s" label text)))
+
+(defun ogent-cabinet-runner--run-context-contract (context)
+  "Return prompt text describing Cabinet runtime CONTEXT."
+  (string-join
+   (delq
+    nil
+    (list
+     "Cabinet run context:"
+     (ogent-cabinet-runner--format-context-value
+      "Cabinet root" (plist-get context :root))
+     (ogent-cabinet-runner--format-context-value
+      "Workspace" (plist-get context :workspace))
+     (ogent-cabinet-runner--format-context-value
+      "Provider" (plist-get context :provider))
+     (ogent-cabinet-runner--format-context-value
+      "Model" (plist-get context :model))
+     (ogent-cabinet-runner--format-context-value
+      "Effort" (plist-get context :effort))
+     (ogent-cabinet-runner--format-context-value
+      "Runtime" (plist-get context :runtime-mode))))
+   "\n"))
+
+(defun ogent-cabinet-runner--response-kind (agent job instruction)
+  "Return the response template kind for AGENT, JOB, and INSTRUCTION."
+  (let* ((tags (append (plist-get agent :tags)
+                       (and job (plist-get job :tags))))
+         (text (downcase
+                (string-join
+                 (delq
+                  nil
+                  (append
+                   (list (plist-get agent :role)
+                         (plist-get agent :body)
+                         (and job (plist-get job :id))
+                         (and job (plist-get job :name))
+                         (and job (plist-get job :body))
+                         instruction)
+                   tags))
+                 " "))))
+    (cond
+     ((string-match-p
+       "implement\\|build\\|fix\\|patch\\|refactor\\|ship\\|edit\\|code\\|change"
+       text)
+      'implementation)
+     ((string-match-p
+       "review\\|audit\\|critique\\|verify\\|validation\\|test\\|risk\\|qa"
+       text)
+      'review)
+     ((string-match-p
+       "research\\|investigate\\|source\\|study\\|compare\\|survey"
+       text)
+      'research)
+     ((string-match-p
+       "plan\\|design\\|spec\\|roadmap\\|milestone\\|tradeoff\\|decision"
+       text)
+      'planning)
+     (t 'general))))
+
+(defun ogent-cabinet-runner--response-template (agent job instruction)
+  "Return the selected response template for AGENT, JOB, and INSTRUCTION."
+  (or (cdr (assq (ogent-cabinet-runner--response-kind
+                  agent job instruction)
+                 ogent-cabinet-runner-response-templates))
+      (cdr (assq 'general ogent-cabinet-runner-response-templates))))
+
+(defun ogent-cabinet-runner--response-example ()
+  "Return a compact good Cabinet response example."
+  (string-join
+   '("Example Cabinet response:"
+     "** Summary"
+     "- Shipped the focused change and kept the durable record readable."
+     "** Findings"
+     "- [[file:lisp/ogent-cabinet-runner.el][runner]] now emits a stricter Org response contract."
+     "** Verification"
+     "- =make test= passed for the touched Cabinet suites."
+     "#+begin_cabinet"
+     "SUMMARY: Tightened Cabinet output shape."
+     "CONTEXT: Future runs should read cleanly in the conversation buffer."
+     "ARTIFACT: lisp/ogent-cabinet-runner.el"
+     "#+end_cabinet")
+   "\n"))
+
+(defun ogent-cabinet-runner--machine-footer-contract ()
+  "Return the machine-readable Cabinet footer contract."
+  (string-join
+   '("Machine footer:"
+     "- Put exactly one Cabinet metadata block at the very end of the response."
+     "- The visible answer should stand alone without this footer."
+     "- The metadata block may contain multiple ARTIFACT lines."
+     "- Use ARTIFACT: none when no artifact exists."
+     "#+begin_cabinet"
+     "SUMMARY: one short sentence"
+     "CONTEXT: optional durable memory note, or none"
+     "ARTIFACT: relative/path/to/file.org"
+     "#+end_cabinet")
+   "\n"))
+
+(defun ogent-cabinet-runner--action-contract (agent)
+  "Return action proposal instructions for dispatch-capable AGENT."
+  (when (plist-get agent :can-dispatch)
+    (string-join
+     '("Action proposal contract:"
+       "- When clear follow-up work belongs to another agent, add an optional Cabinet actions block before the machine footer."
+       "- Keep action prompts Org-ready and specific."
+       "- Omit this block when there is no useful delegated work."
+       "#+begin_cabinet-actions"
+       "["
+       "  {\"type\":\"launch-task\",\"target-agent\":\"agent-slug\",\"title\":\"Short title\",\"prompt\":\"Org-ready prompt\"}"
+       "]"
+       "#+end_cabinet-actions")
+     "\n")))
+
+(defun ogent-cabinet-runner--self-check-contract ()
+  "Return the final response self-check."
+  (string-join
+   '("Before sending, verify:"
+     "- The response can be inserted under a level-one Org turn heading without changing the tree shape."
+     "- Visible sections begin at level ** or deeper."
+     "- File references use Org links in the visible answer."
+     "- The final block is one #+begin_cabinet metadata footer."
+     "- Any <ask_user>...</ask_user> marker is present only when user input is mandatory.")
+   "\n"))
+
+(defun ogent-cabinet-runner--response-contract (agent job instruction context)
+  "Return the full Cabinet response contract for a runner prompt."
+  (string-join
+   (delq
+    nil
+    (list
+     (ogent-cabinet-runner--run-context-contract context)
+     (ogent-cabinet-runner--blank-to-nil
+      ogent-cabinet-runner-response-contract)
+     (ogent-cabinet-runner--response-template agent job instruction)
+     (ogent-cabinet-runner--response-example)
+     (ogent-cabinet-runner--action-contract agent)
+     (ogent-cabinet-runner--machine-footer-contract)
+     (ogent-cabinet-runner--self-check-contract)))
+   "\n\n"))
+
 (defun ogent-cabinet-runner--session-file (root agent-slug &optional job-id)
   "Return a fresh session file under ROOT for AGENT-SLUG and JOB-ID."
   (let* ((timestamp (format-time-string "%Y%m%dT%H%M%S"))
@@ -175,8 +363,8 @@
           (or job-id "run")
           (random #x1000000)))
 
-(defun ogent-cabinet-runner--prompt (agent &optional job instruction)
-  "Return a CLI prompt from AGENT, optional JOB, and INSTRUCTION."
+(defun ogent-cabinet-runner--prompt (agent &optional job instruction context)
+  "Return a CLI prompt from AGENT, optional JOB, INSTRUCTION, and CONTEXT."
   (string-join
    (delq
     nil
@@ -199,8 +387,8 @@
      (when-let ((user-instruction
                  (ogent-cabinet-runner--blank-to-nil instruction)))
        (format "User instruction:\n%s" user-instruction))
-     (ogent-cabinet-runner--blank-to-nil
-      ogent-cabinet-runner-response-contract)))
+     (ogent-cabinet-runner--response-contract
+      agent job instruction context)))
    "\n\n"))
 
 (cl-defun ogent-cabinet-runner-plan
@@ -237,7 +425,6 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                     :workspace
                                     (plist-get job :workspace))
                        agent)))
-         (prompt (ogent-cabinet-runner--prompt agent job instruction))
          (model (or model
                     (ogent-cabinet-runner--effective agent job :model)))
          (effort (or effort
@@ -245,6 +432,17 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (permission-mode (or (ogent-cabinet-runner--blank-to-nil
                                (plist-get agent :permission-mode))
                               ogent-cabinet-runner-claude-permission-mode))
+         (runtime-mode (or runtime-mode 'native))
+         (prompt (ogent-cabinet-runner--prompt
+                  agent
+                  job
+                  instruction
+                  (list :root root
+                        :workspace workspace
+                        :provider provider-symbol
+                        :model model
+                        :effort effort
+                        :runtime-mode runtime-mode)))
          (conversation-id (or conversation-id
                               (ogent-cabinet-runner--conversation-id job-id)))
          (invocation
@@ -257,7 +455,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                  :prompt prompt
                  :model model
                  :permission-mode permission-mode
-                 :runtime-mode (or runtime-mode 'native)))))
+                 :runtime-mode runtime-mode))))
     (unless (file-directory-p workspace)
       (user-error "Cabinet agent workspace not found: %s" workspace))
     (append
