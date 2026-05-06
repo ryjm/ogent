@@ -13,6 +13,8 @@
 (require 'ogent-cabinet-status)
 (require 'ogent-ui-cabinet)
 
+(declare-function evil-normalize-keymaps "ext:evil-core")
+
 (defmacro ogent-ui-cabinet-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Cabinet directory while running BODY."
   (declare (indent 1) (debug t))
@@ -90,9 +92,9 @@
   "Agent list mode exposes expected Cabinet navigation actions."
   (should (eq (lookup-key ogent-cabinet-agents-mode-map (kbd "RET"))
               #'ogent-cabinet-agents-open-agent))
-  (should (eq (lookup-key ogent-cabinet-agents-mode-map (kbd "v"))
+  (should (eq (lookup-key ogent-cabinet-agents-mode-map (kbd "C-c v"))
               #'ogent-cabinet-agents-visit))
-  (should (eq (lookup-key ogent-cabinet-agents-mode-map (kbd "R"))
+  (should (eq (lookup-key ogent-cabinet-agents-mode-map (kbd "C-c r"))
               #'ogent-cabinet-agents-run)))
 
 (ert-deftest ogent-ui-cabinet-home-renders-operational-overview ()
@@ -116,30 +118,30 @@
 	                               "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
-              (should (string-match-p "\\[R run\\]" text))
-              (should (string-match-p "\\[E prompt\\]" text))
+              (should (string-match-p "\\[C-c r run\\]" text))
+              (should (string-match-p "\\[C-c E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-	            (dolist (key '("m" "?" "." "RET" "TAB" "M-n" "g" "q" "j" "J"
-	                           "D" "a" "t" "c" "s" "A" "h" "/" "," "G" "R"
-	                           "E" "e" "n" "p"))
+	            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
+	                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
+	                           "C-c a" "C-c t" "C-c c" "C-c s"))
 	              (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-home-daily-work-keybindings ()
   "Cabinet Home exposes the daily job development commands."
-  (dolist (pair `(("m" . ,#'ogent-cabinet-home-dispatch)
-	                  ("?" . ,#'ogent-cabinet-home-help)
-	                  ("j" . ,#'ogent-cabinet-jobs)
-	                  ("D" . ,#'ogent-cabinet-data)
-	                  ("h" . ,#'ogent-cabinet-git-status)
-	                  ("/" . ,#'ogent-cabinet-command-palette)
-	                  ("," . ,#'ogent-cabinet-settings)
-	                  ("." . ,#'ogent-cabinet-help)
-	                  ("R" . ,#'ogent-cabinet-home-run)
-                  ("E" . ,#'ogent-cabinet-home-edit-item)
-                  ("J" . ,#'ogent-cabinet-home-open-jobs)))
+  (dolist (pair `(("C-c m" . ,#'ogent-cabinet-home-dispatch)
+	                  ("C-c ?" . ,#'ogent-cabinet-home-help)
+	                  ("C-c j" . ,#'ogent-cabinet-jobs)
+	                  ("C-c D" . ,#'ogent-cabinet-data)
+	                  ("C-c h" . ,#'ogent-cabinet-git-status)
+	                  ("C-c /" . ,#'ogent-cabinet-command-palette)
+	                  ("C-c ," . ,#'ogent-cabinet-settings)
+	                  ("C-c ." . ,#'ogent-cabinet-help)
+	                  ("C-c r" . ,#'ogent-cabinet-home-run)
+                  ("C-c E" . ,#'ogent-cabinet-home-edit-item)
+                  ("C-c J" . ,#'ogent-cabinet-home-open-jobs)))
     (should (eq (lookup-key ogent-cabinet-home-mode-map (kbd (car pair)))
                 (cdr pair)))))
 
@@ -155,23 +157,30 @@
                     ("M-n" . ,#'ogent-cabinet-ui-next-section)
                     ("M-p" . ,#'ogent-cabinet-ui-previous-section)
 	                    ("^" . ,#'ogent-cabinet-ui-up-section)))
-      (should (eq (lookup-key map (kbd (car pair))) (cdr pair))))))
+      (should (eq (lookup-key map (kbd (car pair))) (cdr pair)))))
+  (dolist (map (list ogent-cabinet-home-mode-map
+                     ogent-cabinet-org-chart-mode-map
+                     ogent-cabinet-agent-mode-map))
+    (should (eq (lookup-key map (kbd "C-c u"))
+                #'ogent-cabinet-ui-up-section)))
+  (should (eq (lookup-key ogent-cabinet-conversation-mode-map (kbd "C-c U"))
+              #'ogent-cabinet-ui-up-section)))
 
 (ert-deftest ogent-ui-cabinet-conversation-keybindings-cover-detail-actions ()
   "Conversation detail exposes Cabinet task actions."
-  (dolist (pair `(("c" . ,#'ogent-cabinet-conversation-continue)
-                  ("k" . ,#'ogent-cabinet-conversation-stop)
-                  ("R" . ,#'ogent-cabinet-conversation-retry)
-                  ("d" . ,#'ogent-cabinet-conversation-mark-done)
-                  ("A" . ,#'ogent-cabinet-conversation-archive)
-                  ("U" . ,#'ogent-cabinet-conversation-unarchive)
-                  ("m" . ,#'ogent-cabinet-conversation-mute)
-                  ("M" . ,#'ogent-cabinet-conversation-unmute)
-                  ("C" . ,#'ogent-cabinet-conversation-compact)
-                  ("D" . ,#'ogent-cabinet-conversation-delete)
-                  ("y" . ,#'ogent-cabinet-conversation-copy-link)
-                  ("o" . ,#'ogent-cabinet-conversation-open-artifacts)
-                  ("l" . ,#'ogent-cabinet-conversation-open-logs)))
+  (dolist (pair `(("C-c c" . ,#'ogent-cabinet-conversation-continue)
+                  ("C-c k" . ,#'ogent-cabinet-conversation-stop)
+                  ("C-c r" . ,#'ogent-cabinet-conversation-retry)
+                  ("C-c d" . ,#'ogent-cabinet-conversation-mark-done)
+                  ("C-c a" . ,#'ogent-cabinet-conversation-archive)
+                  ("C-c u" . ,#'ogent-cabinet-conversation-unarchive)
+                  ("C-c m" . ,#'ogent-cabinet-conversation-mute)
+                  ("C-c M" . ,#'ogent-cabinet-conversation-unmute)
+                  ("C-c C" . ,#'ogent-cabinet-conversation-compact)
+                  ("C-c D" . ,#'ogent-cabinet-conversation-delete)
+                  ("C-c y" . ,#'ogent-cabinet-conversation-copy-link)
+                  ("C-c o" . ,#'ogent-cabinet-conversation-open-artifacts)
+                  ("C-c l" . ,#'ogent-cabinet-conversation-open-logs)))
     (should (eq (lookup-key ogent-cabinet-conversation-mode-map
                             (kbd (car pair)))
                 (cdr pair)))))
@@ -239,8 +248,8 @@
       (funcall mode)
       (should (derived-mode-p 'magit-section-mode)))))
 
-(ert-deftest ogent-ui-cabinet-evil-overrides-all-ui-keymaps ()
-  "Cabinet UI maps remain active in Evil states."
+(ert-deftest ogent-ui-cabinet-evil-installs-all-ui-keymaps ()
+  "Cabinet UI maps install local Evil-safe dispatch keys."
   (let ((ogent-cabinet-home-mode-hook nil)
         (ogent-cabinet-agents-mode-hook nil)
         (ogent-cabinet-org-chart-mode-hook nil)
@@ -283,7 +292,7 @@
                        ogent-cabinet-conversation-mode-map
                        ogent-cabinet-search-mode-map
                        ogent-cabinet-apps-mode-map))
-      (should (member (cons map 'all) maps)))
+      (should-not (member (cons map 'all) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
                         ogent-cabinet-org-chart-mode-hook
@@ -297,34 +306,31 @@
       (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
-(ert-deftest ogent-ui-cabinet-evil-local-keys-mirror-home-keymap ()
-  "Cabinet Home Evil keys mirror the Home keymap."
+(ert-deftest ogent-ui-cabinet-evil-local-keys-mirror-safe-home-keys ()
+  "Cabinet Home Evil keys mirror only Vim-safe Home bindings."
   (let (keys)
     (with-temp-buffer
       (ogent-cabinet-home-mode)
       (cl-letf (((symbol-function 'evil-local-set-key)
                  (lambda (state key command)
-                   (push (list state key command) keys)))
-                ((symbol-function 'evil-next-line)
-                 (lambda () (interactive)))
-                ((symbol-function 'evil-previous-line)
-                 (lambda () (interactive))))
+                   (push (list state key command) keys))))
         (ogent-cabinet-ui--evil-local-keys)))
-    (dolist (binding '(("m" ogent-cabinet-home-dispatch)
-                       ("?" ogent-cabinet-home-help)
-                       ("j" ogent-cabinet-jobs)
-                       ("G" ogent-cabinet-status)
-                       ("g" ogent-cabinet-home-refresh)
+    (dolist (binding '(("C-c m" ogent-cabinet-home-dispatch)
+                       ("C-c ?" ogent-cabinet-home-help)
+                       ("C-c j" ogent-cabinet-jobs)
+                       ("C-c G" ogent-cabinet-status)
+                       ("C-c g" ogent-cabinet-home-refresh)
                        ("TAB" ogent-cabinet-ui-toggle-section)
                        ("RET" ogent-cabinet-home-visit)
-                       ("k" evil-previous-line)
                        ("ZZ" quit-window)
                        ("ZQ" quit-window)))
       (dolist (state '(normal motion))
         (should (member (list state (kbd (car binding)) (cadr binding))
                         keys))))
     (dolist (state '(normal motion))
-      (should-not (member (list state (kbd "j") #'evil-next-line) keys)))))
+      (should-not (member (list state (kbd "j") #'ogent-cabinet-jobs) keys))
+      (should-not (member (list state (kbd "g") #'ogent-cabinet-home-refresh)
+                          keys)))))
 
 (ert-deftest ogent-ui-cabinet-home-magit-sections-collapse ()
   "Cabinet Home headings are real collapsible sections when Magit is present."
@@ -462,10 +468,10 @@
     (with-current-buffer "*Ogent Cabinet Home Help*"
       (let ((text (buffer-substring-no-properties (point-min) (point-max))))
         (should (string-match-p "Cabinet Home" text))
-        (should (string-match-p "R runs" text))
-        (should (string-match-p "j opens Jobs" text))
+        (should (string-match-p "C-c r runs" text))
+        (should (string-match-p "C-c j opens Jobs" text))
         (should (string-match-p "TAB toggles" text))
-        (should (string-match-p "m opens the Transient menu" text)))))
+        (should (string-match-p "C-c m opens the Transient menu" text)))))
   (unwind-protect
       (progn
         (transient-setup 'ogent-cabinet-home-dispatch)
@@ -515,10 +521,10 @@
 (ert-deftest ogent-ui-cabinet-agent-profile-keybindings-are-discoverable ()
   "The single-agent profile advertises and binds its main actions."
   (dolist (pair `(("RET" . ,#'ogent-cabinet-agent-visit)
-                  ("c" . ,#'ogent-cabinet-agent-compose)
-                  ("e" . ,#'ogent-cabinet-agent-edit-property)
-                  ("R" . ,#'ogent-cabinet-agent-run-at-point)
-                  ("v" . ,#'ogent-cabinet-agent-visit)
+                  ("C-c c" . ,#'ogent-cabinet-agent-compose)
+                  ("C-c e" . ,#'ogent-cabinet-agent-edit-property)
+                  ("C-c r" . ,#'ogent-cabinet-agent-run-at-point)
+                  ("C-c v" . ,#'ogent-cabinet-agent-visit)
                   ("q" . ,#'quit-window)))
     (should (eq (lookup-key ogent-cabinet-agent-mode-map (kbd (car pair)))
                 (cdr pair)))))
@@ -626,7 +632,7 @@
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "old-report" text)))
-            (should (eq (lookup-key ogent-cabinet-jobs-mode-map (kbd "P"))
+            (should (eq (lookup-key ogent-cabinet-jobs-mode-map (kbd "C-c p"))
                         #'ogent-cabinet-jobs-edit-prompt))
             (goto-char (point-min))
             (search-forward "Weekly Review")
@@ -1126,15 +1132,15 @@
 (ert-deftest ogent-ui-cabinet-tasks-keybindings-cover-daily-actions ()
   "Task board bindings include run, archive, view modes, edit, and filters."
   (dolist (pair `(("RET" . ,#'ogent-cabinet-tasks-visit)
-                  ("R" . ,#'ogent-cabinet-tasks-run)
-                  ("A" . ,#'ogent-cabinet-tasks-archive)
-                  ("U" . ,#'ogent-cabinet-tasks-unarchive)
-                  ("b" . ,#'ogent-cabinet-tasks-board-view)
-                  ("l" . ,#'ogent-cabinet-tasks-list-view)
-                  ("S" . ,#'ogent-cabinet-tasks-schedule-view)
-                  ("e" . ,#'ogent-cabinet-tasks-edit)
-                  ("f" . ,#'ogent-cabinet-tasks-filter)
-                  ("g" . ,#'ogent-cabinet-tasks-refresh)))
+                  ("C-c r" . ,#'ogent-cabinet-tasks-run)
+                  ("C-c a" . ,#'ogent-cabinet-tasks-archive)
+                  ("C-c u" . ,#'ogent-cabinet-tasks-unarchive)
+                  ("C-c b" . ,#'ogent-cabinet-tasks-board-view)
+                  ("C-c l" . ,#'ogent-cabinet-tasks-list-view)
+                  ("C-c S" . ,#'ogent-cabinet-tasks-schedule-view)
+                  ("C-c e" . ,#'ogent-cabinet-tasks-edit)
+                  ("C-c f" . ,#'ogent-cabinet-tasks-filter)
+                  ("C-c g" . ,#'ogent-cabinet-tasks-refresh)))
     (should (eq (lookup-key ogent-cabinet-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
 
@@ -1286,18 +1292,18 @@
 
 (ert-deftest ogent-ui-cabinet-status-links-richer-commands ()
   "Cabinet status mode links to the richer UI entry points."
-  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "a"))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C-c a"))
               #'ogent-cabinet-agents))
-  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "t"))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C-c t"))
               #'ogent-cabinet-tasks))
-  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "s"))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C-c s"))
               #'ogent-cabinet-search))
-  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "c"))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C-c c"))
               #'ogent-cabinet-conversations))
-  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "A"))
+  (should (eq (lookup-key ogent-cabinet-status-mode-map (kbd "C-c A"))
               #'ogent-cabinet-apps)))
 
-(ert-deftest ogent-ui-cabinet-evil-overrides-dispatch-keymaps ()
+(ert-deftest ogent-ui-cabinet-evil-installs-dispatch-keymaps ()
   "Cabinet UI dispatch keys remain active in Evil states."
   (let ((ogent-cabinet-home-mode-hook nil)
         (ogent-cabinet-agents-mode-hook nil)
@@ -1341,7 +1347,7 @@
                        ogent-cabinet-conversation-mode-map
                        ogent-cabinet-search-mode-map
                        ogent-cabinet-apps-mode-map))
-      (should (member (cons map 'all) maps)))
+      (should-not (member (cons map 'all) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
                         ogent-cabinet-org-chart-mode-hook

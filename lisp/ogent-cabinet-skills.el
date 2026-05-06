@@ -26,6 +26,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-cabinet-skill-open)
     (define-key map "g" #'ogent-cabinet-skills-refresh)
+    (define-key map (kbd "C-c g") #'ogent-cabinet-skills-refresh)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-cabinet-skills-mode'.")

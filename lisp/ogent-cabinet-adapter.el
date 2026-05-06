@@ -43,7 +43,9 @@
 (defvar ogent-cabinet-providers-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'ogent-cabinet-providers-refresh)
+    (define-key map (kbd "C-c g") #'ogent-cabinet-providers-refresh)
     (define-key map "v" #'ogent-cabinet-provider-verify)
+    (define-key map (kbd "C-c v") #'ogent-cabinet-provider-verify)
     (define-key map (kbd "RET") #'ogent-cabinet-provider-verify)
     (define-key map "q" #'quit-window)
     map)
