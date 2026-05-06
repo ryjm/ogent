@@ -49,6 +49,8 @@
 (declare-function ogent-cabinet-tasks "ogent-ui-cabinet")
 (declare-function ogent-cabinet-conversations "ogent-ui-cabinet")
 (declare-function ogent-cabinet-actions "ogent-cabinet-actions")
+(declare-function ogent-cabinet-schedule "ogent-cabinet-schedule")
+(declare-function ogent-cabinet-agenda "ogent-cabinet-schedule")
 (declare-function ogent-cabinet-search "ogent-ui-cabinet")
 (declare-function ogent-cabinet-apps "ogent-ui-cabinet")
 (declare-function ogent-cabinet-create-agent "ogent-ui-cabinet")
@@ -201,6 +203,10 @@ Set to nil to disable automatic evil binding setup."
      :desc "Cabinet conversations")
     (cabinet-actions  :key "N" :command ogent-cabinet-actions
                       :desc "Cabinet action approvals")
+    (cabinet-schedule :key "J" :command ogent-cabinet-schedule
+                      :desc "Cabinet schedule")
+    (cabinet-agenda   :key "Q" :command ogent-cabinet-agenda
+                      :desc "Cabinet agenda")
     (cabinet-search   :key "V" :command ogent-cabinet-search
                       :desc "Cabinet search")
     (cabinet-apps     :key "W" :command ogent-cabinet-apps

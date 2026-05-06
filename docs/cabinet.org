@@ -138,6 +138,21 @@ text in those Org files. Manual edits remain part of the record.
     scope. Use =M-x ogent-cabinet-actions= on a conversation with pending lead
     proposals to approve, reject, or dispatch actions.
 
+15. Open the Cabinet schedule:
+
+    Use =M-x ogent-cabinet-schedule= for day, week, and month schedule views.
+    Jobs with =OGENT_CRON=, agent heartbeats with cron heartbeats, one-shot
+    jobs with =OGENT_RUN_AFTER=, and scheduled conversations all appear in one
+    event stream. Past slots without a matching =OGENT_SCHEDULED_KEY= show as
+    missed and can be run from the schedule buffer.
+
+16. Bridge into Org agenda:
+
+    Use =M-x ogent-cabinet-agenda= to open =org-agenda= over the Cabinet root,
+    visible child Cabinets, personas, inboxes, schedules, jobs, and memory Org
+    records. Job files remain normal Org =TODO= entries, and run-after tasks
+    get an active =SCHEDULED= timestamp.
+
 * Keybindings
 
 Main ogent dispatch bindings:
@@ -152,6 +167,8 @@ Main ogent dispatch bindings:
 | =C-c . I= / =SPC o I= | =ogent-cabinet-tasks= |
 | =C-c . O= / =SPC o O= | =ogent-cabinet-conversations= |
 | =C-c . N= / =SPC o N= | =ogent-cabinet-actions= |
+| =C-c . J= / =SPC o J= | =ogent-cabinet-schedule= |
+| =C-c . Q= / =SPC o Q= | =ogent-cabinet-agenda= |
 | =C-c . V= / =SPC o V= | =ogent-cabinet-search= |
 | =C-c . W= / =SPC o W= | =ogent-cabinet-apps= |
 | =C-c . X= / =SPC o X= | =ogent-cabinet-create-agent= |
@@ -214,10 +231,24 @@ Action approvals:
 | =a= | Agents |
 | =t= | Tasks |
 | =c= | Conversations |
+| =u= | Schedule |
+| =Q= | Cabinet Org agenda |
 | =s= | Search |
 | =A= | Apps |
 | =G= | Graph/status |
 | =e= | Edit Cabinet metadata |
+
+Cabinet Schedule:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Open the linked conversation or durable source Org record |
+| =R= | Run the selected missed slot now |
+| =d= | Day view |
+| =w= | Week view |
+| =m= | Month view |
+| =g= | Refresh |
+| =q= | Quit |
 | =n= / =p= | Move between actionable rows |
 
 In Evil normal state, =j=/=k= keep line movement, =gg=/=G= move through

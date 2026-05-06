@@ -110,6 +110,44 @@
                        (directory-file-name
                         (file-truename (plist-get plan :workspace)))))))))
 
+(ert-deftest ogent-cabinet-runner-records-schedule-linkage ()
+  "Runner-created conversations retain schedule keys for calendar linkage."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :workspace "/")
+     "Keep the architecture honest.")
+    (ogent-cabinet-write-job
+     dir "cto"
+     '(:id "daily-review"
+       :name "Daily Review"
+       :cron "0 9 * * *"
+       :enabled t)
+     "Find risks and write next actions.")
+    (let* ((key "cto::job::daily-review::2026-05-04T09:00")
+           (plan (ogent-cabinet-runner-plan
+                  dir
+                  "cto"
+                  :job-id "daily-review"
+                  :conversation-id "scheduled-run"
+                  :trigger "job"
+                  :scheduled-at "2026-05-04T09:00"
+                  :scheduled-key key)))
+      (ogent-cabinet-runner--create-conversation
+       plan
+       "2026-05-04T09:00:00-0700")
+      (let ((conversation (ogent-cabinet-conversation-read
+                           dir
+                           "scheduled-run")))
+        (should (equal (plist-get conversation :scheduled-at)
+                       "2026-05-04T09:00"))
+        (should (equal (plist-get conversation :scheduled-key) key))))))
+
 (ert-deftest ogent-cabinet-runner-rejects-malformed-job-metadata ()
   "Runner planning stops on invalid job metadata with a Cabinet-level error."
   (ogent-cabinet-runner-test-with-temp-dir dir

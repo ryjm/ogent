@@ -55,6 +55,8 @@ Add to your `~/.doom.d/config.el`:
              ogent-cabinet-tasks
              ogent-cabinet-conversations
              ogent-cabinet-actions
+             ogent-cabinet-schedule
+             ogent-cabinet-agenda
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -125,6 +127,8 @@ All ogent commands are bound under `SPC o`:
 | `SPC o I` | `ogent-cabinet-tasks`      | Cabinet task board                   |
 | `SPC o O` | `ogent-cabinet-conversations` | Cabinet conversations             |
 | `SPC o N` | `ogent-cabinet-actions`    | Cabinet action approvals             |
+| `SPC o J` | `ogent-cabinet-schedule`   | Cabinet schedule                     |
+| `SPC o Q` | `ogent-cabinet-agenda`     | Cabinet Org agenda                   |
 | `SPC o V` | `ogent-cabinet-search`     | Cabinet-wide search                  |
 | `SPC o W` | `ogent-cabinet-apps`       | Cabinet app artifacts                |
 | `SPC o X` | `ogent-cabinet-create-agent` | Create Cabinet agent               |
@@ -242,6 +246,8 @@ Here's a full, copy-paste ready configuration:
              ogent-cabinet-tasks
              ogent-cabinet-conversations
              ogent-cabinet-actions
+             ogent-cabinet-schedule
+             ogent-cabinet-agenda
              ogent-cabinet-search
              ogent-cabinet-apps
              ogent-cabinet-create-agent
@@ -280,6 +286,8 @@ Here's a full, copy-paste ready configuration:
          :desc "Cabinet tasks"       "I" #'ogent-cabinet-tasks
          :desc "Cabinet conversations" "O" #'ogent-cabinet-conversations
          :desc "Cabinet actions"     "N" #'ogent-cabinet-actions
+         :desc "Cabinet schedule"    "J" #'ogent-cabinet-schedule
+         :desc "Cabinet agenda"      "Q" #'ogent-cabinet-agenda
          :desc "Cabinet search"      "V" #'ogent-cabinet-search
          :desc "Cabinet apps"        "W" #'ogent-cabinet-apps
          :desc "Create agent"        "X" #'ogent-cabinet-create-agent

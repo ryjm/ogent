@@ -6,25 +6,25 @@ ogent brings language models into Org-mode the Emacs way: composable commands, t
 
 ** Why an exoskeleton, not an agent
 
-The model generates text instantly. You're the one who has to verify it works. That's the bottleneck—not generation, but review.
+The model generates text instantly. You're the one who has to verify it works. That's the bottleneck: review, not generation.
 
 ogent is designed around this constraint:
 
-- *Make review fast* — Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Visual diffs beat reading prose. =C-c C-c= beats typing "yes".
+- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Visual diffs beat reading prose. =C-c C-c= beats typing "yes".
 
-- *Make context explicit* — No magic "send my whole project". You declare what goes in via =@handles=, pins, and codemap. Precise input means predictable output.
+- *Make context explicit*: No magic "send my whole project". You declare what goes in via =@handles=, pins, and codemap. Precise input means predictable output.
 
 The model is a tool. You wield it. That's the difference between an exoskeleton and a robot.
 
 ** What ogent provides
 
-- *Context as data* — =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. You see exactly what the model sees before sending.
+- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. You see exactly what the model sees before sending.
 
-- *Responses as structure* — Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
+- *Responses as structure*: Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
 
-- *Edits as diffs* — Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
+- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
 
-- *Commands, not conversations* — =C-c . ?= for quick questions. =C-c . p= for full context dispatch. =C-c . E= for code edits. Each does one thing.
+- *Commands, not conversations*: =C-c . ?= for quick questions. =C-c . p= for full context dispatch. =C-c . E= for code edits. Each does one thing.
 
 * Requirements
 - Emacs 29.1 or newer with Org-mode
@@ -147,6 +147,35 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . ?= | =ogent-ask=                   | Quick Q&A (no context)                   |
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
+
+** Cabinet
+
+Cabinet turns a directory of Org files into a local AI-team workspace. Open
+=M-x ogent-cabinet-home= or press =C-c . j=. The Cabinet surface includes
+agents, jobs, conversations, lead action approvals, search, app artifacts, and
+a schedule calendar.
+
+| Key       | Command                         | Description                 |
+|-----------+---------------------------------+-----------------------------|
+| =C-c . j= | =ogent-cabinet-home=            | Cabinet Home                |
+| =C-c . K= | =ogent-cabinet-status=          | Cabinet graph/status        |
+| =C-c . y= | =ogent-cabinet-agents=          | Cabinet agents              |
+| =C-c . Y= | =ogent-cabinet-agent=           | Cabinet agent profile       |
+| =C-c . B= | =ogent-cabinet-org-chart=       | Cabinet org chart           |
+| =C-c . I= | =ogent-cabinet-tasks=           | Cabinet task board          |
+| =C-c . O= | =ogent-cabinet-conversations=   | Cabinet conversations       |
+| =C-c . N= | =ogent-cabinet-actions=         | Cabinet action approvals    |
+| =C-c . J= | =ogent-cabinet-schedule=        | Day/week/month schedule     |
+| =C-c . Q= | =ogent-cabinet-agenda=          | Org agenda over Cabinet     |
+| =C-c . V= | =ogent-cabinet-search=          | Cabinet-wide search         |
+| =C-c . W= | =ogent-cabinet-apps=            | Generated app artifacts     |
+| =C-c . X= | =ogent-cabinet-create-agent=    | Create Cabinet agent        |
+| =C-c . Z= | =ogent-cabinet-create-job=      | Create Cabinet job          |
+
+Schedule events come from =OGENT_CRON= jobs, agent heartbeat cron fields,
+one-shot =OGENT_RUN_AFTER= tasks, and conversations with
+=OGENT_SCHEDULED_KEY=. Missed past slots can be run directly from the schedule
+buffer.
 
 * Prompt Templates
 

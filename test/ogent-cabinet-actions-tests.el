@@ -6,10 +6,12 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'seq)
 (require 'ogent-test-helper)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-actions)
 (require 'ogent-cabinet-conversations)
+(require 'ogent-cabinet-schedule)
 
 (defmacro ogent-cabinet-actions-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Cabinet directory while running BODY."
@@ -137,6 +139,45 @@
         (should (equal (plist-get plan :model) "gpt-5.4"))
         (should (equal (plist-get plan :effort) "high"))
         (should (equal (plist-get plan :parent-task) "parent"))))))
+
+(ert-deftest ogent-cabinet-actions-scheduled-task-gets-stable-key ()
+  "Approved scheduled tasks create idle conversations with schedule keys."
+  (ogent-cabinet-actions-test-with-temp-dir root
+    (ogent-cabinet-actions-test--seed root)
+    (let* ((actions (ogent-cabinet-actions-approve-all
+                     (ogent-cabinet-actions-validate
+                      root
+                      (ogent-cabinet-actions-parse
+                       "SCHEDULE_TASK: builder | 2026-05-04T11:30 | Build later | Build it.")
+                      :triggering-agent "lead")))
+           (action-id (plist-get (car actions) :id)))
+      (ogent-cabinet-actions-dispatch
+       root "parent" actions :triggering-agent "lead")
+      (let ((conversation (car (ogent-cabinet-conversation-list
+                                root
+                                :agent "builder"))))
+        (should (equal (plist-get conversation :scheduled-at)
+                       "2026-05-04T11:30"))
+        (should (equal (plist-get conversation :scheduled-key)
+                       (format "builder::task::%s::2026-05-04T11:30"
+                               action-id)))
+        (should (equal (plist-get conversation :parent-task) "parent")))
+      (let* ((events (ogent-cabinet-schedule-events
+                      root
+                      (encode-time 0 0 0 4 5 2026)
+                      (encode-time 0 0 0 5 5 2026)
+                      :now (encode-time 0 0 0 4 5 2026)))
+             (event (seq-find (lambda (candidate)
+                                (equal (plist-get candidate :source-id)
+                                       action-id))
+                              events)))
+        (should event)
+        (should (eq (plist-get event :source-type) 'task))
+        (should (equal (plist-get event :conversation-id)
+                       (plist-get (car (ogent-cabinet-conversation-list
+                                        root
+                                        :agent "builder"))
+                                  :id)))))))
 
 (provide 'ogent-cabinet-actions-tests)
 

@@ -71,10 +71,105 @@ Use FALLBACK when VALUE normalizes to the empty string."
       (member (downcase (string-trim value))
               '("t" "true" "yes" "1" "nil" "false" "no" "0"))))
 
-(defun ogent-cabinet--cron-expression-p (value)
-  "Return non-nil when VALUE looks like a five-field cron expression."
+(defun ogent-cabinet--cron-number (value min max &optional sunday)
+  "Return cron VALUE as a number between MIN and MAX.
+When SUNDAY is non-nil, value 7 is accepted and normalized to 0."
+  (when (string-match-p "\\`[0-9]+\\'" value)
+    (let ((number (string-to-number value)))
+      (cond
+       ((and sunday (= number 7)) 0)
+       ((and (<= min number) (<= number max)) number)
+       (t nil)))))
+
+(defun ogent-cabinet--cron-range-values (start end step min max &optional sunday)
+  "Return values from START to END by STEP for one cron field.
+MIN and MAX define the accepted bounds.  When SUNDAY is non-nil, day 7 maps
+to day 0."
+  (let ((start-number (when (string-match-p "\\`[0-9]+\\'" start)
+                        (string-to-number start)))
+        (end-number (when (string-match-p "\\`[0-9]+\\'" end)
+                      (string-to-number end))))
+    (when (and start-number end-number (> step 0)
+               (<= min start-number)
+               (<= start-number max)
+               (<= min end-number)
+               (<= end-number max)
+               (<= start-number end-number))
+      (let (values)
+        (while (<= start-number end-number)
+          (push (if (and sunday (= start-number 7)) 0 start-number) values)
+          (setq start-number (+ start-number step)))
+        (nreverse values)))))
+
+(defun ogent-cabinet--cron-field-values (field min max &optional sunday)
+  "Return numeric cron FIELD values within MIN and MAX.
+When SUNDAY is non-nil, day of week value 7 is accepted as Sunday."
+  (catch 'invalid
+    (let (values)
+      (dolist (part (split-string (or field "") "," t "[ \t\n\r]+"))
+        (let* ((pieces (split-string part "/" t))
+               (base (car pieces))
+               (step (if (cadr pieces)
+                         (string-to-number (cadr pieces))
+                       1)))
+          (when (or (null base)
+                    (> (length pieces) 2)
+                    (<= step 0)
+                    (and (cadr pieces)
+                         (not (string-match-p "\\`[0-9]+\\'" (cadr pieces)))))
+            (throw 'invalid nil))
+          (setq values
+                (append
+                 values
+                 (cond
+                  ((equal base "*")
+                   (mapcar (lambda (number)
+                             (if (and sunday (= number 7)) 0 number))
+                           (number-sequence min max step)))
+                  ((string-match "\\`\\([0-9]+\\)-\\([0-9]+\\)\\'" base)
+                   (or (ogent-cabinet--cron-range-values
+                        (match-string 1 base)
+                        (match-string 2 base)
+                        step
+                        min
+                        max
+                        sunday)
+                       (throw 'invalid nil)))
+                  ((string-match-p "\\`[0-9]+\\'" base)
+                   (let ((number (ogent-cabinet--cron-number
+                                  base min max sunday)))
+                     (unless number
+                       (throw 'invalid nil))
+                     (if (cadr pieces)
+                         (mapcar (lambda (candidate)
+                                   (if (and sunday (= candidate 7))
+                                       0
+                                     candidate))
+                                 (number-sequence number max step))
+                       (list number))))
+                  (t
+                   (throw 'invalid nil)))))))
+      (seq-sort #'< (delete-dups values)))))
+
+(defun ogent-cabinet--cron-expression-fields (value)
+  "Return parsed cron fields for VALUE, or nil when invalid."
   (let ((parts (split-string (string-trim (or value "")) "[ \t]+" t)))
-    (= (length parts) 5)))
+    (when (= (length parts) 5)
+      (let ((minute (ogent-cabinet--cron-field-values (nth 0 parts) 0 59))
+            (hour (ogent-cabinet--cron-field-values (nth 1 parts) 0 23))
+            (day (ogent-cabinet--cron-field-values (nth 2 parts) 1 31))
+            (month (ogent-cabinet--cron-field-values (nth 3 parts) 1 12))
+            (weekday (ogent-cabinet--cron-field-values
+                      (nth 4 parts)
+                      0
+                      7
+                      t)))
+        (when (and minute hour day month weekday)
+          (list minute hour day month weekday))))))
+
+(defun ogent-cabinet--cron-expression-p (value)
+  "Return non-nil when VALUE is a supported five-field cron expression."
+  (not (null (ogent-cabinet--cron-expression-fields value))))
 
 (defun ogent-cabinet--heartbeat-expression-p (value)
   "Return non-nil when VALUE looks like a heartbeat or cron expression."
@@ -126,6 +221,23 @@ PROPERTIES is an alist of property names to values."
   "Return nil when VALUE is nil or blank."
   (when (and value (not (string-blank-p value)))
     value))
+
+(defun ogent-cabinet--org-timestamp (value)
+  "Return VALUE as an active Org timestamp."
+  (let ((text (string-trim (or value ""))))
+    (cond
+     ((string-match-p "\\`<[^>]+>\\'" text) text)
+     ((string-blank-p text) "")
+     (t (format-time-string "<%Y-%m-%d %a %H:%M>"
+                            (date-to-time text))))))
+
+(defun ogent-cabinet--time-expression-p (value)
+  "Return non-nil when VALUE parses as an Emacs time expression."
+  (condition-case nil
+      (progn
+        (date-to-time value)
+        t)
+    (error nil)))
 
 (defun ogent-cabinet--heading-body ()
   "Return the body text under the current Org heading."
@@ -761,17 +873,38 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
          (name (or (plist-get job :name) id))
          (cron (or (plist-get job :cron) ""))
          (heartbeat (or (plist-get job :heartbeat) ""))
+         (adapter (or (plist-get job :adapter) ""))
+         (adapter-config (or (plist-get job :adapter-config) ""))
          (provider (or (plist-get job :provider) ""))
          (model (or (plist-get job :model) ""))
+         (effort (or (plist-get job :effort) ""))
+         (runtime-mode (or (plist-get job :runtime-mode) ""))
          (workspace (or (plist-get job :workspace) ""))
+         (timeout (or (plist-get job :timeout) ""))
+         (on-complete (or (plist-get job :on-complete) ""))
+         (on-failure (or (plist-get job :on-failure) ""))
+         (cabinet-path (or (plist-get job :cabinet-path) ""))
+         (created-at (or (plist-get job :created-at) ""))
+         (updated-at (or (plist-get job :updated-at) ""))
+         (run-after (or (plist-get job :run-after) ""))
+         (owner-task (or (plist-get job :owner-task) ""))
+         (one-shot-state (or (plist-get job :one-shot-state) ""))
+         (last-run (or (plist-get job :last-run) ""))
+         (next-run (or (plist-get job :next-run) ""))
          (tags (plist-get job :tags))
          (archived (plist-get job :archived))
          (enabled (if (plist-member job :enabled)
                       (plist-get job :enabled)
-                    t)))
+                    t))
+         (scheduled (or (ogent-cabinet--blank-to-nil run-after)
+                        (ogent-cabinet--blank-to-nil
+                         (plist-get job :scheduled)))))
     (concat
      (format "#+title: %s\n\n" name)
      (format "* TODO %s\n" name)
+     (when (ogent-cabinet--blank-to-nil scheduled)
+       (format "SCHEDULED: %s\n"
+               (ogent-cabinet--org-timestamp scheduled)))
      (ogent-cabinet--format-properties
       `(("OGENT_JOB" . t)
         ("OGENT_JOB_ID" . ,id)
@@ -779,9 +912,24 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
         ("OGENT_CRON" . ,cron)
         ("OGENT_HEARTBEAT" . ,heartbeat)
         ("OGENT_ENABLED" . ,enabled)
+        ("OGENT_ADAPTER" . ,adapter)
+        ("OGENT_ADAPTER_CONFIG" . ,adapter-config)
         ("OGENT_PROVIDER" . ,provider)
         ("OGENT_MODEL" . ,model)
+        ("OGENT_EFFORT" . ,effort)
+        ("OGENT_RUNTIME_MODE" . ,runtime-mode)
         ("OGENT_WORKSPACE" . ,workspace)
+        ("OGENT_TIMEOUT" . ,timeout)
+        ("OGENT_ON_COMPLETE" . ,on-complete)
+        ("OGENT_ON_FAILURE" . ,on-failure)
+        ("OGENT_CABINET_PATH" . ,cabinet-path)
+        ("OGENT_CREATED_AT" . ,created-at)
+        ("OGENT_UPDATED_AT" . ,updated-at)
+        ("OGENT_RUN_AFTER" . ,run-after)
+        ("OGENT_OWNER_TASK" . ,owner-task)
+        ("OGENT_ONE_SHOT_STATE" . ,one-shot-state)
+        ("OGENT_LAST_RUN" . ,last-run)
+        ("OGENT_NEXT_RUN" . ,next-run)
         ("OGENT_TAGS" . ,tags)
         ("OGENT_ARCHIVED" . ,archived)))
      "\n"
@@ -816,12 +964,42 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
               :enabled-raw (org-entry-get nil "OGENT_ENABLED")
               :enabled (ogent-cabinet--truth-value
                         (org-entry-get nil "OGENT_ENABLED"))
+              :adapter (ogent-cabinet--blank-to-nil
+                        (org-entry-get nil "OGENT_ADAPTER"))
+              :adapter-config (ogent-cabinet--blank-to-nil
+                               (org-entry-get nil "OGENT_ADAPTER_CONFIG"))
               :provider (ogent-cabinet--blank-to-nil
                          (org-entry-get nil "OGENT_PROVIDER"))
               :model (ogent-cabinet--blank-to-nil
                       (org-entry-get nil "OGENT_MODEL"))
+              :effort (ogent-cabinet--blank-to-nil
+                       (org-entry-get nil "OGENT_EFFORT"))
+              :runtime-mode (ogent-cabinet--blank-to-nil
+                             (org-entry-get nil "OGENT_RUNTIME_MODE"))
               :workspace (ogent-cabinet--blank-to-nil
                           (org-entry-get nil "OGENT_WORKSPACE"))
+              :timeout (ogent-cabinet--blank-to-nil
+                        (org-entry-get nil "OGENT_TIMEOUT"))
+              :on-complete (ogent-cabinet--blank-to-nil
+                            (org-entry-get nil "OGENT_ON_COMPLETE"))
+              :on-failure (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_ON_FAILURE"))
+              :cabinet-path (ogent-cabinet--blank-to-nil
+                             (org-entry-get nil "OGENT_CABINET_PATH"))
+              :created-at (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_CREATED_AT"))
+              :updated-at (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_UPDATED_AT"))
+              :run-after (ogent-cabinet--blank-to-nil
+                          (org-entry-get nil "OGENT_RUN_AFTER"))
+              :owner-task (ogent-cabinet--blank-to-nil
+                           (org-entry-get nil "OGENT_OWNER_TASK"))
+              :one-shot-state (ogent-cabinet--blank-to-nil
+                               (org-entry-get nil "OGENT_ONE_SHOT_STATE"))
+              :last-run (ogent-cabinet--blank-to-nil
+                         (org-entry-get nil "OGENT_LAST_RUN"))
+              :next-run (ogent-cabinet--blank-to-nil
+                         (org-entry-get nil "OGENT_NEXT_RUN"))
               :tags (ogent-cabinet--tags-from-string
                      (org-entry-get nil "OGENT_TAGS"))
               :archived-raw (org-entry-get nil "OGENT_ARCHIVED")
@@ -846,6 +1024,12 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
       (unless (ogent-cabinet--heartbeat-expression-p heartbeat)
         (push (format "OGENT_HEARTBEAT must be a number, interval, or five-field cron: %s"
                       heartbeat)
+              errors)))
+    (when-let ((run-after (ogent-cabinet--blank-to-nil
+                           (plist-get job :run-after))))
+      (unless (ogent-cabinet--time-expression-p run-after)
+        (push (format "OGENT_RUN_AFTER must be a parseable time: %s"
+                      run-after)
               errors)))
     (unless (ogent-cabinet--boolean-property-valid-p
              (plist-get job :enabled-raw))

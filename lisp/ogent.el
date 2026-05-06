@@ -126,6 +126,7 @@
 (require 'ogent-cabinet-compose)
 (require 'ogent-cabinet-actions)
 (require 'ogent-cabinet-runner)
+(require 'ogent-cabinet-schedule)
 (require 'ogent-ui-cabinet)
 (require 'ogent-cabinet-status)
 (require 'ogent-gastown)

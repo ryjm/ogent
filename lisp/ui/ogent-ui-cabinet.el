@@ -26,6 +26,8 @@
 
 (autoload 'ogent-cabinet-status "ogent-cabinet-status" nil t)
 (autoload 'ogent-cabinet-actions "ogent-cabinet-actions" nil t)
+(autoload 'ogent-cabinet-schedule "ogent-cabinet-schedule" nil t)
+(autoload 'ogent-cabinet-agenda "ogent-cabinet-schedule" nil t)
 
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
@@ -165,9 +167,24 @@
     "OGENT_CRON"
     "OGENT_HEARTBEAT"
     "OGENT_ENABLED"
+    "OGENT_ADAPTER"
+    "OGENT_ADAPTER_CONFIG"
     "OGENT_PROVIDER"
     "OGENT_MODEL"
+    "OGENT_EFFORT"
+    "OGENT_RUNTIME_MODE"
     "OGENT_WORKSPACE"
+    "OGENT_TIMEOUT"
+    "OGENT_ON_COMPLETE"
+    "OGENT_ON_FAILURE"
+    "OGENT_CABINET_PATH"
+    "OGENT_CREATED_AT"
+    "OGENT_UPDATED_AT"
+    "OGENT_RUN_AFTER"
+    "OGENT_OWNER_TASK"
+    "OGENT_ONE_SHOT_STATE"
+    "OGENT_LAST_RUN"
+    "OGENT_NEXT_RUN"
     "OGENT_TAGS"
     "OGENT_ARCHIVED")
   "Job properties editable from Cabinet job buffers.")
@@ -178,9 +195,24 @@
     ("OGENT_CRON" . :cron)
     ("OGENT_HEARTBEAT" . :heartbeat)
     ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_ADAPTER" . :adapter)
+    ("OGENT_ADAPTER_CONFIG" . :adapter-config)
     ("OGENT_PROVIDER" . :provider)
     ("OGENT_MODEL" . :model)
+    ("OGENT_EFFORT" . :effort)
+    ("OGENT_RUNTIME_MODE" . :runtime-mode)
     ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TIMEOUT" . :timeout)
+    ("OGENT_ON_COMPLETE" . :on-complete)
+    ("OGENT_ON_FAILURE" . :on-failure)
+    ("OGENT_CABINET_PATH" . :cabinet-path)
+    ("OGENT_CREATED_AT" . :created-at)
+    ("OGENT_UPDATED_AT" . :updated-at)
+    ("OGENT_RUN_AFTER" . :run-after)
+    ("OGENT_OWNER_TASK" . :owner-task)
+    ("OGENT_ONE_SHOT_STATE" . :one-shot-state)
+    ("OGENT_LAST_RUN" . :last-run)
+    ("OGENT_NEXT_RUN" . :next-run)
     ("OGENT_TAGS" . :tags)
     ("OGENT_ARCHIVED" . :archived-raw))
   "Map job Org property names to plist keys.")
@@ -704,6 +736,7 @@ DIRECTION is either `next' or `previous'."
     (define-key map "a" #'ogent-cabinet-agents)
     (define-key map "t" #'ogent-cabinet-tasks)
     (define-key map "c" #'ogent-cabinet-conversations)
+    (define-key map "u" #'ogent-cabinet-schedule)
     (define-key map "s" #'ogent-cabinet-search)
     (define-key map "A" #'ogent-cabinet-apps)
     (define-key map "G" #'ogent-cabinet-status)
@@ -723,7 +756,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-home--header-line ()
   "Return header line for Cabinet Home."
-  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  s Search  A Apps  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
+  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  G Graph  R run  E edit item  e Edit Cabinet  n/p move")
 
 ;;;###autoload
 (defun ogent-cabinet-home (&optional directory)
@@ -818,6 +851,7 @@ DIRECTION is either `next' or `previous'."
                                     (ogent-cabinet-home--insert-nav "Jobs" "j" #'ogent-cabinet-jobs)
                                     (ogent-cabinet-home--insert-nav "Tasks" "t" #'ogent-cabinet-tasks)
                                     (ogent-cabinet-home--insert-nav "Conversations" "c" #'ogent-cabinet-conversations)
+                                    (ogent-cabinet-home--insert-nav "Schedule" "u" #'ogent-cabinet-schedule)
                                     (ogent-cabinet-home--insert-nav "Search" "s" #'ogent-cabinet-search)
                                     (ogent-cabinet-home--insert-nav "Apps" "A" #'ogent-cabinet-apps)
                                     (ogent-cabinet-home--insert-nav "Graph" "G" #'ogent-cabinet-status)
@@ -983,7 +1017,7 @@ DIRECTION is either `next' or `previous'."
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
     (princ "Navigation\n")
     (princ "----------\n")
-    (princ "a Agents, B Org chart, t Tasks, c Conversations, N Actions, s Search, A Apps, G Graph.\n")
+    (princ "a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, G Graph.\n")
     (princ "n and p move between actionable rows. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
@@ -1024,11 +1058,13 @@ DIRECTION is either `next' or `previous'."
                            ("B" "Org chart" ogent-cabinet-org-chart)
                            ("t" "Tasks" ogent-cabinet-tasks)
                            ("c" "Conversations" ogent-cabinet-conversations)
+                           ("u" "Schedule" ogent-cabinet-schedule)
                            ("N" "Action approvals" ogent-cabinet-actions)
                            ("s" "Search" ogent-cabinet-search)
                            ("A" "Apps" ogent-cabinet-apps)
                            ("G" "Graph" ogent-cabinet-status)]
                           ["Cabinet"
+                           ("Q" "Agenda" ogent-cabinet-agenda)
                            ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
                            ("?" "Help" ogent-cabinet-home-help)
                            ("q" "Quit menu" transient-quit-one)]])
@@ -1699,6 +1735,8 @@ DIRECTION is either `next' or `previous'."
    ((not (plist-get job :enabled)) "disabled")
    ((ogent-cabinet--blank-to-nil (plist-get job :cron))
     (format "cron %s" (plist-get job :cron)))
+   ((ogent-cabinet--blank-to-nil (plist-get job :run-after))
+    (format "run after %s" (plist-get job :run-after)))
    ((ogent-cabinet--blank-to-nil (plist-get job :heartbeat))
     (format "heartbeat %s" (plist-get job :heartbeat)))
    (t "manual")))
@@ -1930,7 +1968,9 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-cabinet-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
   (let ((stale (ogent-cabinet-ui--stale-job-p root job))
-        (scheduled (ogent-cabinet--blank-to-nil (plist-get job :cron))))
+        (scheduled (or (ogent-cabinet--blank-to-nil (plist-get job :cron))
+                       (ogent-cabinet--blank-to-nil
+                        (plist-get job :run-after)))))
     (list :type 'job
           :lane (cond
                  ((plist-get job :archived) "Archive")
