@@ -535,6 +535,32 @@ PROPERTIES is an alist of Org property names to values."
         max-turn
       (1+ max-turn))))
 
+(defun ogent-armory-conversations--nested-turn-content (content)
+  "Return CONTENT with Org headings nested beneath the turn heading."
+  (let (in-org-block)
+    (string-join
+     (mapcar
+      (lambda (line)
+        (let ((case-fold-search t))
+          (cond
+           ((and (not in-org-block)
+                 (string-match-p "\\`[ \t]*#\\+begin_[^ \t\n\r]+" line))
+            (setq in-org-block t)
+            line)
+           ((and in-org-block
+                 (string-match-p "\\`[ \t]*#\\+end_[^ \t\n\r]+[ \t]*\\'" line))
+            (setq in-org-block nil)
+            line)
+           ((and in-org-block
+                 (string-match-p "\\`\\*+\\(?:[ \t]\\|$\\)" line))
+            (concat "," line))
+           ((and (not in-org-block)
+                 (string-match-p "\\`\\*+\\(?:[ \t]\\|$\\)" line))
+            (concat "*" line))
+           (t line))))
+      (split-string (or content "") "\n"))
+     "\n")))
+
 (cl-defun ogent-armory-conversation-append-turn
     (directory conversation-id role content
                &key turn id ts session-id tokens awaiting-input pending
@@ -573,7 +599,8 @@ PROPERTIES is an alist of Org property names to values."
          ("OGENT_SKILLS" . ,skills)
          ("OGENT_ARTIFACTS" . ,artifacts)))
       "\n"
-      (string-trim-right (or content ""))
+      (string-trim-right
+       (ogent-armory-conversations--nested-turn-content content))
       "\n"))
     (ogent-armory-conversations--update-index-properties
      directory conversation-id

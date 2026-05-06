@@ -77,6 +77,28 @@
         (should (string-match-p "Keep the architecture honest" prompt))
         (should (string-match-p "Find risks" prompt))))))
 
+(ert-deftest ogent-armory-runner-prompts-for-org-output ()
+  "Runner prompts include the Org response contract and metadata block."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :workspace "/")
+     "Keep the architecture honest.")
+    (let* ((plan (ogent-armory-runner-plan
+                  dir "cto" :instruction "Review this run."))
+           (prompt (plist-get plan :prompt)))
+      (should (string-match-p "Armory response contract" prompt))
+      (should (string-match-p "Org markup" prompt))
+      (should (string-match-p "level \\*\\*" prompt))
+      (should (string-match-p "#\\+begin_armory" prompt))
+      (should (string-match-p "SUMMARY:" prompt))
+      (should (string-match-p "ARTIFACT:" prompt)))))
+
 (ert-deftest ogent-armory-runner-job-overrides-provider-model-and-workspace ()
   "Job metadata can override the owning agent's provider, model, and workspace."
   (ogent-armory-runner-test-with-temp-dir dir
