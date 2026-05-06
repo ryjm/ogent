@@ -17,6 +17,11 @@
   :group 'ogent-cabinet
   :prefix "ogent-cabinet-skill-")
 
+(defcustom ogent-cabinet-skill-include-user-roots t
+  "Whether skill discovery includes user-level skill directories."
+  :type 'boolean
+  :group 'ogent-cabinet-skills)
+
 (defvar ogent-cabinet-skills-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-cabinet-skill-open)
@@ -50,12 +55,20 @@
   (let ((root (ogent-cabinet--directory directory)))
     (delq
      nil
-     `((cabinet-scoped . ,(expand-file-name ".agents/skills" root))
-       (cabinet-root . ,(expand-file-name "skills" root))
-       (linked-repo . ,(expand-file-name ".codex/skills" root))
-       ,(when (getenv "CODEX_HOME")
-          `(system . ,(expand-file-name "skills" (getenv "CODEX_HOME"))))
-       (legacy-home . ,(expand-file-name "~/.agents/skills"))))))
+     (append
+      `((cabinet-scoped . ,(expand-file-name ".agents/skills" root))
+        (cabinet-root . ,(expand-file-name "skills" root))
+        (linked-repo . ,(expand-file-name ".codex/skills" root)))
+      (when ogent-cabinet-skill-include-user-roots
+        `(,(when (getenv "CODEX_HOME")
+             `(system . ,(expand-file-name "skills" (getenv "CODEX_HOME"))))
+          (legacy-home . ,(expand-file-name "~/.agents/skills"))))))))
+
+(defun ogent-cabinet-skill--org-files (directory)
+  "Return readable Org skill files below DIRECTORY."
+  (when (and (file-directory-p directory)
+             (file-readable-p directory))
+    (directory-files-recursively directory "\\.org\\'" nil t)))
 
 (defun ogent-cabinet-skill--read-metadata (file origin)
   "Read skill FILE metadata for ORIGIN without loading the full body."
@@ -78,22 +91,29 @@
     (dolist (root (ogent-cabinet-skill--roots directory))
       (let ((origin (car root))
             (dir (cdr root)))
-        (when (file-directory-p dir)
-          (dolist (file (directory-files-recursively dir "\\.org\\'"))
-            (push (ogent-cabinet-skill--read-metadata file origin)
-                  skills)))))
+        (dolist (file (ogent-cabinet-skill--org-files dir))
+          (push (ogent-cabinet-skill--read-metadata file origin)
+                skills))))
     (seq-sort-by (lambda (skill)
                    (plist-get skill :key))
                  #'string<
                  skills)))
 
+(defun ogent-cabinet-skill--find (directory key)
+  "Return the first skill metadata record matching KEY under DIRECTORY."
+  (let ((wanted (ogent-cabinet-skill--slug key)))
+    (catch 'skill
+      (dolist (root (ogent-cabinet-skill--roots directory))
+        (let ((origin (car root))
+              (dir (cdr root)))
+          (dolist (file (ogent-cabinet-skill--org-files dir))
+            (let ((skill (ogent-cabinet-skill--read-metadata file origin)))
+              (when (equal (plist-get skill :key) wanted)
+                (throw 'skill skill)))))))))
+
 (defun ogent-cabinet-skill-read (directory key)
   "Read skill KEY under DIRECTORY with body text."
-  (let ((skill (seq-find
-                (lambda (record)
-                  (equal (plist-get record :key)
-                         (ogent-cabinet-skill--slug key)))
-                (ogent-cabinet-skill-list directory))))
+  (let ((skill (ogent-cabinet-skill--find directory key)))
     (unless skill
       (user-error "Cabinet skill not found: %s" key))
     (with-temp-buffer

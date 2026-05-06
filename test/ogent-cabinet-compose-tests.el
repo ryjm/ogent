@@ -17,7 +17,8 @@
   (declare (indent 1) (debug t))
   `(let ((,var (file-truename (make-temp-file "ogent-cabinet-compose-" t))))
      (unwind-protect
-         (progn ,@body)
+         (let ((ogent-cabinet-skill-include-user-roots nil))
+           ,@body)
        (when (file-directory-p ,var)
          (delete-directory ,var t)))))
 
@@ -119,6 +120,30 @@
       (let ((skill (ogent-cabinet-skill-read root "review")))
         (should (string-match-p "Read carefully"
                                 (plist-get skill :body)))))))
+
+(ert-deftest ogent-cabinet-compose-skill-read-stops-after-first-match ()
+  "Skill reads return cabinet-local matches without walking later roots."
+  (let* ((codex-home (file-truename
+                      (make-temp-file "ogent-cabinet-codex-home-" t)))
+         (blocked-root (expand-file-name "skills/blocked" codex-home)))
+    (unwind-protect
+        (ogent-cabinet-compose-test-with-temp-dir root
+          (ogent-cabinet-compose-test--seed root)
+          (make-directory blocked-root t)
+          (set-file-modes blocked-root #o000)
+          (let ((process-environment
+                 (cons (concat "CODEX_HOME=" codex-home)
+                       process-environment))
+                (ogent-cabinet-skill-include-user-roots t))
+            (let ((skill (ogent-cabinet-skill-read root "review")))
+              (should (equal (plist-get skill :key) "review"))
+              (should (string-match-p "Read carefully"
+                                      (plist-get skill :body))))))
+      (when (file-directory-p blocked-root)
+        (ignore-errors
+          (set-file-modes blocked-root #o700)))
+      (when (file-directory-p codex-home)
+        (delete-directory codex-home t)))))
 
 (ert-deftest ogent-cabinet-compose-prompt-includes-context ()
   "Prompt builder includes mention, attachment, and skill context."
