@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
 
 (eval-and-compile
@@ -248,7 +249,18 @@
 
 (defun ogent-cabinet-ui--agent-sessions (root slug)
   "Return sessions for SLUG under ROOT."
-  (or (ogent-cabinet-list-sessions root slug) nil))
+  (or (ogent-cabinet-ui--all-sessions root slug) nil))
+
+(defun ogent-cabinet-ui--all-sessions (root &optional agent)
+  "Return canonical conversations and legacy sessions under ROOT.
+When AGENT is non-nil, narrow to that agent."
+  (seq-sort
+   (lambda (left right)
+     (string> (or (plist-get left :finished) "")
+              (or (plist-get right :finished) "")))
+   (append
+    (ogent-cabinet-conversation-list-sessions root :agent agent)
+    (ogent-cabinet-list-sessions root agent))))
 
 (defun ogent-cabinet-ui--all-jobs (root &optional agent)
   "Return all Cabinet jobs under ROOT, optionally narrowed to AGENT."
@@ -274,7 +286,7 @@
                       (and (equal (plist-get session :agent) agent)
                            (equal (plist-get session :job-id) job-id)
                            (zerop (or (plist-get session :exit-status) 0))))
-                    (ogent-cabinet-list-sessions root agent)))
+                    (ogent-cabinet-ui--all-sessions root agent)))
          (last (ogent-cabinet-ui--last-session sessions))
          (finished (plist-get last :finished)))
     (and (plist-get job :enabled)
@@ -301,6 +313,66 @@
   (unless (and path (file-exists-p path))
     (user-error "No Cabinet file at point"))
   (find-file path))
+
+(defun ogent-cabinet-ui--canonical-conversation-path-p (path)
+  "Return non-nil when PATH is a canonical conversation index."
+  (and path
+       (file-readable-p path)
+       (string-equal (file-name-nondirectory path) "index.org")
+       (string-match-p "/\\.agents/\\.conversations/[^/]+/index\\.org\\'"
+                       path)
+       (with-temp-buffer
+         (insert-file-contents path nil 0 4096)
+         (goto-char (point-min))
+         (re-search-forward
+          "^[ \t]*:OGENT_CONVERSATION:[ \t]+t[ \t]*$"
+          nil t))))
+
+(defun ogent-cabinet-ui--turns-by-role (turns role)
+  "Return content strings from TURNS matching ROLE."
+  (delq
+   nil
+   (mapcar
+    (lambda (turn)
+      (when (equal (plist-get turn :role) role)
+        (plist-get turn :content)))
+    turns)))
+
+(defun ogent-cabinet-ui--canonical-conversation-detail (root path)
+  "Return a detail plist for canonical conversation PATH under ROOT."
+  (let* ((id (file-name-nondirectory
+              (directory-file-name (file-name-directory path))))
+         (detail (ogent-cabinet-conversation-detail root id))
+         (turns (plist-get detail :turns))
+         (agent-turns (seq-filter
+                       (lambda (turn)
+                         (equal (plist-get turn :role) "agent"))
+                       turns))
+         (last-agent (car (last agent-turns))))
+    (append
+     (list :name (plist-get detail :title)
+           :status (ogent-cabinet-conversations--session-status
+                    (plist-get detail :status))
+           :finished (or (plist-get detail :completed)
+                         (plist-get detail :last-activity)
+                         (plist-get detail :started))
+           :exit-status (plist-get detail :exit-code)
+           :prompt (string-join
+                    (ogent-cabinet-ui--turns-by-role turns "user")
+                    "\n\n---\n\n")
+           :output (string-join
+                    (ogent-cabinet-ui--turns-by-role turns "agent")
+                    "\n\n---\n\n")
+           :error (plist-get last-agent :error)
+           :runtime-trace nil
+           :tools nil)
+     detail)))
+
+(defun ogent-cabinet-ui--conversation-detail (root path)
+  "Return detail metadata for conversation PATH under ROOT."
+  (if (ogent-cabinet-ui--canonical-conversation-path-p path)
+      (ogent-cabinet-ui--canonical-conversation-detail root path)
+    (ogent-cabinet-session-detail path)))
 
 (defun ogent-cabinet-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
@@ -611,7 +683,7 @@ DIRECTION is either `next' or `previous'."
          (index (ogent-cabinet-read-index root))
          (agents (ogent-cabinet-ui--agent-slugs root))
          (jobs (ogent-cabinet-ui--all-jobs root))
-         (sessions (ogent-cabinet-list-sessions root))
+         (sessions (ogent-cabinet-ui--all-sessions root))
          (failed (seq-filter
                   (lambda (session)
                     (not (zerop (or (plist-get session :exit-status) 0))))
@@ -1656,10 +1728,14 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-tasks--session-lane (session)
   "Return the attention lane for SESSION."
-  (cond
-   ((plist-get session :archived) "Archive")
-   ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
-   (t "Just Finished")))
+  (let ((status (upcase (or (plist-get session :status) ""))))
+    (cond
+     ((plist-get session :archived) "Archive")
+     ((equal status "RUNNING") "Running")
+     ((member status '("AWAITING-INPUT" "FAILED")) "Needs Reply")
+     ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
+     ((member status '("TODO" "IDLE")) "Inbox")
+     (t "Just Finished"))))
 
 (defun ogent-cabinet-tasks--session-item (session)
   "Return a task item for SESSION."
@@ -1695,7 +1771,7 @@ DIRECTION is either `next' or `previous'."
     (dolist (slug (ogent-cabinet-ui--agent-slugs root))
       (dolist (job (ogent-cabinet-ui--agent-jobs root slug))
         (push (ogent-cabinet-tasks--job-item root job) items)))
-    (dolist (session (ogent-cabinet-list-sessions root))
+    (dolist (session (ogent-cabinet-ui--all-sessions root))
       (push (ogent-cabinet-tasks--session-item session) items))
     (setq items (append (ogent-cabinet-tasks--running-items root) items))
     (let ((filters ogent-cabinet-tasks--filters))
@@ -1935,7 +2011,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-conversations--entries ()
   "Return conversation entries for the current buffer."
-  (let* ((sessions (ogent-cabinet-list-sessions
+  (let* ((sessions (ogent-cabinet-ui--all-sessions
                     ogent-cabinet-conversations--root))
          (matches (seq-filter #'ogent-cabinet-conversations--matches-p
                               sessions)))
@@ -2081,7 +2157,7 @@ DIRECTION is either `next' or `previous'."
                     "Conversation: "
                     (mapcar (lambda (item)
                               (plist-get item :path))
-                            (ogent-cabinet-list-sessions root))
+                            (ogent-cabinet-ui--all-sessions root))
                     nil t)))
      (list root session)))
   (let* ((root (ogent-cabinet-ui--root directory))
@@ -2115,7 +2191,9 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-cabinet-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
-  (let ((detail (ogent-cabinet-session-detail ogent-cabinet-conversation--file)))
+  (let ((detail (ogent-cabinet-ui--conversation-detail
+                 ogent-cabinet-conversation--root
+                 ogent-cabinet-conversation--file)))
     (insert (propertize (or (plist-get detail :name)
                             (plist-get detail :id))
                         'face 'ogent-cabinet-ui-heading)
@@ -2172,7 +2250,9 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-cabinet-conversation-retry ()
   "Retry this conversation."
   (interactive)
-  (let ((detail (ogent-cabinet-session-detail ogent-cabinet-conversation--file)))
+  (let ((detail (ogent-cabinet-ui--conversation-detail
+                 ogent-cabinet-conversation--root
+                 ogent-cabinet-conversation--file)))
     (if-let ((job-id (plist-get detail :job-id)))
         (ogent-cabinet-run-job ogent-cabinet-conversation--root
                                (plist-get detail :agent)

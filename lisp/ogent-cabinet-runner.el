@@ -3,7 +3,7 @@
 ;;; Commentary:
 ;; Runs Cabinet agents through locally authenticated coding CLIs.  The runner
 ;; plans commands from Org persona and job records, starts the process, and
-;; stores the resulting transcript back into the agent's Org session directory.
+;; stores the resulting transcript in the canonical Org conversation store.
 
 ;;; Code:
 
@@ -12,6 +12,7 @@
 (require 'org)
 (require 'subr-x)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-conversations)
 
 (defgroup ogent-cabinet-runner nil
   "Run Org Cabinet agents through subscription-authenticated CLIs."
@@ -120,6 +121,13 @@
     (make-directory (file-name-directory file) t)
     file))
 
+(defun ogent-cabinet-runner--conversation-id (&optional job-id)
+  "Return a fresh canonical conversation id for optional JOB-ID."
+  (format "%s-%s-%06x"
+          (format-time-string "%Y%m%dT%H%M%S")
+          (or job-id "run")
+          (random #x1000000)))
+
 (defun ogent-cabinet-runner--prompt (agent &optional job instruction)
   "Return a CLI prompt from AGENT, optional JOB, and INSTRUCTION."
   (string-join
@@ -180,8 +188,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (permission-mode (or (ogent-cabinet-runner--blank-to-nil
                                (plist-get agent :permission-mode))
                               ogent-cabinet-runner-claude-permission-mode))
-         (session-file (ogent-cabinet-runner--session-file
-                        root agent-slug job-id)))
+         (conversation-id (ogent-cabinet-runner--conversation-id job-id)))
     (unless (file-directory-p workspace)
       (user-error "Cabinet agent workspace not found: %s" workspace))
     (pcase provider
@@ -203,7 +210,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                :workspace workspace
                :agent agent
                :job job
-               :session-file session-file)))
+               :conversation-id conversation-id)))
       ('claude
        (let ((args (list "-p"
                          "--permission-mode" permission-mode
@@ -218,7 +225,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                :workspace workspace
                :agent agent
                :job job
-               :session-file session-file)))
+               :conversation-id conversation-id)))
       (_
        (user-error "Unsupported Cabinet agent provider: %s" provider)))))
 
@@ -333,6 +340,91 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
       plan output error-output exit-status))
     file))
 
+(defun ogent-cabinet-runner--conversation-title (plan)
+  "Return a user-facing conversation title for PLAN."
+  (let ((agent (plist-get plan :agent))
+        (job (plist-get plan :job)))
+    (format "%s %s"
+            (or (plist-get agent :name) (plist-get agent :slug))
+            (or (plist-get job :name) "Run"))))
+
+(defun ogent-cabinet-runner--iso-now ()
+  "Return the current time as an ISO-like local timestamp."
+  (format-time-string "%Y-%m-%dT%H:%M:%S%z"))
+
+(defun ogent-cabinet-runner--create-conversation (plan started)
+  "Create the running canonical conversation for PLAN at STARTED."
+  (let* ((root (plist-get plan :root))
+         (agent (plist-get plan :agent))
+         (job (plist-get plan :job))
+         (conversation-id (plist-get plan :conversation-id))
+         (file
+          (ogent-cabinet-conversation-create
+           root
+           (list
+            :id conversation-id
+            :agent (plist-get agent :slug)
+            :title (ogent-cabinet-runner--conversation-title plan)
+            :trigger (if job "job" "manual")
+            :status "running"
+            :started started
+            :last-activity started
+            :provider (plist-get plan :provider)
+            :model (or (plist-get job :model)
+                       (plist-get agent :model))
+            :job-id (plist-get job :id)
+            :job-name (plist-get job :name)
+            :runtime-mode "native"))))
+    (ogent-cabinet-conversation-append-turn
+     root conversation-id "user" (plist-get plan :prompt)
+     :ts started)
+    file))
+
+(defun ogent-cabinet-runner--final-status (exit-status parsed)
+  "Return canonical final status for EXIT-STATUS and PARSED output metadata."
+  (cond
+   ((not (zerop exit-status)) "failed")
+   ((plist-get parsed :awaiting-input) "awaiting-input")
+   (t "done")))
+
+(defun ogent-cabinet-runner--finalize-conversation
+    (plan output error-output exit-status)
+  "Finalize PLAN conversation with OUTPUT, ERROR-OUTPUT, and EXIT-STATUS."
+  (let* ((root (plist-get plan :root))
+         (conversation-id (plist-get plan :conversation-id))
+         (finished (ogent-cabinet-runner--iso-now))
+         (parsed (ogent-cabinet-conversation-parse-output output))
+         (app-paths (ogent-cabinet-runner--app-paths-from-output
+                     root output error-output))
+         (artifact-paths (delete-dups
+                          (append (copy-sequence
+                                   (plist-get parsed :artifact-paths))
+                                  app-paths)))
+         (status (ogent-cabinet-runner--final-status exit-status parsed)))
+    (ogent-cabinet-conversation-append-turn
+     root conversation-id "agent" output
+     :ts finished
+     :exit-code exit-status
+     :error (unless (zerop exit-status) error-output)
+     :awaiting-input (plist-get parsed :awaiting-input)
+     :artifacts artifact-paths)
+    (ogent-cabinet-conversation-update-properties
+     root conversation-id
+     `(("OGENT_STATUS" . ,status)
+       ("OGENT_COMPLETED_AT" . ,finished)
+       ("OGENT_LAST_ACTIVITY_AT" . ,finished)
+       ("OGENT_EXIT_CODE" . ,exit-status)
+       ("OGENT_DURATION" . ,(or (plist-get plan :duration) ""))
+       ("OGENT_ARTIFACTS" . ,artifact-paths)
+       ("OGENT_SUMMARY" . ,(plist-get parsed :summary))
+       ("OGENT_CONTEXT_SUMMARY" . ,(plist-get parsed :context-summary))
+       ("OGENT_AWAITING_INPUT" . ,(plist-get parsed :awaiting-input))))
+    (ogent-cabinet-conversation-append-event
+     root conversation-id "task.updated"
+     :ts finished
+     :payload (format "status=%s" status))
+    (ogent-cabinet-conversation-file root conversation-id)))
+
 (defun ogent-cabinet-runner-start (plan)
   "Start PLAN and return its process."
   (let* ((program (plist-get plan :program))
@@ -345,9 +437,13 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (stderr-buffer (generate-new-buffer " *ogent-cabinet-agent-stderr*"))
          output-start
          (started-at (float-time))
+         (started (ogent-cabinet-runner--iso-now))
          proc)
     (unless (executable-find program)
       (user-error "Cabinet runner executable not found: %s" program))
+    (let ((conversation-file
+           (ogent-cabinet-runner--create-conversation plan started)))
+      (plist-put plan :conversation-file conversation-file))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -374,19 +470,22 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                            (string-trim
                             (with-current-buffer stderr-buffer
                               (buffer-string)))))
-                        (session-file
+                        (conversation-file
                          (progn
                            (plist-put plan
                                       :duration
                                       (format "%.2fs"
                                               (- (float-time) started-at)))
-                           (ogent-cabinet-runner--write-session
+                           (ogent-cabinet-runner--finalize-conversation
                             plan output error-output exit-status))))
-                   (process-put process 'ogent-cabinet-session-file session-file)
+                   (process-put process 'ogent-cabinet-conversation-file
+                                conversation-file)
+                   (process-put process 'ogent-cabinet-conversation-id
+                                (plist-get plan :conversation-id))
                    (when (buffer-live-p stderr-buffer)
                      (kill-buffer stderr-buffer))
                    (message "Cabinet agent finished: %s (%s)"
-                            session-file
+                            conversation-file
                             (string-trim event))))))))
     (set-process-query-on-exit-flag proc nil)
     (process-put proc 'ogent-cabinet-plan plan)

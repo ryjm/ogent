@@ -718,6 +718,59 @@
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
 
+(ert-deftest ogent-ui-cabinet-canonical-conversation-list-and-detail ()
+  "Conversation browser reads canonical Org conversation records."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (ogent-cabinet-conversation-create
+     root
+     '(:id "conv-ui"
+       :agent "cto"
+       :title "Canonical Review"
+       :status "done"
+       :provider "codex"
+       :model "gpt-5.4"
+       :started "2026-05-06T10:00:00Z"
+       :completed "2026-05-06T10:01:00Z"
+       :duration "1s"))
+    (ogent-cabinet-conversation-append-turn
+     root "conv-ui" "user" "Review this."
+     :ts "2026-05-06T10:00:00Z")
+    (ogent-cabinet-conversation-append-turn
+     root "conv-ui" "agent" "Looks solid."
+     :ts "2026-05-06T10:01:00Z")
+    (let ((buffer (ogent-cabinet-conversations root))
+          detail)
+      (unwind-protect
+          (with-current-buffer buffer
+            (let ((text (buffer-substring-no-properties
+                         (point-min)
+                         (point-max))))
+              (should (string-match-p "Canonical Review" text))
+              (should (string-match-p "DONE" text)))
+            (goto-char (point-min))
+            (search-forward "Canonical Review")
+            (setq detail (ogent-cabinet-conversations-open))
+            (with-current-buffer detail
+              (let ((text (buffer-substring-no-properties
+                           (point-min)
+                           (point-max))))
+                (should (string-match-p "Review this" text))
+                (should (string-match-p "Looks solid" text))
+                (should (string-match-p "gpt-5.4" text)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))
+        (when (and detail (buffer-live-p detail))
+          (kill-buffer detail))))))
+
 (ert-deftest ogent-ui-cabinet-conversation-renders-success-trace ()
   "Successful conversation traces do not render as errors."
   (ogent-ui-cabinet-test-with-temp-dir root

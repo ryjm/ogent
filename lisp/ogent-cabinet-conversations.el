@@ -177,9 +177,11 @@
         ("OGENT_SKILLS" . ,(plist-get conversation :skills))
         ("OGENT_ATTACHMENTS" . ,(plist-get conversation :attachment-paths))
         ("OGENT_ARTIFACTS" . ,(plist-get conversation :artifact-paths))
+        ("OGENT_DURATION" . ,(plist-get conversation :duration))
         ("OGENT_SUMMARY" . ,(plist-get conversation :summary))
         ("OGENT_CONTEXT_SUMMARY" . ,(plist-get conversation :context-summary))
         ("OGENT_AWAITING_INPUT" . ,(plist-get conversation :awaiting-input))
+        ("OGENT_ARCHIVED" . ,(plist-get conversation :archived))
         ("OGENT_TITLE_PINNED" . ,(plist-get conversation :title-pinned))
         ("OGENT_BOARD_ORDER" . ,(plist-get conversation :board-order))
         ("OGENT_MUTED" . ,(plist-get conversation :muted))
@@ -289,12 +291,19 @@ ID is the fallback conversation id."
                           (org-entry-get nil "OGENT_ATTACHMENTS"))
        :artifact-paths (ogent-cabinet-conversations--list-property
                         (org-entry-get nil "OGENT_ARTIFACTS"))
+       :duration (ogent-cabinet--blank-to-nil
+                  (org-entry-get nil "OGENT_DURATION"))
        :summary (ogent-cabinet--blank-to-nil
                  (org-entry-get nil "OGENT_SUMMARY"))
        :context-summary (ogent-cabinet--blank-to-nil
                          (org-entry-get nil "OGENT_CONTEXT_SUMMARY"))
        :awaiting-input (ogent-cabinet--truth-value
                         (org-entry-get nil "OGENT_AWAITING_INPUT"))
+       :archived (or (equal (ogent-cabinet-conversations--status
+                             (org-entry-get nil "OGENT_STATUS"))
+                            "archived")
+                     (ogent-cabinet--truth-value
+                      (org-entry-get nil "OGENT_ARCHIVED")))
        :title-pinned (ogent-cabinet--truth-value
                       (org-entry-get nil "OGENT_TITLE_PINNED"))
        :board-order (ogent-cabinet-conversations--number-property
@@ -358,6 +367,52 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
                     "")))
      conversations)))
 
+(defun ogent-cabinet-conversations--session-status (status)
+  "Return legacy display status for canonical STATUS."
+  (pcase (ogent-cabinet-conversations--status status)
+    ("done" "DONE")
+    ("failed" "FAILED")
+    ("running" "RUNNING")
+    ("awaiting-input" "AWAITING-INPUT")
+    ("archived" "ARCHIVED")
+    ("cancelled" "CANCELLED")
+    (_ "TODO")))
+
+(defun ogent-cabinet-conversations--as-session (conversation)
+  "Return CONVERSATION as a session-shaped plist for legacy UI surfaces."
+  (list :id (plist-get conversation :id)
+        :conversation-id (plist-get conversation :id)
+        :record-kind 'conversation
+        :name (plist-get conversation :title)
+        :agent (plist-get conversation :agent)
+        :provider (plist-get conversation :provider)
+        :model (plist-get conversation :model)
+        :job-id (plist-get conversation :job-id)
+        :exit-status (plist-get conversation :exit-code)
+        :status (ogent-cabinet-conversations--session-status
+                 (plist-get conversation :status))
+        :workspace nil
+        :duration (plist-get conversation :duration)
+        :finished (or (plist-get conversation :completed)
+                      (plist-get conversation :last-activity)
+                      (plist-get conversation :started))
+        :tags nil
+        :app-paths (plist-get conversation :artifact-paths)
+        :archived (plist-get conversation :archived)
+        :body (plist-get conversation :body)
+        :path (plist-get conversation :path)))
+
+(cl-defun ogent-cabinet-conversation-list-sessions
+    (directory &key agent status trigger)
+  "Return canonical conversations as session-shaped plists under DIRECTORY."
+  (mapcar
+   #'ogent-cabinet-conversations--as-session
+   (ogent-cabinet-conversation-list
+    directory
+    :agent agent
+    :status status
+    :trigger trigger)))
+
 (defun ogent-cabinet-conversations--update-index-properties
     (directory conversation-id properties)
   "Update CONVERSATION-ID PROPERTIES under DIRECTORY."
@@ -375,6 +430,13 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
                            (car property)
                            (ogent-cabinet--property-value (cdr property))))
           (save-buffer))))))
+
+(defun ogent-cabinet-conversation-update-properties
+    (directory conversation-id properties)
+  "Update CONVERSATION-ID PROPERTIES under DIRECTORY.
+PROPERTIES is an alist of Org property names to values."
+  (ogent-cabinet-conversations--update-index-properties
+   directory conversation-id properties))
 
 (defun ogent-cabinet-conversations--next-turn-number
     (directory conversation-id role)
