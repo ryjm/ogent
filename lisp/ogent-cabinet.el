@@ -754,6 +754,7 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
             (list
              :kind (cond
                     ((org-entry-get nil "OGENT_CABINET") 'cabinet)
+                    ((org-entry-get nil "OGENT_CONVERSATION") 'conversation)
                     ((org-entry-get nil "OGENT_SESSION") 'session)
                     ((org-entry-get nil "OGENT_JOB") 'job)
                     ((org-entry-get nil "OGENT_AGENT") 'agent)

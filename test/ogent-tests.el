@@ -24,7 +24,8 @@
   (should (featurep 'ogent-session))
   (should (featurep 'ogent-debug))
   (should (featurep 'ogent-anthropic-oauth))
-  (should (featurep 'ogent-codex-oauth)))
+  (should (featurep 'ogent-codex-oauth))
+  (should (featurep 'ogent-cabinet-conversations)))
 
 (ert-deftest ogent-org-capture-contexts-compat-defines-missing-var ()
   "Compatibility guard defines missing Org capture contexts variable."
