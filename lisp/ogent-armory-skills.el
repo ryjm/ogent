@@ -17,6 +17,11 @@
   :group 'ogent-armory
   :prefix "ogent-armory-skill-")
 
+(defcustom ogent-armory-skill-include-user-roots t
+  "Whether skill discovery includes user-level skill directories."
+  :type 'boolean
+  :group 'ogent-armory-skills)
+
 (defvar ogent-armory-skills-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-armory-skill-open)
@@ -50,12 +55,20 @@
   (let ((root (ogent-armory--directory directory)))
     (delq
      nil
-     `((armory-scoped . ,(expand-file-name ".agents/skills" root))
-       (armory-root . ,(expand-file-name "skills" root))
-       (linked-repo . ,(expand-file-name ".codex/skills" root))
-       ,(when (getenv "CODEX_HOME")
-          `(system . ,(expand-file-name "skills" (getenv "CODEX_HOME"))))
-       (legacy-home . ,(expand-file-name "~/.agents/skills"))))))
+     (append
+      `((armory-scoped . ,(expand-file-name ".agents/skills" root))
+        (armory-root . ,(expand-file-name "skills" root))
+        (linked-repo . ,(expand-file-name ".codex/skills" root)))
+      (when ogent-armory-skill-include-user-roots
+        `(,(when (getenv "CODEX_HOME")
+             `(system . ,(expand-file-name "skills" (getenv "CODEX_HOME"))))
+          (legacy-home . ,(expand-file-name "~/.agents/skills"))))))))
+
+(defun ogent-armory-skill--org-files (directory)
+  "Return readable Org skill files below DIRECTORY."
+  (when (and (file-directory-p directory)
+             (file-readable-p directory))
+    (directory-files-recursively directory "\\.org\\'" nil t)))
 
 (defun ogent-armory-skill--read-metadata (file origin)
   "Read skill FILE metadata for ORIGIN without loading the full body."
@@ -78,22 +91,29 @@
     (dolist (root (ogent-armory-skill--roots directory))
       (let ((origin (car root))
             (dir (cdr root)))
-        (when (file-directory-p dir)
-          (dolist (file (directory-files-recursively dir "\\.org\\'"))
-            (push (ogent-armory-skill--read-metadata file origin)
-                  skills)))))
+        (dolist (file (ogent-armory-skill--org-files dir))
+          (push (ogent-armory-skill--read-metadata file origin)
+                skills))))
     (seq-sort-by (lambda (skill)
                    (plist-get skill :key))
                  #'string<
                  skills)))
 
+(defun ogent-armory-skill--find (directory key)
+  "Return the first skill metadata record matching KEY under DIRECTORY."
+  (let ((wanted (ogent-armory-skill--slug key)))
+    (catch 'skill
+      (dolist (root (ogent-armory-skill--roots directory))
+        (let ((origin (car root))
+              (dir (cdr root)))
+          (dolist (file (ogent-armory-skill--org-files dir))
+            (let ((skill (ogent-armory-skill--read-metadata file origin)))
+              (when (equal (plist-get skill :key) wanted)
+                (throw 'skill skill)))))))))
+
 (defun ogent-armory-skill-read (directory key)
   "Read skill KEY under DIRECTORY with body text."
-  (let ((skill (seq-find
-                (lambda (record)
-                  (equal (plist-get record :key)
-                         (ogent-armory-skill--slug key)))
-                (ogent-armory-skill-list directory))))
+  (let ((skill (ogent-armory-skill--find directory key)))
     (unless skill
       (user-error "Armory skill not found: %s" key))
     (with-temp-buffer
