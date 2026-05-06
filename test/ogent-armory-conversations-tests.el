@@ -105,6 +105,27 @@
       (should (equal (plist-get (car events) :type) "turn.appended"))
       (should (= (plist-get (car events) :seq) 1)))))
 
+(ert-deftest ogent-armory-conversation-append-turn-does-not-visit-index ()
+  "Appending a turn updates index metadata without visiting the index file."
+  (ogent-armory-conversations-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-conversation-create
+     dir
+     '(:id "conv-buffer"
+       :agent "editor"
+       :title "Buffer hygiene"
+       :status "idle"))
+    (let ((index (ogent-armory-conversation-file dir "conv-buffer")))
+      (should-not (get-file-buffer index))
+      (ogent-armory-conversation-append-turn
+       dir "conv-buffer" "user" "Keep metadata edits unvisited."
+       :ts "2026-05-06T10:03:00Z")
+      (should-not (get-file-buffer index))
+      (should (equal (plist-get (ogent-armory-conversation-read
+                                 dir "conv-buffer")
+                                :last-activity)
+                     "2026-05-06T10:03:00Z")))))
+
 (ert-deftest ogent-armory-conversation-demotes-turn-headings ()
   "Org headings in turn content remain nested inside the turn record."
   (ogent-armory-conversations-test-with-temp-dir dir
