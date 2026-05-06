@@ -15,6 +15,7 @@
 (require 'tabulated-list)
 (require 'time-date)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
 
@@ -621,6 +622,21 @@ for deterministic missed-run detection."
     (when (called-interactively-p 'interactive)
       (pop-to-buffer buffer))
     buffer))
+
+(defun ogent-cabinet-schedule--evil-local-keys ()
+  "Install local Evil keys for Cabinet schedule."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-schedule-mode-map))
+
+(defun ogent-cabinet-schedule--setup-evil ()
+  "Set up Evil integration for Cabinet schedule."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-schedule-mode
+   ogent-cabinet-schedule-mode-map
+   'ogent-cabinet-schedule-mode-hook
+   #'ogent-cabinet-schedule--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-schedule--setup-evil))
 
 (provide 'ogent-cabinet-schedule)
 

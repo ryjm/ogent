@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-data)
 (require 'ogent-cabinet-settings)
@@ -33,14 +34,6 @@
 (autoload 'ogent-cabinet-git-status "ogent-cabinet-git" nil t)
 (autoload 'ogent-cabinet-command-palette "ogent-cabinet-palette" nil t)
 
-(declare-function evil-set-initial-state "ext:evil-core")
-(declare-function evil-make-overriding-map "ext:evil-core")
-(declare-function evil-normalize-keymaps "ext:evil-core")
-(declare-function evil-local-set-key "ext:evil-core")
-(declare-function evil-goto-first-line "ext:evil-commands")
-(declare-function evil-goto-line "ext:evil-commands")
-(declare-function evil-next-line "ext:evil-commands")
-(declare-function evil-previous-line "ext:evil-commands")
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-insert-section--create "ext:magit-section")
@@ -3203,6 +3196,7 @@ With FORCE, skip confirmation."
 (defun ogent-cabinet-ui--section-keymaps ()
   "Return Cabinet UI keymaps that contain collapsible sections."
   (list ogent-cabinet-home-mode-map
+        ogent-cabinet-org-chart-mode-map
         ogent-cabinet-agent-mode-map
         ogent-cabinet-conversation-mode-map))
 
@@ -3218,80 +3212,64 @@ With FORCE, skip confirmation."
 (with-eval-after-load 'magit-section
   (ogent-cabinet-ui--setup-section-keymaps))
 
-(defun ogent-cabinet-ui--evil-refresh-command ()
-  "Return the refresh command for the current Cabinet UI mode."
+(defun ogent-cabinet-ui--evil-mode-map ()
+  "Return the Cabinet UI keymap for the current buffer."
   (pcase major-mode
-    ('ogent-cabinet-home-mode 'ogent-cabinet-home-refresh)
-    ('ogent-cabinet-agents-mode 'ogent-cabinet-agents-refresh)
-    ('ogent-cabinet-agent-mode 'ogent-cabinet-agent-refresh)
-    ('ogent-cabinet-jobs-mode 'ogent-cabinet-jobs-refresh)
-    ('ogent-cabinet-tasks-mode 'ogent-cabinet-tasks-refresh)
-    ('ogent-cabinet-conversations-mode 'ogent-cabinet-conversations-refresh)
-    ('ogent-cabinet-conversation-mode 'ogent-cabinet-conversation-refresh)
-    ('ogent-cabinet-search-mode 'ogent-cabinet-search-refresh)
-    ('ogent-cabinet-apps-mode 'ogent-cabinet-apps-refresh)))
-
-(defun ogent-cabinet-ui--evil-section-mode-p ()
-  "Return non-nil when the current Cabinet UI mode has collapsible sections."
-  (memq major-mode
-        '(ogent-cabinet-home-mode
-          ogent-cabinet-agent-mode
-          ogent-cabinet-conversation-mode)))
-
-(defun ogent-cabinet-ui--evil-bind-local (key command)
-  "Bind Evil normal-state KEY to COMMAND when COMMAND is available."
-  (when (and (fboundp 'evil-local-set-key)
-             (fboundp command))
-    (evil-local-set-key 'normal key command)))
+    ('ogent-cabinet-home-mode ogent-cabinet-home-mode-map)
+    ('ogent-cabinet-agents-mode ogent-cabinet-agents-mode-map)
+    ('ogent-cabinet-org-chart-mode ogent-cabinet-org-chart-mode-map)
+    ('ogent-cabinet-agent-mode ogent-cabinet-agent-mode-map)
+    ('ogent-cabinet-jobs-mode ogent-cabinet-jobs-mode-map)
+    ('ogent-cabinet-tasks-mode ogent-cabinet-tasks-mode-map)
+    ('ogent-cabinet-conversations-mode ogent-cabinet-conversations-mode-map)
+    ('ogent-cabinet-conversation-mode ogent-cabinet-conversation-mode-map)
+    ('ogent-cabinet-search-mode ogent-cabinet-search-mode-map)
+    ('ogent-cabinet-apps-mode ogent-cabinet-apps-mode-map)))
 
 (defun ogent-cabinet-ui--evil-local-keys ()
-  "Install local Evil normal-state keys for Cabinet UI buffers."
-  (ogent-cabinet-ui--evil-bind-local "j" 'evil-next-line)
-  (ogent-cabinet-ui--evil-bind-local "k" 'evil-previous-line)
-  (ogent-cabinet-ui--evil-bind-local "gg" 'evil-goto-first-line)
-  (ogent-cabinet-ui--evil-bind-local "G" 'evil-goto-line)
-  (when-let ((refresh (ogent-cabinet-ui--evil-refresh-command)))
-    (ogent-cabinet-ui--evil-bind-local "gr" refresh))
-  (when (ogent-cabinet-ui--evil-section-mode-p)
-    (ogent-cabinet-ui--evil-bind-local "gj" 'ogent-cabinet-ui-next-section)
-    (ogent-cabinet-ui--evil-bind-local "gk" 'ogent-cabinet-ui-previous-section))
-  (ogent-cabinet-ui--evil-bind-local "ZZ" 'quit-window)
-  (ogent-cabinet-ui--evil-bind-local "ZQ" 'quit-window))
+  "Install local Evil keys for Cabinet UI buffers."
+  (when-let ((map (ogent-cabinet-ui--evil-mode-map)))
+    (ogent-cabinet-evil-install-local-bindings map)))
+
+(defun ogent-cabinet-ui--evil-mode-specs ()
+  "Return Cabinet UI Evil setup specs."
+  `((ogent-cabinet-home-mode
+     ,ogent-cabinet-home-mode-map
+     ogent-cabinet-home-mode-hook)
+    (ogent-cabinet-agents-mode
+     ,ogent-cabinet-agents-mode-map
+     ogent-cabinet-agents-mode-hook)
+    (ogent-cabinet-org-chart-mode
+     ,ogent-cabinet-org-chart-mode-map
+     ogent-cabinet-org-chart-mode-hook)
+    (ogent-cabinet-agent-mode
+     ,ogent-cabinet-agent-mode-map
+     ogent-cabinet-agent-mode-hook)
+    (ogent-cabinet-jobs-mode
+     ,ogent-cabinet-jobs-mode-map
+     ogent-cabinet-jobs-mode-hook)
+    (ogent-cabinet-tasks-mode
+     ,ogent-cabinet-tasks-mode-map
+     ogent-cabinet-tasks-mode-hook)
+    (ogent-cabinet-conversations-mode
+     ,ogent-cabinet-conversations-mode-map
+     ogent-cabinet-conversations-mode-hook)
+    (ogent-cabinet-conversation-mode
+     ,ogent-cabinet-conversation-mode-map
+     ogent-cabinet-conversation-mode-hook)
+    (ogent-cabinet-search-mode
+     ,ogent-cabinet-search-mode-map
+     ogent-cabinet-search-mode-hook)
+    (ogent-cabinet-apps-mode
+     ,ogent-cabinet-apps-mode-map
+     ogent-cabinet-apps-mode-hook)))
 
 (defun ogent-cabinet-ui--setup-evil ()
   "Set up Evil integration for Cabinet UI buffers."
-  (when (fboundp 'evil-set-initial-state)
-    (dolist (mode '(ogent-cabinet-home-mode
-                    ogent-cabinet-agents-mode
-                    ogent-cabinet-agent-mode
-                    ogent-cabinet-jobs-mode
-                    ogent-cabinet-tasks-mode
-                    ogent-cabinet-conversations-mode
-                    ogent-cabinet-conversation-mode
-                    ogent-cabinet-search-mode
-                    ogent-cabinet-apps-mode))
-      (evil-set-initial-state mode 'normal))
-    (dolist (map (list ogent-cabinet-home-mode-map
-                       ogent-cabinet-agents-mode-map
-                       ogent-cabinet-agent-mode-map
-                       ogent-cabinet-jobs-mode-map
-                       ogent-cabinet-tasks-mode-map
-                       ogent-cabinet-conversations-mode-map
-                       ogent-cabinet-conversation-mode-map
-                       ogent-cabinet-search-mode-map
-                       ogent-cabinet-apps-mode-map))
-      (evil-make-overriding-map map 'all))
-    (dolist (hook '(ogent-cabinet-home-mode-hook
-                    ogent-cabinet-agents-mode-hook
-                    ogent-cabinet-agent-mode-hook
-                    ogent-cabinet-jobs-mode-hook
-                    ogent-cabinet-tasks-mode-hook
-                    ogent-cabinet-conversations-mode-hook
-                    ogent-cabinet-conversation-mode-hook
-                    ogent-cabinet-search-mode-hook
-                    ogent-cabinet-apps-mode-hook))
-      (add-hook hook #'ogent-cabinet-ui--evil-local-keys)
-      (add-hook hook #'evil-normalize-keymaps))))
+  (dolist (spec (ogent-cabinet-ui--evil-mode-specs))
+    (pcase-let ((`(,mode ,map ,hook) spec))
+      (ogent-cabinet-evil-setup-mode
+       mode map hook #'ogent-cabinet-ui--evil-local-keys))))
 
 (with-eval-after-load 'evil
   (ogent-cabinet-ui--setup-evil))

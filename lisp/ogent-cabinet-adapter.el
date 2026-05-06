@@ -10,6 +10,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'tabulated-list)
+(require 'ogent-cabinet-evil)
 
 (defgroup ogent-cabinet-adapter nil
   "Provider adapters for Org Cabinet runtimes."
@@ -470,6 +471,21 @@
     (ogent-cabinet-adapter-register adapter)))
 
 (ogent-cabinet-adapter--builtin)
+
+(defun ogent-cabinet-providers--evil-local-keys ()
+  "Install local Evil keys for Cabinet providers."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-providers-mode-map))
+
+(defun ogent-cabinet-providers--setup-evil ()
+  "Set up Evil integration for Cabinet providers."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-providers-mode
+   ogent-cabinet-providers-mode-map
+   'ogent-cabinet-providers-mode-hook
+   #'ogent-cabinet-providers--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-providers--setup-evil))
 
 (provide 'ogent-cabinet-adapter)
 

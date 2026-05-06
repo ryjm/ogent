@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-adapter)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
 (require 'ogent-cabinet-skills)
@@ -351,6 +352,21 @@
      ogent-cabinet-compose--agent
      instruction
      :attachments (nreverse ogent-cabinet-compose--attachments))))
+
+(defun ogent-cabinet-compose--evil-local-keys ()
+  "Install local Evil keys for Cabinet compose."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-compose-mode-map))
+
+(defun ogent-cabinet-compose--setup-evil ()
+  "Set up Evil integration for Cabinet compose."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-compose-mode
+   ogent-cabinet-compose-mode-map
+   'ogent-cabinet-compose-mode-hook
+   #'ogent-cabinet-compose--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-compose--setup-evil))
 
 (provide 'ogent-cabinet-compose)
 

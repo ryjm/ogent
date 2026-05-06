@@ -11,6 +11,7 @@
 (require 'tabulated-list)
 (require 'vc-git)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-data)
 
 (defgroup ogent-cabinet-git nil
@@ -277,6 +278,21 @@ When FILES is nil, all dirty paths are staged."
    ogent-cabinet-git--root
    (read-string "Commit message: "))
   (ogent-cabinet-git-refresh))
+
+(defun ogent-cabinet-git--evil-local-keys ()
+  "Install local Evil keys for Cabinet git."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-git-mode-map))
+
+(defun ogent-cabinet-git--setup-evil ()
+  "Set up Evil integration for Cabinet git."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-git-mode
+   ogent-cabinet-git-mode-map
+   'ogent-cabinet-git-mode-hook
+   #'ogent-cabinet-git--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-git--setup-evil))
 
 (provide 'ogent-cabinet-git)
 

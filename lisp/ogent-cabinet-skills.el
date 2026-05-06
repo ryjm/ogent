@@ -10,6 +10,7 @@
 (require 'subr-x)
 (require 'tabulated-list)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 
 (defgroup ogent-cabinet-skills nil
   "Skill catalog for Org Cabinet."
@@ -189,6 +190,21 @@ KEY overrides the derived skill key.  ORIGIN records provenance."
   (let ((skill (or (tabulated-list-get-id)
                    (user-error "No Cabinet skill at point"))))
     (find-file (plist-get skill :path))))
+
+(defun ogent-cabinet-skills--evil-local-keys ()
+  "Install local Evil keys for Cabinet skills."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-skills-mode-map))
+
+(defun ogent-cabinet-skills--setup-evil ()
+  "Set up Evil integration for Cabinet skills."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-skills-mode
+   ogent-cabinet-skills-mode-map
+   'ogent-cabinet-skills-mode-hook
+   #'ogent-cabinet-skills--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-skills--setup-evil))
 
 (provide 'ogent-cabinet-skills)
 

@@ -16,6 +16,7 @@
 (require 'time-date)
 (require 'browse-url)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 
 (defgroup ogent-cabinet-data nil
   "Cabinet data browser and page operations."
@@ -529,6 +530,21 @@ When KIND is non-nil, only records of that kind are offered."
               (intern (completing-read "Format: "
                                        '("html" "md" "text" "org")
                                        nil t))))))
+
+(defun ogent-cabinet-data--evil-local-keys ()
+  "Install local Evil keys for Cabinet data."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-data-mode-map))
+
+(defun ogent-cabinet-data--setup-evil ()
+  "Set up Evil integration for Cabinet data."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-data-mode
+   ogent-cabinet-data-mode-map
+   'ogent-cabinet-data-mode-hook
+   #'ogent-cabinet-data--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-data--setup-evil))
 
 (provide 'ogent-cabinet-data)
 

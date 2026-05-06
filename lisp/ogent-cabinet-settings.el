@@ -13,6 +13,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-adapter)
 (require 'ogent-cabinet-data)
 
@@ -890,6 +891,34 @@ metadata, derived search indexes, process state, and prior backups."
         (goto-char (point-min))))
     (pop-to-buffer buffer)
     buffer))
+
+(defun ogent-cabinet-settings--evil-local-keys ()
+  "Install local Evil keys for Cabinet settings."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-settings-mode-map))
+
+(defun ogent-cabinet-help--evil-local-keys ()
+  "Install local Evil keys for Cabinet help."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-help-mode-map))
+
+(defun ogent-cabinet-settings--setup-evil ()
+  "Set up Evil integration for Cabinet settings."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-settings-mode
+   ogent-cabinet-settings-mode-map
+   'ogent-cabinet-settings-mode-hook
+   #'ogent-cabinet-settings--evil-local-keys))
+
+(defun ogent-cabinet-help--setup-evil ()
+  "Set up Evil integration for Cabinet help."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-help-mode
+   ogent-cabinet-help-mode-map
+   'ogent-cabinet-help-mode-hook
+   #'ogent-cabinet-help--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-settings--setup-evil)
+  (ogent-cabinet-help--setup-evil))
 
 (provide 'ogent-cabinet-settings)
 

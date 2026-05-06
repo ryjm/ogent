@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'tabulated-list)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
 (require 'ogent-cabinet-schedule)
@@ -616,6 +617,21 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
     ogent-cabinet-actions--root
     ogent-cabinet-actions--conversation-id))
   (ogent-cabinet-actions-refresh))
+
+(defun ogent-cabinet-actions--evil-local-keys ()
+  "Install local Evil keys for Cabinet actions."
+  (ogent-cabinet-evil-install-local-bindings ogent-cabinet-actions-mode-map))
+
+(defun ogent-cabinet-actions--setup-evil ()
+  "Set up Evil integration for Cabinet actions."
+  (ogent-cabinet-evil-setup-mode
+   'ogent-cabinet-actions-mode
+   ogent-cabinet-actions-mode-map
+   'ogent-cabinet-actions-mode-hook
+   #'ogent-cabinet-actions--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-cabinet-actions--setup-evil))
 
 (provide 'ogent-cabinet-actions)
 

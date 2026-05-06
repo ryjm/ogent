@@ -146,6 +146,7 @@
 (ert-deftest ogent-ui-cabinet-section-keybindings-are-consistent ()
   "Cabinet special buffers expose Magit-style section navigation."
   (dolist (map (list ogent-cabinet-home-mode-map
+                     ogent-cabinet-org-chart-mode-map
                      ogent-cabinet-agent-mode-map
                      ogent-cabinet-conversation-mode-map))
     (dolist (pair `(("TAB" . ,#'ogent-cabinet-ui-toggle-section)
@@ -231,6 +232,7 @@
   (unless (ogent-cabinet-ui--magit-section-usable-p)
     (ert-skip "magit-section not available"))
   (dolist (mode '(ogent-cabinet-home-mode
+                  ogent-cabinet-org-chart-mode
                   ogent-cabinet-agent-mode
                   ogent-cabinet-conversation-mode))
     (with-temp-buffer
@@ -238,9 +240,10 @@
       (should (derived-mode-p 'magit-section-mode)))))
 
 (ert-deftest ogent-ui-cabinet-evil-overrides-all-ui-keymaps ()
-  "Cabinet UI maps remain active while Evil normal state owns movement."
+  "Cabinet UI maps remain active in Evil states."
   (let ((ogent-cabinet-home-mode-hook nil)
         (ogent-cabinet-agents-mode-hook nil)
+        (ogent-cabinet-org-chart-mode-hook nil)
         (ogent-cabinet-agent-mode-hook nil)
         (ogent-cabinet-jobs-mode-hook nil)
         (ogent-cabinet-tasks-mode-hook nil)
@@ -261,6 +264,7 @@
       (ogent-cabinet-ui--setup-evil))
     (dolist (mode '(ogent-cabinet-home-mode
                     ogent-cabinet-agents-mode
+                    ogent-cabinet-org-chart-mode
                     ogent-cabinet-agent-mode
                     ogent-cabinet-jobs-mode
                     ogent-cabinet-tasks-mode
@@ -271,6 +275,7 @@
       (should (member (cons mode 'normal) states)))
     (dolist (map (list ogent-cabinet-home-mode-map
                        ogent-cabinet-agents-mode-map
+                       ogent-cabinet-org-chart-mode-map
                        ogent-cabinet-agent-mode-map
                        ogent-cabinet-jobs-mode-map
                        ogent-cabinet-tasks-mode-map
@@ -281,6 +286,7 @@
       (should (member (cons map 'all) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
+                        ogent-cabinet-org-chart-mode-hook
                         ogent-cabinet-agent-mode-hook
                         ogent-cabinet-jobs-mode-hook
                         ogent-cabinet-tasks-mode-hook
@@ -291,33 +297,34 @@
       (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
-(ert-deftest ogent-ui-cabinet-evil-local-keys-match-magit-navigation ()
-  "Cabinet section buffers add Evil normal-state Magit navigation keys."
+(ert-deftest ogent-ui-cabinet-evil-local-keys-mirror-home-keymap ()
+  "Cabinet Home Evil keys mirror the Home keymap."
   (let (keys)
     (with-temp-buffer
       (ogent-cabinet-home-mode)
       (cl-letf (((symbol-function 'evil-local-set-key)
                  (lambda (state key command)
                    (push (list state key command) keys)))
-                ((symbol-function 'evil-goto-first-line)
-                 (lambda () (interactive)))
-                ((symbol-function 'evil-goto-line)
-                 (lambda () (interactive)))
                 ((symbol-function 'evil-next-line)
                  (lambda () (interactive)))
                 ((symbol-function 'evil-previous-line)
                  (lambda () (interactive))))
         (ogent-cabinet-ui--evil-local-keys)))
-    (dolist (binding '(("j" evil-next-line)
+    (dolist (binding '(("m" ogent-cabinet-home-dispatch)
+                       ("?" ogent-cabinet-home-help)
+                       ("j" ogent-cabinet-jobs)
+                       ("G" ogent-cabinet-status)
+                       ("g" ogent-cabinet-home-refresh)
+                       ("TAB" ogent-cabinet-ui-toggle-section)
+                       ("RET" ogent-cabinet-home-visit)
                        ("k" evil-previous-line)
-                       ("gg" evil-goto-first-line)
-                       ("G" evil-goto-line)
-                       ("gr" ogent-cabinet-home-refresh)
-                       ("gj" ogent-cabinet-ui-next-section)
-                       ("gk" ogent-cabinet-ui-previous-section)
                        ("ZZ" quit-window)
                        ("ZQ" quit-window)))
-      (should (member (list 'normal (car binding) (cadr binding)) keys)))))
+      (dolist (state '(normal motion))
+        (should (member (list state (kbd (car binding)) (cadr binding))
+                        keys))))
+    (dolist (state '(normal motion))
+      (should-not (member (list state (kbd "j") #'evil-next-line) keys)))))
 
 (ert-deftest ogent-ui-cabinet-home-magit-sections-collapse ()
   "Cabinet Home headings are real collapsible sections when Magit is present."
@@ -1291,9 +1298,10 @@
               #'ogent-cabinet-apps)))
 
 (ert-deftest ogent-ui-cabinet-evil-overrides-dispatch-keymaps ()
-  "Cabinet UI dispatch keys remain active in Evil normal state."
+  "Cabinet UI dispatch keys remain active in Evil states."
   (let ((ogent-cabinet-home-mode-hook nil)
         (ogent-cabinet-agents-mode-hook nil)
+        (ogent-cabinet-org-chart-mode-hook nil)
         (ogent-cabinet-agent-mode-hook nil)
         (ogent-cabinet-jobs-mode-hook nil)
         (ogent-cabinet-tasks-mode-hook nil)
@@ -1314,6 +1322,7 @@
       (ogent-cabinet-ui--setup-evil))
     (dolist (mode '(ogent-cabinet-home-mode
                     ogent-cabinet-agents-mode
+                    ogent-cabinet-org-chart-mode
                     ogent-cabinet-agent-mode
                     ogent-cabinet-jobs-mode
                     ogent-cabinet-tasks-mode
@@ -1324,6 +1333,7 @@
       (should (member (cons mode 'normal) states)))
     (dolist (map (list ogent-cabinet-home-mode-map
                        ogent-cabinet-agents-mode-map
+                       ogent-cabinet-org-chart-mode-map
                        ogent-cabinet-agent-mode-map
                        ogent-cabinet-jobs-mode-map
                        ogent-cabinet-tasks-mode-map
@@ -1334,6 +1344,7 @@
       (should (member (cons map 'all) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
+                        ogent-cabinet-org-chart-mode-hook
                         ogent-cabinet-agent-mode-hook
                         ogent-cabinet-jobs-mode-hook
                         ogent-cabinet-tasks-mode-hook
@@ -1341,6 +1352,7 @@
                         ogent-cabinet-conversation-mode-hook
                         ogent-cabinet-search-mode-hook
                         ogent-cabinet-apps-mode-hook))
+      (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-cabinet-tests)
