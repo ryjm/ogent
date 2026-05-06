@@ -120,6 +120,7 @@
 (require 'ogent-completions)
 (require 'ogent-mcp)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-adapter)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
 (require 'ogent-ui-cabinet)

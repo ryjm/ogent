@@ -25,6 +25,7 @@
   (should (featurep 'ogent-debug))
   (should (featurep 'ogent-anthropic-oauth))
   (should (featurep 'ogent-codex-oauth))
+  (should (featurep 'ogent-cabinet-adapter))
   (should (featurep 'ogent-cabinet-conversations)))
 
 (ert-deftest ogent-org-capture-contexts-compat-defines-missing-var ()

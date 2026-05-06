@@ -97,6 +97,12 @@ text in those Org files. Manual edits remain part of the record.
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
+11. Check provider adapters:
+
+    Use =M-x ogent-cabinet-providers= to inspect registered runtime adapters,
+    executable availability, supported modes, and resume support. Use
+    =M-x ogent-cabinet-provider-verify= for a focused executable check.
+
 * Keybindings
 
 Main ogent dispatch bindings:
