@@ -488,23 +488,62 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
     :status status
     :trigger trigger)))
 
+(defun ogent-cabinet-conversations--property-line (property)
+  "Return PROPERTY formatted as an Org drawer line."
+  (format ":%s: %s"
+          (car property)
+          (ogent-cabinet--property-value (cdr property))))
+
+(defun ogent-cabinet-conversations--property-regexp (name)
+  "Return a regexp matching Org drawer property NAME."
+  (format "^[ \t]*:%s:[ \t]*.*$" (regexp-quote name)))
+
+(defun ogent-cabinet-conversations--insert-property-drawer (properties)
+  "Insert a property drawer containing PROPERTIES at point."
+  (insert ":PROPERTIES:\n")
+  (dolist (property properties)
+    (insert (ogent-cabinet-conversations--property-line property) "\n"))
+  (insert ":END:\n"))
+
+(defun ogent-cabinet-conversations--update-property-drawer
+    (drawer-start drawer-end properties)
+  "Update PROPERTIES between DRAWER-START and DRAWER-END."
+  (dolist (property properties)
+    (let ((line (ogent-cabinet-conversations--property-line property))
+          (regexp (ogent-cabinet-conversations--property-regexp
+                   (car property))))
+      (goto-char drawer-start)
+      (if (re-search-forward regexp drawer-end t)
+          (let ((old-length (- (match-end 0) (match-beginning 0))))
+            (replace-match line t t)
+            (setq drawer-end (+ drawer-end (- (length line) old-length))))
+        (goto-char drawer-end)
+        (insert line "\n")
+        (setq drawer-end (+ drawer-end (length line) 1))))))
+
 (defun ogent-cabinet-conversations--update-index-properties
     (directory conversation-id properties)
   "Update CONVERSATION-ID PROPERTIES under DIRECTORY."
   (let ((file (ogent-cabinet-conversation-file directory conversation-id)))
     (when (file-exists-p file)
-      (let ((buffer (find-file-noselect file)))
-        (with-current-buffer buffer
-          (org-mode)
-          (goto-char (point-min))
-          (unless (re-search-forward org-heading-regexp nil t)
-            (user-error "No Org heading found in %s" file))
-          (org-back-to-heading t)
-          (dolist (property properties)
-            (org-entry-put nil
-                           (car property)
-                           (ogent-cabinet--property-value (cdr property))))
-          (save-buffer))))))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (unless (re-search-forward "^\\*+[ \t]+.+$" nil t)
+          (user-error "No Org heading found in %s" file))
+        (forward-line 1)
+        (if (looking-at-p "[ \t]*:PROPERTIES:[ \t]*$")
+            (let ((drawer-start (point))
+                  (drawer-end (save-excursion
+                                (and (re-search-forward
+                                      "^[ \t]*:END:[ \t]*$" nil t)
+                                     (line-beginning-position)))))
+              (unless drawer-end
+                (user-error "No Org property drawer end found in %s" file))
+              (ogent-cabinet-conversations--update-property-drawer
+               drawer-start drawer-end properties))
+          (ogent-cabinet-conversations--insert-property-drawer properties))
+        (write-region (point-min) (point-max) file nil 'silent)))))
 
 (defun ogent-cabinet-conversation-update-properties
     (directory conversation-id properties)

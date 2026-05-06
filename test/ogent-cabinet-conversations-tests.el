@@ -105,6 +105,27 @@
       (should (equal (plist-get (car events) :type) "turn.appended"))
       (should (= (plist-get (car events) :seq) 1)))))
 
+(ert-deftest ogent-cabinet-conversation-append-turn-does-not-visit-index ()
+  "Appending a turn updates index metadata without visiting the index file."
+  (ogent-cabinet-conversations-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-conversation-create
+     dir
+     '(:id "conv-buffer"
+       :agent "editor"
+       :title "Buffer hygiene"
+       :status "idle"))
+    (let ((index (ogent-cabinet-conversation-file dir "conv-buffer")))
+      (should-not (get-file-buffer index))
+      (ogent-cabinet-conversation-append-turn
+       dir "conv-buffer" "user" "Keep metadata edits unvisited."
+       :ts "2026-05-06T10:03:00Z")
+      (should-not (get-file-buffer index))
+      (should (equal (plist-get (ogent-cabinet-conversation-read
+                                 dir "conv-buffer")
+                                :last-activity)
+                     "2026-05-06T10:03:00Z")))))
+
 (ert-deftest ogent-cabinet-conversation-demotes-turn-headings ()
   "Org headings in turn content remain nested inside the turn record."
   (ogent-cabinet-conversations-test-with-temp-dir dir
