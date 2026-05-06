@@ -133,6 +133,20 @@
             :origin origin
             :path file))))
 
+(defun ogent-armory-skill--direct-file (directory key)
+  "Return the direct Org skill file for KEY below DIRECTORY."
+  (expand-file-name (concat (ogent-armory-skill--slug key) ".org")
+                    directory))
+
+(defun ogent-armory-skill--direct-match (directory key origin)
+  "Return direct skill KEY metadata under DIRECTORY for ORIGIN."
+  (let ((file (ogent-armory-skill--direct-file directory key)))
+    (when (file-readable-p file)
+      (let ((skill (ogent-armory-skill--read-metadata file origin)))
+        (when (equal (plist-get skill :key)
+                     (ogent-armory-skill--slug key))
+          skill)))))
+
 (defun ogent-armory-skill-list (directory)
   "Return skill metadata records for DIRECTORY."
   (let (skills)
@@ -154,6 +168,9 @@
       (dolist (root (ogent-armory-skill--roots directory))
         (let ((origin (car root))
               (dir (cdr root)))
+          (when-let ((skill (ogent-armory-skill--direct-match
+                             dir wanted origin)))
+            (throw 'skill skill))
           (dolist (file (ogent-armory-skill--org-files dir))
             (let ((skill (ogent-armory-skill--read-metadata file origin)))
               (when (equal (plist-get skill :key) wanted)
