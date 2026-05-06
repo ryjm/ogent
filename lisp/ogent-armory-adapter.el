@@ -10,6 +10,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'tabulated-list)
+(require 'ogent-armory-evil)
 
 (defgroup ogent-armory-adapter nil
   "Provider adapters for Org Armory runtimes."
@@ -470,6 +471,21 @@
     (ogent-armory-adapter-register adapter)))
 
 (ogent-armory-adapter--builtin)
+
+(defun ogent-armory-providers--evil-local-keys ()
+  "Install local Evil keys for Armory providers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-providers-mode-map))
+
+(defun ogent-armory-providers--setup-evil ()
+  "Set up Evil integration for Armory providers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-providers-mode
+   ogent-armory-providers-mode-map
+   'ogent-armory-providers-mode-hook
+   #'ogent-armory-providers--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-providers--setup-evil))
 
 (provide 'ogent-armory-adapter)
 

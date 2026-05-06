@@ -13,6 +13,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-adapter)
 (require 'ogent-armory-data)
 
@@ -890,6 +891,34 @@ metadata, derived search indexes, process state, and prior backups."
         (goto-char (point-min))))
     (pop-to-buffer buffer)
     buffer))
+
+(defun ogent-armory-settings--evil-local-keys ()
+  "Install local Evil keys for Armory settings."
+  (ogent-armory-evil-install-local-bindings ogent-armory-settings-mode-map))
+
+(defun ogent-armory-help--evil-local-keys ()
+  "Install local Evil keys for Armory help."
+  (ogent-armory-evil-install-local-bindings ogent-armory-help-mode-map))
+
+(defun ogent-armory-settings--setup-evil ()
+  "Set up Evil integration for Armory settings."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-settings-mode
+   ogent-armory-settings-mode-map
+   'ogent-armory-settings-mode-hook
+   #'ogent-armory-settings--evil-local-keys))
+
+(defun ogent-armory-help--setup-evil ()
+  "Set up Evil integration for Armory help."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-help-mode
+   ogent-armory-help-mode-map
+   'ogent-armory-help-mode-hook
+   #'ogent-armory-help--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-settings--setup-evil)
+  (ogent-armory-help--setup-evil))
 
 (provide 'ogent-armory-settings)
 

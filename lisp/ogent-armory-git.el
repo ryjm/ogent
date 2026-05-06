@@ -11,6 +11,7 @@
 (require 'tabulated-list)
 (require 'vc-git)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-data)
 
 (defgroup ogent-armory-git nil
@@ -277,6 +278,21 @@ When FILES is nil, all dirty paths are staged."
    ogent-armory-git--root
    (read-string "Commit message: "))
   (ogent-armory-git-refresh))
+
+(defun ogent-armory-git--evil-local-keys ()
+  "Install local Evil keys for Armory git."
+  (ogent-armory-evil-install-local-bindings ogent-armory-git-mode-map))
+
+(defun ogent-armory-git--setup-evil ()
+  "Set up Evil integration for Armory git."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-git-mode
+   ogent-armory-git-mode-map
+   'ogent-armory-git-mode-hook
+   #'ogent-armory-git--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-git--setup-evil))
 
 (provide 'ogent-armory-git)
 

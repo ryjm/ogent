@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'tabulated-list)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-schedule)
@@ -616,6 +617,21 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
     ogent-armory-actions--root
     ogent-armory-actions--conversation-id))
   (ogent-armory-actions-refresh))
+
+(defun ogent-armory-actions--evil-local-keys ()
+  "Install local Evil keys for Armory actions."
+  (ogent-armory-evil-install-local-bindings ogent-armory-actions-mode-map))
+
+(defun ogent-armory-actions--setup-evil ()
+  "Set up Evil integration for Armory actions."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-actions-mode
+   ogent-armory-actions-mode-map
+   'ogent-armory-actions-mode-hook
+   #'ogent-armory-actions--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-actions--setup-evil))
 
 (provide 'ogent-armory-actions)
 

@@ -12,6 +12,7 @@
 (require 'subr-x)
 (require 'ogent-armory)
 (require 'ogent-armory-adapter)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-skills)
@@ -351,6 +352,21 @@
      ogent-armory-compose--agent
      instruction
      :attachments (nreverse ogent-armory-compose--attachments))))
+
+(defun ogent-armory-compose--evil-local-keys ()
+  "Install local Evil keys for Armory compose."
+  (ogent-armory-evil-install-local-bindings ogent-armory-compose-mode-map))
+
+(defun ogent-armory-compose--setup-evil ()
+  "Set up Evil integration for Armory compose."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-compose-mode
+   ogent-armory-compose-mode-map
+   'ogent-armory-compose-mode-hook
+   #'ogent-armory-compose--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-compose--setup-evil))
 
 (provide 'ogent-armory-compose)
 

@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-data)
 (require 'ogent-armory-settings)
@@ -33,14 +34,6 @@
 (autoload 'ogent-armory-git-status "ogent-armory-git" nil t)
 (autoload 'ogent-armory-command-palette "ogent-armory-palette" nil t)
 
-(declare-function evil-set-initial-state "ext:evil-core")
-(declare-function evil-make-overriding-map "ext:evil-core")
-(declare-function evil-normalize-keymaps "ext:evil-core")
-(declare-function evil-local-set-key "ext:evil-core")
-(declare-function evil-goto-first-line "ext:evil-commands")
-(declare-function evil-goto-line "ext:evil-commands")
-(declare-function evil-next-line "ext:evil-commands")
-(declare-function evil-previous-line "ext:evil-commands")
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-insert-section--create "ext:magit-section")
@@ -3203,6 +3196,7 @@ With FORCE, skip confirmation."
 (defun ogent-armory-ui--section-keymaps ()
   "Return Armory UI keymaps that contain collapsible sections."
   (list ogent-armory-home-mode-map
+        ogent-armory-org-chart-mode-map
         ogent-armory-agent-mode-map
         ogent-armory-conversation-mode-map))
 
@@ -3218,80 +3212,64 @@ With FORCE, skip confirmation."
 (with-eval-after-load 'magit-section
   (ogent-armory-ui--setup-section-keymaps))
 
-(defun ogent-armory-ui--evil-refresh-command ()
-  "Return the refresh command for the current Armory UI mode."
+(defun ogent-armory-ui--evil-mode-map ()
+  "Return the Armory UI keymap for the current buffer."
   (pcase major-mode
-    ('ogent-armory-home-mode 'ogent-armory-home-refresh)
-    ('ogent-armory-agents-mode 'ogent-armory-agents-refresh)
-    ('ogent-armory-agent-mode 'ogent-armory-agent-refresh)
-    ('ogent-armory-jobs-mode 'ogent-armory-jobs-refresh)
-    ('ogent-armory-tasks-mode 'ogent-armory-tasks-refresh)
-    ('ogent-armory-conversations-mode 'ogent-armory-conversations-refresh)
-    ('ogent-armory-conversation-mode 'ogent-armory-conversation-refresh)
-    ('ogent-armory-search-mode 'ogent-armory-search-refresh)
-    ('ogent-armory-apps-mode 'ogent-armory-apps-refresh)))
-
-(defun ogent-armory-ui--evil-section-mode-p ()
-  "Return non-nil when the current Armory UI mode has collapsible sections."
-  (memq major-mode
-        '(ogent-armory-home-mode
-          ogent-armory-agent-mode
-          ogent-armory-conversation-mode)))
-
-(defun ogent-armory-ui--evil-bind-local (key command)
-  "Bind Evil normal-state KEY to COMMAND when COMMAND is available."
-  (when (and (fboundp 'evil-local-set-key)
-             (fboundp command))
-    (evil-local-set-key 'normal key command)))
+    ('ogent-armory-home-mode ogent-armory-home-mode-map)
+    ('ogent-armory-agents-mode ogent-armory-agents-mode-map)
+    ('ogent-armory-org-chart-mode ogent-armory-org-chart-mode-map)
+    ('ogent-armory-agent-mode ogent-armory-agent-mode-map)
+    ('ogent-armory-jobs-mode ogent-armory-jobs-mode-map)
+    ('ogent-armory-tasks-mode ogent-armory-tasks-mode-map)
+    ('ogent-armory-conversations-mode ogent-armory-conversations-mode-map)
+    ('ogent-armory-conversation-mode ogent-armory-conversation-mode-map)
+    ('ogent-armory-search-mode ogent-armory-search-mode-map)
+    ('ogent-armory-apps-mode ogent-armory-apps-mode-map)))
 
 (defun ogent-armory-ui--evil-local-keys ()
-  "Install local Evil normal-state keys for Armory UI buffers."
-  (ogent-armory-ui--evil-bind-local "j" 'evil-next-line)
-  (ogent-armory-ui--evil-bind-local "k" 'evil-previous-line)
-  (ogent-armory-ui--evil-bind-local "gg" 'evil-goto-first-line)
-  (ogent-armory-ui--evil-bind-local "G" 'evil-goto-line)
-  (when-let ((refresh (ogent-armory-ui--evil-refresh-command)))
-    (ogent-armory-ui--evil-bind-local "gr" refresh))
-  (when (ogent-armory-ui--evil-section-mode-p)
-    (ogent-armory-ui--evil-bind-local "gj" 'ogent-armory-ui-next-section)
-    (ogent-armory-ui--evil-bind-local "gk" 'ogent-armory-ui-previous-section))
-  (ogent-armory-ui--evil-bind-local "ZZ" 'quit-window)
-  (ogent-armory-ui--evil-bind-local "ZQ" 'quit-window))
+  "Install local Evil keys for Armory UI buffers."
+  (when-let ((map (ogent-armory-ui--evil-mode-map)))
+    (ogent-armory-evil-install-local-bindings map)))
+
+(defun ogent-armory-ui--evil-mode-specs ()
+  "Return Armory UI Evil setup specs."
+  `((ogent-armory-home-mode
+     ,ogent-armory-home-mode-map
+     ogent-armory-home-mode-hook)
+    (ogent-armory-agents-mode
+     ,ogent-armory-agents-mode-map
+     ogent-armory-agents-mode-hook)
+    (ogent-armory-org-chart-mode
+     ,ogent-armory-org-chart-mode-map
+     ogent-armory-org-chart-mode-hook)
+    (ogent-armory-agent-mode
+     ,ogent-armory-agent-mode-map
+     ogent-armory-agent-mode-hook)
+    (ogent-armory-jobs-mode
+     ,ogent-armory-jobs-mode-map
+     ogent-armory-jobs-mode-hook)
+    (ogent-armory-tasks-mode
+     ,ogent-armory-tasks-mode-map
+     ogent-armory-tasks-mode-hook)
+    (ogent-armory-conversations-mode
+     ,ogent-armory-conversations-mode-map
+     ogent-armory-conversations-mode-hook)
+    (ogent-armory-conversation-mode
+     ,ogent-armory-conversation-mode-map
+     ogent-armory-conversation-mode-hook)
+    (ogent-armory-search-mode
+     ,ogent-armory-search-mode-map
+     ogent-armory-search-mode-hook)
+    (ogent-armory-apps-mode
+     ,ogent-armory-apps-mode-map
+     ogent-armory-apps-mode-hook)))
 
 (defun ogent-armory-ui--setup-evil ()
   "Set up Evil integration for Armory UI buffers."
-  (when (fboundp 'evil-set-initial-state)
-    (dolist (mode '(ogent-armory-home-mode
-                    ogent-armory-agents-mode
-                    ogent-armory-agent-mode
-                    ogent-armory-jobs-mode
-                    ogent-armory-tasks-mode
-                    ogent-armory-conversations-mode
-                    ogent-armory-conversation-mode
-                    ogent-armory-search-mode
-                    ogent-armory-apps-mode))
-      (evil-set-initial-state mode 'normal))
-    (dolist (map (list ogent-armory-home-mode-map
-                       ogent-armory-agents-mode-map
-                       ogent-armory-agent-mode-map
-                       ogent-armory-jobs-mode-map
-                       ogent-armory-tasks-mode-map
-                       ogent-armory-conversations-mode-map
-                       ogent-armory-conversation-mode-map
-                       ogent-armory-search-mode-map
-                       ogent-armory-apps-mode-map))
-      (evil-make-overriding-map map 'all))
-    (dolist (hook '(ogent-armory-home-mode-hook
-                    ogent-armory-agents-mode-hook
-                    ogent-armory-agent-mode-hook
-                    ogent-armory-jobs-mode-hook
-                    ogent-armory-tasks-mode-hook
-                    ogent-armory-conversations-mode-hook
-                    ogent-armory-conversation-mode-hook
-                    ogent-armory-search-mode-hook
-                    ogent-armory-apps-mode-hook))
-      (add-hook hook #'ogent-armory-ui--evil-local-keys)
-      (add-hook hook #'evil-normalize-keymaps))))
+  (dolist (spec (ogent-armory-ui--evil-mode-specs))
+    (pcase-let ((`(,mode ,map ,hook) spec))
+      (ogent-armory-evil-setup-mode
+       mode map hook #'ogent-armory-ui--evil-local-keys))))
 
 (with-eval-after-load 'evil
   (ogent-armory-ui--setup-evil))

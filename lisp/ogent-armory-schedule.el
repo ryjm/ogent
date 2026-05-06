@@ -15,6 +15,7 @@
 (require 'tabulated-list)
 (require 'time-date)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 
@@ -621,6 +622,21 @@ for deterministic missed-run detection."
     (when (called-interactively-p 'interactive)
       (pop-to-buffer buffer))
     buffer))
+
+(defun ogent-armory-schedule--evil-local-keys ()
+  "Install local Evil keys for Armory schedule."
+  (ogent-armory-evil-install-local-bindings ogent-armory-schedule-mode-map))
+
+(defun ogent-armory-schedule--setup-evil ()
+  "Set up Evil integration for Armory schedule."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-schedule-mode
+   ogent-armory-schedule-mode-map
+   'ogent-armory-schedule-mode-hook
+   #'ogent-armory-schedule--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-schedule--setup-evil))
 
 (provide 'ogent-armory-schedule)
 

@@ -10,6 +10,7 @@
 (require 'subr-x)
 (require 'tabulated-list)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 
 (defgroup ogent-armory-skills nil
   "Skill catalog for Org Armory."
@@ -189,6 +190,21 @@ KEY overrides the derived skill key.  ORIGIN records provenance."
   (let ((skill (or (tabulated-list-get-id)
                    (user-error "No Armory skill at point"))))
     (find-file (plist-get skill :path))))
+
+(defun ogent-armory-skills--evil-local-keys ()
+  "Install local Evil keys for Armory skills."
+  (ogent-armory-evil-install-local-bindings ogent-armory-skills-mode-map))
+
+(defun ogent-armory-skills--setup-evil ()
+  "Set up Evil integration for Armory skills."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-skills-mode
+   ogent-armory-skills-mode-map
+   'ogent-armory-skills-mode-hook
+   #'ogent-armory-skills--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-skills--setup-evil))
 
 (provide 'ogent-armory-skills)
 

@@ -16,6 +16,7 @@
 (require 'time-date)
 (require 'browse-url)
 (require 'ogent-armory)
+(require 'ogent-armory-evil)
 
 (defgroup ogent-armory-data nil
   "Armory data browser and page operations."
@@ -529,6 +530,21 @@ When KIND is non-nil, only records of that kind are offered."
               (intern (completing-read "Format: "
                                        '("html" "md" "text" "org")
                                        nil t))))))
+
+(defun ogent-armory-data--evil-local-keys ()
+  "Install local Evil keys for Armory data."
+  (ogent-armory-evil-install-local-bindings ogent-armory-data-mode-map))
+
+(defun ogent-armory-data--setup-evil ()
+  "Set up Evil integration for Armory data."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-data-mode
+   ogent-armory-data-mode-map
+   'ogent-armory-data-mode-hook
+   #'ogent-armory-data--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-data--setup-evil))
 
 (provide 'ogent-armory-data)
 

@@ -146,6 +146,7 @@
 (ert-deftest ogent-ui-armory-section-keybindings-are-consistent ()
   "Armory special buffers expose Magit-style section navigation."
   (dolist (map (list ogent-armory-home-mode-map
+                     ogent-armory-org-chart-mode-map
                      ogent-armory-agent-mode-map
                      ogent-armory-conversation-mode-map))
     (dolist (pair `(("TAB" . ,#'ogent-armory-ui-toggle-section)
@@ -231,6 +232,7 @@
   (unless (ogent-armory-ui--magit-section-usable-p)
     (ert-skip "magit-section not available"))
   (dolist (mode '(ogent-armory-home-mode
+                  ogent-armory-org-chart-mode
                   ogent-armory-agent-mode
                   ogent-armory-conversation-mode))
     (with-temp-buffer
@@ -238,9 +240,10 @@
       (should (derived-mode-p 'magit-section-mode)))))
 
 (ert-deftest ogent-ui-armory-evil-overrides-all-ui-keymaps ()
-  "Armory UI maps remain active while Evil normal state owns movement."
+  "Armory UI maps remain active in Evil states."
   (let ((ogent-armory-home-mode-hook nil)
         (ogent-armory-agents-mode-hook nil)
+        (ogent-armory-org-chart-mode-hook nil)
         (ogent-armory-agent-mode-hook nil)
         (ogent-armory-jobs-mode-hook nil)
         (ogent-armory-tasks-mode-hook nil)
@@ -261,6 +264,7 @@
       (ogent-armory-ui--setup-evil))
     (dolist (mode '(ogent-armory-home-mode
                     ogent-armory-agents-mode
+                    ogent-armory-org-chart-mode
                     ogent-armory-agent-mode
                     ogent-armory-jobs-mode
                     ogent-armory-tasks-mode
@@ -271,6 +275,7 @@
       (should (member (cons mode 'normal) states)))
     (dolist (map (list ogent-armory-home-mode-map
                        ogent-armory-agents-mode-map
+                       ogent-armory-org-chart-mode-map
                        ogent-armory-agent-mode-map
                        ogent-armory-jobs-mode-map
                        ogent-armory-tasks-mode-map
@@ -281,6 +286,7 @@
       (should (member (cons map 'all) maps)))
     (dolist (hook (list ogent-armory-home-mode-hook
                         ogent-armory-agents-mode-hook
+                        ogent-armory-org-chart-mode-hook
                         ogent-armory-agent-mode-hook
                         ogent-armory-jobs-mode-hook
                         ogent-armory-tasks-mode-hook
@@ -291,33 +297,34 @@
       (should (memq #'ogent-armory-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
-(ert-deftest ogent-ui-armory-evil-local-keys-match-magit-navigation ()
-  "Armory section buffers add Evil normal-state Magit navigation keys."
+(ert-deftest ogent-ui-armory-evil-local-keys-mirror-home-keymap ()
+  "Armory Home Evil keys mirror the Home keymap."
   (let (keys)
     (with-temp-buffer
       (ogent-armory-home-mode)
       (cl-letf (((symbol-function 'evil-local-set-key)
                  (lambda (state key command)
                    (push (list state key command) keys)))
-                ((symbol-function 'evil-goto-first-line)
-                 (lambda () (interactive)))
-                ((symbol-function 'evil-goto-line)
-                 (lambda () (interactive)))
                 ((symbol-function 'evil-next-line)
                  (lambda () (interactive)))
                 ((symbol-function 'evil-previous-line)
                  (lambda () (interactive))))
         (ogent-armory-ui--evil-local-keys)))
-    (dolist (binding '(("j" evil-next-line)
+    (dolist (binding '(("m" ogent-armory-home-dispatch)
+                       ("?" ogent-armory-home-help)
+                       ("j" ogent-armory-jobs)
+                       ("G" ogent-armory-status)
+                       ("g" ogent-armory-home-refresh)
+                       ("TAB" ogent-armory-ui-toggle-section)
+                       ("RET" ogent-armory-home-visit)
                        ("k" evil-previous-line)
-                       ("gg" evil-goto-first-line)
-                       ("G" evil-goto-line)
-                       ("gr" ogent-armory-home-refresh)
-                       ("gj" ogent-armory-ui-next-section)
-                       ("gk" ogent-armory-ui-previous-section)
                        ("ZZ" quit-window)
                        ("ZQ" quit-window)))
-      (should (member (list 'normal (car binding) (cadr binding)) keys)))))
+      (dolist (state '(normal motion))
+        (should (member (list state (kbd (car binding)) (cadr binding))
+                        keys))))
+    (dolist (state '(normal motion))
+      (should-not (member (list state (kbd "j") #'evil-next-line) keys)))))
 
 (ert-deftest ogent-ui-armory-home-magit-sections-collapse ()
   "Armory Home headings are real collapsible sections when Magit is present."
@@ -1291,9 +1298,10 @@
               #'ogent-armory-apps)))
 
 (ert-deftest ogent-ui-armory-evil-overrides-dispatch-keymaps ()
-  "Armory UI dispatch keys remain active in Evil normal state."
+  "Armory UI dispatch keys remain active in Evil states."
   (let ((ogent-armory-home-mode-hook nil)
         (ogent-armory-agents-mode-hook nil)
+        (ogent-armory-org-chart-mode-hook nil)
         (ogent-armory-agent-mode-hook nil)
         (ogent-armory-jobs-mode-hook nil)
         (ogent-armory-tasks-mode-hook nil)
@@ -1314,6 +1322,7 @@
       (ogent-armory-ui--setup-evil))
     (dolist (mode '(ogent-armory-home-mode
                     ogent-armory-agents-mode
+                    ogent-armory-org-chart-mode
                     ogent-armory-agent-mode
                     ogent-armory-jobs-mode
                     ogent-armory-tasks-mode
@@ -1324,6 +1333,7 @@
       (should (member (cons mode 'normal) states)))
     (dolist (map (list ogent-armory-home-mode-map
                        ogent-armory-agents-mode-map
+                       ogent-armory-org-chart-mode-map
                        ogent-armory-agent-mode-map
                        ogent-armory-jobs-mode-map
                        ogent-armory-tasks-mode-map
@@ -1334,6 +1344,7 @@
       (should (member (cons map 'all) maps)))
     (dolist (hook (list ogent-armory-home-mode-hook
                         ogent-armory-agents-mode-hook
+                        ogent-armory-org-chart-mode-hook
                         ogent-armory-agent-mode-hook
                         ogent-armory-jobs-mode-hook
                         ogent-armory-tasks-mode-hook
@@ -1341,6 +1352,7 @@
                         ogent-armory-conversation-mode-hook
                         ogent-armory-search-mode-hook
                         ogent-armory-apps-mode-hook))
+      (should (memq #'ogent-armory-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-armory-tests)
