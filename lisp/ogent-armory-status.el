@@ -10,6 +10,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'time-date)
 (require 'transient)
 (require 'ogent-armory)
 (require 'ogent-armory-runner)
@@ -68,6 +69,16 @@
 (defcustom ogent-armory-status-buffer-name-format "*ogent-armory: %s*"
   "Format string used for Armory status buffer names."
   :type 'string
+  :group 'ogent-armory-status)
+
+(defcustom ogent-armory-status-show-node-ids nil
+  "Non-nil means show graph node ids in Armory status rows."
+  :type 'boolean
+  :group 'ogent-armory-status)
+
+(defcustom ogent-armory-status-max-related-items 6
+  "Maximum recent work and artifact rows shown before summarizing the rest."
+  :type 'integer
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-heading
@@ -322,13 +333,20 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 
 (defun ogent-armory-status--header-line ()
   "Return header line text for the current Armory status buffer."
-  (concat
-   "m menu  ? help  g refresh  RET visit  n/p move  TAB section  M-n/p sections  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
-   (when ogent-armory-status--root
-     (concat "    "
-             (propertize
-              (abbreviate-file-name ogent-armory-status--root)
-              'face 'ogent-armory-status-dimmed)))))
+  (let* ((node (ignore-errors (ogent-armory-status--node-at-point)))
+         (context (when node
+                    (format "    %s %s"
+                            (symbol-name (plist-get node :kind))
+                            (or (plist-get node :label) "")))))
+    (concat
+     "m menu  ? help  g refresh  RET visit  TAB fold  n/p item"
+     (when context
+       (propertize context 'face 'ogent-armory-status-dimmed))
+     (when ogent-armory-status--root
+       (concat "    "
+               (propertize
+                (abbreviate-file-name ogent-armory-status--root)
+                'face 'ogent-armory-status-dimmed))))))
 
 (defun ogent-armory-status--nodes-by-kind (kind)
   "Return graph nodes whose `:kind' is KIND."
@@ -351,6 +369,145 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
    (lambda (node)
      (equal (plist-get node :id) node-id))
    (plist-get ogent-armory-status--graph :nodes)))
+
+(defun ogent-armory-status--plural (count singular &optional plural)
+  "Return COUNT followed by SINGULAR or PLURAL label."
+  (format "%d %s" count (if (= count 1) singular (or plural (concat singular "s")))))
+
+(defun ogent-armory-status--node-count (kind)
+  "Return the number of graph nodes whose kind is KIND."
+  (length (ogent-armory-status--nodes-by-kind kind)))
+
+(defun ogent-armory-status--agent-state (data)
+  "Return operational state for agent DATA."
+  (cond
+   ((ogent-armory-runner-running-p (plist-get data :slug)) 'working)
+   ((plist-get data :active) 'active)
+   (t 'idle)))
+
+(defun ogent-armory-status--state-face (state)
+  "Return face for operational STATE."
+  (if (memq state '(active working ready connected closed merged processing))
+      'ogent-armory-status-connected
+    'ogent-armory-status-disconnected))
+
+(defun ogent-armory-status--runtime-label (data)
+  "Return provider/model label for DATA."
+  (ogent-armory--blank-to-nil
+   (string-join
+    (delq nil
+          (list (ogent-armory--blank-to-nil (plist-get data :provider))
+                (ogent-armory--blank-to-nil (plist-get data :model))))
+    "/")))
+
+(defun ogent-armory-status--clock-label (minute hour)
+  "Return HH:MM for cron MINUTE and HOUR fields when they are simple."
+  (when (and (string-match-p "\\`[0-9]+\\'" minute)
+             (string-match-p "\\`[0-9]+\\'" hour))
+    (let ((minute-number (string-to-number minute))
+          (hour-number (string-to-number hour)))
+      (when (and (<= 0 minute-number 59)
+                 (<= 0 hour-number 23))
+        (format "%02d:%02d" hour-number minute-number)))))
+
+(defun ogent-armory-status--weekday-label (day)
+  "Return short weekday label for cron DAY."
+  (cdr (assoc day
+              '(("0" . "Sun")
+                ("1" . "Mon")
+                ("2" . "Tue")
+                ("3" . "Wed")
+                ("4" . "Thu")
+                ("5" . "Fri")
+                ("6" . "Sat")
+                ("7" . "Sun")))))
+
+(defun ogent-armory-status--cron-label (cron)
+  "Return a readable label for common CRON schedules."
+  (let ((fields (split-string cron "[ \t]+" t)))
+    (if (/= (length fields) 5)
+        (concat "cron " cron)
+      (let* ((minute (nth 0 fields))
+             (hour (nth 1 fields))
+             (day-of-month (nth 2 fields))
+             (month (nth 3 fields))
+             (day-of-week (nth 4 fields))
+             (time (ogent-armory-status--clock-label minute hour))
+             (weekday (ogent-armory-status--weekday-label day-of-week)))
+        (cond
+         ((and (string= minute "0")
+               (string= hour "*")
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          "hourly")
+         ((and (string-match "\\`\\*/\\([0-9]+\\)\\'" minute)
+               (string= hour "*")
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "every %s min" (match-string 1 minute)))
+         ((and time
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "daily %s" time))
+         ((and time
+               weekday
+               (string= day-of-month "*")
+               (string= month "*"))
+          (format "weekly %s %s" weekday time))
+         ((and time
+               (string-match-p "\\`[0-9]+\\'" day-of-month)
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "monthly day %s %s" day-of-month time))
+         (t
+          (concat "cron " cron)))))))
+
+(defun ogent-armory-status--schedule-label (data)
+  "Return a quiet schedule label for job DATA."
+  (cond
+   ((ogent-armory--blank-to-nil (plist-get data :cron))
+    (ogent-armory-status--cron-label (plist-get data :cron)))
+   ((ogent-armory--blank-to-nil (plist-get data :run-after))
+    (concat "at " (plist-get data :run-after)))
+   ((ogent-armory--blank-to-nil (plist-get data :heartbeat))
+    (concat "heartbeat " (plist-get data :heartbeat)))
+   (t "manual")))
+
+(defun ogent-armory-status--session-time (node)
+  "Return sortable completion time for session NODE."
+  (or (plist-get (plist-get node :data) :finished) ""))
+
+(defun ogent-armory-status--session-state (status)
+  "Return display state for session STATUS."
+  (cond
+   ((string= status "DONE") 'closed)
+   ((string= status "FAILED") 'failed)
+   ((string= status "RUNNING") 'processing)
+   (t 'waiting)))
+
+(defun ogent-armory-status--short-time (timestamp)
+  "Return a compact display label for TIMESTAMP."
+  (when-let ((value (ogent-armory--blank-to-nil timestamp)))
+    (or (ignore-errors
+          (let* ((time (date-to-time value))
+                 (time-year (format-time-string "%Y" time))
+                 (current-year (format-time-string "%Y" (current-time))))
+            (format-time-string
+             (if (string= time-year current-year)
+                 "%b %d %H:%M"
+               "%Y-%m-%d %H:%M")
+             time)))
+        value)))
+
+(defun ogent-armory-status--take-with-rest (items limit)
+  "Return plist containing visible ITEMS and hidden count after LIMIT."
+  (let* ((limit (max 0 (or limit 0)))
+         (visible (seq-take items limit))
+         (rest (- (length items) (length visible))))
+    (list :visible visible :rest rest)))
 
 (defmacro ogent-armory-status--with-section (section heading &rest body)
   "Insert collapsible SECTION with HEADING around BODY when Magit is present."
@@ -403,7 +560,9 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (insert "\n")
   (ogent-armory-status--insert-agents)
   (insert "\n")
-  (ogent-armory-status--insert-related)
+  (ogent-armory-status--insert-recent-work)
+  (insert "\n")
+  (ogent-armory-status--insert-artifacts)
   (insert "\n")
   (ogent-armory-status--insert-bridges))
 
@@ -424,21 +583,24 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status--insert-summary ()
   "Insert graph summary section."
   (let* ((armory (car (ogent-armory-status--nodes-by-kind 'armory)))
-         (nodes (plist-get ogent-armory-status--graph :nodes))
-         (edges (plist-get ogent-armory-status--graph :edges)))
+         (agents (ogent-armory-status--node-count 'agent))
+         (jobs (ogent-armory-status--node-count 'job))
+         (sessions (ogent-armory-status--node-count 'session))
+         (apps (ogent-armory-status--node-count 'app))
+         (issues (ogent-armory-status--node-count 'issue)))
     (ogent-armory-status--with-section (ogent-armory-status-summary)
-        (ogent-armory-status--heading-text "◇" "C" "Armory Graph" 1)
+        (ogent-armory-status--heading-text "◇" "O" "Overview")
       (when armory
         (ogent-armory-status--insert-node-line
          armory
-         (format "%s  %s nodes, %s edges"
+         (format "%s  %s  %s  %s  %s  %s"
                  (propertize (or (plist-get armory :label) "Armory")
                              'face 'ogent-armory-status-label)
-                 (length nodes)
-                 (length edges))))
-      (insert "  ")
-      (insert (propertize "Projection: " 'face 'ogent-armory-status-dimmed))
-      (insert "Org files -> typed graph -> operational views\n"))))
+                 (ogent-armory-status--plural agents "agent")
+                 (ogent-armory-status--plural jobs "job")
+                 (ogent-armory-status--plural sessions "run")
+                 (ogent-armory-status--plural apps "app")
+                 (ogent-armory-status--plural issues "issue")))))))
 
 (defun ogent-armory-status--insert-agents ()
   "Insert agents and their scheduled jobs."
@@ -455,31 +617,25 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                              (plist-get edge :to)))
                           (ogent-armory-status--edges-from id 'owns)))
                    (provider (or (plist-get data :provider) "codex"))
-                   (status (cond
-                            ((ogent-armory-runner-running-p
-                              (plist-get data :slug))
-                             'working)
-                            ((plist-get data :active) 'active)
-                            (t 'idle))))
+                   (runtime (or (ogent-armory-status--runtime-label data)
+                                provider))
+                   (status (ogent-armory-status--agent-state data)))
               (ogent-armory-status--insert-node-line
                agent
-               (format "%s %s  %s  %s  %s%s"
+               (format "%s %-28s %-9s %-18s %s"
                        (propertize (ogent-ops-activity-symbol status)
-                                   'face (if (memq status '(active working))
-                                             'ogent-armory-status-connected
-                                           'ogent-armory-status-disconnected))
+                                   'face (ogent-armory-status--state-face
+                                          status))
                        (propertize (plist-get agent :label)
                                    'face 'ogent-armory-status-label)
                        (propertize
-                        (or (plist-get data :role) "Agent")
+                        (symbol-name status)
                         'face 'ogent-armory-status-dimmed)
-                       (propertize provider
+                       (propertize runtime
                                    'face 'ogent-armory-status-dimmed)
                        (propertize
-                        (format "%d jobs" (length jobs))
-                        'face 'ogent-armory-status-dimmed)
-                       (propertize "  [P profile] [C job] [R run]"
-                                   'face 'ogent-armory-status-id)))
+                        (ogent-armory-status--plural (length jobs) "job")
+                        'face 'ogent-armory-status-dimmed)))
               (dolist (job jobs)
                 (when job
                   (ogent-armory-status--insert-node-line
@@ -489,48 +645,116 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
         (insert (propertize "  No agents yet\n"
                             'face 'ogent-armory-status-dimmed))))))
 
-(defun ogent-armory-status--insert-related ()
-  "Insert non-agent graph nodes."
-  (let ((nodes (seq-filter
-                (lambda (node)
-                  (memq (plist-get node :kind)
-                        '(session app issue gastown-hook)))
-                (plist-get ogent-armory-status--graph :nodes))))
-    (ogent-armory-status--with-section (ogent-armory-status-relationships)
-        (ogent-armory-status--heading-text "◇" "R" "Relationships" (length nodes))
-      (if nodes
-          (dolist (node nodes)
-            (ogent-armory-status--insert-node-line
-             node
-             (format "%s  %s"
-                     (propertize (symbol-name (plist-get node :kind))
-                                 'face 'ogent-armory-status-dimmed)
-                     (propertize (or (plist-get node :label) "")
-                                 'face 'ogent-armory-status-label))))
-        (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
+(defun ogent-armory-status--insert-recent-work ()
+  "Insert recent session nodes."
+  (let* ((sessions (seq-sort-by
+                    #'ogent-armory-status--session-time
+                    #'string>
+                    (ogent-armory-status--nodes-by-kind 'session)))
+         (split (ogent-armory-status--take-with-rest
+                 sessions
+                 ogent-armory-status-max-related-items))
+         (visible (plist-get split :visible))
+         (rest (plist-get split :rest)))
+    (ogent-armory-status--with-section (ogent-armory-status-recent-work)
+        (ogent-armory-status--heading-text "◇" "W" "Recent Work" (length sessions))
+      (if visible
+          (progn
+            (dolist (node visible)
+              (ogent-armory-status--insert-node-line
+               node
+               (ogent-armory-status--format-session-line node)))
+            (when (> rest 0)
+              (insert (propertize
+                       (format "  %s more. Press c for the conversation list.\n"
+                               rest)
+                       'face 'ogent-armory-status-dimmed))))
+        (insert (propertize "  No completed sessions yet\n"
+                            'face 'ogent-armory-status-dimmed))))))
+
+(defun ogent-armory-status--insert-artifacts ()
+  "Insert app and issue nodes."
+  (let* ((nodes (seq-filter
+                 (lambda (node)
+                   (memq (plist-get node :kind) '(app issue)))
+                 (plist-get ogent-armory-status--graph :nodes)))
+         (split (ogent-armory-status--take-with-rest
+                 nodes
+                 ogent-armory-status-max-related-items))
+         (visible (plist-get split :visible))
+         (rest (plist-get split :rest)))
+    (ogent-armory-status--with-section (ogent-armory-status-artifacts)
+        (ogent-armory-status--heading-text "◇" "F" "Artifacts" (length nodes))
+      (if visible
+          (progn
+            (dolist (node visible)
+              (ogent-armory-status--insert-node-line
+               node
+               (ogent-armory-status--format-artifact-line node)))
+            (when (> rest 0)
+              (insert (propertize
+                       (format "  %s more. Press A for apps or i for issues.\n"
+                               rest)
+                       'face 'ogent-armory-status-dimmed))))
+        (insert (propertize "  No apps or linked issues yet\n"
                             'face 'ogent-armory-status-dimmed))))))
 
 (defun ogent-armory-status--format-job-line (job)
   "Return display text for JOB."
   (let* ((data (plist-get job :data))
          (enabled (plist-get data :enabled))
-         (state (if enabled 'ready 'waiting)))
-    (format "%s %s  %s%s"
+         (state (if enabled 'ready 'waiting))
+         (label (if enabled "enabled" "paused")))
+    (format "%s %-28s %-9s %s"
             (propertize (ogent-ops-status-symbol state)
-                        'face (if enabled
-                                  'ogent-armory-status-connected
-                                'ogent-armory-status-disconnected))
+                        'face (ogent-armory-status--state-face state))
             (propertize (plist-get job :label)
                         'face 'ogent-armory-status-label)
-            (propertize (or (plist-get data :cron) "manual")
+            (propertize label
                         'face 'ogent-armory-status-dimmed)
-            (propertize "  [R run] [e edit] [E prompt]"
-                        'face 'ogent-armory-status-id))))
+            (propertize (ogent-armory-status--schedule-label data)
+                        'face 'ogent-armory-status-dimmed))))
+
+(defun ogent-armory-status--format-session-line (node)
+  "Return display text for session NODE."
+  (let* ((data (plist-get node :data))
+         (status (format "%s" (or (plist-get data :status) "session")))
+         (state (ogent-armory-status--session-state status))
+         (duration (or (plist-get data :duration) ""))
+         (finished (ogent-armory-status--short-time
+                    (plist-get data :finished))))
+    (format "%s %-42s %-9s %s"
+            (propertize (ogent-ops-status-symbol state)
+                        'face (ogent-armory-status--state-face state))
+            (propertize (or (plist-get node :label) "")
+                        'face 'ogent-armory-status-label)
+            (propertize (downcase status) 'face 'ogent-armory-status-dimmed)
+            (propertize
+             (string-join (delq nil
+                                (list (ogent-armory--blank-to-nil duration)
+                                      (ogent-armory--blank-to-nil finished)))
+                          "  ")
+             'face 'ogent-armory-status-dimmed))))
+
+(defun ogent-armory-status--format-artifact-line (node)
+  "Return display text for app or issue NODE."
+  (let ((kind (symbol-name (plist-get node :kind)))
+        (label (or (plist-get node :label) ""))
+        (data (plist-get node :data)))
+    (format "%s %-9s %s%s"
+            (propertize (ogent-ops-status-symbol 'ready)
+                        'face 'ogent-armory-status-connected)
+            (propertize kind 'face 'ogent-armory-status-dimmed)
+            (propertize label 'face 'ogent-armory-status-label)
+            (if-let ((agent (plist-get data :agent)))
+                (propertize (format "  %s" agent)
+                            'face 'ogent-armory-status-dimmed)
+              ""))))
 
 (defun ogent-armory-status--insert-bridges ()
   "Insert operational bridge section."
   (ogent-armory-status--with-section (ogent-armory-status-bridges)
-      (ogent-armory-status--heading-text "◈" "B" "Operational Bridges")
+      (ogent-armory-status--heading-text "◈" "B" "Bridges")
     (ogent-armory-status--insert-bridge-line
      "Ogent Issues"
      (ogent-armory-status--issues-state)
@@ -545,9 +769,10 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (let ((start (point)))
     (insert (or prefix "  "))
     (insert text)
-    (insert "  ")
-    (insert (propertize (plist-get node :id)
-                        'face 'ogent-armory-status-id))
+    (when ogent-armory-status-show-node-ids
+      (insert "  ")
+      (insert (propertize (plist-get node :id)
+                          'face 'ogent-armory-status-id)))
     (insert "\n")
     (add-text-properties
      start
@@ -581,9 +806,8 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
     (insert "  ")
     (insert (propertize (plist-get state :message)
                         'face 'ogent-armory-status-dimmed))
-    (insert "  ")
-    (insert (propertize (format "[%s]" key)
-                        'face 'ogent-armory-status-id))
+    (insert (propertize (format "  %s" key)
+                        'face 'ogent-armory-status-dimmed))
     (insert "\n")))
 
 (defun ogent-armory-status--issues-state ()
@@ -862,6 +1086,7 @@ DIRECTION is either `next' or `previous'."
   (with-help-window "*Ogent Armory Status Help*"
     (princ "Armory Status\n")
     (princ "==============\n\n")
+    (princ "Rows stay quiet by default. Use m for actions on the item at point.\n")
     (princ "Move with n/p. RET visits the durable Org source for the item at point.\n\n")
     (princ "Node actions\n")
     (princ "------------\n")
@@ -874,8 +1099,9 @@ DIRECTION is either `next' or `previous'."
     (princ "h Home, a Agents, t Tasks, c Conversations, s Search, A Apps, i Issues, G Gas Town.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
-    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")
+    (princ "m opens the Transient menu. ? opens this help buffer. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n")
+    (princ "Set `ogent-armory-status-show-node-ids' to show graph ids inline.\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n")))
 
 (defun ogent-armory-status-toggle-section ()

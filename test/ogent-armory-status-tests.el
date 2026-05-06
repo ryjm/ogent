@@ -49,14 +49,21 @@
             (should (equal ogent-armory-status--root
                            (file-truename dir)))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
-              (should (string-match-p "Armory Graph" text))
+              (should (string-match-p "Overview" text))
               (should (string-match-p "Company" text))
               (should (string-match-p "Agents" text))
               (should (string-match-p "CTO" text))
               (should (string-match-p "Weekly Review" text))
-              (should (string-match-p "Operational Bridges" text))
+              (should (string-match-p "weekly Mon 09:00" text))
+              (should-not (string-match-p "cron 0 9 \\* \\* 1" text))
+              (should (string-match-p "Recent Work" text))
+              (should (string-match-p "Artifacts" text))
+              (should (string-match-p "Bridges" text))
               (should (string-match-p "Ogent Issues" text))
-              (should (string-match-p "Gas Town" text))))
+              (should (string-match-p "Gas Town" text))
+              (should-not (string-match-p "\\[P profile\\]" text))
+              (should-not (string-match-p "\\[R run\\]" text))
+              (should-not (string-match-p "agent:cto" text))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -91,12 +98,62 @@
       (unwind-protect
           (with-current-buffer buffer
             (let ((header (ogent-armory-status--header-line)))
-              (dolist (key '("m menu" "? help" "e edit" "E body"
-                             "P profile" "J jobs" "C job" "R run"
-                             "TAB section" "M-n/p sections"))
+              (dolist (key '("m menu" "? help" "g refresh" "RET visit"
+                             "TAB fold" "n/p item"))
                 (should (string-match-p (regexp-quote key) header)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-status-header-shows-context-at-point ()
+  "The header shows contextual item identity without row-level command noise."
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-status-test--seed-agent-and-job dir)
+    (let ((buffer (ogent-armory-status dir)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (let ((header (ogent-armory-status--header-line)))
+              (should (string-match-p "job Weekly Review" header))
+              (should-not (string-match-p "P profile" header))
+              (should-not (string-match-p "C job" header))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-status-can-show-node-ids-for-debugging ()
+  "Node ids are hidden by default but available through customization."
+  (ogent-armory-status-test-with-temp-dir dir
+    (ogent-armory-status-test--seed-agent-and-job dir)
+    (let ((old-show-node-ids ogent-armory-status-show-node-ids)
+          buffer)
+      (unwind-protect
+          (progn
+            (setq ogent-armory-status-show-node-ids t)
+            (setq buffer (ogent-armory-status dir))
+            (with-current-buffer buffer
+              (let ((text (buffer-substring-no-properties (point-min) (point-max))))
+                (should (string-match-p "agent:cto" text))
+                (should (string-match-p "job:cto/weekly-review" text)))))
+        (setq ogent-armory-status-show-node-ids old-show-node-ids)
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-status-formats-recent-work-quietly ()
+  "Recent work hides redundant slugs and compresses timestamps."
+  (let* ((year (format-time-string "%Y" (current-time)))
+         (node `(:kind session
+                 :label "Architecture Steward Weekly Architecture Scan"
+                 :data (:status "FAILED"
+                        :agent "architecture-steward"
+                        :duration "153.76s"
+                        :finished ,(format "%s-05-05T11:42:37-0700" year))))
+         (text (substring-no-properties
+                (ogent-armory-status--format-session-line node))))
+    (should (string-match-p "failed" text))
+    (should (string-match-p "153.76s" text))
+    (should (string-match-p "May 05 11:42" text))
+    (should-not (string-match-p "architecture-steward" text))
+    (should-not (string-match-p "T11:42:37" text))))
 
 (ert-deftest ogent-armory-status-section-keybindings-are-discoverable ()
   "Armory status exposes Magit-style section controls."
@@ -208,7 +265,8 @@
         (should (string-match-p "R runs" text))
         (should (string-match-p "e edits" text))
         (should (string-match-p "TAB toggles" text))
-        (should (string-match-p "m opens this Transient menu" text))))))
+        (should (string-match-p "Rows stay quiet" text))
+        (should (string-match-p "m opens the Transient menu" text))))))
 
 (defun ogent-armory-status-test--seed-agent-and-job (dir)
   "Create a Armory with one agent and one job under DIR."
