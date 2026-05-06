@@ -131,9 +131,24 @@
     "OGENT_CRON"
     "OGENT_HEARTBEAT"
     "OGENT_ENABLED"
+    "OGENT_ADAPTER"
+    "OGENT_ADAPTER_CONFIG"
     "OGENT_PROVIDER"
     "OGENT_MODEL"
+    "OGENT_EFFORT"
+    "OGENT_RUNTIME_MODE"
     "OGENT_WORKSPACE"
+    "OGENT_TIMEOUT"
+    "OGENT_ON_COMPLETE"
+    "OGENT_ON_FAILURE"
+    "OGENT_ARMORY_PATH"
+    "OGENT_CREATED_AT"
+    "OGENT_UPDATED_AT"
+    "OGENT_RUN_AFTER"
+    "OGENT_OWNER_TASK"
+    "OGENT_ONE_SHOT_STATE"
+    "OGENT_LAST_RUN"
+    "OGENT_NEXT_RUN"
     "OGENT_TAGS"
     "OGENT_ARCHIVED")
   "Job properties editable from Armory status.")
@@ -144,9 +159,24 @@
     ("OGENT_CRON" . :cron)
     ("OGENT_HEARTBEAT" . :heartbeat)
     ("OGENT_ENABLED" . :enabled-raw)
+    ("OGENT_ADAPTER" . :adapter)
+    ("OGENT_ADAPTER_CONFIG" . :adapter-config)
     ("OGENT_PROVIDER" . :provider)
     ("OGENT_MODEL" . :model)
+    ("OGENT_EFFORT" . :effort)
+    ("OGENT_RUNTIME_MODE" . :runtime-mode)
     ("OGENT_WORKSPACE" . :workspace)
+    ("OGENT_TIMEOUT" . :timeout)
+    ("OGENT_ON_COMPLETE" . :on-complete)
+    ("OGENT_ON_FAILURE" . :on-failure)
+    ("OGENT_ARMORY_PATH" . :armory-path)
+    ("OGENT_CREATED_AT" . :created-at)
+    ("OGENT_UPDATED_AT" . :updated-at)
+    ("OGENT_RUN_AFTER" . :run-after)
+    ("OGENT_OWNER_TASK" . :owner-task)
+    ("OGENT_ONE_SHOT_STATE" . :one-shot-state)
+    ("OGENT_LAST_RUN" . :last-run)
+    ("OGENT_NEXT_RUN" . :next-run)
     ("OGENT_TAGS" . :tags)
     ("OGENT_ARCHIVED" . :archived-raw))
   "Map editable job Org properties to Armory job plist keys.")

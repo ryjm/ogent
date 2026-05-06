@@ -184,7 +184,8 @@
                &key job-id instruction conversation-id conversation-title
                turn-content trigger last-resume-result runtime-mode mentions
                skills pending-attachment-id attachment-paths provider model
-               effort adapter-id parent-task triggering-agent spawn-depth)
+               effort adapter-id parent-task triggering-agent spawn-depth
+               scheduled-at scheduled-key)
   "Return a process plan for AGENT-SLUG under DIRECTORY.
 JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
   (let* ((candidate (ogent-armory--directory directory))
@@ -262,6 +263,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
            :parent-task parent-task
            :triggering-agent triggering-agent
            :spawn-depth spawn-depth
+           :scheduled-at scheduled-at
+           :scheduled-key scheduled-key
            :last-resume-result last-resume-result))))
 
 (defun ogent-armory-runner--org-src-text (text)
@@ -422,6 +425,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
            ("OGENT_MENTIONS" . ,(plist-get plan :mentions))
            ("OGENT_SKILLS" . ,(plist-get plan :skills))
            ("OGENT_ATTACHMENTS" . ,attachments)
+           ("OGENT_SCHEDULED_AT" . ,(plist-get plan :scheduled-at))
+           ("OGENT_SCHEDULED_KEY" . ,(plist-get plan :scheduled-key))
            ("OGENT_PARENT_TASK" . ,(plist-get plan :parent-task))
            ("OGENT_TRIGGERING_AGENT" . ,(plist-get plan :triggering-agent))
            ("OGENT_SPAWN_DEPTH" . ,(plist-get plan :spawn-depth))
@@ -444,6 +449,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
               :effort (plist-get plan :effort)
               :job-id (plist-get job :id)
               :job-name (plist-get job :name)
+              :scheduled-at (plist-get plan :scheduled-at)
+              :scheduled-key (plist-get plan :scheduled-key)
               :mentioned-paths (plist-get plan :mentions)
               :skills (plist-get plan :skills)
               :attachment-paths attachments

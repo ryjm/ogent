@@ -126,6 +126,7 @@
 (require 'ogent-armory-compose)
 (require 'ogent-armory-actions)
 (require 'ogent-armory-runner)
+(require 'ogent-armory-schedule)
 (require 'ogent-ui-armory)
 (require 'ogent-armory-status)
 (require 'ogent-gastown)

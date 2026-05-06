@@ -14,6 +14,7 @@
 (require 'ogent-armory)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
+(require 'ogent-armory-schedule)
 
 (defgroup ogent-armory-actions nil
   "Approval gate for Armory agent action proposals."
@@ -451,14 +452,22 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
   (let* ((id (format "%s-%s"
                      (format-time-string "%Y%m%dT%H%M%S")
                      (substring (plist-get action :id) 0 8)))
+         (target (plist-get action :target-agent))
+         (datetime (plist-get action :datetime))
+         (schedule-key (ogent-armory-schedule-key
+                        target
+                        'task
+                        (plist-get action :id)
+                        (ogent-armory-schedule-parse-time datetime)))
          (_file (ogent-armory-conversation-create
                  root
                  (list :id id
-                       :agent (plist-get action :target-agent)
+                       :agent target
                        :title (plist-get action :title)
                        :trigger "agent"
                        :status "idle"
-                       :scheduled-at (plist-get action :datetime)
+                       :scheduled-at datetime
+                       :scheduled-key schedule-key
                        :provider (plist-get action :provider)
                        :model (plist-get action :model)
                        :effort (plist-get action :effort)

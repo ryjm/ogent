@@ -49,6 +49,8 @@
 (declare-function ogent-armory-tasks "ogent-ui-armory")
 (declare-function ogent-armory-conversations "ogent-ui-armory")
 (declare-function ogent-armory-actions "ogent-armory-actions")
+(declare-function ogent-armory-schedule "ogent-armory-schedule")
+(declare-function ogent-armory-agenda "ogent-armory-schedule")
 (declare-function ogent-armory-search "ogent-ui-armory")
 (declare-function ogent-armory-apps "ogent-ui-armory")
 (declare-function ogent-armory-create-agent "ogent-ui-armory")
@@ -201,6 +203,10 @@ Set to nil to disable automatic evil binding setup."
      :desc "Armory conversations")
     (armory-actions  :key "N" :command ogent-armory-actions
                       :desc "Armory action approvals")
+    (armory-schedule :key "J" :command ogent-armory-schedule
+                      :desc "Armory schedule")
+    (armory-agenda   :key "Q" :command ogent-armory-agenda
+                      :desc "Armory agenda")
     (armory-search   :key "V" :command ogent-armory-search
                       :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps

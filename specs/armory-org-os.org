@@ -281,6 +281,20 @@ The Emacs surfaces are boring and powerful:
   one agent. =ogent-armory-create-job= writes job records under the owning
   agent's =jobs/= directory. Job actions cover edit, enable/disable, run,
   retry, archive, and source visits.
+- Job metadata now covers schedule parity fields: =OGENT_ADAPTER=,
+  =OGENT_ADAPTER_CONFIG=, =OGENT_EFFORT=, =OGENT_RUNTIME_MODE=,
+  =OGENT_TIMEOUT=, =OGENT_ON_COMPLETE=, =OGENT_ON_FAILURE=,
+  =OGENT_ARMORY_PATH=, timestamps, =OGENT_RUN_AFTER=,
+  =OGENT_OWNER_TASK=, =OGENT_ONE_SHOT_STATE=, =OGENT_LAST_RUN=, and
+  =OGENT_NEXT_RUN=.
+- =ogent-armory-schedule= renders day, week, and month views over cron jobs,
+  heartbeat cron slots, one-shot run-after tasks, and scheduled conversations.
+  The shared =ogent-armory-schedule-events= function produces stable keys of
+  the form =agentSlug::sourceType::jobId-or--::minuteIso= and marks past
+  unclaimed slots as missed.
+- =ogent-armory-agenda= opens =org-agenda= with files generated from the
+  current Armory and visible child Armories. Job files remain normal Org
+  =TODO= records, and run-after jobs receive active =SCHEDULED= timestamps.
 - =ogent-armory-tasks= shows Armory v2 attention lanes: Inbox, Needs Reply,
   Running, Just Finished, and Archive. Scheduled and stale states stay attached
   to each task item as metadata. Board, list, and schedule views share the same
