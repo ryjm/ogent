@@ -26,6 +26,7 @@
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-armory-skill-open)
     (define-key map "g" #'ogent-armory-skills-refresh)
+    (define-key map (kbd "C-c g") #'ogent-armory-skills-refresh)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-skills-mode'.")

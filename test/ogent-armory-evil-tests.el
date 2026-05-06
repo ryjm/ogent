@@ -17,6 +17,8 @@
 (require 'ogent-armory-skills)
 (require 'ogent-ui-armory)
 
+(declare-function evil-normalize-keymaps "ext:evil-core")
+
 (defconst ogent-armory-evil-test--display-maps
   '(ogent-armory-actions-mode-map
     ogent-armory-apps-mode-map
@@ -92,11 +94,7 @@
   (let (calls)
     (cl-letf (((symbol-function 'evil-local-set-key)
                (lambda (state key command)
-                 (push (list state key command) calls)))
-              ((symbol-function 'evil-next-line)
-               (lambda () (interactive)))
-              ((symbol-function 'evil-previous-line)
-               (lambda () (interactive))))
+                 (push (list state key command) calls))))
       (ogent-armory-evil-install-local-bindings map))
     calls))
 
@@ -116,46 +114,55 @@
       (should-not (member (list (kbd "p") #'ignore) bindings)))))
 
 (ert-deftest ogent-armory-evil-local-bindings-cover-armory-keymaps ()
-  "Every advertised Armory key is mirrored into Evil states."
+  "Every Evil-safe Armory key is mirrored into Evil states."
   (dolist (map-symbol ogent-armory-evil-test--display-maps)
     (let* ((map (symbol-value map-symbol))
-           (expected (ogent-armory-evil-keymap-command-bindings map))
+           (expected (ogent-armory-evil-state-command-bindings map))
            (calls (ogent-armory-evil-test--capture-bindings map)))
       (dolist (binding expected)
         (dolist (state '(normal motion))
           (should (member (list state (car binding) (cadr binding))
                           calls)))))))
 
-(ert-deftest ogent-armory-evil-local-bindings-preserve-armory-actions ()
-  "Fallback movement never steals Armory single-letter commands."
+(ert-deftest ogent-armory-evil-local-bindings-preserve-vim-normal-keys ()
+  "Bare Vim normal-state keys are not mirrored into Evil states."
   (let ((home-calls
          (ogent-armory-evil-test--capture-bindings ogent-armory-home-mode-map))
         (conversation-calls
          (ogent-armory-evil-test--capture-bindings
           ogent-armory-conversation-mode-map)))
     (dolist (state '(normal motion))
-      (should (member (list state (kbd "j") #'ogent-armory-jobs)
-                      home-calls))
-      (should-not (member (list state (kbd "j") #'evil-next-line)
+      (should-not (member (list state (kbd "j") #'ogent-armory-jobs)
                           home-calls))
-      (should (member (list state (kbd "k")
+      (should (member (list state (kbd "C-c j") #'ogent-armory-jobs)
+                      home-calls))
+      (should-not (member (list state (kbd "k")
                             #'ogent-armory-conversation-stop)
-                      conversation-calls))
-      (should-not (member (list state (kbd "k") #'evil-previous-line)
-                          conversation-calls)))))
+                          conversation-calls))
+      (should (member (list state (kbd "C-c k")
+                            #'ogent-armory-conversation-stop)
+                      conversation-calls)))))
+
+(ert-deftest ogent-armory-evil-local-bindings-never-mirror-reserved-keys ()
+  "Armory Evil setup leaves bare normal-state keys available to Evil."
+  (dolist (map-symbol ogent-armory-evil-test--display-maps)
+    (let ((calls (ogent-armory-evil-test--capture-bindings
+                  (symbol-value map-symbol))))
+      (dolist (call calls)
+        (pcase-let ((`(,_state ,key ,_command) call))
+          (should-not (ogent-armory-evil-reserved-key-p key)))))))
 
 (ert-deftest ogent-armory-evil-local-bindings-use-captured-map-shape ()
-  "Local bindings survive Evil overriding-map rewrites."
+  "Local bindings use the captured command shape after setup."
   (let ((map (let ((keymap (make-sparse-keymap)))
                (define-key keymap (kbd "m") #'ignore)
                (define-key keymap (kbd "g") #'ignore)
+               (define-key keymap (kbd "C-c m") #'ignore)
                keymap))
         (hook (make-symbol "ogent-armory-test-mode-hook"))
         calls)
     (cl-progv (list hook) (list nil)
       (cl-letf (((symbol-function 'evil-set-initial-state)
-                 (lambda (&rest _) nil))
-                ((symbol-function 'evil-make-overriding-map)
                  (lambda (&rest _) nil))
                 ((symbol-function 'evil-normalize-keymaps)
                  (lambda (&rest _) nil))
@@ -170,12 +177,12 @@
         (setcdr map (list (cons ?g #'ignore)))
         (ogent-armory-evil-install-local-bindings map)))
     (dolist (state '(normal motion))
-      (should (member (list state (kbd "m") #'ignore) calls))
-      (should-not (member (list state (kbd "m") #'evil-set-marker)
-                          calls)))))
+      (should (member (list state (kbd "C-c m") #'ignore) calls))
+      (should-not (member (list state (kbd "m") #'ignore) calls))
+      (should-not (member (list state (kbd "g") #'ignore) calls)))))
 
 (ert-deftest ogent-armory-evil-setup-functions-wire-display-modes ()
-  "Armory display modules install overriding Evil maps and hooks."
+  "Armory display modules install Evil initial states and hooks."
   (dolist (spec ogent-armory-evil-test--setup-specs)
     (pcase-let ((`(,setup ,mode ,map-symbol ,hook ,local-keys) spec)
                 (states nil)
@@ -191,7 +198,7 @@
                    (lambda (&rest _) nil)))
           (funcall setup))
         (should (member (cons mode 'normal) states))
-        (should (member (cons (symbol-value map-symbol) 'all) maps))
+        (should-not (member (cons (symbol-value map-symbol) 'all) maps))
         (should (memq local-keys (symbol-value hook)))
         (should (memq #'evil-normalize-keymaps (symbol-value hook)))))))
 

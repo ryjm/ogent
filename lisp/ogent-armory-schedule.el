@@ -490,7 +490,7 @@ NOW controls missed-run detection and defaults to the current time."
     (setq header-line-format
           (concat " Armory schedule: "
                   (ogent-armory-schedule--range-label)
-                  "   d day   w week   m month   R run missed   RET open"))
+                  "   C-c d day   C-c w week   C-c m month   C-c r run missed   RET open"))
     (tabulated-list-print t)))
 
 (defvar ogent-armory-schedule-mode-map
@@ -499,10 +499,15 @@ NOW controls missed-run detection and defaults to the current time."
     (define-key map (kbd "<return>") #'ogent-armory-schedule-open)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-schedule-open)
     (define-key map "R" #'ogent-armory-schedule-run-missed)
+    (define-key map (kbd "C-c r") #'ogent-armory-schedule-run-missed)
     (define-key map "d" #'ogent-armory-schedule-day-view)
+    (define-key map (kbd "C-c d") #'ogent-armory-schedule-day-view)
     (define-key map "w" #'ogent-armory-schedule-week-view)
+    (define-key map (kbd "C-c w") #'ogent-armory-schedule-week-view)
     (define-key map "m" #'ogent-armory-schedule-month-view)
+    (define-key map (kbd "C-c m") #'ogent-armory-schedule-month-view)
     (define-key map "g" #'ogent-armory-schedule-refresh)
+    (define-key map (kbd "C-c g") #'ogent-armory-schedule-refresh)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-schedule-mode'.")

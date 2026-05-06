@@ -84,25 +84,25 @@ Common commands:
 | `TAB` | Collapse or expand the section at point |
 | `M-n` / `M-p` | Move between sibling sections |
 | `<backtab>` | Cycle section visibility |
-| `^` | Move to the parent section |
-| `m` | Open the Home transient menu |
-| `?` | Open Home help |
-| `g` | Refresh |
+| `C-c u` | Move to the parent section |
+| `C-c m` | Open the Home transient menu |
+| `C-c ?` | Open Home help |
+| `C-c g` | Refresh |
 | `q` | Quit |
-| `j` | Jobs |
-| `J` | Jobs related to the item at point |
-| `R` | Run or retry the selected job, agent, or conversation |
-| `E` | Edit the selected agent persona, job prompt, or source record |
-| `a` | Agents |
-| `t` | Tasks |
-| `c` | Conversations |
-| `s` | Search |
-| `A` | Apps |
-| `G` | Graph/status |
-| `e` | Edit Armory metadata |
-| `n` / `p` | Move between actionable rows |
+| `C-c j` | Jobs |
+| `C-c J` | Jobs related to the item at point |
+| `C-c r` | Run or retry the selected job, agent, or conversation |
+| `C-c E` | Edit the selected agent persona, job prompt, or source record |
+| `C-c a` | Agents |
+| `C-c t` | Tasks |
+| `C-c c` | Conversations |
+| `C-c s` | Search |
+| `C-c A` | Apps |
+| `C-c G` | Graph/status |
+| `C-c e` | Edit Armory metadata |
+| `C-c n` / `C-c p` | Move between actionable rows |
 
-In Evil normal state, `j`/`k` keep line movement, `gg`/`G` move through the buffer, `gr` refreshes, `gj`/`gk` move between sections, and `ZZ`/`ZQ` quit.
+In Evil normal state, bare Vim navigation/search keys keep their Evil meanings. Armory display actions use the `C-c` chords above, while `RET`, `TAB`, `M-n`/`M-p`, `q`, `ZZ`, and `ZQ` remain available where documented.
 
 The main ogent dispatch bindings include:
 

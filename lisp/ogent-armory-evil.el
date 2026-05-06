@@ -6,17 +6,35 @@
 
 ;;; Code:
 
-(require 'cl-lib)
+(require 'seq)
 
 (declare-function evil-set-initial-state "ext:evil-core")
-(declare-function evil-make-overriding-map "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function evil-local-set-key "ext:evil-core")
-(declare-function evil-next-line "ext:evil-commands")
-(declare-function evil-previous-line "ext:evil-commands")
 
 (defconst ogent-armory-evil-display-states '(normal motion)
   "Evil states that should expose Armory display-buffer commands.")
+
+(defconst ogent-armory-evil-reserved-normal-key-descriptions
+  (append
+   (delq nil
+         (mapcar (lambda (code)
+                   (let ((key (char-to-string code)))
+                     (unless (equal key "q")
+                       key)))
+                 (number-sequence ?a ?z)))
+   (mapcar #'char-to-string (number-sequence ?A ?Z))
+   (mapcar #'number-to-string (number-sequence 0 9))
+   '("SPC" "DEL" "ESC"
+     "!" "\"" "#" "$" "%" "&" "'" "(" ")" "*" "+" "," "-" "." "/"
+     ":" ";" "<" "=" ">" "?" "@" "[" "\\" "]" "^" "_" "`"
+     "{" "|" "}" "~"))
+  "Bare normal-state keys that Armory must not mirror into Evil.
+
+Armory buffers use these keys freely for vanilla Emacs users, but Evil users
+need the normal-state movement, search, repeat, text-object, and edit command
+surface to remain predictable.  Armory actions should use RET, TAB, q, M-*
+navigation, or explicit C-c chords in Evil states.")
 
 (defvar ogent-armory-evil--keymap-bindings (make-hash-table :test 'eq)
   "Direct Armory command bindings captured before Evil rewrites keymaps.")
@@ -65,36 +83,30 @@ PREFIX is used internally while walking prefix maps."
     (dolist (state (or states ogent-armory-evil-display-states))
       (evil-local-set-key state key command))))
 
-(defun ogent-armory-evil--key-bound-p (keymap key)
-  "Return non-nil when KEYMAP has an effective binding for KEY."
-  (let ((binding (lookup-key keymap key)))
-    (and binding
-         (not (numberp binding)))))
+(defun ogent-armory-evil-reserved-key-p (key)
+  "Return non-nil when KEY should keep its Evil normal-state meaning."
+  (member (key-description key)
+          ogent-armory-evil-reserved-normal-key-descriptions))
 
-(defun ogent-armory-evil--binding-key-p (bindings key)
-  "Return non-nil when BINDINGS already contains KEY."
-  (cl-some (lambda (binding)
-             (equal (car binding) key))
-           bindings))
-
-(defun ogent-armory-evil--install-fallback-navigation (keymap bindings states)
-  "Install Evil movement keys for KEYMAP when Armory leaves them free."
-  (unless (or (ogent-armory-evil--binding-key-p bindings (kbd "j"))
-              (ogent-armory-evil--key-bound-p keymap (kbd "j")))
-    (ogent-armory-evil-bind-local (kbd "j") #'evil-next-line states))
-  (unless (or (ogent-armory-evil--binding-key-p bindings (kbd "k"))
-              (ogent-armory-evil--key-bound-p keymap (kbd "k")))
-    (ogent-armory-evil-bind-local (kbd "k") #'evil-previous-line states)))
+(defun ogent-armory-evil-state-command-bindings (keymap)
+  "Return KEYMAP command bindings that are safe to mirror into Evil states."
+  (seq-remove
+   (lambda (binding)
+     (ogent-armory-evil-reserved-key-p (car binding)))
+   (ogent-armory-evil-keymap-command-bindings keymap)))
 
 (defun ogent-armory-evil-install-local-bindings (keymap &optional states)
   "Mirror KEYMAP command bindings into Evil STATES for the current buffer."
   (let ((target-states (or states ogent-armory-evil-display-states))
         (bindings (or (gethash keymap ogent-armory-evil--keymap-bindings)
                       (ogent-armory-evil-keymap-command-bindings keymap))))
+    (setq bindings
+          (seq-remove
+           (lambda (binding)
+             (ogent-armory-evil-reserved-key-p (car binding)))
+           bindings))
     (dolist (binding bindings)
       (ogent-armory-evil-bind-local (car binding) (cadr binding) target-states))
-    (ogent-armory-evil--install-fallback-navigation
-     keymap bindings target-states)
     (ogent-armory-evil-bind-local (kbd "ZZ") #'quit-window target-states)
     (ogent-armory-evil-bind-local (kbd "ZQ") #'quit-window target-states)))
 
@@ -105,8 +117,6 @@ PREFIX is used internally while walking prefix maps."
            ogent-armory-evil--keymap-bindings)
   (when (fboundp 'evil-set-initial-state)
     (evil-set-initial-state mode 'normal)
-    (when (fboundp 'evil-make-overriding-map)
-      (evil-make-overriding-map keymap 'all))
     (add-hook hook local-keys)
     (when (fboundp 'evil-normalize-keymaps)
       (add-hook hook #'evil-normalize-keymaps))))

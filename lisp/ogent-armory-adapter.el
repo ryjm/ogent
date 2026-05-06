@@ -43,7 +43,9 @@
 (defvar ogent-armory-providers-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'ogent-armory-providers-refresh)
+    (define-key map (kbd "C-c g") #'ogent-armory-providers-refresh)
     (define-key map "v" #'ogent-armory-provider-verify)
+    (define-key map (kbd "C-c v") #'ogent-armory-provider-verify)
     (define-key map (kbd "RET") #'ogent-armory-provider-verify)
     (define-key map "q" #'quit-window)
     map)
