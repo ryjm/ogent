@@ -10,6 +10,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'time-date)
 (require 'transient)
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-runner)
@@ -68,6 +69,16 @@
 (defcustom ogent-cabinet-status-buffer-name-format "*ogent-cabinet: %s*"
   "Format string used for Cabinet status buffer names."
   :type 'string
+  :group 'ogent-cabinet-status)
+
+(defcustom ogent-cabinet-status-show-node-ids nil
+  "Non-nil means show graph node ids in Cabinet status rows."
+  :type 'boolean
+  :group 'ogent-cabinet-status)
+
+(defcustom ogent-cabinet-status-max-related-items 6
+  "Maximum recent work and artifact rows shown before summarizing the rest."
+  :type 'integer
   :group 'ogent-cabinet-status)
 
 (defface ogent-cabinet-status-heading
@@ -322,13 +333,20 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 
 (defun ogent-cabinet-status--header-line ()
   "Return header line text for the current Cabinet status buffer."
-  (concat
-   "m menu  ? help  g refresh  RET visit  n/p move  TAB section  M-n/p sections  e edit  E body  P profile  J jobs  C job  R run  h home  a agents  t tasks  c conversations  s search  A apps  i issues  G gastown  q quit"
-   (when ogent-cabinet-status--root
-     (concat "    "
-             (propertize
-              (abbreviate-file-name ogent-cabinet-status--root)
-              'face 'ogent-cabinet-status-dimmed)))))
+  (let* ((node (ignore-errors (ogent-cabinet-status--node-at-point)))
+         (context (when node
+                    (format "    %s %s"
+                            (symbol-name (plist-get node :kind))
+                            (or (plist-get node :label) "")))))
+    (concat
+     "m menu  ? help  g refresh  RET visit  TAB fold  n/p item"
+     (when context
+       (propertize context 'face 'ogent-cabinet-status-dimmed))
+     (when ogent-cabinet-status--root
+       (concat "    "
+               (propertize
+                (abbreviate-file-name ogent-cabinet-status--root)
+                'face 'ogent-cabinet-status-dimmed))))))
 
 (defun ogent-cabinet-status--nodes-by-kind (kind)
   "Return graph nodes whose `:kind' is KIND."
@@ -351,6 +369,145 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
    (lambda (node)
      (equal (plist-get node :id) node-id))
    (plist-get ogent-cabinet-status--graph :nodes)))
+
+(defun ogent-cabinet-status--plural (count singular &optional plural)
+  "Return COUNT followed by SINGULAR or PLURAL label."
+  (format "%d %s" count (if (= count 1) singular (or plural (concat singular "s")))))
+
+(defun ogent-cabinet-status--node-count (kind)
+  "Return the number of graph nodes whose kind is KIND."
+  (length (ogent-cabinet-status--nodes-by-kind kind)))
+
+(defun ogent-cabinet-status--agent-state (data)
+  "Return operational state for agent DATA."
+  (cond
+   ((ogent-cabinet-runner-running-p (plist-get data :slug)) 'working)
+   ((plist-get data :active) 'active)
+   (t 'idle)))
+
+(defun ogent-cabinet-status--state-face (state)
+  "Return face for operational STATE."
+  (if (memq state '(active working ready connected closed merged processing))
+      'ogent-cabinet-status-connected
+    'ogent-cabinet-status-disconnected))
+
+(defun ogent-cabinet-status--runtime-label (data)
+  "Return provider/model label for DATA."
+  (ogent-cabinet--blank-to-nil
+   (string-join
+    (delq nil
+          (list (ogent-cabinet--blank-to-nil (plist-get data :provider))
+                (ogent-cabinet--blank-to-nil (plist-get data :model))))
+    "/")))
+
+(defun ogent-cabinet-status--clock-label (minute hour)
+  "Return HH:MM for cron MINUTE and HOUR fields when they are simple."
+  (when (and (string-match-p "\\`[0-9]+\\'" minute)
+             (string-match-p "\\`[0-9]+\\'" hour))
+    (let ((minute-number (string-to-number minute))
+          (hour-number (string-to-number hour)))
+      (when (and (<= 0 minute-number 59)
+                 (<= 0 hour-number 23))
+        (format "%02d:%02d" hour-number minute-number)))))
+
+(defun ogent-cabinet-status--weekday-label (day)
+  "Return short weekday label for cron DAY."
+  (cdr (assoc day
+              '(("0" . "Sun")
+                ("1" . "Mon")
+                ("2" . "Tue")
+                ("3" . "Wed")
+                ("4" . "Thu")
+                ("5" . "Fri")
+                ("6" . "Sat")
+                ("7" . "Sun")))))
+
+(defun ogent-cabinet-status--cron-label (cron)
+  "Return a readable label for common CRON schedules."
+  (let ((fields (split-string cron "[ \t]+" t)))
+    (if (/= (length fields) 5)
+        (concat "cron " cron)
+      (let* ((minute (nth 0 fields))
+             (hour (nth 1 fields))
+             (day-of-month (nth 2 fields))
+             (month (nth 3 fields))
+             (day-of-week (nth 4 fields))
+             (time (ogent-cabinet-status--clock-label minute hour))
+             (weekday (ogent-cabinet-status--weekday-label day-of-week)))
+        (cond
+         ((and (string= minute "0")
+               (string= hour "*")
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          "hourly")
+         ((and (string-match "\\`\\*/\\([0-9]+\\)\\'" minute)
+               (string= hour "*")
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "every %s min" (match-string 1 minute)))
+         ((and time
+               (string= day-of-month "*")
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "daily %s" time))
+         ((and time
+               weekday
+               (string= day-of-month "*")
+               (string= month "*"))
+          (format "weekly %s %s" weekday time))
+         ((and time
+               (string-match-p "\\`[0-9]+\\'" day-of-month)
+               (string= month "*")
+               (string= day-of-week "*"))
+          (format "monthly day %s %s" day-of-month time))
+         (t
+          (concat "cron " cron)))))))
+
+(defun ogent-cabinet-status--schedule-label (data)
+  "Return a quiet schedule label for job DATA."
+  (cond
+   ((ogent-cabinet--blank-to-nil (plist-get data :cron))
+    (ogent-cabinet-status--cron-label (plist-get data :cron)))
+   ((ogent-cabinet--blank-to-nil (plist-get data :run-after))
+    (concat "at " (plist-get data :run-after)))
+   ((ogent-cabinet--blank-to-nil (plist-get data :heartbeat))
+    (concat "heartbeat " (plist-get data :heartbeat)))
+   (t "manual")))
+
+(defun ogent-cabinet-status--session-time (node)
+  "Return sortable completion time for session NODE."
+  (or (plist-get (plist-get node :data) :finished) ""))
+
+(defun ogent-cabinet-status--session-state (status)
+  "Return display state for session STATUS."
+  (cond
+   ((string= status "DONE") 'closed)
+   ((string= status "FAILED") 'failed)
+   ((string= status "RUNNING") 'processing)
+   (t 'waiting)))
+
+(defun ogent-cabinet-status--short-time (timestamp)
+  "Return a compact display label for TIMESTAMP."
+  (when-let ((value (ogent-cabinet--blank-to-nil timestamp)))
+    (or (ignore-errors
+          (let* ((time (date-to-time value))
+                 (time-year (format-time-string "%Y" time))
+                 (current-year (format-time-string "%Y" (current-time))))
+            (format-time-string
+             (if (string= time-year current-year)
+                 "%b %d %H:%M"
+               "%Y-%m-%d %H:%M")
+             time)))
+        value)))
+
+(defun ogent-cabinet-status--take-with-rest (items limit)
+  "Return plist containing visible ITEMS and hidden count after LIMIT."
+  (let* ((limit (max 0 (or limit 0)))
+         (visible (seq-take items limit))
+         (rest (- (length items) (length visible))))
+    (list :visible visible :rest rest)))
 
 (defmacro ogent-cabinet-status--with-section (section heading &rest body)
   "Insert collapsible SECTION with HEADING around BODY when Magit is present."
@@ -403,7 +560,9 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (insert "\n")
   (ogent-cabinet-status--insert-agents)
   (insert "\n")
-  (ogent-cabinet-status--insert-related)
+  (ogent-cabinet-status--insert-recent-work)
+  (insert "\n")
+  (ogent-cabinet-status--insert-artifacts)
   (insert "\n")
   (ogent-cabinet-status--insert-bridges))
 
@@ -424,21 +583,24 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
 (defun ogent-cabinet-status--insert-summary ()
   "Insert graph summary section."
   (let* ((cabinet (car (ogent-cabinet-status--nodes-by-kind 'cabinet)))
-         (nodes (plist-get ogent-cabinet-status--graph :nodes))
-         (edges (plist-get ogent-cabinet-status--graph :edges)))
+         (agents (ogent-cabinet-status--node-count 'agent))
+         (jobs (ogent-cabinet-status--node-count 'job))
+         (sessions (ogent-cabinet-status--node-count 'session))
+         (apps (ogent-cabinet-status--node-count 'app))
+         (issues (ogent-cabinet-status--node-count 'issue)))
     (ogent-cabinet-status--with-section (ogent-cabinet-status-summary)
-        (ogent-cabinet-status--heading-text "◇" "C" "Cabinet Graph" 1)
+        (ogent-cabinet-status--heading-text "◇" "O" "Overview")
       (when cabinet
         (ogent-cabinet-status--insert-node-line
          cabinet
-         (format "%s  %s nodes, %s edges"
+         (format "%s  %s  %s  %s  %s  %s"
                  (propertize (or (plist-get cabinet :label) "Cabinet")
                              'face 'ogent-cabinet-status-label)
-                 (length nodes)
-                 (length edges))))
-      (insert "  ")
-      (insert (propertize "Projection: " 'face 'ogent-cabinet-status-dimmed))
-      (insert "Org files -> typed graph -> operational views\n"))))
+                 (ogent-cabinet-status--plural agents "agent")
+                 (ogent-cabinet-status--plural jobs "job")
+                 (ogent-cabinet-status--plural sessions "run")
+                 (ogent-cabinet-status--plural apps "app")
+                 (ogent-cabinet-status--plural issues "issue")))))))
 
 (defun ogent-cabinet-status--insert-agents ()
   "Insert agents and their scheduled jobs."
@@ -455,31 +617,25 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
                              (plist-get edge :to)))
                           (ogent-cabinet-status--edges-from id 'owns)))
                    (provider (or (plist-get data :provider) "codex"))
-                   (status (cond
-                            ((ogent-cabinet-runner-running-p
-                              (plist-get data :slug))
-                             'working)
-                            ((plist-get data :active) 'active)
-                            (t 'idle))))
+                   (runtime (or (ogent-cabinet-status--runtime-label data)
+                                provider))
+                   (status (ogent-cabinet-status--agent-state data)))
               (ogent-cabinet-status--insert-node-line
                agent
-               (format "%s %s  %s  %s  %s%s"
+               (format "%s %-28s %-9s %-18s %s"
                        (propertize (ogent-ops-activity-symbol status)
-                                   'face (if (memq status '(active working))
-                                             'ogent-cabinet-status-connected
-                                           'ogent-cabinet-status-disconnected))
+                                   'face (ogent-cabinet-status--state-face
+                                          status))
                        (propertize (plist-get agent :label)
                                    'face 'ogent-cabinet-status-label)
                        (propertize
-                        (or (plist-get data :role) "Agent")
+                        (symbol-name status)
                         'face 'ogent-cabinet-status-dimmed)
-                       (propertize provider
+                       (propertize runtime
                                    'face 'ogent-cabinet-status-dimmed)
                        (propertize
-                        (format "%d jobs" (length jobs))
-                        'face 'ogent-cabinet-status-dimmed)
-                       (propertize "  [P profile] [C job] [R run]"
-                                   'face 'ogent-cabinet-status-id)))
+                        (ogent-cabinet-status--plural (length jobs) "job")
+                        'face 'ogent-cabinet-status-dimmed)))
               (dolist (job jobs)
                 (when job
                   (ogent-cabinet-status--insert-node-line
@@ -489,48 +645,116 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
         (insert (propertize "  No agents yet\n"
                             'face 'ogent-cabinet-status-dimmed))))))
 
-(defun ogent-cabinet-status--insert-related ()
-  "Insert non-agent graph nodes."
-  (let ((nodes (seq-filter
-                (lambda (node)
-                  (memq (plist-get node :kind)
-                        '(session app issue gastown-hook)))
-                (plist-get ogent-cabinet-status--graph :nodes))))
-    (ogent-cabinet-status--with-section (ogent-cabinet-status-relationships)
-        (ogent-cabinet-status--heading-text "◇" "R" "Relationships" (length nodes))
-      (if nodes
-          (dolist (node nodes)
-            (ogent-cabinet-status--insert-node-line
-             node
-             (format "%s  %s"
-                     (propertize (symbol-name (plist-get node :kind))
-                                 'face 'ogent-cabinet-status-dimmed)
-                     (propertize (or (plist-get node :label) "")
-                                 'face 'ogent-cabinet-status-label))))
-        (insert (propertize "  No sessions, apps, issues, or hooks yet\n"
+(defun ogent-cabinet-status--insert-recent-work ()
+  "Insert recent session nodes."
+  (let* ((sessions (seq-sort-by
+                    #'ogent-cabinet-status--session-time
+                    #'string>
+                    (ogent-cabinet-status--nodes-by-kind 'session)))
+         (split (ogent-cabinet-status--take-with-rest
+                 sessions
+                 ogent-cabinet-status-max-related-items))
+         (visible (plist-get split :visible))
+         (rest (plist-get split :rest)))
+    (ogent-cabinet-status--with-section (ogent-cabinet-status-recent-work)
+        (ogent-cabinet-status--heading-text "◇" "W" "Recent Work" (length sessions))
+      (if visible
+          (progn
+            (dolist (node visible)
+              (ogent-cabinet-status--insert-node-line
+               node
+               (ogent-cabinet-status--format-session-line node)))
+            (when (> rest 0)
+              (insert (propertize
+                       (format "  %s more. Press c for the conversation list.\n"
+                               rest)
+                       'face 'ogent-cabinet-status-dimmed))))
+        (insert (propertize "  No completed sessions yet\n"
+                            'face 'ogent-cabinet-status-dimmed))))))
+
+(defun ogent-cabinet-status--insert-artifacts ()
+  "Insert app and issue nodes."
+  (let* ((nodes (seq-filter
+                 (lambda (node)
+                   (memq (plist-get node :kind) '(app issue)))
+                 (plist-get ogent-cabinet-status--graph :nodes)))
+         (split (ogent-cabinet-status--take-with-rest
+                 nodes
+                 ogent-cabinet-status-max-related-items))
+         (visible (plist-get split :visible))
+         (rest (plist-get split :rest)))
+    (ogent-cabinet-status--with-section (ogent-cabinet-status-artifacts)
+        (ogent-cabinet-status--heading-text "◇" "F" "Artifacts" (length nodes))
+      (if visible
+          (progn
+            (dolist (node visible)
+              (ogent-cabinet-status--insert-node-line
+               node
+               (ogent-cabinet-status--format-artifact-line node)))
+            (when (> rest 0)
+              (insert (propertize
+                       (format "  %s more. Press A for apps or i for issues.\n"
+                               rest)
+                       'face 'ogent-cabinet-status-dimmed))))
+        (insert (propertize "  No apps or linked issues yet\n"
                             'face 'ogent-cabinet-status-dimmed))))))
 
 (defun ogent-cabinet-status--format-job-line (job)
   "Return display text for JOB."
   (let* ((data (plist-get job :data))
          (enabled (plist-get data :enabled))
-         (state (if enabled 'ready 'waiting)))
-    (format "%s %s  %s%s"
+         (state (if enabled 'ready 'waiting))
+         (label (if enabled "enabled" "paused")))
+    (format "%s %-28s %-9s %s"
             (propertize (ogent-ops-status-symbol state)
-                        'face (if enabled
-                                  'ogent-cabinet-status-connected
-                                'ogent-cabinet-status-disconnected))
+                        'face (ogent-cabinet-status--state-face state))
             (propertize (plist-get job :label)
                         'face 'ogent-cabinet-status-label)
-            (propertize (or (plist-get data :cron) "manual")
+            (propertize label
                         'face 'ogent-cabinet-status-dimmed)
-            (propertize "  [R run] [e edit] [E prompt]"
-                        'face 'ogent-cabinet-status-id))))
+            (propertize (ogent-cabinet-status--schedule-label data)
+                        'face 'ogent-cabinet-status-dimmed))))
+
+(defun ogent-cabinet-status--format-session-line (node)
+  "Return display text for session NODE."
+  (let* ((data (plist-get node :data))
+         (status (format "%s" (or (plist-get data :status) "session")))
+         (state (ogent-cabinet-status--session-state status))
+         (duration (or (plist-get data :duration) ""))
+         (finished (ogent-cabinet-status--short-time
+                    (plist-get data :finished))))
+    (format "%s %-42s %-9s %s"
+            (propertize (ogent-ops-status-symbol state)
+                        'face (ogent-cabinet-status--state-face state))
+            (propertize (or (plist-get node :label) "")
+                        'face 'ogent-cabinet-status-label)
+            (propertize (downcase status) 'face 'ogent-cabinet-status-dimmed)
+            (propertize
+             (string-join (delq nil
+                                (list (ogent-cabinet--blank-to-nil duration)
+                                      (ogent-cabinet--blank-to-nil finished)))
+                          "  ")
+             'face 'ogent-cabinet-status-dimmed))))
+
+(defun ogent-cabinet-status--format-artifact-line (node)
+  "Return display text for app or issue NODE."
+  (let ((kind (symbol-name (plist-get node :kind)))
+        (label (or (plist-get node :label) ""))
+        (data (plist-get node :data)))
+    (format "%s %-9s %s%s"
+            (propertize (ogent-ops-status-symbol 'ready)
+                        'face 'ogent-cabinet-status-connected)
+            (propertize kind 'face 'ogent-cabinet-status-dimmed)
+            (propertize label 'face 'ogent-cabinet-status-label)
+            (if-let ((agent (plist-get data :agent)))
+                (propertize (format "  %s" agent)
+                            'face 'ogent-cabinet-status-dimmed)
+              ""))))
 
 (defun ogent-cabinet-status--insert-bridges ()
   "Insert operational bridge section."
   (ogent-cabinet-status--with-section (ogent-cabinet-status-bridges)
-      (ogent-cabinet-status--heading-text "◈" "B" "Operational Bridges")
+      (ogent-cabinet-status--heading-text "◈" "B" "Bridges")
     (ogent-cabinet-status--insert-bridge-line
      "Ogent Issues"
      (ogent-cabinet-status--issues-state)
@@ -545,9 +769,10 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
   (let ((start (point)))
     (insert (or prefix "  "))
     (insert text)
-    (insert "  ")
-    (insert (propertize (plist-get node :id)
-                        'face 'ogent-cabinet-status-id))
+    (when ogent-cabinet-status-show-node-ids
+      (insert "  ")
+      (insert (propertize (plist-get node :id)
+                          'face 'ogent-cabinet-status-id)))
     (insert "\n")
     (add-text-properties
      start
@@ -581,9 +806,8 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     (insert "  ")
     (insert (propertize (plist-get state :message)
                         'face 'ogent-cabinet-status-dimmed))
-    (insert "  ")
-    (insert (propertize (format "[%s]" key)
-                        'face 'ogent-cabinet-status-id))
+    (insert (propertize (format "  %s" key)
+                        'face 'ogent-cabinet-status-dimmed))
     (insert "\n")))
 
 (defun ogent-cabinet-status--issues-state ()
@@ -862,6 +1086,7 @@ DIRECTION is either `next' or `previous'."
   (with-help-window "*Ogent Cabinet Status Help*"
     (princ "Cabinet Status\n")
     (princ "==============\n\n")
+    (princ "Rows stay quiet by default. Use m for actions on the item at point.\n")
     (princ "Move with n/p. RET visits the durable Org source for the item at point.\n\n")
     (princ "Node actions\n")
     (princ "------------\n")
@@ -874,8 +1099,9 @@ DIRECTION is either `next' or `previous'."
     (princ "h Home, a Agents, t Tasks, c Conversations, s Search, A Apps, i Issues, G Gas Town.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
-    (princ "m opens this Transient menu. ? opens this help buffer. g refreshes. q quits.\n")
+    (princ "m opens the Transient menu. ? opens this help buffer. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n")
+    (princ "Set `ogent-cabinet-status-show-node-ids' to show graph ids inline.\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n")))
 
 (defun ogent-cabinet-status-toggle-section ()
