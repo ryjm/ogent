@@ -321,6 +321,20 @@ The Emacs surfaces are boring and powerful:
 - =ogent-armory-open-file= dispatches HTML and URLs to browser commands,
   directories to Dired, and images, PDF, CSV/TSV, source, media, and plain files
   to native Emacs file viewers.
+- =ogent-armory-settings= stores Armory-local profile, provider, runtime,
+  skills, storage, integration, notification, appearance, git, automation, and
+  about settings in =.armory-state/settings.org=. Settings export and import
+  use Org files.
+- =ogent-armory-onboard= scaffolds a Armory, writes settings defaults, and
+  creates an initial team with provider and runtime defaults applied.
+- =ogent-armory-registry-import= reads JSON Armory template manifests and
+  creates Org-backed Armory roots, agents, jobs, pages, and settings.
+- =ogent-armory-backup= creates filtered directory backups of durable Armory
+  state while excluding git metadata, derived search cache, process state, and
+  prior backups.
+- =ogent-armory-help= documents core surfaces, shortcuts, registry import, demo
+  creation, backup, and the durable state model. =ogent-armory-demo= creates a
+  complete demo Armory fixture.
 - =ogent-armory-import-artifacts= imports Markdown, HTML, and text artifacts as
   Org records under the Armory while preserving originals by default.
 

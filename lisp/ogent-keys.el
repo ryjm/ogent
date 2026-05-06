@@ -54,6 +54,11 @@
 (declare-function ogent-armory-agenda "ogent-armory-schedule")
 (declare-function ogent-armory-git-status "ogent-armory-git")
 (declare-function ogent-armory-command-palette "ogent-armory-palette")
+(declare-function ogent-armory-settings "ogent-armory-settings")
+(declare-function ogent-armory-help "ogent-armory-settings")
+(declare-function ogent-armory-onboard "ogent-armory-settings")
+(declare-function ogent-armory-registry-import "ogent-armory-settings")
+(declare-function ogent-armory-backup "ogent-armory-settings")
 (declare-function ogent-armory-search "ogent-ui-armory")
 (declare-function ogent-armory-apps "ogent-ui-armory")
 (declare-function ogent-armory-create-agent "ogent-ui-armory")
@@ -216,6 +221,17 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Armory git status")
     (armory-palette  :key "/" :command ogent-armory-command-palette
                       :desc "Armory command palette")
+    (armory-settings :key "," :command ogent-armory-settings
+                      :desc "Armory settings")
+    (armory-help     :key "." :command ogent-armory-help
+                      :desc "Armory help")
+    (armory-onboard  :key "'" :command ogent-armory-onboard
+                      :desc "Onboard Armory")
+    (armory-registry-import
+     :key "=" :command ogent-armory-registry-import
+     :desc "Import Armory registry")
+    (armory-backup   :key "_" :command ogent-armory-backup
+                      :desc "Back up Armory")
     (armory-search   :key "V" :command ogent-armory-search
                       :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps

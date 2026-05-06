@@ -125,39 +125,55 @@ text in those Org files. Manual edits remain part of the record.
     can commit, diff, log, restore, and pull through Magit when present or plain
     git fallbacks.
 
-13. Check the task board:
+13. Configure the Armory:
+
+    Use =M-x ogent-armory-settings= for profile, provider, runtime, skills,
+    storage, integration, notification, appearance, git, automation, and about
+    settings. Settings are stored in =.armory-state/settings.org= and can be
+    exported or imported as Org.
+
+14. Import, demo, and back up:
+
+    Use =M-x ogent-armory-onboard= for first-run setup, storage defaults, and
+    an initial team. Use =M-x ogent-armory-registry-import= to scaffold a
+    Armory from a JSON template manifest. Use =M-x ogent-armory-demo= to
+    create a small example Armory. Use =M-x ogent-armory-backup= to copy
+    durable Org state while skipping git metadata, process state, derived search
+    cache, and previous backups.
+
+15. Check the task board:
 
     Use =M-x ogent-armory-tasks=. Lanes are Inbox, Needs Reply, Running,
     Just Finished, and Archive. Scheduled and stale states appear as item
     metadata. Press =b= for board, =l= for list, and =S= for schedule view.
 
-14. Inspect relationships:
+16. Inspect relationships:
 
     Use =M-x ogent-armory-status=. The graph includes armory, agent, job,
     session, app, issue-link, and Gas Town hook nodes when available. Press
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
-15. Check provider adapters:
+17. Check provider adapters:
 
     Use =M-x ogent-armory-providers= to inspect registered runtime adapters,
     executable availability, supported modes, and resume support. Use
     =M-x ogent-armory-provider-verify= for a focused executable check.
 
-16. Browse skills:
+18. Browse skills:
 
     Use =M-x ogent-armory-skills= to inspect the skill catalog. The catalog
     reads skill metadata from =.agents/skills/=, =skills/=, =.codex/skills/=,
     =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
     a prompt with =@skill:<key>= or pass the key through the composer.
 
-17. Review departments and approvals:
+19. Review departments and approvals:
 
     Use =M-x ogent-armory-org-chart= for a department tree grouped by lead and
     scope. Use =M-x ogent-armory-actions= on a conversation with pending lead
     proposals to approve, reject, or dispatch actions.
 
-18. Open the Armory schedule:
+20. Open the Armory schedule:
 
     Use =M-x ogent-armory-schedule= for day, week, and month schedule views.
     Jobs with =OGENT_CRON=, agent heartbeats with cron heartbeats, one-shot
@@ -165,7 +181,7 @@ text in those Org files. Manual edits remain part of the record.
     event stream. Past slots without a matching =OGENT_SCHEDULED_KEY= show as
     missed and can be run from the schedule buffer.
 
-19. Bridge into Org agenda:
+21. Bridge into Org agenda:
 
     Use =M-x ogent-armory-agenda= to open =org-agenda= over the Armory root,
     visible child Armories, personas, inboxes, schedules, jobs, and memory Org
@@ -191,6 +207,11 @@ Main ogent dispatch bindings:
 | =C-c . Q= / =SPC o Q= | =ogent-armory-agenda= |
 | =C-c . := / =SPC o := | =ogent-armory-git-status= |
 | =C-c . /= / =SPC o /= | =ogent-armory-command-palette= |
+| =C-c . ,= / =SPC o ,= | =ogent-armory-settings= |
+| =C-c . .= / =SPC o .= | =ogent-armory-help= |
+| =C-c . '= / =SPC o '= | =ogent-armory-onboard= |
+| ~C-c . =~ / ~SPC o =~ | =ogent-armory-registry-import= |
+| =C-c . _= / =SPC o _= | =ogent-armory-backup= |
 | =C-c . V= / =SPC o V= | =ogent-armory-search= |
 | =C-c . W= / =SPC o W= | =ogent-armory-apps= |
 | =C-c . X= / =SPC o X= | =ogent-armory-create-agent= |
@@ -224,6 +245,8 @@ Armory Home:
 | =D= | Open the data browser |
 | =h= | Open Armory git status |
 | =/= | Open the command palette |
+| =,= | Open Armory settings |
+| =.= | Open Armory help |
 | =m= | Open the Home transient menu |
 | =?= | Open Home help |
 | =g= | Refresh |
@@ -294,8 +317,26 @@ Armory Home transient menu:
 | =A= | Apps |
 | =h= | Git status |
 | =/= | Command palette |
+| =,= | Armory settings |
+| =.= | Armory help |
 | =G= | Graph/status |
+| ='= | Run onboarding |
+| ~=~ | Import a registry template |
+| =_= | Back up durable Armory state |
 | =e= | Edit Armory metadata |
+
+Armory Settings:
+
+| Key | Action |
+|-----+--------|
+| =e= | Edit one setting |
+| =E= | Export settings as Org |
+| =I= | Import settings from Org |
+| =o= | Run onboarding |
+| =b= | Back up the Armory |
+| =?= | Open Armory help |
+| =g= | Refresh |
+| =q= | Quit |
 
 Armory Schedule:
 
@@ -399,6 +440,11 @@ Migration limits:
              ogent-armory-agenda
              ogent-armory-git-status
              ogent-armory-command-palette
+             ogent-armory-settings
+             ogent-armory-help
+             ogent-armory-onboard
+             ogent-armory-registry-import
+             ogent-armory-backup
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent

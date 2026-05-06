@@ -105,27 +105,35 @@
             (should (eq major-mode 'ogent-armory-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
-                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
-                               "Tasks" "Conversations"
-                               "Search" "Apps" "Graph" "Settings" "Source Org"))
+	                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+	                               "Tasks" "Conversations"
+	                               "Data" "Search" "Apps" "Git" "Palette"
+	                               "Settings" "Help" "Graph" "Armory metadata"
+	                               "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "\\[R run\\]" text))
               (should (string-match-p "\\[E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("m" "?" "RET" "TAB" "M-n" "g" "q" "j" "J" "a"
-                           "t" "c" "s" "A" "G" "R" "E" "e" "n" "p"))
-              (should (string-match-p key (format "%s" header-line-format)))))
+	            (dolist (key '("m" "?" "." "RET" "TAB" "M-n" "g" "q" "j" "J"
+	                           "D" "a" "t" "c" "s" "A" "h" "/" "," "G" "R"
+	                           "E" "e" "n" "p"))
+	              (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-home-daily-work-keybindings ()
   "Armory Home exposes the daily job development commands."
   (dolist (pair `(("m" . ,#'ogent-armory-home-dispatch)
-                  ("?" . ,#'ogent-armory-home-help)
-                  ("j" . ,#'ogent-armory-jobs)
-                  ("R" . ,#'ogent-armory-home-run)
+	                  ("?" . ,#'ogent-armory-home-help)
+	                  ("j" . ,#'ogent-armory-jobs)
+	                  ("D" . ,#'ogent-armory-data)
+	                  ("h" . ,#'ogent-armory-git-status)
+	                  ("/" . ,#'ogent-armory-command-palette)
+	                  ("," . ,#'ogent-armory-settings)
+	                  ("." . ,#'ogent-armory-help)
+	                  ("R" . ,#'ogent-armory-home-run)
                   ("E" . ,#'ogent-armory-home-edit-item)
                   ("J" . ,#'ogent-armory-home-open-jobs)))
     (should (eq (lookup-key ogent-armory-home-mode-map (kbd (car pair)))

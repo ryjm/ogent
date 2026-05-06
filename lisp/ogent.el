@@ -130,6 +130,7 @@
 (require 'ogent-armory-runner)
 (require 'ogent-armory-schedule)
 (require 'ogent-armory-palette)
+(require 'ogent-armory-settings)
 (require 'ogent-ui-armory)
 (require 'ogent-armory-status)
 (require 'ogent-gastown)

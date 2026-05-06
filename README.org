@@ -153,7 +153,8 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 Armory turns a directory of Org files into a local AI-team workspace. Open
 =M-x ogent-armory-home= or press =C-c . j=. The Armory surface includes
 agents, jobs, conversations, lead action approvals, data browsing, ranked
-palette search, git state, app artifacts, and a schedule calendar.
+palette search, git state, settings, backup, registry import, help, app
+artifacts, and a schedule calendar.
 
 | Key       | Command                         | Description                 |
 |-----------+---------------------------------+-----------------------------|
@@ -170,6 +171,11 @@ palette search, git state, app artifacts, and a schedule calendar.
 | =C-c . Q= | =ogent-armory-agenda=          | Org agenda over Armory     |
 | =C-c . := | =ogent-armory-git-status=      | Armory git status          |
 | =C-c . /= | =ogent-armory-command-palette= | Ranked command palette      |
+| =C-c . ,= | =ogent-armory-settings=        | Armory settings            |
+| =C-c . .= | =ogent-armory-help=            | Armory help                |
+| =C-c . '= | =ogent-armory-onboard=         | Onboard Armory             |
+| ~C-c . =~ | =ogent-armory-registry-import= | Import Armory template     |
+| =C-c . _= | =ogent-armory-backup=          | Back up Armory             |
 | =C-c . V= | =ogent-armory-search=          | Armory-wide search         |
 | =C-c . W= | =ogent-armory-apps=            | Generated app artifacts     |
 | =C-c . X= | =ogent-armory-create-agent=    | Create Armory agent        |

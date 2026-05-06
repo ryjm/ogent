@@ -60,6 +60,11 @@ Add to your `~/.doom.d/config.el`:
              ogent-armory-agenda
              ogent-armory-git-status
              ogent-armory-command-palette
+             ogent-armory-settings
+             ogent-armory-help
+             ogent-armory-onboard
+             ogent-armory-registry-import
+             ogent-armory-backup
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent
@@ -135,6 +140,11 @@ All ogent commands are bound under `SPC o`:
 | `SPC o Q` | `ogent-armory-agenda`     | Armory Org agenda                   |
 | `SPC o :` | `ogent-armory-git-status` | Armory git status                   |
 | `SPC o /` | `ogent-armory-command-palette` | Ranked command palette          |
+| `SPC o ,` | `ogent-armory-settings`   | Armory settings                     |
+| `SPC o .` | `ogent-armory-help`       | Armory help                         |
+| `SPC o '` | `ogent-armory-onboard`    | Onboard Armory                      |
+| `SPC o =` | `ogent-armory-registry-import` | Import Armory template        |
+| `SPC o _` | `ogent-armory-backup`     | Back up Armory                      |
 | `SPC o V` | `ogent-armory-search`     | Armory-wide search                  |
 | `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
 | `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
@@ -257,6 +267,11 @@ Here's a full, copy-paste ready configuration:
              ogent-armory-agenda
              ogent-armory-git-status
              ogent-armory-command-palette
+             ogent-armory-settings
+             ogent-armory-help
+             ogent-armory-onboard
+             ogent-armory-registry-import
+             ogent-armory-backup
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent
@@ -300,6 +315,11 @@ Here's a full, copy-paste ready configuration:
          :desc "Armory agenda"      "Q" #'ogent-armory-agenda
          :desc "Armory git"         ":" #'ogent-armory-git-status
          :desc "Armory palette"     "/" #'ogent-armory-command-palette
+         :desc "Armory settings"    "," #'ogent-armory-settings
+         :desc "Armory help"        "." #'ogent-armory-help
+         :desc "Onboard Armory"     "'" #'ogent-armory-onboard
+         :desc "Import Armory"      "=" #'ogent-armory-registry-import
+         :desc "Back up Armory"     "_" #'ogent-armory-backup
          :desc "Armory search"      "V" #'ogent-armory-search
          :desc "Armory apps"        "W" #'ogent-armory-apps
          :desc "Create agent"        "X" #'ogent-armory-create-agent

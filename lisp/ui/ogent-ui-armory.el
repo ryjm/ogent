@@ -16,6 +16,7 @@
 (require 'ogent-armory)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-data)
+(require 'ogent-armory-settings)
 (require 'ogent-armory-runner)
 
 (eval-and-compile
@@ -745,6 +746,8 @@ DIRECTION is either `next' or `previous'."
     (define-key map "A" #'ogent-armory-apps)
     (define-key map "h" #'ogent-armory-git-status)
     (define-key map "/" #'ogent-armory-command-palette)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "." #'ogent-armory-help)
     (define-key map "G" #'ogent-armory-status)
     (define-key map "e" #'ogent-armory-home-edit-metadata)
     (define-key map "n" #'ogent-armory-home-next-item)
@@ -762,7 +765,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-armory-home--header-line ()
   "Return header line for Armory Home."
-  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Armory  n/p move")
+  "m menu  ? home help  . Armory help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  , settings  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Armory  n/p move")
 
 ;;;###autoload
 (defun ogent-armory-home (&optional directory)
@@ -863,10 +866,12 @@ DIRECTION is either `next' or `previous'."
                                     (ogent-armory-home--insert-nav "Apps" "A" #'ogent-armory-apps)
                                     (ogent-armory-home--insert-nav "Git" "h" #'ogent-armory-git-status)
                                     (ogent-armory-home--insert-nav "Palette" "/" #'ogent-armory-command-palette)
+                                    (ogent-armory-home--insert-nav "Settings" "," #'ogent-armory-settings)
+                                    (ogent-armory-home--insert-nav "Help" "." #'ogent-armory-help)
                                     (ogent-armory-home--insert-nav "Graph" "G" #'ogent-armory-status)
                                     (ogent-armory-ui--insert-item-line
                                      (list :type 'file :path (ogent-armory-index-file root))
-                                     "  [e] Settings")
+                                     "  [e] Armory metadata")
                                     (ogent-armory-ui--insert-item-line
                                      (list :type 'file :path (ogent-armory-index-file root))
                                      "  Source Org"))
@@ -1026,7 +1031,7 @@ DIRECTION is either `next' or `previous'."
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
     (princ "Navigation\n")
     (princ "----------\n")
-    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, G Graph.\n")
+    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, , Settings, . Help, G Graph.\n")
     (princ "n and p move between actionable rows. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
@@ -1072,13 +1077,18 @@ DIRECTION is either `next' or `previous'."
                            ("N" "Action approvals" ogent-armory-actions)
                            ("s" "Search" ogent-armory-search)
                            ("A" "Apps" ogent-armory-apps)
-                           ("h" "Git" ogent-armory-git-status)
-                           ("/" "Palette" ogent-armory-command-palette)
-                           ("G" "Graph" ogent-armory-status)]
-                          ["Armory"
-                           ("Q" "Agenda" ogent-armory-agenda)
-                           ("e" "Edit metadata" ogent-armory-home-edit-metadata)
-                           ("?" "Help" ogent-armory-home-help)
+	                           ("h" "Git" ogent-armory-git-status)
+	                           ("/" "Palette" ogent-armory-command-palette)
+	                           ("," "Settings" ogent-armory-settings)
+	                           ("." "Help" ogent-armory-help)
+	                           ("G" "Graph" ogent-armory-status)]
+	                          ["Armory"
+	                           ("Q" "Agenda" ogent-armory-agenda)
+	                           ("'" "Onboard" ogent-armory-onboard)
+	                           ("=" "Registry import" ogent-armory-registry-import)
+	                           ("_" "Backup" ogent-armory-backup)
+	                           ("e" "Edit metadata" ogent-armory-home-edit-metadata)
+	                           ("?" "Help" ogent-armory-home-help)
                            ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-armory-home-next-item ()

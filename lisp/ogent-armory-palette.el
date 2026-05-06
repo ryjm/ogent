@@ -15,6 +15,7 @@
 (require 'ogent-armory-data)
 (require 'ogent-armory-schedule)
 (require 'ogent-armory-git)
+(require 'ogent-armory-settings)
 
 (defgroup ogent-armory-palette nil
   "Ranked search and command palette for Armories."
@@ -43,6 +44,16 @@
      :path ,root :text "generated apps html")
     (:kind command :title "Armory Git Status"
      :command ogent-armory-git-status :path ,root :text "git dirty status")
+    (:kind command :title "Armory Settings"
+     :command ogent-armory-settings :path ,root :text "settings providers storage")
+    (:kind command :title "Armory Help"
+     :command ogent-armory-help :path ,root :text "help shortcuts demo")
+    (:kind command :title "Armory Onboard"
+     :command ogent-armory-onboard :path ,root :text "setup storage provider team")
+    (:kind command :title "Armory Registry Import"
+     :command ogent-armory-registry-import-into :path ,root :text "template manifest import")
+    (:kind command :title "Armory Backup"
+     :command ogent-armory-backup :path ,root :text "backup durable org data")
     (:kind command :title "Armory Agenda"
      :command ogent-armory-agenda :path ,root :text "org agenda")))
 

@@ -236,8 +236,18 @@
 	                    armory-tasks
 	                    armory-conversations
 	                    armory-actions
+	                    armory-data
+	                    armory-schedule
+	                    armory-agenda
+	                    armory-git
+	                    armory-palette
+	                    armory-settings
+	                    armory-help
+	                    armory-onboard
+	                    armory-registry-import
+	                    armory-backup
 	                    armory-search
-                    armory-apps
+	                    armory-apps
                     armory-create-agent
                     armory-create-job))
     (should (assq action ogent-action-registry))))
