@@ -244,11 +244,12 @@ The Emacs surfaces are boring and powerful:
   retry, archive, and source visits.
 - =ogent-armory-tasks= shows Armory v2 attention lanes: Inbox, Needs Reply,
   Running, Just Finished, and Archive. Scheduled and stale states stay attached
-  to each task item as metadata.
+  to each task item as metadata. Board, list, and schedule views share the same
+  task item model.
 - =ogent-armory-conversations= lists all transcripts and filters by agent, job,
   status, provider, model, tag, and archive state. =RET= opens a detail buffer
-  with metadata, prompt, output, tool blocks, exit status, duration, linked
-  agent/job, and source Org.
+  with actions, metadata, runtime state, turns, prompt, output, tool blocks,
+  exit status, duration, artifacts, events, linked agent/job, and source Org.
 - =ogent-armory-search= searches Armory Org files, personas, jobs, memory,
   inboxes, schedules, imports, and conversations. Empty queries display a useful
   empty state. Search skips =.git= and transient state directories.

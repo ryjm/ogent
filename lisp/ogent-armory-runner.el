@@ -161,7 +161,9 @@
     args))
 
 (cl-defun ogent-armory-runner-plan
-    (directory agent-slug &key job-id instruction)
+    (directory agent-slug
+               &key job-id instruction conversation-id conversation-title
+               turn-content trigger last-resume-result)
   "Return a process plan for AGENT-SLUG under DIRECTORY.
 JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
   (let* ((candidate (ogent-armory--directory directory))
@@ -188,7 +190,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          (permission-mode (or (ogent-armory-runner--blank-to-nil
                                (plist-get agent :permission-mode))
                               ogent-armory-runner-claude-permission-mode))
-         (conversation-id (ogent-armory-runner--conversation-id job-id)))
+         (conversation-id (or conversation-id
+                              (ogent-armory-runner--conversation-id job-id))))
     (unless (file-directory-p workspace)
       (user-error "Armory agent workspace not found: %s" workspace))
     (pcase provider
@@ -207,10 +210,14 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                :prompt prompt
                :stdin prompt
                :root root
-               :workspace workspace
-               :agent agent
-               :job job
-               :conversation-id conversation-id)))
+	       :workspace workspace
+	       :agent agent
+	       :job job
+               :conversation-id conversation-id
+               :conversation-title conversation-title
+               :turn-content turn-content
+               :trigger trigger
+               :last-resume-result last-resume-result)))
       ('claude
        (let ((args (list "-p"
                          "--permission-mode" permission-mode
@@ -222,10 +229,14 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                :prompt prompt
                :stdin nil
                :root root
-               :workspace workspace
-               :agent agent
-               :job job
-               :conversation-id conversation-id)))
+	       :workspace workspace
+	       :agent agent
+	       :job job
+               :conversation-id conversation-id
+               :conversation-title conversation-title
+               :turn-content turn-content
+               :trigger trigger
+               :last-resume-result last-resume-result)))
       (_
        (user-error "Unsupported Armory agent provider: %s" provider)))))
 
@@ -342,47 +353,72 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
 
 (defun ogent-armory-runner--conversation-title (plan)
   "Return a user-facing conversation title for PLAN."
-  (let ((agent (plist-get plan :agent))
-        (job (plist-get plan :job)))
-    (format "%s %s"
-            (or (plist-get agent :name) (plist-get agent :slug))
-            (or (plist-get job :name) "Run"))))
+  (or (plist-get plan :conversation-title)
+      (let ((agent (plist-get plan :agent))
+            (job (plist-get plan :job)))
+        (format "%s %s"
+                (or (plist-get agent :name) (plist-get agent :slug))
+                (or (plist-get job :name) "Run")))))
 
 (defun ogent-armory-runner--iso-now ()
   "Return the current time as an ISO-like local timestamp."
   (format-time-string "%Y-%m-%dT%H:%M:%S%z"))
 
 (defun ogent-armory-runner--create-conversation (plan started)
-  "Create the running canonical conversation for PLAN at STARTED."
+  "Prepare the running canonical conversation for PLAN at STARTED."
   (let* ((root (plist-get plan :root))
          (agent (plist-get plan :agent))
          (job (plist-get plan :job))
          (conversation-id (plist-get plan :conversation-id))
-         (file
-          (ogent-armory-conversation-create
-           root
-           (list
-            :id conversation-id
-            :agent (plist-get agent :slug)
-            :title (ogent-armory-runner--conversation-title plan)
-            :trigger (if job "job" "manual")
-            :status "running"
-            :started started
-            :last-activity started
-            :provider (plist-get plan :provider)
-            :model (or (plist-get job :model)
-                       (plist-get agent :model))
-            :job-id (plist-get job :id)
-            :job-name (plist-get job :name)
-            :runtime-mode "native"))))
+         (file (ogent-armory-conversation-file root conversation-id))
+         (existing (file-exists-p file))
+         (trigger (or (plist-get plan :trigger)
+                      (if job "job" "manual"))))
+    (if existing
+        (ogent-armory-conversation-update-properties
+         root conversation-id
+         `(("OGENT_STATUS" . "running")
+           ("OGENT_LAST_ACTIVITY_AT" . ,started)
+           ("OGENT_STARTED_AT" . ,started)
+           ("OGENT_COMPLETED_AT" . "")
+           ("OGENT_EXIT_CODE" . "")
+           ("OGENT_DURATION" . "")
+           ("OGENT_TRIGGER" . ,trigger)
+           ("OGENT_LAST_RESUME_RESULT" .
+            ,(plist-get plan :last-resume-result))))
+      (setq file
+            (ogent-armory-conversation-create
+             root
+             (list
+              :id conversation-id
+              :agent (plist-get agent :slug)
+              :title (ogent-armory-runner--conversation-title plan)
+              :trigger trigger
+              :status "running"
+              :started started
+              :last-activity started
+              :provider (plist-get plan :provider)
+              :model (or (plist-get job :model)
+                         (plist-get agent :model))
+              :job-id (plist-get job :id)
+              :job-name (plist-get job :name)
+              :runtime-mode "native"))))
     (ogent-armory-conversation-append-turn
-     root conversation-id "user" (plist-get plan :prompt)
+     root conversation-id "user"
+     (or (plist-get plan :turn-content)
+         (plist-get plan :prompt))
      :ts started)
+    (ogent-armory-conversation-append-event
+     root conversation-id
+     (if existing "conversation.continued" "task.started")
+     :ts started
+     :payload (format "trigger=%s" trigger))
     file))
 
-(defun ogent-armory-runner--final-status (exit-status parsed)
-  "Return canonical final status for EXIT-STATUS and PARSED output metadata."
+(defun ogent-armory-runner--final-status (plan exit-status parsed)
+  "Return canonical final status for PLAN, EXIT-STATUS, and PARSED metadata."
   (cond
+   ((plist-get plan :cancelled) "cancelled")
    ((not (zerop exit-status)) "failed")
    ((plist-get parsed :awaiting-input) "awaiting-input")
    (t "done")))
@@ -400,7 +436,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                           (append (copy-sequence
                                    (plist-get parsed :artifact-paths))
                                   app-paths)))
-         (status (ogent-armory-runner--final-status exit-status parsed)))
+         (status (ogent-armory-runner--final-status plan exit-status parsed)))
     (ogent-armory-conversation-append-turn
      root conversation-id "agent" output
      :ts finished
@@ -494,7 +530,29 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
     (when stdin
       (process-send-string proc stdin)
       (process-send-eof proc))
-    proc))
+	    proc))
+
+(defun ogent-armory-runner-stop-conversation (directory conversation-id)
+  "Stop the live process for CONVERSATION-ID under DIRECTORY.
+Return non-nil when a process was found."
+  (let* ((root (file-truename (ogent-armory--directory directory)))
+         (process
+          (seq-find
+           (lambda (candidate)
+             (let ((plan (process-get candidate 'ogent-armory-plan)))
+               (and (process-live-p candidate)
+                    (equal (file-truename
+                            (ogent-armory--directory (plist-get plan :root)))
+                           root)
+                    (equal (plist-get plan :conversation-id)
+                           conversation-id))))
+           ogent-armory-runner--processes)))
+    (when process
+      (let ((plan (process-get process 'ogent-armory-plan)))
+        (plist-put plan :cancelled t)
+        (process-put process 'ogent-armory-plan plan))
+      (delete-process process)
+      t)))
 
 (defun ogent-armory-runner--read-agent (root)
   "Read an agent slug from ROOT."

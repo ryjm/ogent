@@ -204,6 +204,9 @@
 (defvar-local ogent-armory-tasks--filters nil
   "Filters for the current task buffer.")
 
+(defvar-local ogent-armory-tasks--view 'board
+  "Current task view: `board', `list', or `schedule'.")
+
 (defvar-local ogent-armory-search--root nil
   "Armory root for the current search buffer.")
 
@@ -373,6 +376,62 @@ When AGENT is non-nil, narrow to that agent."
   (if (ogent-armory-ui--canonical-conversation-path-p path)
       (ogent-armory-ui--canonical-conversation-detail root path)
     (ogent-armory-session-detail path)))
+
+(defun ogent-armory-ui--canonical-conversation-id (path)
+  "Return the canonical conversation id from PATH."
+  (file-name-nondirectory
+   (directory-file-name (file-name-directory path))))
+
+(defun ogent-armory-ui--iso-now ()
+  "Return the current time as a UTC timestamp."
+  (format-time-string "%Y-%m-%dT%H:%M:%SZ" nil t))
+
+(defun ogent-armory-ui--conversation-append-event
+    (root path type &optional payload)
+  "Append TYPE event with PAYLOAD for canonical conversation PATH."
+  (when (ogent-armory-ui--canonical-conversation-path-p path)
+    (ogent-armory-conversation-append-event
+     root
+     (ogent-armory-ui--canonical-conversation-id path)
+     type
+     :ts (ogent-armory-ui--iso-now)
+     :payload payload)))
+
+(defun ogent-armory-ui--conversation-update-properties
+    (root path properties &optional event payload)
+  "Update conversation PATH with Org PROPERTIES.
+When EVENT is non-nil, append it to the canonical event log."
+  (if (ogent-armory-ui--canonical-conversation-path-p path)
+      (let ((id (ogent-armory-ui--canonical-conversation-id path)))
+        (ogent-armory-conversation-update-properties root id properties)
+        (when event
+          (ogent-armory-conversation-append-event
+           root id event
+           :ts (ogent-armory-ui--iso-now)
+           :payload payload)))
+    (dolist (property properties)
+      (ogent-armory-update-session-property path (car property) (cdr property)))))
+
+(defun ogent-armory-ui--conversation-artifacts (detail)
+  "Return artifact paths declared by DETAIL and its turns."
+  (delete-dups
+   (delq
+    nil
+    (append
+     (copy-sequence (plist-get detail :artifact-paths))
+     (copy-sequence (plist-get detail :app-paths))
+     (apply
+      #'append
+      (mapcar (lambda (turn)
+                (copy-sequence (plist-get turn :artifacts)))
+              (plist-get detail :turns)))))))
+
+(defun ogent-armory-ui--artifact-path (root artifact)
+  "Return ARTIFACT expanded under ROOT when needed."
+  (when artifact
+    (if (file-name-absolute-p artifact)
+        artifact
+      (expand-file-name artifact root))))
 
 (defun ogent-armory-ui--put-property (file property value)
   "Set PROPERTY to VALUE in the first Org heading of FILE."
@@ -1683,11 +1742,14 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "<return>") #'ogent-armory-tasks-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-tasks-visit)
     (define-key map "R" #'ogent-armory-tasks-run)
-    (define-key map "A" #'ogent-armory-tasks-archive)
-    (define-key map "U" #'ogent-armory-tasks-unarchive)
-    (define-key map "e" #'ogent-armory-tasks-edit)
-    (define-key map "f" #'ogent-armory-tasks-filter)
-    (define-key map "g" #'ogent-armory-tasks-refresh)
+	    (define-key map "A" #'ogent-armory-tasks-archive)
+	    (define-key map "U" #'ogent-armory-tasks-unarchive)
+    (define-key map "b" #'ogent-armory-tasks-board-view)
+    (define-key map "l" #'ogent-armory-tasks-list-view)
+    (define-key map "S" #'ogent-armory-tasks-schedule-view)
+	    (define-key map "e" #'ogent-armory-tasks-edit)
+	    (define-key map "f" #'ogent-armory-tasks-filter)
+	    (define-key map "g" #'ogent-armory-tasks-refresh)
     (define-key map "s" #'ogent-armory-search)
     (define-key map "q" #'quit-window)
     map)
@@ -1742,6 +1804,9 @@ DIRECTION is either `next' or `previous'."
      ((equal status "RUNNING") "Running")
      ((member status '("AWAITING-INPUT" "FAILED")) "Needs Reply")
      ((not (zerop (or (plist-get session :exit-status) 0))) "Needs Reply")
+     ((and (plist-get session :muted)
+           (member status '("DONE" "CANCELLED")))
+      "Archive")
      ((member status '("TODO" "IDLE")) "Inbox")
      (t "Just Finished"))))
 
@@ -1754,6 +1819,12 @@ DIRECTION is either `next' or `previous'."
         :name (or (plist-get session :name) (plist-get session :id))
         :state (or (plist-get session :status) "DONE")
         :when (or (plist-get session :finished) "")
+        :last-activity (or (plist-get session :last-activity)
+                           (plist-get session :finished))
+        :scheduled-at (plist-get session :scheduled-at)
+        :scheduled-key (plist-get session :scheduled-key)
+        :board-order (plist-get session :board-order)
+        :muted (plist-get session :muted)
         :path (plist-get session :path)))
 
 (defun ogent-armory-tasks--running-items (root)
@@ -1793,7 +1864,41 @@ DIRECTION is either `next' or `previous'."
                         (equal (plist-get item :state)
                                (plist-get filters :status)))))
              items)))
-    (nreverse items)))
+    (ogent-armory-tasks--sort-items (nreverse items))))
+
+(defun ogent-armory-tasks--item-time (item)
+  "Return the best sortable timestamp for ITEM."
+  (or (plist-get item :scheduled-at)
+      (plist-get item :last-activity)
+      (plist-get item :when)
+      ""))
+
+(defun ogent-armory-tasks--item-less-p (left right)
+  "Return non-nil when LEFT should sort before RIGHT."
+  (let ((left-order (plist-get left :board-order))
+        (right-order (plist-get right :board-order)))
+    (cond
+     ((and left-order right-order (not (= left-order right-order)))
+      (< left-order right-order))
+     (left-order t)
+     (right-order nil)
+     ((not (equal (ogent-armory-tasks--item-time left)
+                  (ogent-armory-tasks--item-time right)))
+      (string> (ogent-armory-tasks--item-time left)
+               (ogent-armory-tasks--item-time right)))
+     (t
+      (string< (or (plist-get left :name) "")
+               (or (plist-get right :name) ""))))))
+
+(defun ogent-armory-tasks--sort-items (items)
+  "Return ITEMS in task-board display order."
+  (seq-sort #'ogent-armory-tasks--item-less-p items))
+
+(defun ogent-armory-tasks--scheduled-item-p (item)
+  "Return non-nil when ITEM has scheduling metadata."
+  (or (ogent-armory--blank-to-nil (plist-get item :scheduled))
+      (ogent-armory--blank-to-nil (plist-get item :scheduled-at))
+      (ogent-armory--blank-to-nil (plist-get item :scheduled-key))))
 
 (defun ogent-armory-tasks--entry (item)
   "Return a tabulated list entry for ITEM."
@@ -1810,24 +1915,32 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-armory-tasks--entries ()
   "Return tabulated list entries for the current Armory task buffer."
   (let ((items (ogent-armory-tasks--items)))
-    (apply
-     #'append
-     (mapcar
-      (lambda (lane)
-        (let ((lane-items (seq-filter
-                           (lambda (item)
-                             (equal (plist-get item :lane) lane))
-                           items)))
-          (if lane-items
-              (mapcar #'ogent-armory-tasks--entry lane-items)
-            (list (ogent-armory-tasks--entry
-                   (list :type 'empty
-                         :lane lane
-                         :agent ""
-                         :name "(empty)"
-                         :state ""
-                         :when ""))))))
-      ogent-armory-task-lanes))))
+    (pcase ogent-armory-tasks--view
+      ('list
+       (mapcar #'ogent-armory-tasks--entry items))
+      ('schedule
+       (mapcar #'ogent-armory-tasks--entry
+               (seq-filter #'ogent-armory-tasks--scheduled-item-p items)))
+      (_
+       (apply
+        #'append
+        (mapcar
+         (lambda (lane)
+           (let ((lane-items (seq-filter
+                              (lambda (item)
+                                (equal (plist-get item :lane) lane))
+                              items)))
+             (if lane-items
+                 (mapcar #'ogent-armory-tasks--entry
+                         (ogent-armory-tasks--sort-items lane-items))
+               (list (ogent-armory-tasks--entry
+                      (list :type 'empty
+                            :lane lane
+                            :agent ""
+                            :name "(empty)"
+                            :state ""
+                            :when ""))))))
+         ogent-armory-task-lanes))))))
 
 ;;;###autoload
 (defun ogent-armory-tasks (&optional directory)
@@ -1843,6 +1956,7 @@ DIRECTION is either `next' or `previous'."
       (ogent-armory-tasks-mode)
       (setq ogent-armory-tasks--root root)
       (setq ogent-armory-tasks--filters nil)
+      (setq ogent-armory-tasks--view 'board)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-armory-tasks--entries)
       (tabulated-list-print t))
@@ -1853,6 +1967,24 @@ DIRECTION is either `next' or `previous'."
   "Refresh the Armory task lane buffer."
   (interactive)
   (tabulated-list-print t))
+
+(defun ogent-armory-tasks-board-view ()
+  "Show Armory tasks as attention lanes."
+  (interactive)
+  (setq ogent-armory-tasks--view 'board)
+  (ogent-armory-tasks-refresh))
+
+(defun ogent-armory-tasks-list-view ()
+  "Show Armory tasks as a flat list."
+  (interactive)
+  (setq ogent-armory-tasks--view 'list)
+  (ogent-armory-tasks-refresh))
+
+(defun ogent-armory-tasks-schedule-view ()
+  "Show Armory tasks with scheduling metadata."
+  (interactive)
+  (setq ogent-armory-tasks--view 'schedule)
+  (ogent-armory-tasks-refresh))
 
 (defun ogent-armory-tasks-visit ()
   "Visit the Armory task item at point."
@@ -2092,19 +2224,23 @@ DIRECTION is either `next' or `previous'."
 (defun ogent-armory-conversations-archive ()
   "Archive the conversation at point."
   (interactive)
-  (ogent-armory-update-session-property
-   (plist-get (ogent-armory-conversations--item) :path)
-   "OGENT_ARCHIVED"
-   "t")
+  (let ((path (plist-get (ogent-armory-conversations--item) :path)))
+    (ogent-armory-ui--conversation-update-properties
+     ogent-armory-conversations--root path
+     '(("OGENT_ARCHIVED" . "t")
+       ("OGENT_STATUS" . "archived"))
+     "conversation.archived"))
   (ogent-armory-conversations-refresh))
 
 (defun ogent-armory-conversations-unarchive ()
   "Unarchive the conversation at point."
   (interactive)
-  (ogent-armory-update-session-property
-   (plist-get (ogent-armory-conversations--item) :path)
-   "OGENT_ARCHIVED"
-   "nil")
+  (let ((path (plist-get (ogent-armory-conversations--item) :path)))
+    (ogent-armory-ui--conversation-update-properties
+     ogent-armory-conversations--root path
+     '(("OGENT_ARCHIVED" . "nil")
+       ("OGENT_STATUS" . "done"))
+     "conversation.unarchived"))
   (ogent-armory-conversations-refresh))
 
 (defun ogent-armory-conversations-filter ()
@@ -2128,12 +2264,22 @@ DIRECTION is either `next' or `previous'."
 
 (defvar ogent-armory-conversation-mode-map
   (let ((map (make-sparse-keymap)))
-    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
+	    (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
       (define-key map (kbd key) #'ogent-armory-conversation-visit-source))
-    (define-key map "R" #'ogent-armory-conversation-retry)
-    (define-key map "A" #'ogent-armory-conversation-archive)
-    (define-key map "U" #'ogent-armory-conversation-unarchive)
-    (define-key map "g" #'ogent-armory-conversation-refresh)
+    (define-key map "c" #'ogent-armory-conversation-continue)
+    (define-key map "k" #'ogent-armory-conversation-stop)
+	    (define-key map "R" #'ogent-armory-conversation-retry)
+    (define-key map "d" #'ogent-armory-conversation-mark-done)
+	    (define-key map "A" #'ogent-armory-conversation-archive)
+	    (define-key map "U" #'ogent-armory-conversation-unarchive)
+    (define-key map "m" #'ogent-armory-conversation-mute)
+    (define-key map "M" #'ogent-armory-conversation-unmute)
+    (define-key map "C" #'ogent-armory-conversation-compact)
+    (define-key map "D" #'ogent-armory-conversation-delete)
+    (define-key map "y" #'ogent-armory-conversation-copy-link)
+    (define-key map "o" #'ogent-armory-conversation-open-artifacts)
+    (define-key map "l" #'ogent-armory-conversation-open-logs)
+	    (define-key map "g" #'ogent-armory-conversation-refresh)
     (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
     (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
     (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
@@ -2152,7 +2298,7 @@ DIRECTION is either `next' or `previous'."
   (setq-local buffer-read-only t)
   (ogent-armory-ui--configure-section-buffer)
   (setq header-line-format
-        "RET/v source  TAB section  M-n/p sections  R retry/resume  A archive  U unarchive  g refresh  q quit"))
+        "c continue  k stop  R retry  d done  A/U archive  m/M mute  C compact  D delete  y link  o artifacts  l logs"))
 
 ;;;###autoload
 (defun ogent-armory-conversation (&optional directory file)
@@ -2169,7 +2315,10 @@ DIRECTION is either `next' or `previous'."
                     nil t)))
      (list root session)))
   (let* ((root (ogent-armory-ui--root directory))
-         (path (or file (plist-get (ogent-armory-conversations--item) :path)))
+         (raw-path (or file (plist-get (ogent-armory-conversations--item) :path)))
+         (path (if (and raw-path (file-exists-p raw-path))
+                   (file-truename raw-path)
+                 raw-path))
          (buffer (get-buffer-create
                   (ogent-armory-ui--buffer-name
                    ogent-armory-conversation-buffer-name-format
@@ -2197,19 +2346,109 @@ DIRECTION is either `next' or `previous'."
   (ogent-armory-ui--with-root-section (ogent-armory-conversation-root)
     (ogent-armory-conversation--insert-buffer-content)))
 
+(defun ogent-armory-conversation--insert-actions (detail)
+  "Insert the action panel for DETAIL."
+  (ogent-armory-ui--with-section (ogent-armory-conversation-actions)
+      (ogent-armory-ui--heading-text "Actions")
+    (insert "  c continue   k stop       R retry      d mark done\n")
+    (insert "  A archive    U unarchive  m mute       M unmute\n")
+    (insert "  C compact    D delete     y copy link  o artifacts  l logs\n")
+    (when (plist-get detail :awaiting-input)
+      (insert (propertize "  Awaiting user input\n"
+                          'face 'ogent-armory-ui-warning)))))
+
+(defun ogent-armory-conversation--insert-turns (turns)
+  "Insert conversation TURNS."
+  (ogent-armory-ui--with-section (ogent-armory-conversation-turns)
+      (ogent-armory-ui--heading-text "Turns")
+    (if turns
+        (dolist (turn turns)
+          (insert
+           (propertize
+            (format "  %03d %s %s\n"
+                    (or (plist-get turn :turn) 0)
+                    (upcase (or (plist-get turn :role) "turn"))
+                    (or (plist-get turn :ts) ""))
+            'face 'ogent-armory-ui-dim))
+          (when-let ((tokens (plist-get turn :tokens)))
+            (insert
+             (format "  tokens input=%s output=%s cache=%s\n"
+                     (or (plist-get tokens :input) "")
+                     (or (plist-get tokens :output) "")
+                     (or (plist-get tokens :cache) ""))))
+          (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
+      (insert (propertize "  No turn files recorded\n"
+                          'face 'ogent-armory-ui-dim)))))
+
+(defun ogent-armory-conversation--insert-artifacts (root detail)
+  "Insert artifacts listed by DETAIL under ROOT."
+  (let ((artifacts (ogent-armory-ui--conversation-artifacts detail)))
+    (ogent-armory-ui--with-section (ogent-armory-conversation-artifacts)
+        (ogent-armory-ui--heading-text "Artifacts")
+      (if artifacts
+          (dolist (artifact artifacts)
+            (let ((path (ogent-armory-ui--artifact-path root artifact)))
+              (ogent-armory-ui--insert-item-line
+               (list :type 'artifact :path path)
+               (format "  %s" artifact))))
+        (insert (propertize "  No artifacts recorded\n"
+                            'face 'ogent-armory-ui-dim))))))
+
+(defun ogent-armory-conversation--insert-events (events)
+  "Insert conversation EVENTS."
+  (ogent-armory-ui--with-section (ogent-armory-conversation-events)
+      (ogent-armory-ui--heading-text "Events")
+    (if events
+        (dolist (event events)
+          (insert
+           (format "  %06d %-24s %s\n"
+                   (or (plist-get event :seq) 0)
+                   (or (plist-get event :type) "")
+                   (or (plist-get event :ts) "")))
+          (when-let ((payload (ogent-armory--blank-to-nil
+                               (plist-get event :payload))))
+            (insert "  " (string-trim payload) "\n")))
+      (insert (propertize "  No events recorded\n"
+                          'face 'ogent-armory-ui-dim)))))
+
+(defun ogent-armory-conversation--insert-runtime (detail)
+  "Insert runtime metadata for DETAIL."
+  (ogent-armory-ui--with-section (ogent-armory-conversation-runtime)
+      (ogent-armory-ui--heading-text "Runtime")
+    (ogent-armory-ui--insert-kv "Adapter" (plist-get detail :adapter))
+    (ogent-armory-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
+    (ogent-armory-ui--insert-kv "Effort" (plist-get detail :effort))
+    (ogent-armory-ui--insert-kv "Context" (plist-get detail :context-window))
+    (ogent-armory-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
+    (when (or (plist-get detail :tokens-input)
+              (plist-get detail :tokens-output)
+              (plist-get detail :tokens-cache)
+              (plist-get detail :tokens-total))
+      (ogent-armory-ui--insert-kv
+       "Tokens"
+       (format "input=%s output=%s cache=%s total=%s"
+               (or (plist-get detail :tokens-input) "")
+               (or (plist-get detail :tokens-output) "")
+               (or (plist-get detail :tokens-cache) "")
+               (or (plist-get detail :tokens-total) ""))))))
+
 (defun ogent-armory-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
   (let ((detail (ogent-armory-ui--conversation-detail
                  ogent-armory-conversation--root
                  ogent-armory-conversation--file)))
     (insert (propertize (or (plist-get detail :name)
-                            (plist-get detail :id))
+	                            (plist-get detail :id))
                         'face 'ogent-armory-ui-heading)
             "\n\n")
+    (ogent-armory-conversation--insert-actions detail)
+    (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-conversation-metadata)
         (ogent-armory-ui--heading-text "Metadata")
+      (ogent-armory-ui--insert-kv "Status" (plist-get detail :status))
       (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
       (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
+      (ogent-armory-ui--insert-kv "Trigger" (plist-get detail :trigger))
       (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
       (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
       (ogent-armory-ui--insert-kv "Exit status"
@@ -2217,8 +2456,29 @@ DIRECTION is either `next' or `previous'."
                                      (number-to-string
                                       (plist-get detail :exit-status))))
       (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
-      (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished)))
+      (ogent-armory-ui--insert-kv "Started" (plist-get detail :started))
+      (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
+      (ogent-armory-ui--insert-kv "Last activity"
+                                   (plist-get detail :last-activity))
+      (ogent-armory-ui--insert-kv "Archived"
+                                   (if (plist-get detail :archived) "yes" "no"))
+      (ogent-armory-ui--insert-kv "Muted"
+                                   (if (plist-get detail :muted) "yes" "no")))
     (insert "\n")
+    (ogent-armory-conversation--insert-runtime detail)
+    (insert "\n")
+    (when (or (plist-get detail :summary)
+              (plist-get detail :context-summary))
+      (ogent-armory-ui--with-section (ogent-armory-conversation-summary)
+          (ogent-armory-ui--heading-text "Summary")
+        (when-let ((summary (plist-get detail :summary)))
+          (insert summary "\n"))
+        (when-let ((context (plist-get detail :context-summary)))
+          (insert "\nContext\n" context "\n")))
+      (insert "\n"))
+    (when (plist-get detail :turns)
+      (ogent-armory-conversation--insert-turns (plist-get detail :turns))
+      (insert "\n"))
     (ogent-armory-ui--with-section (ogent-armory-conversation-prompt)
         (ogent-armory-ui--heading-text "Prompt")
       (insert (or (plist-get detail :prompt) "") "\n"))
@@ -2242,8 +2502,13 @@ DIRECTION is either `next' or `previous'."
     (when (ogent-armory--blank-to-nil (plist-get detail :error))
       (ogent-armory-ui--with-section (ogent-armory-conversation-error)
           (ogent-armory-ui--heading-text "Error")
-        (insert (plist-get detail :error) "\n"))
+      (insert (plist-get detail :error) "\n"))
       (insert "\n"))
+    (ogent-armory-conversation--insert-artifacts
+     ogent-armory-conversation--root detail)
+    (insert "\n")
+    (ogent-armory-conversation--insert-events (plist-get detail :events))
+    (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-conversation-source)
         (ogent-armory-ui--heading-text "Source Org")
       (ogent-armory-ui--insert-item-line
@@ -2255,12 +2520,66 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (ogent-armory-ui--visit-path ogent-armory-conversation--file))
 
+(defun ogent-armory-conversation--detail ()
+  "Return detail for the current conversation buffer."
+  (ogent-armory-ui--conversation-detail
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file))
+
+(defun ogent-armory-conversation--canonical-id ()
+  "Return current canonical conversation id or nil."
+  (when (ogent-armory-ui--canonical-conversation-path-p
+         ogent-armory-conversation--file)
+    (ogent-armory-ui--canonical-conversation-id
+     ogent-armory-conversation--file)))
+
+(defun ogent-armory-conversation-continue (instruction)
+  "Continue this conversation with INSTRUCTION."
+  (interactive (list (read-string "Continue: ")))
+  (let* ((detail (ogent-armory-conversation--detail))
+         (agent (plist-get detail :agent))
+         (job-id (plist-get detail :job-id))
+         (conversation-id (ogent-armory-conversation--canonical-id)))
+    (unless agent
+      (user-error "Conversation has no agent"))
+    (if conversation-id
+        (let* ((replay
+                (ogent-armory-conversation-replay-prompt
+                 ogent-armory-conversation--root conversation-id instruction))
+               (keywords
+                (append
+                 (when job-id (list :job-id job-id))
+                 (list :instruction replay
+                       :conversation-id conversation-id
+                       :conversation-title (plist-get detail :name)
+                       :turn-content instruction
+                       :trigger "manual"
+                       :last-resume-result "replay")))
+               (plan (apply #'ogent-armory-runner-plan
+                            ogent-armory-conversation--root
+                            agent
+                            keywords)))
+          (when (ogent-armory-runner--confirm plan)
+            (ogent-armory-runner-start plan)
+            (ogent-armory-conversation-refresh)))
+      (ogent-armory-run-agent
+       ogent-armory-conversation--root agent instruction))))
+
+(defun ogent-armory-conversation-stop ()
+  "Stop this conversation when it has a live process."
+  (interactive)
+  (let ((conversation-id (ogent-armory-conversation--canonical-id)))
+    (unless conversation-id
+      (user-error "Only canonical conversations can be stopped"))
+    (unless (ogent-armory-runner-stop-conversation
+             ogent-armory-conversation--root conversation-id)
+      (user-error "No live process for conversation %s" conversation-id)))
+  (ogent-armory-conversation-refresh))
+
 (defun ogent-armory-conversation-retry ()
   "Retry this conversation."
   (interactive)
-  (let ((detail (ogent-armory-ui--conversation-detail
-                 ogent-armory-conversation--root
-                 ogent-armory-conversation--file)))
+  (let ((detail (ogent-armory-conversation--detail)))
     (if-let ((job-id (plist-get detail :job-id)))
         (ogent-armory-run-job ogent-armory-conversation--root
                                (plist-get detail :agent)
@@ -2269,21 +2588,125 @@ DIRECTION is either `next' or `previous'."
                                (plist-get detail :agent)
                                (read-string "Instruction: ")))))
 
+(defun ogent-armory-conversation-mark-done ()
+  "Mark this conversation done."
+  (interactive)
+  (ogent-armory-ui--conversation-update-properties
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file
+   `(("OGENT_STATUS" . "done")
+     ("OGENT_AWAITING_INPUT" . "nil")
+     ("OGENT_EXIT_CODE" . "0")
+     ("OGENT_COMPLETED_AT" . ,(ogent-armory-ui--iso-now)))
+   "conversation.marked_done")
+  (ogent-armory-conversation-refresh))
+
 (defun ogent-armory-conversation-archive ()
   "Archive this conversation."
   (interactive)
-  (ogent-armory-update-session-property ogent-armory-conversation--file
-                                         "OGENT_ARCHIVED"
-                                         "t")
+  (ogent-armory-ui--conversation-update-properties
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file
+   '(("OGENT_ARCHIVED" . "t")
+     ("OGENT_STATUS" . "archived"))
+   "conversation.archived")
   (ogent-armory-conversation-refresh))
 
 (defun ogent-armory-conversation-unarchive ()
   "Unarchive this conversation."
   (interactive)
-  (ogent-armory-update-session-property ogent-armory-conversation--file
-                                         "OGENT_ARCHIVED"
-                                         "nil")
+  (ogent-armory-ui--conversation-update-properties
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file
+   '(("OGENT_ARCHIVED" . "nil")
+     ("OGENT_STATUS" . "done"))
+   "conversation.unarchived")
   (ogent-armory-conversation-refresh))
+
+(defun ogent-armory-conversation-mute ()
+  "Mute this conversation."
+  (interactive)
+  (ogent-armory-ui--conversation-update-properties
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file
+   '(("OGENT_MUTED" . "t"))
+   "conversation.muted")
+  (ogent-armory-conversation-refresh))
+
+(defun ogent-armory-conversation-unmute ()
+  "Unmute this conversation."
+  (interactive)
+  (ogent-armory-ui--conversation-update-properties
+   ogent-armory-conversation--root
+   ogent-armory-conversation--file
+   '(("OGENT_MUTED" . "nil"))
+   "conversation.unmuted")
+  (ogent-armory-conversation-refresh))
+
+(defun ogent-armory-conversation-compact (&optional summary)
+  "Compact this canonical conversation with optional SUMMARY."
+  (interactive)
+  (let ((conversation-id (ogent-armory-conversation--canonical-id)))
+    (unless conversation-id
+      (user-error "Only canonical conversations can be compacted"))
+    (ogent-armory-conversation-compact-record
+     ogent-armory-conversation--root
+     conversation-id
+     summary))
+  (ogent-armory-conversation-refresh))
+
+(defun ogent-armory-conversation-delete (&optional force)
+  "Delete this conversation.
+With FORCE, skip confirmation."
+  (interactive "P")
+  (let ((path ogent-armory-conversation--file)
+        (buffer (current-buffer)))
+    (when (or force
+              (yes-or-no-p
+               (format "Delete Armory conversation %s? "
+                       (abbreviate-file-name path))))
+      (if (ogent-armory-ui--canonical-conversation-path-p path)
+          (delete-directory (file-name-directory path) t)
+        (delete-file path))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(defun ogent-armory-conversation-copy-link ()
+  "Copy a stable link to this conversation."
+  (interactive)
+  (let ((link (if-let ((conversation-id
+                       (ogent-armory-conversation--canonical-id)))
+                  (format "ogent-armory:%s" conversation-id)
+                ogent-armory-conversation--file)))
+    (kill-new link)
+    (message "Copied %s" link)))
+
+(defun ogent-armory-conversation-open-artifacts ()
+  "Open the first artifact declared by this conversation."
+  (interactive)
+  (let* ((detail (ogent-armory-conversation--detail))
+         (artifact (car (ogent-armory-ui--conversation-artifacts detail)))
+         (path (ogent-armory-ui--artifact-path
+                ogent-armory-conversation--root artifact)))
+    (unless (and path (file-exists-p path))
+      (user-error "No artifact path recorded for this conversation"))
+    (cond
+     ((and (file-directory-p path)
+           (file-exists-p (expand-file-name "index.html" path)))
+      (browse-url-of-file (expand-file-name "index.html" path)))
+     ((string-suffix-p ".html" path t)
+      (browse-url-of-file path))
+     (t
+      (find-file path)))))
+
+(defun ogent-armory-conversation-open-logs ()
+  "Open the event log for this conversation."
+  (interactive)
+  (if-let ((conversation-id (ogent-armory-conversation--canonical-id)))
+      (find-file
+       (ogent-armory-conversation-events-file
+        ogent-armory-conversation--root conversation-id))
+    (ogent-armory-conversation-visit-source)))
 
 ;;; Search
 

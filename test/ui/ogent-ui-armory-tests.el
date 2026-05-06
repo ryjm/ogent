@@ -16,7 +16,7 @@
 (defmacro ogent-ui-armory-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-ui-armory-" t)))
+  `(let ((,var (file-truename (make-temp-file "ogent-ui-armory-" t))))
      (unwind-protect
          (progn ,@body)
        (when (file-directory-p ,var)
@@ -141,8 +141,27 @@
                     ("<backtab>" . ,#'ogent-armory-ui-cycle-sections)
                     ("M-n" . ,#'ogent-armory-ui-next-section)
                     ("M-p" . ,#'ogent-armory-ui-previous-section)
-                    ("^" . ,#'ogent-armory-ui-up-section)))
+	                    ("^" . ,#'ogent-armory-ui-up-section)))
       (should (eq (lookup-key map (kbd (car pair))) (cdr pair))))))
+
+(ert-deftest ogent-ui-armory-conversation-keybindings-cover-detail-actions ()
+  "Conversation detail exposes Armory task actions."
+  (dolist (pair `(("c" . ,#'ogent-armory-conversation-continue)
+                  ("k" . ,#'ogent-armory-conversation-stop)
+                  ("R" . ,#'ogent-armory-conversation-retry)
+                  ("d" . ,#'ogent-armory-conversation-mark-done)
+                  ("A" . ,#'ogent-armory-conversation-archive)
+                  ("U" . ,#'ogent-armory-conversation-unarchive)
+                  ("m" . ,#'ogent-armory-conversation-mute)
+                  ("M" . ,#'ogent-armory-conversation-unmute)
+                  ("C" . ,#'ogent-armory-conversation-compact)
+                  ("D" . ,#'ogent-armory-conversation-delete)
+                  ("y" . ,#'ogent-armory-conversation-copy-link)
+                  ("o" . ,#'ogent-armory-conversation-open-artifacts)
+                  ("l" . ,#'ogent-armory-conversation-open-logs)))
+    (should (eq (lookup-key ogent-armory-conversation-mode-map
+                            (kbd (car pair)))
+                (cdr pair)))))
 
 (ert-deftest ogent-ui-armory-section-modes-derive-from-magit-section ()
   "Armory section buffers inherit Magit section behavior when available."
@@ -763,7 +782,7 @@
        :provider "codex"
        :active t)
      "Maintain architecture.")
-    (ogent-armory-conversation-create
+	    (ogent-armory-conversation-create
      root
      '(:id "conv-ui"
        :agent "cto"
@@ -773,13 +792,18 @@
        :model "gpt-5.4"
        :started "2026-05-06T10:00:00Z"
        :completed "2026-05-06T10:01:00Z"
-       :duration "1s"))
+       :duration "1s"
+       :artifact-paths ("apps/report")))
     (ogent-armory-conversation-append-turn
      root "conv-ui" "user" "Review this."
      :ts "2026-05-06T10:00:00Z")
     (ogent-armory-conversation-append-turn
      root "conv-ui" "agent" "Looks solid."
      :ts "2026-05-06T10:01:00Z")
+    (ogent-armory-conversation-append-event
+     root "conv-ui" "task.updated"
+     :ts "2026-05-06T10:01:00Z"
+     :payload "status=done")
     (let ((buffer (ogent-armory-conversations root))
           detail)
       (unwind-protect
@@ -793,16 +817,157 @@
             (search-forward "Canonical Review")
             (setq detail (ogent-armory-conversations-open))
             (with-current-buffer detail
-              (let ((text (buffer-substring-no-properties
+	              (let ((text (buffer-substring-no-properties
                            (point-min)
                            (point-max))))
+                (dolist (label '("Actions" "Turns" "Artifacts" "Events"
+                                 "Runtime"))
+                  (should (string-match-p label text)))
                 (should (string-match-p "Review this" text))
                 (should (string-match-p "Looks solid" text))
+                (should (string-match-p "apps/report" text))
+                (should (string-match-p "task.updated" text))
                 (should (string-match-p "gpt-5.4" text)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))
         (when (and detail (buffer-live-p detail))
           (kill-buffer detail))))))
+
+(ert-deftest ogent-ui-armory-conversation-actions-update-canonical-org ()
+  "Conversation detail actions mutate canonical Org metadata and events."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-armory-conversation-create
+                 root
+                 '(:id "conv-actions"
+                   :agent "cto"
+                   :title "Action Review"
+                   :status "awaiting-input"
+                   :awaiting-input t
+                   :provider "codex"))))
+      (ogent-armory-conversation-append-turn
+       root "conv-actions" "user" "Review this."
+       :ts "2026-05-06T10:00:00Z")
+      (let ((buffer (ogent-armory-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (ogent-armory-conversation-mute)
+              (should (plist-get (ogent-armory-conversation-read
+                                  root "conv-actions")
+                                 :muted))
+              (ogent-armory-conversation-mark-done)
+              (let ((record (ogent-armory-conversation-read
+                             root "conv-actions")))
+                (should (equal (plist-get record :status) "done"))
+                (should-not (plist-get record :awaiting-input)))
+              (ogent-armory-conversation-compact "Short digest")
+              (should (equal (plist-get (ogent-armory-conversation-read
+                                         root "conv-actions")
+                                        :context-summary)
+                             "Short digest"))
+              (ogent-armory-conversation-archive)
+              (should (plist-get (ogent-armory-conversation-read
+                                  root "conv-actions")
+                                 :archived))
+              (ogent-armory-conversation-unarchive)
+              (should-not (plist-get (ogent-armory-conversation-read
+                                      root "conv-actions")
+                                     :archived))
+              (let ((events (mapcar
+                             (lambda (event)
+                               (plist-get event :type))
+                             (ogent-armory-conversation-read-events
+                              root "conv-actions"))))
+                (dolist (event '("conversation.muted"
+                                 "conversation.marked_done"
+                                 "conversation.compacted"
+                                 "conversation.archived"
+                                 "conversation.unarchived"))
+                  (should (member event events)))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
+(ert-deftest ogent-ui-armory-conversation-continue-replays-canonical-turns ()
+  "Continuation builds a replay prompt and keeps the canonical id."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let ((file (ogent-armory-conversation-create
+                 root
+                 '(:id "conv-continue"
+                   :agent "cto"
+                   :title "Continue Review"
+                   :status "done"
+                   :provider "codex")))
+          captured)
+      (ogent-armory-conversation-append-turn
+       root "conv-continue" "user" "Initial ask."
+       :ts "2026-05-06T10:00:00Z")
+      (ogent-armory-conversation-append-turn
+       root "conv-continue" "agent" "Initial answer."
+       :ts "2026-05-06T10:01:00Z")
+      (let ((buffer (ogent-armory-conversation root file)))
+        (unwind-protect
+            (with-current-buffer buffer
+              (cl-letf (((symbol-function 'ogent-armory-runner--confirm)
+                         (lambda (_plan) t))
+                        ((symbol-function 'ogent-armory-runner-start)
+                         (lambda (plan)
+                           (setq captured plan)
+                           :started)))
+                (ogent-armory-conversation-continue "Follow up."))
+              (should (equal (plist-get captured :conversation-id)
+                             "conv-continue"))
+              (should (equal (plist-get captured :turn-content)
+                             "Follow up."))
+              (should (equal (plist-get captured :last-resume-result)
+                             "replay"))
+              (should (string-match-p "Prior turns"
+                                      (plist-get captured :prompt)))
+              (should (string-match-p "Initial answer"
+                                      (plist-get captured :prompt))))
+          (when (buffer-live-p buffer)
+            (kill-buffer buffer)))))))
+
+(ert-deftest ogent-ui-armory-conversation-delete-removes-record ()
+  "Conversation delete removes the canonical record directory."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (let* ((file (ogent-armory-conversation-create
+                  root
+                  '(:id "conv-delete"
+                    :agent "cto"
+                    :title "Delete Review"
+                    :status "done")))
+           (directory (file-name-directory file))
+           (buffer (ogent-armory-conversation root file)))
+      (with-current-buffer buffer
+        (ogent-armory-conversation-delete t))
+      (should-not (file-exists-p directory))
+      (should-not (buffer-live-p buffer)))))
 
 (ert-deftest ogent-ui-armory-conversation-renders-success-trace ()
   "Successful conversation traces do not render as errors."
@@ -889,16 +1054,107 @@
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-tasks-keybindings-cover-daily-actions ()
-  "Task board bindings include run, archive, unarchive, edit, and filters."
+  "Task board bindings include run, archive, view modes, edit, and filters."
   (dolist (pair `(("RET" . ,#'ogent-armory-tasks-visit)
                   ("R" . ,#'ogent-armory-tasks-run)
                   ("A" . ,#'ogent-armory-tasks-archive)
                   ("U" . ,#'ogent-armory-tasks-unarchive)
+                  ("b" . ,#'ogent-armory-tasks-board-view)
+                  ("l" . ,#'ogent-armory-tasks-list-view)
+                  ("S" . ,#'ogent-armory-tasks-schedule-view)
                   ("e" . ,#'ogent-armory-tasks-edit)
                   ("f" . ,#'ogent-armory-tasks-filter)
                   ("g" . ,#'ogent-armory-tasks-refresh)))
     (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-armory-tasks-switches-list-and-schedule-views ()
+  "Task board can switch between board, list, and schedule views."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (eq ogent-armory-tasks--view 'board))
+            (ogent-armory-tasks-list-view)
+            (should (eq ogent-armory-tasks--view 'list))
+            (let ((list-text (buffer-substring-no-properties
+                              (point-min)
+                              (point-max))))
+              (should (string-match-p "Weekly Review" list-text))
+              (should-not (string-match-p "(empty)" list-text)))
+            (ogent-armory-tasks-schedule-view)
+            (should (eq ogent-armory-tasks--view 'schedule))
+            (let ((schedule-text (buffer-substring-no-properties
+                                  (point-min)
+                                  (point-max))))
+              (should (string-match-p "Weekly Review" schedule-text))
+              (should-not (string-match-p "Old Report" schedule-text)))
+            (ogent-armory-tasks-board-view)
+            (should (eq ogent-armory-tasks--view 'board)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-armory-tasks-sort-by-board-order-and-muted-state ()
+  "Canonical task items honor board order and muted completed state."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     root
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture"
+       :provider "codex"
+       :active t)
+     "Maintain architecture.")
+    (ogent-armory-conversation-create
+     root
+     '(:id "late"
+       :agent "cto"
+       :title "Late Card"
+       :status "done"
+       :completed "2026-05-06T11:00:00Z"
+       :last-activity "2026-05-06T11:00:00Z"
+       :board-order 20))
+    (ogent-armory-conversation-create
+     root
+     '(:id "early"
+       :agent "cto"
+       :title "Early Card"
+       :status "done"
+       :completed "2026-05-06T10:00:00Z"
+       :last-activity "2026-05-06T10:00:00Z"
+       :board-order 1))
+    (ogent-armory-conversation-create
+     root
+     '(:id "muted"
+       :agent "cto"
+       :title "Muted Card"
+       :status "done"
+       :completed "2026-05-06T09:00:00Z"
+       :last-activity "2026-05-06T09:00:00Z"
+       :muted t))
+    (let ((sessions (ogent-armory-conversation-list-sessions root)))
+      (should (equal (plist-get
+                      (ogent-armory-tasks--session-item
+                       (seq-find (lambda (session)
+                                   (equal (plist-get session :id) "muted"))
+                                 sessions))
+                      :lane)
+                     "Archive")))
+    (let ((buffer (ogent-armory-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (let* ((text (buffer-substring-no-properties
+                          (point-min)
+                          (point-max)))
+                   (early (string-match-p "Early Card" text))
+                   (late (string-match-p "Late Card" text)))
+              (should early)
+              (should late)
+              (should (< early late))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-search-finds-org-records ()
   "Armory search finds matching Org records and opens a result buffer."
