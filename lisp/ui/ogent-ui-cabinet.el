@@ -94,6 +94,11 @@
   :type 'string
   :group 'ogent-ui-cabinet)
 
+(defcustom ogent-cabinet-conversation-runtime-trace-preview-lines 12
+  "Maximum runtime trace lines shown in conversation reader buffers."
+  :type 'integer
+  :group 'ogent-ui-cabinet)
+
 (defcustom ogent-cabinet-tasks-buffer-name-format "*ogent-cabinet-tasks: %s*"
   "Format string used for Cabinet task lane buffers."
   :type 'string
@@ -674,6 +679,26 @@ When EVENT is non-nil, append it to the canonical event log."
   "Insert LABEL and VALUE as one detail line."
   (insert (propertize (format "%-14s" label) 'face 'ogent-cabinet-ui-dim))
   (insert (format "%s\n" (or value ""))))
+
+(defun ogent-cabinet-ui--insert-readable-text (text &optional empty-label)
+  "Insert TEXT as reader content, or EMPTY-LABEL when blank."
+  (let ((content (string-trim-right (or text ""))))
+    (if (string-empty-p content)
+        (insert (propertize (or empty-label "  No content recorded\n")
+                            'face 'ogent-cabinet-ui-dim))
+      (insert content "\n"))))
+
+(defun ogent-cabinet-ui--preview-lines (text limit)
+  "Return a preview plist for TEXT with at most LIMIT lines."
+  (let* ((lines (split-string (or text "") "\n"))
+         (lines (if (and lines (string-empty-p (car (last lines))))
+                    (butlast lines)
+                  lines))
+         (limit (max 0 (or limit 0)))
+         (visible (seq-take lines limit))
+         (hidden (- (length lines) (length visible))))
+    (list :text (string-join visible "\n")
+          :hidden hidden)))
 
 (defun ogent-cabinet-ui--item-at-point ()
   "Return Cabinet item metadata at point."
@@ -2518,7 +2543,7 @@ DIRECTION is either `next' or `previous'."
                                        (setq-local buffer-read-only t)
                                        (ogent-cabinet-ui--configure-section-buffer)
                                        (setq header-line-format
-                                             "c continue  k stop  R retry  d done  A/U archive  m/M mute  C compact  D delete  y link  o artifacts  l logs"))
+                                             "RET/v source  g refresh  R retry  c continue  o artifacts  l logs  TAB fold"))
 
 ;;;###autoload
 (defun ogent-cabinet-conversation (&optional directory file)
@@ -2566,16 +2591,46 @@ DIRECTION is either `next' or `previous'."
   (ogent-cabinet-ui--with-root-section (ogent-cabinet-conversation-root)
                                        (ogent-cabinet-conversation--insert-buffer-content)))
 
-(defun ogent-cabinet-conversation--insert-actions (detail)
-  "Insert the action panel for DETAIL."
-  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-actions)
-                                  (ogent-cabinet-ui--heading-text "Actions")
-                                  (insert "  c continue   k stop       R retry      d mark done\n")
-                                  (insert "  A archive    U unarchive  m mute       M unmute\n")
-                                  (insert "  C compact    D delete     y copy link  o artifacts  l logs\n")
-                                  (when (plist-get detail :awaiting-input)
-                                    (insert (propertize "  Awaiting user input\n"
-                                                        'face 'ogent-cabinet-ui-warning)))))
+(defun ogent-cabinet-conversation--insert-overview (detail)
+  "Insert compact run overview for DETAIL."
+  (let ((parts (delq nil
+                     (list
+                      (plist-get detail :status)
+                      (plist-get detail :agent)
+                      (plist-get detail :job-id)
+                      (plist-get detail :provider)
+                      (plist-get detail :model)
+                      (plist-get detail :duration)
+                      (plist-get detail :finished)))))
+    (when parts
+      (insert (propertize (string-join parts "  ")
+                          'face 'ogent-cabinet-ui-dim)
+              "\n"))))
+
+(defun ogent-cabinet-conversation--insert-details (detail)
+  "Insert detailed metadata for DETAIL."
+  (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-metadata)
+                                  (ogent-cabinet-ui--heading-text "Details")
+                                  (ogent-cabinet-ui--insert-kv "Status" (plist-get detail :status))
+                                  (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
+                                  (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
+                                  (ogent-cabinet-ui--insert-kv "Trigger" (plist-get detail :trigger))
+                                  (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
+                                  (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
+                                  (ogent-cabinet-ui--insert-kv
+                                   "Exit status"
+                                   (when (plist-get detail :exit-status)
+                                     (number-to-string
+                                      (plist-get detail :exit-status))))
+                                  (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
+                                  (ogent-cabinet-ui--insert-kv "Started" (plist-get detail :started))
+                                  (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
+                                  (ogent-cabinet-ui--insert-kv "Last activity"
+                                                               (plist-get detail :last-activity))
+                                  (ogent-cabinet-ui--insert-kv "Archived"
+                                                               (if (plist-get detail :archived) "yes" "no"))
+                                  (ogent-cabinet-ui--insert-kv "Muted"
+                                                               (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-cabinet-conversation--insert-turns (turns)
   "Insert conversation TURNS."
@@ -2652,6 +2707,40 @@ DIRECTION is either `next' or `previous'."
                                              (or (plist-get detail :tokens-cache) "")
                                              (or (plist-get detail :tokens-total) ""))))))
 
+(defun ogent-cabinet-conversation--runtime-present-p (detail)
+  "Return non-nil when DETAIL has runtime fields worth showing."
+  (seq-some
+   (lambda (key)
+     (plist-get detail key))
+   '(:adapter
+     :runtime-mode
+     :effort
+     :context-window
+     :last-resume-result
+     :tokens-input
+     :tokens-output
+     :tokens-cache
+     :tokens-total)))
+
+(defun ogent-cabinet-conversation--insert-runtime-trace (trace)
+  "Insert runtime TRACE as a preview."
+  (when (ogent-cabinet--blank-to-nil trace)
+    (let* ((preview (ogent-cabinet-ui--preview-lines
+                     trace
+                     ogent-cabinet-conversation-runtime-trace-preview-lines))
+           (hidden (plist-get preview :hidden)))
+      (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-runtime-trace)
+                                      (ogent-cabinet-ui--heading-text "Runtime Trace")
+                                      (ogent-cabinet-ui--insert-readable-text
+                                       (plist-get preview :text)
+                                       "  No runtime trace recorded\n")
+                                      (when (> hidden 0)
+                                        (insert
+                                         (propertize
+                                          (format "  %d more lines. Press l for logs or v for source Org.\n"
+                                                  hidden)
+                                          'face 'ogent-cabinet-ui-dim)))))))
+
 (defun ogent-cabinet-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
   (let ((detail (ogent-cabinet-ui--conversation-detail
@@ -2660,32 +2749,11 @@ DIRECTION is either `next' or `previous'."
     (insert (propertize (or (plist-get detail :name)
                             (plist-get detail :id))
                         'face 'ogent-cabinet-ui-heading)
-            "\n\n")
-    (ogent-cabinet-conversation--insert-actions detail)
-    (insert "\n")
-    (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-metadata)
-                                    (ogent-cabinet-ui--heading-text "Metadata")
-                                    (ogent-cabinet-ui--insert-kv "Status" (plist-get detail :status))
-                                    (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
-                                    (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
-                                    (ogent-cabinet-ui--insert-kv "Trigger" (plist-get detail :trigger))
-                                    (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
-                                    (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
-                                    (ogent-cabinet-ui--insert-kv "Exit status"
-                                                                 (when (plist-get detail :exit-status)
-                                                                   (number-to-string
-                                                                    (plist-get detail :exit-status))))
-                                    (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
-                                    (ogent-cabinet-ui--insert-kv "Started" (plist-get detail :started))
-                                    (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
-                                    (ogent-cabinet-ui--insert-kv "Last activity"
-                                                                 (plist-get detail :last-activity))
-                                    (ogent-cabinet-ui--insert-kv "Archived"
-                                                                 (if (plist-get detail :archived) "yes" "no"))
-                                    (ogent-cabinet-ui--insert-kv "Muted"
-                                                                 (if (plist-get detail :muted) "yes" "no")))
-    (insert "\n")
-    (ogent-cabinet-conversation--insert-runtime detail)
+            "\n")
+    (ogent-cabinet-conversation--insert-overview detail)
+    (when (plist-get detail :awaiting-input)
+      (insert (propertize "Awaiting user input\n"
+                          'face 'ogent-cabinet-ui-warning)))
     (insert "\n")
     (when (or (plist-get detail :summary)
               (plist-get detail :context-summary))
@@ -2699,13 +2767,25 @@ DIRECTION is either `next' or `previous'."
     (when (plist-get detail :turns)
       (ogent-cabinet-conversation--insert-turns (plist-get detail :turns))
       (insert "\n"))
-    (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-prompt)
-                                    (ogent-cabinet-ui--heading-text "Prompt")
-                                    (insert (or (plist-get detail :prompt) "") "\n"))
-    (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-output)
                                     (ogent-cabinet-ui--heading-text "Output")
-                                    (insert (or (plist-get detail :output) "") "\n"))
+                                    (ogent-cabinet-ui--insert-readable-text
+                                     (plist-get detail :output)
+                                     "  No output recorded\n"))
+    (insert "\n")
+    (ogent-cabinet-conversation--insert-artifacts
+     ogent-cabinet-conversation--root detail)
+    (insert "\n")
+    (ogent-cabinet-conversation--insert-details detail)
+    (insert "\n")
+    (when (ogent-cabinet-conversation--runtime-present-p detail)
+      (ogent-cabinet-conversation--insert-runtime detail)
+      (insert "\n"))
+    (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-prompt)
+                                    (ogent-cabinet-ui--heading-text "Prompt")
+                                    (ogent-cabinet-ui--insert-readable-text
+                                     (plist-get detail :prompt)
+                                     "  No prompt recorded\n"))
     (insert "\n")
     (when (plist-get detail :tools)
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-tools)
@@ -2714,19 +2794,17 @@ DIRECTION is either `next' or `previous'."
                                         (insert (format "  %s\n%s\n" (plist-get tool :header)
                                                         (plist-get tool :body)))))
       (insert "\n"))
-    (when (ogent-cabinet--blank-to-nil (plist-get detail :runtime-trace))
-      (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-runtime-trace)
-                                      (ogent-cabinet-ui--heading-text "Runtime Trace")
-                                      (insert (plist-get detail :runtime-trace) "\n"))
-      (insert "\n"))
     (when (ogent-cabinet--blank-to-nil (plist-get detail :error))
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-error)
                                       (ogent-cabinet-ui--heading-text "Error")
-                                      (insert (plist-get detail :error) "\n"))
+                                      (ogent-cabinet-ui--insert-readable-text
+                                       (plist-get detail :error)
+                                       "  No error recorded\n"))
       (insert "\n"))
-    (ogent-cabinet-conversation--insert-artifacts
-     ogent-cabinet-conversation--root detail)
-    (insert "\n")
+    (ogent-cabinet-conversation--insert-runtime-trace
+     (plist-get detail :runtime-trace))
+    (when (ogent-cabinet--blank-to-nil (plist-get detail :runtime-trace))
+      (insert "\n"))
     (ogent-cabinet-conversation--insert-events (plist-get detail :events))
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-source)

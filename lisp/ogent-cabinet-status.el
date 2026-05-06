@@ -34,6 +34,7 @@
 (autoload 'ogent-cabinet-agent "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-jobs "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-create-job "ogent-ui-cabinet" nil t)
+(autoload 'ogent-cabinet-conversation "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
 (declare-function ogent-cabinet-jobs--goto "ogent-ui-cabinet" (agent job-id))
@@ -940,10 +941,15 @@ DIRECTION is either `next' or `previous'."
   "Visit the Org record at point."
   (interactive)
   (let* ((node (ogent-cabinet-status--require-node))
+         (kind (plist-get node :kind))
          (path (plist-get node :path)))
     (unless (and path (file-exists-p path))
       (user-error "No Cabinet record at point"))
-    (find-file path)))
+    (if (eq kind 'session)
+        (let ((display-buffer-overriding-action
+               '((display-buffer-same-window))))
+          (ogent-cabinet-conversation ogent-cabinet-status--root path))
+      (find-file path))))
 
 (defun ogent-cabinet-status-open-issues ()
   "Open Ogent Issues from the current Cabinet root."
