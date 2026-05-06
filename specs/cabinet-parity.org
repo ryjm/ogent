@@ -1,0 +1,1431 @@
+#+title: Cabinet Parity Specification for Org and Emacs
+#+date: 2026-05-06
+
+* Purpose
+
+This document specifies the Cabinet functionality ogent already has, the
+Cabinet functionality observed in the official Cabinet app =~/vault/projects/runcabinet=,
+and the work required to reach product parity in an Org-mode and Emacs context.
+
+The target is not a React clone. Cabinet's useful product ideas should become
+native Emacs workflows backed by Org files. Org remains the durable record,
+Emacs remains the operating surface, and local CLI agents remain first-class
+runtimes.
+
+* Sources Reviewed
+
+** Live Cabinet App
+
+The running app at =localhost:4000= was exercised with desktop automation. The
+observed build identified itself as =Zorp - Cabinet= and exposed these active
+surfaces:
+
+- =Data=, =Agents=, and =Tasks= sidebar drawers.
+- Cabinet visibility picker labeled =This cabinet only=.
+- Page editor with title, export, version history, command palette, AI panel,
+  page/file toggle, rich toolbar, Markdown toggle, runtime picker, AI edit
+  prompt, git dirty panel, pull latest, terminal, help, and health status.
+- Agents workspace with five active agents across two departments, routines,
+  heartbeats, schedule calendar, run-now and pause controls.
+- Agent detail view for =CEO= with identity, agent-scoped composer, schedule
+  picker, attachments, model picker, suggested prompts, conversations, recent
+  work, schedule, details, skills, and persona editor.
+- Tasks board with Kanban/List/Schedule modes, density, cabinet scope, agent
+  filter, trigger chips, task composer, lanes, card actions, and detail panel.
+
+Observed issue in the live app: opening one =Researcher= inbox task displayed a
+right-side detail panel, then stayed in a loading state during this session.
+The spec treats the intended task-detail behavior as source-truth from the
+Cabinet code and PRDs, with this live hang recorded as a QA note.
+
+** Cabinet Repository
+
+Local Cabinet files reviewed:
+
+- =README.md=
+- =docs/PRD.md=
+- =docs/TASKS_CONVERSATIONS_PRD.md=
+- =docs/TASKS.md=
+- =docs/AGENT_PAGE_PRD.md=
+- =docs/TASK_BOARD_PRD.md=
+- =docs/SIDEBAR.md=
+- =docs/EDITOR.md=
+- =docs/PROVIDER-CLI.md=
+- =docs/CALENDAR_RUN_LINKAGE.md=
+- =src/types/conversations.ts=
+- =src/types/agents.ts=
+- =src/types/jobs.ts=
+- =src/types/tasks.ts=
+- =src/types/cabinets.ts=
+- =src/lib/agents/conversation-store.ts=
+- =src/lib/agents/conversation-runner.ts=
+- =src/lib/agents/conversation-turns.ts=
+- =src/lib/agents/provider-registry.ts=
+- =src/lib/agents/provider-interface.ts=
+- =src/lib/agents/adapters/types.ts=
+- =src/lib/agents/persona-manager.ts=
+- =src/lib/agents/heartbeat.ts=
+- =src/lib/agents/skills/types.ts=
+- =src/lib/agents/cron-compute.ts=
+- =src/components/layout/app-shell.tsx=
+- =src/components/layout/status-bar.tsx=
+- =src/components/sidebar/sidebar.tsx=
+- =src/components/sidebar/tree-view.tsx=
+- =src/components/home/home-screen.tsx=
+- =src/components/editor/editor.tsx=
+- =src/components/editor/editor-toolbar.tsx=
+- =src/components/editor/slash-commands.tsx=
+- =src/components/editor/extensions.ts=
+- =src/components/cabinets/cabinet-view.tsx=
+- =src/components/tasks/board/tasks-board.tsx=
+- =src/components/tasks/board/lane-rules.ts=
+- =src/components/tasks/conversation/task-conversation-page.tsx=
+- =src/components/settings/settings-page.tsx=
+- =src/app/api/**= route inventory
+
+** Ogent Repository
+
+Local ogent files reviewed:
+
+- =README.md=
+- =docs/cabinet.org=
+- =specs/architecture.org=
+- =specs/feature-playbooks.org=
+- =specs/cabinet-org-os.org=
+- =lisp/ogent-cabinet.el=
+- =lisp/ogent-cabinet-runner.el=
+- =lisp/ogent-cabinet-status.el=
+- =lisp/ui/ogent-ui-cabinet.el=
+- =lisp/ogent-keys.el=
+- =test/ogent-cabinet-tests.el=
+- =test/ogent-cabinet-runner-tests.el=
+- =test/ogent-cabinet-status-tests.el=
+- =test/ui/ogent-ui-cabinet-tests.el=
+
+** Primary References
+
+These references inform the Emacs implementation choices:
+
+- Org agenda views: https://orgmode.org/manual/Agenda-Views.html
+- Org properties and columns: https://orgmode.org/manual/Properties-and-Columns.html
+- Org hyperlinks: https://orgmode.org/manual/Hyperlinks.html
+- Org attachments: https://orgmode.org/manual/Attachments.html
+- Org protocol: https://orgmode.org/worg/org-contrib/org-protocol.html
+- Emacs tabulated-list mode: https://www.gnu.org/software/emacs/manual/html_node/elisp/Tabulated-List-Mode.html
+- Emacs subprocesses: https://www.gnu.org/software/emacs/manual/html_node/elisp/Processes.html
+- Magit-section: https://magit.vc/manual/magit-section/
+- Transient: https://magit.vc/manual/transient/
+- gptel manual: https://gptel.org/manual.html
+
+* Current Ogent Cabinet State
+
+** Durable Storage Already Exists
+
+Ogent already treats Cabinet data as Org records:
+
+#+begin_example
+cabinet-root/
+  index.org
+  imports/
+  .agents/
+    <slug>/
+      persona.org
+      inbox.org
+      schedule.org
+      jobs/
+        <job-id>.org
+      memory/
+        context.org
+        decisions.org
+        learnings.org
+      sessions/
+        <timestamp>-<job-or-run>.org
+  .jobs/
+  .cabinet-state/
+#+end_example
+
+Implemented storage capabilities in =lisp/ogent-cabinet.el=:
+
+- Scaffold a Cabinet root with =index.org= and managed directories.
+- Read and write Cabinet index metadata.
+- Read and write agent personas as =persona.org=.
+- Create per-agent =jobs=, =memory=, =inbox.org=, =schedule.org=, and
+  =sessions= directories.
+- Read and write jobs as Org files.
+- Validate job metadata, including cron, heartbeat, enabled, archived, and
+  provider fields.
+- Read session transcript Org files.
+- Parse prompt, output, error, runtime trace, and tool blocks from session
+  transcripts.
+- List sessions across agents.
+- Search Org records with filters for kind, agent, status, tags, archive state,
+  and record body.
+- Discover generated app artifacts by scanning for =index.html=.
+- Build a typed operational graph containing cabinet, agent, job, session, app,
+  issue, and Gas Town hook nodes.
+- Import =.md=, =.html=, and =.txt= artifacts into Org import records.
+
+** Runner Already Exists
+
+Implemented runner capabilities in =lisp/ogent-cabinet-runner.el=:
+
+- Plan and run local Codex and Claude CLI invocations.
+- Normalize provider names to =codex= and =claude=.
+- Support Codex =exec= with sandbox, approval, model, workspace, prompt stdin,
+  and optional git-repo check skip.
+- Support Claude =-p= with permission mode, workspace add-dir, model, and
+  prompt argument.
+- Build prompts from persona role, persona body, job body, and one-off user
+  instruction.
+- Write every run as an Org transcript with session metadata, prompt, output,
+  runtime trace, errors, app paths, duration, provider, model, job, workspace,
+  and exit status.
+- Detect generated app paths from output.
+- Track live Emacs subprocesses for running-state UI.
+- Provide interactive manual agent and job run commands.
+- Provide auth status helpers for Codex and Claude.
+
+** UI Already Exists
+
+Implemented Emacs UI capabilities in =lisp/ui/ogent-ui-cabinet.el= and
+=lisp/ogent-cabinet-status.el=:
+
+- =ogent-cabinet-home=: Cabinet dashboard with metadata, health counts,
+  navigation, active jobs, recent activity, generated apps, and attention
+  sections for failed sessions, stale jobs, and missing personas.
+- =ogent-cabinet-status=: graph/status buffer using =magit-section= when
+  available, with visit, run, edit, profile, jobs, create-job, help, and
+  Transient actions.
+- =ogent-cabinet-agents=: tabulated agent list with provider, model, active
+  state, jobs, conversations, workspace, tags, and open/run actions.
+- =ogent-cabinet-agent=: profile buffer with composer, inbox, conversations,
+  recent work, schedule, memory, tools, permissions, details, and persona body.
+- Agent management commands: create, clone, and archive.
+- =ogent-cabinet-jobs=: job list with run, toggle, archive, edit, prompt edit,
+  and create actions.
+- =ogent-cabinet-tasks=: task board derived from jobs, sessions, and running
+  processes. Current lanes are =Inbox=, =Needs Reply=, =Running=, =Scheduled=,
+  =Just Finished=, =Stale=, and =Archive=.
+- =ogent-cabinet-conversations=: session list with filters, retry, archive,
+  unarchive, search, and detail buffers.
+- Conversation detail buffers render metadata, prompt, output, tool blocks,
+  runtime trace, errors, app links, duration, and source Org.
+- =ogent-cabinet-search=: literal regexp search over Cabinet Org records.
+- =ogent-cabinet-apps=: generated app listing with browse-url opening.
+- Evil and vanilla keybindings for the main surfaces.
+
+** Tests Already Exist
+
+Implemented test coverage:
+
+- =test/ogent-cabinet-tests.el=: scaffold, index, agents, jobs, validation,
+  graph, session parsing, search, apps, imports.
+- =test/ogent-cabinet-runner-tests.el=: Codex and Claude plans, overrides,
+  malformed metadata, Org escaping, successful stderr trace handling, session
+  writing, generated app links.
+- =test/ogent-cabinet-status-tests.el=: graph rendering, issue and Gas Town
+  bridges, keybindings, sections, editing, run actions, profile and jobs jumps.
+- =test/ui/ogent-ui-cabinet-tests.el=: home, agents, profiles, jobs, tasks,
+  conversations, search, apps, Evil integration, section navigation, run/edit
+  actions.
+
+** Current Gaps Inside Ogent
+
+The main parity gaps are architectural, not cosmetic:
+
+- Conversations are saved as per-agent session transcripts under
+  =.agents/<slug>/sessions/=. Cabinet v2 uses a canonical global
+  =.agents/.conversations/<id>/= store with metadata, turns, events, artifacts,
+  attachments, and session handles.
+- Ogent has single-run transcripts, but not durable multi-turn continuation.
+- Ogent has no conversation event log, reconnect replay, or live task update
+  bus.
+- Ogent supports Codex and Claude CLI only. Cabinet has eight provider families
+  and a structured adapter interface.
+- Ogent has no runtime picker abstraction for provider, adapter, model, effort,
+  and terminal/native mode.
+- Ogent has no provider verification, install guidance, dynamic model listing,
+  or error taxonomy.
+- Ogent has no skill catalog, skill mention, per-agent skill selection, or
+  runtime skill mount.
+- Ogent has no attachment staging or Org attachment contract for prompts.
+- Ogent has no Cabinet-scoped nested cabinet visibility model.
+- Ogent has no onboarding wizard, registry import, or team template flow.
+- Ogent has no native command palette across Cabinet records.
+- Ogent has no schedule calendar view.
+- Ogent has no git dirty popover, commit, pull, log, diff, or restore UI.
+- Ogent has no terminal tab manager or PTY bridge.
+- Ogent has no settings surface for providers, storage, integrations,
+  notifications, appearance, updates, or data locations.
+- Ogent has no page file manager with move, reorder, cabinet creation, or
+  hidden-file toggles.
+- Ogent has no WYSIWYG editor parity, media viewers, PDF/CSV/Office viewers, or
+  rich page embeds - but we do not need that functionality.
+
+* Cabinet Product Inventory
+
+** Application Shell and Navigation
+
+Cabinet's shell combines:
+
+- Persistent sidebar with drawers for =Data=, =Agents=, and =Tasks=.
+- Collapsible and resizable drawer.
+- Cabinet scope and visibility controls.
+- Data tree with nested pages, folders, and cabinets.
+- Drawer footers with =New Page=, =New Cabinet=, =New Task=, settings, refresh,
+  and collapse actions.
+- Main content router for page editor, cabinet view, agents workspace, agent
+  detail, tasks board, task conversation, settings, registry, help, and
+  onboarding.
+- Status bar with save state, AI edit prompt, runtime picker, git status,
+  pull, terminal, help/community, and app/daemon health.
+- Global command palette on =Mod-k=.
+
+Emacs target:
+
+- Keep =ogent-cabinet-home= as the main landing surface.
+- Add =ogent-cabinet-sidebar= as an optional persistent side window or
+  consult-driven navigation source.
+- Add =ogent-cabinet-command= as a single Transient/Completing-read command
+  palette across pages, agents, tasks, jobs, conversations, apps, settings, and
+  git operations.
+- Keep drawer parity through commands and buffers, not a forced three-pane UI.
+
+** Data and Page Editing
+
+Cabinet pages are Markdown files with Tiptap editing, Markdown source toggle,
+frontmatter metadata, wiki links, internal links, uploads, slash commands,
+tables, checklists, callouts, math, emoji, media, embeds, heading anchors,
+drag handles, resizable images, color, highlight, alignment, and RTL metadata.
+
+Cabinet also provides viewers for source files, images, media, websites,
+notebooks, CSV, PDF, Google Docs, Mermaid, DOCX, XLSX, PPTX, and folders.
+
+Emacs target:
+
+- Org editing is already richer than Cabinet for hierarchy, TODOs, narrowing,
+  refiling, capture, agenda, links, source blocks, tables, exports, and local
+  scripting.
+- Add a Cabinet data browser over Org files and imported assets.
+- Add =ogent-cabinet-page-create=, =ogent-cabinet-page-rename=,
+  =ogent-cabinet-page-move=, =ogent-cabinet-page-delete=, and
+  =ogent-cabinet-page-export=.
+- Add per-page metadata commands for =OGENT_TITLE=, =OGENT_KIND=,
+  =OGENT_CABINET=, =OGENT_DIR=, =OGENT_TAGS=, and optional display fields.
+- Use Org links for wiki links and internal links. Investigate whether org-roam
+  would be a better fit as well.
+- Use =org-attach= for page attachments.
+- Use existing Emacs major modes for source, CSV, image, PDF, and media where
+  available.
+- Use =browse-url=, =eww=, or =xwidget-webkit= for websites and generated apps.
+- Treat rich WYSIWYG toolbar parity as non-goal for the first parity release.
+  Org's native editing commands are the primary page editor.
+
+** Home, Onboarding, and Registry
+
+Cabinet home includes:
+
+- Large task composer.
+- Quick action chips.
+- Agent picker.
+- Runtime picker.
+- Attachments.
+- Mentions for pages, agents, and skills.
+- Registry carousel of Cabinet templates.
+- Data directory setup.
+- Getting started content and tour.
+
+Emacs target:
+
+- Expand =ogent-cabinet-home= composer into a first-class create/run prompt.
+- Add quick actions as editable Org templates in
+  =.cabinet-state/quick-actions.org=.
+- Add a registry importer that can read Cabinet template manifests and scaffold
+  Org Cabinet roots from them.
+- Add =ogent-cabinet-onboard= for storage root, default provider, default
+  runtime, initial team, and Doom keybinding guidance.
+- Use =org-capture= templates for first-run data capture.
+- Mentions should be powered by org-roam.
+
+** Cabinets and Nested Scope
+
+Cabinet models nested cabinets with:
+
+- =CabinetManifest= fields: schema version, id, name, kind, version,
+  description, entry, parent shared context, and access mode.
+- =CabinetVisibilityMode=: =own=, =children-1=, =children-2=, and =all=.
+- Cabinet overview containing parent, children, visible cabinets, agents, jobs,
+  inherited flags, and global/cabinet scope.
+- Cabinet view with counts, org chart, scheduler controls, task composer,
+  activity feed, next-up runs, depth dropdown, schedule panels, and version
+  history.
+
+Emacs target:
+
+- Add =OGENT_CABINET_PARENT=, =OGENT_CABINET_KIND=,
+  =OGENT_CABINET_DESCRIPTION=, =OGENT_CABINET_ENTRY=,
+  =OGENT_CABINET_ACCESS=, and =OGENT_CABINET_SHARED_CONTEXT= properties.
+- Add =ogent-cabinet-overview= returning the same logical fields as Cabinet's
+  =CabinetOverview=, expressed as plists.
+- Add a visibility argument to every list/search/task command.
+- Add inherited/global badges in agents, jobs, tasks, and schedule views.
+- Add =ogent-cabinet-org-chart= as a magit-section tree grouped by department,
+  lead, and scope.
+
+** Agents
+
+Cabinet agents include:
+
+- Persona file per agent.
+- Global and cabinet-local agent scopes.
+- Display name, slug, emoji, icon, color, avatar, role, department, type,
+  provider, adapter type, adapter config, heartbeat, budget, active state,
+  workdir, focus paths, tags, goals, channels, workspace, setup completion,
+  skills, recommended skills, dispatch permission, memory, heartbeat history,
+  next heartbeat, and last heartbeat.
+- Agent workspace with counts, departments, status cards, routines, heartbeats,
+  and schedule calendar.
+- Agent detail v2 with top bar, identity row, composer, inbox, conversations,
+  recent work, schedule, details, skills, and persona instructions.
+- Lead agents can propose launches, jobs, and scheduled tasks for human
+  approval.
+
+Ogent has:
+
+- Basic persona =persona.org= with role, provider, model, workspace, heartbeat,
+  active state, tags, and body.
+- Agent list and profile buffers.
+- Basic inbox, schedule, memory, conversations, recent work, tools, and details
+  sections.
+- Create, clone, archive, edit, and run commands.
+
+Emacs target additions:
+
+- Extend persona properties:
+
+  #+begin_example
+  :OGENT_AGENT_SCOPE: cabinet | global
+  :OGENT_DISPLAY_NAME:
+  :OGENT_ICON:
+  :OGENT_COLOR:
+  :OGENT_AVATAR:
+  :OGENT_DEPARTMENT:
+  :OGENT_TYPE: lead | specialist | support
+  :OGENT_CAN_DISPATCH: t | nil
+  :OGENT_ADAPTER:
+  :OGENT_ADAPTER_CONFIG:
+  :OGENT_EFFORT:
+  :OGENT_RUNTIME_MODE: native | terminal
+  :OGENT_BUDGET:
+  :OGENT_FOCUS:
+  :OGENT_GOALS:
+  :OGENT_CHANNELS:
+  :OGENT_SKILLS:
+  :OGENT_RECOMMENDED_SKILLS:
+  :OGENT_SETUP_COMPLETE: t | nil
+  :OGENT_LAST_HEARTBEAT:
+  :OGENT_NEXT_HEARTBEAT:
+  #+end_example
+
+- Add global agents at =.global-agents/<slug>/persona.org= or a configurable
+  global Cabinet root. The implementation must resolve cabinet-local agents
+  first, then globals, then slug-unique agents in visible cabinets.
+- Add =ogent-cabinet-agent-identity-edit= with display, icon, color, avatar,
+  department, type, active, and dispatch fields.
+- Add =ogent-cabinet-agent-skills= for selected and recommended skills.
+- Add the ability to organize/manage skills via org-mode. This should sync with
+  the .agents skill directory.
+- Add =ogent-cabinet-agent-inbox= backed by Org tasks with origin metadata.
+- Add =ogent-cabinet-agent-recent-work= from conversation artifacts and git.
+- Add action proposal parsing and approval buffers for lead agents.
+
+** Jobs, Heartbeats, Routines, and Schedules
+
+Cabinet schedules include:
+
+- Agent heartbeat cron expression.
+- Job configs with id, name, enabled, schedule, provider, adapter, owner agent,
+  workdir, timeout, prompt, completion/failure actions, cabinet path,
+  timestamps, one-shot state, run-after datetime, and owner task id.
+- Calendar views for day, week, and month.
+- Schedule event generation for jobs, heartbeats, and manual runs.
+- Past scheduled runs linked to conversations by a stable key:
+  =agentSlug::sourceType::jobId-or--::minuteIso=.
+- Missed run detection when a past job/heartbeat has no matching conversation.
+- Routines as named scheduled jobs in the UI.
+
+Ogent has:
+
+- Job Org files with cron/heartbeat/provider/model/workspace/tags/enabled and
+  archived properties.
+- Manual run and retry commands.
+- A task lane derived from scheduled jobs and stale sessions.
+
+Emacs target additions:
+
+- =org-agenda= should be utilized heavily.
+- Make every job an Org TODO with =SCHEDULED= when useful and =OGENT_CRON= for
+  cron precision.
+- Add one-shot scheduled tasks with =OGENT_RUN_AFTER=.
+- Add =OGENT_OWNER_TASK= for jobs created by agent action proposals.
+- Add =OGENT_ON_COMPLETE= and =OGENT_ON_FAILURE= as Org links or structured
+  property values.
+- Add =ogent-cabinet-schedule= with day/week/month views.
+- Add =ogent-cabinet-schedule-events= as the pure data function shared by UI
+  and tests.
+- Add missed-run detection using the same stable schedule key.
+- Add schedule click actions: visit future job/heartbeat, run missed slot now,
+  open past conversation.
+- Integrate with Org agenda by generating agenda files from visible cabinets
+  and mapping Cabinet job state to TODO states.
+- Use Emacs timers for interactive sessions and optional detached automations
+  for long-running schedules.
+** Conversations and Tasks
+
+Cabinet v2 treats every prompt as a resumable conversation. It stores:
+
+#+begin_example
+data/{cabinetPath?}/.agents/.conversations/{id}/
+  meta.json
+  prompt.md
+  transcript.txt
+  mentions.json
+  artifacts.json
+  session.json
+  events.log
+  turns/
+    002-user.md
+    002-agent.md
+    003-user.md
+    003-agent.md
+  attachments/
+#+end_example
+
+Important Cabinet conversation fields:
+
+- id, agent slug, cabinet path, title, trigger, status, started/completed
+  times, exit code, job id/name, scheduledAt, provider, adapter, config, prompt
+  path, transcript path, mentions, attachments, artifacts, summary, context
+  summary, turn count, last activity, tokens, runtime context window, done,
+  archived, awaiting input, pinned title, board order, muted, error kind, error
+  hint, retry-after, last resume attempt, parent task id, triggering agent,
+  spawn depth, pending actions, and dispatched actions.
+
+Cabinet task board maps conversations into lanes:
+
+- =Inbox=: idle conversations with no activity.
+- =Needs Reply=: awaiting input or failed.
+- =Running=: active runs.
+- =Just Finished=: recent done/completed runs unless muted.
+- =Archive=: archived or old done runs.
+
+Cabinet task detail includes:
+
+- Status action, stop, restart, close/archive, copy link, delete.
+- Turn list with user and agent blocks.
+- Continue composer with attachments, mentions, runtime picker, and scheduling.
+- Terminal view for terminal-mode runs.
+- Claude transcript view for compatible sessions.
+- Artifacts, diffs, logs, approval panel, token bar, compact, wrap-up card,
+  pending actions, and schedule/restart dialogs.
+
+Ogent has:
+
+- Per-agent session transcripts.
+- Conversation list and detail over those session files.
+- Retry and archive/unarchive metadata.
+- Task board derived from jobs, sessions, and live subprocesses.
+
+Emacs target additions:
+
+- Introduce a canonical Org conversation store:
+
+  #+begin_example
+  .agents/.conversations/<id>/
+    index.org
+    turns/
+      002-user.org
+      002-agent.org
+    attachments/
+    artifacts.org
+    events.org
+    session.org
+  #+end_example
+
+- Make =index.org= the source of truth for =ConversationMeta=. Avoid JSON as
+  the durable store. If compatibility import/export is needed, generate JSON
+  views from Org.
+- Keep legacy =.agents/<slug>/sessions/*.org= readable. New writes must use
+  =.agents/.conversations/<id>/index.org=.
+- Add a migration command:
+  =ogent-cabinet-migrate-sessions-to-conversations=.
+- Add properties:
+
+  #+begin_example
+  :OGENT_CONVERSATION: t
+  :OGENT_CONVERSATION_ID:
+  :OGENT_AGENT:
+  :OGENT_CABINET_PATH:
+  :OGENT_TITLE:
+  :OGENT_TRIGGER: manual | job | heartbeat | agent
+  :OGENT_STATUS: idle | running | awaiting-input | done | failed | archived | cancelled
+  :OGENT_STARTED_AT:
+  :OGENT_COMPLETED_AT:
+  :OGENT_LAST_ACTIVITY_AT:
+  :OGENT_EXIT_CODE:
+  :OGENT_JOB_ID:
+  :OGENT_JOB_NAME:
+  :OGENT_SCHEDULED_AT:
+  :OGENT_SCHEDULED_KEY:
+  :OGENT_PROVIDER:
+  :OGENT_ADAPTER:
+  :OGENT_MODEL:
+  :OGENT_EFFORT:
+  :OGENT_RUNTIME_MODE:
+  :OGENT_CONTEXT_WINDOW:
+  :OGENT_TOKENS_INPUT:
+  :OGENT_TOKENS_OUTPUT:
+  :OGENT_TOKENS_CACHE:
+  :OGENT_TOKENS_TOTAL:
+  :OGENT_MENTIONS:
+  :OGENT_SKILLS:
+  :OGENT_ATTACHMENTS:
+  :OGENT_ARTIFACTS:
+  :OGENT_SUMMARY:
+  :OGENT_CONTEXT_SUMMARY:
+  :OGENT_AWAITING_INPUT: t | nil
+  :OGENT_TITLE_PINNED: t | nil
+  :OGENT_BOARD_ORDER:
+  :OGENT_MUTED: t | nil
+  :OGENT_ERROR_KIND:
+  :OGENT_ERROR_HINT:
+  :OGENT_ERROR_RETRY_AFTER:
+  :OGENT_LAST_RESUME_RESULT:
+  :OGENT_PARENT_TASK:
+  :OGENT_TRIGGERING_AGENT:
+  :OGENT_SPAWN_DEPTH:
+  :OGENT_ACTIONS_PROPOSED_AT:
+  #+end_example
+
+- Store every turn as an Org subtree or turn file with role, turn number,
+  timestamp, session id, tokens, attachments, artifacts, pending state, and
+  awaiting-input state.
+- Parse =<ask_user>...</ask_user>= into =awaiting-input=.
+- Parse =#+begin_cabinet= or fenced =cabinet= metadata blocks into summary,
+  context, artifacts, and proposed actions.
+- Add =ogent-cabinet-conversation-continue=.
+- Add resume/replay strategy per adapter:
+  - Resume when adapter has a session handle.
+  - Replay prior turns into a fresh prompt when resume is unavailable.
+  - Record the path taken in =OGENT_LAST_RESUME_RESULT=.
+- Add =ogent-cabinet-conversation-compact= to create a digest turn and update
+  context summary.
+- Add an event log:
+
+  #+begin_example
+  * 000001 turn.appended
+  :PROPERTIES:
+  :OGENT_EVENT_SEQ: 1
+  :OGENT_EVENT_TYPE: turn.appended
+  :OGENT_EVENT_TIME: 2026-05-06T10:00:00Z
+  :OGENT_EVENT_TASK: <conversation-id>
+  :END:
+  #+end_example
+
+- Add an Emacs event bus backed by process sentinels, file-notify when
+  available, and explicit refresh commands.
+- Update task lanes to Cabinet v2: =Inbox=, =Needs Reply=, =Running=,
+  =Just Finished=, and =Archive=. Keep =Scheduled= and =Stale= as optional
+  filters, not primary parity lanes.
+- Add task view modes: board, list, and schedule.
+- Add detail buffer actions: continue, stop, retry, mark done, archive,
+  unarchive, delete, mute, reassign, compact, copy link, open artifacts, open
+  diffs, open logs, and approve/reject actions.
+
+** Runtime Providers and Adapters
+
+Cabinet ships provider families:
+
+| Provider | Cabinet ids | Resume | Notes |
+|----------+-------------+--------+-------|
+| Claude Code | =claude-code=, =claude_local= | yes | CLI, terminal, session resume |
+| Codex CLI | =codex-cli=, =codex_local= | yes | effort levels, ChatGPT/API gates |
+| Gemini CLI | =gemini-cli=, =gemini_local= | yes | CLI models |
+| Cursor CLI | =cursor-cli=, =cursor_local= | yes | CLI resume |
+| OpenCode | =opencode=, =opencode_local= | yes | model listing |
+| Pi | =pi-cli=, =pi_local= | file resume | thinking levels |
+| Grok CLI | =grok-cli=, =grok_local= | no | xAI CLI |
+| Copilot CLI | =copilot-cli=, =copilot_local= | no | GitHub Copilot CLI |
+
+Cabinet's adapter interface includes:
+
+- Provider id, name, icon, install steps, models, effort levels.
+- Execution engine: legacy PTY CLI, structured CLI, API, HTTP, or process.
+- Native and terminal runtime modes.
+- Session codec for resume.
+- Dynamic model listing.
+- Skill listing and skill sync.
+- Environment test and verify status.
+- Structured execute call.
+- Error classification into canonical kinds.
+
+Ogent has:
+
+- Codex CLI and Claude CLI runner paths.
+- gptel registry for interactive model dispatch outside Cabinet runner work.
+
+Emacs target additions:
+
+- Add =ogent-cabinet-adapter.el= with a provider registry shaped around plists
+  or EIEIO-free structs.
+- Split provider and adapter fields:
+
+  #+begin_example
+  :provider-id "codex-cli"
+  :adapter-type "codex_local"
+  :models (...)
+  :effort-levels (...)
+  :supports-session-resume t
+  :supports-detached-runs t
+  :runtime-modes (native terminal)
+  :test-environment #'...
+  :build-invocation #'...
+  :parse-session #'...
+  :classify-error #'...
+  #+end_example
+
+- Keep current Codex and Claude logic as the first adapters.
+- Add Gemini, Cursor, OpenCode, Pi, Grok, and Copilot adapters after the
+  registry contract lands.
+- Add =ogent-cabinet-runtime-picker= based on =completing-read= and Transient.
+- Add =ogent-cabinet-provider-verify= and =ogent-cabinet-providers=.
+- Add canonical error kinds:
+  =cli-not-found=, =auth-expired=, =rate-limited=, =session-expired=,
+  =context-exceeded=, =transport=, =timeout=, =model-unavailable=, =unknown=.
+- Use Emacs subprocess support for structured/native runs.
+- Use =comint=, =term=, or optional =vterm= integration for terminal-mode runs.
+- Keep gptel integration for direct LLM calls and in-buffer interactions, but
+  use CLI adapters for Cabinet task execution where file edits and session
+  resume matter.
+
+** Composer, Mentions, Attachments, and Skills
+
+Cabinet composer capabilities:
+
+- Shared =ComposerInput= and =useComposer= across home, tasks, agents, and
+  conversation continuation.
+- Mentions for pages, agents, and skills.
+- Mention chips.
+- Attachments by picker, drag/drop, and paste.
+- Staging folder for kickoff attachments, then move to conversation folder.
+- Per-run skill mentions that do not mutate the persona.
+- Runtime picker embedded in each composer.
+- Schedule picker for now, inbox draft, later, or recurring.
+
+Ogent has:
+
+- Simple minibuffer/manual prompt composer for agent runs.
+- Agent profile composer section.
+- Search over Org records.
+
+Emacs target additions:
+
+- Add =ogent-cabinet-compose= as the shared command.
+- Support context mentions:
+  - =@agent:<slug>=
+  - =@page:<path>=
+  - =@skill:<key>=
+  - =@job:<id>=
+  - =@conversation:<id>=
+- Back the picker with =completion-at-point= in Org buffers and
+  =completing-read= in minibuffer surfaces.
+- Add mention chips as read-only text buttons in composer buffers.
+- Add attachment capture through =org-attach= and Dired marking.
+- Add per-run attachment staging under:
+
+  #+begin_example
+  .agents/.conversations/_pending/<uuid>/attachments/
+  #+end_example
+
+- Move attachments to the real conversation directory at run creation.
+- Add skill catalog origins:
+  =cabinet-scoped=, =cabinet-root=, =linked-repo=, =system=, and
+  =legacy-home=.
+- Add =ogent-cabinet-skills=, =ogent-cabinet-skill-read=,
+  =ogent-cabinet-skill-import=, and =ogent-cabinet-skill-bundle=.
+- Inject selected skills into providers that support skill mounts. For other
+  adapters, include skill instructions in the prompt with explicit provenance.
+
+** Agent Actions and Delegation
+
+Cabinet allows lead agents to propose:
+
+- =LAUNCH_TASK: <agent> | <title> | <prompt>=
+- =SCHEDULE_JOB: <agent> | <name> | <cron> | <prompt>=
+- =SCHEDULE_TASK: <agent> | <ISO datetime> | <title> | <prompt>=
+- =cabinet-actions= JSON blocks for large or multi-line action sets.
+
+Cabinet validates actions:
+
+- Target agent must exist.
+- Self-launch is flagged.
+- Duplicates are deduped.
+- Runtime inheritance applies unless the action explicitly overrides provider,
+  adapter, model, or effort.
+- Human approval gates dispatch.
+
+Emacs target:
+
+- Add =ogent-cabinet-actions.el=.
+- Parse action proposals from conversation turns.
+- Store pending actions under the conversation record.
+- Add approval buffer with bulk approve/reject.
+- Dispatch approved actions into canonical conversations or jobs.
+- Record dispatched actions and linked child task ids.
+- Render parent/child edges in the graph and task detail.
+
+** Git and Version History
+
+Cabinet provides:
+
+- Git dirty count in the status bar.
+- Dirty file list.
+- Commit message field and commit button.
+- Pull latest.
+- Version history per page.
+- Git log, diff by hash, restore, and pull API routes.
+- Auto-history expectations in docs and status UI.
+
+Ogent has:
+
+- Magit/VC available as an Emacs-native foundation.
+- Session transcripts and Org files are normal git-tracked files.
+
+Emacs target additions:
+
+- Add =ogent-cabinet-git-status= as a small Magit-aware status buffer or
+  status section.
+- Add home/status-line dirty count when inside a git repo.
+- Add commands:
+  - =ogent-cabinet-git-commit=
+  - =ogent-cabinet-git-pull=
+  - =ogent-cabinet-git-log-page=
+  - =ogent-cabinet-git-diff-page=
+  - =ogent-cabinet-git-restore-page=
+- Prefer Magit when installed, VC fallback otherwise.
+- Add optional auto-commit hooks for completed jobs only after explicit user
+  configuration.
+
+** Terminal, Daemon, and Health
+
+Cabinet provides:
+
+- Web terminal tabs using xterm.js and server PTY.
+- Terminal-mode agent runs.
+- Daemon health and app health.
+- Daemon sessions, output, auth token, scheduler reload, and active sessions.
+- Stop/restart behavior for conversations.
+
+Ogent has:
+
+- Emacs subprocess execution and process tracking.
+- No daemon or PTY manager.
+
+Emacs target:
+
+- For interactive local Emacs, use subprocesses and process sentinels.
+- Add terminal-mode buffers using =comint= first, optional =vterm= when
+  present.
+- Add =ogent-cabinet-processes= with running, completed, failed, stop, and
+  output readback.
+- Add =ogent-cabinet-health= for:
+  - Emacs process runner available.
+  - Provider CLI availability.
+  - Provider auth check.
+  - Scheduler active.
+  - Git repo state.
+  - File watcher availability.
+- Leave a separate daemon as optional future work for headless schedules and
+  always-on automation.
+
+** Search and Command Palette
+
+Cabinet uses Flexsearch plus a global command/search palette. Search spans
+pages, agents, tasks, and likely metadata indexes.
+
+Ogent has:
+
+- =ogent-cabinet-search= over Org records.
+- Emacs ecosystem search primitives: =consult-ripgrep=, =occur=, =imenu=,
+  =org-ql= when present, and completion metadata.
+
+Emacs target:
+
+- Add =ogent-cabinet-command=:
+  - Pages
+  - Agents
+  - Jobs
+  - Conversations
+  - Tasks
+  - Apps
+  - Settings
+  - Git actions
+  - Provider actions
+- Add =ogent-cabinet-search-index= as a rebuildable cache under
+  =.cabinet-state/search.el= or =.cabinet-state/search.org=.
+- Keep cache optional. Direct grep must remain correct.
+- Add =embark= actions when available.
+- Add ranking by exact path, title, recent activity, kind, and visible cabinet
+  scope.
+
+** Settings and System
+
+Cabinet settings include:
+
+- Profile and user avatar.
+- Providers, default provider, default model, default effort, verify output,
+  install guidance.
+- Skills library.
+- Storage backend and data locations.
+- Integrations, CLI MCP, notifications.
+- Appearance and themes.
+- Updates and app version.
+- About, telemetry, feedback, backup, uninstall, linked repo, open data dir,
+  reveal path, pick directory, and audit log routes.
+
+Ogent has:
+
+- Customization groups and variables.
+- Onboarding wizard for provider setup outside Cabinet.
+- No Cabinet-specific settings surface.
+
+Emacs target:
+
+- Add =ogent-cabinet-settings= with sections:
+  - Profile
+  - Providers
+  - Runtime defaults
+  - Skills
+  - Storage
+  - Integrations
+  - Notifications
+  - Appearance
+  - Git
+  - Automation
+  - About
+- Store Cabinet-local settings in =.cabinet-state/settings.org=.
+- Store user/global settings in Emacs customization or a configurable global
+  Org settings file.
+- Add export/import for settings.
+- Add backup command for Cabinet root.
+
+** Help and Documentation
+
+Cabinet provides:
+
+- Help page with demos for cabinets, routines, knowledge, skills, AI team,
+  task board, BYO AI, conversations, shortcuts, API keys, and themes.
+- Keyboard shortcuts modal.
+- What's new/update summary.
+- Community links.
+
+Ogent target:
+
+- Expand =docs/cabinet.org= after implementation.
+- Add =ogent-cabinet-help= as an interactive help buffer.
+- Add shortcut summaries per major buffer.
+- Add =ogent-cabinet-demo= fixture Cabinet for tests and screenshots.
+
+* Parity Matrix
+
+| Area | Cabinet today | Ogent today | Target parity |
+|------+---------------+-------------+---------------|
+| Root storage | Markdown data root with =.agents= | Org root with =index.org= and =.agents= | Keep Org root, add nested cabinet manifests |
+| Page editor | Tiptap WYSIWYG plus Markdown | Org buffers | Use Org as editor, add page management and export |
+| File tree | React sidebar, drawers, move/reorder | Home/status/list buffers | Add optional side window and command palette |
+| Cabinet scope | Own, child depth, all | Single root | Add visibility mode to readers and UI |
+| Agents list | Cards, departments, active count | Tabulated list | Add departments, scope, status, identity fields |
+| Agent detail | Identity, composer, inbox, convos, work, schedule, details, skills, persona | Similar sections, fewer fields | Extend schema, add skills, runtime picker, actions |
+| Global agents | =.global-agents= | absent | Add global resolution tier |
+| Jobs | Cron jobs, one-shot, post actions | Cron-ish Org jobs | Add one-shot, runAfter, post actions, owner task |
+| Heartbeats | Cron per agent, history, run now | heartbeat metadata | Add calendar, history, missed-run links |
+| Routines | UI over scheduled jobs | jobs only | Treat routines as named job templates |
+| Conversations | Global store, multi-turn, events, attachments, artifacts | Per-agent session files | Migrate to Org conversation store |
+| Continue | Resume or replay | absent | Add turn append and adapter resume strategy |
+| Task board | Kanban/List/Schedule, five lanes | Derived board with seven lanes | Match five lanes, keep extra filters |
+| Task detail | Turns, terminal, diffs, logs, artifacts, compact, approvals | Session detail | Add full detail actions and panels |
+| Providers | 8 provider families, adapters | Codex and Claude | General adapter registry |
+| Runtime picker | provider, adapter, model, effort, terminal/native | provider/model fields | Shared runtime picker |
+| Provider verify | install/auth/model guidance | basic auth helper | Verify commands and error taxonomy |
+| Skills | Catalog, origins, mentions, mounts | absent | Add skill storage, mention, mount, import |
+| Attachments | staging and conversation attachments | absent | Use org-attach and staging dirs |
+| Agent actions | launch/schedule proposals and approval | absent | Parse, validate, approve, dispatch |
+| Calendar | Day/week/month with missed runs | absent | Add schedule buffer and agenda integration |
+| Git | dirty, commit, pull, log, diff, restore | external Magit/VC | Add Cabinet git commands using Magit/VC |
+| Terminal | Web terminal tabs and PTY | subprocess output buffers | Add comint/vterm terminal mode |
+| Search | Flexsearch palette | regexp search | Add command palette and optional index |
+| Settings | Full settings app | customization only | Add Cabinet settings buffer |
+| Onboarding | setup wizard and registry | docs/scaffold | Add onboarding and registry import |
+| Help | guided help and demos | docs | Add help buffer and demo fixtures |
+
+* What Emacs Can Do Better
+
+** Org-Native Knowledge Work
+
+Org gives Cabinet features a stronger base:
+
+- Headings are durable objects with properties, TODO states, tags, links, and
+  timestamps.
+- Agenda collects scheduled jobs, TODOs, and timestamped work across files.
+- Properties act as a lightweight database inside normal text files.
+- Org links cover files, headings, URLs, emails, and custom protocols.
+- Org attachments give each conversation, page, or task a filesystem-backed
+  attachment directory.
+- Org export can cover HTML, Markdown, LaTeX/PDF, and publish flows.
+
+** Emacs Interaction Model
+
+Emacs improves repeated Cabinet workflows:
+
+- Minibuffer completion scales better than a browser dropdown for thousands of
+  pages and tasks.
+- Magit already solves deep git workflows.
+- Dired already solves file movement, marking, copying, and bulk operations.
+- Transient gives keyboard-native menus for complex commands.
+- tabulated-list and magit-section give dense, sortable, collapsible buffers.
+- Embark actions can make every search result actionable.
+- TRAMP can let a Cabinet root live on a remote machine.
+
+** Agent Workflows
+
+Emacs is a better host for text-first agent sessions:
+
+- Conversation transcripts can be edited, narrowed, refilled, searched, and
+  linked directly.
+- Source code, Org plans, terminal buffers, diffs, and agent transcripts can
+  sit in one window configuration.
+- gptel can remain available from any buffer for lightweight LLM work.
+- CLI agents can remain separate for file-editing and resume-heavy tasks.
+
+** Boundaries Where Browser Cabinet Stays Stronger
+
+Some Cabinet surfaces are naturally richer in the browser:
+
+- WYSIWYG drag handles and visual embeds.
+- Inline media layout controls.
+- Full iframe app previews.
+- PDF/Office viewers with polished chrome.
+- Pointer-first Kanban dragging.
+- Animated onboarding and visual demos.
+
+Emacs parity should prioritize durable behavior and operational power. Visual
+parity is useful only where it improves the workflow.
+
+* Target Architecture
+
+** Modules
+
+Add or extend these modules:
+
+| Module | Responsibility |
+|--------+----------------|
+| =lisp/ogent-cabinet.el= | Core Org storage, readers, writers, migration |
+| =lisp/ogent-cabinet-conversations.el= | Canonical conversation store, turns, events, artifacts |
+| =lisp/ogent-cabinet-adapter.el= | Provider and adapter registry |
+| =lisp/ogent-cabinet-compose.el= | Shared composer, mentions, attachments, runtime picker |
+| =lisp/ogent-cabinet-actions.el= | Agent action parse, validate, approve, dispatch |
+| =lisp/ogent-cabinet-schedule.el= | Cron parse, schedule events, calendar buffers, agenda bridge |
+| =lisp/ogent-cabinet-skills.el= | Skill catalog, import, read, bundle, mount |
+| =lisp/ogent-cabinet-git.el= | Magit/VC-backed dirty, commit, pull, log, diff, restore |
+| =lisp/ogent-cabinet-process.el= | Process registry, terminal mode, stop, output |
+| =lisp/ogent-cabinet-settings.el= | Settings read/write and settings UI |
+| =lisp/ui/ogent-ui-cabinet.el= | User-facing buffers and commands |
+| =lisp/ogent-cabinet-status.el= | Graph/status projection |
+
+** Storage Rules
+
+- Org files are the durable source.
+- JSON may be exported for compatibility, but it must be derived.
+- All records need stable ids.
+- All mutable state must be editable by hand without corrupting the reader.
+- Every reader must tolerate older records.
+- Every writer must preserve unknown properties.
+- All date fields use ISO 8601 strings.
+- All file paths stored in properties are cabinet-relative unless explicitly
+  marked as absolute.
+
+** Conversation Lifecycle
+
+1. User runs =ogent-cabinet-compose= from home, agent, task, page, or command
+   palette.
+2. Composer resolves:
+   - cabinet scope
+   - agent
+   - prompt
+   - mentioned pages
+   - mentioned agents
+   - mentioned skills
+   - attachments
+   - runtime override
+   - schedule mode
+3. For run-now:
+   - Create =.agents/.conversations/<id>/index.org=.
+   - Move staged attachments.
+   - Append first user turn.
+   - Build adapter prompt.
+   - Start native or terminal process.
+   - Mark status =running=.
+   - Append events.
+4. On process output:
+   - Append transcript chunks.
+   - Parse cabinet metadata block.
+   - Parse ask-user marker.
+   - Parse agent actions.
+   - Update artifacts, summary, context, tokens, and status.
+   - Append agent turn.
+   - Mark =awaiting-input=, =done=, or =failed=.
+5. For continuation:
+   - Append user turn.
+   - Resume when possible.
+   - Replay prior turns when resume is unavailable.
+   - Record resume path.
+6. For archive/delete:
+   - Archive toggles properties.
+   - Delete moves to =.cabinet-state/trash/= by default, with hard delete as an
+     explicit command.
+
+** Prompt Contract
+
+Every Cabinet task prompt should include:
+
+- Persona instructions.
+- Cabinet scope and workspace guardrails.
+- Mentioned page excerpts or file links.
+- Attachment list with local paths.
+- Skill instructions or skill mount hints.
+- Runtime and model context.
+- Required metadata block contract.
+- Ask-user marker contract.
+- Action proposal contract for dispatch-capable agents.
+
+Ogent should accept both Cabinet fenced blocks and Org blocks:
+
+#+begin_example
+```cabinet
+SUMMARY: short line
+CONTEXT: optional memory note
+ARTIFACT: path/to/file.org
+```
+#+end_example
+
+#+begin_example
+#+begin_cabinet
+SUMMARY: short line
+CONTEXT: optional memory note
+ARTIFACT: path/to/file.org
+#+end_cabinet
+#+end_example
+
+** UI Buffers
+
+Required buffers for parity:
+
+- =*ogent-cabinet-home*=
+- =*ogent-cabinet-sidebar*=
+- =*ogent-cabinet-command*=
+- =*ogent-cabinet-agents*=
+- =*ogent-cabinet-agent:<slug>*=
+- =*ogent-cabinet-jobs*=
+- =*ogent-cabinet-tasks*=
+- =*ogent-cabinet-task:<id>*=
+- =*ogent-cabinet-conversations*=
+- =*ogent-cabinet-conversation:<id>*=
+- =*ogent-cabinet-schedule*=
+- =*ogent-cabinet-skills*=
+- =*ogent-cabinet-providers*=
+- =*ogent-cabinet-settings*=
+- =*ogent-cabinet-git*=
+- =*ogent-cabinet-apps*=
+- =*ogent-cabinet-search*=
+- =*ogent-cabinet-help*=
+
+Every buffer should support:
+
+- =g= refresh
+- =RET= primary open/visit
+- =q= quit
+- =?= help
+- =m= Transient menu when command count warrants it
+- =n=/=p= row or section movement where applicable
+- Evil normal-state bindings where ogent already has Evil support
+
+* Implementation Plan
+
+** Phase 0: Fixtures and Compatibility Baseline
+
+Deliverables:
+
+- Add Cabinet fixture data under =test/data/cabinet-parity/=.
+- Include representative agents, jobs, conversations, turns, events,
+  attachments, skills, nested cabinets, and scheduled runs.
+- Add failing tests that document current gaps.
+- Add migration design tests for legacy session transcripts.
+
+Tests:
+
+- =test/ogent-cabinet-tests.el= reads current records and fixtures.
+- No runtime provider calls.
+
+** Phase 1: Canonical Org Conversation Store
+
+Deliverables:
+
+- Add =ogent-cabinet-conversations.el=.
+- Create/read/write =.agents/.conversations/<id>/index.org=.
+- Append user and agent turns.
+- Store attachments, artifacts, events, and session handle records.
+- List conversations across visible cabinets.
+- Map conversation metadata to task view model.
+- Keep legacy session readers working.
+- Add migration command.
+
+Tests:
+
+- Round-trip all properties.
+- Append multi-turn transcripts.
+- Parse Cabinet metadata blocks.
+- Parse ask-user marker.
+- Read legacy sessions and migrated conversations.
+
+** Phase 2: Task Board and Conversation Detail Parity
+
+Deliverables:
+
+- Change primary lanes to =Inbox=, =Needs Reply=, =Running=, =Just Finished=,
+  and =Archive=.
+- Add list and schedule modes.
+- Add board order and muted state.
+- Add conversation detail buffer with turns, artifacts, logs, events, runtime,
+  and action panels.
+- Add continue, retry, stop, archive, delete, mute, compact, and mark-done
+  actions.
+
+Tests:
+
+- Lane derivation by status and timestamps.
+- Board sorting by board order and lane defaults.
+- Detail action commands mutate Org records correctly.
+- Event logs replay into detail state.
+
+** Phase 3: Provider Adapter Registry
+
+Deliverables:
+
+- Add provider/adapter registry.
+- Port current Codex and Claude runner code into adapters.
+- Add runtime picker data model.
+- Add verify commands and error taxonomy.
+- Add native and terminal run modes for the initial adapters.
+
+Tests:
+
+- Adapter registry listing and lookup.
+- Codex and Claude invocation plans remain compatible.
+- Error classification covers common stderr cases.
+- Terminal/native modes write compatible conversation records.
+
+** Phase 4: Composer, Mentions, Attachments, and Skills
+
+Deliverables:
+
+- Add shared composer command.
+- Add completion for page, agent, job, skill, and conversation mentions.
+- Add attachment staging with =org-attach= integration.
+- Add skill catalog reader and skill detail buffer.
+- Add per-agent skill selection and per-run skill mentions.
+- Add adapter skill mount hook.
+
+Tests:
+
+- Mention resolution across nested cabinet visibility modes.
+- Attachment staging and move into conversation directory.
+- Skill catalog origins and read-on-demand body loading.
+- Prompt builder includes mentions, attachments, and skill context.
+
+** Phase 5: Agents, Departments, Global Scope, and Actions
+
+Deliverables:
+
+- Extend persona schema.
+- Add global agent resolution.
+- Add department/org chart views.
+- Add identity editor.
+- Add action proposal parser, validator, approval buffer, and dispatcher.
+- Add parent/child task graph edges.
+
+Tests:
+
+- Cabinet-local precedence over global agents.
+- Department grouping and lead detection.
+- Action parse and dedupe.
+- Invalid target and self-launch validation.
+- Approval creates conversations/jobs with inherited runtime.
+
+** Phase 6: Scheduling and Calendar
+
+Deliverables:
+
+- Add cron parser or carefully chosen dependency after user approval if native
+  parsing proves insufficient.
+- Add schedule event generator.
+- Add day/week/month schedule buffers.
+- Add missed-run detection and scheduled conversation linkage.
+- Add agenda bridge.
+- Add one-shot run-after tasks.
+
+Tests:
+
+- Cron next-run examples.
+- Range generation.
+- Dedup across inherited/global agents.
+- Scheduled key matching.
+- Missed-run detection.
+- Agenda file generation.
+
+** Phase 7: Data Browser, Search, Git, and Apps
+
+Deliverables:
+
+- Add data tree browser.
+- Add page create/move/rename/delete/export commands.
+- Add command palette and ranked search.
+- Add git status, commit, pull, log, diff, restore.
+- Improve app listing and opening.
+- Add viewer dispatch for images, PDF, CSV, source, media, and HTML.
+
+Tests:
+
+- File operations preserve Org metadata and links where possible.
+- Search ranks exact titles and paths.
+- Git commands call Magit/VC paths with safe fallbacks.
+- App detection identifies owner conversation or page.
+
+** Phase 8: Settings, Onboarding, Registry, Help
+
+Deliverables:
+
+- Add settings buffer.
+- Add onboarding command.
+- Add registry import.
+- Add backup command.
+- Add help buffer and demo Cabinet.
+- Update =docs/cabinet.org= and =README.md=.
+
+Tests:
+
+- Settings round-trip.
+- Onboarding writes expected defaults.
+- Registry import creates Org Cabinet records.
+- Backup excludes transient process state where appropriate.
+
+* Testing Strategy
+
+The project preference is rigorous tests with real data and no mock-heavy
+middle layer. Cabinet parity should follow that preference:
+
+- Use temporary directories with real Org files.
+- Use fixture CLIs for adapter process behavior, as the current runner tests
+  already do.
+- Avoid fake stores. Exercise actual readers and writers.
+- Test migration with real legacy session files.
+- Test UI buffers by opening commands in batch Emacs and asserting rendered
+  text, properties, and key behavior.
+- Test schedule behavior with fixed timestamps.
+- Test git behavior in temporary git repositories.
+- Test provider verification with fixture executables on PATH.
+- Add regression tests for any live-app behavior we intentionally diverge from.
+
+Suggested new test files:
+
+- =test/ogent-cabinet-conversations-tests.el=
+- =test/ogent-cabinet-adapter-tests.el=
+- =test/ogent-cabinet-compose-tests.el=
+- =test/ogent-cabinet-actions-tests.el=
+- =test/ogent-cabinet-schedule-tests.el=
+- =test/ogent-cabinet-skills-tests.el=
+- =test/ogent-cabinet-git-tests.el=
+- =test/ui/ogent-ui-cabinet-parity-tests.el=
+
+* Acceptance Criteria
+
+Ogent reaches Cabinet parity when:
+
+- A user can scaffold or import a Cabinet as Org.
+- A user can create and manage nested cabinets.
+- A user can browse pages, agents, tasks, conversations, jobs, schedules, apps,
+  settings, and git state from Emacs.
+- A user can create a task from home, an agent, a page, or the task board.
+- Every task creates a canonical Org conversation record.
+- Conversations support multi-turn continue, resume/replay, attachments,
+  mentions, artifacts, events, compacting, and archive state.
+- The task board displays the Cabinet v2 lanes and updates after runs.
+- Agents support identity, department, scope, skills, heartbeat, schedule,
+  dispatch permission, memory, inbox, and recent work.
+- Lead agents can propose tasks/jobs and the human can approve or reject them.
+- Jobs and heartbeats appear in day/week/month schedule views.
+- Missed scheduled runs are visible and can be run.
+- Provider runtime can choose provider, adapter, model, effort, and
+  terminal/native mode.
+- Codex and Claude keep current behavior under the adapter registry.
+- The remaining six Cabinet provider families have at least install/verify and
+  invocation plan support.
+- Skills can be listed, read, attached to agents, mentioned per run, and
+  injected or included in prompts.
+- Git status, commit, pull, page log, diff, and restore are available.
+- Search and command palette can jump to all core record types.
+- Settings and onboarding cover provider defaults, storage, skills, and
+  automation basics.
+- All durable state is Org or derived from Org.
+- Legacy per-agent session transcripts remain readable.
+
+* Open Decisions
+
+- Whether to implement a full cron parser in Elisp or add a dependency. The
+  current rule: do not add a dependency until official project/user approval.
+- Whether global agents live inside each Cabinet tree, a user-global directory,
+  or a configurable shared Cabinet root.
+- Whether schedule execution should remain Emacs-timer based for parity v1 or
+  use a detached automation bridge for unattended runs.
+- Whether terminal mode should require =vterm= for best behavior or start with
+  built-in =comint=.
+- Whether to keep =Scheduled= and =Stale= as hidden filters, secondary views,
+  or remove them after the Cabinet v2 lane migration.
+- Whether Org conversation turns should be separate files or subtrees in
+  =index.org=. Separate files match Cabinet's append model; subtrees make
+  hand-editing and agenda integration simpler.
+- Whether registry imports should preserve Cabinet Markdown as imports first or
+  convert pages to Org at import time.
+
+* Recommended Next Work
+
+The first implementation slice should be the canonical conversation store. It
+unlocks task-board parity, continuation, attachments, artifacts, events,
+actions, schedule linkage, and provider adapters. Without it, later surfaces
+would keep layering features over legacy session files and the architecture
+would drift.
+
+Concrete next bead:
+
+#+begin_example
+bd create "Implement Org-native Cabinet conversation store" --type task --priority 1
+#+end_example
+
+Scope:
+
+- Add =lisp/ogent-cabinet-conversations.el=.
+- Add create/read/write/list/append-turn APIs.
+- Add event log support.
+- Add metadata block parsing.
+- Add legacy session import.
+- Add tests from fixture files.
+
