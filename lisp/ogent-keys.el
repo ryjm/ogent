@@ -48,9 +48,12 @@
 (declare-function ogent-armory-org-chart "ogent-ui-armory")
 (declare-function ogent-armory-tasks "ogent-ui-armory")
 (declare-function ogent-armory-conversations "ogent-ui-armory")
+(declare-function ogent-armory-data "ogent-armory-data")
 (declare-function ogent-armory-actions "ogent-armory-actions")
 (declare-function ogent-armory-schedule "ogent-armory-schedule")
 (declare-function ogent-armory-agenda "ogent-armory-schedule")
+(declare-function ogent-armory-git-status "ogent-armory-git")
+(declare-function ogent-armory-command-palette "ogent-armory-palette")
 (declare-function ogent-armory-search "ogent-ui-armory")
 (declare-function ogent-armory-apps "ogent-ui-armory")
 (declare-function ogent-armory-create-agent "ogent-ui-armory")
@@ -196,6 +199,8 @@ Set to nil to disable automatic evil binding setup."
     (armory-org-chart
      :key "B" :command ogent-armory-org-chart
      :desc "Armory org chart")
+    (armory-data     :key ";" :command ogent-armory-data
+                      :desc "Armory data browser")
     (armory-tasks    :key "I" :command ogent-armory-tasks
                       :desc "Armory tasks")
     (armory-conversations
@@ -207,6 +212,10 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Armory schedule")
     (armory-agenda   :key "Q" :command ogent-armory-agenda
                       :desc "Armory agenda")
+    (armory-git      :key ":" :command ogent-armory-git-status
+                      :desc "Armory git status")
+    (armory-palette  :key "/" :command ogent-armory-command-palette
+                      :desc "Armory command palette")
     (armory-search   :key "V" :command ogent-armory-search
                       :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps

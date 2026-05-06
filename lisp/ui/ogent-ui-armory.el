@@ -15,6 +15,7 @@
 (require 'transient)
 (require 'ogent-armory)
 (require 'ogent-armory-conversations)
+(require 'ogent-armory-data)
 (require 'ogent-armory-runner)
 
 (eval-and-compile
@@ -28,6 +29,8 @@
 (autoload 'ogent-armory-actions "ogent-armory-actions" nil t)
 (autoload 'ogent-armory-schedule "ogent-armory-schedule" nil t)
 (autoload 'ogent-armory-agenda "ogent-armory-schedule" nil t)
+(autoload 'ogent-armory-git-status "ogent-armory-git" nil t)
+(autoload 'ogent-armory-command-palette "ogent-armory-palette" nil t)
 
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-make-overriding-map "ext:evil-core")
@@ -734,11 +737,14 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
     (define-key map (kbd "^") #'ogent-armory-ui-up-section)
     (define-key map "a" #'ogent-armory-agents)
+    (define-key map "D" #'ogent-armory-data)
     (define-key map "t" #'ogent-armory-tasks)
     (define-key map "c" #'ogent-armory-conversations)
     (define-key map "u" #'ogent-armory-schedule)
     (define-key map "s" #'ogent-armory-search)
     (define-key map "A" #'ogent-armory-apps)
+    (define-key map "h" #'ogent-armory-git-status)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "G" #'ogent-armory-status)
     (define-key map "e" #'ogent-armory-home-edit-metadata)
     (define-key map "n" #'ogent-armory-home-next-item)
@@ -756,7 +762,7 @@ DIRECTION is either `next' or `previous'."
 
 (defun ogent-armory-home--header-line ()
   "Return header line for Armory Home."
-  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  j Jobs  J related jobs  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  G Graph  R run  E edit item  e Edit Armory  n/p move")
+  "m menu  ? help  RET visit  TAB section  M-n/p sections  g refresh  q quit  / palette  j Jobs  J related jobs  D Data  a Agents  t Tasks  c Conversations  u Schedule  s Search  A Apps  h Git  G Graph  R run  E edit item  e Edit Armory  n/p move")
 
 ;;;###autoload
 (defun ogent-armory-home (&optional directory)
@@ -847,6 +853,7 @@ DIRECTION is either `next' or `previous'."
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-home-navigate)
                                     (ogent-armory-ui--heading-text "Navigate")
+                                    (ogent-armory-home--insert-nav "Data" "D" #'ogent-armory-data)
                                     (ogent-armory-home--insert-nav "Agents" "a" #'ogent-armory-agents)
                                     (ogent-armory-home--insert-nav "Jobs" "j" #'ogent-armory-jobs)
                                     (ogent-armory-home--insert-nav "Tasks" "t" #'ogent-armory-tasks)
@@ -854,6 +861,8 @@ DIRECTION is either `next' or `previous'."
                                     (ogent-armory-home--insert-nav "Schedule" "u" #'ogent-armory-schedule)
                                     (ogent-armory-home--insert-nav "Search" "s" #'ogent-armory-search)
                                     (ogent-armory-home--insert-nav "Apps" "A" #'ogent-armory-apps)
+                                    (ogent-armory-home--insert-nav "Git" "h" #'ogent-armory-git-status)
+                                    (ogent-armory-home--insert-nav "Palette" "/" #'ogent-armory-command-palette)
                                     (ogent-armory-home--insert-nav "Graph" "G" #'ogent-armory-status)
                                     (ogent-armory-ui--insert-item-line
                                      (list :type 'file :path (ogent-armory-index-file root))
@@ -1017,7 +1026,7 @@ DIRECTION is either `next' or `previous'."
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
     (princ "Navigation\n")
     (princ "----------\n")
-    (princ "a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, G Graph.\n")
+    (princ "D Data, a Agents, B Org chart, t Tasks, c Conversations, u Schedule, Q Agenda, N Actions, s Search, A Apps, h Git, / Palette, G Graph.\n")
     (princ "n and p move between actionable rows. g refreshes. q quits.\n")
     (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
     (princ "Evil normal state keeps j/k movement, gg/G buffer movement, gr refresh, gj/gk section movement, and ZZ/ZQ quit.\n\n")
@@ -1054,6 +1063,7 @@ DIRECTION is either `next' or `previous'."
                                         ("p" "Previous item" ogent-armory-home-previous-item :transient t)
                                         ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
                          [["Surfaces"
+                           ("D" "Data" ogent-armory-data)
                            ("a" "Agents" ogent-armory-agents)
                            ("B" "Org chart" ogent-armory-org-chart)
                            ("t" "Tasks" ogent-armory-tasks)
@@ -1062,6 +1072,8 @@ DIRECTION is either `next' or `previous'."
                            ("N" "Action approvals" ogent-armory-actions)
                            ("s" "Search" ogent-armory-search)
                            ("A" "Apps" ogent-armory-apps)
+                           ("h" "Git" ogent-armory-git-status)
+                           ("/" "Palette" ogent-armory-command-palette)
                            ("G" "Graph" ogent-armory-status)]
                           ["Armory"
                            ("Q" "Agenda" ogent-armory-agenda)
@@ -3068,7 +3080,7 @@ With FORCE, skip confirmation."
 (defun ogent-armory-apps-open ()
   "Open the app artifact at point in a browser."
   (interactive)
-  (browse-url-of-file (plist-get (ogent-armory-apps--item) :path)))
+  (ogent-armory-open-file (plist-get (ogent-armory-apps--item) :path)))
 
 (defun ogent-armory-apps-visit-directory ()
   "Visit the app directory at point."

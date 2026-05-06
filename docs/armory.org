@@ -101,44 +101,63 @@ text in those Org files. Manual edits remain part of the record.
    Use =M-x ogent-armory-search=. Empty queries show an empty state. Search
    can filter by kind, agent, status, tag, and archive state from Lisp callers.
 
-9. Open generated apps:
+9. Browse durable data:
 
-   Use =M-x ogent-armory-apps=. Each =index.html= below the Armory root is
-   listed with label, path, modified time, and inferred owner when possible.
+   Use =M-x ogent-armory-data=. The data browser lists pages, files, apps, and
+   folders under the Armory root. Page commands create, rename, move, delete,
+   and export Org records while preserving the source property drawer and body.
 
-10. Check the task board:
+10. Open the command palette:
 
-   Use =M-x ogent-armory-tasks=. Lanes are Inbox, Needs Reply, Running,
-   Just Finished, and Archive. Scheduled and stale states appear as item
-   metadata. Press =b= for board, =l= for list, and =S= for schedule view.
+    Use =M-x ogent-armory-command-palette=. The palette ranks commands, pages,
+    agents, jobs, conversations, apps, paths, and page text through a persisted
+    derived index at =.armory-state/search.el=.
 
-11. Inspect relationships:
+11. Open generated apps:
+
+    Use =M-x ogent-armory-apps=. Each =index.html= below the Armory root is
+    listed with label, path, modified time, and inferred owner when possible.
+    HTML artifacts open through the shared Armory viewer dispatch.
+
+12. Check git state:
+
+    Use =M-x ogent-armory-git-status=. The status buffer lists dirty paths and
+    can commit, diff, log, restore, and pull through Magit when present or plain
+    git fallbacks.
+
+13. Check the task board:
+
+    Use =M-x ogent-armory-tasks=. Lanes are Inbox, Needs Reply, Running,
+    Just Finished, and Archive. Scheduled and stale states appear as item
+    metadata. Press =b= for board, =l= for list, and =S= for schedule view.
+
+14. Inspect relationships:
 
     Use =M-x ogent-armory-status=. The graph includes armory, agent, job,
     session, app, issue-link, and Gas Town hook nodes when available. Press
     =m= for the action menu or =?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 
-12. Check provider adapters:
+15. Check provider adapters:
 
     Use =M-x ogent-armory-providers= to inspect registered runtime adapters,
     executable availability, supported modes, and resume support. Use
     =M-x ogent-armory-provider-verify= for a focused executable check.
 
-13. Browse skills:
+16. Browse skills:
 
     Use =M-x ogent-armory-skills= to inspect the skill catalog. The catalog
     reads skill metadata from =.agents/skills/=, =skills/=, =.codex/skills/=,
     =$CODEX_HOME/skills=, and =~/.agents/skills= on demand. Refer to a skill in
     a prompt with =@skill:<key>= or pass the key through the composer.
 
-14. Review departments and approvals:
+17. Review departments and approvals:
 
     Use =M-x ogent-armory-org-chart= for a department tree grouped by lead and
     scope. Use =M-x ogent-armory-actions= on a conversation with pending lead
     proposals to approve, reject, or dispatch actions.
 
-15. Open the Armory schedule:
+18. Open the Armory schedule:
 
     Use =M-x ogent-armory-schedule= for day, week, and month schedule views.
     Jobs with =OGENT_CRON=, agent heartbeats with cron heartbeats, one-shot
@@ -146,7 +165,7 @@ text in those Org files. Manual edits remain part of the record.
     event stream. Past slots without a matching =OGENT_SCHEDULED_KEY= show as
     missed and can be run from the schedule buffer.
 
-16. Bridge into Org agenda:
+19. Bridge into Org agenda:
 
     Use =M-x ogent-armory-agenda= to open =org-agenda= over the Armory root,
     visible child Armories, personas, inboxes, schedules, jobs, and memory Org
@@ -164,11 +183,14 @@ Main ogent dispatch bindings:
 | =C-c . y= / =SPC o y= | =ogent-armory-agents= |
 | =C-c . Y= / =SPC o Y= | =ogent-armory-agent= |
 | =C-c . B= / =SPC o B= | =ogent-armory-org-chart= |
+| =C-c . ;= / =SPC o ;= | =ogent-armory-data= |
 | =C-c . I= / =SPC o I= | =ogent-armory-tasks= |
 | =C-c . O= / =SPC o O= | =ogent-armory-conversations= |
 | =C-c . N= / =SPC o N= | =ogent-armory-actions= |
 | =C-c . J= / =SPC o J= | =ogent-armory-schedule= |
 | =C-c . Q= / =SPC o Q= | =ogent-armory-agenda= |
+| =C-c . := / =SPC o := | =ogent-armory-git-status= |
+| =C-c . /= / =SPC o /= | =ogent-armory-command-palette= |
 | =C-c . V= / =SPC o V= | =ogent-armory-search= |
 | =C-c . W= / =SPC o W= | =ogent-armory-apps= |
 | =C-c . X= / =SPC o X= | =ogent-armory-create-agent= |
@@ -199,8 +221,35 @@ Armory Home:
 | =M-n= / =M-p= | Move between sibling sections |
 | =<backtab>= | Cycle section visibility |
 | =^= | Move to the parent section |
+| =D= | Open the data browser |
+| =h= | Open Armory git status |
+| =/= | Open the command palette |
 | =m= | Open the Home transient menu |
 | =?= | Open Home help |
+| =g= | Refresh |
+| =q= | Quit |
+
+Armory Data:
+
+| Key | Action |
+|-----+--------|
+| =RET= | Open the selected file through Armory viewer dispatch |
+| =c= | Create an Org page |
+| =r= | Rename the selected Org page |
+| =m= | Move the selected Org page |
+| =D= | Move the selected Org page to Armory trash |
+| =e= | Export the selected Org page |
+| =g= | Refresh |
+| =q= | Quit |
+
+Armory Git:
+
+| Key | Action |
+|-----+--------|
+| =d= | Show diff for the selected path |
+| =l= | Show log for the selected path |
+| =R= | Restore the selected path |
+| =c= | Commit dirty paths |
 | =g= | Refresh |
 | =q= | Quit |
 
@@ -224,17 +273,27 @@ Action approvals:
 | =d= | Dispatch approved actions |
 | =g= | Refresh |
 | =q= | Quit |
+
+Armory Home transient menu:
+
+| Key | Action |
+|-----+--------|
 | =j= | Open all jobs |
 | =J= | Open jobs related to the item at point |
 | =R= | Run or retry the selected agent, job, or conversation |
 | =E= | Edit the selected agent persona, job prompt, or source Org record |
+| =D= | Data browser |
 | =a= | Agents |
+| =B= | Org chart |
 | =t= | Tasks |
 | =c= | Conversations |
 | =u= | Schedule |
+| =N= | Action approvals |
 | =Q= | Armory Org agenda |
 | =s= | Search |
 | =A= | Apps |
+| =h= | Git status |
+| =/= | Command palette |
 | =G= | Graph/status |
 | =e= | Edit Armory metadata |
 
@@ -332,8 +391,14 @@ Migration limits:
              ogent-armory-status
              ogent-armory-agents
              ogent-armory-agent
+             ogent-armory-data
              ogent-armory-tasks
              ogent-armory-conversations
+             ogent-armory-actions
+             ogent-armory-schedule
+             ogent-armory-agenda
+             ogent-armory-git-status
+             ogent-armory-command-palette
              ogent-armory-search
              ogent-armory-apps
              ogent-armory-create-agent
