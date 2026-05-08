@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-adapter)
 (require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-data)
@@ -536,6 +537,122 @@ When EVENT is non-nil, append it to the canonical event log."
                      default)
            prompt)))
     (read-string shown-prompt nil nil default)))
+
+(defun ogent-cabinet-ui--read-optional-choice
+    (prompt candidates &optional current)
+  "Read PROMPT from CANDIDATES, allowing a blank value."
+  (let ((completion-ignore-case t))
+    (ogent-cabinet--blank-to-nil
+     (completing-read prompt
+                      (delete-dups
+                       (seq-filter
+                        (lambda (candidate)
+                          (not (string-blank-p candidate)))
+                        (mapcar (lambda (candidate)
+                                  (format "%s" candidate))
+                                candidates)))
+                      nil nil nil nil current))))
+
+(defun ogent-cabinet-ui--default-provider (root)
+  "Return the default provider configured for ROOT."
+  (or (plist-get (ogent-cabinet-settings-read root) :default-provider)
+      ogent-cabinet-default-agent-provider))
+
+(defun ogent-cabinet-ui--default-model (root)
+  "Return the default model configured for ROOT."
+  (plist-get (ogent-cabinet-settings-read root) :default-model))
+
+(defun ogent-cabinet-ui--read-provider (prompt current)
+  "Read a Cabinet provider with PROMPT and CURRENT."
+  (ogent-cabinet-settings--read-provider prompt current))
+
+(defun ogent-cabinet-ui--read-model
+    (provider prompt current &optional prefer-first)
+  "Read a Cabinet model for PROVIDER with PROMPT and CURRENT."
+  (ogent-cabinet-settings--read-model provider current prompt prefer-first))
+
+(defun ogent-cabinet-ui--provider-for-record (root record)
+  "Return the provider to use for model completion in RECORD under ROOT."
+  (or (ogent-cabinet--blank-to-nil (plist-get record :provider))
+      (ogent-cabinet-ui--default-provider root)))
+
+(defun ogent-cabinet-ui--effort-candidates (provider)
+  "Return effort candidates for PROVIDER."
+  (or (ignore-errors
+        (plist-get (ogent-cabinet-adapter-resolve-provider provider)
+                   :effort-levels))
+      '("low" "medium" "high" "xhigh")))
+
+(defun ogent-cabinet-ui--read-property-value
+    (root property current &optional record)
+  "Read PROPERTY value under ROOT using CURRENT and RECORD for completions."
+  (let* ((record-provider (ogent-cabinet-ui--provider-for-record
+                           root
+                           (or record nil)))
+         (prompt (format "%s: " property)))
+    (pcase property
+      ((or "OGENT_PROVIDER" "OGENT_ADAPTER")
+       (or (ogent-cabinet-ui--read-provider prompt current) ""))
+      ("OGENT_MODEL"
+       (ogent-cabinet-ui--read-model record-provider prompt current))
+      ("OGENT_EFFORT"
+       (or (ogent-cabinet-ui--read-optional-choice
+            prompt
+            (ogent-cabinet-ui--effort-candidates record-provider)
+            current)
+           ""))
+      ("OGENT_RUNTIME_MODE"
+       (or (ogent-cabinet-ui--read-optional-choice
+            prompt '("native" "terminal") current)
+           ""))
+      ((or "OGENT_ACTIVE" "OGENT_ARCHIVED" "OGENT_CAN_DISPATCH"
+           "OGENT_ENABLED" "OGENT_SETUP_COMPLETE")
+       (or (ogent-cabinet-ui--read-optional-choice
+            prompt '("t" "nil") current)
+           ""))
+      ("OGENT_AGENT"
+       (or (ogent-cabinet-ui--read-optional-choice
+            prompt
+            (ogent-cabinet-ui--agent-slugs root)
+            current)
+           ""))
+      (_
+       (read-string prompt current)))))
+
+(defun ogent-cabinet-ui--task-status-candidates (root)
+  "Return task status filter candidates for ROOT."
+  (delete-dups
+   (seq-filter
+    (lambda (status)
+      (not (string-blank-p status)))
+    (append
+     '("enabled" "disabled" "stale" "scheduled" "DONE" "FAILED"
+       "RUNNING" "AWAITING-INPUT" "TODO" "CANCELLED")
+     (mapcar (lambda (session)
+               (or (plist-get session :status) ""))
+             (ogent-cabinet-ui--all-sessions root))))))
+
+(defun ogent-cabinet-ui--conversation-status-candidates (root)
+  "Return conversation status filter candidates for ROOT."
+  (delete-dups
+   (seq-filter
+    (lambda (status)
+      (not (string-blank-p status)))
+    (append
+     '("DONE" "FAILED" "RUNNING" "AWAITING-INPUT" "ARCHIVED"
+       "CANCELLED" "TODO")
+     (mapcar (lambda (session)
+               (or (plist-get session :status) ""))
+             (ogent-cabinet-ui--all-sessions root))))))
+
+(defun ogent-cabinet-ui--conversation-tag-candidates (root)
+  "Return conversation tag filter candidates for ROOT."
+  (delete-dups
+   (apply
+    #'append
+    (mapcar (lambda (session)
+              (copy-sequence (or (plist-get session :tags) nil)))
+            (ogent-cabinet-ui--all-sessions root)))))
 
 (defun ogent-cabinet-ui--refresh-home-buffer (root)
   "Refresh the Cabinet Home buffer for ROOT when it is already open."
@@ -1697,7 +1814,11 @@ DIRECTION is either `next' or `previous'."
                     (ogent-cabinet--org-mode)
                     (ogent-cabinet--first-heading-title)
                     (org-entry-get nil property)))
-         (value (read-string (format "%s: " property) current)))
+         (value (ogent-cabinet-ui--read-property-value
+                 ogent-cabinet-agent--root
+                 property
+                 current
+                 agent)))
     (ogent-cabinet-ui--put-property file property value)
     (ogent-cabinet-agent-refresh)))
 
@@ -1710,15 +1831,22 @@ DIRECTION is either `next' or `previous'."
    (list (or (ogent-cabinet-find-root)
              (read-directory-name "Cabinet root: "))))
   (let* ((root (ogent-cabinet-ui--root directory))
+         (settings (ogent-cabinet-settings-read root))
          (name (read-string "Name: "))
          (slug (ogent-cabinet-ui--read-string-default
                 "Slug: "
                 (ogent-cabinet--slug name "agent")))
          (role (ogent-cabinet-ui--read-string-default "Role: " "Agent"))
-         (provider (ogent-cabinet-ui--read-string-default
+         (provider (ogent-cabinet-ui--read-provider
                     "Provider: "
-                    ogent-cabinet-default-agent-provider))
-         (model (read-string "Model: "))
+                    (or (plist-get settings :default-provider)
+                        ogent-cabinet-default-agent-provider)))
+         (model (or (ogent-cabinet-ui--read-model
+                     provider
+                     "Model: "
+                     (plist-get settings :default-model)
+                     t)
+                    ""))
          (workspace (ogent-cabinet-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
          (persona (read-string "Persona: ")))
@@ -1958,7 +2086,14 @@ DIRECTION is either `next' or `previous'."
          (property (completing-read "Property: "
                                     ogent-cabinet-job-editable-properties
                                     nil t))
-         (value (read-string (format "%s: " property)))
+         (key (cdr (assoc property ogent-cabinet-job-property-keys)))
+         (current (when key
+                    (format "%s" (or (plist-get item key) ""))))
+         (value (ogent-cabinet-ui--read-property-value
+                 ogent-cabinet-jobs--root
+                 property
+                 current
+                 item))
          (candidate (ogent-cabinet-ui--job-with-property item property value)))
     (ogent-cabinet-validate-job candidate)
     (ogent-cabinet-update-job-property
@@ -1986,14 +2121,26 @@ DIRECTION is either `next' or `previous'."
      (list root slug)))
   (let* ((root (ogent-cabinet-ui--root directory))
          (slug (or agent (ogent-cabinet-ui--read-agent root)))
+         (agent-record (ogent-cabinet-resolve-agent
+                        root slug :include-visible t))
          (name (read-string "Job name: "))
          (job-id (ogent-cabinet-ui--read-string-default
                   "Job id: "
                   (ogent-cabinet--slug name "job")))
          (cron (read-string "Cron: "))
          (heartbeat (read-string "Heartbeat: "))
-         (provider (read-string "Provider override: "))
-         (model (read-string "Model override: "))
+         (provider (or (ogent-cabinet-ui--read-provider
+                        "Provider override: "
+                        "")
+                       ""))
+         (model-provider (or (ogent-cabinet--blank-to-nil provider)
+                             (plist-get agent-record :provider)
+                             (ogent-cabinet-ui--default-provider root)))
+         (model (or (ogent-cabinet-ui--read-model
+                     model-provider
+                     "Model override: "
+                     "")
+                    ""))
          (workspace (ogent-cabinet-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-cabinet--tags-from-string (read-string "Tags: ")))
          (prompt (read-string "Prompt: "))
@@ -2355,7 +2502,22 @@ DIRECTION is either `next' or `previous'."
                                                 '("OGENT_ARCHIVED" "OGENT_TAGS")
                                                 nil t))
                      (_ (user-error "No editable Cabinet task at point"))))
-         (value (read-string (format "%s: " property))))
+         (key (cdr (assoc property ogent-cabinet-job-property-keys)))
+         (current (cond
+                   ((and key (eq (plist-get item :type) 'job))
+                    (format "%s" (or (plist-get item key) "")))
+                   ((eq (plist-get item :type) 'session)
+                    (with-temp-buffer
+                      (insert-file-contents (plist-get item :path))
+                      (ogent-cabinet--org-mode)
+                      (ogent-cabinet--first-heading-title)
+                      (org-entry-get nil property)))
+                   (t "")))
+         (value (ogent-cabinet-ui--read-property-value
+                 ogent-cabinet-tasks--root
+                 property
+                 current
+                 item)))
     (when (eq (plist-get item :type) 'job)
       (ogent-cabinet-validate-job
        (ogent-cabinet-ui--job-with-property item property value)))
@@ -2367,9 +2529,15 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (setq ogent-cabinet-tasks--filters
         (list :agent (ogent-cabinet--blank-to-nil
-                      (read-string "Agent filter: "))
+                      (ogent-cabinet-ui--read-optional-choice
+                       "Agent filter: "
+                       (ogent-cabinet-ui--agent-slugs
+                        ogent-cabinet-tasks--root)))
               :status (ogent-cabinet--blank-to-nil
-                       (read-string "Status filter: "))))
+                       (ogent-cabinet-ui--read-optional-choice
+                        "Status filter: "
+                        (ogent-cabinet-ui--task-status-candidates
+                         ogent-cabinet-tasks--root)))))
   (ogent-cabinet-tasks-refresh))
 
 ;;; Conversations
@@ -2548,11 +2716,20 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (setq ogent-cabinet-conversations--filters
         (list :agent (ogent-cabinet--blank-to-nil
-                      (read-string "Agent filter: "))
+                      (ogent-cabinet-ui--read-optional-choice
+                       "Agent filter: "
+                       (ogent-cabinet-ui--agent-slugs
+                        ogent-cabinet-conversations--root)))
               :status (ogent-cabinet--blank-to-nil
-                       (read-string "Status filter: "))
+                       (ogent-cabinet-ui--read-optional-choice
+                        "Status filter: "
+                        (ogent-cabinet-ui--conversation-status-candidates
+                         ogent-cabinet-conversations--root)))
               :tag (ogent-cabinet--blank-to-nil
-                    (read-string "Tag filter: "))))
+                    (ogent-cabinet-ui--read-optional-choice
+                     "Tag filter: "
+                     (ogent-cabinet-ui--conversation-tag-candidates
+                      ogent-cabinet-conversations--root)))))
   (ogent-cabinet-conversations-refresh))
 
 (defun ogent-cabinet-conversations-search ()

@@ -21,6 +21,9 @@
   "Ranked search and command palette for Cabinets."
   :group 'ogent-cabinet)
 
+(defvar ogent-cabinet-palette-history nil
+  "Minibuffer history for `ogent-cabinet-command-palette'.")
+
 (defun ogent-cabinet-search-index-file (directory)
   "Return the search index cache file under DIRECTORY."
   (expand-file-name ".cabinet-state/search.el"
@@ -229,12 +232,39 @@ When REBUILD is non-nil, refresh the persisted index first."
 
 (defun ogent-cabinet-palette--display (record)
   "Return a completion display string for RECORD."
-  (format "%s  %s  %s"
+  (string-join
+   (delq nil
+         (list (or (plist-get record :title) "")
+               (or (plist-get record :relative)
+                   (plist-get record :path))
+               (upcase (symbol-name (plist-get record :kind)))))
+   "  "))
+
+(defun ogent-cabinet-palette--annotation (record)
+  "Return minibuffer annotation text for RECORD."
+  (format "  %s%s"
           (upcase (symbol-name (plist-get record :kind)))
-          (or (plist-get record :title) "")
-          (or (plist-get record :relative)
-              (plist-get record :path)
-              "")))
+          (if-let ((path (or (plist-get record :relative)
+                             (plist-get record :path))))
+              (format "  %s" path)
+            "")))
+
+(defun ogent-cabinet-palette--read-record (records)
+  "Read and return one record from RECORDS."
+  (let* ((choices (mapcar (lambda (record)
+                            (cons (ogent-cabinet-palette--display record)
+                                  record))
+                          records))
+         (completion-extra-properties
+          `(:annotation-function
+            ,(lambda (choice)
+               (when-let ((record (cdr (assoc choice choices))))
+                 (ogent-cabinet-palette--annotation record)))))
+         (choice (completing-read "Cabinet command or record: "
+                                  choices
+                                  nil t nil
+                                  'ogent-cabinet-palette-history)))
+    (cdr (assoc choice choices))))
 
 (defun ogent-cabinet-palette-open-record (record)
   "Open RECORD using its command or file path."
@@ -252,18 +282,14 @@ When REBUILD is non-nil, refresh the persisted index first."
   (interactive
    (let ((root (or (ogent-cabinet-find-root)
                    (read-directory-name "Cabinet root: "))))
-     (list root (read-string "Cabinet palette: "))))
+     (list root nil)))
   (let* ((root (ogent-cabinet-data--root (or directory default-directory)))
          (records (ogent-cabinet-ranked-search
                    root
                    (or query "")
-                   :rebuild t))
-         (choices (mapcar (lambda (record)
-                            (cons (ogent-cabinet-palette--display record)
-                                  record))
-                          records))
-         (choice (completing-read "Cabinet: " choices nil t)))
-    (ogent-cabinet-palette-open-record (cdr (assoc choice choices)))))
+                   :rebuild t)))
+    (ogent-cabinet-palette-open-record
+     (ogent-cabinet-palette--read-record records))))
 
 (provide 'ogent-cabinet-palette)
 

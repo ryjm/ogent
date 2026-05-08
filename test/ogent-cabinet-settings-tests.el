@@ -89,6 +89,53 @@
       (should (equal (plist-get agent :runtime-mode) "native"))
       (should (plist-get agent :can-dispatch)))))
 
+(ert-deftest ogent-cabinet-onboard-completes-models-for-provider ()
+  "Interactive onboarding offers the chosen provider's current model ids."
+  (ogent-cabinet-settings-test-with-temp-dir root
+    (unwind-protect
+        (let ((model-candidates nil))
+          (ogent-cabinet-adapter-register
+           '(:id "fresh-cli"
+             :provider-symbol fresh
+             :name "Fresh CLI"
+             :aliases ("fresh")
+             :default-executable "fresh"
+             :models ("stale-model")
+             :model-list-function
+             (lambda (_adapter)
+               '("fresh-model" "other-model"))
+             :runtime-modes (native)))
+          (cl-letf (((symbol-function 'read-directory-name)
+                     (lambda (&rest _args)
+                       root))
+                    ((symbol-function 'read-string)
+                     (lambda (prompt &optional _initial-input &rest _args)
+                       (cond
+                        ((string= prompt "Cabinet name: ") "Acme")
+                        (t (ert-fail (format "Unexpected read-string: %s"
+                                             prompt))))))
+                    ((symbol-function 'completing-read)
+                     (lambda (prompt collection &rest _args)
+                       (cond
+                        ((string= prompt "Default provider: ")
+                         (should (member "fresh-cli" collection))
+                         "fresh-cli")
+                        ((string-prefix-p "Default model (Fresh CLI): " prompt)
+                         (setq model-candidates collection)
+                         "fresh-model")
+                        ((string= prompt "Default effort: ") "medium")
+                        ((string= prompt "Default runtime: ") "native")
+                        (t (ert-fail (format "Unexpected completing-read: %s"
+                                             prompt)))))))
+            (call-interactively #'ogent-cabinet-onboard))
+          (should (equal model-candidates '("fresh-model" "other-model")))
+          (let ((settings (ogent-cabinet-settings-read root)))
+            (should (equal (plist-get settings :default-provider)
+                           "fresh-cli"))
+            (should (equal (plist-get settings :default-model)
+                           "fresh-model"))))
+      (ogent-cabinet-adapter--builtin))))
+
 (ert-deftest ogent-cabinet-registry-import-creates-org-records ()
   "Registry import reads a template manifest and creates Cabinet Org records."
   (ogent-cabinet-settings-test-with-temp-dir root

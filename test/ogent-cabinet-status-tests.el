@@ -316,7 +316,17 @@
               (goto-char (point-min))
               (search-forward "Weekly Review")
               (cl-letf (((symbol-function 'completing-read)
-                         (lambda (&rest _) "OGENT_ENABLED"))
+                         (lambda (prompt collection &rest _)
+                           (cond
+                            ((string-match-p "Job property" prompt)
+                             (should (member "OGENT_ENABLED" collection))
+                             "OGENT_ENABLED")
+                            ((string-match-p "OGENT_ENABLED" prompt)
+                             (should (member "nil" collection))
+                             "nil")
+                            (t (ert-fail
+                                (format "Unexpected completion: %s"
+                                        prompt))))))
                         ((symbol-function 'read-string)
                          (lambda (&rest _) "nil")))
                 (ogent-cabinet-status-edit))

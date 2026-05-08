@@ -342,8 +342,9 @@ Emacs target:
   =.cabinet-state/quick-actions.org=.
 - Add a registry importer that can read Cabinet template manifests and scaffold
   Org Cabinet roots from them.
-- Add =ogent-cabinet-onboard= for storage root, default provider, default
-  runtime, initial team, and Doom keybinding guidance.
+- Add =ogent-cabinet-onboard= for storage root, default provider, provider-aware
+  default model completion, default runtime, initial team, and Doom keybinding
+  guidance.
 - Use =org-capture= templates for first-run data capture.
 - Mentions should be powered by org-roam.
 
@@ -861,7 +862,7 @@ Ogent has:
 
 Emacs target:
 
-- Add =ogent-cabinet-command=:
+- Add =ogent-cabinet-command-palette= as a single completion prompt:
   - Pages
   - Agents
   - Jobs
@@ -869,6 +870,7 @@ Emacs target:
   - Tasks
   - Apps
   - Settings
+  - Record-kind and path annotations
   - Git actions
   - Provider actions
 - Add =ogent-cabinet-search-index= as a rebuildable cache under
@@ -1428,4 +1430,3 @@ Scope:
 - Add metadata block parsing.
 - Add legacy session import.
 - Add tests from fixture files.
-

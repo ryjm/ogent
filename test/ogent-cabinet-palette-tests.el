@@ -75,6 +75,35 @@
          (list :kind 'page :title "Plan" :path page))
         (should (equal opened page))))))
 
+(ert-deftest ogent-cabinet-command-palette-completes-live-index ()
+  "The command palette opens completion over commands and Cabinet records."
+  (ogent-cabinet-palette-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-page-create root "Plan" :path "plan.org")
+    (let (prompt candidates opened read-string-called)
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (&rest _)
+                   (setq read-string-called t)
+                   ""))
+                ((symbol-function 'completing-read)
+                 (lambda (read-prompt collection &rest _)
+                   (setq prompt read-prompt)
+                   (setq candidates (mapcar #'car collection))
+                   (seq-find (lambda (candidate)
+                               (string-match-p "Plan" candidate))
+                             candidates)))
+                ((symbol-function 'ogent-cabinet-open-file)
+                 (lambda (path)
+                   (setq opened path))))
+        (ogent-cabinet-command-palette root))
+      (should-not read-string-called)
+      (should (equal prompt "Cabinet command or record: "))
+      (should (seq-some (lambda (candidate)
+                          (string-match-p "Cabinet Home" candidate))
+                        candidates))
+      (should (equal (file-truename opened)
+                     (file-truename (expand-file-name "plan.org" root)))))))
+
 (ert-deftest ogent-cabinet-apps-identify-canonical-conversation-owner ()
   "App detection links hidden conversation artifacts back to their owner."
   (ogent-cabinet-palette-test-with-temp-dir root

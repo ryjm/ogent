@@ -6,6 +6,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ogent-test-helper)
 (require 'ogent-cabinet-adapter)
 
@@ -25,6 +26,54 @@
                  "claude-code"))
   (should (eq (ogent-cabinet-adapter-normalize-provider "cursor-agent")
               'cursor)))
+
+(ert-deftest ogent-cabinet-adapter-models-use-fresh-provider-list ()
+  "Model completion prefers adapter-provided live model ids."
+  (unwind-protect
+      (let* ((adapter (ogent-cabinet-adapter-register
+                       '(:id "fresh-cli"
+                         :provider-symbol fresh
+                         :name "Fresh CLI"
+                         :aliases ("fresh")
+                         :default-executable "fresh"
+                         :models ("stale-model")
+                         :model-list-function
+                         (lambda (_adapter)
+                           '("fresh-model" "other-model" "fresh-model"))
+                         :runtime-modes (native))))
+             (models (ogent-cabinet-adapter-models adapter)))
+        (should (equal models '("fresh-model" "other-model"))))
+    (ogent-cabinet-adapter--builtin)))
+
+(ert-deftest ogent-cabinet-adapter-models-fall-back-to-static-list ()
+  "Static metadata remains usable when a live provider query fails."
+  (unwind-protect
+      (let* ((adapter (ogent-cabinet-adapter-register
+                       '(:id "offline-cli"
+                         :provider-symbol offline
+                         :name "Offline CLI"
+                         :aliases ("offline")
+                         :default-executable "offline"
+                         :models ("backup-model")
+                         :model-list-function
+                         (lambda (_adapter)
+                           (error "provider unavailable"))
+                         :runtime-modes (native))))
+             (models (ogent-cabinet-adapter-models adapter)))
+        (should (equal models '("backup-model"))))
+    (ogent-cabinet-adapter--builtin)))
+
+(ert-deftest ogent-cabinet-adapter-opencode-models-query-cli ()
+  "OpenCode model completion shells out through its native model list command."
+  (let ((adapter (ogent-cabinet-adapter-get "opencode")))
+    (cl-letf (((symbol-function 'ogent-cabinet-adapter--call-lines)
+               (lambda (program args)
+                 (should (equal program "opencode"))
+                 (should (equal args '("models")))
+                 '("openai/gpt-5.2" "anthropic/claude-sonnet-4-6"))))
+      (should (equal (ogent-cabinet-adapter-models adapter)
+                     '("openai/gpt-5.2"
+                       "anthropic/claude-sonnet-4-6"))))))
 
 (ert-deftest ogent-cabinet-adapter-builds-codex-and-claude-invocations ()
   "Initial adapters produce the legacy-compatible CLI invocations."

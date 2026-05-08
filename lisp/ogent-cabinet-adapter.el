@@ -29,6 +29,11 @@
 (defvar ogent-cabinet-runner-codex-sandbox)
 (defvar ogent-cabinet-runner-codex-skip-git-repo-check)
 
+(defcustom ogent-cabinet-adapter-model-list-timeout 5
+  "Seconds to wait for a provider CLI model list."
+  :type 'number
+  :group 'ogent-cabinet-adapter)
+
 (defconst ogent-cabinet-adapter-error-kinds
   '(cli-not-found auth-expired rate-limited session-expired context-exceeded
                   transport timeout model-unavailable unknown)
@@ -233,6 +238,60 @@
   (when-let ((mount (plist-get adapter :skill-mount-function)))
     (funcall mount adapter skills)))
 
+(defun ogent-cabinet-adapter--normalize-models (models)
+  "Return normalized model ids from MODELS."
+  (seq-filter
+   (lambda (model)
+     (not (string-blank-p model)))
+   (delete-dups
+    (mapcar
+     (lambda (model)
+       (string-trim
+        (format "%s"
+                (cond
+                 ((stringp model) model)
+                 ((and (listp model) (plist-get model :id))
+                  (plist-get model :id))
+                 ((and (listp model) (alist-get 'id model))
+                  (alist-get 'id model))
+                 (t model)))))
+     models))))
+
+(defun ogent-cabinet-adapter-models (adapter)
+  "Return model ids for ADAPTER.
+Provider-specific model list functions are preferred, with static adapter
+metadata as the fallback completion list."
+  (let* ((static (ogent-cabinet-adapter--normalize-models
+                  (plist-get adapter :models)))
+         (dynamic nil)
+         (list-function (plist-get adapter :model-list-function)))
+    (when list-function
+      (setq dynamic
+            (condition-case err
+                (ogent-cabinet-adapter--normalize-models
+                 (funcall list-function adapter))
+              (error
+               (message "Cabinet model listing failed for %s: %s"
+                        (plist-get adapter :id)
+                        (error-message-string err))
+               nil))))
+    (or dynamic static)))
+
+(defun ogent-cabinet-adapter--call-lines (program args)
+  "Return output lines from PROGRAM ARGS, or nil when unavailable."
+  (when-let ((path (and program (executable-find program))))
+    (with-timeout (ogent-cabinet-adapter-model-list-timeout nil)
+      (with-temp-buffer
+        (let ((status (apply #'call-process path nil t nil args)))
+          (when (zerop status)
+            (split-string (buffer-string) "\n" t "[[:space:]\r]+")))))))
+
+(defun ogent-cabinet-adapter--opencode-models (adapter)
+  "Return current OpenCode model ids for ADAPTER."
+  (ogent-cabinet-adapter--call-lines
+   (ogent-cabinet-adapter-executable adapter)
+   '("models")))
+
 (defun ogent-cabinet-adapter-classify-error (_adapter text &optional exit-status)
   "Classify adapter error TEXT and EXIT-STATUS."
   (let* ((raw (or text ""))
@@ -428,6 +487,7 @@
           :default-executable "opencode"
           :executable-symbol ogent-cabinet-opencode-executable
           :models nil
+          :model-list-function ogent-cabinet-adapter--opencode-models
           :effort-levels nil
           :runtime-modes (native terminal)
           :supports-session-resume t

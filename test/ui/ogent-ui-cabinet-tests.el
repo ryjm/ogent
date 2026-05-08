@@ -544,7 +544,18 @@
                   ((string-match-p "Workspace" prompt) "/")
                   ((string-match-p "Tags" prompt) "research, strategy")
                   ((string-match-p "Persona" prompt) "Read deeply.")
-                  (t (or default ""))))))
+                  (t (or default "")))))
+              ((symbol-function 'completing-read)
+               (lambda (prompt collection &rest _)
+                 (cond
+                  ((string-match-p "Provider" prompt)
+                   (should (member "codex-cli" collection))
+                   "codex")
+                  ((string-match-p "Model" prompt)
+                   (should (member "gpt-5.4" collection))
+                   "gpt-5.4")
+                  (t (ert-fail (format "Unexpected completion: %s"
+                                       prompt)))))))
       (ogent-cabinet-create-agent root))
     (should (file-exists-p (ogent-cabinet-agent-file root "researcher")))
     (cl-letf (((symbol-function 'read-string)
@@ -560,7 +571,7 @@
   "Agent creation defaults do not become editable initial input."
   (ogent-ui-cabinet-test-with-temp-dir root
     (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
-    (let (calls)
+    (let (calls completion-calls)
       (cl-letf (((symbol-function 'read-string)
                  (lambda (prompt &optional initial history default inherit)
                    (push (list prompt initial history default inherit) calls)
@@ -573,9 +584,18 @@
                     ((string-match-p "Workspace" prompt) "/")
                     ((string-match-p "Tags" prompt) "architecture")
                     ((string-match-p "Persona" prompt) "Keep the project clear.")
-                    (t "")))))
+                    (t ""))))
+                ((symbol-function 'completing-read)
+                 (lambda (prompt collection &optional _predicate _require-match
+                                 _initial _history default _inherit)
+                   (push (list prompt collection default) completion-calls)
+                   (cond
+                    ((string-match-p "Provider" prompt) "codex")
+                    ((string-match-p "Model" prompt) "gpt-5.4")
+                    (t (ert-fail (format "Unexpected completion: %s"
+                                         prompt)))))))
         (ogent-cabinet-create-agent root))
-      (dolist (label '("Slug" "Role" "Provider" "Workspace"))
+      (dolist (label '("Slug" "Role" "Workspace"))
         (let ((call (seq-find (lambda (entry)
                                 (string-match-p label (car entry)))
                               calls)))
@@ -584,6 +604,16 @@
           (should (nth 3 call))
           (should (string-match-p (regexp-quote (nth 3 call))
                                   (car call)))))
+      (let ((provider-call (seq-find (lambda (entry)
+                                       (string-match-p "Provider" (car entry)))
+                                     completion-calls))
+            (model-call (seq-find (lambda (entry)
+                                    (string-match-p "Model" (car entry)))
+                                  completion-calls)))
+        (should provider-call)
+        (should (member "codex-cli" (cadr provider-call)))
+        (should model-call)
+        (should (member "gpt-5.4" (cadr model-call))))
       (should (equal (plist-get (ogent-cabinet-read-agent root "architecture-steward")
                                 :role)
                      "Architecture")))))
@@ -611,7 +641,19 @@
                           ((string-match-p "Workspace" prompt) "/")
                           ((string-match-p "Tags" prompt) "architecture")
                           ((string-match-p "Persona" prompt) "Keep it clear.")
-                          (t (or default ""))))))
+                          (t (or default "")))))
+                      ((symbol-function 'completing-read)
+                       (lambda (prompt collection &rest _)
+                         (cond
+                          ((string-match-p "Provider" prompt)
+                           (should (member "codex-cli" collection))
+                           "codex")
+                          ((string-match-p "Model" prompt)
+                           (should (member "gpt-5.4" collection))
+                           "gpt-5.4")
+                          (t (ert-fail
+                              (format "Unexpected completion: %s"
+                                      prompt)))))))
               (ogent-cabinet-create-agent root))
             (with-current-buffer buffer
               (should (string-match-p "agents: 1"
@@ -671,7 +713,18 @@
                     ((string-match-p "Workspace" prompt) "/")
                     ((string-match-p "Tags" prompt) "architecture")
                     ((string-match-p "Prompt" prompt) "Review architecture docs.")
-                    (t "")))))
+                    (t ""))))
+                ((symbol-function 'completing-read)
+                 (lambda (prompt collection &rest _)
+                   (cond
+                    ((string-match-p "Provider" prompt)
+                     (should (member "codex-cli" collection))
+                     "")
+                    ((string-match-p "Model" prompt)
+                     (should (member "gpt-5.4" collection))
+                     "")
+                    (t (ert-fail (format "Unexpected completion: %s"
+                                         prompt)))))))
         (ogent-cabinet-create-job root "cto"))
       (dolist (label '("Job id" "Workspace"))
         (let ((call (seq-find (lambda (entry)
@@ -718,7 +771,19 @@
                           ((string-match-p "Workspace" prompt) "/")
                           ((string-match-p "Tags" prompt) "architecture")
                           ((string-match-p "Prompt" prompt) "Review the Cabinet.")
-                          (t (or default ""))))))
+                          (t (or default "")))))
+                      ((symbol-function 'completing-read)
+                       (lambda (prompt collection &rest _)
+                         (cond
+                          ((string-match-p "Provider" prompt)
+                           (should (member "codex-cli" collection))
+                           "")
+                          ((string-match-p "Model" prompt)
+                           (should (member "gpt-5.4" collection))
+                           "")
+                          (t (ert-fail
+                              (format "Unexpected completion: %s"
+                                      prompt)))))))
               (ogent-cabinet-create-job root "architect"))
             (with-current-buffer buffer
               (should (string-match-p "enabled jobs: 1"
@@ -1092,6 +1157,38 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
+(ert-deftest ogent-ui-cabinet-conversations-filter-completes-known-values ()
+  "Conversation filters complete agents, statuses, and tags."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-conversations root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (cl-letf (((symbol-function 'completing-read)
+                       (lambda (prompt collection &rest _)
+                         (cond
+                          ((string-match-p "Agent filter" prompt)
+                           (should (member "cto" collection))
+                           "cto")
+                          ((string-match-p "Status filter" prompt)
+                           (should (member "FAILED" collection))
+                           "FAILED")
+                          ((string-match-p "Tag filter" prompt)
+                           (should (listp collection))
+                           "")
+                          (t (ert-fail
+                              (format "Unexpected completion: %s"
+                                      prompt)))))))
+              (ogent-cabinet-conversations-filter))
+            (should (equal (plist-get ogent-cabinet-conversations--filters
+                                      :agent)
+                           "cto"))
+            (should (equal (plist-get ogent-cabinet-conversations--filters
+                                      :status)
+                           "FAILED")))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (ert-deftest ogent-ui-cabinet-agent-edit-property-updates-persona ()
   "Editing an agent identity property updates the Org persona drawer."
   (ogent-ui-cabinet-test-with-temp-dir root
@@ -1143,6 +1240,33 @@
                   ("C-c g" . ,#'ogent-cabinet-tasks-refresh)))
     (should (eq (lookup-key ogent-cabinet-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-cabinet-tasks-filter-completes-known-values ()
+  "Task filters complete agents and observed task states."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (cl-letf (((symbol-function 'completing-read)
+                       (lambda (prompt collection &rest _)
+                         (cond
+                          ((string-match-p "Agent filter" prompt)
+                           (should (member "cto" collection))
+                           "cto")
+                          ((string-match-p "Status filter" prompt)
+                           (should (member "FAILED" collection))
+                           "FAILED")
+                          (t (ert-fail
+                              (format "Unexpected completion: %s"
+                                      prompt)))))))
+              (ogent-cabinet-tasks-filter))
+            (should (equal (plist-get ogent-cabinet-tasks--filters :agent)
+                           "cto"))
+            (should (equal (plist-get ogent-cabinet-tasks--filters :status)
+                           "FAILED")))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-tasks-switches-list-and-schedule-views ()
   "Task board can switch between board, list, and schedule views."

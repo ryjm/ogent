@@ -13,8 +13,10 @@
 (require 'time-date)
 (require 'transient)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-adapter)
 (require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-runner)
+(require 'ogent-cabinet-settings)
 (require 'ogent-ops-style)
 
 (eval-and-compile
@@ -185,6 +187,73 @@
     ("OGENT_TAGS" . :tags)
     ("OGENT_ARCHIVED" . :archived-raw))
   "Map editable job Org properties to Cabinet job plist keys.")
+
+(defun ogent-cabinet-status--default-provider (root)
+  "Return the Cabinet default provider for ROOT."
+  (or (plist-get (ogent-cabinet-settings-read root) :default-provider)
+      ogent-cabinet-default-agent-provider))
+
+(defun ogent-cabinet-status--record-provider (root record)
+  "Return the provider for RECORD under ROOT."
+  (or (ogent-cabinet--blank-to-nil (plist-get record :provider))
+      (ogent-cabinet-status--default-provider root)))
+
+(defun ogent-cabinet-status--effort-candidates (provider)
+  "Return effort candidates for PROVIDER."
+  (or (ignore-errors
+        (plist-get (ogent-cabinet-adapter-resolve-provider provider)
+                   :effort-levels))
+      '("low" "medium" "high" "xhigh")))
+
+(defun ogent-cabinet-status--optional-choice
+    (prompt candidates &optional current)
+  "Read optional PROMPT from CANDIDATES with CURRENT as default."
+  (let ((completion-ignore-case t))
+    (ogent-cabinet--blank-to-nil
+     (completing-read prompt
+                      (delete-dups
+                       (seq-filter
+                        (lambda (candidate)
+                          (not (string-blank-p candidate)))
+                        (mapcar (lambda (candidate)
+                                  (format "%s" candidate))
+                                candidates)))
+                      nil nil nil nil current))))
+
+(defun ogent-cabinet-status--read-property-value
+    (root property current record)
+  "Read PROPERTY value under ROOT using CURRENT and RECORD completions."
+  (let* ((provider (ogent-cabinet-status--record-provider root record))
+         (prompt (format "%s: " property)))
+    (pcase property
+      ((or "OGENT_PROVIDER" "OGENT_ADAPTER")
+       (or (ogent-cabinet-settings--read-provider prompt current) ""))
+      ("OGENT_MODEL"
+       (or (ogent-cabinet-settings--read-model
+            provider current prompt)
+           ""))
+      ("OGENT_EFFORT"
+       (or (ogent-cabinet-status--optional-choice
+            prompt
+            (ogent-cabinet-status--effort-candidates provider)
+            current)
+           ""))
+      ("OGENT_RUNTIME_MODE"
+       (or (ogent-cabinet-status--optional-choice
+            prompt '("native" "terminal") current)
+           ""))
+      ((or "OGENT_ACTIVE" "OGENT_ARCHIVED" "OGENT_ENABLED")
+       (or (ogent-cabinet-status--optional-choice
+            prompt '("t" "nil") current)
+           ""))
+      ("OGENT_AGENT"
+       (or (ogent-cabinet-status--optional-choice
+            prompt
+            (ogent-cabinet-list-agents root)
+            current)
+           ""))
+      (_
+       (read-string prompt current)))))
 
 (defvar-local ogent-cabinet-status--root nil
   "Cabinet root shown by the current status buffer.")
@@ -1024,7 +1093,11 @@ DIRECTION is either `next' or `previous'."
                         (ogent-cabinet-agent-file ogent-cabinet-status--root
                                                   slug)
                         property))
-              (value (read-string (format "%s: " property) current)))
+              (value (ogent-cabinet-status--read-property-value
+                      ogent-cabinet-status--root
+                      property
+                      current
+                      data)))
          (ogent-cabinet-update-agent-property
           ogent-cabinet-status--root slug property value)))
       ('job
@@ -1039,7 +1112,11 @@ DIRECTION is either `next' or `previous'."
                                                 agent
                                                 job-id)
                         property))
-              (value (read-string (format "%s: " property) current))
+              (value (ogent-cabinet-status--read-property-value
+                      ogent-cabinet-status--root
+                      property
+                      current
+                      data))
               (candidate (ogent-cabinet-status--job-with-property
                           data property value)))
          (ogent-cabinet-validate-job candidate)
@@ -1052,7 +1129,11 @@ DIRECTION is either `next' or `previous'."
                          nil t))
               (current (ogent-cabinet-status--read-current-property
                         path property))
-              (value (read-string (format "%s: " property) current)))
+              (value (ogent-cabinet-status--read-property-value
+                      ogent-cabinet-status--root
+                      property
+                      current
+                      data)))
          (ogent-cabinet-update-session-property path property value)))
       (_
        (user-error "No editable Cabinet record at point"))))

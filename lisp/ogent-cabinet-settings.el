@@ -430,18 +430,30 @@ When MERGE is non-nil, existing settings and defaults fill missing keys."
                             choices)))
          (key (plist-get field :key))
          (current (plist-get settings key))
-         (value (pcase (plist-get field :type)
-                  ('boolean (y-or-n-p (format "%s? "
-                                              (plist-get field :label))))
-                  ('list (split-string
-                          (read-string
-                           (format "%s: " (plist-get field :label))
-                           (when current (string-join current ", ")))
-                          "[ \t]*,[ \t]*"
-                          t))
-                  (_ (read-string
-                      (format "%s: " (plist-get field :label))
-                      (format "%s" (or current "")))))))
+         (value (cond
+                 ((eq key :default-provider)
+                  (ogent-cabinet-settings--read-provider
+                   "Default provider: "
+                   (format "%s" (or current ""))))
+                 ((eq key :default-model)
+                  (ogent-cabinet-settings--read-model
+                   (plist-get settings :default-provider)
+                   (format "%s" (or current ""))
+                   nil
+                   t))
+                 (t
+                  (pcase (plist-get field :type)
+                    ('boolean (y-or-n-p (format "%s? "
+                                                (plist-get field :label))))
+                    ('list (split-string
+                            (read-string
+                             (format "%s: " (plist-get field :label))
+                             (when current (string-join current ", ")))
+                            "[ \t]*,[ \t]*"
+                            t))
+                    (_ (read-string
+                        (format "%s: " (plist-get field :label))
+                        (format "%s" (or current "")))))))))
     (ogent-cabinet-settings-update ogent-cabinet-settings--root key value)
     (ogent-cabinet-settings-refresh)))
 
@@ -478,6 +490,31 @@ When MERGE is non-nil, existing settings and defaults fill missing keys."
             (plist-get adapter :id))
           (ogent-cabinet-adapter-list)))
 
+(defun ogent-cabinet-settings--read-provider (&optional prompt current)
+  "Read a Cabinet provider using PROMPT and CURRENT."
+  (completing-read (or prompt "Provider: ")
+                   (ogent-cabinet-settings--adapter-ids)
+                   nil nil nil nil current))
+
+(defun ogent-cabinet-settings--read-model
+    (provider &optional current prompt prefer-first)
+  "Read a model for PROVIDER.
+CURRENT is used as the default when present.  PROMPT customizes the minibuffer
+label.  When PREFER-FIRST is non-nil, the first provider model becomes the
+fallback default."
+  (let* ((adapter (ogent-cabinet-adapter-resolve-provider provider))
+         (models (ogent-cabinet-adapter-models adapter))
+         (default (or (and current
+                           (not (string-blank-p current))
+                           current)
+                      (and prefer-first (car models))))
+         (prompt (or prompt
+                     (format "Default model (%s): "
+                             (plist-get adapter :name)))))
+    (if models
+        (completing-read prompt models nil nil nil nil default)
+      (read-string prompt default))))
+
 (defconst ogent-cabinet-onboard-default-team
   '((:slug "lead" :name "Lead" :role "Lead agent and planning coordinator"
      :department "Leadership" :type "lead" :can-dispatch t :tags ("lead"))
@@ -500,7 +537,8 @@ TEAM is a list of agent plists, or nil for `ogent-cabinet-onboard-default-team'.
                                      (ogent-cabinet-settings--adapter-ids)
                                      nil nil nil nil
                                      ogent-cabinet-default-agent-provider))
-          (model (read-string "Default model: "))
+          (model (ogent-cabinet-settings--read-model
+                  provider nil nil t))
           (effort (completing-read "Default effort: "
                                    '("low" "medium" "high" "xhigh")
                                    nil nil nil nil "medium"))
