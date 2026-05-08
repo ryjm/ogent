@@ -148,7 +148,8 @@ text in those Org files. Manual edits remain part of the record.
 
     Use =M-x ogent-armory-tasks=. Lanes are Inbox, Needs Reply, Running,
     Just Finished, and Archive. Scheduled and stale states appear as item
-    metadata. Press =C-c b= for board, =C-c l= for list, and =C-c S= for schedule view.
+    metadata. Press =c= or =C-c c= to capture a manual Inbox task, =C-c b= for
+    board, =C-c l= for list, and =C-c S= for schedule view.
 
 16. Inspect relationships:
 
@@ -400,6 +401,7 @@ Task board:
 
 | Key | Action |
 |-----+--------|
+| =c= / =C-c c= | Capture a task |
 | =RET= | Visit source Org |
 | =C-c r= | Run or retry |
 | =C-c a= | Archive |

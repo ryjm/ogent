@@ -37,6 +37,9 @@
      :path ,root :text "data browser pages files")
     (:kind command :title "Armory Agents" :command ogent-armory-agents
      :path ,root :text "agents personas")
+    (:kind command :title "Create Armory Task"
+     :command ogent-armory-create-task :path ,root
+     :text "capture task todo inbox manual")
     (:kind command :title "Armory Tasks" :command ogent-armory-tasks
      :path ,root :text "tasks board")
     (:kind command :title "Armory Conversations"
