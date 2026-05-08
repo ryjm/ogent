@@ -75,6 +75,35 @@
          (list :kind 'page :title "Plan" :path page))
         (should (equal opened page))))))
 
+(ert-deftest ogent-armory-command-palette-completes-live-index ()
+  "The command palette opens completion over commands and Armory records."
+  (ogent-armory-palette-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-page-create root "Plan" :path "plan.org")
+    (let (prompt candidates opened read-string-called)
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (&rest _)
+                   (setq read-string-called t)
+                   ""))
+                ((symbol-function 'completing-read)
+                 (lambda (read-prompt collection &rest _)
+                   (setq prompt read-prompt)
+                   (setq candidates (mapcar #'car collection))
+                   (seq-find (lambda (candidate)
+                               (string-match-p "Plan" candidate))
+                             candidates)))
+                ((symbol-function 'ogent-armory-open-file)
+                 (lambda (path)
+                   (setq opened path))))
+        (ogent-armory-command-palette root))
+      (should-not read-string-called)
+      (should (equal prompt "Armory command or record: "))
+      (should (seq-some (lambda (candidate)
+                          (string-match-p "Armory Home" candidate))
+                        candidates))
+      (should (equal (file-truename opened)
+                     (file-truename (expand-file-name "plan.org" root)))))))
+
 (ert-deftest ogent-armory-apps-identify-canonical-conversation-owner ()
   "App detection links hidden conversation artifacts back to their owner."
   (ogent-armory-palette-test-with-temp-dir root

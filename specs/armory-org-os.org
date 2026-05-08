@@ -303,6 +303,8 @@ The Emacs surfaces are boring and powerful:
   status, provider, model, tag, and archive state. =RET= opens a detail buffer
   with actions, metadata, runtime state, turns, prompt, output, tool blocks,
   exit status, duration, artifacts, events, linked agent/job, and source Org.
+- Armory task and conversation filters complete known agents, statuses, and
+  tags from the current Armory records.
 - =ogent-armory-search= searches Armory Org files, personas, jobs, memory,
   inboxes, schedules, imports, and conversations. Empty queries display a useful
   empty state. Search skips =.git= and transient state directories.
@@ -325,8 +327,9 @@ The Emacs surfaces are boring and powerful:
   skills, storage, integration, notification, appearance, git, automation, and
   about settings in =.armory-state/settings.org=. Settings export and import
   use Org files.
-- =ogent-armory-onboard= scaffolds a Armory, writes settings defaults, and
-  creates an initial team with provider and runtime defaults applied.
+- =ogent-armory-onboard= scaffolds a Armory, writes settings defaults,
+  completes the default model from the chosen provider adapter, and creates an
+  initial team with provider and runtime defaults applied.
 - =ogent-armory-registry-import= reads JSON Armory template manifests and
   creates Org-backed Armory roots, agents, jobs, pages, and settings.
 - =ogent-armory-backup= creates filtered directory backups of durable Armory

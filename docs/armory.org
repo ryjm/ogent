@@ -111,7 +111,8 @@ text in those Org files. Manual edits remain part of the record.
 
     Use =M-x ogent-armory-command-palette=. The palette ranks commands, pages,
     agents, jobs, conversations, apps, paths, and page text through a persisted
-    derived index at =.armory-state/search.el=.
+    derived index at =.armory-state/search.el=. The minibuffer opens directly
+    on completion candidates, annotated by record kind and path.
 
 11. Open generated apps:
 
@@ -135,11 +136,13 @@ text in those Org files. Manual edits remain part of the record.
 14. Import, demo, and back up:
 
     Use =M-x ogent-armory-onboard= for first-run setup, storage defaults, and
-    an initial team. Use =M-x ogent-armory-registry-import= to scaffold a
-    Armory from a JSON template manifest. Use =M-x ogent-armory-demo= to
-    create a small example Armory. Use =M-x ogent-armory-backup= to copy
-    durable Org state while skipping git metadata, process state, derived search
-    cache, and previous backups.
+    an initial team. After choosing the default provider, model completion is
+    populated from that provider adapter; adapters with a native model-listing
+    command query the CLI at prompt time. Use =M-x ogent-armory-registry-import=
+    to scaffold a Armory from a JSON template manifest. Use
+    =M-x ogent-armory-demo= to create a small example Armory. Use
+    =M-x ogent-armory-backup= to copy durable Org state while skipping git
+    metadata, process state, derived search cache, and previous backups.
 
 15. Check the task board:
 
@@ -157,8 +160,9 @@ text in those Org files. Manual edits remain part of the record.
 17. Check provider adapters:
 
     Use =M-x ogent-armory-providers= to inspect registered runtime adapters,
-    executable availability, supported modes, and resume support. Use
-    =M-x ogent-armory-provider-verify= for a focused executable check.
+    executable availability, supported modes, and resume support. These adapter
+    registrations also drive provider-aware model completion during onboarding.
+    Use =M-x ogent-armory-provider-verify= for a focused executable check.
 
 18. Browse skills:
 

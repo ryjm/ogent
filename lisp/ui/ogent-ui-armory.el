@@ -14,6 +14,7 @@
 (require 'tabulated-list)
 (require 'transient)
 (require 'ogent-armory)
+(require 'ogent-armory-adapter)
 (require 'ogent-armory-evil)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-data)
@@ -536,6 +537,122 @@ When EVENT is non-nil, append it to the canonical event log."
                      default)
            prompt)))
     (read-string shown-prompt nil nil default)))
+
+(defun ogent-armory-ui--read-optional-choice
+    (prompt candidates &optional current)
+  "Read PROMPT from CANDIDATES, allowing a blank value."
+  (let ((completion-ignore-case t))
+    (ogent-armory--blank-to-nil
+     (completing-read prompt
+                      (delete-dups
+                       (seq-filter
+                        (lambda (candidate)
+                          (not (string-blank-p candidate)))
+                        (mapcar (lambda (candidate)
+                                  (format "%s" candidate))
+                                candidates)))
+                      nil nil nil nil current))))
+
+(defun ogent-armory-ui--default-provider (root)
+  "Return the default provider configured for ROOT."
+  (or (plist-get (ogent-armory-settings-read root) :default-provider)
+      ogent-armory-default-agent-provider))
+
+(defun ogent-armory-ui--default-model (root)
+  "Return the default model configured for ROOT."
+  (plist-get (ogent-armory-settings-read root) :default-model))
+
+(defun ogent-armory-ui--read-provider (prompt current)
+  "Read a Armory provider with PROMPT and CURRENT."
+  (ogent-armory-settings--read-provider prompt current))
+
+(defun ogent-armory-ui--read-model
+    (provider prompt current &optional prefer-first)
+  "Read a Armory model for PROVIDER with PROMPT and CURRENT."
+  (ogent-armory-settings--read-model provider current prompt prefer-first))
+
+(defun ogent-armory-ui--provider-for-record (root record)
+  "Return the provider to use for model completion in RECORD under ROOT."
+  (or (ogent-armory--blank-to-nil (plist-get record :provider))
+      (ogent-armory-ui--default-provider root)))
+
+(defun ogent-armory-ui--effort-candidates (provider)
+  "Return effort candidates for PROVIDER."
+  (or (ignore-errors
+        (plist-get (ogent-armory-adapter-resolve-provider provider)
+                   :effort-levels))
+      '("low" "medium" "high" "xhigh")))
+
+(defun ogent-armory-ui--read-property-value
+    (root property current &optional record)
+  "Read PROPERTY value under ROOT using CURRENT and RECORD for completions."
+  (let* ((record-provider (ogent-armory-ui--provider-for-record
+                           root
+                           (or record nil)))
+         (prompt (format "%s: " property)))
+    (pcase property
+      ((or "OGENT_PROVIDER" "OGENT_ADAPTER")
+       (or (ogent-armory-ui--read-provider prompt current) ""))
+      ("OGENT_MODEL"
+       (ogent-armory-ui--read-model record-provider prompt current))
+      ("OGENT_EFFORT"
+       (or (ogent-armory-ui--read-optional-choice
+            prompt
+            (ogent-armory-ui--effort-candidates record-provider)
+            current)
+           ""))
+      ("OGENT_RUNTIME_MODE"
+       (or (ogent-armory-ui--read-optional-choice
+            prompt '("native" "terminal") current)
+           ""))
+      ((or "OGENT_ACTIVE" "OGENT_ARCHIVED" "OGENT_CAN_DISPATCH"
+           "OGENT_ENABLED" "OGENT_SETUP_COMPLETE")
+       (or (ogent-armory-ui--read-optional-choice
+            prompt '("t" "nil") current)
+           ""))
+      ("OGENT_AGENT"
+       (or (ogent-armory-ui--read-optional-choice
+            prompt
+            (ogent-armory-ui--agent-slugs root)
+            current)
+           ""))
+      (_
+       (read-string prompt current)))))
+
+(defun ogent-armory-ui--task-status-candidates (root)
+  "Return task status filter candidates for ROOT."
+  (delete-dups
+   (seq-filter
+    (lambda (status)
+      (not (string-blank-p status)))
+    (append
+     '("enabled" "disabled" "stale" "scheduled" "DONE" "FAILED"
+       "RUNNING" "AWAITING-INPUT" "TODO" "CANCELLED")
+     (mapcar (lambda (session)
+               (or (plist-get session :status) ""))
+             (ogent-armory-ui--all-sessions root))))))
+
+(defun ogent-armory-ui--conversation-status-candidates (root)
+  "Return conversation status filter candidates for ROOT."
+  (delete-dups
+   (seq-filter
+    (lambda (status)
+      (not (string-blank-p status)))
+    (append
+     '("DONE" "FAILED" "RUNNING" "AWAITING-INPUT" "ARCHIVED"
+       "CANCELLED" "TODO")
+     (mapcar (lambda (session)
+               (or (plist-get session :status) ""))
+             (ogent-armory-ui--all-sessions root))))))
+
+(defun ogent-armory-ui--conversation-tag-candidates (root)
+  "Return conversation tag filter candidates for ROOT."
+  (delete-dups
+   (apply
+    #'append
+    (mapcar (lambda (session)
+              (copy-sequence (or (plist-get session :tags) nil)))
+            (ogent-armory-ui--all-sessions root)))))
 
 (defun ogent-armory-ui--refresh-home-buffer (root)
   "Refresh the Armory Home buffer for ROOT when it is already open."
@@ -1697,7 +1814,11 @@ DIRECTION is either `next' or `previous'."
                     (ogent-armory--org-mode)
                     (ogent-armory--first-heading-title)
                     (org-entry-get nil property)))
-         (value (read-string (format "%s: " property) current)))
+         (value (ogent-armory-ui--read-property-value
+                 ogent-armory-agent--root
+                 property
+                 current
+                 agent)))
     (ogent-armory-ui--put-property file property value)
     (ogent-armory-agent-refresh)))
 
@@ -1710,15 +1831,22 @@ DIRECTION is either `next' or `previous'."
    (list (or (ogent-armory-find-root)
              (read-directory-name "Armory root: "))))
   (let* ((root (ogent-armory-ui--root directory))
+         (settings (ogent-armory-settings-read root))
          (name (read-string "Name: "))
          (slug (ogent-armory-ui--read-string-default
                 "Slug: "
                 (ogent-armory--slug name "agent")))
          (role (ogent-armory-ui--read-string-default "Role: " "Agent"))
-         (provider (ogent-armory-ui--read-string-default
+         (provider (ogent-armory-ui--read-provider
                     "Provider: "
-                    ogent-armory-default-agent-provider))
-         (model (read-string "Model: "))
+                    (or (plist-get settings :default-provider)
+                        ogent-armory-default-agent-provider)))
+         (model (or (ogent-armory-ui--read-model
+                     provider
+                     "Model: "
+                     (plist-get settings :default-model)
+                     t)
+                    ""))
          (workspace (ogent-armory-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
          (persona (read-string "Persona: ")))
@@ -1958,7 +2086,14 @@ DIRECTION is either `next' or `previous'."
          (property (completing-read "Property: "
                                     ogent-armory-job-editable-properties
                                     nil t))
-         (value (read-string (format "%s: " property)))
+         (key (cdr (assoc property ogent-armory-job-property-keys)))
+         (current (when key
+                    (format "%s" (or (plist-get item key) ""))))
+         (value (ogent-armory-ui--read-property-value
+                 ogent-armory-jobs--root
+                 property
+                 current
+                 item))
          (candidate (ogent-armory-ui--job-with-property item property value)))
     (ogent-armory-validate-job candidate)
     (ogent-armory-update-job-property
@@ -1986,14 +2121,26 @@ DIRECTION is either `next' or `previous'."
      (list root slug)))
   (let* ((root (ogent-armory-ui--root directory))
          (slug (or agent (ogent-armory-ui--read-agent root)))
+         (agent-record (ogent-armory-resolve-agent
+                        root slug :include-visible t))
          (name (read-string "Job name: "))
          (job-id (ogent-armory-ui--read-string-default
                   "Job id: "
                   (ogent-armory--slug name "job")))
          (cron (read-string "Cron: "))
          (heartbeat (read-string "Heartbeat: "))
-         (provider (read-string "Provider override: "))
-         (model (read-string "Model override: "))
+         (provider (or (ogent-armory-ui--read-provider
+                        "Provider override: "
+                        "")
+                       ""))
+         (model-provider (or (ogent-armory--blank-to-nil provider)
+                             (plist-get agent-record :provider)
+                             (ogent-armory-ui--default-provider root)))
+         (model (or (ogent-armory-ui--read-model
+                     model-provider
+                     "Model override: "
+                     "")
+                    ""))
          (workspace (ogent-armory-ui--read-string-default "Workspace: " "/"))
          (tags (ogent-armory--tags-from-string (read-string "Tags: ")))
          (prompt (read-string "Prompt: "))
@@ -2355,7 +2502,22 @@ DIRECTION is either `next' or `previous'."
                                                 '("OGENT_ARCHIVED" "OGENT_TAGS")
                                                 nil t))
                      (_ (user-error "No editable Armory task at point"))))
-         (value (read-string (format "%s: " property))))
+         (key (cdr (assoc property ogent-armory-job-property-keys)))
+         (current (cond
+                   ((and key (eq (plist-get item :type) 'job))
+                    (format "%s" (or (plist-get item key) "")))
+                   ((eq (plist-get item :type) 'session)
+                    (with-temp-buffer
+                      (insert-file-contents (plist-get item :path))
+                      (ogent-armory--org-mode)
+                      (ogent-armory--first-heading-title)
+                      (org-entry-get nil property)))
+                   (t "")))
+         (value (ogent-armory-ui--read-property-value
+                 ogent-armory-tasks--root
+                 property
+                 current
+                 item)))
     (when (eq (plist-get item :type) 'job)
       (ogent-armory-validate-job
        (ogent-armory-ui--job-with-property item property value)))
@@ -2367,9 +2529,15 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (setq ogent-armory-tasks--filters
         (list :agent (ogent-armory--blank-to-nil
-                      (read-string "Agent filter: "))
+                      (ogent-armory-ui--read-optional-choice
+                       "Agent filter: "
+                       (ogent-armory-ui--agent-slugs
+                        ogent-armory-tasks--root)))
               :status (ogent-armory--blank-to-nil
-                       (read-string "Status filter: "))))
+                       (ogent-armory-ui--read-optional-choice
+                        "Status filter: "
+                        (ogent-armory-ui--task-status-candidates
+                         ogent-armory-tasks--root)))))
   (ogent-armory-tasks-refresh))
 
 ;;; Conversations
@@ -2548,11 +2716,20 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (setq ogent-armory-conversations--filters
         (list :agent (ogent-armory--blank-to-nil
-                      (read-string "Agent filter: "))
+                      (ogent-armory-ui--read-optional-choice
+                       "Agent filter: "
+                       (ogent-armory-ui--agent-slugs
+                        ogent-armory-conversations--root)))
               :status (ogent-armory--blank-to-nil
-                       (read-string "Status filter: "))
+                       (ogent-armory-ui--read-optional-choice
+                        "Status filter: "
+                        (ogent-armory-ui--conversation-status-candidates
+                         ogent-armory-conversations--root)))
               :tag (ogent-armory--blank-to-nil
-                    (read-string "Tag filter: "))))
+                    (ogent-armory-ui--read-optional-choice
+                     "Tag filter: "
+                     (ogent-armory-ui--conversation-tag-candidates
+                      ogent-armory-conversations--root)))))
   (ogent-armory-conversations-refresh))
 
 (defun ogent-armory-conversations-search ()

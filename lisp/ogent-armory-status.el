@@ -13,8 +13,10 @@
 (require 'time-date)
 (require 'transient)
 (require 'ogent-armory)
+(require 'ogent-armory-adapter)
 (require 'ogent-armory-evil)
 (require 'ogent-armory-runner)
+(require 'ogent-armory-settings)
 (require 'ogent-ops-style)
 
 (eval-and-compile
@@ -185,6 +187,73 @@
     ("OGENT_TAGS" . :tags)
     ("OGENT_ARCHIVED" . :archived-raw))
   "Map editable job Org properties to Armory job plist keys.")
+
+(defun ogent-armory-status--default-provider (root)
+  "Return the Armory default provider for ROOT."
+  (or (plist-get (ogent-armory-settings-read root) :default-provider)
+      ogent-armory-default-agent-provider))
+
+(defun ogent-armory-status--record-provider (root record)
+  "Return the provider for RECORD under ROOT."
+  (or (ogent-armory--blank-to-nil (plist-get record :provider))
+      (ogent-armory-status--default-provider root)))
+
+(defun ogent-armory-status--effort-candidates (provider)
+  "Return effort candidates for PROVIDER."
+  (or (ignore-errors
+        (plist-get (ogent-armory-adapter-resolve-provider provider)
+                   :effort-levels))
+      '("low" "medium" "high" "xhigh")))
+
+(defun ogent-armory-status--optional-choice
+    (prompt candidates &optional current)
+  "Read optional PROMPT from CANDIDATES with CURRENT as default."
+  (let ((completion-ignore-case t))
+    (ogent-armory--blank-to-nil
+     (completing-read prompt
+                      (delete-dups
+                       (seq-filter
+                        (lambda (candidate)
+                          (not (string-blank-p candidate)))
+                        (mapcar (lambda (candidate)
+                                  (format "%s" candidate))
+                                candidates)))
+                      nil nil nil nil current))))
+
+(defun ogent-armory-status--read-property-value
+    (root property current record)
+  "Read PROPERTY value under ROOT using CURRENT and RECORD completions."
+  (let* ((provider (ogent-armory-status--record-provider root record))
+         (prompt (format "%s: " property)))
+    (pcase property
+      ((or "OGENT_PROVIDER" "OGENT_ADAPTER")
+       (or (ogent-armory-settings--read-provider prompt current) ""))
+      ("OGENT_MODEL"
+       (or (ogent-armory-settings--read-model
+            provider current prompt)
+           ""))
+      ("OGENT_EFFORT"
+       (or (ogent-armory-status--optional-choice
+            prompt
+            (ogent-armory-status--effort-candidates provider)
+            current)
+           ""))
+      ("OGENT_RUNTIME_MODE"
+       (or (ogent-armory-status--optional-choice
+            prompt '("native" "terminal") current)
+           ""))
+      ((or "OGENT_ACTIVE" "OGENT_ARCHIVED" "OGENT_ENABLED")
+       (or (ogent-armory-status--optional-choice
+            prompt '("t" "nil") current)
+           ""))
+      ("OGENT_AGENT"
+       (or (ogent-armory-status--optional-choice
+            prompt
+            (ogent-armory-list-agents root)
+            current)
+           ""))
+      (_
+       (read-string prompt current)))))
 
 (defvar-local ogent-armory-status--root nil
   "Armory root shown by the current status buffer.")
@@ -1024,7 +1093,11 @@ DIRECTION is either `next' or `previous'."
                         (ogent-armory-agent-file ogent-armory-status--root
                                                   slug)
                         property))
-              (value (read-string (format "%s: " property) current)))
+              (value (ogent-armory-status--read-property-value
+                      ogent-armory-status--root
+                      property
+                      current
+                      data)))
          (ogent-armory-update-agent-property
           ogent-armory-status--root slug property value)))
       ('job
@@ -1039,7 +1112,11 @@ DIRECTION is either `next' or `previous'."
                                                 agent
                                                 job-id)
                         property))
-              (value (read-string (format "%s: " property) current))
+              (value (ogent-armory-status--read-property-value
+                      ogent-armory-status--root
+                      property
+                      current
+                      data))
               (candidate (ogent-armory-status--job-with-property
                           data property value)))
          (ogent-armory-validate-job candidate)
@@ -1052,7 +1129,11 @@ DIRECTION is either `next' or `previous'."
                          nil t))
               (current (ogent-armory-status--read-current-property
                         path property))
-              (value (read-string (format "%s: " property) current)))
+              (value (ogent-armory-status--read-property-value
+                      ogent-armory-status--root
+                      property
+                      current
+                      data)))
          (ogent-armory-update-session-property path property value)))
       (_
        (user-error "No editable Armory record at point"))))
