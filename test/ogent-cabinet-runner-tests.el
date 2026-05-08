@@ -10,6 +10,7 @@
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
+(require 'ogent-cabinet-settings)
 
 (defmacro ogent-cabinet-runner-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
@@ -300,6 +301,52 @@
                                    plan)))
       (should-not (plist-get plan :stdin)))))
 
+(ert-deftest ogent-cabinet-runner-applies-cabinet-runtime-defaults ()
+  "Blank agent and job runtime fields fall through to Cabinet settings."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-settings-write
+     dir
+     '(:default-provider "claude-code"
+       :default-model "opus-4.7"
+       :default-effort "xhigh"
+       :default-runtime "terminal")
+     :merge t)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "lead"
+       :name "Lead"
+       :role "Coordinator"
+       :provider "claude-code"
+       :workspace "/")
+     "Keep Cabinet work moving.")
+    (ogent-cabinet-write-job
+     dir "lead"
+     '(:id "configure-master"
+       :name "Configure Master"
+       :enabled t
+       :workspace "/")
+     "Configure this Cabinet.")
+    (let* ((ogent-cabinet-runner-claude-permission-mode "default")
+           (plan (ogent-cabinet-runner-plan
+                  dir "lead" :job-id "configure-master"))
+           (args (plist-get plan :args))
+           (prompt (plist-get plan :prompt)))
+      (should (eq (plist-get plan :provider) 'claude))
+      (should (equal (plist-get plan :adapter-id) "claude-code"))
+      (should (equal (plist-get plan :model) "opus-4.7"))
+      (should (equal (plist-get plan :effort) "xhigh"))
+      (should (eq (plist-get plan :runtime-mode) 'terminal))
+      (should (member "--model" args))
+      (should (member "opus-4.7" args))
+      (should (member "--effort" args))
+      (should (member "xhigh" args))
+      (should (member "--permission-mode" args))
+      (should (member "dontAsk" args))
+      (should (string-match-p "Model: opus-4.7" prompt))
+      (should (string-match-p "Effort: xhigh" prompt))
+      (should (string-match-p "Runtime: terminal" prompt)))))
+
 (ert-deftest ogent-cabinet-runner-escapes-org-block-terminators ()
   "Session formatting keeps provider text inside Org source blocks."
   (ogent-cabinet-runner-test-with-temp-dir dir
@@ -360,6 +407,8 @@
                     :instruction "Say hello."
                     :runtime-mode 'terminal))
              (process (ogent-cabinet-runner-start plan)))
+        (should (equal (process-get process 'ogent-cabinet-conversation-id)
+                       (plist-get plan :conversation-id)))
         (ogent-cabinet-runner-test--wait process)
         (let* ((conversation-file
                 (process-get process 'ogent-cabinet-conversation-file))

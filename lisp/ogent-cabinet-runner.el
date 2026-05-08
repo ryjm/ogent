@@ -14,6 +14,7 @@
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-adapter)
 (require 'ogent-cabinet-conversations)
+(require 'ogent-cabinet-settings)
 
 (defgroup ogent-cabinet-runner nil
   "Run Org Cabinet agents through subscription-authenticated CLIs."
@@ -150,8 +151,8 @@
   :type 'boolean
   :group 'ogent-cabinet-runner)
 
-(defcustom ogent-cabinet-runner-claude-permission-mode "default"
-  "Permission mode passed to Claude Code."
+(defcustom ogent-cabinet-runner-claude-permission-mode "dontAsk"
+  "Permission mode passed to Claude Code background runs."
   :type '(choice (const "default")
                  (const "plan")
                  (const "acceptEdits")
@@ -197,6 +198,26 @@
   "Return KEY from JOB when present, otherwise from AGENT."
   (or (and job (ogent-cabinet-runner--blank-to-nil (plist-get job key)))
       (ogent-cabinet-runner--blank-to-nil (plist-get agent key))))
+
+(defun ogent-cabinet-runner--setting (settings key)
+  "Return nonblank KEY from SETTINGS."
+  (ogent-cabinet-runner--blank-to-nil (plist-get settings key)))
+
+(defun ogent-cabinet-runner--runtime-symbol (value)
+  "Return VALUE as a runtime mode symbol, or nil when VALUE is blank."
+  (when-let ((text (ogent-cabinet-runner--blank-to-nil
+                    (and value (format "%s" value)))))
+    (intern text)))
+
+(defun ogent-cabinet-runner--claude-permission-mode (agent)
+  "Return the safe Claude Code permission mode for AGENT."
+  (let ((mode (or (ogent-cabinet-runner--blank-to-nil
+                   (plist-get agent :permission-mode))
+                  (ogent-cabinet-runner--blank-to-nil
+                   ogent-cabinet-runner-claude-permission-mode))))
+    (if (or (null mode) (equal mode "default"))
+        "dontAsk"
+      mode)))
 
 (defun ogent-cabinet-runner--format-context-value (label value)
   "Return a Cabinet run context line for LABEL and VALUE."
@@ -407,16 +428,20 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                      candidate))))
          (agent (ogent-cabinet-resolve-agent
                  root agent-slug :include-visible t))
+         (settings (ogent-cabinet-settings-read root))
          (job (when job-id
                 (ogent-cabinet-validate-job
                  (ogent-cabinet-read-job root agent-slug job-id))))
          (adapter (if adapter-id
                       (ogent-cabinet-adapter-require adapter-id)
                     (ogent-cabinet-adapter-resolve-provider
-                     (or provider
+                     (or (ogent-cabinet-runner--blank-to-nil provider)
                          (ogent-cabinet-runner--effective agent job :adapter)
                          (ogent-cabinet-runner--effective agent job :provider)
-                         (plist-get agent :provider)))))
+                         (ogent-cabinet-runner--setting
+                          settings :default-provider)
+                         (ogent-cabinet-runner--blank-to-nil
+                          (plist-get agent :provider))))))
          (provider-symbol (plist-get adapter :provider-symbol))
          (workspace (ogent-cabinet-runner--workspace
                      root
@@ -425,14 +450,25 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                     :workspace
                                     (plist-get job :workspace))
                        agent)))
-         (model (or model
-                    (ogent-cabinet-runner--effective agent job :model)))
-         (effort (or effort
-                     (ogent-cabinet-runner--effective agent job :effort)))
-         (permission-mode (or (ogent-cabinet-runner--blank-to-nil
-                               (plist-get agent :permission-mode))
-                              ogent-cabinet-runner-claude-permission-mode))
-         (runtime-mode (or runtime-mode 'native))
+         (model (or (ogent-cabinet-runner--blank-to-nil model)
+                    (ogent-cabinet-runner--effective agent job :model)
+                    (ogent-cabinet-runner--setting
+                     settings :default-model)))
+         (effort (or (ogent-cabinet-runner--blank-to-nil effort)
+                     (ogent-cabinet-runner--effective agent job :effort)
+                     (ogent-cabinet-runner--setting
+                      settings :default-effort)))
+         (permission-mode (ogent-cabinet-runner--claude-permission-mode
+                           agent))
+         (runtime-mode (or (ogent-cabinet-runner--runtime-symbol
+                            runtime-mode)
+                           (ogent-cabinet-runner--runtime-symbol
+                            (ogent-cabinet-runner--effective
+                             agent job :runtime-mode))
+                           (ogent-cabinet-runner--runtime-symbol
+                            (ogent-cabinet-runner--setting
+                             settings :default-runtime))
+                           'native))
          (prompt (ogent-cabinet-runner--prompt
                   agent
                   job
@@ -454,6 +490,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                  :job job
                  :prompt prompt
                  :model model
+                 :effort effort
                  :permission-mode permission-mode
                  :runtime-mode runtime-mode))))
     (unless (file-directory-p workspace)
@@ -564,9 +601,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
       `(("OGENT_SESSION" . t)
         ("OGENT_AGENT" . ,(plist-get agent :slug))
         ("OGENT_PROVIDER" . ,provider)
-        ("OGENT_MODEL" . ,(or (plist-get job :model)
-                              (plist-get agent :model)
-                              ""))
+        ("OGENT_MODEL" . ,(or (plist-get plan :model) ""))
+        ("OGENT_EFFORT" . ,(or (plist-get plan :effort) ""))
         ("OGENT_JOB_ID" . ,(or (plist-get job :id) ""))
         ("OGENT_EXIT_STATUS" . ,exit-status)
         ("OGENT_DURATION" . ,(or (plist-get plan :duration) ""))
@@ -814,11 +850,26 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
     (set-process-query-on-exit-flag proc nil)
     (process-put proc 'ogent-cabinet-plan plan)
     (process-put proc 'ogent-cabinet-output-start output-start)
+    (process-put proc 'ogent-cabinet-conversation-id
+                 (plist-get plan :conversation-id))
+    (process-put proc 'ogent-cabinet-conversation-file
+                 (plist-get plan :conversation-file))
     (push proc ogent-cabinet-runner--processes)
     (when stdin
       (process-send-string proc stdin)
       (process-send-eof proc))
     proc))
+
+(defun ogent-cabinet-runner-display-process (process)
+  "Display PROCESS output buffer and return PROCESS."
+  (when (and (processp process)
+             (buffer-live-p (process-buffer process)))
+    (pop-to-buffer (process-buffer process))
+    (goto-char (point-max))
+    (message "Cabinet agent started: %s"
+             (or (process-get process 'ogent-cabinet-conversation-id)
+                 (process-name process))))
+  process)
 
 (defun ogent-cabinet-runner-stop-conversation (directory conversation-id)
   "Stop the live process for CONVERSATION-ID under DIRECTORY.
@@ -874,7 +925,10 @@ Return non-nil when a process was found."
   (let ((plan (ogent-cabinet-runner-plan
                directory agent-slug :instruction instruction)))
     (when (ogent-cabinet-runner--confirm plan)
-      (ogent-cabinet-runner-start plan))))
+      (let ((process (ogent-cabinet-runner-start plan)))
+        (when (called-interactively-p 'interactive)
+          (ogent-cabinet-runner-display-process process))
+        process))))
 
 ;;;###autoload
 (defun ogent-cabinet-run-job (directory agent-slug job-id)
@@ -888,7 +942,10 @@ Return non-nil when a process was found."
   (let ((plan (ogent-cabinet-runner-plan
                directory agent-slug :job-id job-id)))
     (when (ogent-cabinet-runner--confirm plan)
-      (ogent-cabinet-runner-start plan))))
+      (let ((process (ogent-cabinet-runner-start plan)))
+        (when (called-interactively-p 'interactive)
+          (ogent-cabinet-runner-display-process process))
+        process))))
 
 (defun ogent-cabinet-runner-auth-status (provider)
   "Return local subscription auth status for PROVIDER."

@@ -1243,6 +1243,33 @@
     (should (eq (lookup-key ogent-cabinet-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
 
+(ert-deftest ogent-ui-cabinet-tasks-run-displays-started-process ()
+  "Running a task from the task board makes the spawned process visible."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-tasks root))
+          called
+          displayed)
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'ogent-cabinet-run-job)
+                       (lambda (run-root agent job-id)
+                         (setq called (list run-root agent job-id))
+                         'started-process))
+                      ((symbol-function 'ogent-cabinet-runner-display-process)
+                       (lambda (process)
+                         (setq displayed process)
+                         process)))
+              (ogent-cabinet-tasks-run))
+            (should (equal called (list (file-truename root)
+                                        "cto"
+                                        "weekly-review")))
+            (should (eq displayed 'started-process)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (ert-deftest ogent-ui-cabinet-tasks-filter-completes-known-values ()
   "Task filters complete agents and observed task states."
   (ogent-ui-cabinet-test-with-temp-dir root

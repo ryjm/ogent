@@ -2550,6 +2550,13 @@ DIRECTION is either `next' or `previous'."
   (setq ogent-cabinet-tasks--view 'schedule)
   (ogent-cabinet-tasks-refresh))
 
+(defun ogent-cabinet-tasks--after-run (process)
+  "Refresh the task board, display PROCESS, and return PROCESS."
+  (ogent-cabinet-tasks-refresh)
+  (when process
+    (ogent-cabinet-runner-display-process process))
+  process)
+
 (defun ogent-cabinet-tasks-visit ()
   "Visit the Cabinet task item at point."
   (interactive)
@@ -2564,20 +2571,22 @@ DIRECTION is either `next' or `previous'."
   (let ((item (ogent-cabinet-ui--item-at-point)))
     (pcase (plist-get item :type)
       ('job
-       (ogent-cabinet-run-job
-        ogent-cabinet-tasks--root
-        (plist-get item :agent)
-        (plist-get item :job-id)))
+       (ogent-cabinet-tasks--after-run
+        (ogent-cabinet-run-job
+         ogent-cabinet-tasks--root
+         (plist-get item :agent)
+         (plist-get item :job-id))))
       ('session
-       (if-let ((job-id (plist-get item :job-id)))
-           (ogent-cabinet-run-job
-            ogent-cabinet-tasks--root
-            (plist-get item :agent)
-            job-id)
-         (ogent-cabinet-run-agent
-          ogent-cabinet-tasks--root
-          (plist-get item :agent)
-          (read-string "Instruction: "))))
+       (ogent-cabinet-tasks--after-run
+        (if-let ((job-id (plist-get item :job-id)))
+            (ogent-cabinet-run-job
+             ogent-cabinet-tasks--root
+             (plist-get item :agent)
+             job-id)
+          (ogent-cabinet-run-agent
+           ogent-cabinet-tasks--root
+           (plist-get item :agent)
+           (read-string "Instruction: ")))))
       (_
        (user-error "No runnable Cabinet task at point")))))
 
