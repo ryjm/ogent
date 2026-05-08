@@ -304,6 +304,23 @@
   "Read an agent slug from ROOT."
   (completing-read "Agent: " (ogent-cabinet-ui--agent-slugs root) nil t))
 
+(defun ogent-cabinet-ui--read-agent-default (root &optional default)
+  "Read an agent slug from ROOT, using DEFAULT when provided."
+  (let ((agents (ogent-cabinet-ui--agent-slugs root)))
+    (cond
+     ((null agents)
+      (user-error "No Cabinet agents exist"))
+     ((and (= (length agents) 1)
+           (or (null default)
+               (equal default (car agents))))
+      (car agents))
+     ((ogent-cabinet--blank-to-nil default)
+      (completing-read
+       (format "Agent (default %s): " default)
+       agents nil t nil nil default))
+     (t
+      (completing-read "Agent: " agents nil t)))))
+
 (defun ogent-cabinet-ui--agent-jobs (root slug)
   "Return jobs for SLUG under ROOT."
   (if (file-exists-p (ogent-cabinet-agent-file root slug))
@@ -2022,6 +2039,8 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "RET") #'ogent-cabinet-tasks-visit)
     (define-key map (kbd "<return>") #'ogent-cabinet-tasks-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-cabinet-tasks-visit)
+    (define-key map "c" #'ogent-cabinet-create-task)
+    (define-key map (kbd "C-c c") #'ogent-cabinet-create-task)
     (define-key map "R" #'ogent-cabinet-tasks-run)
     (define-key map (kbd "C-c r") #'ogent-cabinet-tasks-run)
     (define-key map "A" #'ogent-cabinet-tasks-archive)
@@ -2059,6 +2078,19 @@ DIRECTION is either `next' or `previous'."
   (setq-local tabulated-list-padding 2)
   (setq-local revert-buffer-function #'ogent-cabinet-tasks-refresh)
   (tabulated-list-init-header))
+
+(defun ogent-cabinet-tasks--help-line ()
+  "Return the task board action hint."
+  (propertize
+   "c create task  RET visit  R run  A archive  U unarchive  b board  l list  S schedule  f filter  g refresh  q quit\n\n"
+   'face 'shadow))
+
+(defun ogent-cabinet-tasks--print ()
+  "Print the current task board with its action hint."
+  (tabulated-list-print t)
+  (let ((inhibit-read-only t))
+    (goto-char (point-min))
+    (insert (ogent-cabinet-tasks--help-line))))
 
 (defun ogent-cabinet-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
@@ -2187,6 +2219,98 @@ DIRECTION is either `next' or `previous'."
   "Return ITEMS in task-board display order."
   (seq-sort #'ogent-cabinet-tasks--item-less-p items))
 
+(defun ogent-cabinet-tasks--unique-job-id (root agent title)
+  "Return a unique job id under ROOT and AGENT for TITLE."
+  (let* ((base (ogent-cabinet--slug title "task"))
+         (candidate base)
+         (index 2))
+    (while (file-exists-p (ogent-cabinet-job-file root agent candidate))
+      (setq candidate (format "%s-%d" base index))
+      (setq index (1+ index)))
+    candidate))
+
+(defun ogent-cabinet-tasks--current-agent ()
+  "Return the task item agent at point when present."
+  (when-let ((item (ignore-errors (ogent-cabinet-ui--item-at-point))))
+    (ogent-cabinet--blank-to-nil (plist-get item :agent))))
+
+(defun ogent-cabinet-tasks--read-agent (root)
+  "Read an agent for a new task under ROOT."
+  (ogent-cabinet-ui--read-agent-default
+   root
+   (ogent-cabinet-tasks--current-agent)))
+
+(defun ogent-cabinet-tasks--goto (agent job-id)
+  "Move to AGENT JOB-ID in the current task buffer when visible."
+  (goto-char (point-min))
+  (let (found)
+    (while (and (not found) (not (eobp)))
+      (let ((item (tabulated-list-get-id)))
+        (when (and item
+                   (equal (plist-get item :agent) agent)
+                   (equal (plist-get item :job-id) job-id))
+          (setq found t)))
+      (unless found
+        (forward-line 1)))))
+
+(defun ogent-cabinet-tasks--refresh-open-buffer (root &optional agent job-id)
+  "Refresh the open task board for ROOT, then move to AGENT JOB-ID."
+  (when-let ((buffer (get-buffer
+                      (ogent-cabinet-ui--buffer-name
+                       ogent-cabinet-tasks-buffer-name-format root))))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (derived-mode-p 'ogent-cabinet-tasks-mode)
+          (setq ogent-cabinet-tasks--root root)
+          (ogent-cabinet-tasks-refresh)
+          (when (and agent job-id)
+            (ogent-cabinet-tasks--goto agent job-id)))))))
+
+(defun ogent-cabinet-tasks--root (&optional directory)
+  "Return a Cabinet root for task commands."
+  (ogent-cabinet-ui--root
+   (or directory
+       ogent-cabinet-tasks--root
+       (ogent-cabinet-find-root)
+       (read-directory-name "Cabinet root: "))))
+
+;;;###autoload
+(defun ogent-cabinet-create-task (&optional directory agent title details)
+  "Capture a manual Cabinet task under DIRECTORY for AGENT."
+  (interactive)
+  (let* ((root (ogent-cabinet-tasks--root directory))
+         (slug (or agent (ogent-cabinet-tasks--read-agent root)))
+         (name (or (ogent-cabinet--blank-to-nil title)
+                   (string-trim (read-string "Task: "))))
+         (body-input (if (null details)
+                         (ogent-cabinet-ui--read-string-default
+                          "Details: "
+                          name)
+                       details)))
+    (when (string-blank-p name)
+      (user-error "Task title is required"))
+    (let* ((job-id (ogent-cabinet-tasks--unique-job-id root slug name))
+           (now (ogent-cabinet-ui--iso-now))
+           (body (or (ogent-cabinet--blank-to-nil body-input) name))
+           (job (list :id job-id
+                      :agent slug
+                      :name name
+                      :cron ""
+                      :heartbeat ""
+                      :enabled t
+                      :enabled-raw "t"
+                      :archived nil
+                      :archived-raw "nil"
+                      :workspace "/"
+                      :created-at now
+                      :updated-at now)))
+      (ogent-cabinet-validate-job job)
+      (let ((file (ogent-cabinet-write-job root slug job body)))
+        (ogent-cabinet-ui--refresh-home-buffer root)
+        (ogent-cabinet-tasks--refresh-open-buffer root slug job-id)
+        (message "Created Cabinet task: %s" name)
+        file))))
+
 (defun ogent-cabinet-tasks--scheduled-item-p (item)
   "Return non-nil when ITEM has scheduling metadata."
   (or (ogent-cabinet--blank-to-nil (plist-get item :scheduled))
@@ -2252,14 +2376,14 @@ DIRECTION is either `next' or `previous'."
       (setq ogent-cabinet-tasks--view 'board)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-cabinet-tasks--entries)
-      (tabulated-list-print t))
+      (ogent-cabinet-tasks--print))
     (pop-to-buffer buffer)
     buffer))
 
 (defun ogent-cabinet-tasks-refresh (&rest _)
   "Refresh the Cabinet task lane buffer."
   (interactive)
-  (tabulated-list-print t))
+  (ogent-cabinet-tasks--print))
 
 (defun ogent-cabinet-tasks-board-view ()
   "Show Cabinet tasks as attention lanes."

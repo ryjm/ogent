@@ -74,6 +74,8 @@ Then run `doom sync` and add this to `~/.doom.d/config.el`:
 
 `M-x ogent-cabinet-home` is the Cabinet entry point. It opens a native Emacs dashboard backed by `index.org` and `.agents/**.org` records. The home view shows metadata, health counts, recent activity, failed work, stale jobs, missing persona fields, app artifacts, and navigation to the rest of the Cabinet.
 
+`M-x ogent-cabinet-tasks` opens the Cabinet task board. Press `c` or `C-c c` there to capture a manual task into Inbox with a short TODO-style prompt path.
+
 `M-x ogent-cabinet-compose` and `M-x ogent-cabinet-compose-buffer` run agents from a shared composer with `@agent:`, `@page:`, `@skill:`, `@job:`, and `@conversation:` mentions. Attachments are staged into the canonical conversation folder, and `M-x ogent-cabinet-skills` opens the Org-backed skill catalog. Agents now support local, global, and visible-cabinet resolution, department/type identity, skill selections, runtime inheritance, and lead action approvals through `M-x ogent-cabinet-actions`.
 
 Common commands:

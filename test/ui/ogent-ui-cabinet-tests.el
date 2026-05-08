@@ -1132,6 +1132,8 @@
 (ert-deftest ogent-ui-cabinet-tasks-keybindings-cover-daily-actions ()
   "Task board bindings include run, archive, view modes, edit, and filters."
   (dolist (pair `(("RET" . ,#'ogent-cabinet-tasks-visit)
+                  ("c" . ,#'ogent-cabinet-create-task)
+                  ("C-c c" . ,#'ogent-cabinet-create-task)
                   ("C-c r" . ,#'ogent-cabinet-tasks-run)
                   ("C-c a" . ,#'ogent-cabinet-tasks-archive)
                   ("C-c u" . ,#'ogent-cabinet-tasks-unarchive)
@@ -1143,6 +1145,71 @@
                   ("C-c g" . ,#'ogent-cabinet-tasks-refresh)))
     (should (eq (lookup-key ogent-cabinet-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
+
+(ert-deftest ogent-ui-cabinet-tasks-buffer-advertises-capture ()
+  "The task board makes task creation discoverable."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-ui-cabinet-test--seed root)
+    (let ((buffer (ogent-cabinet-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (should (string-match-p "c create task"
+                                    (buffer-substring-no-properties
+                                     (point-min)
+                                     (point-max)))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-create-task-captures-manual-inbox-task ()
+  "Task capture creates a manual Org TODO job and refreshes the board."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "ops"
+       :name "Ops"
+       :role "Operations"
+       :provider "codex"
+       :active t)
+     "Keep daily operations moving.")
+    (let ((buffer (ogent-cabinet-tasks root)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (ogent-cabinet-create-task
+             root
+             nil
+             "Triage support inbox"
+             "Review unresolved support threads.")
+            (let* ((job (ogent-cabinet-read-job root "ops" "triage-support-inbox"))
+                   (text (buffer-substring-no-properties (point-min) (point-max))))
+              (should (equal (plist-get job :name) "Triage support inbox"))
+              (should (plist-get job :enabled))
+              (should-not (ogent-cabinet--blank-to-nil (plist-get job :cron)))
+              (should (equal (plist-get job :body)
+                             "Review unresolved support threads."))
+              (should (string-match-p "Inbox" text))
+              (should (string-match-p "Triage support inbox" text))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-ui-cabinet-create-task-uses-unique-job-ids ()
+  "Task capture handles repeated task titles without user-visible slug prompts."
+  (ogent-ui-cabinet-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "ops"
+       :name "Ops"
+       :role "Operations"
+       :provider "codex"
+       :active t)
+     "Keep daily operations moving.")
+    (ogent-cabinet-create-task root "ops" "Review pull requests" "")
+    (ogent-cabinet-create-task root "ops" "Review pull requests" "")
+    (should (file-exists-p
+             (ogent-cabinet-job-file root "ops" "review-pull-requests")))
+    (should (file-exists-p
+             (ogent-cabinet-job-file root "ops" "review-pull-requests-2")))))
 
 (ert-deftest ogent-ui-cabinet-tasks-switches-list-and-schedule-views ()
   "Task board can switch between board, list, and schedule views."
