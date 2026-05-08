@@ -180,6 +180,8 @@
                     (plist-get context :root))))
     (setq args (ogent-armory-adapter--append-option
                 args "--model" (plist-get context :model)))
+    (setq args (ogent-armory-adapter--append-option
+                args "--effort" (plist-get context :effort)))
     (list :program (ogent-armory-adapter-executable adapter)
           :args (append args (list (plist-get context :prompt)))
           :stdin nil)))

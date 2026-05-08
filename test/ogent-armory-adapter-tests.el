@@ -81,6 +81,7 @@
                         :workspace "/repo"
                         :prompt "Review the repo."
                         :model "gpt-5.4"
+                        :effort "xhigh"
                         :permission-mode "plan"
                         :runtime-mode 'terminal))
          (codex (ogent-armory-adapter-build-invocation
@@ -97,6 +98,8 @@
     (should (equal (plist-get claude :program) "claude"))
     (should (member "-p" (plist-get claude :args)))
     (should (member "--permission-mode" (plist-get claude :args)))
+    (should (member "--effort" (plist-get claude :args)))
+    (should (member "xhigh" (plist-get claude :args)))
     (should-not (plist-get claude :stdin))))
 
 (ert-deftest ogent-armory-adapter-builds-expanded-provider-invocations ()

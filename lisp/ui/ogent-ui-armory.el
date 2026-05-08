@@ -2550,6 +2550,13 @@ DIRECTION is either `next' or `previous'."
   (setq ogent-armory-tasks--view 'schedule)
   (ogent-armory-tasks-refresh))
 
+(defun ogent-armory-tasks--after-run (process)
+  "Refresh the task board, display PROCESS, and return PROCESS."
+  (ogent-armory-tasks-refresh)
+  (when process
+    (ogent-armory-runner-display-process process))
+  process)
+
 (defun ogent-armory-tasks-visit ()
   "Visit the Armory task item at point."
   (interactive)
@@ -2564,20 +2571,22 @@ DIRECTION is either `next' or `previous'."
   (let ((item (ogent-armory-ui--item-at-point)))
     (pcase (plist-get item :type)
       ('job
-       (ogent-armory-run-job
-        ogent-armory-tasks--root
-        (plist-get item :agent)
-        (plist-get item :job-id)))
+       (ogent-armory-tasks--after-run
+        (ogent-armory-run-job
+         ogent-armory-tasks--root
+         (plist-get item :agent)
+         (plist-get item :job-id))))
       ('session
-       (if-let ((job-id (plist-get item :job-id)))
-           (ogent-armory-run-job
-            ogent-armory-tasks--root
-            (plist-get item :agent)
-            job-id)
-         (ogent-armory-run-agent
-          ogent-armory-tasks--root
-          (plist-get item :agent)
-          (read-string "Instruction: "))))
+       (ogent-armory-tasks--after-run
+        (if-let ((job-id (plist-get item :job-id)))
+            (ogent-armory-run-job
+             ogent-armory-tasks--root
+             (plist-get item :agent)
+             job-id)
+          (ogent-armory-run-agent
+           ogent-armory-tasks--root
+           (plist-get item :agent)
+           (read-string "Instruction: ")))))
       (_
        (user-error "No runnable Armory task at point")))))
 

@@ -1243,6 +1243,33 @@
     (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd (car pair)))
                 (cdr pair)))))
 
+(ert-deftest ogent-ui-armory-tasks-run-displays-started-process ()
+  "Running a task from the task board makes the spawned process visible."
+  (ogent-ui-armory-test-with-temp-dir root
+    (ogent-ui-armory-test--seed root)
+    (let ((buffer (ogent-armory-tasks root))
+          called
+          displayed)
+      (unwind-protect
+          (with-current-buffer buffer
+            (goto-char (point-min))
+            (search-forward "Weekly Review")
+            (cl-letf (((symbol-function 'ogent-armory-run-job)
+                       (lambda (run-root agent job-id)
+                         (setq called (list run-root agent job-id))
+                         'started-process))
+                      ((symbol-function 'ogent-armory-runner-display-process)
+                       (lambda (process)
+                         (setq displayed process)
+                         process)))
+              (ogent-armory-tasks-run))
+            (should (equal called (list (file-truename root)
+                                        "cto"
+                                        "weekly-review")))
+            (should (eq displayed 'started-process)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (ert-deftest ogent-ui-armory-tasks-filter-completes-known-values ()
   "Task filters complete agents and observed task states."
   (ogent-ui-armory-test-with-temp-dir root

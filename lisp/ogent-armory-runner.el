@@ -14,6 +14,7 @@
 (require 'ogent-armory)
 (require 'ogent-armory-adapter)
 (require 'ogent-armory-conversations)
+(require 'ogent-armory-settings)
 
 (defgroup ogent-armory-runner nil
   "Run Org Armory agents through subscription-authenticated CLIs."
@@ -150,8 +151,8 @@
   :type 'boolean
   :group 'ogent-armory-runner)
 
-(defcustom ogent-armory-runner-claude-permission-mode "default"
-  "Permission mode passed to Claude Code."
+(defcustom ogent-armory-runner-claude-permission-mode "dontAsk"
+  "Permission mode passed to Claude Code background runs."
   :type '(choice (const "default")
                  (const "plan")
                  (const "acceptEdits")
@@ -197,6 +198,26 @@
   "Return KEY from JOB when present, otherwise from AGENT."
   (or (and job (ogent-armory-runner--blank-to-nil (plist-get job key)))
       (ogent-armory-runner--blank-to-nil (plist-get agent key))))
+
+(defun ogent-armory-runner--setting (settings key)
+  "Return nonblank KEY from SETTINGS."
+  (ogent-armory-runner--blank-to-nil (plist-get settings key)))
+
+(defun ogent-armory-runner--runtime-symbol (value)
+  "Return VALUE as a runtime mode symbol, or nil when VALUE is blank."
+  (when-let ((text (ogent-armory-runner--blank-to-nil
+                    (and value (format "%s" value)))))
+    (intern text)))
+
+(defun ogent-armory-runner--claude-permission-mode (agent)
+  "Return the safe Claude Code permission mode for AGENT."
+  (let ((mode (or (ogent-armory-runner--blank-to-nil
+                   (plist-get agent :permission-mode))
+                  (ogent-armory-runner--blank-to-nil
+                   ogent-armory-runner-claude-permission-mode))))
+    (if (or (null mode) (equal mode "default"))
+        "dontAsk"
+      mode)))
 
 (defun ogent-armory-runner--format-context-value (label value)
   "Return a Armory run context line for LABEL and VALUE."
@@ -407,16 +428,20 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                      candidate))))
          (agent (ogent-armory-resolve-agent
                  root agent-slug :include-visible t))
+         (settings (ogent-armory-settings-read root))
          (job (when job-id
                 (ogent-armory-validate-job
                  (ogent-armory-read-job root agent-slug job-id))))
          (adapter (if adapter-id
                       (ogent-armory-adapter-require adapter-id)
                     (ogent-armory-adapter-resolve-provider
-                     (or provider
+                     (or (ogent-armory-runner--blank-to-nil provider)
                          (ogent-armory-runner--effective agent job :adapter)
                          (ogent-armory-runner--effective agent job :provider)
-                         (plist-get agent :provider)))))
+                         (ogent-armory-runner--setting
+                          settings :default-provider)
+                         (ogent-armory-runner--blank-to-nil
+                          (plist-get agent :provider))))))
          (provider-symbol (plist-get adapter :provider-symbol))
          (workspace (ogent-armory-runner--workspace
                      root
@@ -425,14 +450,25 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                     :workspace
                                     (plist-get job :workspace))
                        agent)))
-         (model (or model
-                    (ogent-armory-runner--effective agent job :model)))
-         (effort (or effort
-                     (ogent-armory-runner--effective agent job :effort)))
-         (permission-mode (or (ogent-armory-runner--blank-to-nil
-                               (plist-get agent :permission-mode))
-                              ogent-armory-runner-claude-permission-mode))
-         (runtime-mode (or runtime-mode 'native))
+         (model (or (ogent-armory-runner--blank-to-nil model)
+                    (ogent-armory-runner--effective agent job :model)
+                    (ogent-armory-runner--setting
+                     settings :default-model)))
+         (effort (or (ogent-armory-runner--blank-to-nil effort)
+                     (ogent-armory-runner--effective agent job :effort)
+                     (ogent-armory-runner--setting
+                      settings :default-effort)))
+         (permission-mode (ogent-armory-runner--claude-permission-mode
+                           agent))
+         (runtime-mode (or (ogent-armory-runner--runtime-symbol
+                            runtime-mode)
+                           (ogent-armory-runner--runtime-symbol
+                            (ogent-armory-runner--effective
+                             agent job :runtime-mode))
+                           (ogent-armory-runner--runtime-symbol
+                            (ogent-armory-runner--setting
+                             settings :default-runtime))
+                           'native))
          (prompt (ogent-armory-runner--prompt
                   agent
                   job
@@ -454,6 +490,7 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                  :job job
                  :prompt prompt
                  :model model
+                 :effort effort
                  :permission-mode permission-mode
                  :runtime-mode runtime-mode))))
     (unless (file-directory-p workspace)
@@ -564,9 +601,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
       `(("OGENT_SESSION" . t)
         ("OGENT_AGENT" . ,(plist-get agent :slug))
         ("OGENT_PROVIDER" . ,provider)
-        ("OGENT_MODEL" . ,(or (plist-get job :model)
-                              (plist-get agent :model)
-                              ""))
+        ("OGENT_MODEL" . ,(or (plist-get plan :model) ""))
+        ("OGENT_EFFORT" . ,(or (plist-get plan :effort) ""))
         ("OGENT_JOB_ID" . ,(or (plist-get job :id) ""))
         ("OGENT_EXIT_STATUS" . ,exit-status)
         ("OGENT_DURATION" . ,(or (plist-get plan :duration) ""))
@@ -814,11 +850,26 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
     (set-process-query-on-exit-flag proc nil)
     (process-put proc 'ogent-armory-plan plan)
     (process-put proc 'ogent-armory-output-start output-start)
+    (process-put proc 'ogent-armory-conversation-id
+                 (plist-get plan :conversation-id))
+    (process-put proc 'ogent-armory-conversation-file
+                 (plist-get plan :conversation-file))
     (push proc ogent-armory-runner--processes)
     (when stdin
       (process-send-string proc stdin)
       (process-send-eof proc))
     proc))
+
+(defun ogent-armory-runner-display-process (process)
+  "Display PROCESS output buffer and return PROCESS."
+  (when (and (processp process)
+             (buffer-live-p (process-buffer process)))
+    (pop-to-buffer (process-buffer process))
+    (goto-char (point-max))
+    (message "Armory agent started: %s"
+             (or (process-get process 'ogent-armory-conversation-id)
+                 (process-name process))))
+  process)
 
 (defun ogent-armory-runner-stop-conversation (directory conversation-id)
   "Stop the live process for CONVERSATION-ID under DIRECTORY.
@@ -874,7 +925,10 @@ Return non-nil when a process was found."
   (let ((plan (ogent-armory-runner-plan
                directory agent-slug :instruction instruction)))
     (when (ogent-armory-runner--confirm plan)
-      (ogent-armory-runner-start plan))))
+      (let ((process (ogent-armory-runner-start plan)))
+        (when (called-interactively-p 'interactive)
+          (ogent-armory-runner-display-process process))
+        process))))
 
 ;;;###autoload
 (defun ogent-armory-run-job (directory agent-slug job-id)
@@ -888,7 +942,10 @@ Return non-nil when a process was found."
   (let ((plan (ogent-armory-runner-plan
                directory agent-slug :job-id job-id)))
     (when (ogent-armory-runner--confirm plan)
-      (ogent-armory-runner-start plan))))
+      (let ((process (ogent-armory-runner-start plan)))
+        (when (called-interactively-p 'interactive)
+          (ogent-armory-runner-display-process process))
+        process))))
 
 (defun ogent-armory-runner-auth-status (provider)
   "Return local subscription auth status for PROVIDER."
