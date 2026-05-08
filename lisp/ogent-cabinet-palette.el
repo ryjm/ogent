@@ -37,6 +37,9 @@
      :path ,root :text "data browser pages files")
     (:kind command :title "Cabinet Agents" :command ogent-cabinet-agents
      :path ,root :text "agents personas")
+    (:kind command :title "Create Cabinet Task"
+     :command ogent-cabinet-create-task :path ,root
+     :text "capture task todo inbox manual")
     (:kind command :title "Cabinet Tasks" :command ogent-cabinet-tasks
      :path ,root :text "tasks board")
     (:kind command :title "Cabinet Conversations"
