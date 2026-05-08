@@ -304,6 +304,23 @@
   "Read an agent slug from ROOT."
   (completing-read "Agent: " (ogent-armory-ui--agent-slugs root) nil t))
 
+(defun ogent-armory-ui--read-agent-default (root &optional default)
+  "Read an agent slug from ROOT, using DEFAULT when provided."
+  (let ((agents (ogent-armory-ui--agent-slugs root)))
+    (cond
+     ((null agents)
+      (user-error "No Armory agents exist"))
+     ((and (= (length agents) 1)
+           (or (null default)
+               (equal default (car agents))))
+      (car agents))
+     ((ogent-armory--blank-to-nil default)
+      (completing-read
+       (format "Agent (default %s): " default)
+       agents nil t nil nil default))
+     (t
+      (completing-read "Agent: " agents nil t)))))
+
 (defun ogent-armory-ui--agent-jobs (root slug)
   "Return jobs for SLUG under ROOT."
   (if (file-exists-p (ogent-armory-agent-file root slug))
@@ -2022,6 +2039,8 @@ DIRECTION is either `next' or `previous'."
     (define-key map (kbd "RET") #'ogent-armory-tasks-visit)
     (define-key map (kbd "<return>") #'ogent-armory-tasks-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-tasks-visit)
+    (define-key map "c" #'ogent-armory-create-task)
+    (define-key map (kbd "C-c c") #'ogent-armory-create-task)
     (define-key map "R" #'ogent-armory-tasks-run)
     (define-key map (kbd "C-c r") #'ogent-armory-tasks-run)
     (define-key map "A" #'ogent-armory-tasks-archive)
@@ -2059,6 +2078,19 @@ DIRECTION is either `next' or `previous'."
   (setq-local tabulated-list-padding 2)
   (setq-local revert-buffer-function #'ogent-armory-tasks-refresh)
   (tabulated-list-init-header))
+
+(defun ogent-armory-tasks--help-line ()
+  "Return the task board action hint."
+  (propertize
+   "c create task  RET visit  R run  A archive  U unarchive  b board  l list  S schedule  f filter  g refresh  q quit\n\n"
+   'face 'shadow))
+
+(defun ogent-armory-tasks--print ()
+  "Print the current task board with its action hint."
+  (tabulated-list-print t)
+  (let ((inhibit-read-only t))
+    (goto-char (point-min))
+    (insert (ogent-armory-tasks--help-line))))
 
 (defun ogent-armory-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
@@ -2187,6 +2219,98 @@ DIRECTION is either `next' or `previous'."
   "Return ITEMS in task-board display order."
   (seq-sort #'ogent-armory-tasks--item-less-p items))
 
+(defun ogent-armory-tasks--unique-job-id (root agent title)
+  "Return a unique job id under ROOT and AGENT for TITLE."
+  (let* ((base (ogent-armory--slug title "task"))
+         (candidate base)
+         (index 2))
+    (while (file-exists-p (ogent-armory-job-file root agent candidate))
+      (setq candidate (format "%s-%d" base index))
+      (setq index (1+ index)))
+    candidate))
+
+(defun ogent-armory-tasks--current-agent ()
+  "Return the task item agent at point when present."
+  (when-let ((item (ignore-errors (ogent-armory-ui--item-at-point))))
+    (ogent-armory--blank-to-nil (plist-get item :agent))))
+
+(defun ogent-armory-tasks--read-agent (root)
+  "Read an agent for a new task under ROOT."
+  (ogent-armory-ui--read-agent-default
+   root
+   (ogent-armory-tasks--current-agent)))
+
+(defun ogent-armory-tasks--goto (agent job-id)
+  "Move to AGENT JOB-ID in the current task buffer when visible."
+  (goto-char (point-min))
+  (let (found)
+    (while (and (not found) (not (eobp)))
+      (let ((item (tabulated-list-get-id)))
+        (when (and item
+                   (equal (plist-get item :agent) agent)
+                   (equal (plist-get item :job-id) job-id))
+          (setq found t)))
+      (unless found
+        (forward-line 1)))))
+
+(defun ogent-armory-tasks--refresh-open-buffer (root &optional agent job-id)
+  "Refresh the open task board for ROOT, then move to AGENT JOB-ID."
+  (when-let ((buffer (get-buffer
+                      (ogent-armory-ui--buffer-name
+                       ogent-armory-tasks-buffer-name-format root))))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (when (derived-mode-p 'ogent-armory-tasks-mode)
+          (setq ogent-armory-tasks--root root)
+          (ogent-armory-tasks-refresh)
+          (when (and agent job-id)
+            (ogent-armory-tasks--goto agent job-id)))))))
+
+(defun ogent-armory-tasks--root (&optional directory)
+  "Return a Armory root for task commands."
+  (ogent-armory-ui--root
+   (or directory
+       ogent-armory-tasks--root
+       (ogent-armory-find-root)
+       (read-directory-name "Armory root: "))))
+
+;;;###autoload
+(defun ogent-armory-create-task (&optional directory agent title details)
+  "Capture a manual Armory task under DIRECTORY for AGENT."
+  (interactive)
+  (let* ((root (ogent-armory-tasks--root directory))
+         (slug (or agent (ogent-armory-tasks--read-agent root)))
+         (name (or (ogent-armory--blank-to-nil title)
+                   (string-trim (read-string "Task: "))))
+         (body-input (if (null details)
+                         (ogent-armory-ui--read-string-default
+                          "Details: "
+                          name)
+                       details)))
+    (when (string-blank-p name)
+      (user-error "Task title is required"))
+    (let* ((job-id (ogent-armory-tasks--unique-job-id root slug name))
+           (now (ogent-armory-ui--iso-now))
+           (body (or (ogent-armory--blank-to-nil body-input) name))
+           (job (list :id job-id
+                      :agent slug
+                      :name name
+                      :cron ""
+                      :heartbeat ""
+                      :enabled t
+                      :enabled-raw "t"
+                      :archived nil
+                      :archived-raw "nil"
+                      :workspace "/"
+                      :created-at now
+                      :updated-at now)))
+      (ogent-armory-validate-job job)
+      (let ((file (ogent-armory-write-job root slug job body)))
+        (ogent-armory-ui--refresh-home-buffer root)
+        (ogent-armory-tasks--refresh-open-buffer root slug job-id)
+        (message "Created Armory task: %s" name)
+        file))))
+
 (defun ogent-armory-tasks--scheduled-item-p (item)
   "Return non-nil when ITEM has scheduling metadata."
   (or (ogent-armory--blank-to-nil (plist-get item :scheduled))
@@ -2252,14 +2376,14 @@ DIRECTION is either `next' or `previous'."
       (setq ogent-armory-tasks--view 'board)
       (setq default-directory (file-name-as-directory root))
       (setq tabulated-list-entries #'ogent-armory-tasks--entries)
-      (tabulated-list-print t))
+      (ogent-armory-tasks--print))
     (pop-to-buffer buffer)
     buffer))
 
 (defun ogent-armory-tasks-refresh (&rest _)
   "Refresh the Armory task lane buffer."
   (interactive)
-  (tabulated-list-print t))
+  (ogent-armory-tasks--print))
 
 (defun ogent-armory-tasks-board-view ()
   "Show Armory tasks as attention lanes."
