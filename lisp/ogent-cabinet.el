@@ -1512,18 +1512,6 @@ An app artifact is a directory containing an index.html file."
           (push (append (list :path file) metadata) links))))
     (nreverse links)))
 
-(defun ogent-cabinet--gastown-hook-node (root)
-  "Return a Gas Town hook node for ROOT when one is discoverable."
-  (let ((town-root (or (locate-dominating-file root ".gastown")
-                       (getenv "GT_ROOT")
-                       (getenv "GT_TOWN"))))
-    (when town-root
-      (list :id "gastown:hook"
-            :kind 'gastown-hook
-            :label "Gas Town Hook"
-            :path (directory-file-name town-root)
-            :data (list :root (directory-file-name town-root))))))
-
 (defun ogent-cabinet-build-graph (directory)
   "Return a typed graph projection for the Org cabinet under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
@@ -1628,12 +1616,6 @@ status buffers, future incremental indexes, and automation planners."
                                            (format "agent:%s" worker)
                                            'assigned-worker)
                 edges))))
-    (when-let ((hook (ogent-cabinet--gastown-hook-node root)))
-      (push hook nodes)
-      (push (ogent-cabinet--graph-edge cabinet-id
-                                       (plist-get hook :id)
-                                       'contains)
-            edges))
     (list :root (directory-file-name root)
           :nodes (nreverse nodes)
           :edges (nreverse edges))))

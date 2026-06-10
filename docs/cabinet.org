@@ -154,7 +154,7 @@ text in those Org files. Manual edits remain part of the record.
 16. Inspect relationships:
 
     Use =M-x ogent-cabinet-status=. The graph includes cabinet, agent, job,
-    session, app, issue-link, and Gas Town hook nodes when available. Press
+    session, app, and issue-link nodes when available. Press
     =C-c m= for the action menu or =C-c ?= for help. Agent and job rows advertise the
     fastest edit/run actions inline.
 

@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; Renders the Org cabinet graph as an operational buffer with the same
-;; refresh, visit, and bridge conventions used by Ogent Issues and Gas Town.
+;; refresh, visit, and bridge conventions used by Ogent Issues.
 
 ;;; Code:
 
@@ -27,7 +27,6 @@
     (require 'magit-section)))
 
 (autoload 'ogent-issues "ogent-issues" nil t)
-(autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
 (autoload 'ogent-cabinet-agents "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-tasks "ogent-ui-cabinet" nil t)
 (autoload 'ogent-cabinet-conversations "ogent-ui-cabinet" nil t)
@@ -273,8 +272,6 @@
     (define-key map (kbd "C-c p") #'ogent-cabinet-status-previous-item)
     (define-key map "i" #'ogent-cabinet-status-open-issues)
     (define-key map (kbd "C-c i") #'ogent-cabinet-status-open-issues)
-    (define-key map "G" #'ogent-cabinet-status-open-gastown)
-    (define-key map (kbd "C-c G") #'ogent-cabinet-status-open-gastown)
     (define-key map "R" #'ogent-cabinet-status-run)
     (define-key map (kbd "C-c r") #'ogent-cabinet-status-run)
     (define-key map "m" #'ogent-cabinet-status-dispatch)
@@ -366,8 +363,7 @@
 \\[ogent-cabinet-status-dispatch] opens the status action menu.
 \\[ogent-cabinet-status-help] shows status help.
 \\[ogent-cabinet-status-toggle-section] toggles section visibility.
-\\[ogent-cabinet-status-open-issues] opens Ogent Issues.
-\\[ogent-cabinet-status-open-gastown] opens Gas Town status."
+\\[ogent-cabinet-status-open-issues] opens Ogent Issues."
        :group 'ogent-cabinet-status
        (ogent-cabinet-status--mode-setup))))
 
@@ -841,11 +837,7 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     (ogent-cabinet-status--insert-bridge-line
      "Ogent Issues"
      (ogent-cabinet-status--issues-state)
-     "i")
-    (ogent-cabinet-status--insert-bridge-line
-     "Gas Town"
-     (ogent-cabinet-status--gastown-state)
-     "G")))
+     "i")))
 
 (defun ogent-cabinet-status--insert-node-line (node text &optional prefix)
   "Insert TEXT for NODE with optional PREFIX and visit metadata."
@@ -902,24 +894,6 @@ When DIRECTORY is nil, use the nearest cabinet root or prompt for one."
     (list :active t :message "beads database detected"))
    (t
     (list :active nil :message "no beads database under this cabinet"))))
-
-(defun ogent-cabinet-status--gastown-state ()
-  "Return current Gas Town bridge state."
-  (let ((town-root (and ogent-cabinet-status--root
-                        (locate-dominating-file
-                         ogent-cabinet-status--root
-                         ".gastown"))))
-    (cond
-     ((not (executable-find "gt"))
-      (list :active nil :message "gt command unavailable"))
-     (town-root
-      (list :active t
-            :message (format "workspace %s"
-                             (abbreviate-file-name town-root))))
-     ((or (getenv "GT_ROOT") (getenv "GT_TOWN"))
-      (list :active t :message "environment workspace configured"))
-     (t
-      (list :active nil :message "gt available, no workspace marker here")))))
 
 (defun ogent-cabinet-status--node-at-point ()
   "Return the graph node at point."
@@ -1038,12 +1012,6 @@ DIRECTION is either `next' or `previous'."
   (interactive)
   (let ((default-directory (or ogent-cabinet-status--root default-directory)))
     (call-interactively #'ogent-issues)))
-
-(defun ogent-cabinet-status-open-gastown ()
-  "Open Gas Town status from the current Cabinet root."
-  (interactive)
-  (let ((default-directory (or ogent-cabinet-status--root default-directory)))
-    (call-interactively #'ogent-gastown-status)))
 
 (defun ogent-cabinet-status-run ()
   "Run the Cabinet agent or job at point."
@@ -1196,7 +1164,7 @@ DIRECTION is either `next' or `previous'."
     (princ "App:     RET visits the source record when available.\n\n")
     (princ "Surfaces\n")
     (princ "--------\n")
-    (princ "C-c h Home, C-c a Agents, C-c t Tasks, C-c c Conversations, C-c s Search, C-c A Apps, C-c i Issues, C-c G Gas Town.\n\n")
+    (princ "C-c h Home, C-c a Agents, C-c t Tasks, C-c c Conversations, C-c s Search, C-c A Apps, C-c i Issues.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
     (princ "C-c m opens the Transient menu. C-c ? opens this help buffer. C-c g refreshes. q quits.\n")
@@ -1303,8 +1271,7 @@ DIRECTION is either `next' or `previous'."
     ("s" "Search" ogent-cabinet-search)
     ("A" "Apps" ogent-cabinet-apps)]
    ["Bridges"
-    ("i" "Ogent Issues" ogent-cabinet-status-open-issues)
-    ("G" "Gas Town" ogent-cabinet-status-open-gastown)]
+    ("i" "Ogent Issues" ogent-cabinet-status-open-issues)]
    ["Help"
     ("?" "Help" ogent-cabinet-status-help)
     ("q" "Quit menu" transient-quit-one)]])

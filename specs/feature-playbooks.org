@@ -35,7 +35,7 @@ Always review the relevant playbook before starting a feature. Each section link
 - CLI execution helpers live in =lisp/ogent-cabinet-runner.el=. Keep provider
   adapters small, explicit, and covered by fixture-backed process tests.
 - The graph status surface lives in =lisp/ogent-cabinet-status.el= and should
-  reuse =ogent-ops-style= plus navigation conventions from Issues and Gas Town.
+  reuse =ogent-ops-style= plus navigation conventions from Issues.
 - Agent profile and task-board UI should live under =lisp/ui/= once they need
   richer interaction than the graph status buffer.
 - Durable records must be Org files: =index.org=, =persona.org=, job =.org=

@@ -11,6 +11,8 @@
 (require 'ogent-issues-bd)
 
 ;; Forward declarations
+(declare-function project-root "project" (project))
+(declare-function which-function "which-func" ())
 (declare-function ogent-issues-refresh "ogent-issues")
 (declare-function ogent-issues-refresh-force "ogent-issues")
 (declare-function ogent-issues--current-issue "ogent-issues")
@@ -35,9 +37,6 @@
 (declare-function ogent-issues-view-ready "ogent-issues")
 (declare-function ogent-issues-view-kanban "ogent-issues")
 (declare-function ogent-issues-view-deps "ogent-issues")
-(declare-function ogent-issues-goto-gastown "ogent-issues")
-(declare-function ogent-issues-sling-issue "ogent-issues")
-(declare-function ogent-gastown-integration-active-p "ogent-gastown")
 
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)
@@ -176,11 +175,7 @@ Returns a plist with :file, :line, :function, and :formatted keys."
   [["Sync"
     ("g" "Refresh" ogent-issues-refresh :transient t)
     ("G" "Force refresh" ogent-issues-refresh-force :transient t)
-    ("S" "Run bd sync" ogent-issues-sync)]
-   [:description "Gas Town"
-    :if ogent-gastown-integration-active-p
-    ("T" "Gas Town status" ogent-issues-goto-gastown)
-    ("M" "Sling issue" ogent-issues-sling-issue)]
+    ("S" "Run br sync" ogent-issues-sync)]
    ["Quit"
     ("q" "Quit menu" transient-quit-one)
     ("Q" "Quit buffer" quit-window)]])
@@ -264,7 +259,7 @@ Captures context (file, line, function) from the current buffer."
     (when (string-empty-p title)
       (user-error "Title cannot be empty"))
     ;; For now, create epic as a regular issue with subtasks in description
-    ;; Full epic support requires bd CLI epic creation
+    ;; Full epic support requires br CLI epic creation
     (let ((full-desc (concat description "\n\n## Subtasks\n"
                              (mapconcat (lambda (s) (format "- [ ] %s" s))
                                         subtasks "\n"))))

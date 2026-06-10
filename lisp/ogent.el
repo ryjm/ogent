@@ -133,7 +133,6 @@
 (require 'ogent-cabinet-settings)
 (require 'ogent-ui-cabinet)
 (require 'ogent-cabinet-status)
-(require 'ogent-gastown)
 (require 'ogent-presets)
 (require 'ogent-analytics)
 
