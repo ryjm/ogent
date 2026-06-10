@@ -437,6 +437,80 @@
           (should (string-match-p "fixture agent ok"
                                   (plist-get (cadr turns) :content))))))))
 
+(defun ogent-armory-runner-test--fake-worktree (dir)
+  "Create a fake main checkout and linked worktree under DIR.
+Return (MAIN . WORKTREE)."
+  (let ((main (expand-file-name "main" dir))
+        (worktree (expand-file-name "wt" dir)))
+    (make-directory (expand-file-name ".git/worktrees/wt" main) t)
+    (make-directory (expand-file-name ".beads" main) t)
+    (make-directory worktree t)
+    (write-region (format "gitdir: %s\n"
+                          (expand-file-name ".git/worktrees/wt" main))
+                  nil (expand-file-name ".git" worktree) nil 'silent)
+    (cons main worktree)))
+
+(ert-deftest ogent-armory-runner-start-ensures-beads-worktree-redirect ()
+  "Starting a run in a linked worktree writes the br redirect pointer."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (pcase-let ((`(,main . ,worktree)
+                 (ogent-armory-runner-test--fake-worktree dir))
+                (fixture (ogent-armory-runner-test--make-executable
+                          dir
+                          "#!/bin/sh\nprintf 'ok\\n'\ncat >/dev/null\n")))
+      (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent
+       dir
+       `(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace ,worktree)
+       "Keep the plan direct.")
+      (let* ((ogent-armory-codex-executable fixture)
+             (ogent-armory-runner-confirm-before-run nil)
+             (plan (ogent-armory-runner-plan
+                    dir "cto"
+                    :instruction "Say hello."
+                    :runtime-mode 'terminal))
+             (process (ogent-armory-runner-start plan)))
+        (ogent-armory-runner-test--wait process)
+        (let ((redirect (expand-file-name ".beads/redirect" worktree)))
+          (should (file-exists-p redirect))
+          (should (equal (with-temp-buffer
+                           (insert-file-contents redirect)
+                           (string-trim (buffer-string)))
+                         (expand-file-name ".beads" main))))))))
+
+(ert-deftest ogent-armory-runner-start-skips-beads-redirect-when-disabled ()
+  "The redirect step honors `ogent-armory-runner-ensure-beads-redirect'."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (pcase-let ((`(,_main . ,worktree)
+                 (ogent-armory-runner-test--fake-worktree dir))
+                (fixture (ogent-armory-runner-test--make-executable
+                          dir
+                          "#!/bin/sh\nprintf 'ok\\n'\ncat >/dev/null\n")))
+      (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent
+       dir
+       `(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace ,worktree)
+       "Keep the plan direct.")
+      (let* ((ogent-armory-codex-executable fixture)
+             (ogent-armory-runner-confirm-before-run nil)
+             (ogent-armory-runner-ensure-beads-redirect nil)
+             (plan (ogent-armory-runner-plan
+                    dir "cto"
+                    :instruction "Say hello."
+                    :runtime-mode 'terminal))
+             (process (ogent-armory-runner-start plan)))
+        (ogent-armory-runner-test--wait process)
+        (should-not (file-exists-p
+                     (expand-file-name ".beads/redirect" worktree)))))))
+
 (ert-deftest ogent-armory-runner-transcript-links-generated-apps ()
   "Runner transcripts record generated index.html artifacts when output names them."
   (ogent-armory-runner-test-with-temp-dir dir

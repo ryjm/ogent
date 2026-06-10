@@ -91,6 +91,72 @@ Return nil if OK, or an error message string if not."
             (abbreviate-file-name default-directory)))
    (t nil)))
 
+;;; Git Worktree Support
+;;
+;; br has no `worktree' subcommand.  Inside a linked git worktree it
+;; auto-discovers the checked-out `.beads/' (or creates one) and forks
+;; a fresh database from the committed JSONL, so parallel agents
+;; working in sibling worktrees would claim and close issues in
+;; divergent databases.  br does honor a `.beads/redirect' file
+;; containing the path of another beads directory; pointing every
+;; worktree at the main checkout's `.beads/' restores a single shared
+;; database with atomic claims.
+
+(defun ogent-issues-bd--worktree-main-root (root)
+  "Return the main checkout root when ROOT is a linked git worktree.
+ROOT is a directory whose `.git' entry is a gitdir pointer file, as
+created by \\='git worktree add\\='.  Return nil for primary
+checkouts, submodules, and non-git directories."
+  (let ((git-file (expand-file-name ".git" root)))
+    (when (and (file-regular-p git-file)
+               (file-readable-p git-file))
+      (with-temp-buffer
+        (insert-file-contents git-file)
+        (goto-char (point-min))
+        (when (looking-at "gitdir:[ \t]*\\(.+\\)$")
+          (let* ((gitdir (string-trim (match-string 1)))
+                 (gitdir (if (file-name-absolute-p gitdir)
+                             gitdir
+                           (expand-file-name gitdir root))))
+            ;; Linked worktrees point at <main>/.git/worktrees/<name>.
+            ;; Submodules point at .git/modules/<name> and must not be
+            ;; treated as worktrees.
+            (when (string-match "\\`\\(.+\\)/\\.git/worktrees/[^/]+/?\\'"
+                                (directory-file-name gitdir))
+              (match-string 1 (directory-file-name gitdir)))))))))
+
+(defun ogent-issues-bd-ensure-worktree-redirect (&optional directory)
+  "Ensure br resolves the shared beads database from DIRECTORY.
+When DIRECTORY (default `default-directory') is inside a linked git
+worktree whose main checkout has a `.beads/' directory, write
+`.beads/redirect' in the worktree root pointing at the main beads
+directory, unless a redirect already exists.  Without the redirect br
+forks an independent database per worktree, and parallel agents stop
+seeing each other's claims.
+
+Return the redirect file path when one exists or was created, or nil
+when DIRECTORY needs no redirect (primary checkout, not in git, or
+the main checkout has no beads directory)."
+  (interactive)
+  (let* ((dir (file-name-as-directory
+               (expand-file-name (or directory default-directory))))
+         (root (locate-dominating-file dir ".git"))
+         (main-root (and root (ogent-issues-bd--worktree-main-root root))))
+    (when main-root
+      (let ((main-beads (expand-file-name ".beads" main-root))
+            (worktree-beads (expand-file-name ".beads" root)))
+        (when (file-directory-p main-beads)
+          (let ((redirect (expand-file-name "redirect" worktree-beads)))
+            (unless (file-exists-p redirect)
+              (make-directory worktree-beads t)
+              (write-region (concat main-beads "\n") nil redirect
+                            nil 'silent))
+            (when (called-interactively-p 'interactive)
+              (message "beads worktree redirect: %s -> %s"
+                       (abbreviate-file-name redirect)
+                       (abbreviate-file-name main-beads)))
+            redirect))))))
+
 ;;; Core Async Execution
 
 (defun ogent-issues-bd--run-async (args callback &optional error-callback raw-output)

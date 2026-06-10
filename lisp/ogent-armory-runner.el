@@ -15,6 +15,7 @@
 (require 'ogent-armory-adapter)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-settings)
+(require 'ogent-issues-bd)
 
 (defgroup ogent-armory-runner nil
   "Run Org Armory agents through subscription-authenticated CLIs."
@@ -137,6 +138,16 @@
   :type '(choice (const "read-only")
                  (const "workspace-write")
                  (const "danger-full-access"))
+  :group 'ogent-armory-runner)
+
+(defcustom ogent-armory-runner-ensure-beads-redirect t
+  "Ensure beads worktree redirects before starting agent runs.
+When non-nil and a run's workspace lives inside a linked git
+worktree, write the `.beads/redirect' pointer (see
+`ogent-issues-bd-ensure-worktree-redirect') so the agent's br
+commands operate on the main checkout's database instead of forking
+a divergent per-worktree copy."
+  :type 'boolean
   :group 'ogent-armory-runner)
 
 (defcustom ogent-armory-runner-codex-approval "on-request"
@@ -801,6 +812,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
          proc)
     (unless (executable-find program)
       (user-error "Armory runner executable not found: %s" program))
+    (when ogent-armory-runner-ensure-beads-redirect
+      (ogent-issues-bd-ensure-worktree-redirect workspace))
     (let ((conversation-file
            (ogent-armory-runner--create-conversation plan started)))
       (plist-put plan :conversation-file conversation-file))
