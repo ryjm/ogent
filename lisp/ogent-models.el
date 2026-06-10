@@ -10,6 +10,7 @@
 ;;; Code:
 
 (require 'seq)
+(require 'ogent-tool-effects)
 
 (defgroup ogent-models nil
   "Configuration for ogent model registry."
@@ -243,9 +244,22 @@ This variable can be made buffer-local for per-session control."
 
 (declare-function gptel-make-tool "ext:gptel"
                   (&rest args &key name function description args
-                         category async include &allow-other-keys))
+                         category async include confirm &allow-other-keys))
 (defvar gptel-tools)
 (defvar gptel-use-tools)
+
+(defun ogent-tool-spec-confirm-p (spec)
+  "Return non-nil when SPEC's tool must be confirmed before running.
+A tool requires confirmation when its registry entry declares
+`:confirm' non-nil, or when its declared `:effects' meet the
+approval threshold (see `ogent-tool-effects-approval-required-p').
+This is the single source of truth bridged into gptel so that
+gptel-native tool execution honors the same policy as ogent's own
+approval path."
+  (or (plist-get spec :confirm)
+      (and (plist-member spec :effects)
+           (ogent-tool-effects-approval-required-p
+            (plist-get spec :effects)))))
 
 (defvar ogent--tools-registered nil
   "Alist mapping tool names (symbols) to gptel tool objects.")
@@ -263,6 +277,11 @@ Returns the list of registered tool objects."
                              :function (plist-get spec :function)
                              :description (plist-get spec :description)
                              :args (plist-get spec :args)
+                             ;; Always pass :confirm so gptel-native
+                             ;; execution prompts for risky tools; a
+                             ;; missing flag would let gptel auto-run
+                             ;; them.  See `ogent-tool-spec-confirm-p'.
+                             :confirm (and (ogent-tool-spec-confirm-p spec) t)
                              (append
                               (when (plist-member spec :category)
                                 (list :category (plist-get spec :category)))
