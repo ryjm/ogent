@@ -587,6 +587,70 @@
     (should (equal (ogent-ui--execute-tool 'symbol-tool '(:arg1 "value"))
                    "got value"))))
 
+(defmacro ogent-ui-tests--with-ledger (file &rest body)
+  "Run BODY with a fresh enabled ledger written to FILE."
+  (declare (indent 1))
+  `(let* ((dir (make-temp-file "ogent-ui-ledger-" t))
+          (,file (expand-file-name "ledger.org" dir))
+          (ogent-ledger-enabled t)
+          (ogent-ledger-file ,file))
+     (unwind-protect (progn ,@body)
+       (delete-directory dir t))))
+
+(defun ogent-ui-tests--ledger-text (file)
+  "Return the ledger FILE contents as a string."
+  (if (file-exists-p file)
+      (with-temp-buffer (insert-file-contents file) (buffer-string))
+    ""))
+
+(ert-deftest ogent-ui-execute-tool-records-ledger-start-and-finish ()
+  "A synchronous tool execution writes tool-start and tool-finish events."
+  (let ((ogent-tool-registry
+         (list (list :name 'ledger-tool
+                     :function (lambda (arg1) (format "got %s" arg1))
+                     :description "Ledger tool"
+                     :effects '((:kind write :target file :scope workspace
+                                       :risk high))
+                     :args '((:name "arg1" :type "string"))))))
+    (ogent-ui-tests--with-ledger file
+      (should (equal (ogent-ui--execute-tool 'ledger-tool '(:arg1 "v")) "got v"))
+      (let ((text (ogent-ui-tests--ledger-text file)))
+        (should (string-match-p "OGENT_LEDGER_TYPE: tool-start" text))
+        (should (string-match-p "OGENT_LEDGER_TYPE: tool-finish" text))
+        (should (string-match-p "ledger-tool" text))
+        ;; finish records a result hash and the declared effects
+        (should (string-match-p ":result-hash" text))
+        (should (string-match-p ":effects" text))))))
+
+(ert-deftest ogent-ui-execute-tool-records-error-finish ()
+  "A failing tool records a tool-finish event carrying the error."
+  (let ((ogent-tool-registry
+         (list (list :name 'boom-tool
+                     :function (lambda (_a) (error "kaboom"))
+                     :description "Boom"
+                     :args '((:name "a" :type "string"))))))
+    (ogent-ui-tests--with-ledger file
+      (should (string-match-p "Tool error"
+                              (ogent-ui--execute-tool 'boom-tool '(:a "x"))))
+      (let ((text (ogent-ui-tests--ledger-text file)))
+        (should (string-match-p "OGENT_LEDGER_TYPE: tool-finish" text))
+        (should (string-match-p "kaboom" text))))))
+
+(ert-deftest ogent-ui-execute-tool-ledger-silent-when-disabled ()
+  "No ledger file is written when the ledger is disabled."
+  (let ((ogent-tool-registry
+         (list (list :name 'quiet-tool
+                     :function (lambda (a) a)
+                     :description "Quiet"
+                     :args '((:name "a" :type "string")))))
+        (dir (make-temp-file "ogent-ui-ledger-off-" t)))
+    (unwind-protect
+        (let ((ogent-ledger-enabled nil)
+              (ogent-ledger-file (expand-file-name "ledger.org" dir)))
+          (ogent-ui--execute-tool 'quiet-tool '(:a "y"))
+          (should-not (file-exists-p ogent-ledger-file)))
+      (delete-directory dir t))))
+
 (ert-deftest ogent-tool-format-preview ()
   "Tool preview formatting is human-readable."
   (let ((preview (ogent-tool--format-preview "bash" '(:command "git status"))))
