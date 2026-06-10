@@ -73,7 +73,7 @@
       ":OGENT_DISPLAY_NAME:\n"
       "#+end_example\n"))
     (let ((org-mode-hook (cons (lambda ()
-                                 (org-cycle-hide-drawers))
+                                 (org-cycle-hide-drawers 'all))
                                org-mode-hook)))
       (let ((graph (ogent-cabinet-build-graph dir)))
         (should (plist-get graph :nodes))

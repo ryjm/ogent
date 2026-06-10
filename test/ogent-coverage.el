@@ -11,10 +11,14 @@
 ;; Guard the require so byte-compilation and `make test' don't fail when it's
 ;; absent (the coverage entry point ogent-run-coverage checks at runtime).
 (when (require 'undercover nil t)
-  (undercover "lisp/*.el"
-              "lisp/ui/*.el"
-              (:report-format 'text)
-              (:send-report nil)))
+  ;; `undercover' is a macro; evaluate the form at runtime so byte-compiling
+  ;; this file without undercover installed does not misread it as a
+  ;; function call.
+  (eval '(undercover "lisp/*.el"
+                     "lisp/ui/*.el"
+                     (:report-format 'text)
+                     (:send-report nil))
+        t))
 
 ;; Now load test helper (which loads source files)
 (require 'ogent-test-helper)

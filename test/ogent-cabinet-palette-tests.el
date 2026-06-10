@@ -71,7 +71,7 @@
         (ogent-cabinet-palette-open-record
          (list :kind 'command
                :title "Cabinet Home"
-               :command #'ogent-cabinet-home
+               :command 'ogent-cabinet-home
                :path root))
         (should (equal called root))
         (ogent-cabinet-palette-open-record

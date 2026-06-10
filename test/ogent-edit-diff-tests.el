@@ -689,10 +689,9 @@
           ;; Move to some position
           (goto-char (point-min))
           (forward-line 2)
-          (let ((pos (point)))
-            (ogent-edit-diff-refresh)
-            ;; Point should be at same position or point-max if buffer shrank
-            (should (<= (point) (point-max))))))
+          (ogent-edit-diff-refresh)
+          ;; Point should remain inside the buffer after refresh
+          (should (<= (point) (point-max)))))
     (ogent-edit-diff-test--cleanup)))
 
 (ert-deftest ogent-edit-diff-test-refresh-noop-outside-mode ()

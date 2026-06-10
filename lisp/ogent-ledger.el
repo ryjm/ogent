@@ -24,14 +24,15 @@ Relative paths are resolved from the current project root."
   :type 'file
   :group 'ogent-ledger)
 
-(declare-function ogent-ui-request-id "ui/ogent-ui")
-(declare-function ogent-ui-request-model "ui/ogent-ui")
-(declare-function ogent-ui-request-context "ui/ogent-ui")
-(declare-function ogent-ui-request-prompt "ui/ogent-ui")
-(declare-function ogent-ui-request-buffer "ui/ogent-ui")
-(declare-function ogent-ui-request-status "ui/ogent-ui")
-(declare-function ogent-ui-request-start-time "ui/ogent-ui")
-(declare-function ogent-ui-request-end-time "ui/ogent-ui")
+;; Request struct accessors (fileonly: cl-defstruct-generated)
+(declare-function ogent-ui-request-id "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-model "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-context "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-prompt "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-buffer "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-status "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-start-time "ui/ogent-ui" t t)
+(declare-function ogent-ui-request-end-time "ui/ogent-ui" t t)
 
 (defun ogent-ledger--project-root ()
   "Return the project root used for relative ledger paths."

@@ -200,6 +200,8 @@ Options: `fast', `normal', `slow', or `none'."
        (fboundp 'nerd-icons-mdicon))
   "Non-nil if nerd-icons is available.")
 
+(declare-function nerd-icons-mdicon "ext:nerd-icons" t t)
+
 (defconst ogent-theme-icons
   '(;; Actions
     (send        . (:nerd "nf-md-send"           :unicode ""  :ascii ">"))

@@ -20,7 +20,7 @@
 (require 'org)
 
 ;; Forward declarations
-(declare-function ogent-ui-request-marker "ui/ogent-ui")
+(declare-function ogent-ui-request-marker "ui/ogent-ui" t t)
 (defvar ogent-session-buffer-p)
 
 ;;; Customization

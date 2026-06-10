@@ -8,6 +8,7 @@
 (require 'ert)
 (require 'ogent-anthropic-oauth)
 (defvar gptel--system-message)
+(defvar gptel-backend)
 
 ;;; PKCE Tests
 

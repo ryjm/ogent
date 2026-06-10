@@ -3,6 +3,11 @@
 (require 'ogent-test-helper)
 (require 'ogent)
 
+;; Dynamically bound in capture tests; defined in org-capture, which those
+;; tests require at runtime.
+(defvar org-capture-templates)
+(declare-function org-capture-goto-target "org-capture" (&optional template-key))
+
 ;;; Feature Tests
 
 (ert-deftest ogent-feature-provided ()

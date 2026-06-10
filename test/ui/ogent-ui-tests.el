@@ -1250,8 +1250,8 @@
                 (should (= (point) (point-min)))
                 ;; Create a new response block
                 (let* ((model '(:id "test-model" :backend gptel-openai))
-                       (block (ogent-ui--create-response-block
-                               "Second request" '() model)))
+                       (_block (ogent-ui--create-response-block
+                                "Second request" '() model)))
                   ;; New content should be at end, after First Request
                   (goto-char (point-min))
                   (search-forward "* First Request")
@@ -1282,8 +1282,8 @@
               (let ((middle-point (point)))
                 ;; Create new request (point is in middle)
                 (let* ((model '(:id "test-model"))
-                       (block (ogent-ui--create-response-block
-                               "Request 3" '() model)))
+                       (_block (ogent-ui--create-response-block
+                                "Request 3" '() model)))
                   ;; Should be at end, after Request 2
                   (goto-char (point-min))
                   (search-forward "** Request 1")
@@ -1309,8 +1309,8 @@
                              (let ((start-pos (point)))
                                ;; Create response block
                                (let* ((model '(:id "test-model"))
-                                      (block (ogent-ui--create-response-block
-                                              "Test at heading" '() model)))
+                                      (_block (ogent-ui--create-response-block
+                                               "Test at heading" '() model)))
                                  ;; Should insert after current subtree (Root Overview + children)
                                  ;; Verify it comes after Deep Note (end of subtree)
                                  (goto-char start-pos)
@@ -1331,11 +1331,11 @@
               ;; Create multiple requests from different cursor positions
               (goto-char (point-min))
               (let* ((model '(:id "test-model"))
-                     (block1 (ogent-ui--create-response-block "First" '() model)))
+                     (_block1 (ogent-ui--create-response-block "First" '() model)))
                 (goto-char (point-min))  ; Reset to top
-                (let ((block2 (ogent-ui--create-response-block "Second" '() model)))
+                (let ((_block2 (ogent-ui--create-response-block "Second" '() model)))
                   (goto-char (1+ (point-min)))  ; Some random position
-                  (let ((block3 (ogent-ui--create-response-block "Third" '() model)))
+                  (let ((_block3 (ogent-ui--create-response-block "Third" '() model)))
                     ;; All should be in order at end (after * Session heading)
                     (goto-char (point-min))
                     (search-forward "* Session")

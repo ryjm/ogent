@@ -6,6 +6,8 @@
 ;;; Code:
 
 (require 'ert)
+(declare-function ogent-completion-reject "ogent-completions" t t)
+(declare-function ogent-completion-accept "ogent-completions" t t)
 (require 'cl-lib)
 
 ;; Load analytics module
@@ -268,7 +270,7 @@
   "Test that setup adds gptel hooks when available."
   (let ((hook-added nil))
     (cl-letf (((symbol-function 'add-hook)
-               (lambda (hook fn)
+               (lambda (hook _fn)
                  (when (eq hook 'gptel-pre-request-hook)
                    (setq hook-added t)))))
       ;; Pretend gptel is loaded
@@ -281,7 +283,7 @@
   "Test that teardown removes gptel hooks."
   (let ((hook-removed nil))
     (cl-letf (((symbol-function 'remove-hook)
-               (lambda (hook fn)
+               (lambda (hook _fn)
                  (when (eq hook 'gptel-pre-request-hook)
                    (setq hook-removed t)))))
       ;; Pretend gptel is loaded
@@ -309,7 +311,7 @@
   (cl-letf (((symbol-function 'project-current)
              (lambda () '(vc Git "/home/user/myproject/")))
             ((symbol-function 'project-root)
-             (lambda (proj) "/home/user/myproject/")))
+             (lambda (_proj) "/home/user/myproject/")))
     (should (equal (ogent-analytics--project-root) "/home/user/myproject/"))))
 
 (ert-deftest ogent-analytics-test-project-root-git-fallback ()
@@ -562,7 +564,7 @@
     (sleep-for 0.01)
     (setq ogent-analytics--first-token-time (current-time))
     (cl-letf (((symbol-function 'ogent-analytics--save-completion)
-               (lambda (c) (setq save-called t))))
+               (lambda (_c) (setq save-called t))))
       (let ((result (ogent-analytics-record-completion
                      "claude-3" "prompt text" "response text" "template-1")))
         (should result)
