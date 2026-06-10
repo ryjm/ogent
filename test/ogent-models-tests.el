@@ -3,6 +3,9 @@
 (require 'ogent-test-helper)
 (require 'ogent-models)
 
+;; Loaded at runtime inside the dangerous-tools test.
+(declare-function ogent-tools-install-defaults "ogent-tools")
+
 (ert-deftest ogent-models-default-falls-back-to-first-entry ()
   "Default accessor returns the first registry entry when no override is set."
   (let ((ogent-default-model nil)
@@ -40,6 +43,72 @@
   ;; claude-sonnet-4-20250514 retires 2026-06-15; opus-4-7 is superseded by 4-8.
   (should-not (ogent-models-get "claude-sonnet-4-20250514"))
   (should-not (ogent-models-get "claude-opus-4-7")))
+
+;;; Tool confirmation policy (gptel approval bridge)
+
+(ert-deftest ogent-tool-spec-confirm-explicit-flag ()
+  "An explicit :confirm flag forces confirmation."
+  (should (ogent-tool-spec-confirm-p '(:name foo :confirm t)))
+  (should-not (ogent-tool-spec-confirm-p '(:name foo :confirm nil))))
+
+(ert-deftest ogent-tool-spec-confirm-derived-from-risky-effects ()
+  "High/critical effects require confirmation even without :confirm."
+  ;; This is the P0 regression: a critical shell tool must not slip
+  ;; through to gptel without a confirm flag.
+  (should (ogent-tool-spec-confirm-p
+           '(:name shell
+             :effects ((:kind execute :target shell :scope unrestricted
+                              :risk critical)))))
+  (should (ogent-tool-spec-confirm-p
+           '(:name writer
+             :effects ((:kind write :target file :scope workspace
+                              :risk high))))))
+
+(ert-deftest ogent-tool-spec-confirm-low-risk-needs-no-confirm ()
+  "Low-risk read-only effects do not force confirmation."
+  (should-not (ogent-tool-spec-confirm-p
+               '(:name reader
+                 :effects ((:kind read :target file :scope workspace
+                                  :risk low)))))
+  (should-not (ogent-tool-spec-confirm-p '(:name bare))))
+
+(ert-deftest ogent-register-tools-forwards-confirm-to-gptel ()
+  "Registration passes a :confirm flag to `gptel-make-tool'.
+Without it, gptel auto-executes risky tools (the P0 bypass)."
+  (let ((ogent--tools-registered nil)
+        (ogent-tool-registry
+         '((:name safe-read
+            :function ignore
+            :description "read"
+            :effects ((:kind read :target file :scope workspace :risk low)))
+           (:name risky-shell
+            :function ignore
+            :description "shell"
+            :effects ((:kind execute :target shell :scope unrestricted
+                             :risk critical))
+            :confirm t)))
+        (captured nil))
+    (cl-letf (((symbol-function 'gptel-make-tool)
+               (lambda (&rest args)
+                 (push (cons (plist-get args :name)
+                             (plist-get args :confirm))
+                       captured)
+                 :tool)))
+      (ogent-register-tools)
+      (should (equal (cdr (assoc "risky-shell" captured)) t))
+      ;; A confirm flag is always passed (never absent); low-risk is nil.
+      (should (assoc "safe-read" captured))
+      (should-not (cdr (assoc "safe-read" captured))))))
+
+(ert-deftest ogent-default-tools-confirm-on-dangerous-operations ()
+  "The shipped bash/write-file/edit-file tools resolve to confirm=t."
+  (require 'ogent-tools)
+  (let ((ogent-tool-registry nil))
+    (ogent-tools-install-defaults)
+    (dolist (name '(bash write-file edit-file))
+      (let ((spec (ogent-tool-spec-get name)))
+        (should spec)
+        (should (ogent-tool-spec-confirm-p spec))))))
 
 (ert-deftest ogent-models-pro-models-can-disable-streaming ()
   "The registry can represent models that should not stream."
