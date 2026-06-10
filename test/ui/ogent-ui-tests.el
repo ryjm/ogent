@@ -296,6 +296,60 @@
         (should (not closed-called))
         (should-not (ogent-ui-request-closed request))))))
 
+(ert-deftest ogent-ui-callback-fallback-executes-tools-once ()
+  "The :tool-use fallback runs each payload once across repeated chunks."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (handle-count 0))
+      (let* ((request (make-ogent-ui-request
+                       :id "req-fb" :buffer (current-buffer)
+                       :marker (copy-marker (point-max)) :status 'wait))
+             (callback (ogent-ui--make-callback "req-fb"))
+             ;; Same object across chunks, as gptel reuses it within a turn.
+             (tool-use '((:name "bash" :args (:command "ls"))))
+             (info (list :tool-use tool-use)))
+        (puthash "req-fb" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--handle-tool-calls)
+                   (lambda (&rest _) (cl-incf handle-count)))
+                  ((symbol-function 'ogent-ui--close-response) #'ignore))
+          ;; Three streamed text chunks all carrying the same :tool-use.
+          (funcall callback "chunk one " info)
+          (funcall callback "chunk two " info)
+          (funcall callback "chunk three" info))
+        (should (= handle-count 1))
+        ;; A genuinely new tool-use payload dispatches again.
+        (cl-letf (((symbol-function 'ogent-ui--handle-tool-calls)
+                   (lambda (&rest _) (cl-incf handle-count)))
+                  ((symbol-function 'ogent-ui--close-response) #'ignore))
+          (funcall callback "more"
+                   (list :tool-use '((:name "bash" :args (:command "pwd"))))))
+        (should (= handle-count 2))))))
+
+(ert-deftest ogent-ui-callback-tool-result-does-not-close ()
+  "A (tool-result ...) cons is intermediate and must not close the request."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (closed-called nil))
+      (let* ((request (make-ogent-ui-request
+                       :id "req-tr" :buffer (current-buffer)
+                       :marker (copy-marker (point-max)) :status 'wait))
+             (callback (ogent-ui--make-callback "req-tr")))
+        (puthash "req-tr" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-ui--close-response)
+                   (lambda (&rest _) (setq closed-called t)))
+                  ((symbol-function 'ogent-ui--insert-tool-block) #'ignore))
+          (funcall callback '(tool-result . ((:name "bash" :args nil
+                                                    :result "ok")))
+                   nil))
+        (should-not closed-called)
+        ;; A real completion signal still closes.
+        (cl-letf (((symbol-function 'ogent-ui--close-response)
+                   (lambda (&rest _) (setq closed-called t))))
+          (funcall callback nil nil))
+        (should closed-called)))))
+
 (ert-deftest ogent-ui-callback-closes-on-error ()
   "Callback closes request when error info is supplied."
   (with-temp-buffer
