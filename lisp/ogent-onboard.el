@@ -28,8 +28,10 @@
   :group 'ogent)
 
 (defconst ogent-onboard--anthropic-models
-  '((:id "claude-opus-4-7"
-     :description "Claude Opus 4.7 - most capable")
+  '((:id "claude-fable-5"
+     :description "Claude Fable 5 - most powerful")
+    (:id "claude-opus-4-8"
+     :description "Claude Opus 4.8 - most capable Opus")
     (:id "claude-sonnet-4-6"
      :description "Claude Sonnet 4.6 - balanced speed and intelligence")
     (:id "claude-haiku-4-5-20251001"
