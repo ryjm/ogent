@@ -343,8 +343,8 @@ The implementation should use existing ogent primitives whenever possible:
 - Context building stays in =ogent-context.el=.
 - Model selection stays in =ogent-models.el= and gptel integration.
 - Conversation rendering should reuse current Org src/tool block conventions.
-- Tool effects and approval policy stay in =ogent-tool-effects.el= and
-  =ogent-tool-approval.el=.
+- Tool effects policy stays in =ogent-tool-effects.el=; approval and
+  execution live in the request callback (=ogent-ui.el=).
 - Beads stays its own operational backend while Armory records expose
   typed graph attachment points.
 

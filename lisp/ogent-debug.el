@@ -22,8 +22,11 @@
 
 (require 'cl-lib)
 
-(declare-function ogent-tool-fsm-execute "ogent-tool-fsm")
+(declare-function ogent-ui--execute-tool "ui/ogent-ui")
 (declare-function gptel-backend-name "ext:gptel" t t)
+(defvar ogent-tool-allow-list)
+(defvar ogent-tool--denied-tools)
+(defvar ogent-tool-require-approval)
 
 (defgroup ogent-debug nil
   "Debugging utilities for ogent."
@@ -502,18 +505,15 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
                       ogent-debug-tool-history))
              (choice (completing-read "Replay tool: " choices nil t)))
         (cdr (assoc choice choices))))))
-  (let* ((name (plist-get entry :name))
-         (args (plist-get entry :args))
-         (id (format "replay-%s-%d" name (random 10000)))
-         (tool-call (list :id id :name name :args args)))
+  (let ((name (plist-get entry :name))
+        (args (plist-get entry :args)))
     (message "Replaying %s..." name)
-    (require 'ogent-tool-fsm)
-    (ogent-tool-fsm-execute
-     tool-call
-     (lambda (result error)
-       (if error
-           (message "Replay failed: %s" error)
-         (message "Replay succeeded: %s" result))))))
+    ;; Replay through the live executor so it shares the same approval
+    ;; policy and proof-ledger recording as a normal tool run.  Lazy
+    ;; require avoids pulling the UI layer into ogent-debug at load time.
+    (require 'ogent-ui)
+    (let ((result (ogent-ui--execute-tool name args)))
+      (message "Replay result: %s" result))))
 
 (defun ogent-debug-last-tool ()
   "Return the most recent tool call entry, or nil."
@@ -529,28 +529,37 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
 
 ;;;###autoload
 (defun ogent-debug-show-approval-status ()
-  "Show current session's tool approval status."
+  "Show the current tool approval state.
+Reports the live policy used by the request pipeline: the
+persistent allow-list (`ogent-tool-allow-list') and the
+session-only deny list (`ogent-tool--denied-tools')."
   (interactive)
-  (require 'ogent-tool-approval)
-  (let ((buf (get-buffer-create "*ogent-approval-status*")))
+  (require 'ogent-ui)
+  (let ((allow (and (boundp 'ogent-tool-allow-list) ogent-tool-allow-list))
+        (denied (and (boundp 'ogent-tool--denied-tools)
+                     ogent-tool--denied-tools))
+        (buf (get-buffer-create "*ogent-approval-status*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
         (insert "# Tool Approval Status\n\n")
-        (insert (format "Session mode: %s\n\n"
-                        (if (bound-and-true-p ogent-tool-approval--session-approved)
-                            "Active"
-                          "Inactive")))
-        (if (and (boundp 'ogent-tool-approval--session-approved)
-                 (hash-table-p ogent-tool-approval--session-approved)
-                 (> (hash-table-count ogent-tool-approval--session-approved) 0))
+        (insert (format "Approval required: %s\n\n"
+                        (if (and (boundp 'ogent-tool-require-approval)
+                                 ogent-tool-require-approval)
+                            "yes" "no (all tools auto-approved)")))
+        (if allow
             (progn
-              (insert "Approved tools:\n")
-              (maphash (lambda (tool approved)
-                         (when approved
-                           (insert (format "  - %s\n" tool))))
-                       ogent-tool-approval--session-approved))
-          (insert "No tools approved this session.\n"))
+              (insert "Allow-list (auto-approved):\n")
+              (dolist (pattern allow)
+                (insert (format "  - %s\n" pattern))))
+          (insert "Allow-list: empty.\n"))
+        (insert "\n")
+        (if denied
+            (progn
+              (insert "Denied this session:\n")
+              (dolist (tool denied)
+                (insert (format "  - %s\n" tool))))
+          (insert "No tools denied this session.\n"))
         (goto-char (point-min))
         (view-mode 1)))
     (display-buffer buf)))

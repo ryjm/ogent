@@ -8,7 +8,7 @@
 (require 'ert)
 (require 'ogent-ledger)
 (require 'ogent-models)
-(require 'ogent-tool-fsm)
+(require 'ogent-ui)
 
 (ert-deftest ogent-ledger-record/disabled ()
   "Disabled ledger records nothing."
@@ -52,8 +52,8 @@
       (should (equal (plist-get sanitized :marker)
                      (list :marker 2 :buffer (buffer-name)))))))
 
-(ert-deftest ogent-ledger-tool-fsm-records-tool-events ()
-  "Tool FSM writes start and finish events when ledger is enabled."
+(ert-deftest ogent-ledger-live-executor-records-tool-events ()
+  "The live tool executor writes start and finish events when enabled."
   (let* ((dir (make-temp-file "ogent-ledger-" t))
          (file (expand-file-name "ledger.org" dir))
          (ogent-ledger-enabled t)
@@ -68,11 +68,7 @@
          (seen-error nil))
     (unwind-protect
         (progn
-          (ogent-tool-fsm-execute
-           '(:id "tool-1" :name echo-tool :args (:value "ok"))
-           (lambda (result error-message)
-             (setq seen-result result
-                   seen-error error-message)))
+          (setq seen-result (ogent-ui--execute-tool 'echo-tool '(:value "ok")))
           (should (equal seen-result "ok"))
           (should-not seen-error)
           (with-temp-buffer

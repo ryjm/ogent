@@ -292,11 +292,11 @@ M-x gptel-log
 ** Debugging Async Operations
 
 #+BEGIN_SRC elisp
-;; Check active tool processes
-M-x ogent-tool-fsm-status
+;; Cancel any in-flight tool processes
+M-x ogent-tools-cancel-all
 
-;; Reset FSM state if stuck
-M-x ogent-tool-fsm-reset
+;; Inspect recent tool calls (and replay one)
+M-x ogent-debug-replay-tool
 #+END_SRC
 
 ** Debugging Context Building

@@ -591,7 +591,7 @@ local checkout path."
                       ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
                       ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
                       ogent-codex-oauth
-                      ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
+                      ogent ))
         (when (featurep feat)
           (unload-feature feat t)))
       ;; Add source to load-path temporarily and reload
@@ -620,7 +620,7 @@ local checkout path."
                     ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
                     ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
                     ogent-codex-oauth
-                    ogent-tool-render ogent-tool-approval ogent-tool-fsm ogent))
+                      ogent ))
       (when (featurep feat)
         (unload-feature feat t)))
     ;; Add source to load-path temporarily and reload

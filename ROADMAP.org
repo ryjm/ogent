@@ -68,9 +68,7 @@ Each section maps vision statements to implementation status.
 ** Phase 4: Tool System (Complete)
 - [X] Tool definition schema and registry (=ogent-models.el=)
 - [X] Tool implementations: read-file, glob, grep, bash, write-file, edit-file (=ogent-tools.el=)
-- [X] Tool approval workflow with transient (=ogent-tool-approval.el=)
-- [X] Tool call rendering in org-mode (=ogent-tool-render.el=)
-- [X] Tool execution FSM (=ogent-tool-fsm.el=)
+- [X] Tool approval, rendering, and execution in the request callback (=ogent-ui.el=); effects policy in =ogent-tool-effects.el=
 - [X] Tool call history and debugging (=ogent-debug.el=)
 
 ** Phase 5: Inline Edits (Complete)
@@ -201,9 +199,8 @@ These items from README.md are not yet tracked as beads:
                               │          Tool System            │
                               ├─────────────────────────────────┤
                               │ ogent-tools.el (implementations)│
-                              │ ogent-tool-fsm.el (execution)   │
-                              │ ogent-tool-approval.el (consent)│
-                              │ ogent-tool-render.el (display)  │
+                              │ ogent-tool-effects.el (policy)  │
+                              │ ogent-ui.el (approve/run/render)│
                               └────────────────┬────────────────┘
                                                │
                               ┌────────────────┴────────────────┐
