@@ -1004,6 +1004,113 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
        (ogent-issues-bd-dep-add "blocked-1" "blocker-1" (lambda () nil))
        :type 'user-error))))
 
+;;; Git Worktree Redirect Tests
+
+(defmacro ogent-issues-bd-test-with-temp-dir (var &rest body)
+  "Bind VAR to a temporary directory while running BODY."
+  (declare (indent 1) (debug t))
+  `(let ((,var (make-temp-file "ogent-issues-bd-wt-" t)))
+     (unwind-protect
+         (progn ,@body)
+       (when (file-directory-p ,var)
+         (delete-directory ,var t)))))
+
+(defun ogent-issues-bd-test--worktree-layout (base &optional gitdir-line
+                                                   no-main-beads)
+  "Create a fake main checkout and linked worktree under BASE.
+Return a plist with :main, :worktree, and :main-beads paths.
+GITDIR-LINE overrides the worktree `.git' pointer file contents.
+NO-MAIN-BEADS skips creating the main `.beads' directory."
+  (let* ((main (expand-file-name "main" base))
+         (worktree (expand-file-name "wt" base))
+         (main-beads (expand-file-name ".beads" main)))
+    (make-directory (expand-file-name ".git/worktrees/wt" main) t)
+    (unless no-main-beads
+      (make-directory main-beads t)
+      (write-region "" nil (expand-file-name "config.yaml" main-beads)
+                    nil 'silent))
+    (make-directory worktree t)
+    (write-region (or gitdir-line
+                      (format "gitdir: %s\n"
+                              (expand-file-name ".git/worktrees/wt" main)))
+                  nil (expand-file-name ".git" worktree) nil 'silent)
+    (list :main main :worktree worktree :main-beads main-beads)))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-created ()
+  "A redirect pointing at the main beads dir is written in the worktree."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let* ((layout (ogent-issues-bd-test--worktree-layout base))
+           (worktree (plist-get layout :worktree))
+           (subdir (expand-file-name "src/deep" worktree)))
+      (make-directory subdir t)
+      (let ((result (ogent-issues-bd-ensure-worktree-redirect subdir))
+            (redirect (expand-file-name ".beads/redirect" worktree)))
+        (should (equal result redirect))
+        (should (file-exists-p redirect))
+        (should (equal (with-temp-buffer
+                         (insert-file-contents redirect)
+                         (string-trim (buffer-string)))
+                       (plist-get layout :main-beads)))))))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-idempotent ()
+  "An existing redirect is returned untouched."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let* ((layout (ogent-issues-bd-test--worktree-layout base))
+           (worktree (plist-get layout :worktree))
+           (redirect (expand-file-name ".beads/redirect" worktree)))
+      (make-directory (expand-file-name ".beads" worktree) t)
+      (write-region "/custom/beads\n" nil redirect nil 'silent)
+      (should (equal (ogent-issues-bd-ensure-worktree-redirect worktree)
+                     redirect))
+      (should (equal (with-temp-buffer
+                       (insert-file-contents redirect)
+                       (buffer-string))
+                     "/custom/beads\n")))))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-primary-checkout-nil ()
+  "A primary checkout (.git directory) needs no redirect."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let ((repo (expand-file-name "repo" base)))
+      (make-directory (expand-file-name ".git" repo) t)
+      (should-not (ogent-issues-bd-ensure-worktree-redirect repo))
+      (should-not (file-exists-p
+                   (expand-file-name ".beads/redirect" repo))))))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-submodule-nil ()
+  "Submodule gitdir pointers must not be treated as worktrees."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let* ((layout (ogent-issues-bd-test--worktree-layout
+                    base
+                    (format "gitdir: %s\n"
+                            (expand-file-name
+                             "main/.git/modules/sub" base))))
+           (worktree (plist-get layout :worktree)))
+      (should-not (ogent-issues-bd-ensure-worktree-redirect worktree))
+      (should-not (file-exists-p
+                   (expand-file-name ".beads/redirect" worktree))))))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-no-main-beads-nil ()
+  "No redirect is written when the main checkout has no beads dir."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let* ((layout (ogent-issues-bd-test--worktree-layout base nil t))
+           (worktree (plist-get layout :worktree)))
+      (should-not (ogent-issues-bd-ensure-worktree-redirect worktree))
+      (should-not (file-exists-p
+                   (expand-file-name ".beads/redirect" worktree))))))
+
+(ert-deftest ogent-issues-bd-worktree-redirect-relative-gitdir ()
+  "Relative gitdir pointers resolve against the worktree root."
+  (ogent-issues-bd-test-with-temp-dir base
+    (let* ((layout (ogent-issues-bd-test--worktree-layout
+                    base "gitdir: ../main/.git/worktrees/wt\n"))
+           (worktree (plist-get layout :worktree))
+           (redirect (ogent-issues-bd-ensure-worktree-redirect worktree)))
+      (should redirect)
+      (should (equal (with-temp-buffer
+                       (insert-file-contents redirect)
+                       (string-trim (buffer-string)))
+                     (plist-get layout :main-beads))))))
+
 (provide 'ogent-issues-bd-tests)
 
 ;;; ogent-issues-bd-tests.el ends here

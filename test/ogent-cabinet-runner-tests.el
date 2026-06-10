@@ -437,6 +437,80 @@
           (should (string-match-p "fixture agent ok"
                                   (plist-get (cadr turns) :content))))))))
 
+(defun ogent-cabinet-runner-test--fake-worktree (dir)
+  "Create a fake main checkout and linked worktree under DIR.
+Return (MAIN . WORKTREE)."
+  (let ((main (expand-file-name "main" dir))
+        (worktree (expand-file-name "wt" dir)))
+    (make-directory (expand-file-name ".git/worktrees/wt" main) t)
+    (make-directory (expand-file-name ".beads" main) t)
+    (make-directory worktree t)
+    (write-region (format "gitdir: %s\n"
+                          (expand-file-name ".git/worktrees/wt" main))
+                  nil (expand-file-name ".git" worktree) nil 'silent)
+    (cons main worktree)))
+
+(ert-deftest ogent-cabinet-runner-start-ensures-beads-worktree-redirect ()
+  "Starting a run in a linked worktree writes the br redirect pointer."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (pcase-let ((`(,main . ,worktree)
+                 (ogent-cabinet-runner-test--fake-worktree dir))
+                (fixture (ogent-cabinet-runner-test--make-executable
+                          dir
+                          "#!/bin/sh\nprintf 'ok\\n'\ncat >/dev/null\n")))
+      (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-cabinet-write-agent
+       dir
+       `(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace ,worktree)
+       "Keep the plan direct.")
+      (let* ((ogent-cabinet-codex-executable fixture)
+             (ogent-cabinet-runner-confirm-before-run nil)
+             (plan (ogent-cabinet-runner-plan
+                    dir "cto"
+                    :instruction "Say hello."
+                    :runtime-mode 'terminal))
+             (process (ogent-cabinet-runner-start plan)))
+        (ogent-cabinet-runner-test--wait process)
+        (let ((redirect (expand-file-name ".beads/redirect" worktree)))
+          (should (file-exists-p redirect))
+          (should (equal (with-temp-buffer
+                           (insert-file-contents redirect)
+                           (string-trim (buffer-string)))
+                         (expand-file-name ".beads" main))))))))
+
+(ert-deftest ogent-cabinet-runner-start-skips-beads-redirect-when-disabled ()
+  "The redirect step honors `ogent-cabinet-runner-ensure-beads-redirect'."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (pcase-let ((`(,_main . ,worktree)
+                 (ogent-cabinet-runner-test--fake-worktree dir))
+                (fixture (ogent-cabinet-runner-test--make-executable
+                          dir
+                          "#!/bin/sh\nprintf 'ok\\n'\ncat >/dev/null\n")))
+      (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+      (ogent-cabinet-write-agent
+       dir
+       `(:slug "cto"
+         :name "CTO"
+         :role "Architecture"
+         :provider "codex"
+         :workspace ,worktree)
+       "Keep the plan direct.")
+      (let* ((ogent-cabinet-codex-executable fixture)
+             (ogent-cabinet-runner-confirm-before-run nil)
+             (ogent-cabinet-runner-ensure-beads-redirect nil)
+             (plan (ogent-cabinet-runner-plan
+                    dir "cto"
+                    :instruction "Say hello."
+                    :runtime-mode 'terminal))
+             (process (ogent-cabinet-runner-start plan)))
+        (ogent-cabinet-runner-test--wait process)
+        (should-not (file-exists-p
+                     (expand-file-name ".beads/redirect" worktree)))))))
+
 (ert-deftest ogent-cabinet-runner-transcript-links-generated-apps ()
   "Runner transcripts record generated index.html artifacts when output names them."
   (ogent-cabinet-runner-test-with-temp-dir dir
