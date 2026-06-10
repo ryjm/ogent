@@ -292,7 +292,8 @@
                        ogent-cabinet-conversation-mode-map
                        ogent-cabinet-search-mode-map
                        ogent-cabinet-apps-mode-map))
-      (should-not (member (cons map 'all) maps)))
+      (should (member (cons map 'normal) maps))
+      (should (member (cons map 'motion) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
                         ogent-cabinet-org-chart-mode-hook
@@ -303,7 +304,6 @@
                         ogent-cabinet-conversation-mode-hook
                         ogent-cabinet-search-mode-hook
                         ogent-cabinet-apps-mode-hook))
-      (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (ert-deftest ogent-ui-cabinet-evil-local-keys-mirror-safe-home-keys ()
@@ -1565,7 +1565,8 @@
                        ogent-cabinet-conversation-mode-map
                        ogent-cabinet-search-mode-map
                        ogent-cabinet-apps-mode-map))
-      (should-not (member (cons map 'all) maps)))
+      (should (member (cons map 'normal) maps))
+      (should (member (cons map 'motion) maps)))
     (dolist (hook (list ogent-cabinet-home-mode-hook
                         ogent-cabinet-agents-mode-hook
                         ogent-cabinet-org-chart-mode-hook
@@ -1576,7 +1577,6 @@
                         ogent-cabinet-conversation-mode-hook
                         ogent-cabinet-search-mode-hook
                         ogent-cabinet-apps-mode-hook))
-      (should (memq #'ogent-cabinet-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-cabinet-tests)

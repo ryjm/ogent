@@ -605,6 +605,15 @@ Uses grep for fast full-text search."
          (title (plist-get metadata :title)))
     (org-roam-node-find nil (format "ogent: %s" title))))
 
+;; Canonical Evil integration so the history buffer's single-key
+;; affordances (RET load, d delete, s/ search, g refresh, q quit)
+;; fire under Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-history-mode ogent-history-mode-map
+     'ogent-history-mode-hook #'ogent-history-refresh)))
+
 (provide 'ogent-session)
 
 ;;; ogent-session.el ends here

@@ -37,8 +37,6 @@
 (declare-function ogent-analytics-rate-down "ogent-analytics")
 (declare-function ogent-analytics-dashboard "ogent-analytics")
 
-;; Declare Gas Town commands (defined in ogent-gastown.el)
-(declare-function ogent-gastown-dispatch "ogent-gastown")
 
 ;; Declare Cabinet commands (defined in ogent-cabinet-status.el and UI files)
 (declare-function ogent-cabinet-home "ogent-ui-cabinet")
@@ -189,9 +187,6 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Capture notes")
     (debug-mode       :key "D" :command ogent-debug-mode
                       :desc "Toggle debug mode")
-    ;; Gas Town
-    (gastown          :key "G" :command ogent-gastown-dispatch
-                      :desc "Gas Town menu")
     (cabinet-home     :key "j" :command ogent-cabinet-home
                       :desc "Cabinet Home")
     (cabinet-status   :key "K" :command ogent-cabinet-status
@@ -411,6 +406,128 @@ and which-key integration."
     (ogent-setup-doom-bindings nil t))
   (with-eval-after-load 'which-key
     (ogent-setup-which-key)))
+
+;;; Evil display-buffer integration
+
+;; Canonical Evil integration for ogent's read-only display buffers
+;; (Cabinet, Issues, history, tool history, edit diff, ...).  These
+;; buffers advertise single-key
+;; affordances in their header line ("g refresh", "n/p", "RET visit").
+;; Under Doom/Evil those keys default to Evil normal-state motions and
+;; shadow the buffer's own keymap, so the hints silently do nothing.
+;;
+;; The fix is the same pattern magit/dired use: mark the mode keymap as
+;; an Evil *overriding* map.  Keys the mode binds win over Evil's state
+;; keymap (so every advertised affordance fires), while keys the mode
+;; does NOT bind keep their Evil motion meaning (so j/k/search/etc still
+;; work).  This is strictly better than stripping bindings, which left
+;; the on-screen hints lying to Evil users.
+
+(declare-function evil-make-overriding-map "ext:evil-core")
+(declare-function evil-make-intercept-map "ext:evil-core")
+(declare-function evil-set-initial-state "ext:evil-core")
+(declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function evil-local-set-key "ext:evil-core")
+(declare-function evil-define-key* "ext:evil-core")
+(declare-function evil-goto-first-line "ext:evil-commands")
+(declare-function evil-goto-line "ext:evil-commands")
+
+(defun ogent-evil--keymap-command-bindings (keymap &optional prefix)
+  "Return direct (KEYVEC . COMMAND) bindings of KEYMAP.
+Parent keymaps are ignored; nested prefix keymaps are walked.
+PREFIX is used internally while recursing."
+  (let (bindings
+        (entries (cdr keymap)))
+    (while (and entries (not (eq (car entries) 'keymap)))
+      (let ((entry (car entries)))
+        (when (consp entry)
+          (let* ((event (car entry))
+                 (binding (cdr entry))
+                 (key (vconcat (or prefix []) (vector event))))
+            (cond
+             ((commandp binding)
+              (push (cons key binding) bindings))
+             ((keymapp binding)
+              (setq bindings
+                    (nconc (nreverse
+                            (ogent-evil--keymap-command-bindings binding key))
+                           bindings)))))))
+      (setq entries (cdr entries)))
+    (nreverse bindings)))
+
+(defun ogent-evil-display-mode-setup (mode mode-map mode-hook
+                                            &optional refresh-fn refresh-force-fn)
+  "Make MODE's read-only display buffer fully usable under Evil.
+
+MODE is the major-mode symbol, MODE-MAP its keymap value, MODE-HOOK
+its mode-hook symbol.  Effects:
+
+  * the buffer opens in Evil `normal' state,
+  * every command MODE-MAP binds is mirrored into Evil `normal' and
+    `motion' auxiliary state (via `evil-define-key*', the mechanism
+    evil-collection uses) so the single-key affordances shown in the
+    buffer (`n'/`p', `RET', `q', `c', `a', `d', ...) fire exactly as
+    advertised even over Doom's own custom normal-state operator keys,
+  * MODE-MAP also overrides Evil `normal'/`motion' state as a
+    belt-and-suspenders fallback, while keys MODE-MAP does not bind
+    keep their Evil motion meaning (`j', `k', `/', search, ...),
+  * refresh is exposed under `gr' (and force-refresh under `gR') with
+    `gg'/`G' goto-first/last-line and `ZZ'/`ZQ' to quit -- the same
+    convention evil-collection uses for magit/dired, which is the
+    behaviour Doom users already have muscle memory for (bare `g'
+    cannot be reclaimed: it is Evil's universal prefix and stays so
+    even for magit in this configuration),
+  * `evil-normalize-keymaps' runs on MODE-HOOK so it takes effect.
+
+This is the exact pattern proven by `ogent-issues--setup-evil'.
+Safe no-op when Evil is unavailable or
+`ogent-enable-evil-bindings' is nil; vanilla Emacs uses MODE-MAP
+directly (bare `g' refresh etc.) and is unaffected."
+  (when (and ogent-enable-evil-bindings
+             (fboundp 'evil-make-overriding-map)
+             (fboundp 'evil-set-initial-state)
+             (keymapp mode-map))
+    (evil-set-initial-state mode 'normal)
+    (evil-make-overriding-map mode-map 'normal)
+    (evil-make-overriding-map mode-map 'motion)
+    ;; Mirror the mode's own bindings into Evil normal+motion auxiliary
+    ;; state.  This tier outranks Doom's custom operator bindings
+    ;; (p/c/d/a/m/...), which a plain overriding map loses to, so every
+    ;; advertised single-key affordance fires.  SPC is skipped so the
+    ;; leader is never shadowed.
+    (when (fboundp 'evil-define-key*)
+      (dolist (b (ogent-evil--keymap-command-bindings mode-map))
+        (let ((key (car b)) (cmd (cdr b)))
+          (unless (member (key-description key) '("SPC" "<remap>"))
+            (ignore-errors
+              (evil-define-key* '(normal motion) mode-map key cmd))))))
+    (add-hook mode-hook #'evil-normalize-keymaps)
+    (let ((refresh refresh-fn)
+          (refresh-force refresh-force-fn))
+      (add-hook
+       mode-hook
+       (lambda ()
+         (when (fboundp 'evil-local-set-key)
+           (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
+           (evil-local-set-key 'normal "G" #'evil-goto-line)
+           (evil-local-set-key 'normal "ZZ" #'quit-window)
+           (evil-local-set-key 'normal "ZQ" #'quit-window)
+           (when (commandp refresh)
+             (evil-local-set-key 'normal "gr" refresh))
+           (when (commandp refresh-force)
+             (evil-local-set-key 'normal "gR" refresh-force))))))))
+
+;;;###autoload
+(defmacro ogent-evil-setup-display-mode (mode mode-map mode-hook &rest plist)
+  "Defer canonical Evil display-buffer setup until Evil is loaded.
+MODE and MODE-HOOK are quoted symbols; MODE-MAP is the keymap value.
+PLIST accepts :refresh and :refresh-force commands bound to gr / gR.
+See `ogent-evil-display-mode-setup'."
+  `(with-eval-after-load 'evil
+     (ogent-evil-display-mode-setup
+      ,mode ,mode-map ,mode-hook
+      ,(plist-get plist :refresh)
+      ,(plist-get plist :refresh-force))))
 
 ;;; Utility Functions
 

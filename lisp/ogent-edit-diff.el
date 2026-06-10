@@ -36,8 +36,13 @@
 
 ;; Forward declarations for eieio
 (declare-function eieio-object-p "eieio-core")
-(declare-function slot-exists-p "eieio-core")
+(declare-function slot-exists-p "eieio")
 (declare-function eieio-oref "eieio-core")
+;; Section classes are defclass'd at runtime only when magit-section is
+;; available, so their constructors are unknown at compile time.
+(declare-function ogent-edit-diff-root-section "ogent-edit-diff" t t)
+(declare-function ogent-edit-diff-file-section "ogent-edit-diff" t t)
+(declare-function ogent-edit-diff-hunk-section "ogent-edit-diff" t t)
 
 ;;; Customization
 
@@ -499,6 +504,15 @@ _FILE is unused but kept for future per-file staging state."
   (interactive)
   (message "n/p: next/prev hunk, s/u: stage/unstage, S/U: all, \
 a/r: accept/reject, A: accept staged, R: reject all, RET: goto source"))
+
+;; Canonical Evil integration so the buffer's single-key affordances
+;; (n/p hunks, s/u/a/r stage/accept, g refresh, ? help, q quit) fire
+;; under Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-edit-diff-mode ogent-edit-diff-mode-map
+     'ogent-edit-diff-mode-hook #'ogent-edit-diff-refresh)))
 
 (provide 'ogent-edit-diff)
 

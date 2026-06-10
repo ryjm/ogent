@@ -23,7 +23,7 @@
 (require 'cl-lib)
 
 (declare-function ogent-tool-fsm-execute "ogent-tool-fsm")
-(declare-function gptel-backend-name "gptel")
+(declare-function gptel-backend-name "ext:gptel" t t)
 
 (defgroup ogent-debug nil
   "Debugging utilities for ogent."
@@ -680,6 +680,15 @@ Merges with existing history."
    ("i" "Import JSON" ogent-debug-import-tool-history)]
   ["Approval Status"
    ("a" "Show approvals" ogent-debug-show-approval-status)])
+
+;; Canonical Evil integration so the tool-history buffer's single-key
+;; affordances (n/p, RET replay, g refresh, ? help, q quit) fire under
+;; Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-tool-history-mode ogent-tool-history-mode-map
+     'ogent-tool-history-mode-hook #'ogent-tool-history-refresh)))
 
 (provide 'ogent-debug)
 

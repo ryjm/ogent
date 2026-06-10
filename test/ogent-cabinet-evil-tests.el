@@ -1,11 +1,20 @@
 ;;; ogent-cabinet-evil-tests.el --- Cabinet Evil keymap tests -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Tests for the shared Cabinet Evil integration helpers.
+;; Tests for the canonical Evil display-buffer integration.
+;;
+;; Cabinet (and every other ogent display buffer) advertises single-key
+;; affordances in its header line.  The correct Evil integration is the
+;; magit/dired pattern: the mode keymap is marked as an Evil *overriding*
+;; map so those keys fire under Evil, while keys the mode does not bind
+;; keep their Evil motion meaning.  The historical behaviour -- stripping
+;; every alphabetic/digit key out of Evil -- made the on-screen hints
+;; lie to Evil users and is the bug these tests now guard against.
 
 ;;; Code:
 
 (require 'cl-lib)
+(require 'ogent-keys)
 (require 'ogent-cabinet-evil)
 (require 'ogent-cabinet-actions)
 (require 'ogent-cabinet-adapter)
@@ -24,7 +33,6 @@
     ogent-cabinet-apps-mode-map
     ogent-cabinet-agents-mode-map
     ogent-cabinet-agent-mode-map
-    ogent-cabinet-compose-mode-map
     ogent-cabinet-conversation-mode-map
     ogent-cabinet-conversations-mode-map
     ogent-cabinet-data-mode-map
@@ -39,64 +47,50 @@
     ogent-cabinet-settings-mode-map
     ogent-cabinet-skills-mode-map
     ogent-cabinet-tasks-mode-map)
-  "Cabinet display keymaps that should work in Evil states.")
+  "Cabinet display keymaps that must work in Evil states.")
 
 (defconst ogent-cabinet-evil-test--setup-specs
   '((ogent-cabinet-actions--setup-evil
-     ogent-cabinet-actions-mode
-     ogent-cabinet-actions-mode-map
-     ogent-cabinet-actions-mode-hook
-     ogent-cabinet-actions--evil-local-keys)
-    (ogent-cabinet-compose--setup-evil
-     ogent-cabinet-compose-mode
-     ogent-cabinet-compose-mode-map
-     ogent-cabinet-compose-mode-hook
-     ogent-cabinet-compose--evil-local-keys)
+     ogent-cabinet-actions-mode ogent-cabinet-actions-mode-map
+     ogent-cabinet-actions-mode-hook)
     (ogent-cabinet-data--setup-evil
-     ogent-cabinet-data-mode
-     ogent-cabinet-data-mode-map
-     ogent-cabinet-data-mode-hook
-     ogent-cabinet-data--evil-local-keys)
+     ogent-cabinet-data-mode ogent-cabinet-data-mode-map
+     ogent-cabinet-data-mode-hook)
     (ogent-cabinet-git--setup-evil
-     ogent-cabinet-git-mode
-     ogent-cabinet-git-mode-map
-     ogent-cabinet-git-mode-hook
-     ogent-cabinet-git--evil-local-keys)
+     ogent-cabinet-git-mode ogent-cabinet-git-mode-map
+     ogent-cabinet-git-mode-hook)
     (ogent-cabinet-help--setup-evil
-     ogent-cabinet-help-mode
-     ogent-cabinet-help-mode-map
-     ogent-cabinet-help-mode-hook
-     ogent-cabinet-help--evil-local-keys)
+     ogent-cabinet-help-mode ogent-cabinet-help-mode-map
+     ogent-cabinet-help-mode-hook)
     (ogent-cabinet-providers--setup-evil
-     ogent-cabinet-providers-mode
-     ogent-cabinet-providers-mode-map
-     ogent-cabinet-providers-mode-hook
-     ogent-cabinet-providers--evil-local-keys)
+     ogent-cabinet-providers-mode ogent-cabinet-providers-mode-map
+     ogent-cabinet-providers-mode-hook)
     (ogent-cabinet-schedule--setup-evil
-     ogent-cabinet-schedule-mode
-     ogent-cabinet-schedule-mode-map
-     ogent-cabinet-schedule-mode-hook
-     ogent-cabinet-schedule--evil-local-keys)
+     ogent-cabinet-schedule-mode ogent-cabinet-schedule-mode-map
+     ogent-cabinet-schedule-mode-hook)
     (ogent-cabinet-settings--setup-evil
-     ogent-cabinet-settings-mode
-     ogent-cabinet-settings-mode-map
-     ogent-cabinet-settings-mode-hook
-     ogent-cabinet-settings--evil-local-keys)
+     ogent-cabinet-settings-mode ogent-cabinet-settings-mode-map
+     ogent-cabinet-settings-mode-hook)
     (ogent-cabinet-skills--setup-evil
-     ogent-cabinet-skills-mode
-     ogent-cabinet-skills-mode-map
-     ogent-cabinet-skills-mode-hook
-     ogent-cabinet-skills--evil-local-keys))
+     ogent-cabinet-skills-mode ogent-cabinet-skills-mode-map
+     ogent-cabinet-skills-mode-hook))
   "Cabinet modules that own display-mode Evil setup.")
 
-(defun ogent-cabinet-evil-test--capture-bindings (map)
-  "Return `evil-local-set-key' calls made while installing MAP."
-  (let (calls)
-    (cl-letf (((symbol-function 'evil-local-set-key)
-               (lambda (state key command)
-                 (push (list state key command) calls))))
-      (ogent-cabinet-evil-install-local-bindings map))
-    calls))
+(defmacro ogent-cabinet-evil-test--with-evil-spies (states overrides &rest body)
+  "Run BODY with Evil setup functions stubbed.
+STATES collects (MODE . STATE) from `evil-set-initial-state'.
+OVERRIDES collects (KEYMAP . STATE) from `evil-make-overriding-map'."
+  (declare (indent 2))
+  `(cl-letf (((symbol-function 'evil-set-initial-state)
+              (lambda (mode state) (push (cons mode state) ,states)))
+             ((symbol-function 'evil-make-overriding-map)
+              (lambda (keymap &optional state _copy)
+                (push (cons keymap state) ,overrides)))
+             ((symbol-function 'evil-normalize-keymaps)
+              (lambda (&rest _) nil))
+             ((symbol-function 'evil-local-set-key)
+              (lambda (&rest _) nil)))
+     ,@body))
 
 (ert-deftest ogent-cabinet-evil-keymap-bindings-ignore-parent-maps ()
   "Command collection uses direct Cabinet bindings only."
@@ -113,94 +107,80 @@
       (should (member (list (kbd "M-n") #'ignore) bindings))
       (should-not (member (list (kbd "p") #'ignore) bindings)))))
 
-(ert-deftest ogent-cabinet-evil-local-bindings-cover-cabinet-keymaps ()
-  "Every Evil-safe Cabinet key is mirrored into Evil states."
-  (dolist (map-symbol ogent-cabinet-evil-test--display-maps)
-    (let* ((map (symbol-value map-symbol))
-           (expected (ogent-cabinet-evil-state-command-bindings map))
-           (calls (ogent-cabinet-evil-test--capture-bindings map)))
-      (dolist (binding expected)
-        (dolist (state '(normal motion))
-          (should (member (list state (car binding) (cadr binding))
-                          calls)))))))
-
-(ert-deftest ogent-cabinet-evil-local-bindings-preserve-vim-normal-keys ()
-  "Bare Vim normal-state keys are not mirrored into Evil states."
-  (let ((home-calls
-         (ogent-cabinet-evil-test--capture-bindings ogent-cabinet-home-mode-map))
-        (conversation-calls
-         (ogent-cabinet-evil-test--capture-bindings
-          ogent-cabinet-conversation-mode-map)))
-    (dolist (state '(normal motion))
-      (should-not (member (list state (kbd "j") #'ogent-cabinet-jobs)
-                          home-calls))
-      (should (member (list state (kbd "C-c j") #'ogent-cabinet-jobs)
-                      home-calls))
-      (should-not (member (list state (kbd "k")
-                            #'ogent-cabinet-conversation-stop)
-                          conversation-calls))
-      (should (member (list state (kbd "C-c k")
-                            #'ogent-cabinet-conversation-stop)
-                      conversation-calls)))))
-
-(ert-deftest ogent-cabinet-evil-local-bindings-never-mirror-reserved-keys ()
-  "Cabinet Evil setup leaves bare normal-state keys available to Evil."
-  (dolist (map-symbol ogent-cabinet-evil-test--display-maps)
-    (let ((calls (ogent-cabinet-evil-test--capture-bindings
-                  (symbol-value map-symbol))))
-      (dolist (call calls)
-        (pcase-let ((`(,_state ,key ,_command) call))
-          (should-not (ogent-cabinet-evil-reserved-key-p key)))))))
-
-(ert-deftest ogent-cabinet-evil-local-bindings-use-captured-map-shape ()
-  "Local bindings use the captured command shape after setup."
-  (let ((map (let ((keymap (make-sparse-keymap)))
-               (define-key keymap (kbd "m") #'ignore)
-               (define-key keymap (kbd "g") #'ignore)
-               (define-key keymap (kbd "C-c m") #'ignore)
-               keymap))
-        (hook (make-symbol "ogent-cabinet-test-mode-hook"))
-        calls)
+(ert-deftest ogent-evil-display-mode-setup-marks-overriding-map ()
+  "The canonical helper makes the mode map override Evil normal & motion.
+This is what makes the buffer's single-key affordances actually fire
+under Evil, instead of being shadowed by Evil motions."
+  (let ((map (let ((m (make-sparse-keymap)))
+               (define-key m "g" #'ignore)
+               m))
+        (hook (make-symbol "ogent-test-mode-hook"))
+        states overrides)
     (cl-progv (list hook) (list nil)
-      (cl-letf (((symbol-function 'evil-set-initial-state)
-                 (lambda (&rest _) nil))
-                ((symbol-function 'evil-normalize-keymaps)
-                 (lambda (&rest _) nil))
-                ((symbol-function 'evil-local-set-key)
-                 (lambda (state key command)
-                   (push (list state key command) calls))))
+      (ogent-cabinet-evil-test--with-evil-spies states overrides
+        (ogent-evil-display-mode-setup 'ogent-test-mode map hook #'ignore))
+      (should (equal (cdr (assq 'ogent-test-mode states)) 'normal))
+      (should (member (cons map 'normal) overrides))
+      (should (member (cons map 'motion) overrides))
+      (should (memq #'evil-normalize-keymaps (symbol-value hook))))))
+
+(ert-deftest ogent-evil-display-mode-setup-no-op-without-evil ()
+  "Helper is a safe no-op when Evil is unavailable."
+  (let ((map (make-sparse-keymap))
+        (hook (make-symbol "ogent-test-mode-hook")))
+    (cl-progv (list hook) (list nil)
+      (cl-letf (((symbol-function 'evil-make-overriding-map) nil)
+                ((symbol-function 'evil-set-initial-state) nil))
+        ;; fboundp guards mean this must not error.
+        (should-not (ogent-evil-display-mode-setup
+                     'ogent-test-mode map hook))
+        (should (null (symbol-value hook)))))))
+
+(ert-deftest ogent-cabinet-evil-setup-mode-uses-canonical-override ()
+  "`ogent-cabinet-evil-setup-mode' delegates to the overriding-map path.
+The legacy LOCAL-KEYS mirroring function must NOT be added to the
+hook -- single keys now work via the overriding map, not by stripping."
+  (let ((map (let ((m (make-sparse-keymap)))
+               (define-key m "g" #'ignore)
+               (define-key m "n" #'ignore)
+               m))
+        (hook (make-symbol "ogent-cabinet-test-mode-hook"))
+        (local-keys (lambda () (error "legacy mirror must not run")))
+        states overrides)
+    (cl-progv (list hook) (list nil)
+      (ogent-cabinet-evil-test--with-evil-spies states overrides
         (ogent-cabinet-evil-setup-mode
-         'ogent-cabinet-test-mode
-         map
-         hook
-         #'ignore)
-        (setcdr map (list (cons ?g #'ignore)))
-        (ogent-cabinet-evil-install-local-bindings map)))
-    (dolist (state '(normal motion))
-      (should (member (list state (kbd "C-c m") #'ignore) calls))
-      (should-not (member (list state (kbd "m") #'ignore) calls))
-      (should-not (member (list state (kbd "g") #'ignore) calls)))))
+         'ogent-cabinet-test-mode map hook local-keys))
+      (should (equal (cdr (assq 'ogent-cabinet-test-mode states)) 'normal))
+      (should (member (cons map 'normal) overrides))
+      (should (member (cons map 'motion) overrides))
+      (should-not (memq local-keys (symbol-value hook)))
+      (should (memq #'evil-normalize-keymaps (symbol-value hook))))))
 
 (ert-deftest ogent-cabinet-evil-setup-functions-wire-display-modes ()
-  "Cabinet display modules install Evil initial states and hooks."
+  "Every Cabinet display module wires the canonical Evil integration:
+initial state normal, mode map overriding normal AND motion, and
+`evil-normalize-keymaps' on the mode hook."
   (dolist (spec ogent-cabinet-evil-test--setup-specs)
-    (pcase-let ((`(,setup ,mode ,map-symbol ,hook ,local-keys) spec)
-                (states nil)
-                (maps nil))
-      (cl-progv (list hook) (list nil)
-        (cl-letf (((symbol-function 'evil-set-initial-state)
-                   (lambda (mode-symbol state)
-                     (push (cons mode-symbol state) states)))
-                  ((symbol-function 'evil-make-overriding-map)
-                   (lambda (map state)
-                     (push (cons map state) maps)))
-                  ((symbol-function 'evil-normalize-keymaps)
-                   (lambda (&rest _) nil)))
-          (funcall setup))
-        (should (member (cons mode 'normal) states))
-        (should-not (member (cons (symbol-value map-symbol) 'all) maps))
-        (should (memq local-keys (symbol-value hook)))
-        (should (memq #'evil-normalize-keymaps (symbol-value hook)))))))
+    (pcase-let ((`(,setup ,mode ,map-symbol ,hook) spec))
+      (let (states overrides)
+        (cl-progv (list hook) (list nil)
+          (ogent-cabinet-evil-test--with-evil-spies states overrides
+            (funcall setup))
+          (should (equal (cdr (assq mode states)) 'normal))
+          (should (member (cons (symbol-value map-symbol) 'normal)
+                          overrides))
+          (should (member (cons (symbol-value map-symbol) 'motion)
+                          overrides))
+          (should (memq #'evil-normalize-keymaps
+                        (symbol-value hook))))))))
+
+(ert-deftest ogent-cabinet-evil-display-maps-bind-quit ()
+  "Sanity: every Cabinet display map still binds q to quit so the
+advertised `q' affordance resolves once the map overrides Evil."
+  (dolist (map-symbol ogent-cabinet-evil-test--display-maps)
+    (let ((cmd (lookup-key (symbol-value map-symbol) "q")))
+      (should (commandp cmd)))))
 
 (provide 'ogent-cabinet-evil-tests)
 
