@@ -388,6 +388,65 @@
         (should (null (gethash "req-close" ogent-ui--request-table)))
         (should (member request ogent-ui--request-history))))))
 
+(ert-deftest ogent-ui-response-body-text-extracts-streamed-body ()
+  "Response body text is the content under the heading, sans heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "*** Response (m)\n")
+    (let ((pos (line-beginning-position 0)))
+      (insert "hello world\nsecond line\n")
+      (let ((request (make-ogent-ui-request
+                      :id "rb" :buffer (current-buffer)
+                      :response-pos pos
+                      :marker (copy-marker (point) t))))
+        (should (equal (ogent-ui--response-body-text request)
+                       "hello world\nsecond line"))))))
+
+(ert-deftest ogent-ui-close-response-records-analytics-completion ()
+  "A successful close records a completion via the analytics eval loop."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil)
+          (recorded nil))
+      (goto-char (point-max))
+      (let ((heading-pos (point)))
+        (insert "*** Response (gpt-x)\nthe answer\n")
+        (let ((request (make-ogent-ui-request
+                        :id "req-an" :buffer (current-buffer) :status 'type
+                        :model '(:id "gpt-x") :prompt "what is 2+2?"
+                        :response-pos heading-pos
+                        :marker (copy-marker (point) t)
+                        :start-time (time-subtract (current-time)
+                                                   (seconds-to-time 1)))))
+          (puthash "req-an" request ogent-ui--request-table)
+          (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil))
+                    ((symbol-function 'ogent-analytics-record-completion)
+                     (lambda (model prompt response &optional _tmpl)
+                       (setq recorded (list model prompt response)))))
+            (ogent-ui--close-response request))
+          (should (equal (nth 0 recorded) "gpt-x"))
+          (should (equal (nth 1 recorded) "what is 2+2?"))
+          (should (equal (nth 2 recorded) "the answer")))))))
+
+(ert-deftest ogent-ui-close-response-error-skips-analytics ()
+  "A failed close does not record a completion."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil)
+          (recorded nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-anerr" :buffer (current-buffer) :status 'type)))
+        (puthash "req-anerr" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-ui--insert-error-block) #'ignore)
+                  ((symbol-function 'ogent-ui--maybe-offer-provider-login) #'ignore)
+                  ((symbol-function 'ogent-analytics-record-completion)
+                   (lambda (&rest _) (setq recorded t))))
+          (ogent-ui--close-response request "Boom"))
+        (should-not recorded)))))
+
 (ert-deftest ogent-ui-close-response-error-status ()
   "Closing with error marks status error and closes request."
   (with-temp-buffer

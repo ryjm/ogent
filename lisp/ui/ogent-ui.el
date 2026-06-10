@@ -1321,6 +1321,8 @@ Returns a plist containing a streaming marker and block-start marker."
   (setf (ogent-ui-request-status request) 'wait)
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
   (ogent-ledger-record-request-start request)
+  (when (fboundp 'ogent-analytics-start-request)
+    (ogent-analytics-start-request))
   ;; Create margin indicator
   (when (fboundp 'ogent-status-set-request)
     (ogent-status-set-request request))
@@ -1446,6 +1448,29 @@ buffer's org hierarchy."
           (replace-match (concat new-stars suffix) t t)))
       (buffer-string))))
 
+(declare-function ogent-analytics-start-request "ogent-analytics")
+(declare-function ogent-analytics-first-token "ogent-analytics")
+(declare-function ogent-analytics-record-completion "ogent-analytics"
+                  (model prompt response &optional template))
+
+(defun ogent-ui--response-body-text (request)
+  "Return the streamed response body for REQUEST as a string, or nil.
+Reads the buffer text between REQUEST's Response heading and its end
+marker, excluding the heading line itself."
+  (when-let* ((buffer (ogent-ui-request-buffer request))
+              (start (ogent-ui-request-response-pos request))
+              (end (ogent-ui-request-marker request)))
+    (when (and (buffer-live-p buffer) (markerp end) (marker-position end))
+      (with-current-buffer buffer
+        (save-excursion
+          (goto-char start)
+          (forward-line 1)            ; skip the "*** Response (model)" line
+          (let ((body-start (point))
+                (body-end (marker-position end)))
+            (when (< body-start body-end)
+              (string-trim
+               (buffer-substring-no-properties body-start body-end)))))))))
+
 (defun ogent-ui--append-response (request chunk)
   "Append CHUNK to REQUEST's response block.
 If `ogent-auto-scroll' is enabled and the user hasn't scrolled away,
@@ -1454,6 +1479,10 @@ automatically scroll the window to show new content.
 Org headings in the response are shifted to nest under the Response
 heading (see `ogent-shift-response-headings')."
   (when (and (stringp chunk) (> (length chunk) 0))
+    ;; First streamed chunk marks time-to-first-token for analytics
+    ;; (self-guards; no-op after the first call or when analytics is off).
+    (when (fboundp 'ogent-analytics-first-token)
+      (ogent-analytics-first-token))
     (let ((marker (ogent-ui-request-marker request))
           (processed-chunk (ogent-ui--shift-org-headings chunk)))
       (when (and marker (marker-buffer marker))
@@ -1587,7 +1616,22 @@ Provides visual feedback via mode-line flash."
       (let ((latency (ogent-ui--format-latency request)))
         (ogent-theme-flash 'success
                            (format "Response complete%s"
-                                   (if latency (format " (%s)" latency) "")))))
+                                   (if latency (format " (%s)" latency) ""))))
+      ;; Record the completion for the analytics eval loop (self-guards
+      ;; on `ogent-analytics-enabled'; only successful responses count).
+      ;; Analytics is a side channel: never let it break request close.
+      (when (fboundp 'ogent-analytics-record-completion)
+        (condition-case err
+            (let ((model (ogent-ui-request-model request)))
+              (ogent-analytics-record-completion
+               (or (plist-get model :id) "unknown")
+               (or (ogent-ui-request-prompt request) "")
+               (or (ogent-ui--response-body-text request) "")
+               (let ((preset (ogent-ui-request-preset request)))
+                 (and preset (format "%s" preset)))))
+          (error
+           (message "ogent-analytics: failed to record completion: %s"
+                    (error-message-string err))))))
     (ogent-ledger-record-request-finish request error-message)
     ;; Fold the prompt/context src block
     (ogent-ui--fold-prompt-block request)
