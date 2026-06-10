@@ -195,7 +195,6 @@ Job(agent_slug, job_id, path, name, cron, heartbeat, enabled)
 Session(agent_slug, session_id, path, status, provider, model)
 App(path, owner)
 Issue(id, worker)
-GasTownHook(root)
 
 contains        : Armory -> Agent
 owns            : Agent   -> Job
@@ -205,22 +204,20 @@ produced        : Session -> App
 failed-from     : Job     -> failed Session
 archived-from   : Agent/Job/Session -> Armory
 linked-issue    : Record  -> Issue
-assigned-worker : Issue   -> Agent/GasTown worker
+assigned-worker : Issue   -> Agent
 #+end_example
 
 =ogent-armory-build-graph= materializes the derived graph from Org files.
 Nodes are plists with =:id=, =:kind=, =:label=, =:path=, and =:data=. Edges are
 plists with =:from=, =:to=, and =:kind=. The graph is rebuildable from
-=index.org=, persona files, job files, transcripts, issue properties, discovered
-apps, and local Gas Town markers.
+=index.org=, persona files, job files, transcripts, issue properties, and
+discovered apps.
 
 This shape makes the Armory layer a natural extension of existing ogent
 systems:
 
 - =ogent-issues= can project beads work into the same graph by attaching issue
   nodes to armory, agent, job, or conversation nodes.
-- =ogent-gastown-status= can project hooks, mail, convoys, rigs, and worker
-  assignments as operational edges.
 - Org agenda/search already performs collection and display over scattered TODO
   entries, tags, and properties, which matches the projection model.
 - Future indexes can move from full rebuilds toward change propagation over Org
@@ -250,8 +247,8 @@ The Emacs surfaces are boring and powerful:
 	  during item navigation. Evil normal state keeps =j=/=k= line movement,
 	  =gg=/=G= buffer movement, =gr= refresh, =gj=/=gk= section movement, and
 	  =ZZ=/=ZQ= quit.
-- =ogent-armory-status= shows the derived Armory graph and operational
-  bridges to Issues and Gas Town. Press =R= on an agent, job, or retryable
+- =ogent-armory-status= shows the derived Armory graph and an operational
+  bridge to Issues. Press =R= on an agent, job, or retryable
   session to run it through the selected CLI provider. Press =e= to edit
   metadata in the durable Org property drawer, =E= to edit a body or job
   prompt, =P= for an agent profile, =J= for the selected agent's jobs, =C= to
@@ -348,8 +345,8 @@ The implementation should use existing ogent primitives whenever possible:
 - Conversation rendering should reuse current Org src/tool block conventions.
 - Tool effects and approval policy stay in =ogent-tool-effects.el= and
   =ogent-tool-approval.el=.
-- Beads and Gas Town stay as their own operational backends while Armory
-  records expose typed graph attachment points.
+- Beads stays its own operational backend while Armory records expose
+  typed graph attachment points.
 
 * Phases
 
@@ -359,9 +356,9 @@ The implementation should use existing ogent primitives whenever possible:
 - Scaffold armory directories with =index.org=.
 - Write/read =persona.org= agent files.
 - Write/read Org job files.
-- Build a typed graph projection over armory, agent, job, session, app, issue,
-  and Gas Town hook records.
-- Add Armory home and status buffers that bridge to Issues and Gas Town.
+- Build a typed graph projection over armory, agent, job, session, app, and
+  issue records.
+- Add Armory home and status buffers that bridge to Issues.
 - Test that no Markdown files are emitted.
 
 ** Phase 2: Agent Profile Buffers

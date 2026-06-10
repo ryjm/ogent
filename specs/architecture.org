@@ -86,7 +86,7 @@ frontmatter:
   graph with =armory=, =agent=, and =job= nodes plus semantic edges such as
   =contains= and =owns=
 - =ogent-armory-status= renders that graph as the Armory operational entry
-  point and links into =ogent-issues= and =ogent-gastown-status=
+  point and links into =ogent-issues=
 - =ogent-armory-runner= executes agents and jobs through local Codex or Claude
   CLI subscriptions, then persists each run as an Org transcript under the
   agent's session directory

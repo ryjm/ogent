@@ -2276,7 +2276,7 @@ Verifies the underlying behavior that restore-position must handle."
                          'ogent-issue '(:id "t1" :status "open"))
       (goto-char (point-min))
       (cl-letf (((symbol-function 'ogent-issues-bd-update)
-                 (lambda (id callback &rest props)
+                 (lambda (_id callback &rest props)
                    (setq update-called t
                          update-status (plist-get props :status))
                    (funcall callback)))
@@ -2299,7 +2299,7 @@ Verifies the underlying behavior that restore-position must handle."
                          'ogent-issue '(:id "t1" :status "open"))
       (goto-char (point-min))
       (cl-letf (((symbol-function 'ogent-issues-bd-update)
-                 (lambda (id callback &rest props)
+                 (lambda (_id callback &rest props)
                    (setq update-called t
                          update-status (plist-get props :status))
                    (funcall callback)))
@@ -2476,7 +2476,7 @@ Verifies the underlying behavior that restore-position must handle."
               ((symbol-function 'ogent-issues-bd-project-name)
                (lambda (&optional _) "ar-test"))
               ((symbol-function 'ogent-issues-bd-get)
-               (lambda (id callback &optional _error-callback)
+               (lambda (_id _callback &optional _error-callback)
                  (setq get-called t))))
       (ogent-issues--show-detail
        '(:id "ar-1" :title "Auto Refresh" :status "open"
@@ -2500,7 +2500,7 @@ Verifies the underlying behavior that restore-position must handle."
               ((symbol-function 'ogent-issues-bd-project-name)
                (lambda (&optional _) "noar-test"))
               ((symbol-function 'ogent-issues-bd-get)
-               (lambda (id callback &optional _error-callback)
+               (lambda (_id _callback &optional _error-callback)
                  (setq get-called t))))
       (ogent-issues--show-detail
        '(:id "noar-1" :title "No Auto Refresh" :status "open"
@@ -2710,55 +2710,6 @@ Verifies the underlying behavior that restore-position must handle."
       (goto-char (point-min))
       (should-error (ogent-issues-comment) :type 'user-error))))
 
-(ert-deftest ogent-issues-test-goto-gastown-calls-status ()
-  "Test goto-gastown delegates to `ogent-gastown-status'."
-  (let ((status-called nil))
-    (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-               (lambda () t))
-              ((symbol-function 'ogent-gastown-status)
-               (lambda ()
-                 (interactive)
-                 (setq status-called t))))
-      (ogent-issues-goto-gastown)
-      (should status-called))))
-
-(ert-deftest ogent-issues-test-sling-issue-no-issue ()
-  "Test sling-issue signals user-error when no issue at point."
-  (with-temp-buffer
-    (ogent-issues-mode)
-    (let ((inhibit-read-only t)
-          (ogent-issues--magit-section-available nil))
-      (insert "no issue\n")
-      (goto-char (point-min))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () t)))
-        (should-error (ogent-issues-sling-issue "ogent/crew/ritchie")
-                      :type 'user-error)))))
-
-(ert-deftest ogent-issues-test-sling-issue-calls-run-async ()
-  "Test sling-issue dispatches current issue id via gt sling."
-  (let ((run-args nil)
-        (refresh-called nil))
-    (with-temp-buffer
-      (ogent-issues-mode)
-      (let ((inhibit-read-only t)
-            (ogent-issues--magit-section-available nil))
-        (insert "issue\n")
-        (put-text-property (point-min) (1- (point-max))
-                           'ogent-issue '(:id "test-123" :title "T"))
-        (goto-char (point-min))
-        (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                   (lambda () t))
-                  ((symbol-function 'ogent-gastown--run-async)
-                   (lambda (command args callback &optional _error-callback _raw-output)
-                     (setq run-args (list command args))
-                     (funcall callback nil)))
-                  ((symbol-function 'ogent-issues-refresh)
-                   (lambda () (setq refresh-called t))))
-          (ogent-issues-sling-issue "ogent/crew/ritchie"))))
-    (should (equal run-args '("sling" ("test-123" "ogent/crew/ritchie"))))
-    (should refresh-called)))
-
 ;;; Sync Tests
 
 (ert-deftest ogent-issues-test-sync-calls-bd-sync ()
@@ -2810,155 +2761,13 @@ Verifies the underlying behavior that restore-position must handle."
       (goto-char (point-min))
       (should (equal test-issue (ogent-issues--current-issue))))))
 
-;;; Gas Town Detail Section Tests
-
-(ert-deftest ogent-issues-test-gastown-section-hidden-when-integration-inactive ()
-  "Test Gas Town section not shown when integration is inactive."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (let ((inhibit-read-only t))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () nil)))
-        (let ((issue '(:id "test-1" :title "Test" :status "open")))
-          (ogent-issues--insert-detail-gastown issue)
-          (should (= (point-min) (point-max))))))))
-
-(ert-deftest ogent-issues-test-gastown-section-shown-when-active-no-agents ()
-  "Test Gas Town section shows no-agent message when active but no agents."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (let ((inhibit-read-only t))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () t)))
-        (setq ogent-issues-detail--gastown-agents nil)
-        (let ((issue '(:id "test-1" :title "Test" :status "open")))
-          (ogent-issues--insert-detail-gastown issue)
-          (should (string-match-p "Gas Town" (buffer-string)))
-          (should (string-match-p "No agent currently working" (buffer-string))))))))
-
-(ert-deftest ogent-issues-test-gastown-section-shows-agents ()
-  "Test Gas Town section displays assigned agents."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (let ((inhibit-read-only t))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () t)))
-        (setq ogent-issues-detail--gastown-agents
-              (list (list :name "furiosa" :type "polecat" :rig "ogent"
-                          :state "working" :running t)))
-        (let ((issue '(:id "test-1" :title "Test" :status "open")))
-          (ogent-issues--insert-detail-gastown issue)
-          (should (string-match-p "Gas Town" (buffer-string)))
-          (should (string-match-p "furiosa" (buffer-string)))
-          (should (string-match-p "polecat/ogent" (buffer-string))))))))
-
-(ert-deftest ogent-issues-test-gastown-section-multiple-agents ()
-  "Test Gas Town section handles multiple agents."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (let ((inhibit-read-only t))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () t)))
-        (setq ogent-issues-detail--gastown-agents
-              (list (list :name "furiosa" :type "polecat" :rig "ogent"
-                          :state "working" :running t)
-                    (list :name "ritchie" :type "crew" :rig "ogent"
-                          :state nil :running nil)))
-        (let ((issue '(:id "test-1" :title "Test" :status "open")))
-          (ogent-issues--insert-detail-gastown issue)
-          (should (string-match-p "furiosa" (buffer-string)))
-          (should (string-match-p "ritchie" (buffer-string))))))))
-
-(ert-deftest ogent-issues-test-gastown-section-running-vs-idle ()
-  "Test Gas Town section shows different indicators for running vs idle agents."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (let ((inhibit-read-only t))
-      (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-                 (lambda () t)))
-        (setq ogent-issues-detail--gastown-agents
-              (list (list :name "active-agent" :type "polecat" :rig "ogent"
-                          :state "working" :running t)
-                    (list :name "idle-agent" :type "polecat" :rig "ogent"
-                          :state "done" :running nil)))
-        (let ((issue '(:id "test-1" :title "Test" :status "open")))
-          (ogent-issues--insert-detail-gastown issue)
-          ;; Both should be in buffer
-          (should (string-match-p "active-agent" (buffer-string)))
-          (should (string-match-p "idle-agent" (buffer-string)))
-          ;; Idle agent should show state
-          (should (string-match-p "\\[done\\]" (buffer-string))))))))
-
-(ert-deftest ogent-issues-test-gastown-fetch-skipped-when-inactive ()
-  "Test gastown agent fetch is skipped when integration inactive."
-  (with-temp-buffer
-    (ogent-issues-detail-mode)
-    (cl-letf (((symbol-function 'ogent-gastown-integration-active-p)
-               (lambda () nil)))
-      (let ((buf (current-buffer)))
-        ;; Should return nil and not start any processes
-        (should-not (ogent-issues--fetch-gastown-agents "test-1" buf))))))
-
-;;; Agent Assignment Integration Tests
-
-(ert-deftest ogent-issues-test-format-agent-indicator-single ()
-  "Test formatting agent indicator for single agent on issue line."
-  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
-    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
-    (let ((result (ogent-issues--format-agent-indicator "test-001")))
-      (should result)
-      (should (string= " → ritchie" (substring-no-properties result))))))
-
-(ert-deftest ogent-issues-test-format-agent-indicator-multiple ()
-  "Test formatting agent indicator for multiple agents."
-  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
-    (puthash "test-001" '(("toast" . "polecat") ("ritchie" . "crew"))
-             ogent-issues--agent-assignments)
-    (let ((result (ogent-issues--format-agent-indicator "test-001")))
-      (should result)
-      (should (string= " → toast +1" (substring-no-properties result))))))
-
-(ert-deftest ogent-issues-test-format-agent-indicator-none ()
-  "Test formatting returns nil when no agent assigned."
-  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal)))
-    (should-not (ogent-issues--format-agent-indicator "test-xyz"))))
-
-(ert-deftest ogent-issues-test-format-agent-indicator-nil-cache ()
-  "Test formatting returns nil when assignments cache is nil."
-  (let ((ogent-issues--agent-assignments nil))
-    (should-not (ogent-issues--format-agent-indicator "test-001"))))
-
-(ert-deftest ogent-issues-test-format-issue-line-with-agent ()
-  "Test that issue line includes agent assignment when available."
-  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal))
-        (ogent-issues-use-unicode t))
-    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
-    (let ((line (ogent-issues--format-issue-line
-                 '(:id "test-001" :title "Test issue" :priority 1
-                   :issue_type "task" :status "open" :dependency_count 0))))
-      (should (string-match-p "→ ritchie" line)))))
-
-(ert-deftest ogent-issues-test-format-issue-line-without-agent ()
-  "Test that issue line omits agent when no assignment."
-  (let ((ogent-issues--agent-assignments nil)
-        (ogent-issues-use-unicode t))
+(ert-deftest ogent-issues-test-format-issue-line-has-no-agent-indicator ()
+  "Issue lines never render an agent-assignment arrow."
+  (let ((ogent-issues-use-unicode t))
     (let ((line (ogent-issues--format-issue-line
                  '(:id "test-001" :title "Test issue" :priority 1
                    :issue_type "task" :status "open" :dependency_count 0))))
       (should-not (string-match-p "→" line)))))
-
-(ert-deftest ogent-issues-test-format-issue-line-agent-has-dimmed-face ()
-  "Test that agent indicator uses dimmed face."
-  (let ((ogent-issues--agent-assignments (make-hash-table :test #'equal))
-        (ogent-issues-use-unicode t))
-    (puthash "test-001" '(("ritchie" . "crew")) ogent-issues--agent-assignments)
-    (let ((line (ogent-issues--format-issue-line
-                 '(:id "test-001" :title "Test issue" :priority 1
-                   :issue_type "task" :status "open" :dependency_count 0))))
-      ;; Find the agent indicator and check its face
-      (let ((pos (string-match "→ ritchie" line)))
-        (should pos)
-        (should (eq 'ogent-issues-dimmed (get-text-property pos 'face line)))))))
 
 (provide 'ogent-issues-tests)
 

@@ -37,6 +37,32 @@ Captured at load time so sibling requires remain robust.")
 
 (require 'ogent-issues-bd)
 
+;; Evil motions referenced in the optional Evil integration (fileonly:
+;; defined via `evil-define-motion').
+(declare-function evil-goto-line "ext:evil" t t)
+(declare-function evil-goto-first-line "ext:evil" t t)
+(declare-function evil-local-set-key "ext:evil" t t)
+(declare-function magit-section-cycle-global "ext:magit-section" t t)
+(declare-function magit-section-toggle "ext:magit-section" t t)
+(declare-function magit-insert-section "ext:magit-section" t t)
+(declare-function magit-insert-heading "ext:magit-section" t t)
+(declare-function magit-current-section "ext:magit-section" t t)
+(declare-function magit-section-forward "ext:magit-section" t t)
+(declare-function magit-section-backward "ext:magit-section" t t)
+(declare-function magit-section-forward-sibling "ext:magit-section" t t)
+(declare-function magit-section-backward-sibling "ext:magit-section" t t)
+(declare-function magit-section-up "ext:magit-section" t t)
+
+;; Section classes are defclass'd at runtime only when magit-section is
+;; available, so constructors and eieio predicates are unknown at compile
+;; time (fileonly).
+(declare-function ogent-issues-root-section "ogent-issues" t t)
+(declare-function ogent-issues-status-section "ogent-issues" t t)
+(declare-function ogent-issues-issue-section "ogent-issues" t t)
+(declare-function ogent-issues-root-section--eieio-childp "ogent-issues" t t)
+(declare-function ogent-issues-status-section--eieio-childp "ogent-issues" t t)
+(declare-function ogent-issues-issue-section--eieio-childp "ogent-issues" t t)
+
 ;; Load transient menu if available
 (declare-function ogent-issues-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-dispatch "ogent-issues-transient" nil t)
@@ -46,21 +72,6 @@ Captured at load time so sibling requires remain robust.")
 ;; Load graph visualization if available
 (declare-function ogent-issues-graph-view "ogent-issues-graph" (&optional issue-id) t)
 (autoload 'ogent-issues-graph-view "ogent-issues-graph" nil t)
-
-;; Gas Town integration (soft dependency)
-(declare-function ogent-gastown-integration-active-p "ogent-gastown" () t)
-(declare-function ogent-gastown-status "ogent-gastown-status" () t)
-(declare-function ogent-gastown-mail-compose "ogent-gastown-status"
-  (&optional initial-recipient initial-subject initial-body) t)
-(declare-function ogent-gastown--run-async "ogent-gastown" (command args callback &optional error-callback raw-output))
-(declare-function ogent-gastown-fetch-agent-assignments "ogent-gastown" (callback))
-(declare-function ogent-gastown-format-agent-assignment "ogent-gastown" (bead-id))
-(autoload 'ogent-gastown-integration-active-p "ogent-gastown" nil nil)
-(autoload 'ogent-gastown-status "ogent-gastown-status" nil t)
-(autoload 'ogent-gastown-mail-compose "ogent-gastown-status" nil t)
-(autoload 'ogent-gastown--run-async "ogent-gastown" nil nil)
-(autoload 'ogent-gastown-fetch-agent-assignments "ogent-gastown" nil nil)
-(autoload 'ogent-gastown-format-agent-assignment "ogent-gastown" nil nil)
 
 ;;; Customization
 
@@ -419,10 +430,6 @@ Used to detect project switches and clear stale state.")
 (defvar-local ogent-issues--loading-frame 0
   "Current animation frame index.")
 
-(defvar-local ogent-issues--agent-assignments nil
-  "Hash table mapping bead-id to agent assignment info.
-Populated from Gas Town crew/polecat data when integration is active.")
-
 (defun ogent-issues--get-loading-frames ()
   "Return loading animation frames."
   (ogent-ops-loading-frames))
@@ -554,7 +561,7 @@ Views:
 
 Other:
   \\[ogent-issues-refresh]     Refresh
-  \\[ogent-issues-sync]     Run bd sync
+  \\[ogent-issues-sync]     Run br sync
   \\[ogent-issues-dispatch]     Show all commands
 
 \\{ogent-issues-mode-map}"
@@ -846,17 +853,6 @@ An issue is ready if it's open, not blocked, and has no blockers."
          (or (null blocked-by)
              (= (length blocked-by) 0)))))
 
-(defun ogent-issues--format-agent-indicator (bead-id)
-  "Return a propertized agent assignment string for BEAD-ID, or nil."
-  (when-let ((agents (and ogent-issues--agent-assignments
-                          (gethash bead-id ogent-issues--agent-assignments))))
-    (let* ((first-name (car (car agents)))
-           (count (length agents)))
-      (propertize (if (= count 1)
-                      (format " → %s" first-name)
-                    (format " → %s +%d" first-name (1- count)))
-                  'face 'ogent-issues-dimmed))))
-
 (defun ogent-issues--format-issue-line (issue)
   "Format ISSUE as a single line for the list view."
   (let* ((id (plist-get issue :id))
@@ -889,12 +885,7 @@ An issue is ready if it's open, not blocked, and has no blockers."
      (propertize truncated-title 'face (ogent-issues--status-face status))
      ;; Dependencies count (if any)
      (when (and deps (> deps 0))
-       (propertize (format " (%d)" deps) 'face 'ogent-issues-dimmed))
-     ;; Agent assignment (from Gas Town integration)
-     (when-let ((agent-str (and ogent-issues--agent-assignments
-                                id
-                                (ogent-issues--format-agent-indicator id))))
-       agent-str))))
+       (propertize (format " (%d)" deps) 'face 'ogent-issues-dimmed)))))
 
 ;;; Section Insertion
 
@@ -1001,7 +992,9 @@ errors in `magit-section-post-command-hook'."
       (when-let ((section (magit-current-section)))
         ;; Use eq on class name to avoid cl-typep compile-time type resolution
         (when (eq (eieio-object-class-name section) 'ogent-issues-issue-section)
-          (oref section value)))
+          ;; The `value' slot belongs to magit-section, a soft dependency
+          ;; that may be absent at compile time.
+          (with-no-warnings (eieio-oref section 'value))))
     (get-text-property (point) 'ogent-issue)))
 
 (defun ogent-issues--current-issue-id ()
@@ -1157,11 +1150,6 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
 (defvar-local ogent-issues-detail--issue nil
   "The issue being displayed in this detail buffer.")
 
-(defvar-local ogent-issues-detail--gastown-agents nil
-  "List of agents working on the current detail issue.
-Each element is a plist with :name, :type (\"crew\" or \"polecat\"),
-:rig, and :state.")
-
 (defun ogent-issues--show-detail (issue)
   "Show detailed view for ISSUE in a dedicated buffer.
 Renders immediately with available data for instant feedback.
@@ -1212,12 +1200,9 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
         (ogent-issues--insert-detail-description issue)
         (ogent-issues--insert-detail-subtasks issue)
         (ogent-issues--insert-detail-metadata issue)
-        (ogent-issues--insert-detail-gastown issue)
         (ogent-issues--insert-detail-dependencies issue)
         (ogent-issues--insert-detail-comments issue)
         (goto-char (point-min))
-        ;; Kick off async gastown agent fetch (will re-render when done)
-        (ogent-issues--fetch-gastown-agents (plist-get issue :id) buf)
         (setq header-line-format
               (concat
                " "
@@ -1313,117 +1298,6 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
                 labels))
       (insert "\n"))
     (insert "\n")))
-
-(defun ogent-issues--insert-detail-gastown (_issue)
-  "Insert Gas Town agent assignment section for ISSUE.
-Shows which agents (crew/polecats) have this bead hooked.
-Only displayed when `ogent-gastown-integration-active-p' returns non-nil."
-  (when (and (fboundp 'ogent-gastown-integration-active-p)
-             (ogent-gastown-integration-active-p))
-    (let ((agents ogent-issues-detail--gastown-agents))
-      (insert (propertize "Gas Town" 'face 'ogent-issues-section-heading))
-      (insert "\n")
-      (cond
-       ;; Agents found for this bead
-       (agents
-        (dolist (agent agents)
-          (let* ((name (plist-get agent :name))
-                 (agent-type (plist-get agent :type))
-                 (rig (plist-get agent :rig))
-                 (state (plist-get agent :state))
-                 (running (plist-get agent :running))
-                 (icon (if running "●" "○"))
-                 (face (if running 'ogent-issues-status-in-progress
-                         'ogent-issues-dimmed)))
-            (insert (propertize "Assigned " 'face 'ogent-issues-dimmed))
-            (insert (propertize icon 'face face))
-            (insert " ")
-            (insert (propertize (or name "???") 'face face))
-            (when rig
-              (insert (propertize (format " (%s/%s)" agent-type rig)
-                                  'face 'ogent-issues-dimmed)))
-            (when (and state (not running))
-              (insert (propertize (format " [%s]" state)
-                                  'face 'ogent-issues-dimmed)))
-            (insert "\n"))))
-       ;; No agents - show minimal message
-       (t
-        (insert (propertize "         " 'face 'ogent-issues-dimmed))
-        (insert (propertize "No agent currently working on this issue"
-                            'face 'ogent-issues-dimmed))
-        (insert "\n")))
-      (insert "\n"))))
-
-(defun ogent-issues--fetch-gastown-agents (issue-id buffer)
-  "Fetch Gas Town agent data and update BUFFER with agents for ISSUE-ID.
-Fetches both crew and polecat lists, finds agents with this bead hooked,
-and re-renders the detail view."
-  (when (and (fboundp 'ogent-gastown--run-async)
-             (fboundp 'ogent-gastown-integration-active-p)
-             (ogent-gastown-integration-active-p))
-    (let* ((pending 2)
-           (crew-agents nil)
-           (polecat-agents nil)
-           (check-done
-            (lambda ()
-              (cl-decf pending)
-              (when (zerop pending)
-                (let ((all-agents (append crew-agents polecat-agents)))
-                  (when (buffer-live-p buffer)
-                    (with-current-buffer buffer
-                      (when (and ogent-issues-detail--issue
-                                 (equal (plist-get ogent-issues-detail--issue :id)
-                                        issue-id))
-                        ;; Only re-render if agent data changed
-                        (unless (equal ogent-issues-detail--gastown-agents all-agents)
-                          (setq ogent-issues-detail--gastown-agents all-agents)
-                          (let ((inhibit-read-only t)
-                                (pos (point)))
-                            (erase-buffer)
-                            (ogent-issues--insert-detail-header ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-description ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-subtasks ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-metadata ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-gastown ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-dependencies ogent-issues-detail--issue)
-                            (ogent-issues--insert-detail-comments ogent-issues-detail--issue)
-                            (goto-char (min pos (point-max)))))))))))))
-      ;; Fetch crew members
-      (ogent-gastown--run-async
-       "crew" '("list" "--json")
-       (lambda (result)
-         (when (listp result)
-           (dolist (member result)
-             (let ((hooked (plist-get member :hooked_work)))
-               (when (and hooked (stringp hooked)
-                          (string= hooked issue-id))
-                 (push (list :name (plist-get member :name)
-                             :type "crew"
-                             :rig (plist-get member :rig)
-                             :state nil
-                             :running (plist-get member :session_running))
-                       crew-agents)))))
-         (funcall check-done))
-       (lambda (_err) (funcall check-done)))
-      ;; Fetch polecats
-      (ogent-gastown--run-async
-       "polecat" '("list" "--all" "--json")
-       (lambda (result)
-         (when (listp result)
-           (dolist (polecat result)
-             (let ((hooked (or (plist-get polecat :issue)
-                               (plist-get polecat :hooked_work)
-                               (plist-get polecat :current_task))))
-               (when (and hooked (stringp hooked)
-                          (string= hooked issue-id))
-                 (push (list :name (plist-get polecat :name)
-                             :type "polecat"
-                             :rig (plist-get polecat :rig)
-                             :state (plist-get polecat :state)
-                             :running (plist-get polecat :session_running))
-                       polecat-agents)))))
-         (funcall check-done))
-       (lambda (_err) (funcall check-done))))))
 
 (defun ogent-issues--insert-detail-subtasks (issue)
   "Insert subtasks section for ISSUE (child issues)."
@@ -1699,17 +1573,6 @@ and re-renders the detail view."
   (let ((buf (current-buffer)))
     ;; Start loading animation
     (ogent-issues--start-loading)
-    ;; Fire gastown agent assignment fetch in parallel (if integration active)
-    (when (and (fboundp 'ogent-gastown-integration-active-p)
-               (ogent-gastown-integration-active-p))
-      (ogent-gastown-fetch-agent-assignments
-       (lambda (assignments)
-         (when (buffer-live-p buf)
-           (with-current-buffer buf
-             (setq ogent-issues--agent-assignments assignments)
-             ;; Re-render if issues are already loaded
-             (when ogent-issues--issues
-               (ogent-issues--render-buffer buf)))))))
     ;; Fetch and render issues
     (ogent-issues-bd-list
      (lambda (issues)
@@ -1887,43 +1750,14 @@ and re-renders the detail view."
     (user-error "No issue at point")))
 
 (defun ogent-issues-sync ()
-  "Run `bd sync' for the active Beads project."
+  "Run `br sync --flush-only' for the active Beads project."
   (interactive)
   (ogent-issues-bd-sync
    (lambda ()
-     (message "bd sync completed")
+     (message "br sync completed")
      (ogent-issues-refresh))
    (lambda (err)
      (message "Failed to sync: %s" err))))
-
-(defun ogent-issues-goto-gastown ()
-  "Open the Gas Town status buffer."
-  (interactive)
-  (unless (ogent-gastown-integration-active-p)
-    (user-error "Gas Town integration is not active"))
-  (call-interactively #'ogent-gastown-status))
-
-(defun ogent-issues-sling-issue (&optional target)
-  "Sling the issue at point to TARGET.
-TARGET must be a valid Gas Town target such as rig name or rig/role/name."
-  (interactive)
-  (unless (ogent-gastown-integration-active-p)
-    (user-error "Gas Town integration is not active"))
-  (if-let ((issue-id (ogent-issues--current-issue-id)))
-      (let ((target (or target (read-string "Sling to (rig or rig/role/name): "))))
-        (when (string-empty-p target)
-          (user-error "Sling target cannot be empty"))
-        (message "Slinging %s -> %s ..." issue-id target)
-        (ogent-gastown--run-async
-         "sling"
-         (list issue-id target)
-         (lambda (_result)
-           (message "Slung %s -> %s" issue-id target)
-           (ogent-issues-refresh))
-         (lambda (err)
-           (message "Sling failed: %s" err))
-         t))
-    (user-error "No issue at point")))
 
 ;;; Views
 
@@ -2149,7 +1983,7 @@ TARGET must be a valid Gas Town target such as rig name or rig/role/name."
      ((string= current-status new-status)
       (message "Issue already in %s" new-status))
      (t
-      ;; Use bd CLI to update status
+      ;; Use br CLI to update status
       (ogent-issues-bd-update id
 			      (lambda ()
 				(message "Moved %s to %s" id new-status)

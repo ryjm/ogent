@@ -162,7 +162,7 @@ Implemented storage capabilities in =lisp/ogent-armory.el=:
   and record body.
 - Discover generated app artifacts by scanning for =index.html=.
 - Build a typed operational graph containing armory, agent, job, session, app,
-  issue, and Gas Town hook nodes.
+  and issue nodes.
 - Import =.md=, =.html=, and =.txt= artifacts into Org import records.
 
 ** Runner Already Exists
@@ -223,8 +223,8 @@ Implemented test coverage:
 - =test/ogent-armory-runner-tests.el=: Codex and Claude plans, overrides,
   malformed metadata, Org escaping, successful stderr trace handling, session
   writing, generated app links.
-- =test/ogent-armory-status-tests.el=: graph rendering, issue and Gas Town
-  bridges, keybindings, sections, editing, run actions, profile and jobs jumps.
+- =test/ogent-armory-status-tests.el=: graph rendering, the issue bridge,
+  keybindings, sections, editing, run actions, profile and jobs jumps.
 - =test/ui/ogent-ui-armory-tests.el=: home, agents, profiles, jobs, tasks,
   conversations, search, apps, Evil integration, section navigation, run/edit
   actions.

@@ -133,7 +133,6 @@
 (require 'ogent-armory-settings)
 (require 'ogent-ui-armory)
 (require 'ogent-armory-status)
-(require 'ogent-gastown)
 (require 'ogent-presets)
 (require 'ogent-analytics)
 

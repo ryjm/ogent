@@ -11,9 +11,6 @@
 (require 'transient)
 (require 'ogent)
 (require 'ogent-armory-status)
-(require 'ogent-gastown-status)
-(require 'ogent-gastown-status-transient)
-(require 'ogent-gastown-tmux)
 (require 'ogent-issues)
 (require 'ogent-issues-transient)
 (require 'ogent-tool-approval)
@@ -23,9 +20,6 @@
     ogent-edit-menu
     ogent-armory-home-dispatch
     ogent-armory-status-dispatch
-    ogent-gastown-dispatch
-    ogent-gastown-status-dispatch
-    ogent-gastown-tmux-dispatch
     ogent-issues-create-dispatch
     ogent-issues-dispatch
     ogent-issues-filter-dispatch
@@ -34,16 +28,10 @@
   "Transient prefixes that make up ogent's command harness.")
 
 (defun ogent-transient-audit--with-stable-environment (fn)
-  "Call FN with external command lookups stubbed for deterministic audits."
-  (cl-letf (((symbol-function 'ogent-gastown--in-town-p)
-             (lambda (&rest _) nil))
-            ((symbol-function 'ogent-gastown--workspace-root-display)
-             (lambda (&rest _) nil))
-            ((symbol-function 'ogent-gastown-tmux--get-sessions)
-             (lambda (&rest _) nil))
-            ((symbol-function 'ogent-gastown-integration-active-p)
-             (lambda (&rest _) nil)))
-    (funcall fn)))
+  "Call FN.
+Kept as an indirection point for stubbing external command lookups;
+currently no audited transient consults external state at setup time."
+  (funcall fn))
 
 (defun ogent-transient-audit--visible-suffix-p (suffix)
   "Return non-nil when SUFFIX belongs to an ogent-visible command key."
