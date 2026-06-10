@@ -169,8 +169,9 @@ When a tool requiring approval is called:
 ** Customization
 
 #+begin_src emacs-lisp
-;; Reset session approvals (force re-prompting)
-(ogent-tool-approval-reset)
+;; Reset session approvals (force re-prompting): clear the deny list and
+;; remove a tool from the persistent allow-list as needed.
+(setq ogent-tool--denied-tools nil)
 
 ;; Check current approval status
 (ogent-debug-show-approval-status)  ; or C-c . t a
@@ -303,35 +304,34 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 | ogent-tools-max-output-chars   | 30000   | Max chars in tool output             |
 | ogent-tools-shell-timeout      | 120     | Shell command timeout (seconds)      |
 | ogent-tools-project-root       | nil     | Override project root detection      |
-| ogent-tool-fsm-debug           | nil     | Enable FSM debug logging             |
+| ogent-tool-require-approval    | t       | Prompt before risky tool calls       |
 
 * Architecture
 
 #+begin_example
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────┐
-│   gptel FSM     │────▶│  ogent-tool-fsm  │────▶│  ogent-tools    │
-│  (tool_use)     │     │  (orchestration) │     │ (implementation)│
-└─────────────────┘     └──────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌──────────────────┐
-                        │ogent-tool-approval│
-                        │  (user consent)   │
-                        └──────────────────┘
-                               │
-                               ▼
-                        ┌──────────────────┐
-                        │ogent-tool-render │
-                        │  (org display)   │
-                        └──────────────────┘
+┌─────────────────┐     ┌──────────────────────────────┐     ┌─────────────────┐
+│  gptel response │────▶│  ogent-ui.el request callback │────▶│  ogent-tools    │
+│   (tool_use)    │     │ approve · execute · render    │     │ (implementation)│
+└─────────────────┘     └──────────────────────────────┘     └─────────────────┘
+                                       │
+                          ┌────────────┴────────────┐
+                          ▼                          ▼
+                  ┌──────────────────┐      ┌──────────────────┐
+                  │ogent-tool-effects │      │  ogent-ledger    │
+                  │ (risk policy)     │      │ (proof ledger)   │
+                  └──────────────────┘      └──────────────────┘
 #+end_example
+
+For gptel-native execution, =ogent-register-tools= forwards each tool's
+resolved confirmation requirement into gptel's own =:confirm= mechanism,
+so risky tools are gated there too.
 
 ** Components
 
 - *ogent-tools.el* - Tool implementations (read-file, grep, bash, etc.)
-- *ogent-tool-fsm.el* - State machine for tool execution flow
-- *ogent-tool-approval.el* - User consent workflow with transient menu
-- *ogent-tool-render.el* - Org-mode rendering of tool calls and results
+- *ogent-tool-effects.el* - Effect declarations and risk-based approval policy
+- *ogent-ui.el* - Approval gate, execution, and org rendering in the request callback
+- *ogent-ledger.el* - Append-only proof ledger of tool starts/finishes
 - *ogent-models.el* - Tool registry and gptel integration
 
 * Troubleshooting
@@ -357,7 +357,6 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 1. Enable debug mode:
    #+begin_src emacs-lisp
    (ogent-debug-mode 1)
-   (setq ogent-tool-fsm-debug t)
    #+end_src
 
 2. Check the debug buffer: =C-c d s=
@@ -366,6 +365,6 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 
 ** Approval prompts not appearing
 
-1. Check if tool has =:confirm t= in its spec
-2. Reset session approvals: =(ogent-tool-approval-reset)=
-3. Verify transient is loaded: =(require 'transient)=
+1. Check if tool has =:confirm t= or risky =:effects= in its spec
+2. Confirm =ogent-tool-require-approval= is non-nil
+3. Clear stale approvals: the tool may be on =ogent-tool-allow-list=

@@ -13,7 +13,6 @@
 (require 'ogent-cabinet-status)
 (require 'ogent-issues)
 (require 'ogent-issues-transient)
-(require 'ogent-tool-approval)
 
 (defconst ogent-transient-audit-prefixes
   '(ogent-debug-tools-menu
@@ -23,8 +22,7 @@
     ogent-issues-create-dispatch
     ogent-issues-dispatch
     ogent-issues-filter-dispatch
-    ogent-prompt-dispatch
-    ogent-tool-approval-menu)
+    ogent-prompt-dispatch)
   "Transient prefixes that make up ogent's command harness.")
 
 (defun ogent-transient-audit--with-stable-environment (fn)

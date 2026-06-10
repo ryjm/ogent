@@ -8,9 +8,7 @@
 (require 'ert)
 (require 'ogent-tools)
 (require 'ogent-models)
-(require 'ogent-tool-render)
-(require 'ogent-tool-approval)
-(require 'ogent-tool-fsm)
+(require 'ogent-ui)
 (require 'ogent-debug)
 
 ;; Dynamically bound in request-logging tests; defined by gptel at runtime.
@@ -219,13 +217,8 @@
     (should (equal (plist-get (nth 1 ogent-debug-tool-history) :id) "call-3"))
     (should (equal (plist-get (nth 4 ogent-debug-tool-history) :id) "call-0"))))
 
-(ert-deftest ogent-debug-test-fsm-integration ()
-  "Test that ogent-tool-fsm automatically logs to history."
-  (require 'ogent-tool-fsm)
-  (require 'ogent-tools)
-  (require 'ogent-models)
-
-  ;; Save and restore global state to ensure test isolation
+(ert-deftest ogent-debug-test-live-execute-logs-to-history ()
+  "The live tool executor appends successful runs to debug history."
   (let ((saved-history ogent-debug-tool-history)
         (saved-registry ogent-tool-registry))
     (unwind-protect
@@ -236,40 +229,21 @@
                              :description "Test tool"
                              :args ((:name "arg" :type "string" :description "Test"))
                              :confirm nil))))
-          ;; Execute a tool via FSM
-          (let ((callback-invoked nil))
-            (ogent-tool-fsm-execute
-             '(:id "integration-1" :name test-integration-tool :args (:arg "hello"))
-             (lambda (result error)
-               (setq callback-invoked t)
-               (should (null error))
-               (should (stringp result))))
-
-            ;; Callback should have been invoked
-            (should callback-invoked)
-
-            ;; History should have one entry
+          (let ((result (ogent-ui--execute-tool 'test-integration-tool
+                                                 '(:arg "hello"))))
+            (should (equal result "Result: hello"))
             (should (= (length ogent-debug-tool-history) 1))
-
-            ;; Verify entry details
             (let ((entry (car ogent-debug-tool-history)))
-              (should (equal (plist-get entry :id) "integration-1"))
               (should (eq (plist-get entry :name) 'test-integration-tool))
               (should (plist-get entry :result))
               (should (null (plist-get entry :error)))
               (should (numberp (plist-get entry :duration)))
               (should (>= (plist-get entry :duration) 0)))))
-      ;; Cleanup: restore global state
       (setq ogent-debug-tool-history saved-history)
       (setq ogent-tool-registry saved-registry))))
 
-(ert-deftest ogent-debug-test-fsm-failure-integration ()
-  "Test that failed tool executions are logged correctly."
-  (require 'ogent-tool-fsm)
-  (require 'ogent-tools)
-  (require 'ogent-models)
-
-  ;; Save and restore global state to ensure test isolation
+(ert-deftest ogent-debug-test-live-execute-logs-failure-to-history ()
+  "The live tool executor records failed runs with the error in history."
   (let ((saved-history ogent-debug-tool-history)
         (saved-registry ogent-tool-registry))
     (unwind-protect
@@ -280,30 +254,15 @@
                              :description "Failing test tool"
                              :args ((:name "arg" :type "string" :description "Test"))
                              :confirm nil))))
-
-          ;; Execute a failing tool
-          (let ((callback-invoked nil))
-            (ogent-tool-fsm-execute
-             '(:id "fail-1" :name failing-integration-tool :args (:arg "test"))
-             (lambda (result error)
-               (setq callback-invoked t)
-               (should (null result))
-               (should (stringp error))))
-
-            ;; Callback should have been invoked
-            (should callback-invoked)
-
-            ;; History should have one entry
+          (let ((result (ogent-ui--execute-tool 'failing-integration-tool
+                                                 '(:arg "test"))))
+            (should (string-match-p "Boom!" result))
             (should (= (length ogent-debug-tool-history) 1))
-
-            ;; Verify error is recorded
             (let ((entry (car ogent-debug-tool-history)))
-              (should (equal (plist-get entry :id) "fail-1"))
               (should (null (plist-get entry :result)))
               (should (stringp (plist-get entry :error)))
               (should (string-match-p "Boom!" (plist-get entry :error)))
               (should (numberp (plist-get entry :duration))))))
-      ;; Cleanup: restore global state
       (setq ogent-debug-tool-history saved-history)
       (setq ogent-tool-registry saved-registry))))
 
@@ -629,65 +588,50 @@
     (should-error (ogent-debug-replay-last-tool)
                   :type 'user-error)))
 
-(ert-deftest ogent-debug-test-replay-tool-calls-fsm ()
-  "Test replay-tool invokes ogent-tool-fsm-execute with correct args."
+(ert-deftest ogent-debug-test-replay-tool-uses-live-executor ()
+  "Replay re-runs the history entry through `ogent-ui--execute-tool'."
   (let ((ogent-debug-tool-history nil)
-        (fsm-called nil)
-        (fsm-tool-call nil))
-    ;; Add a history entry
+        (exec-name nil)
+        (exec-args nil))
     (ogent-debug-log-tool-call
-     '(:id "replay-test" :name some-tool :args (:x 1))
-     "old-result"
-     0.1)
-    ;; Mock ogent-tool-fsm-execute
-    (cl-letf (((symbol-function 'ogent-tool-fsm-execute)
-               (lambda (tool-call callback)
-                 (setq fsm-called t)
-                 (setq fsm-tool-call tool-call)
-                 (funcall callback "replayed" nil))))
+     '(:id "replay-test" :name some-tool :args (:x 1)) "old-result" 0.1)
+    (cl-letf (((symbol-function 'ogent-ui--execute-tool)
+               (lambda (name args)
+                 (setq exec-name name exec-args args)
+                 "replayed")))
       (ogent-debug-replay-tool (car ogent-debug-tool-history))
-      (should fsm-called)
-      ;; The replayed call should have same name and args
-      (should (eq (plist-get fsm-tool-call :name) 'some-tool))
-      (should (equal (plist-get fsm-tool-call :args) '(:x 1)))
-      ;; ID should be a replay ID
-      (should (string-match-p "^replay-" (plist-get fsm-tool-call :id))))))
+      (should (eq exec-name 'some-tool))
+      (should (equal exec-args '(:x 1))))))
 
 ;;; Show Approval Status Tests
 
-(ert-deftest ogent-debug-test-show-approval-status-no-session ()
-  "Test show-approval-status when no session is active."
-  (let ((ogent-tool-approval--session-approved nil))
-    ;; Mock require to avoid loading real module
-    (cl-letf (((symbol-function 'require)
-               (lambda (feature &rest _)
-                 (when (eq feature 'ogent-tool-approval)
-                   ;; Already bound above
-                   nil))))
-      (ogent-debug-show-approval-status)
-      (let ((buf (get-buffer "*ogent-approval-status*")))
-        (should buf)
-        (with-current-buffer buf
-          (should (string-match-p "Inactive" (buffer-string)))
-          (should (string-match-p "No tools approved" (buffer-string))))
-        (kill-buffer buf)))))
+(ert-deftest ogent-debug-test-show-approval-status-empty ()
+  "Approval status reports an empty allow-list and no denials."
+  (let ((ogent-tool-allow-list nil)
+        (ogent-tool--denied-tools nil)
+        (ogent-tool-require-approval t))
+    (ogent-debug-show-approval-status)
+    (let ((buf (get-buffer "*ogent-approval-status*")))
+      (should buf)
+      (with-current-buffer buf
+        (should (string-match-p "Allow-list: empty" (buffer-string)))
+        (should (string-match-p "No tools denied" (buffer-string))))
+      (kill-buffer buf))))
 
-(ert-deftest ogent-debug-test-show-approval-status-with-approvals ()
-  "Test show-approval-status when tools are approved."
-  (let ((ogent-tool-approval--session-approved (make-hash-table :test 'equal)))
-    (puthash 'read_file t ogent-tool-approval--session-approved)
-    (puthash 'write_file t ogent-tool-approval--session-approved)
-    (cl-letf (((symbol-function 'require)
-               (lambda (feature &rest _)
-                 (when (eq feature 'ogent-tool-approval)
-                   nil))))
-      (ogent-debug-show-approval-status)
-      (let ((buf (get-buffer "*ogent-approval-status*")))
-        (should buf)
-        (with-current-buffer buf
-          (should (string-match-p "Active" (buffer-string)))
-          (should (string-match-p "Approved tools:" (buffer-string))))
-        (kill-buffer buf)))))
+(ert-deftest ogent-debug-test-show-approval-status-populated ()
+  "Approval status lists allow-list patterns and session denials."
+  (let ((ogent-tool-allow-list '("read-file" "grep"))
+        (ogent-tool--denied-tools '("bash"))
+        (ogent-tool-require-approval t))
+    (ogent-debug-show-approval-status)
+    (let ((buf (get-buffer "*ogent-approval-status*")))
+      (should buf)
+      (with-current-buffer buf
+        (should (string-match-p "Allow-list (auto-approved):" (buffer-string)))
+        (should (string-match-p "read-file" (buffer-string)))
+        (should (string-match-p "Denied this session:" (buffer-string)))
+        (should (string-match-p "bash" (buffer-string))))
+      (kill-buffer buf))))
 
 ;;; Tool History Navigation Tests
 

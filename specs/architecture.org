@@ -56,10 +56,22 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
 - Navigation commands work from either buffer
 
 *** Tool Execution
-- =ogent-tool-registry= defines available tools with approval workflows
-- Tool results render in =#+begin_tool= blocks, folded by default
-- =ogent-tool-fsm= manages the approval state machine
-- Users can re-run tools at point with =ogent-tool-rerun=
+- =ogent-tool-registry= (in =ogent-models.el=) defines available tools,
+  each declaring =:effects= and an optional =:confirm= flag
+- The request callback in =ogent-ui.el= owns the live execution path:
+  =ogent-ui--check-tool-approval= gates each call against the persistent
+  allow-list (=ogent-tool-allow-list=), the session deny list
+  (=ogent-tool--denied-tools=), and the effects policy, prompting the user
+  when required; =ogent-ui--execute-tool= then runs the tool, records the
+  outcome to the proof ledger and the debug history, and renders it in a
+  =:TOOL:= drawer
+- =ogent-register-tools= bridges each tool's confirmation requirement into
+  =gptel-make-tool='s =:confirm= slot (resolved by
+  =ogent-tool-spec-confirm-p=), so gptel-native tool execution honors the
+  same policy rather than auto-running risky tools
+- Edit-producing tools (=write-file=, =edit-file=) route through the inline
+  diff review flow; async tools stream into a live drawer
+- Users can re-run a recorded tool with =ogent-debug-replay-tool=
 
 *** Proof Ledger
 Requests and tool calls may be recorded through =ogent-ledger.el= when

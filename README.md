@@ -134,8 +134,7 @@ See [docs/cabinet.org](docs/cabinet.org) for the first-ten-minutes workflow and 
 - `ogent-request` streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
 - Specs live at `specs/gptel/overview.org` and `specs/gptel-integration.org` and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
 - `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
-- FSM status tracking is implemented via `ogent-tool-fsm.el`, with visual state indicators in the mode line.
-- Tool-call rendering is handled by `ogent-tool-render.el`, displaying reasoning and tool blocks inline.
+- Tool execution, approval, and rendering live in the request callback (`ogent-ui.el`): each call is gated against the allow-list, session deny list, and effects policy, then executed, recorded to the proof ledger, and shown in a `:TOOL:` drawer.
 - Backend/preset configuration is documented in [docs/backends-and-presets.md](docs/backends-and-presets.md) and the `ogent-onboard` wizard.
 - Workspace presets allow per-project model and backend configuration via `.ogent-presets`.
 

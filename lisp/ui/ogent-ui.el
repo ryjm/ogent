@@ -1928,31 +1928,40 @@ Returns `approved' or `denied'."
   "Build a ledger tool-call plist for NAME with ARGS."
   (list :name (ogent-tool--name-string name) :args args))
 
+(declare-function ogent-debug-log-tool-call "ogent-debug" (tool-call result duration))
+
 (defun ogent-ui--execute-tool (name args)
   "Execute tool NAME with ARGS and return result string.
 Looks up tool in `ogent-tool-registry' and calls its function.
 Records start/finish to the proof ledger (a no-op unless
-`ogent-ledger-enabled')."
+`ogent-ledger-enabled') and, when `ogent-debug' is loaded, appends to
+the inspectable tool-call history that powers `ogent-debug-replay-tool'."
   (if-let* ((tool-symbol (ogent-tool--name-symbol name))
             (spec (and (fboundp 'ogent-tool-spec-get)
                        (ogent-tool-spec-get tool-symbol)))
             (func (plist-get spec :function)))
       (let* ((tool-call (ogent-ui--tool-ledger-call name args))
+             ;; History entries key on a symbol name and carry an id.
+             (history-call (list :id (format "tool-%d" (abs (random)))
+                                 :name tool-symbol :args args))
              (effects (plist-get spec :effects))
              (start (current-time)))
         (ogent-ledger-record-tool-start tool-call effects)
         (condition-case err
             (let* ((arg-values (ogent-ui--extract-tool-args spec args))
-                   (result (apply func arg-values)))
-              (ogent-ledger-record-tool-finish
-               tool-call result nil
-               (float-time (time-subtract (current-time) start)) effects)
+                   (result (apply func arg-values))
+                   (duration (float-time (time-subtract (current-time) start))))
+              (ogent-ledger-record-tool-finish tool-call result nil duration effects)
+              (when (fboundp 'ogent-debug-log-tool-call)
+                (ogent-debug-log-tool-call history-call result duration))
               result)
           (error
-           (let ((msg (error-message-string err)))
-             (ogent-ledger-record-tool-finish
-              tool-call nil msg
-              (float-time (time-subtract (current-time) start)) effects)
+           (let ((msg (error-message-string err))
+                 (duration (float-time (time-subtract (current-time) start))))
+             (ogent-ledger-record-tool-finish tool-call nil msg duration effects)
+             (when (fboundp 'ogent-debug-log-tool-call)
+               (ogent-debug-log-tool-call
+                (plist-put history-call :error msg) nil duration))
              (format "Tool error: %s" msg)))))
     (format "Unknown tool: %s" name)))
 
