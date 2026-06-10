@@ -31,3 +31,7 @@ state.json
 # Gas Town (added by gt)
 .claude/
 .logs/
+
+# engine run state
+/.engine/
+.engine.prev-*/
