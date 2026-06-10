@@ -12,6 +12,8 @@
 
 (require 'ogent-test-helper)
 (require 'ogent-mcp)
+(require 'ogent-models)
+(require 'ogent-tool-effects)
 
 ;;; JSON-RPC Protocol Tests
 
@@ -1135,6 +1137,22 @@
       (should (equal '(("API_KEY" . "secret") ("PORT" . "3000"))
                      (plist-get config :env)))
       (should (eq t (plist-get config :auto-connect))))))
+
+(ert-deftest ogent-mcp--registered-tool-declares-effects-and-requires-approval ()
+  "MCP-registered tools carry default effects that gate them behind approval."
+  (let ((ogent-tool-registry nil)
+        (conn (make-ogent-mcp-connection :name "demo" :status 'ready)))
+    (cl-letf (((symbol-function 'message) #'ignore))
+      (ogent-mcp--register-tools
+       conn '(((name . "search") (description . "Search docs")
+               (inputSchema . ((type . "object") (properties . nil)))))))
+    (let ((spec (car ogent-tool-registry)))
+      (should spec)
+      (should (plist-get spec :effects))
+      ;; network/high effects -> approval required, and ogent forwards a
+      ;; confirm flag to gptel (closes the MCP auto-execution bypass).
+      (should (ogent-tool-effects-approval-required-p (plist-get spec :effects)))
+      (should (ogent-tool-spec-confirm-p spec)))))
 
 (provide 'ogent-mcp-tests)
 ;;; ogent-mcp-tests.el ends here
