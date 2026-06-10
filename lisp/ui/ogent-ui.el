@@ -1652,11 +1652,16 @@ Handles both regular text responses and tool call responses."
             (message "[ogent-debug] tool response: type=%s data=%S" (car text) (cdr text)))
           (pcase (car text)
             ('tool-result
-             ;; Tools were executed by gptel, display results
+             ;; Tools were executed by gptel; record the outcome to the
+             ;; ledger (we never saw the start) and display results.
              (dolist (result (cdr text))
                (let ((tool-name (plist-get result :name))
                      (tool-args (plist-get result :args))
                      (tool-result (plist-get result :result)))
+                 (ogent-ledger-record-tool-finish
+                  (ogent-ui--tool-ledger-call tool-name tool-args)
+                  tool-result nil nil
+                  (ogent-ui--tool-ledger-effects tool-name))
                  (ogent-ui--insert-tool-block tool-name tool-args
                                               (or tool-result "[No result]")))))
             ('tool-call
@@ -1796,11 +1801,25 @@ Uses the :async-function and :async-callback-style from the tool spec."
          (async-func (plist-get spec :async-function))
          (callback-style (or (plist-get spec :async-callback-style) :stream))
          (arg-values (ogent-ui--extract-tool-args spec tool-args))
-         (callback (ogent-ui--make-streaming-callback drawer callback-style)))
+         (base-callback (ogent-ui--make-streaming-callback drawer callback-style)))
     (if (and async-func (fboundp async-func))
-        ;; Call the async function with args + callback
-        (apply async-func (append arg-values (list callback)))
-      ;; Fallback: no async function found, execute sync and display result
+        ;; Call the async function with args + a ledger-wrapped callback.
+        (let* ((tool-call (ogent-ui--tool-ledger-call tool-name tool-args))
+               (effects (plist-get spec :effects))
+               (start (current-time))
+               (callback
+                (lambda (type data)
+                  (when (memq type '(done error))
+                    (ogent-ledger-record-tool-finish
+                     tool-call (and (eq type 'done) data)
+                     (and (eq type 'error) (format "%s" data))
+                     (float-time (time-subtract (current-time) start))
+                     effects))
+                  (funcall base-callback type data))))
+          (ogent-ledger-record-tool-start tool-call effects)
+          (apply async-func (append arg-values (list callback))))
+      ;; Fallback: no async function found — ogent-ui--execute-tool records
+      ;; its own ledger events.
       (let ((result (ogent-ui--execute-tool tool-name tool-args)))
         (ogent-ui--streaming-drawer-append drawer result)
         (ogent-ui--streaming-drawer-finalize drawer 'success)
@@ -1885,17 +1904,43 @@ Returns `approved' or `denied'."
              (ogent-tool--add-to-deny-list tool-name)
              'denied)))))))
 
+(defun ogent-ui--tool-ledger-effects (name)
+  "Return the declared :effects for tool NAME, or nil."
+  (when-let* ((tool-symbol (ogent-tool--name-symbol name))
+              (spec (and (fboundp 'ogent-tool-spec-get)
+                         (ogent-tool-spec-get tool-symbol))))
+    (plist-get spec :effects)))
+
+(defun ogent-ui--tool-ledger-call (name args)
+  "Build a ledger tool-call plist for NAME with ARGS."
+  (list :name (ogent-tool--name-string name) :args args))
+
 (defun ogent-ui--execute-tool (name args)
   "Execute tool NAME with ARGS and return result string.
-Looks up tool in `ogent-tool-registry' and calls its function."
+Looks up tool in `ogent-tool-registry' and calls its function.
+Records start/finish to the proof ledger (a no-op unless
+`ogent-ledger-enabled')."
   (if-let* ((tool-symbol (ogent-tool--name-symbol name))
             (spec (and (fboundp 'ogent-tool-spec-get)
                        (ogent-tool-spec-get tool-symbol)))
             (func (plist-get spec :function)))
-      (condition-case err
-          (let ((arg-values (ogent-ui--extract-tool-args spec args)))
-            (apply func arg-values))
-        (error (format "Tool error: %s" (error-message-string err))))
+      (let* ((tool-call (ogent-ui--tool-ledger-call name args))
+             (effects (plist-get spec :effects))
+             (start (current-time)))
+        (ogent-ledger-record-tool-start tool-call effects)
+        (condition-case err
+            (let* ((arg-values (ogent-ui--extract-tool-args spec args))
+                   (result (apply func arg-values)))
+              (ogent-ledger-record-tool-finish
+               tool-call result nil
+               (float-time (time-subtract (current-time) start)) effects)
+              result)
+          (error
+           (let ((msg (error-message-string err)))
+             (ogent-ledger-record-tool-finish
+              tool-call nil msg
+              (float-time (time-subtract (current-time) start)) effects)
+             (format "Tool error: %s" msg)))))
     (format "Unknown tool: %s" name)))
 
 (defun ogent-ui--extract-tool-args (spec args)
