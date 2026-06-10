@@ -80,7 +80,11 @@ Add to your `~/.doom.d/config.el`:
   ;; calls only if you want to override individual keys.
   (ogent-setup-doom-bindings)
 
-  ;; Optional explicit bindings, equivalent to the defaults:
+  ;; Optional explicit overrides. NOTE: several keys below intentionally
+  ;; differ from the registry defaults installed by `ogent-setup-doom-bindings'
+  ;; (the defaults bind t to the tools menu, g to the dependency graph, s to
+  ;; goto-source, and O to Armory conversations). Omit this block entirely to
+  ;; keep the defaults.
   (map! :leader
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
@@ -93,7 +97,7 @@ Add to your `~/.doom.d/config.el`:
          :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
          :desc "Global mode"         "g" #'ogent-global-mode
-         :desc "Onboard/setup"       "O" #'ogent-onboard
+         :desc "Onboard/setup"       "u" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Abort request"       "a" #'ogent-abort-request
@@ -297,7 +301,7 @@ Here's a full, copy-paste ready configuration:
          :desc "Edit menu"           "e" #'ogent-edit-menu
          :desc "Toggle mode"         "t" #'ogent-mode
          :desc "Global mode"         "g" #'ogent-global-mode
-         :desc "Onboard/setup"       "O" #'ogent-onboard
+         :desc "Onboard/setup"       "u" #'ogent-onboard
          :desc "Preview context"     "c" #'ogent-context-preview
          :desc "Show companion"      "s" #'ogent-companion-display
          :desc "Abort request"       "a" #'ogent-abort-request

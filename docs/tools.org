@@ -349,7 +349,8 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
    (setq gptel-use-tools t)
    #+end_src
 
-3. Verify your model supports tools (Claude 3+, GPT-4+)
+3. Verify your model supports tools (any current family: =claude-fable-5=,
+   =claude-opus-4-8=, =claude-sonnet-4-6=, or =gpt-5.5=/=gpt-5.4=)
 
 ** Tool execution fails
 

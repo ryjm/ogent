@@ -28,7 +28,7 @@ Each section maps vision statements to implementation status.
 2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
 3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
 4. *Multi-model Fan-out*: Concurrent requests to multiple models via transient UI (M key) - IMPLEMENTED in =ogent-ui.el=
-5. *Ergonomic Review (C-c . N/P/A/X)*: Cycle, accept, reject completions - IMPLEMENTED in =ogent-completions.el=
+5. *Ergonomic Review (C-c . ] / [ / z / x)*: Cycle, accept, reject completions - IMPLEMENTED in =ogent-completions.el=
 6. *MCP Server Support*: Model Context Protocol client for external tools - IMPLEMENTED in =ogent-mcp.el=
 7. *LLM-Powered Codemap*: Task-scoped codemaps via @codemap-task: handles - IMPLEMENTED in =ogent-codemap.el=
 8. *Magit-style Diff UX*: Diff preview for edits with smerge/overlay display - IMPLEMENTED in =ogent-edit-display.el=
@@ -232,37 +232,19 @@ These items from README.md are not yet tracked as beads:
 | C-c . t   | ogent-debug-tools-menu         | Implemented |
 | C-c . s   | ogent-edit-goto-source         | Implemented |
 | C-c . C   | ogent-edit-goto-companion      | Implemented |
-| C-c . N   | ogent-completion-next          | Implemented |
-| C-c . P   | ogent-completion-prev          | Implemented |
-| C-c . A   | ogent-completion-accept        | Implemented |
-| C-c . X   | ogent-completion-reject        | Implemented |
+| C-c . ]   | ogent-completion-next          | Implemented |
+| C-c . [   | ogent-completion-prev          | Implemented |
+| C-c . z   | ogent-completion-accept        | Implemented |
+| C-c . x   | ogent-completion-reject        | Implemented |
 | C-c . d   | ogent-notes-capture            | Implemented |
 
 * Test Coverage
 
-| Module                | Tests | Coverage |
-|-----------------------+-------+----------|
-| ogent-core            |    24 | Good     |
-| ogent-context         |    35 | Good     |
-| ogent-models          |    12 | Good     |
-| ogent-companion       |    15 | Good     |
-| ogent-codemap         |    18 | Good     |
-| ogent-edit            |    22 | Good     |
-| ogent-edit-display    |    14 | Good     |
-| ogent-debug           |    21 | Good     |
-| ogent-tools           |    18 | Good     |
-| ogent-tool-fsm        |    12 | Good     |
-| ogent-tool-render     |    15 | Good     |
-| ogent-tool-approval   |    10 | Good     |
-| ogent-onboard         |     8 | Partial  |
-| ogent-anthropic-oauth |     6 | Partial  |
-| ogent-ui              |    45 | Good     |
-| ogent-ui-backlinks    |     8 | Good     |
-| ogent-ui-context      |    12 | Good     |
-| ogent-ui-graph        |    10 | Good     |
-| ogent-ui-status       |     8 | Good     |
-|-----------------------+-------+----------|
-| TOTAL                 |   309 |          |
+The suite currently has ~3,450 =ert-deftest= forms across 65 =*-tests.el=
+files mirroring the =lisp/= tree (every armory, issues, analytics,
+schedule, and evil module has a suite). Run =make test= for the live
+totals — a hand-maintained per-module table goes stale too quickly to
+keep here.
 
 * Release Milestones
 
@@ -275,7 +257,7 @@ These items from README.md are not yet tracked as beads:
 
 ** v0.2.0 - Workflow Polish (Complete)
 - [X] Notes capture (C-c . d)
-- [X] Ergonomic review (C-c . N/P/A/X)
+- [X] Ergonomic review (C-c . ] / [ / z / x)
 - [X] Multi-model fan-out
 - [ ] Default prompt templates (in progress)
 
