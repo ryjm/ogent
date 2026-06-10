@@ -389,7 +389,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle source-buffer
   block-start response-pos
-  paused-response)  ; Stores partial response when paused for resume
+  paused-response  ; Stores partial response when paused for resume
+  handled-tool-use)  ; Identity of the :tool-use payload already dispatched
 
 (transient-define-infix ogent--infix-prompt ()
 			"Enter a prompt to send."
@@ -1667,9 +1668,17 @@ Handles both regular text responses and tool call responses."
             ('tool-call
              ;; Tools pending confirmation - gptel handles this
              (ogent-ui--update-status request 'tool))))
-        ;; Check for tool calls in info plist (legacy/fallback)
+        ;; Check for tool calls in info plist (legacy/fallback). The
+        ;; streaming callback fires once per chunk and gptel reuses the
+        ;; same :tool-use list object across the chunks of one turn, so
+        ;; guard on its identity to execute each payload exactly once —
+        ;; otherwise every subsequent text chunk re-runs the tools.
         (when (and (listp info) (plist-get info :tool-use)
-                   (not (and (consp text) (memq (car text) '(tool-call tool-result)))))
+                   (not (and (consp text) (memq (car text) '(tool-call tool-result))))
+                   (not (eq (plist-get info :tool-use)
+                            (ogent-ui-request-handled-tool-use request))))
+          (setf (ogent-ui-request-handled-tool-use request)
+                (plist-get info :tool-use))
           (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
         ;; Update status based on what we're receiving
         ;; Note: gptel may pass t rather than a string in some cases
@@ -1682,9 +1691,13 @@ Handles both regular text responses and tool call responses."
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
             (message "[ogent-debug] closing due to error: %s" (plist-get info :error)))
           (ogent-ui--close-response request (plist-get info :error)))
-         ;; Done when text is not a string (gptel sends t or nil to signal completion)
-         ;; But NOT when there are pending tool calls
-         ((not (stringp text))
+         ;; Done when text is not a string (gptel sends t or nil to signal
+         ;; completion).  But a (tool-call ...) / (tool-result ...) cons is
+         ;; an intermediate payload, not a completion signal — closing on it
+         ;; would drop the model's continuation after the tool round.
+         ((and (not (stringp text))
+               (not (and (consp text)
+                         (memq (car text) '(tool-call tool-result)))))
           (let ((tool-pending (and (listp info) (plist-get info :tool-pending))))
             (when (bound-and-true-p ogent-ui-debug-stream-completion)
               (message "[ogent-debug] stream complete (text=%s), tool-pending=%s, closing=%s"
