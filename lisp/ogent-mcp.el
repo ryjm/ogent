@@ -62,6 +62,17 @@ Example:
   :type 'string
   :group 'ogent-mcp)
 
+(defcustom ogent-mcp-default-tool-effects
+  '((:kind network :target external :scope unrestricted :risk high))
+  "Declared `:effects' attached to every MCP-registered tool.
+MCP tools call out to an external server and can do arbitrary work,
+so they default to network/high effects, which makes the request
+pipeline require approval before running them (see
+`ogent-tool-effects-approval-required-p').  Loosen this only for
+servers you fully trust."
+  :type '(repeat plist)
+  :group 'ogent-mcp)
+
 (defcustom ogent-mcp-connect-timeout 30
   "Timeout in seconds for MCP server connection."
   :type 'integer
@@ -329,7 +340,10 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
                       :function ,tool-sym
                       :description ,(format "[MCP:%s] %s" server-name description)
                       :args ,args
-                      :category ,(format "mcp-%s" server-name))))
+                      :category ,(format "mcp-%s" server-name)
+                      ;; External, server-backed capability: gate behind
+                      ;; approval by default so it cannot auto-execute.
+                      :effects ,(copy-tree ogent-mcp-default-tool-effects))))
           ;; Remove existing entry with same name
           (setq ogent-tool-registry
                 (cl-remove-if (lambda (s) (eq (plist-get s :name) tool-sym))
