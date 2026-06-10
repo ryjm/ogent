@@ -30,10 +30,18 @@
     file))
 
 (defun ogent-armory-runner-test--wait (process)
-  "Wait for PROCESS to exit."
+  "Wait for PROCESS to exit and its sentinel to finalize the conversation."
   (while (process-live-p process)
     (accept-process-output process 0.1))
-  (accept-process-output process 0.1))
+  ;; The exit sentinel finalizes the conversation and removes the process
+  ;; from the runner registry.  Poll for that with a nil process argument:
+  ;; for a dead process `accept-process-output' returns immediately without
+  ;; delivering pending sentinels, which would starve this loop.
+  (let ((deadline (+ (float-time) 5)))
+    (while (and (< (float-time) deadline)
+                (memq process ogent-armory-runner--processes))
+      (accept-process-output nil 0.05)))
+  (accept-process-output nil 0.1))
 
 (ert-deftest ogent-armory-runner-builds-codex-plan-from-job ()
   "Codex plans use `codex exec' with subscription auth inherited from the CLI."

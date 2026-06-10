@@ -13,11 +13,16 @@
 
 (defun ogent-tools-tests--wait-until (predicate &optional timeout process)
   "Wait until PREDICATE returns non-nil, up to TIMEOUT seconds.
-PROCESS, when non-nil, is passed to `accept-process-output'."
+PROCESS, when non-nil and still live, is passed to
+`accept-process-output'.  Once PROCESS is dead the loop pumps the
+whole event queue instead: for a dead process,
+`accept-process-output' returns immediately without delivering
+pending sentinels, which would starve the loop."
   (let ((deadline (+ (float-time) (or timeout 3))))
     (while (and (< (float-time) deadline)
                 (not (funcall predicate)))
-      (accept-process-output process 0.05))
+      (accept-process-output (and process (process-live-p process) process)
+                             0.05))
     (funcall predicate)))
 
 (ert-deftest ogent-tools-format-bytes ()
@@ -1022,7 +1027,9 @@ PROCESS, when non-nil, is passed to `accept-process-output'."
         (progn
           (setq proc
                 (ogent-tool--bash-async
-                 "sleep 5" nil 0.2
+                 ;; Long enough that a load-delayed timeout timer can never
+                 ;; lose the race against natural process exit.
+                 "sleep 30" nil 0.2
                  (lambda (type data)
                    (push (list type data) events))))
           (should proc)
@@ -1030,7 +1037,7 @@ PROCESS, when non-nil, is passed to `accept-process-output'."
            (ogent-tools-tests--wait-until
             (lambda ()
               (not (assq proc ogent-tools--active-processes)))
-            3 proc))
+            10 proc))
           (should-not (process-live-p proc))
           (should (= 1 (cl-count 'error events :key #'car)))
           (should (= 0 (cl-count 'done events :key #'car)))
