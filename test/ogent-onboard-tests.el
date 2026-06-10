@@ -102,7 +102,8 @@
                                 (plist-get openai :models)))
          (openai-codex-models (mapcar (lambda (m) (plist-get m :id))
                                       (plist-get openai-codex :models))))
-    (dolist (model-id '("claude-opus-4-7"
+    (dolist (model-id '("claude-fable-5"
+                        "claude-opus-4-8"
                         "claude-sonnet-4-6"
                         "claude-haiku-4-5-20251001"))
       (should (member model-id anthropic-models)))
@@ -161,7 +162,8 @@
          (ids (mapcar (lambda (model)
                         (plist-get model :id))
                       models)))
-    (should (equal (car ids) "claude-opus-4-7"))
+    (should (equal (car ids) "claude-fable-5"))
+    (should (member "claude-opus-4-8" ids))
     (should (member "claude-sonnet-4-6" ids))
     (should (member "claude-haiku-4-5-20251001" ids))
     (should-not (member "claude-3-5-sonnet-20241022" ids))
@@ -226,9 +228,9 @@
   (let ((ogent-default-model nil)
         (gptel-model nil)
         (gptel-backend nil))
-    (ogent-onboard--set-default-model "claude-sonnet-4-20250514")
-    (should (equal ogent-default-model "claude-sonnet-4-20250514"))
-    (should (equal gptel-model "claude-sonnet-4-20250514"))))
+    (ogent-onboard--set-default-model "claude-sonnet-4-6")
+    (should (equal ogent-default-model "claude-sonnet-4-6"))
+    (should (equal gptel-model "claude-sonnet-4-6"))))
 
 (ert-deftest ogent-onboard-set-default-model-updates-active-gptel ()
   "Setting a known default model also updates active gptel bindings."
@@ -330,11 +332,11 @@
 
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
-  (let ((provider (car ogent-onboard-providers)))
-    (ogent-test-with-input "claude-sonnet-4-6 RET"
-			   (let ((model (ogent-onboard--select-model provider)))
-			     (should model)
-			     (should (string-prefix-p "claude-sonnet-4-6" (plist-get model :id)))))))
+  (ogent-test-with-input "claude-sonnet-4-6 RET"
+			 (let* ((provider (car ogent-onboard-providers))
+				(model (ogent-onboard--select-model provider)))
+			   (should model)
+			   (should (string-prefix-p "claude-sonnet-4-6" (plist-get model :id))))))
 
 ;;; Auth-source Integration Tests
 

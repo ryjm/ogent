@@ -16,9 +16,9 @@
     (should (equal (plist-get (ogent-models-ensure "alpha") :backend) 'foo))
     (should-error (ogent-models-ensure "missing") :type 'error)))
 
-(ert-deftest ogent-models-default-is-current-cost-aware-openai-model ()
-  "The shipped default should use a current low-cost OpenAI model."
-  (should (equal ogent-default-model "gpt-5.4-mini"))
+(ert-deftest ogent-models-default-is-current-frontier-openai-model ()
+  "The shipped default should use the current flagship OpenAI model."
+  (should (equal ogent-default-model "gpt-5.5"))
   (should (ogent-models-get ogent-default-model)))
 
 (ert-deftest ogent-models-registry-includes-current-frontier-models ()
@@ -29,10 +29,17 @@
                       "gpt-5.4-mini"
                       "gpt-5.4-nano"
                       "gpt-5.3-codex"
-                      "claude-opus-4-7"
+                      "claude-fable-5"
+                      "claude-opus-4-8"
                       "claude-sonnet-4-6"
                       "claude-haiku-4-5-20251001"))
     (should (ogent-models-get model-id))))
+
+(ert-deftest ogent-models-registry-omits-stale-models ()
+  "Deprecated or superseded models must not ship in the default registry."
+  ;; claude-sonnet-4-20250514 retires 2026-06-15; opus-4-7 is superseded by 4-8.
+  (should-not (ogent-models-get "claude-sonnet-4-20250514"))
+  (should-not (ogent-models-get "claude-opus-4-7")))
 
 (ert-deftest ogent-models-pro-models-can-disable-streaming ()
   "The registry can represent models that should not stream."

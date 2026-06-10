@@ -15,7 +15,7 @@
   "Configuration for ogent model registry."
   :group 'ogent)
 
-(defcustom ogent-default-model "gpt-5.4-mini"
+(defcustom ogent-default-model "gpt-5.5"
   "Default model identifier used when dispatching prompts."
   :type 'string
   :group 'ogent-models)
@@ -37,14 +37,14 @@
           :description "OpenAI GPT-4.1 - non-reasoning long-context model")
     (:id "gpt-4o-mini" :backend gptel-openai :stream? t
           :description "OpenAI GPT-4o mini - legacy fallback")
-    (:id "claude-opus-4-7" :backend gptel-anthropic :stream? t
-          :description "Anthropic Claude Opus 4.7 - complex reasoning and agentic coding")
+    (:id "claude-fable-5" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Fable 5 - most powerful frontier model")
+    (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
+          :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
           :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
-          :description "Anthropic Claude Haiku 4.5 - fastest Claude model")
-    (:id "claude-sonnet-4-20250514" :backend gptel-anthropic :stream? t
-          :description "Anthropic Claude Sonnet 4 - legacy fallback"))
+          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 

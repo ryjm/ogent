@@ -82,7 +82,7 @@
     (description . "A small Cabinet showing agents, jobs, pages, settings, and apps.")
     (settings . ((profile-name . "Demo Operator")
                  (default-provider . "codex")
-                 (default-model . "gpt-5.4")
+                 (default-model . "gpt-5.5")
                  (default-effort . "medium")
                  (default-runtime . "native")
                  (notifications . t)

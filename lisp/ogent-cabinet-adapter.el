@@ -449,7 +449,7 @@ metadata as the fallback completion list."
                     "claude_local")
           :default-executable "claude"
           :executable-symbol ogent-cabinet-claude-executable
-          :models ("sonnet" "opus")
+          :models ("fable" "opus" "sonnet")
           :effort-levels ("low" "medium" "high" "xhigh" "max")
           :runtime-modes (native terminal)
           :supports-session-resume t
