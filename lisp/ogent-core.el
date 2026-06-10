@@ -18,7 +18,8 @@
 
 (declare-function ogent-request "ui/ogent-ui")
 (declare-function ogent-context-preview "ui/ogent-ui")
-(declare-function ogent-prompt-dispatch "ui/ogent-ui")
+;; (fileonly: transient prefixes / macro-generated commands)
+(declare-function ogent-prompt-dispatch "ui/ogent-ui" t t)
 (declare-function ogent-abort-request "ui/ogent-ui")
 (declare-function ogent-retry-request "ui/ogent-ui")
 (declare-function ogent-ui--setup-highlight-mode "ui/ogent-ui")
@@ -27,10 +28,10 @@
 (declare-function ogent-codemap-buffer "ogent-codemap")
 (declare-function ogent-ai-speed-edit "ogent-edit")
 (declare-function ogent-request-edit "ogent-edit")
-(declare-function ogent-edit-menu "ogent-edit")
+(declare-function ogent-edit-menu "ogent-edit" t t)
 (declare-function ogent-edit-goto-source "ogent-edit-display")
 (declare-function ogent-edit-goto-companion "ogent-edit-display")
-(declare-function ogent-debug-tools-menu "ogent-debug")
+(declare-function ogent-debug-tools-menu "ogent-debug" t t)
 (declare-function ogent-debug-mode "ogent-debug")
 (declare-function ogent-tool-rerun "ui/ogent-ui")
 (declare-function ogent-notes-capture "ogent-notes")
@@ -155,9 +156,10 @@ Returns the updated context plist with warnings about missing context."
     (plist-put context :prompt-warnings warnings)))
 
 (defun ogent-validate-prompts-and-prompt (context)
-  "Validate prompt requirements in CONTEXT according to `ogent-validate-before-send'.
-Returns non-nil if the request should proceed, nil to abort.
-Adds :prompt-warnings to context as a side effect."
+  "Validate prompt requirements in CONTEXT.
+Honor `ogent-validate-before-send'.  Return non-nil if the request
+should proceed, nil to abort.  Add :prompt-warnings to CONTEXT as a
+side effect."
   (let* ((prompt-ids (plist-get context :prompt-ids))
          (validation (when prompt-ids
                        (ogent-validate-prompts prompt-ids context)))

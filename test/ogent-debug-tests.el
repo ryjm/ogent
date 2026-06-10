@@ -13,6 +13,10 @@
 (require 'ogent-tool-fsm)
 (require 'ogent-debug)
 
+;; Dynamically bound in request-logging tests; defined by gptel at runtime.
+(defvar gptel-model)
+(defvar gptel-backend)
+
 ;;; Tool History Tests
 
 (ert-deftest ogent-debug-test-log-tool-call ()

@@ -30,10 +30,9 @@
     (insert "* Request: test\n")
     (insert "No responses here\n")
     (goto-char (point-min))
-    (let ((message-log nil))
-      (ogent-hydra--next-response)
-      ;; Should not have moved
-      (should (= (point) (point-min))))))
+    (ogent-hydra--next-response)
+    ;; Should not have moved
+    (should (= (point) (point-min)))))
 
 (ert-deftest ogent-hydra-prev-response-finds-response ()
   "Previous response should find Response heading."

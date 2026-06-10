@@ -3,6 +3,16 @@
 (require 'ogent-test-helper)
 (require 'ogent-core)
 (require 'org)
+;; Dynamically bound in prompt-validation tests; defined in ogent-prompts,
+;; which those tests require at runtime.
+(defvar ogent-prompt-registry)
+(declare-function ogent-prompt-register "ogent-prompts")
+(declare-function ogent-retry-request "ui/ogent-ui" t t)
+(declare-function ogent-abort-request "ui/ogent-ui" t t)
+(declare-function ogent-prompt-dispatch "ui/ogent-ui" t t)
+(declare-function ogent-request "ui/ogent-ui" t t)
+(declare-function ogent-context-preview "ui/ogent-ui" t t)
+(declare-function ogent-codemap-buffer "ogent-codemap" t t)
 
 (ert-deftest ogent-mode-keymap-binds-dispatch ()
   "Ensure the primary keybindings are available."
@@ -340,8 +350,7 @@
 
 (ert-deftest ogent--flash-modeline-changes-face ()
   "ogent--flash-modeline should temporarily change mode-line face."
-  (let ((original-bg (face-attribute 'mode-line :background nil 'default))
-        (timer-created nil))
+  (let ((timer-created nil))
     (cl-letf (((symbol-function 'run-with-timer)
                (lambda (_delay _repeat _fn)
                  (setq timer-created t)

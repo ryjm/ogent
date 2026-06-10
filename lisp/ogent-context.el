@@ -30,6 +30,9 @@
 (declare-function org-roam-node-file "ext:org-roam-node")
 (declare-function org-roam-node-point "ext:org-roam-node")
 (declare-function org-roam-node-list "ext:org-roam")
+;; Defined later in this file inside `with-eval-after-load', so the
+;; byte-compiler cannot see it as a top-level definition.
+(declare-function ogent-context--roam-node-matches "ogent-context" t t)
 
 (defcustom ogent-context-handle-regexp
   (rx "@" (group

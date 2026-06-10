@@ -29,13 +29,14 @@
 (require 'ogent-ops-style)
 
 ;; Forward declarations for request struct accessors
-(declare-function ogent-ui-request-model "ogent-ui")
-(declare-function ogent-ui-request-status "ogent-ui")
-(declare-function ogent-ui-request-start-time "ogent-ui")
-(declare-function ogent-ui-request-end-time "ogent-ui")
-(declare-function ogent-ui-request-buffer "ogent-ui")
-(declare-function ogent-ui-request-id "ogent-ui")
-(declare-function ogent-ui-request-marker "ogent-ui")
+;; (fileonly: cl-defstruct-generated, not findable by check-declare)
+(declare-function ogent-ui-request-model "ogent-ui" t t)
+(declare-function ogent-ui-request-status "ogent-ui" t t)
+(declare-function ogent-ui-request-start-time "ogent-ui" t t)
+(declare-function ogent-ui-request-end-time "ogent-ui" t t)
+(declare-function ogent-ui-request-buffer "ogent-ui" t t)
+(declare-function ogent-ui-request-id "ogent-ui" t t)
+(declare-function ogent-ui-request-marker "ogent-ui" t t)
 
 ;;; Status Icons - Now using ogent-ui-theme for consistency
 

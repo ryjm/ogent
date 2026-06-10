@@ -258,13 +258,13 @@
   "Re-saving a session preserves its original ID."
   (let* ((ogent-session-directory (make-temp-file "ogent-test-resave-" t))
          (buffer (get-buffer-create "*test-resave*"))
-         _file1 file2)
+         file2)
     (unwind-protect
         (progn
           (with-current-buffer buffer
             (org-mode)
             (insert "#+title: Resave Test\n\n* Content\n")
-            (setq file1 (ogent-session-save))
+            (ogent-session-save)
             (let ((original-id ogent-persist--id))
               
               ;; Modify buffer and save again

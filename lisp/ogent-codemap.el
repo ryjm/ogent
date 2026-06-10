@@ -957,7 +957,8 @@ Matches @codemap-task:<task-description> pattern."
 
 (defun ogent-codemap-resolve-task-handle (handle)
   "Resolve a task-scoped codemap HANDLE.
-Returns cached content if available, or triggers generation and returns placeholder."
+Return cached content if available, or trigger generation and
+return a placeholder."
   (when (ogent-codemap-task-handle-p handle)
     (let* ((task (ogent-codemap--extract-task-from-handle handle))
            (cache-key (ogent-codemap--cache-key task))

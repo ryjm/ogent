@@ -3,6 +3,12 @@
 (require 'ogent-test-helper)
 (require 'ogent-presets)
 
+;; Dynamically bound in tests; defined in ogent-models and ogent-codemap,
+;; which ogent-presets only soft-references.
+(defvar ogent-default-model)
+(defvar ogent-codemap-source-directories)
+(defvar ogent-tools-enabled)
+
 ;;; Project Root Detection Tests
 
 (ert-deftest ogent-presets-project-root-uses-cache ()

@@ -10,6 +10,9 @@
 (require 'ogent-edit-format)
 (require 'ogent-edit-parse)
 
+;; Defined by the optional inline-diff package, loaded at runtime.
+(defvar inline-diff--overlays)
+
 ;;; Test Helpers
 
 (defun ogent-edit-display-test--make-edit (old new)

@@ -71,7 +71,7 @@
         (ogent-armory-palette-open-record
          (list :kind 'command
                :title "Armory Home"
-               :command #'ogent-armory-home
+               :command 'ogent-armory-home
                :path root))
         (should (equal called root))
         (ogent-armory-palette-open-record

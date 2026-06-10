@@ -20,7 +20,7 @@
 ;; Forward declaration for customization from ogent-edit.el
 (defvar ogent-edit-auto-display)
 
-(declare-function ediff-buffers "ediff" (buffer-a buffer-b &optional startup-hooks job-name merge-buffer-file))
+(declare-function ediff-buffers "ediff" (buffer-a buffer-b &optional startup-hooks job-name))
 (declare-function ediff-setup-windows-plain "ediff-wind")
 (defvar ediff-window-setup-function)
 (defvar ediff-split-window-function)
@@ -31,7 +31,8 @@
 
 ;; Org-mode functions (loaded at runtime)
 (declare-function org-back-to-heading "org" (&optional invisible-ok))
-(declare-function org-show-subtree "org" ())
+;; Obsolete alias kept for older Org (fileonly: alias, not a defun)
+(declare-function org-show-subtree "org" nil t)
 (declare-function org-fold-show-subtree "org-fold" ())
 (declare-function org-entry-get "org" (pom property &optional inherit literal-nil))
 
