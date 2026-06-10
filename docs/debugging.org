@@ -112,7 +112,7 @@ make sandbox
 
 # Run specific test file
 emacs --batch -l ert -l test/ogent-test-helper.el \
-  -l test/ogent-edit-test.el \
+  -l test/ogent-edit-tests.el \
   -f ert-run-tests-batch-and-exit
 
 # Run tests matching a pattern

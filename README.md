@@ -26,8 +26,8 @@ ogent is an experimental Emacs extension for building technical knowledge bases 
 - **Diagnostic repair**: `C-c . f` (`SPC o f` in Doom/Evil) grabs the Flymake or Flycheck diagnostic at point, builds a focused repair prompt, and applies the result through the inline edit review flow.
 - **Buffer diagnostic sweep**: `C-c . F` (`SPC o F` in Doom/Evil) ranks every Flymake or Flycheck diagnostic in the current buffer and requests one reviewable repair patch.
 - **Quick inline edit**: `C-c . k` (`SPC o k` in Doom/Evil) prompts for one instruction and targets the active region, current definition, or current line. Use a prefix argument for full-file edits.
-- **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block (`ogent-src-backend`). Hit `C-c C-c` to execute or reify the block directly in place.
-- **Notes capture**: Press `C-c C-d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
+- **Src block insertion**: Immediate completions land inside a language-aware `#+begin_src` block. Hit `C-c C-c` to execute or reify the block directly in place.
+- **Notes capture**: Press `C-c . d` on a completion snippet to shunt it beneath the current subtree inside a collapsed `Notes` headline, keeping speculative ideas separate from canonical content.
 - **Multi-model fan-out**: Selecting multiple providers triggers concurrent gptel requests via the registry; each response streams into its own src block tagged with model/backend metadata so you can compare answers side-by-side without blocking.
 - **Ergonomic review**: `C-c o n` / `C-c o p` cycle through completions, `C-c o a` accepts the current one (deleting others), and `C-c o x` rejects it. Visual feedback dims non-current completions and optionally folds them.
 - **Context hydration**: The dispatcher resolves referenced `@handles`, includes their content in the model payload, and offers a `C-c . c` preview of that payload before dispatch.
@@ -132,7 +132,7 @@ See [docs/cabinet.org](docs/cabinet.org) for the first-ten-minutes workflow and 
 ## gptel Integration Status
 - Dynamic dispatcher buttons are generated from `ogent-models.el`, so contributors can define additional providers without editing UI code.
 - `ogent-request` streams responses chunk-by-chunk through gptel callbacks, inserting placeholder `#+begin_src` blocks and closing them when completions finish or error.
-- Specs live under `specs/gptel/` (`overview.org`, `gptel-integration.org`) and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
+- Specs live at `specs/gptel/overview.org` and `specs/gptel-integration.org` and describe how we bridge presets, backends, and streaming hooks. Read them before adjusting transport behavior.
 - `ogent-ui--ensure-gptel` auto-loads every feature listed in `ogent-gptel-required-features`, so when you add a provider extend both the registry entry and that defcustom to guarantee the backend structs exist before dispatch.
 - FSM status tracking is implemented via `ogent-tool-fsm.el`, with visual state indicators in the mode line.
 - Tool-call rendering is handled by `ogent-tool-render.el`, displaying reasoning and tool blocks inline.
@@ -159,8 +159,7 @@ ogent is organized into focused modules under `lisp/`:
 | `ogent-edit*.el`, `inline-diff.el` | AI-powered code editing (diff, display, format, parse, word-level inline diff) |
 | `ogent-tool*.el` | Tool system (approval, FSM, rendering) |
 | `ogent-cabinet*.el`, `ui/ogent-ui-cabinet.el` | Org-native Cabinet storage, CLI runner, graph status, agents, profiles, tasks, search, and app opening |
-| `ogent-issues*.el` | Beads issue tracker integration |
-| `ogent-gastown*.el`, `ogent-refinery.el` | Gas Town multi-agent coordination |
+| `ogent-issues*.el` | Beads (br) issue tracker integration |
 | `ogent-onboard.el`, `ogent-anthropic-oauth.el` | Setup wizard and OAuth |
 | `ogent-debug.el`, `ogent-mcp.el` | Debugging and MCP integration |
 
@@ -171,10 +170,8 @@ The following features were added recently:
 - **Request Pause/Resume** (`ogent-ui.el`): Pause active requests and resume later with full context preservation. Commands `ogent-pause-request` and `ogent-resume-request`.
 - **Tool Result Streaming** (`ogent-tools.el`): Async tool execution with streaming callbacks for bash, grep, and other long-running operations. Supports `:stream` and `:match` callback styles.
 - **Inline Diff Display** (`inline-diff.el`): Word-level inline diff highlighting as an alternative to smerge. Toggle with `ogent-edit-toggle-display-method` (cycles smerge, overlay, inline-diff).
-- **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads issues with inline filtering, transient menus, and dependency graph visualization.
-- **Gas Town Multi-Agent** (`ogent-gastown.el`): Status buffer and tmux integration for coordinating multiple AI agent workspaces.
-- **Org Cabinet Foundation and Rich UI** (`ogent-cabinet.el`, `ogent-cabinet-runner.el`, `ogent-cabinet-status.el`, `ui/ogent-ui-cabinet.el`): Org-backed Cabinet roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with Issues/Gas Town bridges, agent profile buffers, attention lanes, search, and app artifact opening.
-- **Refinery Buffer** (`ogent-refinery.el`): Merge queue visualization for tracking and managing pending merges.
+- **Beads Integration** (`ogent-issues.el`): Magit-style buffer for browsing and managing beads_rust (`br`) issues with inline filtering, transient menus, and dependency graph visualization.
+- **Org Cabinet Foundation and Rich UI** (`ogent-cabinet.el`, `ogent-cabinet-runner.el`, `ogent-cabinet-status.el`, `ui/ogent-ui-cabinet.el`): Org-backed Cabinet roots, agents, jobs, CLI-backed Codex/Claude runs, saved Org transcripts, graph status with an Issues bridge, agent profile buffers, attention lanes, search, and app artifact opening.
 - **Session Management** (`ogent-session.el`): Improved Org hierarchy with proper request/response threading and inline prompting.
 - **Tool System** (`ogent-tool-*.el`): Complete tool approval UI, FSM status tracking, and inline rendering of tool calls/results.
 - **Onboarding Wizard** (`ogent-onboard.el`): Interactive setup for API keys and provider configuration with OAuth support.
@@ -190,20 +187,17 @@ The following features were added recently:
 - ✓ Multi-model fan-out and comparison
 - ✓ MCP server integration
 - ✓ Magit-style diff preview UX
+- ✓ Eval & analytics: inline completion rating (`C-c . +` / `C-c . -`) and a dashboard buffer (`C-c . A`) with per-project aggregation (`ogent-analytics.el`)
 
 ### In Progress
 - **Incremental Codemap Refresh**: Detect changed files and update only affected sections while preserving manual annotations.
 - **Prompt Template Library**: Expand built-in templates for code review, refactoring, documentation, and debugging workflows.
 
 ### Planned
-- **Eval & Analytics**
-  - Track prompt effectiveness over time (accept/reject ratios, token usage, latency metrics).
-  - Add inline rating for completions (`C-c o +` / `C-c o -`) with per-project aggregation.
-  - Dashboard buffer showing model comparison stats and prompt template performance.
 - **Codemap Enhancements**
   - Link codemap nodes to specs/tests for full traceability.
   - Add data-flow annotations showing function call chains.
 - **Testing Infrastructure**
   - Expand fixture coverage (streaming edge cases, error injection, preset application).
   - Exercise multi-model fan-out with mocked gptel streams.
-  - Add integration tests for Gas Town and beads coordination.
+  - Add integration tests for beads (br) coordination.

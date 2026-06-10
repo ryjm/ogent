@@ -116,7 +116,7 @@ ogent provides an interactive setup wizard that handles API key configuration fo
 
 ### Using the Setup Wizard
 
-Run `M-x ogent-onboard` (or `SPC o O` in Doom/Evil) to start the wizard:
+Run `M-x ogent-onboard` to start the wizard:
 
 1. **Select a provider:**
    - **Anthropic Claude Max/Pro (OAuth)** - Recommended for Claude subscribers. Uses the Claude Code-compatible OAuth flow.
@@ -171,10 +171,8 @@ ogent works within Org-mode buffers, treating each heading as an addressable blo
 
 ### 1. Enable ogent-mode
 
-Open an Org file and run:
-- `M-x ogent-mode` or
-- `SPC o t` (Doom/Evil) or
-- `C-c . t` (vanilla Emacs)
+Open an Org file and run `M-x ogent-mode` (or `M-x ogent-global-mode` to
+enable it everywhere).
 
 ### 2. Write Your Prompt
 

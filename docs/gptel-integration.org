@@ -111,11 +111,8 @@ Add entries to the registry for models not in the defaults:
                :description "Local Llama 3.1 70B"))
 #+end_src
 
-After modifying the registry, refresh the dispatcher:
-
-#+begin_src emacs-lisp
-(ogent-ui-refresh-dispatch)
-#+end_src
+The dispatcher reads the registry dynamically, so changes take effect the
+next time you invoke =ogent-prompt-dispatch= — no refresh step is needed.
 
 * Presets
 
@@ -166,7 +163,7 @@ ogent registers these with gptel on first use via =ogent-register-presets=.
 Include =@preset-name= anywhere in your prompt:
 
 #+begin_example
-Review this function @code-review and suggest improvements
+Review this function @ogent-code-review and suggest improvements
 #+end_example
 
 The cookie is stripped from the final prompt, and the preset is applied automatically.

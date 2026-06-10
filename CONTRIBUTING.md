@@ -14,7 +14,7 @@ Thank you for your interest in contributing to ogent!
 
 ```bash
 # Clone the repository
-git clone https://github.com/jake-87/ogent.git
+git clone https://github.com/ryjm/ogent.git
 cd ogent
 
 # Verify setup - run tests

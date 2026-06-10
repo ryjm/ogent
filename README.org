@@ -94,12 +94,12 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 ** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
 (add-hook 'org-mode-hook #'ogent-mode)
-(setq ogent-default-model "gpt-5.4-mini")
+(setq ogent-default-model "gpt-5.5")
 #+end_src
 
 ** Doom Emacs
 #+begin_src emacs-lisp
-(package! ogent :recipe (:local-repo "/path/to/ogent"))
+(package! ogent :recipe (:local-repo "/path/to/ogent/lisp" :files ("*.el" "ui/*.el")))
 (use-package! ogent
   :after org
   :init
