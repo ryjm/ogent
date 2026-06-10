@@ -1,9 +1,11 @@
 ;;; ogent-issues-bd.el --- Beads CLI integration layer -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Async wrapper for the `bd` CLI (beads issue tracker).
-;; Provides non-blocking execution, JSON parsing, caching, and error handling.
-;; This is the data access layer for ogent-issues.
+;; Async wrapper for the `br' CLI (beads_rust issue tracker,
+;; https://github.com/Dicklesworthstone/beads_rust).  Provides
+;; non-blocking execution, JSON parsing, caching, and error handling.
+;; This is the data access layer for ogent-issues.  The historical
+;; `-bd-' infix in symbol names refers to beads generically.
 
 ;;; Code:
 
@@ -15,9 +17,11 @@
   "Beads CLI integration for ogent-issues."
   :group 'ogent)
 
-(defcustom ogent-issues-bd-executable "bd"
-  "Path to the bd executable.
-Can be just \"bd\" if it's in PATH, or an absolute path."
+(defcustom ogent-issues-bd-executable "br"
+  "Path to the beads executable.
+Defaults to \"br\" (beads_rust).  Can be a bare command name on PATH
+or an absolute path; the classic \"bd\" binary also works if its CLI
+is compatible."
   :type 'string
   :group 'ogent-issues-bd)
 
@@ -81,9 +85,9 @@ Otherwise, return the cached version or fetch synchronously."
 Return nil if OK, or an error message string if not."
   (cond
    ((not (ogent-issues-bd-available-p))
-    "bd CLI not found. Install beads: https://github.com/gastownhall/beads")
+    "br CLI not found. Install beads_rust: https://github.com/Dicklesworthstone/beads_rust")
    ((not (ogent-issues-bd-initialized-p))
-    (format "No beads project found (searched up from %s). Run: bd init"
+    (format "No beads project found (searched up from %s). Run: br init"
             (abbreviate-file-name default-directory)))
    (t nil)))
 
@@ -434,7 +438,9 @@ ERROR-CALLBACK is called on error with an error message."
        t))))
 
 (defun ogent-issues-bd-sync (callback &optional error-callback)
-  "Run `bd sync', calling CALLBACK on success.
+  "Run `br sync --flush-only', calling CALLBACK on success.
+Exports the database to the git-friendly JSONL file; committing the
+result is the caller's responsibility (br never runs git).
 ERROR-CALLBACK is called on error with an error message."
   (let ((err (ogent-issues-bd-check-requirements)))
     (if err
@@ -444,7 +450,7 @@ ERROR-CALLBACK is called on error with an error message."
             (user-error "%s" err))
           nil)
       (ogent-issues-bd--run-async
-       '("sync")
+       '("sync" "--flush-only")
        (lambda (_result)
          (ogent-issues-bd-cache-invalidate)
          (funcall callback))
