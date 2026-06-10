@@ -1,0 +1,46 @@
+# Dolt database and locks
+dolt/
+dolt-access.lock
+dolt-server.*
+embeddeddolt/
+backup/
+
+# Runtime files
+bd.sock
+sync-state.json
+last-touched
+.locks/
+locks/
+
+# Local version tracking
+.local_version
+
+# Worktree redirect file. It contains local paths and must not be committed.
+redirect
+
+# Sync state
+.sync.lock
+.jsonl.lock
+sync_base.jsonl
+export-state/
+
+# Legacy files from pre-Dolt versions
+*.db
+*.db?*
+*.db-journal
+*.db-wal
+*.db-shm
+db.sqlite
+bd.db
+daemon.lock
+daemon.log
+daemon-*.log.gz
+daemon.pid
+beads.base.jsonl
+beads.base.meta.json
+beads.left.jsonl
+beads.left.meta.json
+beads.right.jsonl
+beads.right.meta.json
+
+# Keep JSONL and config files trackable. Do not add negation patterns here.

@@ -57,7 +57,7 @@ OUTPUT should be a plist or list that will be JSON-encoded."
          (ogent-issues-bd-test--mock-error nil)
          (ogent-issues-bd-test--captured-args nil)
          ;; Ensure bd appears available
-         (ogent-issues-bd-executable "bd"))
+         (ogent-issues-bd-executable "br"))
      (cl-letf (((symbol-function 'executable-find)
                 (lambda (_) t))
                ((symbol-function 'file-directory-p)
@@ -84,7 +84,7 @@ OUTPUT should be a plist or list that will be JSON-encoded."
   `(let ((ogent-issues-bd-test--mock-output nil)
          (ogent-issues-bd-test--mock-error ,error-msg)
          (ogent-issues-bd-test--captured-args nil)
-         (ogent-issues-bd-executable "bd"))
+         (ogent-issues-bd-executable "br"))
      (cl-letf (((symbol-function 'executable-find)
                 (lambda (_) t))
                ((symbol-function 'file-directory-p)
@@ -241,10 +241,9 @@ OUTPUT should be a plist or list that will be JSON-encoded."
   "Test creating an issue."
   (ogent-issues-bd-cache-invalidate)
   (ogent-issues-bd-test-with-mock ogent-issues-bd-test--sample-issue
-				  (let ((result nil))
+				  (progn
 				    (ogent-issues-bd-create "New issue"
-							    (lambda (issue)
-							      (setq result issue))
+							    #'ignore
 							    :type "task"
 							    :priority 1)
 				    ;; Check args
