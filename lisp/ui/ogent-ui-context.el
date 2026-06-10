@@ -561,5 +561,14 @@ SOURCE-BUFFER is the originating buffer."
       (ogent-ui-context--render-buffer))
     (pop-to-buffer buf)))
 
+;; Canonical Evil integration so the context buffer's single-key
+;; affordances (n/p, a add, d delete, RET preview, q quit) fire under
+;; Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-ui-context-mode ogent-ui-context-mode-map
+     'ogent-ui-context-mode-hook)))
+
 (provide 'ogent-ui-context)
 ;;; ogent-ui-context.el ends here

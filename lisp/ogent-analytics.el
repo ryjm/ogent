@@ -25,8 +25,9 @@
 (require 'json)
 
 ;; Forward declarations
-(declare-function ogent-completion-marker "ogent-completions")
-(declare-function ogent-completion-model "ogent-completions")
+;; Struct accessors (fileonly: cl-defstruct-generated)
+(declare-function ogent-completion-marker "ogent-completions" t t)
+(declare-function ogent-completion-model "ogent-completions" t t)
 (declare-function ogent-completions--current "ogent-completions")
 (declare-function ogent-completions--find-question-marker "ogent-completions")
 
@@ -584,6 +585,14 @@ ORIG-FUN and ARGS are the original function and arguments."
 ;; Auto-setup when loaded with ogent-core
 (with-eval-after-load 'ogent-core
   (ogent-analytics-setup))
+
+;; Canonical Evil integration so the dashboard's single-key affordances
+;; (g refresh, e/o export, q quit) fire under Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-analytics-dashboard-mode ogent-analytics-dashboard-mode-map
+     'ogent-analytics-dashboard-mode-hook #'ogent-analytics-dashboard-refresh)))
 
 (provide 'ogent-analytics)
 

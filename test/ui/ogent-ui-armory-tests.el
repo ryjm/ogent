@@ -292,7 +292,8 @@
                        ogent-armory-conversation-mode-map
                        ogent-armory-search-mode-map
                        ogent-armory-apps-mode-map))
-      (should-not (member (cons map 'all) maps)))
+      (should (member (cons map 'normal) maps))
+      (should (member (cons map 'motion) maps)))
     (dolist (hook (list ogent-armory-home-mode-hook
                         ogent-armory-agents-mode-hook
                         ogent-armory-org-chart-mode-hook
@@ -303,7 +304,6 @@
                         ogent-armory-conversation-mode-hook
                         ogent-armory-search-mode-hook
                         ogent-armory-apps-mode-hook))
-      (should (memq #'ogent-armory-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (ert-deftest ogent-ui-armory-evil-local-keys-mirror-safe-home-keys ()
@@ -1565,7 +1565,8 @@
                        ogent-armory-conversation-mode-map
                        ogent-armory-search-mode-map
                        ogent-armory-apps-mode-map))
-      (should-not (member (cons map 'all) maps)))
+      (should (member (cons map 'normal) maps))
+      (should (member (cons map 'motion) maps)))
     (dolist (hook (list ogent-armory-home-mode-hook
                         ogent-armory-agents-mode-hook
                         ogent-armory-org-chart-mode-hook
@@ -1576,7 +1577,6 @@
                         ogent-armory-conversation-mode-hook
                         ogent-armory-search-mode-hook
                         ogent-armory-apps-mode-hook))
-      (should (memq #'ogent-armory-ui--evil-local-keys hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (provide 'ogent-ui-armory-tests)

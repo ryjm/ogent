@@ -3,11 +3,22 @@
 ;;; Commentary:
 ;; Shared helpers for keeping Armory display keymaps active in Evil normal and
 ;; motion states.
+;;
+;; Historically this module *stripped* every alphabetic/digit key from Evil
+;; states ("vim-safe"), which made the single-key affordances printed in every
+;; Armory header line silently dead for Evil users.  Armory now uses the
+;; canonical overriding-map integration in `ogent-keys.el'
+;; (`ogent-evil-display-mode-setup', the magit/dired pattern): keys the mode
+;; binds win over Evil, keys it does not bind keep their Evil motion meaning.
+;; The legacy mirroring/reserved-key helpers below are retained for callers and
+;; tests but are no longer used to drive Armory Evil setup.
 
 ;;; Code:
 
 (require 'seq)
+(require 'ogent-keys)
 
+(declare-function ogent-evil-display-mode-setup "ogent-keys")
 (declare-function evil-set-initial-state "ext:evil-core")
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function evil-local-set-key "ext:evil-core")
@@ -110,16 +121,29 @@ PREFIX is used internally while walking prefix maps."
     (ogent-armory-evil-bind-local (kbd "ZZ") #'quit-window target-states)
     (ogent-armory-evil-bind-local (kbd "ZQ") #'quit-window target-states)))
 
+(defun ogent-armory-evil--refresh-command (keymap)
+  "Return the refresh command bound to `g' in KEYMAP, if any.
+Armory display maps bind `g' to their `*-refresh' command; this is
+re-exposed under the Evil-idiomatic `gr'."
+  (let ((cmd (lookup-key keymap "g")))
+    (and (commandp cmd) cmd)))
+
 (defun ogent-armory-evil-setup-mode (mode keymap hook local-keys)
-  "Set up Evil integration for MODE using KEYMAP, HOOK, and LOCAL-KEYS."
+  "Set up Evil integration for MODE using KEYMAP and HOOK.
+
+LOCAL-KEYS (legacy: a function mirroring bindings into Evil local
+maps) is accepted for backward compatibility but no longer used.
+Armory display maps now override Evil `normal' and `motion' state
+directly via `ogent-evil-display-mode-setup', so every single-key
+affordance shown in the buffer fires under Evil exactly as in vanilla
+Emacs, while unbound keys keep their Evil motion meaning."
+  (ignore local-keys)
   (puthash keymap
            (ogent-armory-evil-keymap-command-bindings keymap)
            ogent-armory-evil--keymap-bindings)
-  (when (fboundp 'evil-set-initial-state)
-    (evil-set-initial-state mode 'normal)
-    (add-hook hook local-keys)
-    (when (fboundp 'evil-normalize-keymaps)
-      (add-hook hook #'evil-normalize-keymaps))))
+  (ogent-evil-display-mode-setup
+   mode keymap hook
+   (ogent-armory-evil--refresh-command keymap)))
 
 (provide 'ogent-armory-evil)
 

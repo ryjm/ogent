@@ -15,6 +15,13 @@
 (declare-function ogent-issues-bd-list "ogent-issues-bd")
 (declare-function ogent-issues-bd-get "ogent-issues-bd")
 (declare-function ogent-issues-bd-project-name "ogent-issues-bd")
+(declare-function ogent-issues--current-issue-id "ogent-issues")
+(declare-function ogent-issues--show-detail "ogent-issues" (issue))
+
+;; Buffer-local render state, declared before first use in the tree renderer.
+(defvar-local ogent-issues-graph--collapsed-nodes nil
+  "Hash-table of collapsed node IDs.
+When a node ID is present in this table, its children are not rendered.")
 
 ;;; Customization
 
@@ -463,10 +470,6 @@ CYCLES is list of cycle ID sets."
 (defvar-local ogent-issues-graph--critical-path nil
   "Cached critical path for current graph.")
 
-(defvar-local ogent-issues-graph--collapsed-nodes nil
-  "Hash-table of collapsed node IDs.
-When a node ID is present in this table, its children are not rendered.")
-
 ;;; Commands
 
 (defun ogent-issues-graph-view (&optional issue-id)
@@ -671,6 +674,15 @@ When expanded, the full subtree is visible."
   (if-let ((id (ogent-issues--current-issue-id)))
       (ogent-issues-graph-view id)
     (user-error "No issue at point")))
+
+;; Canonical Evil integration so the graph buffer's single-key
+;; affordances (RET visit, TAB toggle, n/p nav, c cycles, C critical,
+;; g refresh, ? help, q quit) fire under Doom/Evil.
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-issues-graph-mode ogent-issues-graph-mode-map
+     'ogent-issues-graph-mode-hook #'ogent-issues-graph-refresh)))
 
 (provide 'ogent-issues-graph)
 
