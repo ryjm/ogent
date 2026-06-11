@@ -10,6 +10,7 @@
 (require 'ogent-armory)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
+(require 'ogent-armory-actions)
 (require 'ogent-armory-settings)
 
 (defmacro ogent-armory-runner-test-with-temp-dir (var &rest body)
@@ -576,6 +577,116 @@ Return (MAIN . WORKTREE)."
           (should (equal (plist-get conversation :error-kind) "auth-expired"))
           (should (string-match-p "Please login"
                                   (plist-get conversation :error-hint))))))))
+
+(defun ogent-armory-runner-test--seed-lead-armory (root)
+  "Create a lead, a builder, and a parent conversation under ROOT."
+  (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+  (ogent-armory-write-agent
+   root
+   '(:slug "lead"
+     :name "Lead"
+     :role "Lead agent"
+     :type "lead"
+     :can-dispatch t
+     :provider "codex")
+   "Lead the work.")
+  (ogent-armory-write-agent
+   root
+   '(:slug "builder"
+     :name "Builder"
+     :role "Implementation"
+     :provider "claude")
+   "Build the work.")
+  (ogent-armory-conversation-create
+   root
+   '(:id "parent"
+     :agent "lead"
+     :title "Parent"
+     :status "done")))
+
+(ert-deftest ogent-armory-runner-capture-actions-stores-lead-proposals ()
+  "Lead proposals on a clean exit become readable pending actions."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-runner-test--seed-lead-armory dir)
+    (let* ((plan (list :root dir
+                       :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                       :conversation-id "parent"))
+           (stored (ogent-armory-runner--capture-actions
+                    plan
+                    "LAUNCH_TASK: builder | Build | Build it.\n"
+                    0))
+           (actions (ogent-armory-actions-read dir "parent")))
+      (should stored)
+      (should (= 1 (length actions)))
+      (should (eq (plist-get (car actions) :type) 'launch-task))
+      (should (equal (plist-get (car actions) :status) "pending"))
+      (should (equal (plist-get (car actions) :target-agent) "builder")))))
+
+(ert-deftest ogent-armory-runner-capture-actions-ignores-non-lead-agents ()
+  "Proposals from non-lead agents are dropped without storing anything."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-runner-test--seed-lead-armory dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "builder")
+                      :conversation-id "parent")))
+      (should-not (ogent-armory-runner--capture-actions
+                   plan
+                   "LAUNCH_TASK: builder | Build | Build it.\n"
+                   0))
+      (should-not (file-exists-p
+                   (ogent-armory-actions-file dir "parent"))))))
+
+(ert-deftest ogent-armory-runner-capture-actions-ignores-failed-runs ()
+  "Proposals in a failed run's partial output are never enqueued."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-runner-test--seed-lead-armory dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                      :conversation-id "parent")))
+      (should-not (ogent-armory-runner--capture-actions
+                   plan
+                   "LAUNCH_TASK: builder | Build | Build it.\n"
+                   1))
+      (should-not (file-exists-p
+                   (ogent-armory-actions-file dir "parent"))))))
+
+(ert-deftest ogent-armory-runner-capture-actions-ignores-plain-output ()
+  "Lead output without proposals stores no actions file."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-runner-test--seed-lead-armory dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                      :conversation-id "parent")))
+      (should-not (ogent-armory-runner--capture-actions
+                   plan
+                   "All quiet today.\n"
+                   0))
+      (should-not (file-exists-p
+                   (ogent-armory-actions-file dir "parent"))))))
+
+(ert-deftest ogent-armory-runner-start-stores-lead-action-proposals ()
+  "A finished lead run stores its proposals under the run's conversation."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-runner-test--seed-lead-armory dir)
+    (let ((fixture (ogent-armory-runner-test--make-executable
+                    dir
+                    "#!/bin/sh\nprintf 'LAUNCH_TASK: builder | Build | Build it.\\n'\ncat >/dev/null\n")))
+      (let* ((ogent-armory-codex-executable fixture)
+             (ogent-armory-runner-confirm-before-run nil)
+             (plan (ogent-armory-runner-plan
+                    dir "lead" :instruction "Plan follow-up tasks."))
+             (process (ogent-armory-runner-start plan)))
+        (ogent-armory-runner-test--wait process)
+        (let* ((conversation-id
+                (process-get process 'ogent-armory-conversation-id))
+               (actions (ogent-armory-actions-read dir conversation-id)))
+          (should (file-exists-p
+                   (ogent-armory-actions-file dir conversation-id)))
+          (should (= 1 (length actions)))
+          (should (eq (plist-get (car actions) :type) 'launch-task))
+          (should (equal (plist-get (car actions) :target-agent) "builder"))
+          (should (equal (plist-get (car actions) :triggering-agent)
+                         "lead")))))))
 
 (provide 'ogent-armory-runner-tests)
 

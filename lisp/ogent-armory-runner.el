@@ -17,6 +17,11 @@
 (require 'ogent-armory-settings)
 (require 'ogent-issues-bd)
 
+(declare-function ogent-armory-actions-parse "ogent-armory-actions" (text))
+(declare-function ogent-armory-actions-validate "ogent-armory-actions")
+(declare-function ogent-armory-actions-store "ogent-armory-actions"
+                  (directory conversation-id actions))
+
 (defgroup ogent-armory-runner nil
   "Run Org Armory agents through subscription-authenticated CLIs."
   :group 'ogent-armory
@@ -796,6 +801,31 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
      :payload (format "status=%s" status))
     (ogent-armory-conversation-file root conversation-id)))
 
+(defun ogent-armory-runner--capture-actions (plan output exit-status)
+  "Parse lead action proposals from OUTPUT and store them as pending actions.
+Only runs for lead agents on zero EXIT-STATUS.  Returns stored actions or nil."
+  (condition-case err
+      (when (and (eq exit-status 0)
+                 (ogent-armory-agent-lead-p (plist-get plan :agent)))
+        (require 'ogent-armory-actions)
+        (when-let ((actions (ogent-armory-actions-parse output)))
+          (let ((validated (ogent-armory-actions-validate
+                            (plist-get plan :root)
+                            actions
+                            :triggering-agent
+                            (plist-get (plist-get plan :agent) :slug))))
+            (ogent-armory-actions-store
+             (plist-get plan :root)
+             (plist-get plan :conversation-id)
+             validated)
+            (message "ogent: %d lead action(s) pending approval — M-x ogent-armory-actions"
+                     (length validated))
+            validated)))
+    (error
+     (message "ogent: failed to capture lead action proposals: %s"
+              (error-message-string err))
+     nil)))
+
 (defun ogent-armory-runner-start (plan)
   "Start PLAN and return its process."
   (let* ((program (plist-get plan :program))
@@ -851,6 +881,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                               (- (float-time) started-at)))
                            (ogent-armory-runner--finalize-conversation
                             plan output error-output exit-status))))
+                   (ogent-armory-runner--capture-actions
+                    plan output exit-status)
                    (process-put process 'ogent-armory-conversation-file
                                 conversation-file)
                    (process-put process 'ogent-armory-conversation-id
