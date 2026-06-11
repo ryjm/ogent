@@ -220,6 +220,14 @@ Options explained:
 - `:select` - Whether to select the popup when shown
 - `:ttl` - Time to live (`nil` = never auto-close)
 
+The issue board's detail view (`*ogent-issue: …*`) deliberately does
+**not** go through Doom's popup system: selecting an issue opens a
+magit-style side-by-side split via `display-buffer-overriding-action`,
+which outranks Doom's `"^\\*"` bottom-popup catch-all. Customize
+`ogent-issues-detail-display-action` (`right`/`below`/`other-window`)
+to change the layout, or set it to `default` if you want your own
+`set-popup-rule!`/`display-buffer-alist` rules to govern that buffer.
+
 ## Mode-Specific Keybindings
 
 For org-mode specific commands, use localleader (`SPC m`):
