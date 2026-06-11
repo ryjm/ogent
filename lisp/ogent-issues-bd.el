@@ -322,6 +322,14 @@ Recent bd versions return a one-element array for `show`, while callers of
     (car result))
    (t result)))
 
+(defun ogent-issues-bd--issue-list (result)
+  "Normalize a `list --json' RESULT to a bare list of issue plists.
+br wraps the issues in a (:issues ... :total ...) pagination plist,
+while classic bd returned a bare array.  Accept both."
+  (if (and (consp result) (keywordp (car result)))
+      (plist-get result :issues)
+    result))
+
 ;;; High-Level API
 
 (defun ogent-issues-bd-list (callback &optional filters error-callback)
@@ -348,13 +356,13 @@ ERROR-CALLBACK is called on error with an error message."
         ;; Check cache first
         (let ((cached (ogent-issues-bd--cache-get args)))
           (if cached
-              (funcall callback cached)
+              (funcall callback (ogent-issues-bd--issue-list cached))
             ;; Fetch from bd
             (ogent-issues-bd--run-async
              args
              (lambda (result)
                (ogent-issues-bd--cache-set args result)
-               (funcall callback result))
+               (funcall callback (ogent-issues-bd--issue-list result)))
              error-callback)))))))
 
 (defun ogent-issues-bd-get (id callback &optional error-callback)

@@ -764,6 +764,35 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
         ;; run-async should NOT have been called
         (should-not async-called)))))
 
+(ert-deftest ogent-issues-bd-issue-list-accepts-both-shapes ()
+  "br's pagination wrapper and bd's bare array both normalize."
+  (let ((issues (list ogent-issues-bd-test--sample-issue)))
+    ;; br shape: (:issues (...) :total N ...)
+    (should (equal (ogent-issues-bd--issue-list
+                    (list :issues issues :total 1 :limit 50
+                          :offset 0 :has_more nil))
+                   issues))
+    ;; classic bd shape: bare array
+    (should (equal (ogent-issues-bd--issue-list issues) issues))
+    ;; empty results
+    (should (null (ogent-issues-bd--issue-list nil)))
+    (should (null (ogent-issues-bd--issue-list (list :issues nil :total 0))))))
+
+(ert-deftest ogent-issues-bd-test-list-unwraps-br-pagination ()
+  "Callback receives the bare issue list from br's wrapped response."
+  (ogent-issues-bd-cache-invalidate)
+  (let ((result 'unset)
+        (ogent-issues-bd-cache-ttl 60))
+    (ogent-issues-bd-test-with-mock (list :issues ogent-issues-bd-test--sample-list
+                                          :total 2 :limit 50 :offset 0
+                                          :has_more nil)
+      (ogent-issues-bd-list (lambda (issues) (setq result issues)))
+      (should (equal result ogent-issues-bd-test--sample-list))
+      ;; The cached second call unwraps too.
+      (setq result 'unset)
+      (ogent-issues-bd-list (lambda (issues) (setq result issues)))
+      (should (equal result ogent-issues-bd-test--sample-list)))))
+
 (ert-deftest ogent-issues-bd-test-get-returns-cached ()
   "Test get returns cached result on second call."
   (ogent-issues-bd-cache-invalidate)
