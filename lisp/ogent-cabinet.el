@@ -25,6 +25,46 @@
   :type 'string
   :group 'ogent-cabinet)
 
+(defcustom ogent-cabinet-todo-keywords
+  '("RUNNING(r)" "FAILED(f)")
+  "Extra Org TODO keywords for Cabinet job/session states.
+Registered (with the built-in TODO/DONE) so `org-agenda' recognizes
+Cabinet records.  RUNNING is an active state; FAILED is a terminal
+\(done-type) state.  The scaffolded cabinet index also declares them in
+a `#+TODO:' line so single files are self-describing without global
+registration."
+  :type '(repeat string)
+  :group 'ogent-cabinet)
+
+(defun ogent-cabinet--todo-sequence ()
+  "Return the Org `#+TODO:' keyword sequence for Cabinet files.
+A list like (\"TODO\" \"RUNNING(r)\" \"|\" \"DONE(d)\" \"FAILED(f)\")."
+  (let (active done)
+    (dolist (kw ogent-cabinet-todo-keywords)
+      (if (string-prefix-p "FAILED" kw) (push kw done) (push kw active)))
+    (append '("TODO") (nreverse active)
+            '("|" "DONE(d)") (nreverse done))))
+
+(defun ogent-cabinet--todo-header ()
+  "Return the `#+TODO:' header line declaring Cabinet keywords."
+  (format "#+TODO: %s\n" (string-join (ogent-cabinet--todo-sequence) " ")))
+
+;;;###autoload
+(defun ogent-cabinet-register-todo-keywords ()
+  "Register Cabinet TODO keywords in `org-todo-keywords'.
+Idempotent: adds RUNNING/FAILED (and the standard TODO|DONE sequence)
+so `org-agenda' recognizes Cabinet job and session states across all
+cabinet files.  Safe to call repeatedly."
+  (require 'org)
+  (let ((seq (cons 'sequence (ogent-cabinet--todo-sequence))))
+    (unless (member seq org-todo-keywords)
+      (setq org-todo-keywords (append org-todo-keywords (list seq))))))
+
+;; Register when Org is available, deferred so loading this file has no
+;; global side effect at require time.
+(with-eval-after-load 'org
+  (ogent-cabinet-register-todo-keywords))
+
 (defcustom ogent-cabinet-global-agents-root nil
   "Optional directory containing user-global Cabinet agents.
 When nil, each Cabinet stores global agents in its own `.global-agents'
@@ -400,7 +440,9 @@ START defaults to `default-directory'."
 KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
   (let ((cabinet-id (format "%s-%s" (ogent-cabinet--slug name "cabinet") kind)))
     (concat
-     (format "#+title: %s\n\n" name)
+     (format "#+title: %s\n" name)
+     (ogent-cabinet--todo-header)
+     "\n"
      (format "* %s\n" name)
      (ogent-cabinet--format-properties
       `(("OGENT_CABINET" . t)

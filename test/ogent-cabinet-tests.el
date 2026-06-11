@@ -631,6 +631,40 @@
                  (ogent-cabinet-test--slurp
                   (expand-file-name "imports/notes.org" root))))))))
 
+;;; Org TODO keyword registration
+
+(ert-deftest ogent-cabinet-todo-sequence-orders-active-and-done ()
+  "The TODO sequence puts RUNNING active and FAILED after the bar."
+  (let ((seq (ogent-cabinet--todo-sequence)))
+    (should (equal (car seq) "TODO"))
+    (should (member "RUNNING(r)" seq))
+    (let ((bar (cl-position "|" seq :test #'equal)))
+      (should bar)
+      ;; RUNNING before the bar (active), FAILED after (done-type).
+      (should (< (cl-position "RUNNING(r)" seq :test #'equal) bar))
+      (should (> (cl-position "FAILED(f)" seq :test #'equal) bar)))))
+
+(ert-deftest ogent-cabinet-scaffold-index-declares-todo-keywords ()
+  "A scaffolded cabinet index carries a #+TODO: line with its states."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Acme" :kind "root" :create-editor nil)
+    (let ((content (ogent-cabinet-test--slurp
+                    (expand-file-name "index.org" dir))))
+      (should (string-match-p "^#\\+TODO:.*RUNNING" content))
+      (should (string-match-p "^#\\+TODO:.*FAILED" content)))))
+
+(ert-deftest ogent-cabinet-register-todo-keywords-is-idempotent ()
+  "Registering keywords adds the sequence once, even when called twice."
+  (require 'org)
+  (let ((org-todo-keywords (copy-tree '((sequence "TODO" "|" "DONE")))))
+    (ogent-cabinet-register-todo-keywords)
+    (ogent-cabinet-register-todo-keywords)
+    (let ((seqs (cl-remove-if-not
+                 (lambda (s) (member "RUNNING(r)" s))
+                 org-todo-keywords)))
+      (should (= (length seqs) 1))
+      (should (member "FAILED(f)" (car seqs))))))
+
 (provide 'ogent-cabinet-tests)
 
 ;;; ogent-cabinet-tests.el ends here
