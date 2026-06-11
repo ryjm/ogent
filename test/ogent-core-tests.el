@@ -427,6 +427,72 @@
       (ogent-ask--display-message "line1\nline2\nline3")
       (should (string-match-p "line1 line2 line3" message-log)))))
 
+(defun ogent-core-tests--ask-fixture-buffer ()
+  "Return a temp-buffer body string of 30 numbered lines."
+  (mapconcat (lambda (n) (format "line-%02d" n))
+             (number-sequence 1 30) "\n"))
+
+(ert-deftest ogent-ask-prompt-includes-buffer-and-focus ()
+  "Default prompt carries the whole buffer plus a prioritized excerpt."
+  (with-temp-buffer
+    (insert (ogent-core-tests--ask-fixture-buffer))
+    (goto-char (point-min))
+    (forward-line 14)                   ; point on line-15
+    (let* ((ogent-ask-include-buffer t)
+           (ogent-ask-focus-lines 5)
+           (prompt (ogent-ask--prompt "What does this do?")))
+      ;; Whole buffer present.
+      (should (string-match-p "line-01" prompt))
+      (should (string-match-p "line-30" prompt))
+      ;; Focus excerpt: lines 10-20 announced and present after the marker.
+      (should (string-match-p "lines 10-20" prompt))
+      (let ((focus (substring prompt (string-match "# Around Point" prompt))))
+        (should (string-match-p "line-10" focus))
+        (should (string-match-p "line-20" focus))
+        (should-not (string-match-p "line-09" focus))
+        (should-not (string-match-p "line-21" focus)))
+      ;; Question comes last under its own heading.
+      (should (string-match-p "# Question\nWhat does this do\\?\\'" prompt)))))
+
+(ert-deftest ogent-ask-prompt-clamps-focus-at-edges ()
+  "Focus excerpt clamps to buffer boundaries."
+  (with-temp-buffer
+    (insert (ogent-core-tests--ask-fixture-buffer))
+    (goto-char (point-min))
+    (forward-line 1)                    ; line 2
+    (let ((ogent-ask-focus-lines 5))
+      (should (string-match-p "lines 1-7" (ogent-ask--prompt "q"))))
+    (goto-char (point-max))             ; line 30
+    (let ((ogent-ask-focus-lines 5))
+      (should (string-match-p "lines 25-30" (ogent-ask--prompt "q"))))))
+
+(ert-deftest ogent-ask-prompt-bare-when-disabled-or-empty ()
+  "Disabled context or an empty buffer leaves the question untouched."
+  (with-temp-buffer
+    (insert "content")
+    (let ((ogent-ask-include-buffer nil))
+      (should (equal (ogent-ask--prompt "q") "q"))))
+  (with-temp-buffer
+    (let ((ogent-ask-include-buffer t))
+      (should (equal (ogent-ask--prompt "q") "q")))))
+
+(ert-deftest ogent-ask-sends-buffer-context-by-default ()
+  "ogent-ask sends the composed prompt through gptel-request."
+  (with-temp-buffer
+    (insert "alpha\nbeta\ngamma\n")
+    (goto-char (point-min))
+    (forward-line 1)                    ; point on beta
+    (let ((sent nil)
+          (ogent-ask-include-buffer t)
+          (ogent-ask-focus-lines 5))
+      (cl-letf (((symbol-function 'gptel-request)
+                 (lambda (prompt &rest _) (setq sent prompt) 'mock)))
+        (ogent-ask "Why beta?"))
+      (should (stringp sent))
+      (should (string-match-p "alpha\nbeta\ngamma" sent))
+      (should (string-match-p "prioritize this region" sent))
+      (should (string-match-p "# Question\nWhy beta\\?\\'" sent)))))
+
 (ert-deftest ogent-ask-callback-accumulates-text ()
   "ogent-ask callback should accumulate streaming text."
   (setq ogent-ask--streaming-response "")

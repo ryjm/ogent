@@ -327,6 +327,22 @@ Built-in options:
   :type 'function
   :group 'ogent-mode)
 
+(defcustom ogent-ask-include-buffer t
+  "When non-nil, send the current buffer as context with `ogent-ask'.
+The accessible portion of the buffer is included in full, and the
+lines around point (see `ogent-ask-focus-lines') are excerpted
+separately so the model prioritizes the user's current location.
+Set to nil for context-free questions."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defcustom ogent-ask-focus-lines 5
+  "Lines of context on each side of point that `ogent-ask' prioritizes.
+The prioritized excerpt spans this many lines above and below the
+line at point, clamped to the buffer boundaries."
+  :type 'integer
+  :group 'ogent-mode)
+
 (defvar ogent-ask--buffer-name "*ogent-ask*"
   "Buffer name for ogent-ask responses.")
 
@@ -384,10 +400,50 @@ Built-in options:
         (funcall ogent-ask-display-function ogent-ask--streaming-response)
         (setq ogent-ask--streaming-response ""))))))
 
+(defun ogent-ask--focus-excerpt ()
+  "Return (TEXT START-LINE . END-LINE) for the lines around point.
+The region spans `ogent-ask-focus-lines' lines on each side of the
+current line, clamped to the accessible portion of the buffer."
+  (let* ((current (line-number-at-pos))
+         (start-line (max 1 (- current ogent-ask-focus-lines)))
+         (end-line (min (line-number-at-pos (point-max))
+                        (+ current ogent-ask-focus-lines)))
+         (start (save-excursion
+                  (forward-line (- start-line current))
+                  (point)))
+         (end (save-excursion
+                (forward-line (- end-line current))
+                (line-end-position))))
+    (cons (buffer-substring-no-properties start end)
+          (cons start-line end-line))))
+
+(defun ogent-ask--prompt (question)
+  "Return the request prompt for QUESTION.
+When `ogent-ask-include-buffer' is non-nil and the buffer has
+content, include the whole accessible buffer followed by a
+prioritized excerpt of the lines around point; otherwise return
+QUESTION unchanged."
+  (if (or (not ogent-ask-include-buffer)
+          (= (point-min) (point-max)))
+      question
+    (let ((excerpt (ogent-ask--focus-excerpt)))
+      (format (concat "# Buffer: %s (%s)\n%s\n\n"
+                      "# Around Point (lines %d-%d, where the user's cursor is"
+                      " — prioritize this region when answering)\n%s\n\n"
+                      "# Question\n%s")
+              (buffer-name) major-mode
+              (buffer-substring-no-properties (point-min) (point-max))
+              (cadr excerpt) (cddr excerpt)
+              (car excerpt)
+              question))))
+
 ;;;###autoload
 (defun ogent-ask (question)
-  "Ask QUESTION and display the response.
-This is a quick Q&A command without the full context machinery.
+  "Ask QUESTION about the current buffer and display the response.
+By default the whole buffer is sent as context, with the
+`ogent-ask-focus-lines' lines around point excerpted so the model
+prioritizes the user's current location; set
+`ogent-ask-include-buffer' to nil for a context-free question.
 Interactively, prompts for the question.
 Response is displayed according to `ogent-ask-display-function'."
   (interactive "sAsk: ")
@@ -405,7 +461,7 @@ Response is displayed according to `ogent-ask-display-function'."
                    (gptel--model-name gptel-model)
                  gptel-model)
              "LLM"))
-  (gptel-request question
+  (gptel-request (ogent-ask--prompt question)
                  :stream t
                  :callback (ogent-ask--make-callback)))
 
