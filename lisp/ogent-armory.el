@@ -25,6 +25,46 @@
   :type 'string
   :group 'ogent-armory)
 
+(defcustom ogent-armory-todo-keywords
+  '("RUNNING(r)" "FAILED(f)")
+  "Extra Org TODO keywords for Armory job/session states.
+Registered (with the built-in TODO/DONE) so `org-agenda' recognizes
+Armory records.  RUNNING is an active state; FAILED is a terminal
+\(done-type) state.  The scaffolded armory index also declares them in
+a `#+TODO:' line so single files are self-describing without global
+registration."
+  :type '(repeat string)
+  :group 'ogent-armory)
+
+(defun ogent-armory--todo-sequence ()
+  "Return the Org `#+TODO:' keyword sequence for Armory files.
+A list like (\"TODO\" \"RUNNING(r)\" \"|\" \"DONE(d)\" \"FAILED(f)\")."
+  (let (active done)
+    (dolist (kw ogent-armory-todo-keywords)
+      (if (string-prefix-p "FAILED" kw) (push kw done) (push kw active)))
+    (append '("TODO") (nreverse active)
+            '("|" "DONE(d)") (nreverse done))))
+
+(defun ogent-armory--todo-header ()
+  "Return the `#+TODO:' header line declaring Armory keywords."
+  (format "#+TODO: %s\n" (string-join (ogent-armory--todo-sequence) " ")))
+
+;;;###autoload
+(defun ogent-armory-register-todo-keywords ()
+  "Register Armory TODO keywords in `org-todo-keywords'.
+Idempotent: adds RUNNING/FAILED (and the standard TODO|DONE sequence)
+so `org-agenda' recognizes Armory job and session states across all
+armory files.  Safe to call repeatedly."
+  (require 'org)
+  (let ((seq (cons 'sequence (ogent-armory--todo-sequence))))
+    (unless (member seq org-todo-keywords)
+      (setq org-todo-keywords (append org-todo-keywords (list seq))))))
+
+;; Register when Org is available, deferred so loading this file has no
+;; global side effect at require time.
+(with-eval-after-load 'org
+  (ogent-armory-register-todo-keywords))
+
 (defcustom ogent-armory-global-agents-root nil
   "Optional directory containing user-global Armory agents.
 When nil, each Armory stores global agents in its own `.global-agents'
@@ -400,7 +440,9 @@ START defaults to `default-directory'."
 KIND, DESCRIPTION, BODY, and TAGS supply the root metadata."
   (let ((armory-id (format "%s-%s" (ogent-armory--slug name "armory") kind)))
     (concat
-     (format "#+title: %s\n\n" name)
+     (format "#+title: %s\n" name)
+     (ogent-armory--todo-header)
+     "\n"
      (format "* %s\n" name)
      (ogent-armory--format-properties
       `(("OGENT_ARMORY" . t)
