@@ -55,13 +55,16 @@ CAPTURE is set to the prompt string the executor sent."
 
 (ert-deftest ob-ogent-resolve-context-includes-resolved-content ()
   "Resolved handles contribute their content; missing ones are flagged."
+  ;; Return a real `ogent-context-node' struct: the content accessor is
+  ;; a cl-defsubst that callers may inline at load time, so stubbing it
+  ;; with cl-letf is load-order dependent and breaks in CI.
   (cl-letf (((symbol-function 'ogent-context--dependency)
              (lambda (handle)
                (if (equal handle "good")
-                   (list :node 'node :missing-p nil)
-                 (list :node nil :missing-p t))))
-            ((symbol-function 'ogent-context-node-content)
-             (lambda (_node) "GOOD CONTENT")))
+                   (list :node (make-ogent-context-node
+                                :content "GOOD CONTENT")
+                         :missing-p nil)
+                 (list :node nil :missing-p t)))))
     (let ((preamble (ob-ogent--resolve-context '("good" "bad"))))
       (should (string-match-p "## @good" preamble))
       (should (string-match-p "GOOD CONTENT" preamble))
@@ -96,9 +99,9 @@ CAPTURE is set to the prompt string the executor sent."
   "Resolved :context is prepended to the prompt sent to the model."
   (let (sent)
     (cl-letf (((symbol-function 'ogent-context--dependency)
-               (lambda (_h) (list :node 'node :missing-p nil)))
-              ((symbol-function 'ogent-context-node-content)
-               (lambda (_node) "PLAN BODY")))
+               (lambda (_h) (list :node (make-ogent-context-node
+                                         :content "PLAN BODY")
+                                  :missing-p nil))))
       (ob-ogent-tests--with-stub-request sent
         (org-babel-execute:ogent
          "Use the plan"
