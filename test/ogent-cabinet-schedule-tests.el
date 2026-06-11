@@ -248,6 +248,201 @@
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
+(defmacro ogent-cabinet-schedule-tests--with-scheduler (root calls &rest body)
+  "Run BODY with scheduler state reset, watching ROOT, runner stubbed.
+CALLS is bound to a list collecting `ogent-cabinet-runner-plan'
+keyword arguments, newest first."
+  (declare (indent 2) (debug t))
+  `(let ((ogent-cabinet-scheduler-roots (list ,root))
+         (ogent-cabinet-scheduler--last-tick nil)
+         (ogent-cabinet-scheduler--fired (make-hash-table :test 'equal))
+         (ogent-cabinet-scheduler-auto-run t)
+         (ogent-cabinet-scheduler-catchup-window 300)
+         (,calls nil))
+     (cl-letf (((symbol-function 'ogent-cabinet-runner-plan)
+                (lambda (directory agent &rest kwargs)
+                  (push (append (list :directory directory :agent agent)
+                                kwargs)
+                        ,calls)
+                  (list :provider "stub" :agent agent)))
+               ((symbol-function 'ogent-cabinet-runner-start)
+                (lambda (_plan) nil)))
+       ,@body)))
+
+(defun ogent-cabinet-schedule-tests--scheduler-job (root)
+  "Scaffold ROOT with the test agent and a 9am cron job."
+  (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+  (ogent-cabinet-schedule-test--make-agent root)
+  (ogent-cabinet-write-job
+   root "cto"
+   '(:id "daily-review"
+     :name "Daily Review"
+     :cron "0 9 * * *"
+     :enabled t)
+   "Review current work."))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-fires-due-cron-job ()
+  "The scheduler arms on the first tick and fires due cron slots after."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-schedule-tests--scheduler-job root)
+    (ogent-cabinet-schedule-tests--with-scheduler root calls
+      (let ((arm (ogent-cabinet-schedule-test--time 2026 5 4 8 59))
+            (tick (ogent-cabinet-schedule-test--time 2026 5 4 9 1)))
+        (should-not (ogent-cabinet-scheduler-tick arm))
+        (should-not calls)
+        (let ((fired (ogent-cabinet-scheduler-tick tick)))
+          (should (= (length fired) 1))
+          (should (= (length calls) 1))
+          (let ((call (car calls)))
+            (should (equal (plist-get call :job-id) "daily-review"))
+            (should (equal (plist-get call :scheduled-key)
+                           "cto::job::daily-review::2026-05-04T09:00"))
+            (should (equal (plist-get call :scheduled-key)
+                           (plist-get (car fired) :schedule-key)))))))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-dedups-fired-slots ()
+  "A slot already fired in this session never fires twice."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-schedule-tests--scheduler-job root)
+    (ogent-cabinet-schedule-tests--with-scheduler root calls
+      (let ((arm (ogent-cabinet-schedule-test--time 2026 5 4 8 59))
+            (tick (ogent-cabinet-schedule-test--time 2026 5 4 9 1)))
+        (ogent-cabinet-scheduler-tick arm)
+        (should (= (length (ogent-cabinet-scheduler-tick tick)) 1))
+        (setq ogent-cabinet-scheduler--last-tick arm)
+        (should-not (ogent-cabinet-scheduler-tick tick))
+        (should (= (length calls) 1))))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-skips-claimed-slots ()
+  "Slots already claimed by a conversation are done, never fired."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-schedule-tests--scheduler-job root)
+    (let* ((slot (ogent-cabinet-schedule-test--time 2026 5 4 9 0))
+           (key (ogent-cabinet-schedule-key "cto" 'job "daily-review" slot)))
+      (ogent-cabinet-conversation-create
+       root
+       (list :id "daily-run"
+             :agent "cto"
+             :title "Daily Review"
+             :trigger "job"
+             :status "done"
+             :job-id "daily-review"
+             :scheduled-at "2026-05-04T09:00"
+             :scheduled-key key
+             :started "2026-05-04T09:00"
+             :completed "2026-05-04T09:12"
+             :last-activity "2026-05-04T09:12"))
+      (ogent-cabinet-schedule-tests--with-scheduler root calls
+        (ogent-cabinet-scheduler-tick
+         (ogent-cabinet-schedule-test--time 2026 5 4 8 59))
+        (should-not (ogent-cabinet-scheduler-tick
+                     (ogent-cabinet-schedule-test--time 2026 5 4 9 1)))
+        (should-not calls)))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-respects-auto-run-gate ()
+  "With auto-run disabled due events are announced, never run."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-schedule-tests--scheduler-job root)
+    (ogent-cabinet-schedule-tests--with-scheduler root calls
+      (let ((ogent-cabinet-scheduler-auto-run nil))
+        (ogent-cabinet-scheduler-tick
+         (ogent-cabinet-schedule-test--time 2026 5 4 8 59))
+        (let ((fired (ogent-cabinet-scheduler-tick
+                      (ogent-cabinet-schedule-test--time 2026 5 4 9 1))))
+          (should (= (length fired) 1))
+          (should (equal (plist-get (car fired) :schedule-key)
+                         "cto::job::daily-review::2026-05-04T09:00"))
+          (should-not calls))))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-floors-window-at-catchup ()
+  "Events older than the catch-up window stay manual."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-schedule-test--make-agent root)
+    (ogent-cabinet-write-job
+     root "cto"
+     '(:id "every-minute"
+       :name "Every Minute"
+       :cron "* * * * *"
+       :enabled t)
+     "Tick often.")
+    (ogent-cabinet-schedule-tests--with-scheduler root calls
+      (setq ogent-cabinet-scheduler--last-tick
+            (ogent-cabinet-schedule-test--time 2026 5 4 10 0))
+      (let ((fired (ogent-cabinet-scheduler-tick
+                    (ogent-cabinet-schedule-test--time 2026 5 4 12 0))))
+        (should (equal (mapcar (lambda (event)
+                                 (plist-get event :minute-iso))
+                               fired)
+                       '("2026-05-04T11:55"
+                         "2026-05-04T11:56"
+                         "2026-05-04T11:57"
+                         "2026-05-04T11:58"
+                         "2026-05-04T11:59")))
+        (should (= (length calls) 5))))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-fires-heartbeat-instruction ()
+  "Heartbeat events plan with an instruction and heartbeat trigger."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     root
+     '(:slug "pulse"
+       :name "Pulse"
+       :role "Operations"
+       :provider "codex"
+       :workspace "/"
+       :heartbeat "* * * * *"
+       :active t)
+     "Stay responsive.")
+    (ogent-cabinet-schedule-tests--with-scheduler root calls
+      (ogent-cabinet-scheduler-tick
+       (ogent-cabinet-schedule-test--time 2026 5 4 9 0))
+      (should (= (length (ogent-cabinet-scheduler-tick
+                          (ogent-cabinet-schedule-test--time 2026 5 4 9 1)))
+                 1))
+      (let ((call (car calls)))
+        (should-not (plist-get call :job-id))
+        (should (stringp (plist-get call :instruction)))
+        (should (equal (plist-get call :trigger) "heartbeat"))))))
+
+(ert-deftest ogent-cabinet-schedule-scheduler-mode-manages-timer ()
+  "Enabling the scheduler mode arms a timer; disabling cancels it."
+  (unwind-protect
+      (progn
+        (ogent-cabinet-scheduler-mode 1)
+        (should (timerp ogent-cabinet-scheduler--timer))
+        (should (memq ogent-cabinet-scheduler--timer timer-list))
+        (let ((timer ogent-cabinet-scheduler--timer))
+          (ogent-cabinet-scheduler-mode -1)
+          (should-not ogent-cabinet-scheduler--timer)
+          (should-not (memq timer timer-list))))
+    (when ogent-cabinet-scheduler-mode
+      (ogent-cabinet-scheduler-mode -1))))
+
+(ert-deftest ogent-cabinet-schedule-agenda-keeps-scope-buffer-locally ()
+  "Cabinet agenda installs its file set buffer-locally for redo."
+  (ogent-cabinet-schedule-test-with-temp-dir root
+    (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-schedule-test--make-agent root)
+    (let ((buffer (generate-new-buffer " *ogent-agenda-test*"))
+          (global-files org-agenda-files)
+          (org-agenda-buffer nil)
+          captured)
+      (unwind-protect
+          (cl-letf (((symbol-function 'org-agenda)
+                     (lambda (&rest _)
+                       (interactive)
+                       (setq captured org-agenda-files)
+                       (setq org-agenda-buffer buffer))))
+            (ogent-cabinet-agenda root)
+            (should (equal captured (ogent-cabinet-agenda-files root)))
+            (should (equal (buffer-local-value 'org-agenda-files buffer)
+                           (ogent-cabinet-agenda-files root)))
+            (should (equal (default-value 'org-agenda-files) global-files)))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
 (provide 'ogent-cabinet-schedule-tests)
 
 ;;; ogent-cabinet-schedule-tests.el ends here

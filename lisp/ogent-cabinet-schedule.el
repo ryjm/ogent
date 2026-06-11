@@ -429,12 +429,23 @@ NOW controls missed-run detection and defaults to the current time."
 
 ;;;###autoload
 (defun ogent-cabinet-agenda (&optional directory)
-  "Open Org agenda over Cabinet files under DIRECTORY."
+  "Open Org agenda over Cabinet files under DIRECTORY.
+The Cabinet file set is also installed buffer-locally in the agenda
+buffer so refresh commands such as `org-agenda-redo' keep the
+Cabinet scope instead of falling back to the global
+`org-agenda-files'."
   (interactive
    (list (or (ogent-cabinet-find-root)
              (read-directory-name "Cabinet root: "))))
-  (ogent-cabinet-with-agenda-files (or directory default-directory)
-    (call-interactively #'org-agenda)))
+  (let* ((root (or directory default-directory))
+         (files (ogent-cabinet-agenda-files root)))
+    (let ((org-agenda-files files))
+      (call-interactively #'org-agenda))
+    (when-let ((buf (if (boundp 'org-agenda-buffer) org-agenda-buffer
+                      (get-buffer org-agenda-buffer-name))))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (setq-local org-agenda-files files))))))
 
 (defun ogent-cabinet-schedule--state-label (state)
   "Return a display label for schedule STATE."
@@ -565,6 +576,119 @@ NOW controls missed-run detection and defaults to the current time."
                 :scheduled-key (plist-get event :schedule-key))))
     (when (ogent-cabinet-runner--confirm plan)
       (ogent-cabinet-runner-start plan))))
+
+;;; Scheduler
+
+(defcustom ogent-cabinet-scheduler-roots nil
+  "Cabinet root directories watched by `ogent-cabinet-scheduler-mode'."
+  :type '(repeat directory)
+  :group 'ogent-cabinet-schedule)
+
+(defcustom ogent-cabinet-scheduler-interval 60
+  "Seconds between Cabinet scheduler ticks."
+  :type 'integer
+  :group 'ogent-cabinet-schedule)
+
+(defcustom ogent-cabinet-scheduler-auto-run t
+  "When non-nil, run due Cabinet schedule events automatically.
+When nil, each scheduler tick only announces due events via
+`message' and leaves them for the manual run-missed flow in the
+schedule buffer."
+  :type 'boolean
+  :group 'ogent-cabinet-schedule)
+
+(defcustom ogent-cabinet-scheduler-catchup-window 300
+  "Seconds of backlog the scheduler fires automatically per tick.
+Events due earlier than this many seconds before the tick are left
+for the manual run-missed flow, so waking from a long suspend does
+not launch the whole missed backlog at once."
+  :type 'integer
+  :group 'ogent-cabinet-schedule)
+
+(defvar ogent-cabinet-scheduler--timer nil
+  "Repeating timer driving `ogent-cabinet-scheduler-tick'.")
+
+(defvar ogent-cabinet-scheduler--last-tick nil
+  "Time of the previous scheduler tick, or nil before the arming tick.")
+
+(defvar ogent-cabinet-scheduler--fired (make-hash-table :test 'equal)
+  "Schedule keys already fired by the scheduler in this session.")
+
+(defun ogent-cabinet-scheduler--due-events (root window-start now)
+  "Return unfired missed ROOT events between WINDOW-START and NOW."
+  (seq-filter
+   (lambda (event)
+     (and (eq (plist-get event :state) 'missed)
+          (not (gethash (plist-get event :schedule-key)
+                        ogent-cabinet-scheduler--fired))))
+   (ogent-cabinet-schedule-events root window-start now :now now)))
+
+(defun ogent-cabinet-scheduler--fire (event)
+  "Fire one due schedule EVENT, honoring the auto-run gate."
+  (let ((key (plist-get event :schedule-key)))
+    (puthash key t ogent-cabinet-scheduler--fired)
+    (if ogent-cabinet-scheduler-auto-run
+        (let ((ogent-cabinet-runner-confirm-before-run nil))
+          (ogent-cabinet-schedule--run-event event))
+      (message "ogent scheduler: %s due (auto-run disabled)" key))))
+
+(defun ogent-cabinet-scheduler-tick (&optional now)
+  "Fire Cabinet schedule events that came due since the previous tick.
+NOW defaults to the current time.  The first tick after enabling
+`ogent-cabinet-scheduler-mode' only arms the tick window and fires
+nothing.  Events older than `ogent-cabinet-scheduler-catchup-window'
+seconds at NOW are skipped.  Return the list of events processed."
+  (let ((now (or now (current-time))))
+    (if (null ogent-cabinet-scheduler--last-tick)
+        (progn
+          (setq ogent-cabinet-scheduler--last-tick now)
+          nil)
+      (let* ((floor-time (time-subtract
+                          now ogent-cabinet-scheduler-catchup-window))
+             (window-start (if (time-less-p
+                                ogent-cabinet-scheduler--last-tick
+                                floor-time)
+                               floor-time
+                             ogent-cabinet-scheduler--last-tick))
+             fired)
+        (dolist (root ogent-cabinet-scheduler-roots)
+          (when (file-directory-p root)
+            (condition-case root-err
+                (dolist (event (ogent-cabinet-scheduler--due-events
+                                root window-start now))
+                  (condition-case event-err
+                      (progn
+                        (ogent-cabinet-scheduler--fire event)
+                        (push event fired))
+                    (error
+                     (message "ogent scheduler: %s failed: %s"
+                              (plist-get event :schedule-key)
+                              (error-message-string event-err)))))
+              (error
+               (message "ogent scheduler: cabinet %s failed: %s"
+                        root (error-message-string root-err))))))
+        (setq ogent-cabinet-scheduler--last-tick now)
+        (nreverse fired)))))
+
+;;;###autoload
+(define-minor-mode ogent-cabinet-scheduler-mode
+  "Fire due Cabinet schedule events from an Emacs timer loop.
+Watch the Cabinet roots in `ogent-cabinet-scheduler-roots' every
+`ogent-cabinet-scheduler-interval' seconds and run due cron jobs,
+agent heartbeats, and one-shot tasks through the Cabinet runner.
+Events older than `ogent-cabinet-scheduler-catchup-window' seconds
+stay manual via the schedule buffer's run-missed command."
+  :global t
+  :group 'ogent-cabinet-schedule
+  (when ogent-cabinet-scheduler--timer
+    (cancel-timer ogent-cabinet-scheduler--timer)
+    (setq ogent-cabinet-scheduler--timer nil))
+  (when ogent-cabinet-scheduler-mode
+    (setq ogent-cabinet-scheduler--last-tick nil)
+    (setq ogent-cabinet-scheduler--timer
+          (run-with-timer ogent-cabinet-scheduler-interval
+                          ogent-cabinet-scheduler-interval
+                          #'ogent-cabinet-scheduler-tick))))
 
 (defun ogent-cabinet-schedule-run-missed ()
   "Run the missed Cabinet schedule event at point."

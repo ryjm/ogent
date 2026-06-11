@@ -410,6 +410,31 @@ Task board:
 | =C-c f= | Filter |
 | =C-c g= | Refresh |
 
+* Scheduler
+
+=ogent-cabinet-scheduler-mode= is a global minor mode that turns the schedule
+data into action: an Emacs timer wakes every
+=ogent-cabinet-scheduler-interval= seconds (default 60), expands the schedule
+for each Cabinet root listed in =ogent-cabinet-scheduler-roots=, and runs
+every cron job, agent heartbeat, and one-shot task whose slot came due since
+the previous tick and is not already claimed by a conversation. Fired runs
+go through the normal Cabinet runner and attach their stable
+=OGENT_SCHEDULED_KEY=, so the schedule buffer shows them as done instead of
+missed.
+
+Knobs:
+
+- =ogent-cabinet-scheduler-roots= :: Cabinet roots to watch. Empty by
+  default; the mode fires nothing until you add at least one root.
+- =ogent-cabinet-scheduler-auto-run= :: When nil, due events are only
+  announced in the echo area and left alone.
+- =ogent-cabinet-scheduler-catchup-window= :: Seconds of backlog (default
+  300) the scheduler fires automatically. Slots that came due earlier — for
+  example while the laptop slept overnight — are skipped and remain
+  *missed*; run those by hand from the schedule buffer with =R= (run
+  missed). The first tick after enabling the mode only arms the window and
+  never fires.
+
 * Importing Existing Artifacts
 
 =ogent-cabinet-import-artifacts= imports =.md=, =.html=, and =.txt= files from
