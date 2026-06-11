@@ -134,13 +134,16 @@ context plist: an [[file:../lisp/ogent-context.el::346][ogent-source-context]] s
 
 ** 3. The request ticket
 
-[[file:../lisp/ui/ogent-ui.el::676][ogent-response-function]] (default
-[[file:../lisp/ui/ogent-ui.el::1336][ogent-ui-prepare-response-block]]) mints the request. First
-[[file:../lisp/ui/ogent-ui.el::1271][ogent-ui--create-response-block]] writes the Org skeleton into the
+[[file:../lisp/ui/ogent-ui.el::697][ogent-response-function]] (default
+[[file:../lisp/ui/ogent-ui.el::1512][ogent-ui-prepare-response-block]]) mints the request. First
+[[file:../lisp/ui/ogent-ui.el::1436][ogent-ui--create-response-block]] writes the Org skeleton into the
 companion:
 
 #+begin_example
 ** Request: Which files reference ogent-tool-spec-confirm-p? Use grep, ...
+:PROPERTIES:
+:OGENT_PROMPT: Which files reference ogent-tool-spec-confirm-p? Use grep, then summarize.
+:END:
 #+begin_src text :model claude-sonnet-4-6 :backend Claude :status waiting
 <rendered payload — folded immediately>
 #+end_src
@@ -149,10 +152,10 @@ companion:
 #+end_example
 
 A struct =ogent-ui-request= is created with =:id "ogent-request-1"= (ids
-come from the counter in [[file:../lisp/ui/ogent-ui.el::1237][ogent-ui--next-request-id]]), a streaming
+come from the counter in [[file:../lisp/ui/ogent-ui.el::1306][ogent-ui--next-request-id]]), a streaming
 marker parked after the Response headline, and =:status 'wait=.
-[[file:../lisp/ui/ogent-ui.el::1318][ogent-ui-register-request]] puts it in
-[[file:../lisp/ui/ogent-ui.el::687][ogent-ui--request-table]], stamps the start into the proof ledger
+[[file:../lisp/ui/ogent-ui.el::1494][ogent-ui-register-request]] puts it in
+[[file:../lisp/ui/ogent-ui.el::708][ogent-ui--request-table]], stamps the start into the proof ledger
 ([[file:../lisp/ogent-ledger.el::135][ogent-ledger-record-request-start]] — hash of the prompt, not the
 text), starts the analytics clock
 ([[file:../lisp/ogent-analytics.el::186][ogent-analytics-start-request]]), and creates the animated left-margin
@@ -160,7 +163,7 @@ indicator ([[file:../lisp/ui/ogent-ui-status.el::250][ogent-status-set-request]]
 
 ** 4. The provider call
 
-[[file:../lisp/ui/ogent-ui.el::2064][ogent-ui--send-request]] renders the final payload with
+[[file:../lisp/ui/ogent-ui.el::2240][ogent-ui--send-request]] renders the final payload with
 [[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]] — manifest first:
 
 #+begin_example
@@ -171,7 +174,25 @@ Context manifest:
 then binds the enabled tool objects from
 [[file:../lisp/ogent-models.el::305][ogent-tools-enabled-list]] into =gptel-tools= and calls
 =gptel-request= with the callback from
-[[file:../lisp/ui/ogent-ui.el::1674][ogent-ui--make-callback]] closed over ="ogent-request-1"=.
+[[file:../lisp/ui/ogent-ui.el::1850][ogent-ui--make-callback]] closed over ="ogent-request-1"=.
+
+When =ogent-multi-turn-history= is non-nil (the default), the PROMPT
+argument is not a single string: completed =** Request:= /
+=*** Response= pairs earlier in the buffer are replayed as alternating
+user/assistant turns. The raw user prompt of each turn is read back
+from the =OGENT_PROMPT= property the skeleton writer persisted
+(newline-encoded; [[file:../lisp/ui/ogent-ui.el::1342][ogent-ui--encode-prompt-property]]), the
+assistant turn from the matching Response body
+([[file:../lisp/ui/ogent-ui.el::1382][ogent-ui--conversation-history]]; fan-out picks the same model's
+response, empty/aborted turns are skipped). The history is then
+compacted to =ogent-multi-turn-token-budget= estimated tokens by
+evicting the oldest pairs first
+([[file:../lisp/ui/ogent-ui.el::1421][ogent-ui--compact-history]]) and sent as =(user-1 reply-1 … prompt)=.
+The request also binds =gptel-cache= from =ogent-gptel-cache= and
+copies any registry =:request-params= / =:capabilities= onto the gptel
+model symbol ([[file:../lisp/ogent-models.el::86][ogent-models-apply-gptel-props]]) — on cache-capable
+Anthropic models the replayed prefix becomes the cached prompt prefix
+across turns.
 
 Because you authenticated with Anthropic OAuth, two pieces of advice fire
 inside gptel: [[file:../lisp/ogent-anthropic-oauth.el::578][ogent-anthropic-oauth--request-data-advice]] swaps the
@@ -184,10 +205,10 @@ if it is near expiry ([[file:../lisp/ogent-anthropic-oauth.el::329][ogent-anthro
 ** 5. Streaming
 
 Chunks arrive in the callback and flow through
-[[file:../lisp/ui/ogent-ui.el::1474][ogent-ui--append-response]]: inserted at the request's marker, model
+[[file:../lisp/ui/ogent-ui.el::1650][ogent-ui--append-response]]: inserted at the request's marker, model
 headings demoted below the =*** Response= level, window scrolled if you
 haven't moved away. The first chunk flips status to ='typing= via
-[[file:../lisp/ui/ogent-ui.el::1522][ogent-ui--update-status]] (margin lamp starts spinning,
+[[file:../lisp/ui/ogent-ui.el::1698][ogent-ui--update-status]] (margin lamp starts spinning,
 [[file:../lisp/ui/ogent-ui-status.el::217][ogent-status--start-animation]]) and stamps the time-to-first-token
 ([[file:../lisp/ogent-analytics.el::191][ogent-analytics-first-token]]).
 
@@ -1612,6 +1633,17 @@ async run → cache set → callback. Mutations
 [[file:../lisp/ogent-issues-bd.el::128][ogent-issues-bd-ensure-worktree-redirect]]. Root:
 [[file:../lisp/ogent-issues-bd.el::586][ogent-issues-bd-project-root]].
 
+Org agenda projection: =M-x ogent-issues-agenda= projects open,
+in-progress, and blocked issues into a generated org file and opens
+the org-agenda TODO view scoped to it (the agenda buffer keeps a
+buffer-local =org-agenda-files= so =r=/=g= stay scoped, re-reading the
+file without re-running br). The file defaults to a per-project cache
+under =user-emacs-directory/ogent/beads/= (override:
+=ogent-issues-agenda-file=), is overwritten on every invocation, and
+is one-way — state changes flow through the issue board, never back
+from the file. Statuses map to =TODO= / =RUNNING= / =BLOCKED=
+keywords with priority cookies and =OGENT_ISSUE_ID= property drawers.
+
 *** [[file:../lisp/ogent-issues-graph.el::1][ogent-issues-graph.el]] and [[file:../lisp/ogent-issues-transient.el::1][ogent-issues-transient.el]]
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-issues-graph
@@ -2013,23 +2045,21 @@ Key definitions (backlinks): [[file:../lisp/ui/ogent-ui-backlinks.el::186][ogent
 [[file:../lisp/ui/ogent-ui-backlinks.el::31][ogent-backlinks-max-buffers]] (50 open buffers — deliberately cheap,
 no file loading).
 
-*** [[file:../lisp/ui/ogent-ui-hydra.el::1][ui/ogent-ui-hydra.el]] — the optional multitool
+*** Transcript navigation — =ogent-navigate=
 :PROPERTIES:
-:CUSTOM_ID: mod-ogent-ui-hydra
+:CUSTOM_ID: mod-ogent-navigate
 :END:
 
-Role: Optional hydra sticky menus — navigation between
-request/response headings, edit accept/reject, request operations — with
-graceful degradation when hydra is absent.
-
-Design: All =defhydra= forms live inside =with-eval-after-load 'hydra=
-([[file:../lisp/ui/ogent-ui-hydra.el::143][lisp/ui/ogent-ui-hydra.el:143]]); a compile-time stub macro keeps
-byte-compilation clean; placeholder defvars keep symbols bound; entry
-commands ([[file:../lisp/ui/ogent-ui-hydra.el::216][ogent-navigate]],
-[[file:../lisp/ui/ogent-ui-hydra.el::224][ogent-edit-menu]],
-[[file:../lisp/ui/ogent-ui-hydra.el::232][ogent-request-menu]]) check =featurep= and message instead of
-erroring. Hint style defcustom
-[[file:../lisp/ui/ogent-ui-hydra.el::89][ogent-hydra-hint-display]] (='posframe=).
+Role: Quick movement between transcript headings. The
+[[file:../lisp/ui/ogent-ui.el::1263][ogent-navigate]] transient (autoloaded, bound to =n= in the action
+registry) offers repeatable suffixes for response/request motion
+(=ogent-next-response=, =ogent-prev-response=, =ogent-next-request=,
+=ogent-prev-request= at [[file:../lisp/ui/ogent-ui.el::1234][lisp/ui/ogent-ui.el:1234]]) plus
+heading motion (=j=/=k=) and exits to the dependency graph, backlinks,
+and =ogent-open-block=. Edit operations live in the
+[[file:../lisp/ogent-edit.el::829][ogent-edit-menu]] transient; request operations in
+[[file:../lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]. (A legacy hydra module once duplicated
+these menus; it was removed in favor of transients.)
 
 * Invariants
 
@@ -2274,11 +2304,10 @@ and the adapter registry resets when =ogent-armory-adapter= loads
 
 - *Smaller ones:* [[file:../lisp/ogent-context.el::976][ogent-context-with-lazy]] (thunk-deferred context
   builds), [[file:../lisp/ogent-armory-schedule.el::424][ogent-armory-with-agenda-files]] (dynamically shadows
-  =org-agenda-files=), the compile-time =defhydra= stub in
-  [[file:../lisp/ui/ogent-ui-hydra.el::41][lisp/ui/ogent-ui-hydra.el:41]], and the transient prefixes
-  (=ogent-prompt-dispatch=, =ogent-edit-menu=, =ogent-issues-dispatch=,
-  armory dispatches) which are =transient-define-prefix= macros, not
-  functions.
+  =org-agenda-files=), and the transient prefixes
+  (=ogent-prompt-dispatch=, =ogent-edit-menu=, =ogent-navigate=,
+  =ogent-issues-dispatch=, armory dispatches) which are
+  =transient-define-prefix= macros, not functions.
 
 ** The advice
 

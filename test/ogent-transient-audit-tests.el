@@ -22,6 +22,7 @@
     ogent-issues-create-dispatch
     ogent-issues-dispatch
     ogent-issues-filter-dispatch
+    ogent-navigate
     ogent-prompt-dispatch)
   "Transient prefixes that make up ogent's command harness.")
 

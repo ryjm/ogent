@@ -44,6 +44,55 @@
   (should-not (ogent-models-get "claude-sonnet-4-20250514"))
   (should-not (ogent-models-get "claude-opus-4-7")))
 
+;;; gptel Model Property Tests
+
+(ert-deftest ogent-models-apply-gptel-props-sets-request-params ()
+  "Registry :request-params land on the interned gptel model symbol."
+  (let ((sym (intern "ogent-test-model-props")))
+    (unwind-protect
+        (progn
+          (ogent-models-apply-gptel-props
+           '(:id "ogent-test-model-props"
+             :backend gptel-openai
+             :request-params (:reasoning_effort "high")))
+          (should (equal (get sym :request-params)
+                         '(:reasoning_effort "high"))))
+      (put sym :request-params nil)
+      (put sym :capabilities nil))))
+
+(ert-deftest ogent-models-apply-gptel-props-unions-capabilities ()
+  "Capabilities are unioned with pre-existing gptel declarations."
+  (let ((sym (intern "ogent-test-model-caps")))
+    (unwind-protect
+        (progn
+          (put sym :capabilities '(media))
+          (ogent-models-apply-gptel-props
+           '(:id "ogent-test-model-caps"
+             :backend gptel-anthropic
+             :capabilities (cache)))
+          (should (memq 'cache (get sym :capabilities)))
+          (should (memq 'media (get sym :capabilities))))
+      (put sym :capabilities nil))))
+
+(ert-deftest ogent-models-apply-gptel-props-noop-without-keys ()
+  "Entries without the optional keys leave the symbol plist untouched."
+  (let ((sym (intern "ogent-test-model-plain")))
+    (unwind-protect
+        (progn
+          (should (eq (ogent-models-apply-gptel-props
+                       '(:id "ogent-test-model-plain" :backend gptel-openai))
+                      sym))
+          (should-not (get sym :request-params))
+          (should-not (get sym :capabilities)))
+      (put sym :request-params nil)
+      (put sym :capabilities nil))))
+
+(ert-deftest ogent-models-shipped-anthropic-entries-declare-cache ()
+  "Every shipped Anthropic registry entry declares the cache capability."
+  (dolist (entry ogent-model-registry)
+    (when (eq (plist-get entry :backend) 'gptel-anthropic)
+      (should (memq 'cache (plist-get entry :capabilities))))))
+
 ;;; Tool confirmation policy (gptel approval bridge)
 
 (ert-deftest ogent-tool-spec-confirm-explicit-flag ()

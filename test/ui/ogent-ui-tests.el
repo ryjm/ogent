@@ -5,6 +5,7 @@
 (require 'ogent-context)
 (require 'ogent-tools)
 (require 'ogent-edit-format)
+(require 'ogent-analytics)
 (require 'cl-lib)
 
 (defvar ogent-ui-tests--backend nil
@@ -15,6 +16,7 @@
 
 (defvar gptel-backend)
 (defvar gptel-model)
+(defvar gptel-cache)
 (defvar gptel--known-backends)
 
 (cl-defstruct (ogent-ui-test-provider
@@ -71,6 +73,38 @@
                                    ;; Response streams under nested *** Response sub-headline
                                    (search-forward "*** Response")
                                    (search-forward "Hello world")))))))
+
+(ert-deftest ogent-ui-send-request-binds-gptel-cache-and-model-props ()
+  "Sending binds `gptel-cache' and surfaces registry props on the symbol."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((sym (intern "ogent-test-cache-model"))
+                                   (ogent-gptel-cache '(message system))
+                                   (ogent-model-registry
+                                    '((:id "ogent-test-cache-model"
+                                       :backend gptel-openai :stream? t
+                                       :request-params (:reasoning_effort "high")
+                                       :capabilities (cache))))
+                                   (captured-cache 'unset))
+                               (unwind-protect
+                                   (progn
+                                     (cl-letf (((symbol-function 'gptel-request)
+                                                (lambda (_prompt &rest args)
+                                                  (setq captured-cache gptel-cache)
+                                                  (when-let ((callback (plist-get args :callback)))
+                                                    (funcall callback "ok" nil)
+                                                    (funcall callback nil '(:done t)))
+                                                  'mock-request)))
+                                       (ogent-request "Cache prompt" '("ogent-test-cache-model"))
+                                       (should (equal captured-cache '(message system)))
+                                       (should (equal (get sym :request-params)
+                                                      '(:reasoning_effort "high")))
+                                       (should (memq 'cache (get sym :capabilities)))))
+                                 (put sym :request-params nil)
+                                 (put sym :capabilities nil))))))
 
 (ert-deftest ogent-ui-nested-headline-structure ()
   "Verify nested headline structure: * Session -> ** Request -> *** Response."
@@ -141,7 +175,11 @@
       (should (search-forward
                "** Request: first line second line #+end_src * hostile"
                nil t))
+      ;; The prompt is persisted in a single-line property drawer
+      ;; directly under the headline (hostile newlines stay encoded).
       (forward-line 1)
+      (should (looking-at-p ":PROPERTIES:"))
+      (should (re-search-forward "^:END:\n" nil t))
       (should (looking-at-p "#\\+begin_src text")))))
 
 (ert-deftest ogent-ui-ensure-gptel-loads-required-backends ()
@@ -849,8 +887,13 @@
                                 (ogent-request "Second request" '("gpt-4o-mini"))
                                 ;; Two requests should be captured
                                 (should (= 2 (ogent-test-request-count)))
-                                ;; Most recent is first in list
-                                (should (string-match-p "Second" (plist-get (ogent-test-last-request) :prompt))))))))
+                                ;; Most recent is first in list.  With multi-turn
+                                ;; history the prompt may be a conversation list
+                                ;; whose final element is the current prompt.
+                                (let ((p (plist-get (ogent-test-last-request) :prompt)))
+                                  (should (string-match-p
+                                           "Second"
+                                           (if (listp p) (car (last p)) p)))))))))
 
 ;;; Interactive function tests (require with-simulated-input)
 
@@ -2386,6 +2429,214 @@ Regression test: inline suffix shorthand with plain defun caused 'Need keyword' 
              (selection (transient-infix-read obj)))
         (should (equal selection (list backend model)))
         (should-not (alist-get 'ogent--infix-provider transient-history))))))
+
+;;; Transcript Navigation Tests
+
+(ert-deftest ogent-ui-next-response-finds-response ()
+  "Next response should move point to the following Response heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: test\n"
+            "** Response\n"
+            "Some content\n"
+            "** Response\n"
+            "More content\n")
+    (goto-char (point-min))
+    (ogent-next-response)
+    (should (looking-at "\\*\\* Response"))))
+
+(ert-deftest ogent-ui-next-response-stays-put-when-none ()
+  "Next response should not move point when no response follows."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: test\n"
+            "No responses here\n")
+    (goto-char (point-min))
+    (ogent-next-response)
+    (should (= (point) (point-min)))))
+
+(ert-deftest ogent-ui-prev-response-finds-response ()
+  "Previous response should move point to the preceding Response heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: test\n"
+            "** Response\n"
+            "First response\n"
+            "** Response\n"
+            "Second response\n")
+    (goto-char (point-max))
+    (ogent-prev-response)
+    (should (looking-at "\\*\\* Response"))))
+
+(ert-deftest ogent-ui-next-request-finds-request ()
+  "Next request should move point to the following Request heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: first\n"
+            "** Response\n"
+            "* Request: second\n"
+            "** Response\n")
+    (goto-char (point-min))
+    (forward-line 1)
+    (ogent-next-request)
+    (should (looking-at "\\* Request: second"))))
+
+(ert-deftest ogent-ui-prev-request-finds-request ()
+  "Previous request should move point to the preceding Request heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Request: first\n"
+            "** Response\n"
+            "* Request: second\n"
+            "** Response\n")
+    (goto-char (point-max))
+    (ogent-prev-request)
+    (should (looking-at "\\* Request: second"))))
+
+(ert-deftest ogent-ui-navigate-is-transient-prefix ()
+  "ogent-navigate should be a defined transient prefix command."
+  (should (fboundp 'ogent-navigate))
+  (should (commandp 'ogent-navigate))
+  (should (get 'ogent-navigate 'transient--prefix)))
+
+;;; Conversation History Tests
+
+(ert-deftest ogent-ui-prompt-property-round-trips ()
+  "Encoding a prompt for an org property decodes back exactly."
+  (dolist (prompt '("simple"
+                    "two\nlines"
+                    "literal \\n backslash-n"
+                    "mix\n\\n and \\\\ tail\n"))
+    (should (equal (ogent-ui--decode-prompt-property
+                    (ogent-ui--encode-prompt-property prompt))
+                   prompt)))
+  (should-not (string-match-p "\n" (ogent-ui--encode-prompt-property "a\nb"))))
+
+(defun ogent-ui-tests--insert-exchange (prompt response &optional model summary)
+  "Insert a completed Request/Response exchange into the current buffer.
+PROMPT goes into the OGENT_PROMPT property unless nil; SUMMARY (or
+PROMPT) becomes the headline text; RESPONSE is the body under a
+Response heading for MODEL (default \"m\")."
+  (insert (format "** Request: %s\n" (or summary prompt)))
+  (when prompt
+    (insert ":PROPERTIES:\n"
+            (format ":OGENT_PROMPT: %s\n"
+                    (ogent-ui--encode-prompt-property prompt))
+            ":END:\n"))
+  (insert (format "*** Response (%s)\n" (or model "m")))
+  (when response
+    (insert response "\n")))
+
+(ert-deftest ogent-ui-conversation-history-collects-completed-exchanges ()
+  "Walker returns alternating turns, skipping the in-flight exchange."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Session\n")
+    (ogent-ui-tests--insert-exchange "p1" "r1")
+    (ogent-ui-tests--insert-exchange "p2" "r2")
+    (let ((bound (point)))
+      ;; In-flight third request: empty response, must not appear.
+      (ogent-ui-tests--insert-exchange "p3" nil)
+      (should (equal (ogent-ui--conversation-history (current-buffer) bound "m")
+                     '("p1" "r1" "p2" "r2"))))))
+
+(ert-deftest ogent-ui-conversation-history-falls-back-to-summary ()
+  "Exchanges without OGENT_PROMPT use the headline summary."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Session\n")
+    (ogent-ui-tests--insert-exchange nil "old answer" "m" "legacy summary…")
+    (should (equal (ogent-ui--conversation-history
+                    (current-buffer) (point) "m")
+                   '("legacy summary…" "old answer")))))
+
+(ert-deftest ogent-ui-conversation-history-prefers-matching-model ()
+  "Fan-out requests replay the response of the requesting model."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Session\n"
+            "** Request: fan\n"
+            ":PROPERTIES:\n:OGENT_PROMPT: fan\n:END:\n"
+            "*** Response (a)\nanswer-a\n"
+            "*** Response (b)\nanswer-b\n")
+    (let ((bound (point)))
+      (should (equal (ogent-ui--conversation-history (current-buffer) bound "b")
+                     '("fan" "answer-b")))
+      (should (equal (ogent-ui--conversation-history (current-buffer) bound "a")
+                     '("fan" "answer-a")))
+      ;; Unknown model falls back to the first response.
+      (should (equal (ogent-ui--conversation-history (current-buffer) bound "zz")
+                     '("fan" "answer-a"))))))
+
+(ert-deftest ogent-ui-compact-history-evicts-oldest-pairs ()
+  "Compaction drops whole oldest pairs and preserves alternation."
+  (let* ((history (list "u1-aaaaaaaaaaaaaaaa" "r1-aaaaaaaaaaaaaaaa"
+                        "u2-bbbbbbbbbbbbbbbb" "r2-bbbbbbbbbbbbbbbb"))
+         (total (apply #'+ (mapcar #'ogent-analytics-estimate-tokens history))))
+    ;; Fits exactly: untouched.
+    (should (equal (ogent-ui--compact-history history total) history))
+    ;; One token short: oldest pair evicted together.
+    (let ((compacted (ogent-ui--compact-history history (1- total))))
+      (should (equal compacted (list "u2-bbbbbbbbbbbbbbbb" "r2-bbbbbbbbbbbbbbbb")))
+      (should (cl-evenp (length compacted))))
+    ;; Nothing fits: empty list, not an error.
+    (should (null (ogent-ui--compact-history history 0)))))
+
+(ert-deftest ogent-ui-second-request-sends-conversation-list ()
+  "A follow-up request replays the prior exchange as a 3-element PROMPT."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (let ((prompts nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (prompt &rest args)
+                                            (push prompt prompts)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "First answer\n" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (goto-char (point-min))
+                                 (search-forward "Details Block")
+                                 (org-back-to-heading t)
+                                 (ogent-request "First prompt" '("gpt-4o-mini"))
+                                 ;; Follow up from the response, as a user
+                                 ;; continuing the conversation would.
+                                 (goto-char (point-min))
+                                 (re-search-forward "^\\*\\*\\* Response (gpt-4o-mini)")
+                                 (org-back-to-heading t)
+                                 (ogent-request "Second prompt" '("gpt-4o-mini"))
+                                 (let ((first (cadr prompts))
+                                       (second (car prompts)))
+                                   (should (stringp first))
+                                   (should (listp second))
+                                   (should (= (length second) 3))
+                                   (should (equal (nth 0 second) "First prompt"))
+                                   (should (equal (nth 1 second) "First answer"))
+                                   (should (string-match-p "Second prompt" (nth 2 second)))))))))
+
+(ert-deftest ogent-ui-multi-turn-disabled-sends-plain-string ()
+  "With `ogent-multi-turn-history' nil the PROMPT stays a string."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (let ((ogent-multi-turn-history nil)
+                                   (prompts nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (prompt &rest args)
+                                            (push prompt prompts)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "Answer" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (goto-char (point-min))
+                                 (search-forward "Details Block")
+                                 (org-back-to-heading t)
+                                 (ogent-request "First prompt" '("gpt-4o-mini"))
+                                 (goto-char (point-min))
+                                 (search-forward "Details Block")
+                                 (org-back-to-heading t)
+                                 (ogent-request "Second prompt" '("gpt-4o-mini"))
+                                 (should (= (length prompts) 2))
+                                 (dolist (p prompts)
+                                   (should (stringp p))))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here
