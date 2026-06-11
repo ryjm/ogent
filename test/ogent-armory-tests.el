@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'ogent-test-helper)
 (require 'ogent-armory)
+(require 'ogent-armory-conversations)
 (require 'org)
 
 (defmacro ogent-armory-test-with-temp-dir (var &rest body)
@@ -524,6 +525,60 @@
       (should (= 2 (length tag-results)))
       (dolist (result tag-results)
         (should (member "strategy" (plist-get result :tags)))))))
+
+(ert-deftest ogent-armory-search-includes-canonical-conversations ()
+  "Armory search indexes canonical conversation index files."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (let ((file (ogent-armory-conversation-create
+                 dir
+                 '(:id "conv-1"
+                   :title "Quarterly zanzibar review"
+                   :agent "cto"
+                   :status "completed"))))
+      (let ((results (ogent-armory-search-records dir "zanzibar")))
+        (should results)
+        (dolist (result results)
+          (should (eq (plist-get result :kind) 'conversation))
+          (should (equal (plist-get result :path) file)))))))
+
+(ert-deftest ogent-armory-search-kind-filter-isolates-conversations ()
+  "Kind filters separate conversation records from agent records."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture")
+     "Shared zanzibar marker in agent notes.")
+    (ogent-armory-conversation-create
+     dir
+     '(:id "conv-1"
+       :title "Shared zanzibar marker conversation"
+       :agent "cto"))
+    (let ((conversation-results (ogent-armory-search-records
+                                 dir "zanzibar" :kind 'conversation))
+          (agent-results (ogent-armory-search-records
+                          dir "zanzibar" :kind 'agent)))
+      (should conversation-results)
+      (dolist (result conversation-results)
+        (should (eq (plist-get result :kind) 'conversation)))
+      (should agent-results)
+      (dolist (result agent-results)
+        (should (eq (plist-get result :kind) 'agent))))))
+
+(ert-deftest ogent-armory-search-works-without-conversation-store ()
+  "Search succeeds when .agents/.conversations does not exist."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory--write-file
+     (expand-file-name "notes.org" dir)
+     "#+title: Notes\n\n* Notes\nLoose zanzibar note.\n")
+    (should-not (file-directory-p
+                 (expand-file-name ".agents/.conversations" dir)))
+    (let ((results (ogent-armory-search-records dir "zanzibar")))
+      (should (= 1 (length results)))
+      (should (eq (plist-get (car results) :kind) 'org)))))
 
 (ert-deftest ogent-armory-record-metadata-classifies-specific-records ()
   "Record metadata does not mistake jobs or sessions for agents."
