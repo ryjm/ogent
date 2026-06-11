@@ -135,9 +135,15 @@
 (require 'ogent-armory-status)
 (require 'ogent-presets)
 (require 'ogent-analytics)
+(require 'ob-ogent)
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
+
+;; Enable the ogent Org Babel language so prompt src blocks execute.
+(with-eval-after-load 'org
+  (when (boundp 'org-babel-load-languages)
+    (add-to-list 'org-babel-load-languages '(ogent . t))))
 
 (provide 'ogent)
 
