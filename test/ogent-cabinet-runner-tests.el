@@ -10,6 +10,7 @@
 (require 'ogent-cabinet)
 (require 'ogent-cabinet-conversations)
 (require 'ogent-cabinet-runner)
+(require 'ogent-cabinet-actions)
 (require 'ogent-cabinet-settings)
 
 (defmacro ogent-cabinet-runner-test-with-temp-dir (var &rest body)
@@ -576,6 +577,116 @@ Return (MAIN . WORKTREE)."
           (should (equal (plist-get conversation :error-kind) "auth-expired"))
           (should (string-match-p "Please login"
                                   (plist-get conversation :error-hint))))))))
+
+(defun ogent-cabinet-runner-test--seed-lead-cabinet (root)
+  "Create a lead, a builder, and a parent conversation under ROOT."
+  (ogent-cabinet-scaffold root "Company" :kind "root" :create-editor nil)
+  (ogent-cabinet-write-agent
+   root
+   '(:slug "lead"
+     :name "Lead"
+     :role "Lead agent"
+     :type "lead"
+     :can-dispatch t
+     :provider "codex")
+   "Lead the work.")
+  (ogent-cabinet-write-agent
+   root
+   '(:slug "builder"
+     :name "Builder"
+     :role "Implementation"
+     :provider "claude")
+   "Build the work.")
+  (ogent-cabinet-conversation-create
+   root
+   '(:id "parent"
+     :agent "lead"
+     :title "Parent"
+     :status "done")))
+
+(ert-deftest ogent-cabinet-runner-capture-actions-stores-lead-proposals ()
+  "Lead proposals on a clean exit become readable pending actions."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-runner-test--seed-lead-cabinet dir)
+    (let* ((plan (list :root dir
+                       :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                       :conversation-id "parent"))
+           (stored (ogent-cabinet-runner--capture-actions
+                    plan
+                    "LAUNCH_TASK: builder | Build | Build it.\n"
+                    0))
+           (actions (ogent-cabinet-actions-read dir "parent")))
+      (should stored)
+      (should (= 1 (length actions)))
+      (should (eq (plist-get (car actions) :type) 'launch-task))
+      (should (equal (plist-get (car actions) :status) "pending"))
+      (should (equal (plist-get (car actions) :target-agent) "builder")))))
+
+(ert-deftest ogent-cabinet-runner-capture-actions-ignores-non-lead-agents ()
+  "Proposals from non-lead agents are dropped without storing anything."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-runner-test--seed-lead-cabinet dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "builder")
+                      :conversation-id "parent")))
+      (should-not (ogent-cabinet-runner--capture-actions
+                   plan
+                   "LAUNCH_TASK: builder | Build | Build it.\n"
+                   0))
+      (should-not (file-exists-p
+                   (ogent-cabinet-actions-file dir "parent"))))))
+
+(ert-deftest ogent-cabinet-runner-capture-actions-ignores-failed-runs ()
+  "Proposals in a failed run's partial output are never enqueued."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-runner-test--seed-lead-cabinet dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                      :conversation-id "parent")))
+      (should-not (ogent-cabinet-runner--capture-actions
+                   plan
+                   "LAUNCH_TASK: builder | Build | Build it.\n"
+                   1))
+      (should-not (file-exists-p
+                   (ogent-cabinet-actions-file dir "parent"))))))
+
+(ert-deftest ogent-cabinet-runner-capture-actions-ignores-plain-output ()
+  "Lead output without proposals stores no actions file."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-runner-test--seed-lead-cabinet dir)
+    (let ((plan (list :root dir
+                      :agent '(:slug "lead" :type "lead" :can-dispatch t)
+                      :conversation-id "parent")))
+      (should-not (ogent-cabinet-runner--capture-actions
+                   plan
+                   "All quiet today.\n"
+                   0))
+      (should-not (file-exists-p
+                   (ogent-cabinet-actions-file dir "parent"))))))
+
+(ert-deftest ogent-cabinet-runner-start-stores-lead-action-proposals ()
+  "A finished lead run stores its proposals under the run's conversation."
+  (ogent-cabinet-runner-test-with-temp-dir dir
+    (ogent-cabinet-runner-test--seed-lead-cabinet dir)
+    (let ((fixture (ogent-cabinet-runner-test--make-executable
+                    dir
+                    "#!/bin/sh\nprintf 'LAUNCH_TASK: builder | Build | Build it.\\n'\ncat >/dev/null\n")))
+      (let* ((ogent-cabinet-codex-executable fixture)
+             (ogent-cabinet-runner-confirm-before-run nil)
+             (plan (ogent-cabinet-runner-plan
+                    dir "lead" :instruction "Plan follow-up tasks."))
+             (process (ogent-cabinet-runner-start plan)))
+        (ogent-cabinet-runner-test--wait process)
+        (let* ((conversation-id
+                (process-get process 'ogent-cabinet-conversation-id))
+               (actions (ogent-cabinet-actions-read dir conversation-id)))
+          (should (file-exists-p
+                   (ogent-cabinet-actions-file dir conversation-id)))
+          (should (= 1 (length actions)))
+          (should (eq (plist-get (car actions) :type) 'launch-task))
+          (should (equal (plist-get (car actions) :target-agent) "builder"))
+          (should (equal (plist-get (car actions) :triggering-agent)
+                         "lead")))))))
 
 (provide 'ogent-cabinet-runner-tests)
 

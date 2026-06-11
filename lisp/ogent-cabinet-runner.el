@@ -17,6 +17,11 @@
 (require 'ogent-cabinet-settings)
 (require 'ogent-issues-bd)
 
+(declare-function ogent-cabinet-actions-parse "ogent-cabinet-actions" (text))
+(declare-function ogent-cabinet-actions-validate "ogent-cabinet-actions")
+(declare-function ogent-cabinet-actions-store "ogent-cabinet-actions"
+                  (directory conversation-id actions))
+
 (defgroup ogent-cabinet-runner nil
   "Run Org Cabinet agents through subscription-authenticated CLIs."
   :group 'ogent-cabinet
@@ -796,6 +801,31 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
      :payload (format "status=%s" status))
     (ogent-cabinet-conversation-file root conversation-id)))
 
+(defun ogent-cabinet-runner--capture-actions (plan output exit-status)
+  "Parse lead action proposals from OUTPUT and store them as pending actions.
+Only runs for lead agents on zero EXIT-STATUS.  Returns stored actions or nil."
+  (condition-case err
+      (when (and (eq exit-status 0)
+                 (ogent-cabinet-agent-lead-p (plist-get plan :agent)))
+        (require 'ogent-cabinet-actions)
+        (when-let ((actions (ogent-cabinet-actions-parse output)))
+          (let ((validated (ogent-cabinet-actions-validate
+                            (plist-get plan :root)
+                            actions
+                            :triggering-agent
+                            (plist-get (plist-get plan :agent) :slug))))
+            (ogent-cabinet-actions-store
+             (plist-get plan :root)
+             (plist-get plan :conversation-id)
+             validated)
+            (message "ogent: %d lead action(s) pending approval — M-x ogent-cabinet-actions"
+                     (length validated))
+            validated)))
+    (error
+     (message "ogent: failed to capture lead action proposals: %s"
+              (error-message-string err))
+     nil)))
+
 (defun ogent-cabinet-runner-start (plan)
   "Start PLAN and return its process."
   (let* ((program (plist-get plan :program))
@@ -851,6 +881,8 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
                                               (- (float-time) started-at)))
                            (ogent-cabinet-runner--finalize-conversation
                             plan output error-output exit-status))))
+                   (ogent-cabinet-runner--capture-actions
+                    plan output exit-status)
                    (process-put process 'ogent-cabinet-conversation-file
                                 conversation-file)
                    (process-put process 'ogent-cabinet-conversation-id
