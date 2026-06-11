@@ -109,7 +109,6 @@
 (require 'ogent-ui)
 (require 'ogent-ui-backlinks)
 (require 'ogent-ui-graph)
-(require 'ogent-ui-hydra)  ; Hydra menus for quick actions
 (require 'ogent-onboard)
 (require 'ogent-edit)
 (require 'ogent-notes)

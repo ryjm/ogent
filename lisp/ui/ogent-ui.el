@@ -64,6 +64,7 @@
 (defvar gptel--known-backends)
 (defvar gptel-backend)
 (defvar gptel-model)
+(defvar gptel-cache)
 (defvar gptel-stream)
 (defvar gptel-tools)
 (defvar gptel-use-tools)
@@ -86,6 +87,25 @@ This adds a system directive to requests when the target buffer
 is in Org-mode, ensuring code blocks use #+begin_src syntax,
 headings use * rather than #, etc."
   :type 'boolean
+  :group 'ogent-mode)
+
+(defcustom ogent-multi-turn-history t
+  "When non-nil, replay prior exchanges as conversation history.
+Each completed \"** Request:\" / \"*** Response\" pair found in the
+transcript buffer before the current request is sent as a prior
+user/assistant turn, so the model sees the running conversation
+instead of a single-shot prompt.  History is bounded by
+`ogent-multi-turn-token-budget'.  When `ogent-gptel-cache' includes
+message caching on a cache-capable Anthropic model, the replayed
+prefix becomes the cached prompt prefix across turns."
+  :type 'boolean
+  :group 'ogent-mode)
+
+(defcustom ogent-multi-turn-token-budget 16000
+  "Estimated-token budget for replayed conversation history.
+When the collected history exceeds this budget, the oldest exchange
+pairs are dropped first (see `ogent-ui--compact-history')."
+  :type 'integer
   :group 'ogent-mode)
 
 (defcustom ogent-auto-scroll t
@@ -389,6 +409,7 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle source-buffer
   block-start response-pos
+  request-heading-pos  ; Marker at the request's "** Request:" headline
   paused-response  ; Stores partial response when paused for resume
   handled-tool-use)  ; Identity of the :tool-use payload already dispatched
 
@@ -1208,6 +1229,54 @@ A polished interface for AI-assisted workflows.
 			 (interactive)
 			 (ogent-list-pinned))
 
+;;; Transcript Navigation
+
+(defun ogent-next-response ()
+  "Move to next response heading."
+  (interactive)
+  (if (re-search-forward "^\\*+ Response" nil t)
+      (org-back-to-heading t)
+    (message "No more responses")))
+
+(defun ogent-prev-response ()
+  "Move to previous response heading."
+  (interactive)
+  (if (re-search-backward "^\\*+ Response" nil t)
+      (org-back-to-heading t)
+    (message "No previous responses")))
+
+(defun ogent-next-request ()
+  "Move to next request heading."
+  (interactive)
+  (if (re-search-forward "^\\*+ Request:" nil t)
+      (org-back-to-heading t)
+    (message "No more requests")))
+
+(defun ogent-prev-request ()
+  "Move to previous request heading."
+  (interactive)
+  (if (re-search-backward "^\\*+ Request:" nil t)
+      (org-back-to-heading t)
+    (message "No previous requests")))
+
+;;;###autoload (autoload 'ogent-navigate "ogent-ui" nil t)
+(transient-define-prefix ogent-navigate ()
+  "Navigate request and response headings in ogent transcript buffers."
+  [["Response"
+    ("n" "Next response" ogent-next-response :transient t)
+    ("p" "Previous response" ogent-prev-response :transient t)]
+   ["Request"
+    ("N" "Next request" ogent-next-request :transient t)
+    ("P" "Previous request" ogent-prev-request :transient t)]
+   ["Heading"
+    ("j" "Next heading" org-next-visible-heading :transient t)
+    ("k" "Previous heading" org-previous-visible-heading :transient t)]]
+  [["Jump"
+    ("g" "Dependency graph" ogent-show-dependency-graph)
+    ("b" "Backlinks" ogent-show-backlinks)
+    ("o" "Open block" ogent-open-block)
+    ("q" "Quit" transient-quit-one)]])
+
 (declare-function gptel-request "ext:gptel-request" (prompt &rest args))
 
 (defcustom ogent-gptel-required-features '(gptel-openai gptel-anthropic)
@@ -1268,12 +1337,111 @@ transcript copy from Org syntax that can terminate or split the block."
           (user-error nil)
           (error nil))))))
 
+;;; Conversation History
+
+(defun ogent-ui--encode-prompt-property (prompt)
+  "Encode PROMPT for storage in a single-line Org property.
+Backslashes are doubled, then newlines become literal backslash-n, so
+`ogent-ui--decode-prompt-property' can reverse the encoding exactly."
+  (replace-regexp-in-string
+   "\n" "\\\\n"
+   (replace-regexp-in-string "\\\\" "\\\\\\\\" prompt)))
+
+(defun ogent-ui--decode-prompt-property (value)
+  "Decode VALUE produced by `ogent-ui--encode-prompt-property'."
+  (replace-regexp-in-string
+   "\\\\[n\\\\]"
+   (lambda (match)
+     (if (string= match "\\n") "\n" "\\"))
+   value t t))
+
+(defun ogent-ui--response-body-in-region (start end model-id)
+  "Return the preferred Response body between START and END.
+Prefer the \"*** Response (MODEL-ID)\" child when several models
+fanned out under one request; otherwise return the first response
+body.  Return nil when the region contains no Response heading."
+  (save-excursion
+    (goto-char start)
+    (let (preferred first)
+      (while (and (not preferred)
+                  (re-search-forward "^\\*\\*\\* Response (\\([^)]*\\))" end t))
+        (let* ((this-model (match-string-no-properties 1))
+               (body-start (min end (1+ (line-end-position))))
+               (body-end (save-excursion
+                           (goto-char body-start)
+                           (if (re-search-forward "^\\*\\{1,3\\} " end t)
+                               (match-beginning 0)
+                             end)))
+               (body (string-trim (buffer-substring-no-properties
+                                   body-start (max body-start body-end)))))
+          (unless first (setq first body))
+          (when (and model-id (string= this-model model-id))
+            (setq preferred body))))
+      (or preferred first))))
+
+(defun ogent-ui--conversation-history (buffer bound-pos model-id)
+  "Collect completed exchanges in BUFFER strictly before BOUND-POS.
+Return a flat list (user-1 response-1 user-2 response-2 ...) suitable
+as the leading turns of a `gptel-request' conversation PROMPT.  The
+user turn comes from the request headline's OGENT_PROMPT property when
+present, falling back to the headline summary for transcripts written
+before the property existed.  When a request has several Response
+children (multi-model fan-out), prefer the one matching MODEL-ID.
+Exchanges whose response body is empty (in-flight, aborted, or
+errored) are skipped so the user/assistant alternation stays intact."
+  (with-current-buffer buffer
+    (save-excursion
+      (save-match-data
+        (save-restriction
+          (widen)
+          (let ((bound (ogent-ui--position-value bound-pos))
+                (history nil))
+            (goto-char (point-min))
+            (while (re-search-forward "^\\*\\* Request: \\(.*\\)$" bound t)
+              (let* ((summary (string-trim (match-string-no-properties 1)))
+                     (request-pos (match-beginning 0))
+                     (request-end
+                      (save-excursion
+                        (if (re-search-forward "^\\*\\{1,2\\} " bound t)
+                            (match-beginning 0)
+                          (or bound (point-max)))))
+                     (stored (org-entry-get request-pos "OGENT_PROMPT"))
+                     (user-turn (if (and stored (not (string-empty-p stored)))
+                                    (ogent-ui--decode-prompt-property stored)
+                                  summary))
+                     (response (ogent-ui--response-body-in-region
+                                request-pos request-end model-id)))
+                (when (and response (not (string-empty-p response))
+                           (not (string-empty-p user-turn)))
+                  (push user-turn history)
+                  (push response history))
+                (goto-char request-end)))
+            (nreverse history)))))))
+
+(defun ogent-ui--compact-history (history budget)
+  "Drop oldest exchange pairs from HISTORY until it fits BUDGET tokens.
+HISTORY is a flat (user response ...) list; pairs are evicted together
+so the user/assistant alternation is preserved.  Token counts use
+`ogent-analytics-estimate-tokens'.  Return the possibly empty
+compacted list."
+  (require 'ogent-analytics)
+  (let ((total (apply #'+ (mapcar #'ogent-analytics-estimate-tokens history))))
+    (while (and history (> total budget))
+      (setq total (- total
+                     (ogent-analytics-estimate-tokens (car history))
+                     (ogent-analytics-estimate-tokens (cadr history))))
+      (setq history (cddr history)))
+    history))
+
 (defun ogent-ui--create-response-block (prompt context model)
   "Insert a nested headline structure for a request with MODEL.
 Creates a top-level '* Request: <truncated prompt>' headline containing
 the prompt/context src block and a nested '** Response' sub-headline
 where streamed content goes. This mimics Claude Code's conversation
 structure using org-mode idioms.
+The raw PROMPT is persisted in an OGENT_PROMPT property at the request
+headline so later requests can replay the exchange as history (see
+`ogent-ui--conversation-history').
 Returns a plist containing a streaming marker and block-start marker."
   ;; Always append at end for session buffers, otherwise use current position
   (if ogent-session-buffer-p
@@ -1293,6 +1461,14 @@ Returns a plist containing a streaming marker and block-start marker."
     ;; Insert request headline as child of Session (level 2)
     (setq request-heading-pos (point-marker))
     (insert (format "** Request: %s\n" prompt-summary))
+    ;; Persist the raw prompt for later history replay.  Inserted as
+    ;; literal drawer text (not `org-entry-put') so the positions and
+    ;; markers captured below stay exact.
+    (insert ":PROPERTIES:\n"
+            (format ":OGENT_PROMPT: %s\n"
+                    (ogent-ui--encode-prompt-property
+                     (substring-no-properties prompt)))
+            ":END:\n")
     ;; Insert the prompt/context src block under the request headline
     (setq block-start (point-marker))
     (insert (format "#+begin_src text :model %s%s :status waiting\n"
@@ -1345,9 +1521,8 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :buffer (current-buffer)
                    :marker (plist-get block :marker)
                    :block-start (plist-get block :block-start)
-                   :response-pos (plist-get block :response-pos))))
-    ;; Note: :request-heading-pos is available in block but not stored in struct
-    ;; as it's not needed for current functionality
+                   :response-pos (plist-get block :response-pos)
+                   :request-heading-pos (plist-get block :request-heading-pos))))
     (ogent-ui-register-request request)))
 
 (when (and (boundp 'ogent-response-function)
@@ -1449,6 +1624,7 @@ buffer's org hierarchy."
       (buffer-string))))
 
 (declare-function ogent-analytics-start-request "ogent-analytics")
+(declare-function ogent-analytics-estimate-tokens "ogent-analytics" (text))
 (declare-function ogent-analytics-first-token "ogent-analytics")
 (declare-function ogent-analytics-record-completion "ogent-analytics"
                   (model prompt response &optional template))
@@ -2064,7 +2240,10 @@ preset name strings found in the prompt."
 (defun ogent-ui--send-request (request)
   "Send REQUEST to the LLM via gptel.
 When target buffer is Org-mode, includes org-format directive.
-When model has :tools, enables gptel tool calling."
+When model has :tools, enables gptel tool calling.
+When `ogent-multi-turn-history' is non-nil, prior completed exchanges
+found in the transcript buffer are replayed as leading conversation
+turns, compacted to `ogent-multi-turn-token-budget'."
   (ogent-ui--ensure-gptel)
   (let* ((model (ogent-ui-request-model request))
          (prompt-text (ogent-ui--render-prompt (ogent-ui-request-prompt request)
@@ -2083,6 +2262,16 @@ When model has :tools, enables gptel tool calling."
          ;; Get enabled tools based on ogent-tools-enabled
          (tools (when (fboundp 'ogent-tools-enabled-list)
                   (ogent-tools-enabled-list)))
+         ;; Prior exchanges replayed as conversation turns (oldest first)
+         (history (when ogent-multi-turn-history
+                    (ogent-ui--compact-history
+                     (ogent-ui--conversation-history
+                      target-buffer
+                      (or (ogent-ui-request-request-heading-pos request)
+                          (ogent-ui-request-block-start request)
+                          (ogent-ui-request-marker request))
+                      model-id)
+                     ogent-multi-turn-token-budget)))
          (args (list :buffer target-buffer
                      :stream (plist-get model :stream?)
                      :callback callback)))
@@ -2093,6 +2282,9 @@ When model has :tools, enables gptel tool calling."
           (setq prompt-text (concat ogent-org-format-directive "\n\n" prompt-text))
         ;; Normal mode: use system message
         (setq args (plist-put args :system ogent-org-format-directive))))
+    ;; Surface registry-declared :request-params / :capabilities to gptel,
+    ;; which reads both from the interned model symbol's plist.
+    (ogent-models-apply-gptel-props model)
     (condition-case err
         (progn
           (when (and (fboundp 'gptel-backend-p)
@@ -2100,9 +2292,15 @@ When model has :tools, enables gptel tool calling."
             (user-error
              "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
              (plist-get model :backend) model-id))
-          (let* ((sender (lambda () (apply #'gptel-request prompt-text args)))
+          (let* ((sender (lambda ()
+                           (apply #'gptel-request
+                                  (if history
+                                      (append history (list prompt-text))
+                                    prompt-text)
+                                  args)))
                  (gptel-backend backend)
                  (gptel-model model-id)
+                 (gptel-cache ogent-gptel-cache)
                  ;; Bind all registered tools
                  (gptel-tools (or tools gptel-tools))
                  (gptel-use-tools (when tools t))

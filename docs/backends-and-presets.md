@@ -114,6 +114,37 @@ Example model entry with preset:
 (:id "gpt-5.5" :backend gptel-openai :stream? t :preset ogent-explain)
 ```
 
+## Per-model request params & caching
+
+Two optional registry keys surface gptel's per-model machinery:
+
+- `:request-params` — a plist of extra parameters merged into the HTTP
+  request body whenever that model is used. gptel reads it from the
+  interned model symbol; ogent copies it there on each send via
+  `ogent-models-apply-gptel-props`.
+- `:capabilities` — gptel capability symbols added (unioned, never
+  replaced) to the model symbol. The shipped Anthropic entries declare
+  `(cache)` so prompt caching works for model IDs newer than gptel's
+  bundled tables.
+
+```elisp
+;; OpenAI: raise reasoning effort for one model
+(:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
+ :request-params (:reasoning_effort "high"))
+
+;; Anthropic: enable extended thinking with a token budget
+(:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
+ :capabilities (cache)
+ :request-params (:thinking (:type "enabled" :budget_tokens 4096)))
+```
+
+Prompt caching itself is controlled by `ogent-gptel-cache`, which ogent
+binds to `gptel-cache` on every request. The default `t` caches the full
+stable prefix (pinned context, system directive, tools); set it to `nil`
+to disable, or to a list of `message`/`system`/`tool` symbols for
+finer control. Only the Anthropic backend honors client-side cache
+control — other backends ignore the setting.
+
 ## Example .dir-locals.el
 
 Project-specific configuration is handy for keeping model/preset choices
