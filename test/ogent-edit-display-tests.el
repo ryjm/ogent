@@ -1083,6 +1083,108 @@
   ;; inline-diff is not loaded in test environment
   (should (eq (ogent-edit-inline-diff-available-p) (featurep 'inline-diff))))
 
+;;; Re-anchor Tests
+
+(ert-deftest ogent-edit-display-test-smerge-unchanged-buffer-applies-at-position ()
+  "Test applying to an unchanged buffer keeps the original position."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (new-text "replacement text")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (start (ogent-edit-start-pos edit)))
+        (ogent-edit-apply-as-smerge edit)
+        (should (eq (ogent-edit-status edit) 'applied))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          ;; Conflict markers start exactly at the validated position.
+          (goto-char start)
+          (should (looking-at-p "<<<<<<< original"))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-smerge-re-anchors-after-shift ()
+  "Test apply re-anchors when text is inserted before the target."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (new-text "replacement text")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (prefix ";; unrelated preamble\n"))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (goto-char (point-min))
+          (insert prefix))
+        (ogent-edit-apply-as-smerge edit)
+        (should (eq (ogent-edit-status edit) 'applied))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (let ((content (buffer-string)))
+            ;; Prefix intact, conflict wraps the right text after it.
+            (should (string-prefix-p prefix content))
+            (should (string-match-p "<<<<<<< original\ntarget text\n" content))
+            (should (string-match-p "=======\nreplacement text\n" content)))
+          ;; Struct positions were updated to the new location.
+          (should (= (ogent-edit-start-pos edit) (1+ (length prefix))))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-smerge-refuses-stale-edit ()
+  "Test apply refuses when the original text is gone."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (edit (ogent-edit-display-test--make-edit old-text "new text")))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (erase-buffer)
+          (insert "completely different content"))
+        (should-error (ogent-edit-apply-as-smerge edit) :type 'user-error)
+        (should (eq (ogent-edit-status edit) 'error))
+        (should (string-match-p "not found" (ogent-edit-error-message edit)))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (should (equal (buffer-string) "completely different content"))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-smerge-refuses-ambiguous-edit ()
+  "Test apply refuses when the original text became ambiguous."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (edit (ogent-edit-display-test--make-edit old-text "new text"))
+             (mutated nil))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          ;; Shift the cached position off the text AND duplicate it.
+          (goto-char (point-min))
+          (insert ";; shift\n")
+          (goto-char (point-max))
+          (insert "\ntarget text")
+          (setq mutated (buffer-string)))
+        (should-error (ogent-edit-apply-as-smerge edit) :type 'user-error)
+        (should (eq (ogent-edit-status edit) 'error))
+        (should (string-match-p "2 matches" (ogent-edit-error-message edit)))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (should (equal (buffer-string) mutated))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+;;; Preview Resolution Pipeline Tests
+
+(ert-deftest ogent-edit-display-test-preview-reject-runs-resolved-hook ()
+  "Test rejecting a preview runs `ogent-edit-resolved-hook'."
+  (unwind-protect
+      (let* ((edit (ogent-edit-display-test--make-edit "original" "modified"))
+             (resolved nil)
+             (ogent-edit-resolved-hook
+              (list (lambda (e) (push e resolved)))))
+        (ogent-edit-preview-diff edit)
+        (with-current-buffer "*ogent-diff*"
+          (ogent-edit-preview-reject))
+        (should (equal resolved (list edit)))
+        (should (eq (ogent-edit-status edit) 'rejected)))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-preview-accept-tracks-edit ()
+  "Test accepting a preview tracks the edit in the source buffer."
+  (unwind-protect
+      (let* ((edit (ogent-edit-display-test--make-edit "original" "modified"))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (ogent-edit-preview-diff edit)
+        (with-current-buffer "*ogent-diff*"
+          (ogent-edit-preview-accept))
+        (should (memq edit (buffer-local-value 'ogent-edit--pending-edits
+                                               source-buf))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
 (provide 'ogent-edit-display-tests)
 
 ;;; ogent-edit-display-tests.el ends here
