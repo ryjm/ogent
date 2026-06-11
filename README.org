@@ -144,7 +144,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . S= | =ogent-session-save=          | Save current session                     |
 | =C-c . L= | =ogent-session-load=          | Load a saved session                     |
 | =C-c . H= | =ogent-session-list=          | List saved sessions                      |
-| =C-c . ?= | =ogent-ask=                   | Quick Q&A (no context)                   |
+| =C-c . ?= | =ogent-ask=                   | Quick Q&A (buffer context, point first)  |
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 
