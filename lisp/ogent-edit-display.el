@@ -63,36 +63,80 @@ Otherwise, automatically perform the specified action."
 
 ;;; Edit Display
 
+(defun ogent-edit--re-anchor (edit)
+  "Ensure EDIT's cached positions still cover its original text.
+Call with EDIT's source buffer current.  When the cached region no
+longer matches the old text, re-anchor EDIT to the unique occurrence
+of that text, updating start-pos and end-pos.  When the text is
+missing or ambiguous, set status to `error' with an explanatory
+error-message and signal `user-error' without modifying the buffer.
+Return EDIT."
+  (let ((start (ogent-edit-start-pos edit))
+        (end (ogent-edit-end-pos edit))
+        (old-text (ogent-edit-old-text edit)))
+    (unless (and (integerp start) (integerp end)
+                 (>= start (point-min))
+                 (<= end (point-max))
+                 (string= (buffer-substring-no-properties start end)
+                          old-text))
+      ;; Cached positions are stale; rescan for the original text.
+      (let ((matches nil))
+        (save-excursion
+          (goto-char (point-min))
+          (while (search-forward old-text nil t)
+            (push (cons (match-beginning 0) (match-end 0)) matches)))
+        (pcase (length matches)
+          (1
+           (setf (ogent-edit-start-pos edit) (caar matches)
+                 (ogent-edit-end-pos edit) (cdar matches))
+           (message "ogent: edit %s re-anchored after buffer changed"
+                    (ogent-edit-id edit)))
+          (0
+           (let ((msg "stale edit: original text not found"))
+             (setf (ogent-edit-status edit) 'error
+                   (ogent-edit-error-message edit) msg)
+             (user-error "%s" msg)))
+          (n
+           (let ((msg (format "ambiguous after buffer changed: %d matches" n)))
+             (setf (ogent-edit-status edit) 'error
+                   (ogent-edit-error-message edit) msg)
+             (user-error "%s" msg)))))))
+  edit)
+
 (defun ogent-edit-apply-as-smerge (edit)
   "Insert EDIT as smerge conflict markers in source buffer.
 The original code is marked as mine (upper) and the new code
-as other (lower), matching smerge conventions."
+as other (lower), matching smerge conventions.
+If the buffer changed since validation, re-anchor EDIT via
+`ogent-edit--re-anchor'; a stale or ambiguous edit signals
+`user-error' and leaves the buffer untouched."
   (unless (eq (ogent-edit-status edit) 'pending)
     (user-error "Edit %s is not pending" (ogent-edit-id edit)))
   (unless (ogent-edit-start-pos edit)
     (user-error "Edit %s has not been validated" (ogent-edit-id edit)))
   (let ((buf (ogent-edit-source-buffer edit))
-        (start (ogent-edit-start-pos edit))
         (old-text (ogent-edit-old-text edit))
         (new-text (ogent-edit-new-text edit)))
     (unless (buffer-live-p buf)
       (user-error "Source buffer for edit %s is no longer available"
                   (ogent-edit-id edit)))
     (with-current-buffer buf
-      (save-excursion
+      (ogent-edit--re-anchor edit)
+      (let ((start (ogent-edit-start-pos edit)))
+        (save-excursion
+          (goto-char start)
+          (delete-region start (ogent-edit-end-pos edit))
+          (insert (ogent-edit--format-conflict old-text new-text))
+          ;; Store source marker for navigation
+          (setf (ogent-edit-source-marker edit) (copy-marker start)))
+        ;; Enable smerge-mode if not already active
+        (unless (bound-and-true-p smerge-mode)
+          (smerge-mode 1))
+        ;; Update edit status
+        (setf (ogent-edit-status edit) 'applied)
+        ;; Move to the conflict
         (goto-char start)
-        (delete-region start (ogent-edit-end-pos edit))
-        (insert (ogent-edit--format-conflict old-text new-text))
-        ;; Store source marker for navigation
-        (setf (ogent-edit-source-marker edit) (copy-marker start)))
-      ;; Enable smerge-mode if not already active
-      (unless (bound-and-true-p smerge-mode)
-        (smerge-mode 1))
-      ;; Update edit status
-      (setf (ogent-edit-status edit) 'applied)
-      ;; Move to the conflict
-      (goto-char start)
-      (smerge-next))))
+        (smerge-next)))))
 
 (defun ogent-edit--format-conflict (old-text new-text)
   "Format OLD-TEXT and NEW-TEXT as smerge conflict markers."
@@ -394,7 +438,13 @@ Returns a string in unified diff format."
       (buffer-string))))
 
 (defun ogent-edit-preview-accept ()
-  "Accept the edit being previewed and apply it to source buffer."
+  "Accept the edit being previewed and apply it to source buffer.
+The applied edit is tracked in the source buffer's
+`ogent-edit--pending-edits' so resolving its smerge conflict is
+logged like any other edit.  If the source buffer changed and the
+edit is stale or ambiguous, the `user-error' signaled by
+`ogent-edit-apply-as-smerge' propagates so the preview stays open
+and the reason is visible."
   (interactive)
   (unless ogent-edit-preview--current-edit
     (user-error "No edit to accept"))
@@ -402,9 +452,12 @@ Returns a string in unified diff format."
         (source-buf ogent-edit-preview--source-buffer))
     (unless (buffer-live-p source-buf)
       (user-error "Source buffer is no longer available"))
-    ;; Apply the edit as smerge conflict
+    ;; Apply the edit as smerge conflict and track it for resolution
+    ;; logging.  The edit was already logged as a proposal upstream,
+    ;; so only tracking happens here.
     (with-current-buffer source-buf
-      (ogent-edit-apply-as-smerge edit))
+      (ogent-edit-apply-as-smerge edit)
+      (ogent-edit--track-edits (list edit)))
     ;; Close preview
     (quit-window t)
     ;; Switch to source buffer
@@ -412,12 +465,20 @@ Returns a string in unified diff format."
     (message "Edit applied as smerge conflict. Use smerge commands to resolve.")))
 
 (defun ogent-edit-preview-reject ()
-  "Reject the edit being previewed and close preview buffer."
+  "Reject the edit being previewed and close preview buffer.
+Untracks the edit from its source buffer and runs
+`ogent-edit-resolved-hook' so the rejection is logged."
   (interactive)
   (unless ogent-edit-preview--current-edit
     (user-error "No edit to reject"))
   (let ((edit ogent-edit-preview--current-edit))
     (setf (ogent-edit-status edit) 'rejected)
+    (let ((source-buf (ogent-edit-source-buffer edit)))
+      (when (buffer-live-p source-buf)
+        (with-current-buffer source-buf
+          (setq ogent-edit--pending-edits
+                (delq edit ogent-edit--pending-edits)))))
+    (run-hook-with-args 'ogent-edit-resolved-hook edit)
     (message "Edit rejected"))
   (quit-window t))
 
