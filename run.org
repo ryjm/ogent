@@ -1,0 +1,249 @@
+#+title: ogent Runbook
+#+options: toc:2
+#+property: header-args:sh :results output :exports both
+
+A literate runbook for building, testing, and driving ogent. Every step is
+an executable block: put point in a block and press =C-c C-c= to run it
+(=:results= land right under the block). Blocks assume point is in this
+file at the repo root, so =default-directory= is the project root.
+
+All build automation funnels through the [[file:Makefile::61][Makefile]], which delegates to the
+vendored [[file:makem.sh][makem.sh]]. On macOS the Makefile prepends Homebrew GNU coreutils
+and gnu-getopt to =PATH= automatically (makem.sh needs them).
+
+* Setup
+
+** Check the toolchain
+
+Emacs 29+, git, and (on macOS) GNU coreutils must be available:
+
+#+begin_src sh :results output
+emacs --version | head -1
+git --version
+make --version | head -1
+#+end_src
+
+#+RESULTS:
+: GNU Emacs 30.1
+: git version 2.51.2
+: GNU Make 3.81
+
+** Byte-compile the tree
+
+Byte-compile warnings gate merges — keep this clean. The =recompile=
+target ([[file:Makefile::82][Makefile:82]]) deletes every =.elc= first, which is the cure for
+the stale-=.elc= trap (old byte-code shadowing new source, especially
+around the macro-generated modes — see the No magic section of
+[[file:docs/how-it-works.org][how-it-works.org]]):
+
+#+begin_src sh :results output
+make recompile 2>&1 | tail -5
+#+end_src
+
+** A minimal interactive init (tangled)
+
+This block *tangles* (=C-c C-v t= / =org-babel-tangle=) to a standalone
+init file you can hand to =emacs -Q -l /tmp/ogent-sandbox-init.el= for a
+clean interactive session against this checkout. It mirrors the canonical
+setup from [[file:README.org][README.org]] and [[file:docs/getting-started.md][docs/getting-started.md]]: both lisp dirs on
+the =load-path=, then =(require 'ogent)= — which is the package's whole
+bootstrap (load-path fixups, ordered requires, default tool install; see
+[[file:lisp/ogent.el::52][lisp/ogent.el:52]]).
+
+#+begin_src emacs-lisp :tangle /tmp/ogent-sandbox-init.el :results silent
+;; Minimal ogent init for a clean `emacs -Q' session.
+(let ((root (expand-file-name "~/vault/projects/ogent")))
+  (add-to-list 'load-path (expand-file-name "lisp" root))
+  (add-to-list 'load-path (expand-file-name "lisp/ui" root)))
+;; gptel must be installed (M-x package-install RET gptel) or on load-path.
+(require 'gptel nil t)
+(require 'ogent)
+;; First run: M-x ogent-onboard to authenticate a provider.
+;; Then in any Org buffer: M-x ogent-mode, and C-c . p to dispatch.
+(setq ogent-default-model "claude-sonnet-4-6")
+#+end_src
+
+* Run
+
+** The test suite
+
+=make test= runs the full ERT suite through makem.sh's =test-ert= rule
+(byte-compile, load every =test/**/*-tests.el=, then
+=ert-run-tests-batch-and-exit= — see [[file:makem.sh::1071][makem.sh:1071]]). It is *silent on
+success* at default verbosity; exit code 0 is the green signal. Use =-vv=
+to see the summary.
+
+#+begin_src sh :results output
+make test 2>&1 | tail -3; echo "exit: $?"
+#+end_src
+
+Real captured output (2026-06-10, this checkout — note the silence):
+
+#+RESULTS:
+: exit: 0
+
+Verbose variant with the pass/fail summary:
+
+#+begin_src sh :results output
+./makem.sh -vv test 2>&1 | tail -10
+#+end_src
+
+** Lint
+
+=make lint= ([[file:Makefile::65][Makefile:65]]) runs all makem linters: checkdoc,
+byte-compile-as-lint, check-declare, indentation, package-lint, regexps.
+
+#+begin_src sh :results output
+make lint 2>&1 | tail -10
+#+end_src
+
+Individual rules pass straight through the Makefile's catch-all target
+([[file:Makefile::120][Makefile:120]]):
+
+#+begin_src sh :results output
+make lint-checkdoc 2>&1 | tail -5
+#+end_src
+
+** The sandbox
+
+makem's sandbox mode creates a throwaway =user-emacs-directory= and
+installs declared dependencies into it from (M)ELPA, so you test against
+a clean package set instead of your own config (implementation at
+[[file:makem.sh::577][makem.sh:577]]; a bare =--sandbox= implies =--install-deps=).
+
+Run the suite in a pristine sandbox ([[file:Makefile::97][Makefile:97]]):
+
+#+begin_src sh :results output
+make sandbox-test 2>&1 | tail -5
+#+end_src
+
+Sandboxed lint with linters installed ([[file:Makefile::112][Makefile:112]]):
+
+#+begin_src sh :results output
+make sandbox-lint 2>&1 | tail -5
+#+end_src
+
+Any target can be sandboxed via Makefile variables — =sandbox=1= for a
+temp dir, =sandbox=DIR= to keep and reuse the directory across runs
+(faster, since deps install once):
+
+#+begin_src sh :results output
+make test sandbox=~/.cache/ogent-sandbox install-deps=1 2>&1 | tail -3
+#+end_src
+
+** Benchmarks
+
+#+begin_src sh :results output
+make bench 2>&1 | tail -15
+#+end_src
+
+* Demo
+
+** Interactive sandbox Emacs
+
+=make sandbox= ([[file:Makefile::108][Makefile:108]]) launches a *GUI/interactive* Emacs inside a
+clean makem sandbox with ogent and its deps loaded — the closest thing to
+"try the package as a new user". (Long-running; run from a terminal, not
+from a babel block.)
+
+#+begin_src sh :eval no
+make sandbox
+#+end_src
+
+Alternatively, use the tangled init from Setup with your own Emacs build:
+
+#+begin_src sh :eval no
+emacs -Q -l /tmp/ogent-sandbox-init.el
+#+end_src
+
+** The demo notebook
+
+=make demo= ([[file:Makefile::116][Makefile:116]]) opens [[file:sandbox/demo.org][sandbox/demo.org]] in =emacs -Q= — a
+17-line guided fixture that walks the core workflow: headings tagged with
+=:OGENT_ID:= properties, an =@handle= reference, and instructions to
+launch the dispatcher.
+
+#+begin_src sh :eval no
+make demo
+#+end_src
+
+Peek at the fixture without launching Emacs — real captured output
+(2026-06-10, this checkout):
+
+#+begin_src sh :results output
+head -8 sandbox/demo.org
+#+end_src
+
+#+RESULTS:
+: * Ogent Demo Notebook
+: :PROPERTIES:
+: :OGENT_ID: demo-root
+: :END:
+: Walk through the core workflow:
+: 1. Tag reusable sections with ids.
+: 2. Reference handles like @prompts-library.
+: 3. Hit C-c o p to launch the dispatcher.
+
+** Driving ogent interactively
+
+Once a provider is configured (=M-x ogent-onboard=, the wizard at
+[[file:lisp/ogent-onboard.el::474][ogent-onboard]]), the day-to-day entry points are:
+
+1. =M-x ogent-prompt-dispatch= (=C-c . p= under
+   [[file:lisp/ogent-core.el::192][ogent-mode]]) — the transient dispatcher
+   ([[file:lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]): pick provider/model, type a prompt, =RET=
+   sends; the response streams into an Org =Response= block. The full
+   journey of that keystroke is traced step by step in
+   [[file:docs/how-it-works.org][docs/how-it-works.org]] ("The walkthrough").
+2. =M-x ogent-ask= ([[file:lisp/ogent-core.el::388][ogent-ask]]) — quick popup Q&A bypassing context.
+3. =M-x ogent-quick-edit= ([[file:lisp/ogent-edit.el::603][ogent-quick-edit]]) — inline AI edit of
+   region/defun/line with smerge/overlay review.
+4. =M-x ogent-armory-home= ([[file:lisp/ui/ogent-ui-armory.el::946][ogent-armory-home]]) — the Armory
+   dashboard; =M-x ogent-armory-onboard= scaffolds a demo-able armory,
+   or =M-x ogent-armory-demo= imports the built-in demo manifest
+   ([[file:lisp/ogent-armory-settings.el::879][ogent-armory-demo]]).
+5. =M-x ogent-issues= ([[file:lisp/ogent-issues.el::644][ogent-issues]]) — the issue board (requires the
+   =br= CLI and a =.beads/= directory; this repo has one).
+
+An executable taste of the org-babel integration (requires a configured
+backend; =:eval no= so casual =C-c C-v b= doesn't fire off requests):
+
+#+begin_src org :eval no
+,#+begin_src ogent :model "claude-sonnet-4-6"
+In one sentence, what does this repository do?
+,#+end_src
+#+end_src
+
+That block is executed by [[file:lisp/ob-ogent.el::135][org-babel-execute:ogent]], synchronously, with
+a [[file:lisp/ob-ogent.el::48][120s timeout]].
+
+* Teardown
+
+** Clean build artifacts
+
+=make clean= ([[file:Makefile::77][Makefile:77]]) removes every compiled =.elc= under =lisp/=:
+
+#+begin_src sh :results output
+make clean 2>&1 | tail -2; echo "exit: $?"
+#+end_src
+
+(Re-run =make recompile= afterwards if you want a compiled tree back —
+tests do their own compile pass.)
+
+** Remove sandbox and tangle artifacts
+
+Named sandboxes and the tangled init are outside the repo; remove them
+when done (nothing in-tree to clean):
+
+#+begin_src sh :eval no
+rm -f /tmp/ogent-sandbox-init.el
+rm -rf ~/.cache/ogent-sandbox
+#+end_src
+
+** Cancel runaway processes (interactive)
+
+If an async tool or MCP server is stuck inside Emacs:
+=M-x ogent-tools-cancel-all= ([[file:lisp/ogent-tools.el::674][ogent-tools-cancel-all]]) kills active tool
+processes; =M-x ogent-mcp-disconnect= ([[file:lisp/ogent-mcp.el::472][ogent-mcp-disconnect]]) shuts down
+an MCP server and deregisters its tools; =M-x ogent-abort-request=
+([[file:lisp/ui/ogent-ui.el::3113][ogent-abort-request]]) aborts an in-flight LLM request.

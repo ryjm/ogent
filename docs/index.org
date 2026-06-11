@@ -1,0 +1,96 @@
+#+title: ogent Documentation Index
+#+options: toc:2
+
+* What this is
+
+ogent is an Emacs package that brings LLMs into Org-mode as composable
+Unix-style tools rather than chatbots: structured context goes in via
+=@handle= references and pinned files, structured Org responses come back,
+and every tool call the model makes is gated by a declarative
+effects/approval policy. It is built on top of [[https://github.com/karthink/gptel][gptel]] for provider
+transport, and adds a multi-agent layer (the "Armory") that runs external
+coding CLIs (codex, claude, gemini, ...) against an Org-file-backed agent OS.
+Source lives in =lisp/= (+ =lisp/ui/=), tests in =test/= (ERT via =make
+test=), specs in =specs/=, and user docs here in =docs/=.
+
+* Reading paths
+
+** I have 10 minutes
+
+1. Read the [[file:../README.org][README]] — the philosophy ("LLMs as Unix tools") and quickstart.
+2. Skim the *Mental model* and *The walkthrough* sections of
+   [[file:how-it-works.org][how-it-works.org]] — one real request traced end to end.
+3. Keep [[file:glossary.org][glossary.org]] open for any unfamiliar term.
+
+** I have an hour
+
+1. The 10-minute path above.
+2. [[file:getting-started.md][getting-started.md]] — install it and run =M-x ogent-onboard=, then
+   =M-x ogent-prompt-dispatch= in an Org buffer.
+3. [[file:how-it-works.org][how-it-works.org]] in full reading order: Mental model → Walkthrough →
+   the module catalog for the subsystems you care about → Invariants →
+   Failure modes → No magic.
+4. [[file:armory.org][armory.org]] if you want the multi-agent layer, [[file:tools.org][tools.org]] if you want
+   the tool system.
+5. [[file:../run.org][run.org]] — the literate runbook: build, test, lint, sandbox, demo.
+
+** I need to change code
+
+1. Read the *No magic* and *Invariants* sections of
+   [[file:how-it-works.org][how-it-works.org]] first — the macro layers, advice, load order, and the
+   safety rules you must not break (every invariant links to the enforcing
+   line).
+2. Find your module's subheading in the how-it-works catalog; each one has
+   Role/Design/Intuition/Trace plus exact-line links to its major defuns,
+   defcustoms, and state.
+3. [[file:../run.org][run.org]] — =make test= must stay green and byte-compile warnings gate
+   merges; the runbook covers the sandbox and the stale-=.elc= recompile
+   trap.
+4. [[file:debugging.org][debugging.org]] — Edebug, =ogent-debug-mode=, and tool-call forensics.
+5. [[file:../CONTRIBUTING.md][CONTRIBUTING.md]] and the issue tracker conventions in
+   [[file:../AGENTS.md][AGENTS.md]] (br/beads workflow).
+
+* Documentation inventory
+
+** Core documentation (this suite)
+
+- [[file:how-it-works.org][how-it-works.org]] — architecture: mental model, an end-to-end request
+  walkthrough with real values, a per-module catalog of =lisp/=, the
+  enforced invariants, realistic failure modes, and a demystification of
+  the macro/advice/hook layers.
+- [[file:glossary.org][glossary.org]] — every ogent term (armory, backend, preset, tool
+  effects, handle, ...) with an exact-line link to the defining code.
+- [[file:../run.org][run.org]] — literate runbook (Setup / Run / Demo / Teardown) for building,
+  testing, linting, the makem sandbox, and interactive usage.
+- [[file:index.org][index.org]] — this file.
+
+** User guides (pre-existing)
+
+- [[file:../README.org][README.org]] — project front page: philosophy, install, quickstart.
+- [[file:getting-started.md][getting-started.md]] — installation (vanilla + Doom), onboarding,
+  first prompts, keybindings.
+- [[file:armory.org][armory.org]] — Armory user guide: the Org-backed agent OS (agents,
+  jobs, conversations, composer, schedule).
+- [[file:backends-and-presets.md][backends-and-presets.md]] — how backends, model switching, and presets
+  work on top of gptel.
+- [[file:tools.org][tools.org]] — the tool system: built-in tools, effects, approval,
+  allow-lists, MCP.
+- [[file:gptel-integration.org][gptel-integration.org]] — OAuth/API-key auth per provider and backend
+  configuration in the model registry.
+- [[file:doom-emacs.md][doom-emacs.md]] — idiomatic Doom Emacs setup.
+- [[file:prompts.org][prompts.org]] — the shipped prompt-template library (=@code-review= etc.),
+  referenced via @handles.
+- [[file:debugging.org][debugging.org]] — interactive debugging guide (Edebug, profiling,
+  ogent-specific tooling).
+
+** Project planning and specs (pre-existing)
+
+- [[file:../ROADMAP.org][ROADMAP.org]] — vision-alignment analysis and feature roadmap.
+- [[file:../specs/architecture.org][specs/architecture.org]] — original architecture spec.
+- [[file:../specs/armory-org-os.org][specs/armory-org-os.org]] — Armory "Org OS" design spec.
+- [[file:../specs/inline-edits.org][specs/inline-edits.org]] — inline edit pipeline spec.
+- [[file:../specs/gptel-integration.org][specs/gptel-integration.org]] — gptel integration spec.
+- [[file:../specs/style-guide.org][specs/style-guide.org]] — code style guide.
+- [[file:../CONTRIBUTING.md][CONTRIBUTING.md]] — contribution workflow.
+- [[file:../AGENTS.md][AGENTS.md]] — agent/contributor conventions (br issue tracking, build
+  rules).

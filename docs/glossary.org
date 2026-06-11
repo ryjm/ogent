@@ -1,0 +1,344 @@
+#+title: ogent Glossary
+#+options: toc:1
+
+Every term of art used in ogent's code and docs, with an exact-line link to
+the code that defines it. Terms are grouped by subsystem; within a group
+they are ordered from most to least fundamental.
+
+* Core prompting concepts
+
+- handle (=@handle=) :: An @-prefixed reference in Org text that resolves to
+  an Org subtree (by =OGENT_ID= property or title slug), a codemap, or an
+  org-roam node, pulling that content into the request context. Syntax is
+  defined by [[file:../lisp/ogent-context.el::37][ogent-context-handle-regexp]]; resolution happens in
+  [[file:../lisp/ogent-context.el::776][ogent-resolve-handle]].
+- context :: The plist (=:root :ancestors :handles :dependencies
+  :excluded-handles :pinned [:source-context]=) describing everything that
+  will be sent with a prompt. Built by [[file:../lisp/ogent-context.el::864][ogent-context-build]] and variants.
+- context node :: A resolved Org headline (title, id, bounds, content)
+  carried inside a context. Struct [[file:../lisp/ogent-context.el::69][ogent-context-node]].
+- dependency :: One resolved (or missing) @handle inside a context,
+  produced by [[file:../lisp/ogent-context.el::793][ogent-context--dependency]]; unresolved ones carry
+  =:missing-p t=.
+- context manifest :: The provenance header prepended to every rendered
+  prompt — each included item with kind, label, reason, char count, and
+  sha256. Computed by [[file:../lisp/ogent-context.el::480][ogent-context-manifest]].
+- pinned context :: Files, buffers, or marker-tracked regions the user has
+  pinned so they ride along with every request. Store
+  [[file:../lisp/ogent-context.el::87][ogent-pinned-context]], item struct [[file:../lisp/ogent-context.el::77][ogent-pinned-item]].
+- source context :: A snapshot of a non-Org code buffer (or region)
+  included when prompting from source code. Struct
+  [[file:../lisp/ogent-context.el::346][ogent-source-context]].
+- rendered prompt :: The exact text sent to the model: manifest + source
+  context + root/ancestor payloads + dependencies + pinned items + the
+  user's prompt. Assembled by [[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]].
+- companion buffer :: The Org transcript sidecar (=*ogent:<file>*=) paired
+  with a non-Org source buffer; requests from code land there, and the
+  edit pipeline logs proposals there. Created by
+  [[file:../lisp/ogent-companion.el::98][ogent-companion-get-or-create]], persisted across sessions via the
+  [[file:../lisp/ogent-companion.el::138][ogent-companion-link-registry-file]].
+- dispatch :: Launching a request through the transient menu
+  [[file:../lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]] (provider, prompt, tools, preset, templates,
+  fan-out models).
+- request :: One tracked LLM round-trip — struct
+  [[file:../lisp/ui/ogent-ui.el::388][ogent-ui-request]] with markers into the transcript, status, and
+  timings; active requests live in [[file:../lisp/ui/ogent-ui.el::687][ogent-ui--request-table]].
+- response block :: The Org skeleton (=** Request: ...= headline, folded
+  prompt block, =*** Response (model)= headline) a response streams into.
+  Inserted by [[file:../lisp/ui/ogent-ui.el::1271][ogent-ui--create-response-block]].
+- fan-out :: Dispatching one prompt to several models at once, producing
+  sibling Response headlines. Loop in
+  [[file:../lisp/ui/ogent-ui.el::565][ogent--send-with-current-model]].
+- completion (review) :: One of several sibling =Response= subtrees under a
+  =Question= headline, cycled/accepted/rejected via the review workflow.
+  Struct [[file:../lisp/ogent-completions.el::50][ogent-completion]], accept at
+  [[file:../lisp/ogent-completions.el::358][ogent-completion-accept]].
+- session :: A persisted conversation buffer saved as an Org file with
+  =#+OGENT-SESSION-*= metadata keywords under
+  [[file:../lisp/ogent-session.el::26][ogent-session-directory]]; header format at
+  [[file:../lisp/ogent-session.el::167][ogent-persist--format-metadata-header]].
+- Notes capture :: Filing the last AI response under a "Notes" child
+  heading of the current Org heading. Command
+  [[file:../lisp/ogent-notes.el::156][ogent-notes-capture]], heading name
+  [[file:../lisp/ogent-notes.el::20][ogent-notes-heading-name]].
+- ogent babel block :: An executable =#+begin_src ogent= Org Babel block
+  whose body is sent to a model and whose reply fills =#+RESULTS=.
+  Executor [[file:../lisp/ob-ogent.el::135][org-babel-execute:ogent]].
+
+* Models, backends, presets
+
+- model registry :: The canonical list of model plists (=:id :backend
+  :stream? :description=) every other layer looks up instead of hardcoding
+  models. Defcustom [[file:../lisp/ogent-models.el::24][ogent-model-registry]]; lookup
+  [[file:../lisp/ogent-models.el::69][ogent-models-ensure]].
+- backend :: The live gptel provider object a model's =:backend= field
+  resolves to. Resolution in [[file:../lisp/ogent-gptel.el::35][ogent-gptel-resolve-backend]].
+- provider :: The vendor identity of a backend (e.g. =gptel-anthropic=),
+  matched by struct type in
+  [[file:../lisp/ogent-gptel.el::28][ogent-gptel-backend-matches-provider-p]].
+- preset :: A named gptel configuration bundle (=:name= + =:spec= passed to
+  =gptel-make-preset=). Shipped defaults at
+  [[file:../lisp/ogent-models.el::88][ogent-default-presets]], user registry at
+  [[file:../lisp/ogent-models.el::133][ogent-preset-registry]].
+- preset cookie :: An =@preset= token typed inside a prompt and extracted
+  before sending, applied via =gptel-with-preset=. Extraction in
+  [[file:../lisp/ui/ogent-ui.el::2045][ogent-ui--extract-preset-cookies]].
+- project preset (=.ogent.el=) :: A sandboxed per-project settings file
+  (model, preset, context files, tools, system prompt) applied
+  buffer-locally. File name [[file:../lisp/ogent-presets.el::36][ogent-presets-file-name]]; whitelist
+  [[file:../lisp/ogent-presets.el::138][ogent-presets--allowed-variables]]; loader
+  [[file:../lisp/ogent-presets.el::199][ogent-presets-load]].
+- effective setting :: The project-over-global resolution of model, preset,
+  tools, and codemap roots, e.g.
+  [[file:../lisp/ogent-presets.el::228][ogent-presets-effective-model]].
+- provider fallback :: The "model failed for access reasons — log in to a
+  different provider?" recovery offer. Classifier
+  [[file:../lisp/ogent-provider-fallback.el::60][ogent-provider-access-error-p]], entry
+  [[file:../lisp/ogent-provider-fallback.el::101][ogent-provider-maybe-offer-login]].
+- onboarding :: The interactive provider-setup wizard (auth → model →
+  verify → register). Command [[file:../lisp/ogent-onboard.el::474][ogent-onboard]]; provider plists at
+  [[file:../lisp/ogent-onboard.el::59][ogent-onboard--built-in-providers]].
+- PKCE :: The RFC 7636 code-verifier/challenge pair securing the Anthropic
+  browser OAuth flow. [[file:../lisp/ogent-anthropic-oauth.el::167][ogent-anthropic-oauth--generate-pkce]].
+- max mode / console mode :: Anthropic OAuth variants — auto-refreshing
+  Bearer tokens (Claude Pro/Max) vs an OAuth-minted static API key. Login
+  flow [[file:../lisp/ogent-anthropic-oauth.el::397][ogent-anthropic-login]].
+- Claude Code system prefix :: The exact system-message prefix OAuth bearer
+  requests must carry to be accepted; constant at
+  [[file:../lisp/ogent-anthropic-oauth.el::75][ogent-anthropic-oauth--system-prefix]].
+- Codex auth cache :: The =$CODEX_HOME/auth.json= file whose OpenAI key
+  ogent borrows instead of running its own OAuth. Reader
+  [[file:../lisp/ogent-codex-oauth.el::69][ogent-codex-oauth-get-api-key]].
+
+* Tools and safety
+
+- tool :: A function the model may call (read-file, grep, bash, ...),
+  described by a spec plist in the registry. Registry defcustom
+  [[file:../lisp/ogent-models.el::202][ogent-tool-registry]]; built-in implementations in
+  [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]].
+- tool effects :: Declarative side-effect metadata on a tool spec — a list
+  of =(:kind :target :scope :risk)= plists that drives the approval
+  policy. Known kinds at [[file:../lisp/ogent-tool-effects.el::15][ogent-tool-effects-known-kinds]].
+- effect kind :: One of =read write execute network git issue
+  emacs-state=; everything except =read= is in the approval set
+  [[file:../lisp/ogent-tool-effects.el::19][ogent-tool-effects-approval-kinds]].
+- risk rank :: The =none < low < medium < high < critical= ordering used to
+  combine effect risks. [[file:../lisp/ogent-tool-effects.el::23][ogent-tool-effects--risk-ranks]].
+- approval :: The requirement that a human confirm a tool call before it
+  runs. Policy predicate
+  [[file:../lisp/ogent-tool-effects.el::112][ogent-tool-effects-approval-required-p]]; runtime gate
+  [[file:../lisp/ui/ogent-ui.el::1931][ogent-ui--check-tool-approval]]; interactive prompt
+  [[file:../lisp/ui/ogent-ui.el::233][ogent-tool--prompt-approval]].
+- allow-list :: User-saved ="tool(arg:glob)"= patterns that auto-approve
+  matching calls. Defcustom [[file:../lisp/ui/ogent-ui.el::137][ogent-tool-allow-list]]; master switch
+  [[file:../lisp/ui/ogent-ui.el::155][ogent-tool-require-approval]].
+- deny list :: The session-local set of tools the user answered "never"
+  for. [[file:../lisp/ui/ogent-ui.el::260][ogent-tool--denied-tools]].
+- confirm flag :: The gptel-facing =:confirm= computed from a spec's
+  =:confirm= or effects, so gptel's own tool runner enforces the same
+  policy. [[file:../lisp/ogent-models.el::251][ogent-tool-spec-confirm-p]].
+- MCP (Model Context Protocol) :: The protocol for attaching external tool
+  servers over stdio JSON-RPC; ogent's client lives in
+  [[file:../lisp/ogent-mcp.el::33][ogent-mcp-servers]] and friends.
+- MCP connection :: Per-server process + capability state. Struct
+  [[file:../lisp/ogent-mcp.el::92][ogent-mcp-connection]].
+- MCP default tool effects :: The =network/external/unrestricted/high=
+  effects stamped on every discovered MCP tool so none can auto-execute.
+  Defcustom [[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]]; stamped in
+  [[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]].
+- tool drawer :: The Org drawer a completed tool call is rendered into in
+  the transcript. [[file:../lisp/ui/ogent-ui.el::2249][ogent-ui--insert-tool-drawer]].
+- streaming drawer :: The live-updating drawer used for async tool (bash)
+  output. Struct [[file:../lisp/ui/ogent-ui.el::2301][ogent-streaming-drawer]].
+- streaming callback :: The =(TOOL TYPE DATA)= event hook tools emit
+  chunked output through. Defcustom
+  [[file:../lisp/ogent-tools.el::42][ogent-tools-stream-callback]].
+- pending diff :: The accept/reject preview generated when the model calls
+  write-file/edit-file, instead of writing immediately. State
+  [[file:../lisp/ui/ogent-ui.el::2590][ogent-ui--pending-diffs]]; accept at
+  [[file:../lisp/ui/ogent-ui.el::2777][ogent-diff-accept]].
+- proof ledger :: The append-only Org audit trail of hashed request and
+  tool events. Enabled by [[file:../lisp/ogent-ledger.el::16][ogent-ledger-enabled]]; central entry
+  [[file:../lisp/ogent-ledger.el::110][ogent-ledger-record]].
+- event hash :: SHA-256 over the sanitized printed form of a ledger event —
+  the tamper-evidence. [[file:../lisp/ogent-ledger.el::84][ogent-ledger-hash]].
+- tool-call history / replay :: The capped in-memory record of executed
+  tool calls, re-runnable through the live executor (so replays re-apply
+  approval). History var [[file:../lisp/ogent-debug.el::323][ogent-debug-tool-history]]; replay
+  [[file:../lisp/ogent-debug.el::491][ogent-debug-replay-tool]].
+- project root resolution :: How relative tool paths are anchored (custom
+  root → projectile → project.el → =default-directory=).
+  [[file:../lisp/ogent-tools.el::170][ogent-tools--project-root]].
+
+* Inline edit pipeline
+
+- SEARCH/REPLACE block :: The wire format the model uses to propose edits
+  (markers at [[file:../lisp/ogent-edit-format.el::17][ogent-edit-search-marker]]); taught to the model by
+  [[file:../lisp/ogent-edit-format.el::71][ogent-edit-system-prompt]].
+- edit (struct) :: One parsed proposal carrying old/new text, source
+  buffer, validated positions, status, and markers.
+  [[file:../lisp/ogent-edit-format.el::40][ogent-edit]] cl-defstruct.
+- edit validation :: The unique-match check of an edit's old text against
+  the live buffer — zero or multiple matches mean error.
+  [[file:../lisp/ogent-edit-parse.el::66][ogent-edit-validate]].
+- display method :: How proposals are reviewed: ='smerge= conflict markers,
+  ='overlay= holograms, or ='inline-diff= word highlighting. Defcustom
+  [[file:../lisp/ogent-edit-display.el::41][ogent-edit-display-method]].
+- edit overlay :: The non-destructive overlay preview with its own action
+  keymap. [[file:../lisp/ogent-edit-display.el::464][ogent-edit-apply-as-overlay]].
+- inline diff :: Word-level "track changes" overlays from the standalone
+  library; entry [[file:../lisp/inline-diff.el::235][inline-diff-words-region]].
+- diff review buffer :: The magit-style =*ogent-edits*= buffer with
+  stage/unstage and batch accept. [[file:../lisp/ogent-edit-diff.el::175][ogent-edit-diff-show]].
+- auto-apply :: Applying all valid edits without review when
+  [[file:../lisp/ogent-edit.el::51][ogent-edit-auto-apply]] is set; performed in reverse position order by
+  [[file:../lisp/ogent-edit.el::705][ogent-edit-auto-apply-all]].
+- resolved hook :: The hook decoupling edit resolution from logging; fired
+  on accept/reject. [[file:../lisp/ogent-edit-display.el::167][ogent-edit-resolved-hook]].
+- quick edit target :: The scope plist (buffer/region/defun/line) bounding
+  an edit request. [[file:../lisp/ogent-edit.el::168][ogent-edit--quick-target]].
+- AI speed edit :: A model-chosen highest-value small edit derived from
+  current editor state (point, diagnostics). [[file:../lisp/ogent-edit.el::658][ogent-ai-speed-edit]].
+- diagnostic repair :: Flymake/Flycheck-driven edit prompts.
+  [[file:../lisp/ogent-edit.el::622][ogent-fix-diagnostic]].
+
+* Armory (the Org agent OS)
+
+- armory :: A directory whose =index.org= carries =:OGENT_ARMORY: t=,
+  holding agents, jobs, conversations, pages, and apps as Org files. Root
+  test [[file:../lisp/ogent-armory.el::380][ogent-armory-root-p]]; scaffold
+  [[file:../lisp/ogent-armory.el::465][ogent-armory-scaffold]].
+- armory root :: The nearest ancestor directory passing the root test.
+  [[file:../lisp/ogent-armory.el::389][ogent-armory-find-root]].
+- agent (persona) :: An identity record at =.agents/<slug>/persona.org=
+  with =OGENT_*= dispatch properties. Format
+  [[file:../lisp/ogent-armory.el::520][ogent-armory--format-agent]]; resolution
+  [[file:../lisp/ogent-armory.el::777][ogent-armory-resolve-agent]].
+- global agent :: A persona shared across armories, in =.global-agents= or
+  [[file:../lisp/ogent-armory.el::68][ogent-armory-global-agents-root]].
+- visible armory :: The root plus its immediate child armories, searched
+  when resolving agents. [[file:../lisp/ogent-armory.el::770][ogent-armory-visible-armories]].
+- job :: A recurring Org TODO prompt under an agent's =jobs/= with cron
+  metadata. Format [[file:../lisp/ogent-armory.el::918][ogent-armory--format-job]]; validation
+  [[file:../lisp/ogent-armory.el::1058][ogent-armory-job-validation-errors]].
+- conversation :: The canonical per-run record directory under
+  =.agents/.conversations/<id>/= (index, turns, events, attachments,
+  artifacts). Created by [[file:../lisp/ogent-armory-conversations.el::268][ogent-armory-conversation-create]].
+- turn :: One =NNN-(user|agent).org= message file inside a conversation.
+  [[file:../lisp/ogent-armory-conversations.el::603][ogent-armory-conversation-append-turn]].
+- event :: An append-only =events.org= entry with a monotonic =:seq=.
+  [[file:../lisp/ogent-armory-conversations.el::724][ogent-armory-conversation-append-event]].
+- attachment staging :: The two-phase =_pending/= copy that lets a run
+  adopt attachments atomically.
+  [[file:../lisp/ogent-armory-conversations.el::110][ogent-armory-conversation-stage-attachments]].
+- adapter :: A provider descriptor (codex, claude, gemini, ...) that builds
+  concrete CLI invocations and classifies errors. Register
+  [[file:../lisp/ogent-armory-adapter.el::96][ogent-armory-adapter-register]]; invocation dispatch
+  [[file:../lisp/ogent-armory-adapter.el::226][ogent-armory-adapter-build-invocation]].
+- runtime mode :: The native/terminal execution choice offered per adapter.
+  [[file:../lisp/ogent-armory-adapter.el::339][ogent-armory-adapter-runtime-candidates]].
+- plan :: The runner's fully resolved run descriptor (agent, provider,
+  model, prompt, invocation). [[file:../lisp/ogent-armory-runner.el::426][ogent-armory-runner-plan]].
+- response contract :: The Org output grammar appended to every runner
+  prompt so agent output parses deterministically. Defcustom
+  [[file:../lisp/ogent-armory-runner.el::70][ogent-armory-runner-response-contract]]; assembly
+  [[file:../lisp/ogent-armory-runner.el::361][ogent-armory-runner--response-contract]].
+- machine footer (=#+begin_armory= block) :: The structured
+  SUMMARY/CONTEXT/ARTIFACT trailer parsed out of agent output.
+  [[file:../lisp/ogent-armory-conversations.el::831][ogent-armory-conversation-parse-output]].
+- action (proposal) :: An agent-proposed =LAUNCH_TASK= / =SCHEDULE_JOB= /
+  =SCHEDULE_TASK= awaiting human approval before dispatch. Parse
+  [[file:../lisp/ogent-armory-actions.el::220][ogent-armory-actions-parse]]; dispatch
+  [[file:../lisp/ogent-armory-actions.el::489][ogent-armory-actions-dispatch]].
+- composer / compose :: The shared prompt builder that resolves
+  =@agent:/@page:/@skill:/@job:/@conversation:= mentions and stages
+  attachments. [[file:../lisp/ogent-armory-compose.el::263][ogent-armory-compose]].
+- mention :: An =@kind:token= reference expanded into prompt context by the
+  composer. [[file:../lisp/ogent-armory-compose.el::135][ogent-armory-compose-resolve-mention]].
+- page :: A generic Org knowledge record (=OGENT_PAGE=) with CRUD +
+  link-rewriting. [[file:../lisp/ogent-armory-data.el::136][ogent-armory-page-create]].
+- data browser :: The tabulated view over a armory's durable files.
+  [[file:../lisp/ogent-armory-data.el::449][ogent-armory-data]].
+- trash :: The =.armory-state/trash/= soft-delete target for pages.
+  Delete at [[file:../lisp/ogent-armory-data.el::300][ogent-armory-page-delete]].
+- armory graph :: The derived =:nodes=/=:edges= projection over all
+  records, rendered by the status buffer.
+  [[file:../lisp/ogent-armory.el::1557][ogent-armory-build-graph]].
+- schedule key :: The stable =AGENT::TYPE::ID::MINUTE= identity joining a
+  scheduled slot to the conversation that ran it.
+  [[file:../lisp/ogent-armory-schedule.el::74][ogent-armory-schedule-key]].
+- heartbeat :: An agent-level cron producing recurring check-in events.
+  Default [[file:../lisp/ogent-armory.el::23][ogent-armory-default-heartbeat]]; expansion
+  [[file:../lisp/ogent-armory-schedule.el::243][ogent-armory-schedule--heartbeat-events]].
+- missed event :: A scheduled slot before now with no linked conversation.
+  State resolution [[file:../lisp/ogent-armory-schedule.el::275][ogent-armory-schedule--state]].
+- skill :: An Org file of reusable prompt instructions keyed by
+  =OGENT_SKILL_KEY=, bundled into run prompts. Metadata reader
+  [[file:../lisp/ogent-armory-skills.el::123][ogent-armory-skill--read-metadata]]; bundling
+  [[file:../lisp/ogent-armory-skills.el::220][ogent-armory-skill-bundle]].
+- armory settings :: The =.armory-state/settings.org= property-drawer
+  config; schema table [[file:../lisp/ogent-armory-settings.el::42][ogent-armory-settings--fields]].
+- registry manifest :: A JSON armory template (agents/jobs/pages/settings)
+  importable in one shot. [[file:../lisp/ogent-armory-settings.el::721][ogent-armory-registry-import]].
+- search index :: The rebuildable =prin1='d cache of all searchable records
+  at =.armory-state/search.el=. Build
+  [[file:../lisp/ogent-armory-palette.el::171][ogent-armory-search-index-build]]; palette
+  [[file:../lisp/ogent-armory-palette.el::283][ogent-armory-command-palette]].
+- Armory Home :: The dashboard buffer summarizing a armory root.
+  [[file:../lisp/ui/ogent-ui-armory.el::946][ogent-armory-home]].
+
+* Issues, analytics, infrastructure
+
+- beads / br :: The local-first issue tracker CLI ogent integrates with;
+  executable defcustom [[file:../lisp/ogent-issues-bd.el::20][ogent-issues-bd-executable]] (the =-bd-= infix
+  is historical and means "beads" generically).
+- worktree redirect :: The =.beads/redirect= pointer that keeps linked git
+  worktrees on the main checkout's issue database.
+  [[file:../lisp/ogent-issues-bd.el::128][ogent-issues-bd-ensure-worktree-redirect]].
+- ready issue :: An open issue with no incomplete blockers (=br ready=).
+  [[file:../lisp/ogent-issues-bd.el::383][ogent-issues-bd-ready]].
+- dependency graph / critical path :: The issue blocker DAG and its longest
+  blocking chain. Struct [[file:../lisp/ogent-issues-graph.el::89][ogent-dep-graph]]; critical path
+  [[file:../lisp/ogent-issues-graph.el::242][ogent-issues-graph-critical-path]].
+- kanban view :: Status-column rendering of issues with card movement.
+  Columns [[file:../lisp/ogent-issues.el::1810][ogent-issues-kanban-columns]].
+- analytics completion :: One tracked LLM response row (tokens, TTFT,
+  latency, outcome, rating) in the per-project SQLite DB. Struct
+  [[file:../lisp/ogent-analytics.el::165][ogent-analytics-completion]]; recorder
+  [[file:../lisp/ogent-analytics.el::196][ogent-analytics-record-completion]].
+- TTFT (time to first token) :: Latency from request start to the first
+  streamed chunk. Marker [[file:../lisp/ogent-analytics.el::191][ogent-analytics-first-token]].
+- action registry :: The declarative table of =(NAME :key :command :desc)=
+  rows from which all keybinding frontends (vanilla, Evil, Doom,
+  which-key) are generated. [[file:../lisp/ogent-keys.el::110][ogent-action-registry]].
+- Evil display-mode setup :: The canonical magit/dired-style overriding-map
+  pattern that lets read-only ogent buffers keep single-key commands under
+  Evil. [[file:../lisp/ogent-keys.el::458][ogent-evil-display-mode-setup]].
+- ops style contract :: The shared symbol/spinner/heading vocabulary for
+  operational buffers (Issues, Armory). Switch
+  [[file:../lisp/ogent-ops-style.el::21][ogent-ops-use-unicode]]; status glyphs
+  [[file:../lisp/ogent-ops-style.el::157][ogent-ops-status-symbol]].
+- theme icon :: The three-tier (nerd-icons → Unicode → ASCII) icon lookup
+  used across the UI. Catalog [[file:../lisp/ui/ogent-ui-theme.el::205][ogent-theme-icons]]; resolver
+  [[file:../lisp/ui/ogent-ui-theme.el::268][ogent-theme-icon]].
+- margin indicator :: The animated left-margin overlay next to a streaming
+  request headline. [[file:../lisp/ui/ogent-ui-status.el::178][ogent-status--create-margin-overlay]].
+- backlink :: A reverse reference to a handle found in another open Org
+  buffer. [[file:../lisp/ui/ogent-ui-backlinks.el::97][ogent-backlinks-for-handle]].
+- sandbox (makem) :: A throwaway =user-emacs-directory= that makem.sh
+  creates so tests/linting run against a clean package set; see the
+  Makefile's [[file:../Makefile::97][sandbox-test]] and [[file:../Makefile::108][sandbox]] targets and
+  [[file:../run.org][run.org]].
+- codemap :: The auto-generated Org map of the repo (definitions, tests,
+  doc headings), exposed as the =@codemap= handle. Render entry
+  [[file:../lisp/ogent-codemap.el::563][ogent-codemap-buffer]]; handle resolution
+  [[file:../lisp/ogent-codemap.el::631][ogent-codemap-resolve-handle]].
+- task-scoped codemap :: An LLM-generated, task-focused map requested via
+  =@codemap-task:description=. [[file:../lisp/ogent-codemap.el::958][ogent-codemap-resolve-task-handle]].
+- prompt registry :: The hash of reusable prompt templates addressable as
+  =@id= and composable as =@a+@b=. Registry
+  [[file:../lisp/ogent-prompts.el::33][ogent-prompt-registry]]; composition
+  [[file:../lisp/ogent-prompts.el::159][ogent-prompt-compose]].
+- template parameter :: A ={{name}}= / ={{name:default}}= blank in a prompt
+  template filled at insert time. Regexp
+  [[file:../lisp/ogent-prompts.el::36][ogent-prompt--param-rx]].
