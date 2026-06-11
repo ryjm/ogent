@@ -2438,6 +2438,68 @@ Verifies the underlying behavior that restore-position must handle."
         (when (buffer-live-p buf)
           (kill-buffer buf))))))
 
+(ert-deftest ogent-issues-test-render-detail-right-action ()
+  "Default right action splits side-by-side via the overriding action."
+  (let ((ogent-issues-detail-display-action 'right)
+        (test-buf-name "*ogent-issue: right-test*")
+        (captured-override nil)
+        (selected nil))
+    (cl-letf (((symbol-function 'display-buffer)
+               (lambda (_buf &rest _)
+                 (setq captured-override display-buffer-overriding-action)
+                 'mock-window))
+              ((symbol-function 'select-window)
+               (lambda (w &rest _) (setq selected w)))
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/right-test"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "right-test")))
+      (ogent-issues--render-detail
+       '(:id "right-1" :title "Right Test" :status "open"
+         :priority 1 :issue_type "task" :description "desc"
+         :created_at "2025-01-01T00:00:00Z"
+         :updated_at "2025-01-01T00:00:00Z"
+         :blocks nil :blocked_by nil :dependents nil :comments nil)
+       "/tmp/right-test" test-buf-name)
+      ;; The overriding action wins over display-buffer-alist rules
+      ;; (e.g. Doom's ^\* bottom-popup catch-all).
+      (should (memq 'display-buffer-in-direction (car captured-override)))
+      (should (equal (alist-get 'direction (cdr captured-override)) 'right))
+      (should (eq selected 'mock-window))
+      (let ((buf (get-buffer test-buf-name)))
+        (when (buffer-live-p buf)
+          (kill-buffer buf))))))
+
+(ert-deftest ogent-issues-test-render-detail-default-action-defers ()
+  "The `default' action defers to display-buffer without overriding."
+  (let ((ogent-issues-detail-display-action 'default)
+        (test-buf-name "*ogent-issue: defer-test*")
+        (captured-override 'unset)
+        (selected nil))
+    (cl-letf (((symbol-function 'display-buffer)
+               (lambda (_buf &rest _)
+                 (setq captured-override display-buffer-overriding-action)
+                 'mock-window))
+              ((symbol-function 'select-window)
+               (lambda (w &rest _) (setq selected w)))
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/defer-test"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "defer-test")))
+      (ogent-issues--render-detail
+       '(:id "defer-1" :title "Defer Test" :status "open"
+         :priority 1 :issue_type "task" :description "desc"
+         :created_at "2025-01-01T00:00:00Z"
+         :updated_at "2025-01-01T00:00:00Z"
+         :blocks nil :blocked_by nil :dependents nil :comments nil)
+       "/tmp/defer-test" test-buf-name)
+      ;; Unchanged ambient value: no overriding action was installed.
+      (should (eq captured-override display-buffer-overriding-action))
+      (should-not selected)
+      (let ((buf (get-buffer test-buf-name)))
+        (when (buffer-live-p buf)
+          (kill-buffer buf))))))
+
 ;;; Detail View - Header Line Format Tests
 
 (ert-deftest ogent-issues-test-render-detail-header-line ()
@@ -2730,8 +2792,8 @@ Verifies the underlying behavior that restore-position must handle."
   (should (eq 'same-window ogent-issues-display-buffer-action)))
 
 (ert-deftest ogent-issues-test-detail-display-action-default ()
-  "Test ogent-issues-detail-display-action default is below."
-  (should (eq 'below ogent-issues-detail-display-action)))
+  "Test ogent-issues-detail-display-action default is the right split."
+  (should (eq 'right ogent-issues-detail-display-action)))
 
 ;;; Group By Status Preserves Data
 

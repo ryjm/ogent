@@ -129,13 +129,24 @@ Options:
                  (const :tag "Other window" other-window))
   :group 'ogent-issues)
 
-(defcustom ogent-issues-detail-display-action 'below
+(defcustom ogent-issues-detail-display-action 'right
   "How to display the issue detail buffer.
 Options:
-  `below' - Vertical split below issues buffer (like `magit-show-commit')
-  `other-window' - Display in another window"
-  :type '(choice (const :tag "Below (magit-style)" below)
-                 (const :tag "Other window" other-window))
+  `right' - Side-by-side split to the right of the issues buffer
+            (like magit's two-pane layouts)
+  `below' - Split below the issues buffer (like `magit-show-commit')
+  `other-window' - Display in another window
+  `default' - Defer entirely to your `display-buffer' configuration
+
+The `right' and `below' layouts are applied via
+`display-buffer-overriding-action' so they win over generic
+catch-all rules (such as Doom's \"^\\\\*\" bottom-popup rule) that
+would otherwise reroute the detail buffer.  Choose `default' if you
+manage this buffer with your own `display-buffer-alist' rules."
+  :type '(choice (const :tag "Right (side-by-side, magit-style)" right)
+                 (const :tag "Below" below)
+                 (const :tag "Other window" other-window)
+                 (const :tag "Defer to display-buffer rules" default))
   :group 'ogent-issues)
 
 (defcustom ogent-issues-detail-auto-refresh t
@@ -1183,9 +1194,9 @@ Optionally refreshes in background if
   "Render ISSUE in the detail buffer.
 PROJECT-ROOT is the beads project directory (for setting default-directory).
 BUFFER-NAME is the detail buffer name (defaults to project-specific name).
-By default, displays in a vertical split below the issues buffer,
-similar to how `magit-show-commit' displays commit details.
-Customize `ogent-issues-detail-display-action' to change this behavior."
+By default, displays in a side-by-side split to the right of the
+issues buffer, like magit's two-pane layouts.  Customize
+`ogent-issues-detail-display-action' to change this behavior."
   (let* ((proj-root (or project-root (ogent-issues-bd-project-root)))
          (buf-name (or buffer-name (ogent-issues--detail-buffer-name)))
          (buf (get-buffer-create buf-name)))
@@ -1216,26 +1227,34 @@ Customize `ogent-issues-detail-display-action' to change this behavior."
                (propertize ":start " 'face 'ogent-issues-dimmed)
                (propertize "K" 'face 'ogent-issues-header-line-key)
                (propertize ":close" 'face 'ogent-issues-dimmed)))))
-    ;; Display based on customization (default to 'below if not set)
+    ;; Display based on customization (default to 'right if not set).
+    ;; The right/below layouts go through
+    ;; `display-buffer-overriding-action' so the user's explicit choice
+    ;; here beats generic catch-all popup rules.
     (pcase (if (boundp 'ogent-issues-detail-display-action)
                ogent-issues-detail-display-action
-             'below)
+             'right)
       ('below
-       ;; Vertical split below, like magit-show-commit
-       (let ((window (display-buffer buf
-                                     '((display-buffer-below-selected)
-                                       (window-height . 0.4)
-                                       (preserve-size . (nil . t))))))
+       ;; Split below, like magit-show-commit
+       (let* ((display-buffer-overriding-action
+               '((display-buffer-below-selected)
+                 (window-height . 0.4)
+                 (preserve-size . (nil . t))))
+              (window (display-buffer buf)))
          (when window
            (select-window window))))
       ('other-window
        (pop-to-buffer buf))
+      ('default
+       (display-buffer buf))
       (_
-       ;; Default to below
-       (let ((window (display-buffer buf
-                                     '((display-buffer-below-selected)
-                                       (window-height . 0.4)
-                                       (preserve-size . (nil . t))))))
+       ;; Default: side-by-side to the right, reusing a right-hand
+       ;; window when one exists (magit-style two-pane layout).
+       (let* ((display-buffer-overriding-action
+               '((display-buffer-in-direction)
+                 (direction . right)
+                 (window-width . 0.5)))
+              (window (display-buffer buf)))
          (when window
            (select-window window)))))))
 
