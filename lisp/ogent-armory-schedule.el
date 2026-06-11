@@ -429,12 +429,23 @@ NOW controls missed-run detection and defaults to the current time."
 
 ;;;###autoload
 (defun ogent-armory-agenda (&optional directory)
-  "Open Org agenda over Armory files under DIRECTORY."
+  "Open Org agenda over Armory files under DIRECTORY.
+The Armory file set is also installed buffer-locally in the agenda
+buffer so refresh commands such as `org-agenda-redo' keep the
+Armory scope instead of falling back to the global
+`org-agenda-files'."
   (interactive
    (list (or (ogent-armory-find-root)
              (read-directory-name "Armory root: "))))
-  (ogent-armory-with-agenda-files (or directory default-directory)
-    (call-interactively #'org-agenda)))
+  (let* ((root (or directory default-directory))
+         (files (ogent-armory-agenda-files root)))
+    (let ((org-agenda-files files))
+      (call-interactively #'org-agenda))
+    (when-let ((buf (if (boundp 'org-agenda-buffer) org-agenda-buffer
+                      (get-buffer org-agenda-buffer-name))))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (setq-local org-agenda-files files))))))
 
 (defun ogent-armory-schedule--state-label (state)
   "Return a display label for schedule STATE."
@@ -565,6 +576,119 @@ NOW controls missed-run detection and defaults to the current time."
                 :scheduled-key (plist-get event :schedule-key))))
     (when (ogent-armory-runner--confirm plan)
       (ogent-armory-runner-start plan))))
+
+;;; Scheduler
+
+(defcustom ogent-armory-scheduler-roots nil
+  "Armory root directories watched by `ogent-armory-scheduler-mode'."
+  :type '(repeat directory)
+  :group 'ogent-armory-schedule)
+
+(defcustom ogent-armory-scheduler-interval 60
+  "Seconds between Armory scheduler ticks."
+  :type 'integer
+  :group 'ogent-armory-schedule)
+
+(defcustom ogent-armory-scheduler-auto-run t
+  "When non-nil, run due Armory schedule events automatically.
+When nil, each scheduler tick only announces due events via
+`message' and leaves them for the manual run-missed flow in the
+schedule buffer."
+  :type 'boolean
+  :group 'ogent-armory-schedule)
+
+(defcustom ogent-armory-scheduler-catchup-window 300
+  "Seconds of backlog the scheduler fires automatically per tick.
+Events due earlier than this many seconds before the tick are left
+for the manual run-missed flow, so waking from a long suspend does
+not launch the whole missed backlog at once."
+  :type 'integer
+  :group 'ogent-armory-schedule)
+
+(defvar ogent-armory-scheduler--timer nil
+  "Repeating timer driving `ogent-armory-scheduler-tick'.")
+
+(defvar ogent-armory-scheduler--last-tick nil
+  "Time of the previous scheduler tick, or nil before the arming tick.")
+
+(defvar ogent-armory-scheduler--fired (make-hash-table :test 'equal)
+  "Schedule keys already fired by the scheduler in this session.")
+
+(defun ogent-armory-scheduler--due-events (root window-start now)
+  "Return unfired missed ROOT events between WINDOW-START and NOW."
+  (seq-filter
+   (lambda (event)
+     (and (eq (plist-get event :state) 'missed)
+          (not (gethash (plist-get event :schedule-key)
+                        ogent-armory-scheduler--fired))))
+   (ogent-armory-schedule-events root window-start now :now now)))
+
+(defun ogent-armory-scheduler--fire (event)
+  "Fire one due schedule EVENT, honoring the auto-run gate."
+  (let ((key (plist-get event :schedule-key)))
+    (puthash key t ogent-armory-scheduler--fired)
+    (if ogent-armory-scheduler-auto-run
+        (let ((ogent-armory-runner-confirm-before-run nil))
+          (ogent-armory-schedule--run-event event))
+      (message "ogent scheduler: %s due (auto-run disabled)" key))))
+
+(defun ogent-armory-scheduler-tick (&optional now)
+  "Fire Armory schedule events that came due since the previous tick.
+NOW defaults to the current time.  The first tick after enabling
+`ogent-armory-scheduler-mode' only arms the tick window and fires
+nothing.  Events older than `ogent-armory-scheduler-catchup-window'
+seconds at NOW are skipped.  Return the list of events processed."
+  (let ((now (or now (current-time))))
+    (if (null ogent-armory-scheduler--last-tick)
+        (progn
+          (setq ogent-armory-scheduler--last-tick now)
+          nil)
+      (let* ((floor-time (time-subtract
+                          now ogent-armory-scheduler-catchup-window))
+             (window-start (if (time-less-p
+                                ogent-armory-scheduler--last-tick
+                                floor-time)
+                               floor-time
+                             ogent-armory-scheduler--last-tick))
+             fired)
+        (dolist (root ogent-armory-scheduler-roots)
+          (when (file-directory-p root)
+            (condition-case root-err
+                (dolist (event (ogent-armory-scheduler--due-events
+                                root window-start now))
+                  (condition-case event-err
+                      (progn
+                        (ogent-armory-scheduler--fire event)
+                        (push event fired))
+                    (error
+                     (message "ogent scheduler: %s failed: %s"
+                              (plist-get event :schedule-key)
+                              (error-message-string event-err)))))
+              (error
+               (message "ogent scheduler: armory %s failed: %s"
+                        root (error-message-string root-err))))))
+        (setq ogent-armory-scheduler--last-tick now)
+        (nreverse fired)))))
+
+;;;###autoload
+(define-minor-mode ogent-armory-scheduler-mode
+  "Fire due Armory schedule events from an Emacs timer loop.
+Watch the Armory roots in `ogent-armory-scheduler-roots' every
+`ogent-armory-scheduler-interval' seconds and run due cron jobs,
+agent heartbeats, and one-shot tasks through the Armory runner.
+Events older than `ogent-armory-scheduler-catchup-window' seconds
+stay manual via the schedule buffer's run-missed command."
+  :global t
+  :group 'ogent-armory-schedule
+  (when ogent-armory-scheduler--timer
+    (cancel-timer ogent-armory-scheduler--timer)
+    (setq ogent-armory-scheduler--timer nil))
+  (when ogent-armory-scheduler-mode
+    (setq ogent-armory-scheduler--last-tick nil)
+    (setq ogent-armory-scheduler--timer
+          (run-with-timer ogent-armory-scheduler-interval
+                          ogent-armory-scheduler-interval
+                          #'ogent-armory-scheduler-tick))))
 
 (defun ogent-armory-schedule-run-missed ()
   "Run the missed Armory schedule event at point."
