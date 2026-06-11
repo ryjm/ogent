@@ -1386,6 +1386,14 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
            (eq (plist-get metadata :archived)
                (ogent-cabinet--truth-value archived)))))
 
+(defun ogent-cabinet--conversation-org-files (root)
+  "Return canonical conversation index files under ROOT.
+These live below .agents/.conversations/, which
+`ogent-cabinet-org-files' deliberately hides."
+  (let ((store (expand-file-name ".agents/.conversations" root)))
+    (when (file-directory-p store)
+      (directory-files-recursively store "\\`index\\.org\\'"))))
+
 (cl-defun ogent-cabinet-search-records
     (directory query &key kind agent status tag archived)
   "Return Cabinet search matches for QUERY under DIRECTORY.
@@ -1395,7 +1403,8 @@ Optional filters narrow by KIND, AGENT, STATUS, TAG, and ARCHIVED state."
         (regexp (regexp-quote (or query "")))
         results)
     (unless (string-blank-p (or query ""))
-      (dolist (file (ogent-cabinet-org-files root))
+      (dolist (file (append (ogent-cabinet-org-files root)
+                            (ogent-cabinet--conversation-org-files root)))
         (let ((metadata (ogent-cabinet-record-metadata file)))
           (when (ogent-cabinet--record-matches-filters-p
                  metadata kind agent status tag archived)

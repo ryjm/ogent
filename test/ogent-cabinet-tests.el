@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'ogent-test-helper)
 (require 'ogent-cabinet)
+(require 'ogent-cabinet-conversations)
 (require 'org)
 
 (defmacro ogent-cabinet-test-with-temp-dir (var &rest body)
@@ -524,6 +525,60 @@
       (should (= 2 (length tag-results)))
       (dolist (result tag-results)
         (should (member "strategy" (plist-get result :tags)))))))
+
+(ert-deftest ogent-cabinet-search-includes-canonical-conversations ()
+  "Cabinet search indexes canonical conversation index files."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (let ((file (ogent-cabinet-conversation-create
+                 dir
+                 '(:id "conv-1"
+                   :title "Quarterly zanzibar review"
+                   :agent "cto"
+                   :status "completed"))))
+      (let ((results (ogent-cabinet-search-records dir "zanzibar")))
+        (should results)
+        (dolist (result results)
+          (should (eq (plist-get result :kind) 'conversation))
+          (should (equal (plist-get result :path) file)))))))
+
+(ert-deftest ogent-cabinet-search-kind-filter-isolates-conversations ()
+  "Kind filters separate conversation records from agent records."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-cabinet-write-agent
+     dir
+     '(:slug "cto"
+       :name "CTO"
+       :role "Architecture")
+     "Shared zanzibar marker in agent notes.")
+    (ogent-cabinet-conversation-create
+     dir
+     '(:id "conv-1"
+       :title "Shared zanzibar marker conversation"
+       :agent "cto"))
+    (let ((conversation-results (ogent-cabinet-search-records
+                                 dir "zanzibar" :kind 'conversation))
+          (agent-results (ogent-cabinet-search-records
+                          dir "zanzibar" :kind 'agent)))
+      (should conversation-results)
+      (dolist (result conversation-results)
+        (should (eq (plist-get result :kind) 'conversation)))
+      (should agent-results)
+      (dolist (result agent-results)
+        (should (eq (plist-get result :kind) 'agent))))))
+
+(ert-deftest ogent-cabinet-search-works-without-conversation-store ()
+  "Search succeeds when .agents/.conversations does not exist."
+  (ogent-cabinet-test-with-temp-dir dir
+    (ogent-cabinet--write-file
+     (expand-file-name "notes.org" dir)
+     "#+title: Notes\n\n* Notes\nLoose zanzibar note.\n")
+    (should-not (file-directory-p
+                 (expand-file-name ".agents/.conversations" dir)))
+    (let ((results (ogent-cabinet-search-records dir "zanzibar")))
+      (should (= 1 (length results)))
+      (should (eq (plist-get (car results) :kind) 'org)))))
 
 (ert-deftest ogent-cabinet-record-metadata-classifies-specific-records ()
   "Record metadata does not mistake jobs or sessions for agents."
