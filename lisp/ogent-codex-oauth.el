@@ -4,7 +4,7 @@
 
 ;; Author: Jake Miller
 ;; Keywords: convenience, openai, oauth, codex
-;; Package-Requires: ((emacs "29.1") (gptel "0.9"))
+;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5"))
 
 ;;; Commentary:
 

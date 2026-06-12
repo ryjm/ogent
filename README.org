@@ -27,8 +27,10 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 - *Commands, not conversations*: =C-c . ?= for quick questions. =C-c . p= for full context dispatch. =C-c . E= for code edits. Each does one thing.
 
 * Requirements
-- Emacs 29.1 or newer with Org-mode
-- [[https://github.com/karthink/gptel][gptel]] for transport and model selection
+- Emacs 29.1 or newer
+- Org 9.8.5 or newer
+- [[https://github.com/karthink/gptel][gptel]] 0.9.9.5 or newer for transport and model selection
+- [[https://github.com/magit/transient][transient]] 0.13.4 or newer for command menus
 - Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
 - An LLM provider:
   - **OpenAI Codex / ChatGPT**: Reuse Codex CLI OAuth credentials
@@ -59,6 +61,9 @@ Run =M-x ogent-onboard= to interactively configure your LLM provider. This wizar
 1. Lets you choose between OpenAI Codex OAuth, Claude Code OAuth, or API key authentication
 2. Guides you through the login process
 3. Configures gptel backends automatically
+4. Run =M-x ogent-doctor= at any time to check Emacs/package versions,
+   gptel/backend state, br availability, and local OAuth caches without
+   making network calls.
 
 ** OpenAI Codex / ChatGPT OAuth
 If you already use the Codex CLI with ChatGPT login, ogent can reuse the API key
@@ -116,7 +121,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 - Doom/Evil users get the same command surface under =SPC o= when =ogent-setup-doom-bindings= or evil bindings are active.
 - Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
 - Press =C-c . d= to capture the last AI response to a Notes child heading.
-- Use =C-c . ?= for quick Q&A without full context machinery.
+- Use =C-c . ?= to ask a question about the current Org subtree or buffer; the minibuffer prompt names the scope.
 - To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
 
 ** Keybindings
@@ -144,7 +149,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . S= | =ogent-session-save=          | Save current session                     |
 | =C-c . L= | =ogent-session-load=          | Load a saved session                     |
 | =C-c . H= | =ogent-session-list=          | List saved sessions                      |
-| =C-c . ?= | =ogent-ask=                   | Quick Q&A (buffer context, point first)  |
+| =C-c . ?= | =ogent-ask=                   | Ask about current subtree or buffer      |
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 
