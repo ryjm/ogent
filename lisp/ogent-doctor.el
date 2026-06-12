@@ -13,7 +13,6 @@
 (require 'ogent-gptel)
 (require 'ogent-models)
 
-(declare-function transient-define-prefix "ext:transient")
 (declare-function gptel-request "ext:gptel" (prompt &rest args))
 (declare-function ogent-codex-oauth--auth-file "ogent-codex-oauth")
 (declare-function ogent-codex-oauth-mode "ogent-codex-oauth")
