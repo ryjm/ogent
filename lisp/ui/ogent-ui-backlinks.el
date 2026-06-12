@@ -15,7 +15,7 @@
 (declare-function org-roam-node-list "ext:org-roam")
 (declare-function org-roam-node-file "ext:org-roam-node")
 
-;; Forward declaration for org-fold (Org 9.6+)
+;; Forward declaration for org-fold.
 (declare-function org-fold-show-context "org-fold")
 
 (defcustom ogent-backlinks-buffer-name "*ogent-backlinks*"
