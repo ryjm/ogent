@@ -154,7 +154,7 @@ ogent registers these with gptel on first use via =ogent-register-presets=.
 
 *** From the Dispatcher
 
-1. Run =M-x ogent-prompt-dispatch= (or =C-c o p=)
+1. Run =M-x ogent-prompt-dispatch= (or =C-c . p=)
 2. Select a preset from the Presets section
 3. Send your request with RET
 
@@ -187,7 +187,7 @@ When multiple presets could apply, ogent uses this priority:
 
 ** Dispatching Requests
 
-1. =ogent-prompt-dispatch= (=C-c o p=) - Opens the transient menu
+1. =ogent-prompt-dispatch= (=C-c . p=) - Opens the transient menu
 2. Select models (1-9 keys toggle models)
 3. Optionally select a preset
 4. Press RET to send the request
@@ -214,9 +214,9 @@ On completion, latency is added:
 
 ** Cancellation and Retry
 
-- =C-c o a= (=ogent-abort-request=) - Abort active request(s)
-- =C-u C-c o a= - Abort all active requests
-- =C-c o R= (=ogent-retry-request=) - Retry a completed/failed request
+- =C-c . a= (=ogent-abort-request=) - Abort active request(s)
+- =C-u C-c . a= - Abort all active requests
+- =C-c . R= (=ogent-retry-request=) - Retry a completed/failed request
 
 * Tool and Reasoning Blocks
 

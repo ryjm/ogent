@@ -375,7 +375,7 @@
     (should (eq (lookup-key map (kbd "C-c r p"))
                 'ogent-completion-prev))
     ;; Default prefix should not be bound
-    (should-not (eq (lookup-key map (kbd "C-c o n")) 'ogent-completion-next))))
+    (should-not (eq (lookup-key map (kbd "C-c , n")) 'ogent-completion-next))))
 
 ;;; Review Action Registry Validation Tests
 
@@ -421,7 +421,7 @@
         (ogent-describe-bindings)
         (with-current-buffer "*Ogent Bindings*"
           (should (string-match-p "Review prefix" (buffer-string)))
-          (should (string-match-p "C-c o" (buffer-string)))))
+          (should (string-match-p "C-c ," (buffer-string)))))
     (when (get-buffer "*Ogent Bindings*")
       (kill-buffer "*Ogent Bindings*"))))
 
@@ -460,7 +460,7 @@
   "setup-all-bindings sets up both vanilla and review bindings."
   (let ((map (make-sparse-keymap))
         (ogent-vanilla-prefix "C-c .")
-        (ogent-review-prefix "C-c o"))
+        (ogent-review-prefix "C-c ,"))
     (cl-letf (((symbol-function 'ogent-setup-evil-bindings)
                (lambda (_) nil)))
       (ogent-setup-all-bindings map)
@@ -468,10 +468,10 @@
       (should (eq (lookup-key map (kbd "C-c . p")) 'ogent-prompt-dispatch))
       (should (eq (lookup-key map (kbd "C-c . r")) 'ogent-request))
       ;; Review bindings
-      (should (eq (lookup-key map (kbd "C-c o n")) 'ogent-completion-next))
-      (should (eq (lookup-key map (kbd "C-c o p")) 'ogent-completion-prev))
-      (should (eq (lookup-key map (kbd "C-c o a")) 'ogent-review-accept))
-      (should (eq (lookup-key map (kbd "C-c o x")) 'ogent-completion-reject)))))
+      (should (eq (lookup-key map (kbd "C-c , n")) 'ogent-completion-next))
+      (should (eq (lookup-key map (kbd "C-c , p")) 'ogent-completion-prev))
+      (should (eq (lookup-key map (kbd "C-c , a")) 'ogent-review-accept))
+      (should (eq (lookup-key map (kbd "C-c , x")) 'ogent-completion-reject)))))
 
 (ert-deftest ogent-keys-setup-all-bindings-all-registry-actions ()
   "setup-all-bindings binds every action from registry."
