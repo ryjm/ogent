@@ -577,6 +577,29 @@ missing separator and end marker")
             (kill-buffer)))
       (delete-file temp-file))))
 
+
+(ert-deftest ogent-edit-request-creates-companion-before-response ()
+  "Edit requests create the companion link before async proposals are logged."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun foo () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (let ((source-buffer (current-buffer))
+                  (ogent-edit-log-to-companion t))
+              (should-not (ogent-companion--get-linked-buffer source-buffer))
+              (ogent-test-with-mock-gptel
+               (ogent-request-edit "Fix this")
+               (let ((companion
+                      (ogent-companion--get-linked-buffer source-buffer)))
+                 (should (buffer-live-p companion))
+                 (with-current-buffer companion
+                   (should (derived-mode-p 'org-mode))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
 (ert-deftest ogent-edit-request-uses-explicit-bounds ()
   "ogent-request-edit can send a focused buffer slice."
   (let ((temp-file (make-temp-file "ogent-test" nil ".el")))

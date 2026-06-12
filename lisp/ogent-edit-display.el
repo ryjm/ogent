@@ -27,7 +27,10 @@
 
 ;; Optional: inline-diff for word-level change highlighting
 (declare-function inline-diff-mode "inline-diff" (&optional arg))
-(declare-function inline-diff-words-region "inline-diff" (beg end old-text))
+(declare-function inline-diff-clear "inline-diff" (&optional keep-snapshots))
+(declare-function inline-diff-words-region "inline-diff" (beg end old-text &optional append))
+(defvar inline-diff-accept-hook)
+(defvar inline-diff-reject-hook)
 
 ;; Org-mode functions (loaded at runtime)
 (declare-function org-back-to-heading "org" (&optional invisible-ok))
@@ -258,29 +261,50 @@ Each function receives the `ogent-edit' struct.")
             (delq edit ogent-edit--pending-edits))
       (run-hook-with-args 'ogent-edit-resolved-hook edit))))
 
+(defun ogent-edit--smerge-conflict-positions ()
+  "Return smerge conflict start positions from top to bottom."
+  (let ((positions nil))
+    (save-excursion
+      (goto-char (point-min))
+      (let ((prev-pos nil))
+        (while (let ((cur-pos (point)))
+                 (and (not (eq cur-pos prev-pos))
+                      (ignore-errors (smerge-next) t)
+                      (setq prev-pos cur-pos)))
+          (push (point) positions))))
+    (nreverse positions)))
+
+(defun ogent-edit--tracked-edits-bottom-up ()
+  "Return tracked edits sorted from bottom to top."
+  (sort (delete-dups (copy-sequence ogent-edit--pending-edits))
+        (lambda (a b)
+          (> (or (ogent-edit-start-pos a) 0)
+             (or (ogent-edit-start-pos b) 0)))))
+
+(defun ogent-edit--resolve-all-smerge (resolver)
+  "Resolve all smerge conflicts with RESOLVER.
+Tracked ogent edits are resolved bottom-up so each edit's cached
+start position remains valid while lower conflicts are removed."
+  (save-excursion
+    (if ogent-edit--pending-edits
+        (dolist (edit (ogent-edit--tracked-edits-bottom-up))
+          (goto-char (or (and (markerp (ogent-edit-source-marker edit))
+                              (marker-position (ogent-edit-source-marker edit)))
+                         (ogent-edit-start-pos edit)))
+          (funcall resolver))
+      (dolist (pos (ogent-edit--smerge-conflict-positions))
+        (goto-char pos)
+        (funcall resolver)))))
+
 (defun ogent-edit-accept-all ()
   "Accept all AI-proposed changes in current buffer."
   (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (let ((prev-pos nil))
-      (while (let ((cur-pos (point)))
-               (and (not (eq cur-pos prev-pos))
-                    (ignore-errors (smerge-next) t)
-                    (setq prev-pos cur-pos)))
-        (ogent-edit-accept-current)))))
+  (ogent-edit--resolve-all-smerge #'ogent-edit-accept-current))
 
 (defun ogent-edit-reject-all ()
   "Reject all AI-proposed changes in current buffer."
   (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (let ((prev-pos nil))
-      (while (let ((cur-pos (point)))
-               (and (not (eq cur-pos prev-pos))
-                    (ignore-errors (smerge-next) t)
-                    (setq prev-pos cur-pos)))
-        (ogent-edit-reject-current)))))
+  (ogent-edit--resolve-all-smerge #'ogent-edit-reject-current))
 
 ;;; Marker Navigation
 
@@ -780,49 +804,75 @@ Returns list of successfully applied edits."
 
 ;;; Inline-diff Display (optional)
 
+
+(defun ogent-edit-inline-diff--resolve-pending (status)
+  "Mark inline-diff pending edits with STATUS and run resolution hooks."
+  (dolist (edit (copy-sequence ogent-edit--pending-edits))
+    (when (eq (ogent-edit-status edit) 'pending)
+      (setf (ogent-edit-status edit) status)
+      (setq ogent-edit--pending-edits
+            (delq edit ogent-edit--pending-edits))
+      (run-hook-with-args 'ogent-edit-resolved-hook edit))))
+
+(defun ogent-edit-inline-diff--accept-hook ()
+  "Mark all pending inline-diff edits as accepted."
+  (ogent-edit-inline-diff--resolve-pending 'accepted))
+
+(defun ogent-edit-inline-diff--reject-hook ()
+  "Mark all pending inline-diff edits as rejected."
+  (ogent-edit-inline-diff--resolve-pending 'rejected))
+
+(defun ogent-edit-inline-diff--install-hooks ()
+  "Install ogent resolution hooks for inline-diff in current buffer."
+  (add-hook 'inline-diff-accept-hook
+            #'ogent-edit-inline-diff--accept-hook nil t)
+  (add-hook 'inline-diff-reject-hook
+            #'ogent-edit-inline-diff--reject-hook nil t))
+
 (defun ogent-edit-inline-diff-available-p ()
   "Return non-nil if inline-diff is available."
   (featurep 'inline-diff))
 
-(defun ogent-edit-apply-as-inline-diff (edit)
+(defun ogent-edit-apply-as-inline-diff (edit &optional append)
   "Display EDIT using inline-diff word-level highlighting.
-Replaces old text with new text and shows word-level diff overlay.
-Requires inline-diff.el to be installed."
+Replaces old text with new text, records a restore snapshot, and
+shows word-level diff overlays.  Requires inline-diff.el to be
+installed.  Unless APPEND is non-nil, clear existing inline diffs
+first."
   (unless (ogent-edit-inline-diff-available-p)
     (user-error "inline-diff not available; install inline-diff.el or use different display method"))
   (unless (eq (ogent-edit-status edit) 'pending)
     (user-error "Edit %s is not pending" (ogent-edit-id edit)))
   (unless (ogent-edit-start-pos edit)
     (user-error "Edit %s has not been validated" (ogent-edit-id edit)))
-  (let* ((buf (ogent-edit-source-buffer edit))
-         (start (ogent-edit-start-pos edit))
-         (end (ogent-edit-end-pos edit))
-         (old-text (ogent-edit-old-text edit))
-         (new-text (ogent-edit-new-text edit)))
+  (let ((buf (ogent-edit-source-buffer edit)))
     (unless (buffer-live-p buf)
       (user-error "Source buffer for edit %s is no longer available"
                   (ogent-edit-id edit)))
     (with-current-buffer buf
-      ;; Store marker before changes
-      (setf (ogent-edit-source-marker edit) (copy-marker start))
-      ;; Replace old text with new text
-      (save-excursion
+      (unless append
+        (inline-diff-clear))
+      (ogent-edit--re-anchor edit)
+      (let* ((start (ogent-edit-start-pos edit))
+             (end (ogent-edit-end-pos edit))
+             (old-text (ogent-edit-old-text edit))
+             (new-text (ogent-edit-new-text edit)))
+        ;; Store marker before changes
+        (setf (ogent-edit-source-marker edit) (copy-marker start))
+        ;; Replace old text with new text
+        (save-excursion
+          (goto-char start)
+          (delete-region start end)
+          (insert new-text))
+        ;; Apply inline-diff highlighting to show changes
+        (let ((new-end (+ start (length new-text))))
+          (inline-diff-words-region start new-end old-text t))
+        (ogent-edit-inline-diff--install-hooks)
+        ;; Keep status pending until the user accepts or rejects.
+        (ogent-edit--track-edits (list edit))
+        ;; Move to the change
         (goto-char start)
-        (delete-region start end)
-        (insert new-text))
-      ;; Apply inline-diff highlighting to show changes
-      (let ((new-end (+ start (length new-text))))
-        (inline-diff-words-region start new-end old-text))
-      ;; Enable inline-diff-mode if not already active
-      (unless (bound-and-true-p inline-diff-mode)
-        (inline-diff-mode 1))
-      ;; Update status - mark as applied (user can accept by clearing diff)
-      (setf (ogent-edit-status edit) 'applied)
-      ;; Track this edit
-      (ogent-edit--track-edits (list edit))
-      ;; Move to the change
-      (goto-char start)
-      (message "Edit displayed with inline-diff. Use C-c C-c to accept, C-c C-k to reject."))))
+        (message "Edit displayed with inline-diff. Use C-c C-c to accept, C-c C-k to reject.")))))
 
 (defun ogent-edit-apply-all-as-inline-diff (edits)
   "Apply all valid EDITS using inline-diff display.
@@ -836,10 +886,14 @@ Returns list of successfully applied edits."
                          (> (ogent-edit-start-pos a)
                             (ogent-edit-start-pos b)))))
          (applied nil))
+    (let ((buf (and sorted (ogent-edit-source-buffer (car sorted)))))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (inline-diff-clear))))
     (dolist (edit sorted)
       (condition-case err
           (progn
-            (ogent-edit-apply-as-inline-diff edit)
+            (ogent-edit-apply-as-inline-diff edit t)
             (push edit applied))
         (error
          (setf (ogent-edit-status edit) 'error
