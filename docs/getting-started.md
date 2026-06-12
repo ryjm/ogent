@@ -209,7 +209,20 @@ The dispatcher lets you:
 - Choose prompt templates
 - Review context before sending
 
-### 4. Review Responses
+### 4. Ask from the Current Subtree
+
+With your cursor inside an Org heading, run:
+- `M-x ogent-ask-here` or
+- `SPC o q` (Doom/Evil) or
+- `C-c . q` (vanilla Emacs)
+
+The minibuffer names the active scope, for example `Ask here about subtree "Implementation Task":`.
+When point is on a folded or bodyless child heading, the ask scope climbs to the nearest expanded parent, keeping visible sibling tasks in context.
+The response is inserted under that subtree as a normal folded `Request` / `Response` transcript.
+
+If you are unsure what to press, run `C-c . ?` / `SPC o ?` for the ask menu. It shows the active scope and offers inline ask, popup ask, ask-context preview, and the full dispatcher.
+
+### 5. Review Responses
 
 Responses stream inline as Org source blocks:
 
@@ -223,7 +236,7 @@ Here's my suggested approach for user authentication...
 #+end_src
 ```
 
-### 5. Preview Context
+### 6. Preview Context
 
 Before sending, preview what will be sent to the model:
 - `M-x ogent-context-preview` or
@@ -258,7 +271,8 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `n` | `C-c . n` | `SPC o n` | Navigation menu |
 | `b` | `C-c . b` | `SPC o b` | Show backlinks |
 | `i` | `C-c . i` | `SPC o i` | Issue tracker |
-| `?` | `C-c . ?` | `SPC o ?` | Quick ask |
+| `q` | `C-c . q` | `SPC o q` | Ask here; insert Request/Response |
+| `?` | `C-c . ?` | `SPC o ?` | Contextual ask menu |
 | `D` | `C-c . D` | `SPC o D` | Toggle debug mode |
 | `]` | `C-c . ]` | `SPC o ]` | Next completion |
 | `[` | `C-c . [` | `SPC o [` | Previous completion |

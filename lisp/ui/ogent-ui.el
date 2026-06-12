@@ -51,6 +51,8 @@
 (autoload 'ogent-debug-mode "ogent-debug" nil t)
 (autoload 'ogent-onboard-login-different-provider "ogent-onboard" nil t)
 
+(declare-function ogent-describe-bindings "ogent-keys")
+
 (defvar ogent-edit-display-method)
 
 ;; Silence byte-compiler for functions that may not be loaded at compile time
@@ -92,7 +94,7 @@ headings use * rather than #, etc."
 
 (defcustom ogent-multi-turn-history t
   "When non-nil, replay prior exchanges as conversation history.
-Each completed \"** Request:\" / \"*** Response\" pair found in the
+Each completed Request/Response pair found in the
 transcript buffer before the current request is sent as a prior
 user/assistant turn.  The model sees the running conversation, not
 only a single-shot prompt.  History is bounded by
@@ -257,7 +259,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   id model context prompt buffer marker closed preset
   status start-time end-time gptel-handle source-buffer
   block-start response-pos
-  request-heading-pos  ; Marker at the request's "** Request:" headline
+  request-heading-pos  ; Marker at the request's headline
+  response-heading-level  ; Org level of the response headline
   paused-response  ; Stores partial response when paused for resume
   handled-tool-use)  ; Identity of the :tool-use payload already dispatched
 
@@ -850,6 +853,33 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
                                   (window-height . 10)
                                   (preserve-size . (nil . t))))))))))
 
+;;;###autoload
+(defun ogent-ask-context-preview-toggle ()
+  "Toggle the context preview popup for the active ask scope."
+  (interactive)
+  (if (ogent-ui--context-preview-visible-p)
+      (ogent-ui--close-context-preview)
+    (let* ((source-buffer (current-buffer))
+           (region-start (when (use-region-p) (region-beginning)))
+           (region-end (when (use-region-p) (region-end)))
+           (org-point (ogent-ask--org-scope-point))
+           (companion (ogent-ui--ensure-companion-context)))
+      (with-current-buffer companion
+        (let* ((context (ogent-context-build-with-source
+                         source-buffer region-start region-end org-point))
+               (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
+               (buffer (ogent-ui--context-buffer)))
+          (with-current-buffer buffer
+            (insert payload)
+            (goto-char (point-min)))
+          (setq ogent-ui--context-preview-window
+                (display-buffer buffer
+                                '((display-buffer-in-side-window)
+                                  (side . bottom)
+                                  (slot . -1)
+                                  (window-height . 10)
+                                  (preserve-size . (nil . t))))))))))
+
 (defun ogent-ui--backend-label (backend)
   "Return a string label describing BACKEND."
   (cond
@@ -919,13 +949,72 @@ Shows model, context info, and pinned count."
     (propertize "Send region" 'face 'ogent-theme-success))
    (t (propertize "Send" 'face 'ogent-theme-success))))
 
-(defun ogent--desc-quick-ask ()
-  "Return the description for quick ask."
+(defun ogent--desc-ask-here ()
+  "Return the description for inline asking."
   (let ((scope (ogent-ask-context-description)))
     (if (string= scope "no context")
-        "Ask..."
-      (propertize (format "Ask about %s..." scope)
+        "Ask here..."
+      (propertize (format "Ask here about %s..." scope)
                   'face 'ogent-theme-success))))
+
+(defun ogent--desc-quick-ask ()
+  "Return the description for popup quick ask."
+  (let ((scope (ogent-ask-context-description)))
+    (if (string= scope "no context")
+        "Ask popup..."
+      (format "Ask popup about %s..." scope))))
+
+(defun ogent-ask-menu--scope-line ()
+  "Return the contextual scope line for `ogent-ask-menu'."
+  (let ((scope (ogent-ask-context-description)))
+    (if (string= scope "no context")
+        (propertize
+         "Scope: no Org subtree or buffer context; popup ask sends only your question."
+         'face 'transient-heading)
+      (concat
+       (propertize "Scope: " 'face 'transient-heading)
+       (propertize scope 'face 'ogent-theme-highlight)
+       (propertize
+        "  q = inline Request/Response here, c = preview ask context"
+        'face 'font-lock-comment-face)))))
+
+(defun ogent-ask-here--read-question ()
+  "Read an inline `ogent-ask-here' question with the active scope."
+  (let ((scope (ogent-ask-context-description)))
+    (read-string
+     (if (string= scope "no context")
+         "Ask here: "
+       (format "Ask here about %s: " scope)))))
+
+;;;###autoload
+(defun ogent-ask-here (question)
+  "Ask QUESTION with current context and stream the response into Org.
+In an Org subtree, insert a normal ogent Request/Response transcript
+as a child of the current subtree.  In source buffers, use the normal
+companion Org transcript.  If an Org buffer has no headline at point,
+fall back to the popup `ogent-ask' path."
+  (interactive (list (ogent-ask-here--read-question)))
+  (when (string-empty-p (string-trim question))
+    (user-error "Question cannot be empty"))
+  (if (and (derived-mode-p 'org-mode)
+           (not (ogent-ask--org-heading-title)))
+      (ogent-ask question)
+    (ogent-request question)))
+
+;;;###autoload (autoload 'ogent-ask-menu "ogent" nil t)
+(transient-define-prefix ogent-ask-menu ()
+  "Ask about the current ogent context."
+  [:description ogent-ask-menu--scope-line
+   ["Ask"
+    ("q" ogent-ask-here :description ogent--desc-ask-here)
+    ("?" ogent-ask :description ogent--desc-quick-ask)
+    ("r" "Send prompt..." ogent-request)]
+   ["Inspect"
+    ("c" "Preview ask context" ogent-ask-context-preview-toggle :transient t)
+    ("p" "Full dispatcher" ogent-prompt-dispatch)
+    ("h" "All keys" ogent-describe-bindings)]]
+  (interactive)
+  (transient-setup 'ogent-ask-menu))
 
 (defun ogent--desc-quick-edit ()
   "Return the description for quick edit."
@@ -1006,8 +1095,8 @@ A polished interface for AI-assisted workflows.
     ("f" ogent-fix-diagnostic :description ogent--desc-fix-diagnostic)
     ("F" ogent-fix-buffer-diagnostics
      :description ogent--desc-fix-buffer-diagnostics)
-    ("k" ogent-quick-edit :description ogent--desc-quick-edit)
-    ("?" ogent-ask :description ogent--desc-quick-ask)]
+    ("a" ogent-ask-here :description ogent--desc-ask-here)
+    ("?" "Ask menu" ogent-ask-menu)]
    [:description "Model"
     (ogent--infix-provider)
     (ogent--infix-preset)
@@ -1207,23 +1296,30 @@ Backslashes are doubled, then newlines become literal backslash-n, so
      (if (string= match "\\n") "\n" "\\"))
    value t t))
 
+(defun ogent-ui--next-heading-at-or-above (level bound)
+  "Return the next heading position at or above LEVEL before BOUND."
+  (save-excursion
+    (when (re-search-forward (format "^\\*\\{1,%d\\} " level) bound t)
+      (match-beginning 0))))
+
 (defun ogent-ui--response-body-in-region (start end model-id)
   "Return the preferred Response body between START and END.
-Prefer the \"*** Response (MODEL-ID)\" child when several models
-fanned out under one request; otherwise return the first response
+Prefer the \"Response (MODEL-ID)\" child when several models fanned
+out under one request; otherwise return the first response
 body.  Return nil when the region contains no Response heading."
   (save-excursion
     (goto-char start)
     (let (preferred first)
       (while (and (not preferred)
-                  (re-search-forward "^\\*\\*\\* Response (\\([^)]*\\))" end t))
-        (let* ((this-model (match-string-no-properties 1))
+                  (re-search-forward "^\\(\\*+\\) Response (\\([^)]*\\))" end t))
+        (let* ((response-level (length (match-string 1)))
+               (this-model (match-string-no-properties 2))
                (body-start (min end (1+ (line-end-position))))
-               (body-end (save-excursion
-                           (goto-char body-start)
-                           (if (re-search-forward "^\\*\\{1,3\\} " end t)
-                               (match-beginning 0)
-                             end)))
+               (body-end (or (save-excursion
+                                (goto-char body-start)
+                                (ogent-ui--next-heading-at-or-above
+                                 response-level end))
+                              end))
                (body (string-trim (buffer-substring-no-properties
                                    body-start (max body-start body-end)))))
           (unless first (setq first body))
@@ -1249,14 +1345,14 @@ errored) are skipped so the user/assistant alternation stays intact."
           (let ((bound (ogent-ui--position-value bound-pos))
                 (history nil))
             (goto-char (point-min))
-            (while (re-search-forward "^\\*\\* Request: \\(.*\\)$" bound t)
-              (let* ((summary (string-trim (match-string-no-properties 1)))
+            (while (re-search-forward "^\\(\\*+\\) Request: \\(.*\\)$" bound t)
+              (let* ((request-level (length (match-string 1)))
+                     (summary (string-trim (match-string-no-properties 2)))
                      (request-pos (match-beginning 0))
-                     (request-end
-                      (save-excursion
-                        (if (re-search-forward "^\\*\\{1,2\\} " bound t)
-                            (match-beginning 0)
-                          (or bound (point-max)))))
+                     (request-end (or (save-excursion
+                                        (ogent-ui--next-heading-at-or-above
+                                         request-level bound))
+                                      (or bound (point-max))))
                      (stored (org-entry-get request-pos "OGENT_PROMPT"))
                      (user-turn (if (and stored (not (string-empty-p stored)))
                                     (ogent-ui--decode-prompt-property stored)
@@ -1285,34 +1381,60 @@ compacted list."
       (setq history (cddr history)))
     history))
 
-(defun ogent-ui--create-response-block (prompt context model)
-  "Insert a nested headline structure for a request with MODEL.
-Creates a top-level '* Request: <truncated prompt>' headline containing
-the prompt/context src block and a nested '** Response' sub-headline
-where streamed content goes. This mimics Claude Code's conversation
-structure using org-mode idioms.
-The raw PROMPT is persisted in an OGENT_PROMPT property at the request
-headline so later requests can replay the exchange as history (see
-`ogent-ui--conversation-history').
-Returns a plist containing a streaming marker and block-start marker."
-  ;; Always append at end for session buffers, otherwise use current position
+(defun ogent-ui--stars (level)
+  "Return an Org headline prefix for LEVEL."
+  (make-string (max 1 level) ?*))
+
+(defun ogent-ui--request-heading-level ()
+  "Return the Org level to use for a new Request headline."
+  (if ogent-session-buffer-p
+      2
+    (save-excursion
+      (condition-case nil
+          (progn
+            (org-back-to-heading t)
+            (1+ (or (org-current-level) 0)))
+        (error 1)))))
+
+(defun ogent-ui--prepare-request-insertion ()
+  "Move point to the insertion position for a new Request headline."
   (if ogent-session-buffer-p
       (progn
         (goto-char (point-max))
         (unless (bolp) (insert "\n")))
-    (org-back-to-heading t)
-    (org-end-of-subtree t t)
-    (unless (bolp) (insert "\n")))
-  (let* ((model-id (plist-get model :id))
+    (condition-case nil
+        (progn
+          (org-back-to-heading t)
+          (org-end-of-subtree t t)
+          (unless (bolp) (insert "\n")))
+      (error
+       (goto-char (point-max))
+       (unless (bolp) (insert "\n"))))))
+
+(defun ogent-ui--create-response-block (prompt context model)
+  "Insert a nested headline structure for a request with MODEL.
+Creates a Request child under the current Org heading containing the
+prompt/context src block and a nested Response sub-headline where
+streamed content goes. This mimics Claude Code's conversation structure
+using org-mode idioms.
+The raw PROMPT is persisted in an OGENT_PROMPT property at the request
+headline so later requests can replay the exchange as history (see
+`ogent-ui--conversation-history').
+Returns a plist containing a streaming marker and block-start marker."
+  (let* ((request-level (ogent-ui--request-heading-level))
+         (response-level (1+ request-level))
+         (request-stars (ogent-ui--stars request-level))
+         (response-stars (ogent-ui--stars response-level))
+         (model-id (plist-get model :id))
          (backend (plist-get model :backend))
          (payload (ogent-ui--render-prompt prompt context))
          (prompt-summary (ogent-ui--prompt-headline-summary prompt))
          request-heading-pos
          block-start
          response-heading-pos)
-    ;; Insert request headline as child of Session (level 2)
+    (ogent-ui--prepare-request-insertion)
     (setq request-heading-pos (point-marker))
-    (insert (format "** Request: %s\n" prompt-summary))
+    (insert (format "%s Request: %s\n" request-stars prompt-summary))
     ;; Persist the raw prompt for later history replay.  Inserted as
     ;; literal drawer text (not `org-entry-put') so the positions and
     ;; markers captured below stay exact.
@@ -1333,15 +1455,18 @@ Returns a plist containing a streaming marker and block-start marker."
     (insert "#+end_src\n\n")
     ;; Fold the context src block immediately.
     (ogent-ui--hide-src-block-at block-start)
-    ;; Insert Response sub-headline as child of Request (level 3)
-    ;; Include model name for multi-model fan-out disambiguation
+    ;; Include model name for multi-model fan-out disambiguation.
     (setq response-heading-pos (point))
-    (insert (format "*** Response (%s)\n" model-id))
-    (let ((marker (copy-marker (point) t)))
+    (insert (format "%s Response (%s)\n" response-stars model-id))
+    (let ((marker (copy-marker (point))))
+      ;; Keep the next sibling headline on its own line even when the final
+      ;; streamed chunk has no trailing newline.
+      (insert "\n")
       (list :marker marker
             :block-start block-start
             :response-pos response-heading-pos
-            :request-heading-pos request-heading-pos))))
+            :request-heading-pos request-heading-pos
+            :response-heading-level response-level))))
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
@@ -1374,7 +1499,9 @@ Creates an `ogent-ui-request' struct and registers it for streaming."
                    :marker (plist-get block :marker)
                    :block-start (plist-get block :block-start)
                    :response-pos (plist-get block :response-pos)
-                   :request-heading-pos (plist-get block :request-heading-pos))))
+                   :request-heading-pos (plist-get block :request-heading-pos)
+                   :response-heading-level
+                   (plist-get block :response-heading-level))))
     (ogent-ui-register-request request)))
 
 (when (and (boundp 'ogent-response-function)
@@ -1440,40 +1567,39 @@ WINDOW defaults to the selected window."
 
 (defcustom ogent-shift-response-headings t
   "When non-nil, shift org headings in LLM responses to nest under Response.
-LLM responses appear under a `*** Response' heading (level 3).
+LLM responses appear under a Response heading.
 When this is enabled, any org headings in the response are shifted
-by 3 levels so they remain nested under Response.
+by the active Response heading level.
 
 For example, `* Heading' becomes `**** Heading' (level 4)."
   :type 'boolean
   :group 'ogent-mode)
 
 (defconst ogent-ui--response-heading-level 3
-  "The org heading level of the Response headline.
-Used to calculate how much to shift headings in LLM responses.")
+  "Fallback Org heading level used for legacy Response heading shifting.")
 
-(defun ogent-ui--shift-org-headings (text)
+(defun ogent-ui--shift-org-headings (text &optional response-heading-level)
   "Shift org headings in TEXT to nest under the Response heading.
-Headings are shifted by `ogent-ui--response-heading-level' levels.
+Headings are shifted by RESPONSE-HEADING-LEVEL levels.
 For example, `* Heading' becomes `**** Heading'.
 
 This prevents LLM-generated headings from breaking the session
 buffer's org hierarchy."
   (if (not ogent-shift-response-headings)
       text
-    (with-temp-buffer
-      (insert text)
-      (goto-char (point-min))
-      ;; Match org headings: line start, one or more *, then space or EOL
-      ;; We need to be careful not to match emphasis like *bold*
-      (while (re-search-forward "^\\(\\*+\\)\\([ \t]\\|$\\)" nil t)
-        (let* ((stars (match-string 1))
-               (suffix (match-string 2))
-               (new-stars (make-string
-                           (+ (length stars) ogent-ui--response-heading-level)
-                           ?*)))
-          (replace-match (concat new-stars suffix) t t)))
-      (buffer-string))))
+    (let ((shift (or response-heading-level
+                     ogent-ui--response-heading-level)))
+      (with-temp-buffer
+        (insert text)
+        (goto-char (point-min))
+        ;; Match org headings: line start, one or more *, then space or EOL.
+        ;; Avoid matching emphasis such as *bold*.
+        (while (re-search-forward "^\\(\\*+\\)\\([ \t]\\|$\\)" nil t)
+          (let* ((stars (match-string 1))
+                 (suffix (match-string 2))
+                 (new-stars (make-string (+ (length stars) shift) ?*)))
+            (replace-match (concat new-stars suffix) t t)))
+        (buffer-string)))))
 
 (declare-function ogent-analytics-start-request "ogent-analytics")
 (declare-function ogent-analytics-estimate-tokens "ogent-analytics" (text))
@@ -1492,7 +1618,7 @@ marker, excluding the heading line itself."
       (with-current-buffer buffer
         (save-excursion
           (goto-char start)
-          (forward-line 1)            ; skip the "*** Response (model)" line
+          (forward-line 1)            ; skip the Response heading
           (let ((body-start (point))
                 (body-end (marker-position end)))
             (when (< body-start body-end)
@@ -1512,7 +1638,10 @@ heading (see `ogent-shift-response-headings')."
     (when (fboundp 'ogent-analytics-first-token)
       (ogent-analytics-first-token))
     (let ((marker (ogent-ui-request-marker request))
-          (processed-chunk (ogent-ui--shift-org-headings chunk)))
+          (processed-chunk
+           (ogent-ui--shift-org-headings
+            chunk
+            (ogent-ui-request-response-heading-level request))))
       (when (and marker (marker-buffer marker))
         (with-current-buffer (ogent-ui-request-buffer request)
           (let ((following-windows

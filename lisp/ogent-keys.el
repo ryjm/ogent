@@ -180,10 +180,12 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Load session")
     (session-list     :key "H" :command ogent-session-list
                       :desc "List sessions")
-    ;; Misc
-    (ask              :key "?" :command ogent-ask
-                      :desc "Ask about context"
+    ;; Ask
+    (ask-here         :key "q" :command ogent-ask-here
+                      :desc "Ask here"
                       :visual t)
+    (ask-menu         :key "?" :command ogent-ask-menu
+                      :desc "Ask menu")
     (notes            :key "d" :command ogent-notes-capture
                       :desc "Capture notes")
     (debug-mode       :key "D" :command ogent-debug-mode

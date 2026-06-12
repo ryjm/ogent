@@ -65,13 +65,13 @@
                                  (should (equal (plist-get captured :model) "gpt-4o-mini"))
                                  (save-excursion
                                    (goto-char (point-min))
-                                   ;; Should have Request headline as child of Session (level 2)
-                                   (search-forward "** Request: Test prompt")
+                                   ;; Request headline is a child of Details Block.
+                                   (search-forward "*** Request: Test prompt")
                                    ;; The src block should be under the Request headline
                                    (search-forward "#+begin_src text :model gpt-4o-mini")
                                    (search-forward "#+end_src")
-                                   ;; Response streams under nested *** Response sub-headline
-                                   (search-forward "*** Response")
+                                   ;; Response streams under the nested Response child.
+                                   (search-forward "**** Response")
                                    (search-forward "Hello world")))))))
 
 (ert-deftest ogent-ui-send-request-binds-gptel-cache-and-model-props ()
@@ -107,7 +107,7 @@
                                  (put sym :capabilities nil))))))
 
 (ert-deftest ogent-ui-nested-headline-structure ()
-  "Verify nested headline structure: * Session -> ** Request -> *** Response."
+  "Verify nested headline structure under the active Org heading."
   (ogent-test-with-fixture "data/fixture.org"
                            (lambda ()
                              (goto-char (point-min))
@@ -124,15 +124,15 @@
                                                 '("gpt-4o-mini"))
                                  (save-excursion
                                    (goto-char (point-min))
-                                   ;; Request headline as child of Session (level 2) with truncated prompt (max 60 chars)
-                                   (should (search-forward "** Request: This is a longer test prompt that should be truncated in ..." nil t))
+                                   ;; Request headline is a child of Details Block with a truncated prompt.
+                                   (should (search-forward "*** Request: This is a longer test prompt that should be truncated in ..." nil t))
                                    ;; Src block should be directly under Request headline
                                    (should (search-forward "#+begin_src text :model gpt-4o-mini" nil t))
                                    (should (search-forward "# User Prompt" nil t))
                                    (should (search-forward "This is a longer test prompt that should be truncated in the headline" nil t))
                                    (should (search-forward "#+end_src" nil t))
-                                   ;; Response should be a level 3 heading (nested under Request)
-                                   (should (search-forward "*** Response" nil t))
+                                   ;; Response should be nested under Request.
+                                   (should (search-forward "**** Response" nil t))
                                    (should (search-forward "Response text" nil t))))))))
 
 (ert-deftest ogent-ui-response-block-escapes-org-syntax-in-context ()
@@ -173,7 +173,7 @@
        '(:id "test-model"))
       (goto-char (point-min))
       (should (search-forward
-               "** Request: first line second line #+end_src * hostile"
+               "* Request: first line second line #+end_src * hostile"
                nil t))
       ;; The prompt is persisted in a single-line property drawer
       ;; directly under the headline (hostile newlines stay encoded).
@@ -925,18 +925,106 @@
     (let ((prompt (ogent-ui--read-prompt)))
       (should (equal prompt "This is selected text")))))
 
-(ert-deftest ogent-ui-quick-ask-description-names-org-subtree ()
-  "Dispatcher quick ask label names the current Org subtree."
+(ert-deftest ogent-ui-ask-here-description-names-org-subtree ()
+  "Dispatcher inline ask label names the current Org subtree."
   (with-temp-buffer
     (org-mode)
     (insert "* Parent\n** Target subtree\nBody\n")
     (goto-char (point-min))
     (search-forward "Target subtree")
     (let* ((ogent-ask-include-buffer t)
-           (description (ogent--desc-quick-ask)))
+           (description (substring-no-properties (ogent--desc-ask-here))))
       (should (string-match-p
-               "Ask about subtree \"Target subtree\""
+               "Ask here about subtree \"Target subtree\""
                description)))))
+
+(ert-deftest ogent-ui-quick-ask-description-names-org-subtree ()
+  "Dispatcher popup ask label names the current Org subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Target subtree\nBody\n")
+    (goto-char (point-min))
+    (search-forward "Target subtree")
+    (let* ((ogent-ask-include-buffer t)
+           (description (substring-no-properties (ogent--desc-quick-ask))))
+      (should (string-match-p
+               "Ask popup about subtree \"Target subtree\""
+               description)))))
+
+(ert-deftest ogent-ui-ask-menu-scope-line-advertises-inline-action ()
+  "Ask menu tells users how to ask in the active subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Target subtree\nBody\n")
+    (goto-char (point-min))
+    (search-forward "Target subtree")
+    (let ((line (substring-no-properties (ogent-ask-menu--scope-line))))
+      (should (string-match-p "Scope: subtree \"Target subtree\"" line))
+      (should (string-match-p "q = inline Request/Response here" line))
+      (should (string-match-p "c = preview ask context" line)))))
+
+(ert-deftest ogent-ui-ask-menu-scope-line-climbs-from-bodyless-leaf ()
+  "Ask menu names the expanded parent for a bodyless leaf."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Useful sibling\nForm DE 4 controls California withholding.\n** Bodyless leaf\n")
+    (goto-char (point-min))
+    (search-forward "Bodyless leaf")
+    (let ((line (substring-no-properties (ogent-ask-menu--scope-line))))
+      (should (string-match-p "Scope: subtree \"Parent\"" line)))))
+
+(ert-deftest ogent-ui-ask-context-preview-uses-ask-scope ()
+  "Ask context preview uses the same expanded parent scope as ask."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Useful sibling\nForm DE 4 controls California withholding.\n** Bodyless leaf\n")
+    (goto-char (point-min))
+    (search-forward "Bodyless leaf")
+    (let* ((ogent-context-preview-buffer-name "*test-ogent-ask-context*")
+           (ogent-ui--context-preview-window nil)
+           (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+      (unwind-protect
+          (progn
+            (ogent-ask-context-preview-toggle)
+            (with-current-buffer preview-buffer
+              (let ((payload (buffer-string)))
+                (should (string-match-p "## Root: Parent" payload))
+                (should (string-match-p
+                         "Form DE 4 controls California withholding"
+                         payload)))))
+        (when (window-live-p ogent-ui--context-preview-window)
+          (delete-window ogent-ui--context-preview-window))
+        (when (buffer-live-p preview-buffer)
+          (kill-buffer preview-buffer))))))
+
+(ert-deftest ogent-ui-ask-here-sends-inline-request-in-org-subtree ()
+  "Inline ask delegates to the normal request pipeline inside an Org heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Target subtree\nBody\n")
+    (goto-char (point-min))
+    (search-forward "Target subtree")
+    (let (called)
+      (cl-letf (((symbol-function 'ogent-request)
+                 (lambda (question &rest _args)
+                   (setq called question))))
+        (ogent-ask-here "What should I do next?"))
+      (should (equal called "What should I do next?")))))
+
+(ert-deftest ogent-ui-ask-here-falls-back-before-first-org-heading ()
+  "Inline ask falls back to popup ask when an Org buffer has no insertion heading."
+  (with-temp-buffer
+    (org-mode)
+    (insert "Loose notes before any heading\n")
+    (let (popup-called)
+      (cl-letf (((symbol-function 'ogent-request)
+                 (lambda (&rest _)
+                   (error "ogent-request should not be called")))
+                ((symbol-function 'ogent-ask)
+                 (lambda (question)
+                   (setq popup-called question))))
+        (ogent-ask-here "What is this?"))
+      (should (equal popup-called "What is this?")))))
 
 ;;; Inline Diff Display Tests
 
@@ -1542,7 +1630,7 @@
       (kill-buffer text-buffer))))
 
 (ert-deftest ogent-ui-regular-org-respects-current-position ()
-  "Regular Org buffers (non-session) use current heading position."
+  "Regular Org buffers insert requests as children of the current heading."
   (ogent-test-with-fixture "data/fixture.org"
                            (lambda ()
                              ;; Regular org file should not be marked as session buffer
@@ -1563,6 +1651,38 @@
                                  (should (search-forward "** Request: Test at heading"))
                                  ;; But before Appendix Note (next top-level heading)
                                  (should (search-forward "* Appendix Note")))))))
+
+(ert-deftest ogent-ui-request-under-nested-task-keeps-next-sibling-heading ()
+  "Nested task requests do not merge streamed text with the following sibling."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n"
+            "** TODO Submit California DE 4 to employer\n"
+            "Owner downloads Form DE 4.\n"
+            "** TODO Decide California withholding catch-up amount\n"
+            "After employer confirms the switch.\n")
+    (goto-char (point-min))
+    (search-forward "Submit California DE 4")
+    (org-back-to-heading t)
+    (let ((ogent-ui--selected-models '("gpt-4o-mini")))
+      (cl-letf (((symbol-function 'gptel-request)
+                 (lambda (_prompt &rest args)
+                   (when-let ((callback (plist-get args :callback)))
+                     (funcall callback "Direct PDF link for DE 4" nil)
+                     (funcall callback nil '(:done t)))
+                   'mock-request)))
+        (ogent-request "get me a download link for de 4" '("gpt-4o-mini"))))
+    (goto-char (point-min))
+    (should (re-search-forward
+             "^\\*\\*\\* Request: get me a download link for de 4"
+             nil t))
+    (should (re-search-forward "^\\*\\*\\*\\* Response (gpt-4o-mini)" nil t))
+    (should (re-search-forward
+             "^\\*\\* TODO Decide California withholding catch-up amount"
+             nil t))
+    (should-not (string-match-p
+                 "DE 4\\*\\* TODO Decide"
+                 (buffer-string)))))
 
 (ert-deftest ogent-ui-session-buffer-multiple-requests ()
   "Session buffer correctly handles multiple sequential requests."
@@ -1697,7 +1817,10 @@
                    "***** Subheading\n"))
     ;; Level 3 heading becomes level 6 (3 + 3)
     (should (equal (ogent-ui--shift-org-headings "*** Deep\n")
-                   "****** Deep\n"))))
+                   "****** Deep\n"))
+    ;; Nested task responses shift by their actual Response heading depth.
+    (should (equal (ogent-ui--shift-org-headings "* Heading\n" 4)
+                   "***** Heading\n"))))
 
 (ert-deftest ogent-ui-shift-org-headings-mixed-content ()
   "Shift headings in mixed content without affecting other text."
@@ -2224,7 +2347,7 @@
                                 (save-excursion
                                   (goto-char (point-min))
                                   ;; Headline should be truncated (max ~60 chars visible)
-                                  (should (search-forward "** Request: AAAA" nil t))
+                                  (should (search-forward "*** Request: AAAA" nil t))
                                   (should (search-forward "..." nil t))
                                   ;; But full prompt should be in the src block
                                   (should (search-forward "#+begin_src text" nil t))
@@ -2267,7 +2390,7 @@
                                                                (ogent-request "Test prompt" '("gpt-4o-mini"))
                                                                (save-excursion
                                                                  (goto-char (point-min))
-                                                                 (should (search-forward "*** Response" nil t))
+                                                                 (should (search-forward "**** Response" nil t))
                                                                  ;; Response should contain all chunks concatenated
                                                                  ;; Just verify it's there and reasonably sized
                                                                  (let ((response-start (point)))
@@ -2297,7 +2420,7 @@
                                 (save-excursion
                                   (goto-char (point-min))
                                   ;; Headline should use first line only
-                                  (should (search-forward "** Request: This is a line of the prompt" nil t))
+                                  (should (search-forward "*** Request: This is a line of the prompt" nil t))
                                   ;; Full prompt with newlines should be in src block
                                   (should (search-forward "#+begin_src text" nil t))
                                   (should (search-forward "This is a line of the prompt" nil t))))))))
@@ -2593,6 +2716,20 @@ Response heading for MODEL (default \"m\")."
       (should (equal (ogent-ui--conversation-history (current-buffer) bound "zz")
                      '("fan" "answer-a"))))))
 
+(ert-deftest ogent-ui-conversation-history-reads-nested-task-transcripts ()
+  "History replay handles Request/Response pairs below task headings."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n"
+            "** TODO Submit California DE 4 to employer\n"
+            "*** Request: get link\n"
+            ":PROPERTIES:\n:OGENT_PROMPT: get link\n:END:\n"
+            "**** Response (m)\n"
+            "direct link\n"
+            "** TODO Next sibling\n")
+    (should (equal (ogent-ui--conversation-history (current-buffer) (point-max) "m")
+                   '("get link" "direct link")))))
+
 (ert-deftest ogent-ui-compact-history-evicts-oldest-pairs ()
   "Compaction drops whole oldest pairs and preserves alternation."
   (let* ((history (list "u1-aaaaaaaaaaaaaaaa" "r1-aaaaaaaaaaaaaaaa"
@@ -2626,7 +2763,7 @@ Response heading for MODEL (default \"m\")."
                                  ;; Follow up from the response, as a user
                                  ;; continuing the conversation would.
                                  (goto-char (point-min))
-                                 (re-search-forward "^\\*\\*\\* Response (gpt-4o-mini)")
+                                 (re-search-forward "^\\*+ Response (gpt-4o-mini)")
                                  (org-back-to-heading t)
                                  (ogent-request "Second prompt" '("gpt-4o-mini"))
                                  (let ((first (cadr prompts))

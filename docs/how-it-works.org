@@ -1877,9 +1877,10 @@ Key functions: [[file:../lisp/ogent-ops-style.el::157][ogent-ops-status-symbol]]
 :END:
 
 Role: The request engine and primary UI — the dispatch transient,
-request lifecycle (create/stream/close/abort/pause/retry), tool-call
-approval and execution, diff previews for edit tools, and error
-surfacing, all rendered as Org structure on top of gptel.
+contextual ask menu, inline subtree ask command, request lifecycle
+(create/stream/close/abort/pause/retry), tool-call approval and
+execution, diff previews for edit tools, and error surfacing, all
+rendered as Org structure on top of gptel.
 
 Design: Centered on the [[file:../lisp/ui/ogent-ui.el::388][ogent-ui-request]] struct, which carries
 markers into the transcript; active requests live in
@@ -1918,7 +1919,9 @@ Key definitions (beyond those in the walkthrough): defcustoms
 [[file:../lisp/ui/ogent-ui.el::3113][ogent-abort-request]],
 [[file:../lisp/ui/ogent-ui.el::3142][ogent-pause-request]],
 [[file:../lisp/ui/ogent-ui.el::3171][ogent-resume-request]],
-[[file:../lisp/ui/ogent-ui.el::3191][ogent-retry-request]]. Programmatic entry:
+[[file:../lisp/ui/ogent-ui.el::3191][ogent-retry-request]]. User entries:
+[[file:../lisp/ui/ogent-ui.el::962][ogent-ask-here]],
+[[file:../lisp/ui/ogent-ui.el::977][ogent-ask-menu]],
 [[file:../lisp/ui/ogent-ui.el::2121][ogent-request]].
 
 *** [[file:../lisp/ui/ogent-ui-cabinet.el::1][ui/ogent-ui-cabinet.el]] — the Cabinet front-end

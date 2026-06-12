@@ -444,9 +444,9 @@
   "ogent-action-get returns nil for missing property on valid action."
   (should-not (ogent-action-get 'prompt-dispatch :nonexistent-prop)))
 
-(ert-deftest ogent-keys-action-get-visual-flag-on-ask ()
-  "ogent-action-get returns visual flag for ask action."
-  (should (ogent-action-get 'ask :visual)))
+(ert-deftest ogent-keys-action-get-visual-flag-on-ask-here ()
+  "ogent-action-get returns visual flag for inline ask action."
+  (should (ogent-action-get 'ask-here :visual)))
 
 (ert-deftest ogent-keys-action-get-desc-content ()
   "ogent-action-get retrieves non-empty desc for all actions."
