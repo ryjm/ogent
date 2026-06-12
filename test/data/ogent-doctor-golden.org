@@ -1,0 +1,11 @@
+* Ogent Doctor
+Status: WARN
+
+[OK] Emacs version
+     Emacs 30.2 (required >= 29.1)
+
+[WARN] gptel backend
+     Backend "OpenAI" has not resolved to an object
+
+[INFO] Codex OAuth cache
+     No Codex auth file at ~/.codex/auth.json
