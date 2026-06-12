@@ -21,8 +21,8 @@
 ;; Forward declarations for codemap handle resolution
 (declare-function ogent-codemap-handle-p "ogent-codemap")
 (declare-function ogent-codemap-resolve-handle "ogent-codemap")
-(declare-function ogent-codemap-task-handle-p "ogent-codemap")
-(declare-function ogent-codemap-resolve-task-handle "ogent-codemap")
+(declare-function ogent-codemap-task-handle-p "ogent-codemap-task")
+(declare-function ogent-codemap-resolve-task-handle "ogent-codemap-task")
 
 ;; Forward declarations for org-roam integration (optional dependency)
 (declare-function org-roam-node-title "ext:org-roam-node")
