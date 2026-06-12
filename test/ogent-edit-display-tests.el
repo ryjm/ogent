@@ -6,11 +6,13 @@
 ;;; Code:
 
 (require 'ert)
+(require 'cl-lib)
 (require 'ogent-edit-display)
 (require 'ogent-edit-format)
 (require 'ogent-edit-parse)
 
 ;; Defined by the optional inline-diff package, loaded at runtime.
+(declare-function inline-diff-reject-all "inline-diff" ())
 (defvar inline-diff--overlays)
 
 ;;; Test Helpers
@@ -515,8 +517,8 @@
           (should (bound-and-true-p inline-diff-mode))
           ;; Should have overlays
           (should (> (length inline-diff--overlays) 0))
-          ;; Edit status should be applied
-          (should (eq (ogent-edit-status edit) 'applied))
+          ;; Edit status stays pending until accept/reject.
+          (should (eq (ogent-edit-status edit) 'pending))
           ;; Buffer should have new text
           (should (equal (buffer-string) new-text))))
     (ogent-edit-display-test--cleanup-buffers)))
@@ -565,6 +567,108 @@
           (ogent-edit-apply-as-inline-diff edit)
           ;; Edit should be tracked
           (should (memq edit ogent-edit--pending-edits))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+
+(ert-deftest ogent-edit-display-test-accept-all-resolves-every-smerge-edit ()
+  "Accept-all resolves and logs every conflict, not just the first."
+  (let ((source-buf (generate-new-buffer " *ogent-test-multi-accept*"))
+        (resolved 0))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buf
+            (insert "one\ntwo"))
+          (let ((edit1 (make-ogent-edit
+                        :id "accept-one"
+                        :old-text "one"
+                        :new-text "ONE"
+                        :source-buffer source-buf
+                        :source-file "test.el"
+                        :status 'pending
+                        :timestamp (current-time)))
+                (edit2 (make-ogent-edit
+                        :id "accept-two"
+                        :old-text "two"
+                        :new-text "TWO"
+                        :source-buffer source-buf
+                        :source-file "test.el"
+                        :status 'pending
+                        :timestamp (current-time))))
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            (with-current-buffer source-buf
+              (ogent-edit--track-edits
+               (ogent-edit-apply-all-as-smerge (list edit1 edit2)))
+              (let ((ogent-edit-resolved-hook
+                     (list (lambda (_edit) (cl-incf resolved)))))
+                (ogent-edit-accept-all)
+                (should (string-match-p "ONE" (buffer-string)))
+                (should (string-match-p "TWO" (buffer-string)))
+                (should (eq (ogent-edit-status edit1) 'accepted))
+                (should (eq (ogent-edit-status edit2) 'accepted))
+                (should-not ogent-edit--pending-edits)
+                (should (= resolved 2))))))
+      (kill-buffer source-buf))))
+
+(ert-deftest ogent-edit-display-test-reject-all-resolves-every-smerge-edit ()
+  "Reject-all resolves every conflict from bottom to top."
+  (let ((source-buf (generate-new-buffer " *ogent-test-multi-reject*"))
+        (resolved 0))
+    (unwind-protect
+        (progn
+          (with-current-buffer source-buf
+            (insert "one\ntwo"))
+          (let ((edit1 (make-ogent-edit
+                        :id "reject-one"
+                        :old-text "one"
+                        :new-text "ONE"
+                        :source-buffer source-buf
+                        :source-file "test.el"
+                        :status 'pending
+                        :timestamp (current-time)))
+                (edit2 (make-ogent-edit
+                        :id "reject-two"
+                        :old-text "two"
+                        :new-text "TWO"
+                        :source-buffer source-buf
+                        :source-file "test.el"
+                        :status 'pending
+                        :timestamp (current-time))))
+            (ogent-edit-validate edit1)
+            (ogent-edit-validate edit2)
+            (with-current-buffer source-buf
+              (ogent-edit--track-edits
+               (ogent-edit-apply-all-as-smerge (list edit1 edit2)))
+              (let ((ogent-edit-resolved-hook
+                     (list (lambda (_edit) (cl-incf resolved)))))
+                (ogent-edit-reject-all)
+                (should (string-match-p "one" (buffer-string)))
+                (should (string-match-p "two" (buffer-string)))
+                (let ((case-fold-search nil))
+                  (should-not (string-match-p "ONE" (buffer-string)))
+                  (should-not (string-match-p "TWO" (buffer-string))))
+                (should (eq (ogent-edit-status edit1) 'rejected))
+                (should (eq (ogent-edit-status edit2) 'rejected))
+                (should-not ogent-edit--pending-edits)
+                (should (= resolved 2))))))
+      (kill-buffer source-buf))))
+
+(ert-deftest ogent-edit-display-test-inline-diff-reject-restores-original ()
+  "Rejecting inline-diff restores the pre-preview text and resolves the edit."
+  (require 'inline-diff)
+  (unwind-protect
+      (let* ((old-text "hello world")
+             (new-text "hello there")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (source-buf (ogent-edit-source-buffer edit)))
+        (with-current-buffer source-buf
+          (ogent-edit-apply-as-inline-diff edit)
+          (should (equal (buffer-string) new-text))
+          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+            (inline-diff-reject-all))
+          (should (equal (buffer-string) old-text))
+          (should (eq (ogent-edit-status edit) 'rejected))
+          (should-not ogent-edit--pending-edits)))
     (ogent-edit-display-test--cleanup-buffers)))
 
 ;;; Track Edits Tests

@@ -409,10 +409,10 @@ region is sent for context."
 
 | Key | Command | Description |
 |-----+---------+-------------|
-| =C-c o e= | =ogent-edit-menu= | Open edit transient |
-| =C-c o r= | =ogent-request-edit= | Request code edit |
-| =C-c o g s= | =ogent-edit-goto-source= | Jump to source |
-| =C-c o g c= | =ogent-edit-goto-companion= | Jump to companion |
+| =C-c . e= | =ogent-edit-menu= | Open edit transient |
+| =C-c . E= | =ogent-request-edit= | Request code edit |
+| =C-c . s= | =ogent-edit-goto-source= | Jump to source |
+| =C-c . C= | =ogent-edit-goto-companion= | Jump to companion |
 
 * File Organization
 

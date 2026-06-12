@@ -86,6 +86,57 @@ Each record is a plist with:
 (defvar-local inline-diff--current-index nil
   "Index of currently selected change, or nil.")
 
+(defvar-local inline-diff--snapshots nil
+  "Original text snapshots for reversible inline diffs.
+Each entry is a plist with :beg marker, :end marker, and :old-text.")
+
+;;; Snapshot tracking
+
+(defun inline-diff--clear-snapshots ()
+  "Release all inline-diff snapshot markers."
+  (dolist (snapshot inline-diff--snapshots)
+    (let ((beg (plist-get snapshot :beg))
+          (end (plist-get snapshot :end)))
+      (when (markerp beg)
+        (set-marker beg nil))
+      (when (markerp end)
+        (set-marker end nil))))
+  (setq inline-diff--snapshots nil))
+
+(defun inline-diff--record-snapshot (beg end old-text)
+  "Remember that [BEG, END) replaced OLD-TEXT."
+  (push (list :beg (copy-marker beg)
+              :end (copy-marker end t)
+              :old-text old-text)
+        inline-diff--snapshots))
+
+(defun inline-diff--restore-snapshots ()
+  "Restore every pending inline-diff snapshot.
+Snapshots are restored from bottom to top so earlier replacements do
+not invalidate later marker positions."
+  (dolist (snapshot (sort (copy-sequence inline-diff--snapshots)
+                          (lambda (a b)
+                            (> (marker-position (plist-get a :beg))
+                               (marker-position (plist-get b :beg))))))
+    (let ((beg (plist-get snapshot :beg))
+          (end (plist-get snapshot :end))
+          (old-text (plist-get snapshot :old-text)))
+      (when (and (markerp beg)
+                 (markerp end)
+                 (marker-position beg)
+                 (marker-position end))
+        (delete-region (marker-position beg) (marker-position end))
+        (goto-char (marker-position beg))
+        (insert old-text)))))
+
+;;; Hooks
+
+(defvar-local inline-diff-accept-hook nil
+  "Hook run after inline-diff changes are accepted.")
+
+(defvar-local inline-diff-reject-hook nil
+  "Hook run after inline-diff changes are rejected and restored.")
+
 ;;; Word tokenization
 
 (defun inline-diff--tokenize (text)
@@ -232,11 +283,14 @@ The text is shown but not actually in the buffer."
 ;;; Main API
 
 ;;;###autoload
-(defun inline-diff-words-region (beg end old-text)
+(defun inline-diff-words-region (beg end old-text &optional append)
   "Show word-level diff between OLD-TEXT and buffer text in [BEG, END).
 Creates overlays to highlight additions, removals, and changes.
-The buffer text is treated as the new/current version."
-  (inline-diff-clear)
+The buffer text is treated as the new/current version.
+Unless APPEND is non-nil, clear existing inline diffs first."
+  (unless append
+    (inline-diff-clear))
+  (inline-diff--record-snapshot beg end old-text)
   (let* ((new-text (buffer-substring-no-properties beg end))
          (old-tokens (inline-diff--tokenize old-text))
          (new-tokens (inline-diff--tokenize new-text))
@@ -323,12 +377,15 @@ The buffer text is treated as the new/current version."
     (inline-diff-mode 1)))
 
 ;;;###autoload
-(defun inline-diff-clear ()
-  "Remove all inline-diff overlays from current buffer."
+(defun inline-diff-clear (&optional keep-snapshots)
+  "Remove all inline-diff overlays from current buffer.
+When KEEP-SNAPSHOTS is non-nil, keep restoration snapshots."
   (interactive)
   (dolist (ov inline-diff--overlays)
     (when (overlay-buffer ov)
       (delete-overlay ov)))
+  (unless keep-snapshots
+    (inline-diff--clear-snapshots))
   (setq inline-diff--overlays nil
         inline-diff--change-list nil
         inline-diff--current-index nil))
@@ -377,18 +434,20 @@ The buffer text is treated as the new/current version."
   "Accept all changes (keep buffer as-is, remove overlays)."
   (interactive)
   (inline-diff-clear)
+  (run-hooks 'inline-diff-accept-hook)
   (inline-diff-mode -1)
   (message "All changes accepted"))
 
 (defun inline-diff-reject-all ()
-  "Reject all changes - this cannot automatically restore old text.
-User must undo manually."
+  "Reject all changes and restore the original text snapshots."
   (interactive)
-  (if (yes-or-no-p "Reject all changes? (Use undo to restore original text) ")
+  (if (yes-or-no-p "Reject all inline-diff changes and restore original text? ")
       (progn
+        (inline-diff--restore-snapshots)
         (inline-diff-clear)
+        (run-hooks 'inline-diff-reject-hook)
         (inline-diff-mode -1)
-        (message "Changes rejected. Use C-/ or undo to restore original."))
+        (message "All changes rejected and original text restored"))
     (message "Cancelled")))
 
 ;;; Minor mode

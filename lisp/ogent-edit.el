@@ -14,6 +14,7 @@
 (require 'ogent-edit-parse)
 (require 'ogent-edit-display)
 (require 'ogent-edit-log)
+(require 'ogent-companion)
 (require 'ogent-edit-diff)
 (require 'ogent-gptel)
 (require 'ogent-models)
@@ -575,6 +576,8 @@ when response arrives."
          (model (ogent-edit--request-model))
          (model-id (plist-get model :id))
          (backend (ogent-gptel-resolve-backend model)))
+    (when ogent-edit-log-to-companion
+      (ogent-companion-get-or-create source-buffer))
     ;; Store context for callback
     (setq ogent-edit--pending-request
           (list :source-buffer source-buffer
