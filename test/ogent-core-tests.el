@@ -432,6 +432,50 @@
   (mapconcat (lambda (n) (format "line-%02d" n))
              (number-sequence 1 30) "\n"))
 
+(ert-deftest ogent-ask-context-description-names-org-subtree ()
+  "Context description names the current Org subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Target subtree\nBody\n")
+    (goto-char (point-min))
+    (search-forward "Target subtree")
+    (let ((ogent-ask-include-buffer t))
+      (should (equal (ogent-ask-context-description)
+                     "subtree \"Target subtree\"")))))
+
+(ert-deftest ogent-ask-read-question-advertises-org-subtree ()
+  "Interactive prompt advertises the active Org subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Target subtree\nBody\n")
+    (goto-char (point-min))
+    (let ((ogent-ask-include-buffer t)
+          prompt-seen)
+      (cl-letf (((symbol-function 'read-string)
+                 (lambda (prompt &rest _)
+                   (setq prompt-seen prompt)
+                   "What now?")))
+        (should (equal (ogent-ask--read-question) "What now?"))
+        (should (equal prompt-seen
+                       "Ask about subtree \"Target subtree\": "))))))
+
+(ert-deftest ogent-ask-prompt-uses-org-subtree-context ()
+  "Org quick ask renders the current subtree context."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\nParent body\n** Target\nTarget body\n*** Child\nChild body\n** Sibling\nSibling body\n")
+    (goto-char (point-min))
+    (search-forward "Target")
+    (let* ((ogent-ask-include-buffer t)
+           (prompt (ogent-ask--prompt "What is next?")))
+      (should (string-match-p "# User Prompt\n\nWhat is next\\?" prompt))
+      (should (string-match-p "# Context Manifest" prompt))
+      (should (string-match-p "# Org Root" prompt))
+      (should (string-match-p "## Root: Target" prompt))
+      (should (string-match-p "Target body" prompt))
+      (should (string-match-p "Child body" prompt))
+      (should-not (string-match-p "Sibling body" prompt)))))
+
 (ert-deftest ogent-ask-prompt-includes-buffer-and-focus ()
   "Default prompt carries the whole buffer plus a prioritized excerpt."
   (with-temp-buffer

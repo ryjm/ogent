@@ -13,6 +13,7 @@
 ;;; Code:
 
 (require 'org)
+(require 'subr-x)
 (require 'ogent-context)
 (require 'ogent-keys)
 
@@ -352,6 +353,46 @@ line at point, clamped to the buffer boundaries."
 (defvar ogent-ask--is-streaming nil
   "Non-nil when ogent-ask is using streaming mode.")
 
+(defun ogent-ask--org-heading-title ()
+  "Return the Org heading title at point, or nil."
+  (when (derived-mode-p 'org-mode)
+    (save-excursion
+      (condition-case nil
+          (progn
+            (org-back-to-heading t)
+            (org-get-heading t t t t))
+        (error nil)))))
+
+(defun ogent-ask-context-description ()
+  "Return a short description of the context `ogent-ask' will use."
+  (cond
+   ((not ogent-ask-include-buffer)
+    "no context")
+   ((let ((title (ogent-ask--org-heading-title)))
+      (when title
+        (format "subtree \"%s\""
+                (truncate-string-to-width title 48 nil nil "...")))))
+   ((= (point-min) (point-max))
+    "no context")
+   (t
+    (format "buffer \"%s\""
+            (truncate-string-to-width (buffer-name) 48 nil nil "...")))))
+
+(defun ogent-ask--org-context-prompt (question)
+  "Return an Org context prompt for QUESTION at the current heading."
+  (when (ogent-ask--org-heading-title)
+    (condition-case nil
+        (ogent-context-render-prompt question (ogent-context-build-filtered))
+      (error nil))))
+
+(defun ogent-ask--read-question ()
+  "Read an `ogent-ask' question with the active context in the prompt."
+  (let ((scope (ogent-ask-context-description)))
+    (read-string
+     (if (string= scope "no context")
+         "Ask: "
+       (format "Ask about %s: " scope)))))
+
 (defun ogent-ask--display-popup (response)
   "Display RESPONSE in a popup buffer."
   (let ((buf (get-buffer-create ogent-ask--buffer-name)))
@@ -419,23 +460,27 @@ current line, clamped to the accessible portion of the buffer."
 
 (defun ogent-ask--prompt (question)
   "Return the request prompt for QUESTION.
-When `ogent-ask-include-buffer' is non-nil and the buffer has
-content, include the whole accessible buffer followed by a
-prioritized excerpt of the lines around point; otherwise return
-QUESTION unchanged."
-  (if (or (not ogent-ask-include-buffer)
-          (= (point-min) (point-max)))
-      question
+When `ogent-ask-include-buffer' is non-nil, Org buffers use the
+current subtree context renderer.  Other buffers include the whole
+accessible buffer followed by a prioritized excerpt of the lines
+around point.  Otherwise, return QUESTION unchanged."
+  (cond
+   ((not ogent-ask-include-buffer)
+    question)
+   ((ogent-ask--org-context-prompt question))
+   ((= (point-min) (point-max))
+    question)
+   (t
     (let ((excerpt (ogent-ask--focus-excerpt)))
       (format (concat "# Buffer: %s (%s)\n%s\n\n"
-                      "# Around Point (lines %d-%d, where the user's cursor is"
-                      " — prioritize this region when answering)\n%s\n\n"
+                      "# Around Point (lines %d-%d, where the user's cursor is,"
+                      " prioritize this region when answering)\n%s\n\n"
                       "# Question\n%s")
               (buffer-name) major-mode
               (buffer-substring-no-properties (point-min) (point-max))
               (cadr excerpt) (cddr excerpt)
               (car excerpt)
-              question))))
+              question)))))
 
 ;;;###autoload
 (defun ogent-ask (question)
@@ -444,9 +489,9 @@ By default the whole buffer is sent as context, with the
 `ogent-ask-focus-lines' lines around point excerpted so the model
 prioritizes the user's current location; set
 `ogent-ask-include-buffer' to nil for a context-free question.
-Interactively, prompts for the question.
+Interactively, prompts for the question and names the active context.
 Response is displayed according to `ogent-ask-display-function'."
-  (interactive "sAsk: ")
+  (interactive (list (ogent-ask--read-question)))
   (unless (require 'gptel nil 'noerror)
     (user-error "gptel is required for ogent-ask. Install gptel first"))
   (when (string-empty-p (string-trim question))
