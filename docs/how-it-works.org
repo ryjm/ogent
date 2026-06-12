@@ -216,10 +216,10 @@ haven't moved away. The first chunk flips status to ='typing= via
 
 The model answers with a tool call:
 =grep(pattern: "ogent-tool-spec-confirm-p", glob_filter: "*.el")=. The
-callback routes it to [[file:../lisp/ui/ogent-ui.el::1886][ogent-ui--handle-tool-calls]], which first asks
-[[file:../lisp/ui/ogent-ui.el::1931][ogent-ui--check-tool-approval]]. The decision cascade: approval is
+callback routes it to [[file:../lisp/ui/ogent-ui.el::1910][ogent-ui--handle-tool-calls]], which first asks
+[[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]]. The decision cascade: approval is
 enabled; =grep= is not session-denied; not in your
-[[file:../lisp/ui/ogent-ui.el::137][allow-list]]; so the spec policy decides. =grep='s spec in
+[[file:../lisp/ogent-tool-approval.el::15][allow-list]]; so the spec policy decides. =grep='s spec in
 [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]] declares =:effects ((:kind read :target
 filesystem :scope workspace :risk low))= — =read= is not in
 [[file:../lisp/ogent-tool-effects.el::19][ogent-tool-effects-approval-kinds]] and =low= is below the =high=
@@ -249,7 +249,7 @@ The result is fed back to the model through gptel's tool loop.
 Next the model calls =bash(command: "make test")=. Same cascade — but the
 bash spec is double-flagged: =:confirm t= *and* =:effects ((:kind execute
 :target shell :scope unrestricted :risk critical) …)=. Either alone forces
-the prompt. [[file:../lisp/ui/ogent-ui.el::233][ogent-tool--prompt-approval]] takes over the echo area:
+the prompt. [[file:../lisp/ogent-tool-approval.el::122][ogent-tool--prompt-approval]] takes over the echo area:
 
 #+begin_example
 Tool request: bash
@@ -260,7 +260,7 @@ Execute? (y)es (n)o (a)lways (e)dit:
 
 You press =y=. (Had you pressed =a=, the pattern =bash(command:make *)= —
 narrowed to the command's first word — would be persisted into
-[[file:../lisp/ui/ogent-ui.el::137][ogent-tool-allow-list]] via =customize-save-variable=.) Because
+[[file:../lisp/ogent-tool-approval.el::15][ogent-tool-allow-list]] via =customize-save-variable=.) Because
 =ogent-stream-tool-output= defaults to =t=, execution goes through the
 async path [[file:../lisp/ui/ogent-ui.el::1850][ogent-ui--execute-tool-async]] →
 [[file:../lisp/ogent-tools.el::577][ogent-tool--bash-async]]: a =make-process= with a kill-timer at
@@ -399,7 +399,7 @@ factory [[file:../lisp/ogent-core.el::359][ogent-ask--make-callback]]),
 
 Role: The unified keybinding system: a declarative action registry
 generates vanilla (=C-c .=), Evil leader (=SPC o=), Doom leader, review
-(=C-c o=), and which-key bindings; also home of the canonical Evil
+(=C-c ,=), and which-key bindings; also home of the canonical Evil
 display-buffer integration used by every read-only ogent buffer.
 
 Design: [[file:../lisp/ogent-keys.el::110][ogent-action-registry]] is a single source of truth —
@@ -858,16 +858,16 @@ Trace: [[file:../lisp/ogent-codemap.el::563][ogent-codemap-buffer]] →
 [[file:../lisp/ogent-codemap.el::108][ogent-codemap--detect-changes]] →
 [[file:../lisp/ogent-codemap.el::366][ogent-codemap--update-section]]. Handles: ogent-context dispatches to
 [[file:../lisp/ogent-codemap.el::631][ogent-codemap-resolve-handle]] or
-[[file:../lisp/ogent-codemap.el::958][ogent-codemap-resolve-task-handle]] →
-[[file:../lisp/ogent-codemap.el::840][ogent-codemap--generate-async]].
+[[file:../lisp/ogent-codemap-task.el::274][ogent-codemap-resolve-task-handle]] →
+[[file:../lisp/ogent-codemap-task.el::167][ogent-codemap--generate-async]].
 
 Key definitions: defcustoms [[file:../lisp/ogent-codemap.el::25][ogent-codemap-refresh-on-save]],
-[[file:../lisp/ogent-codemap.el::691][ogent-codemap-llm-model]], [[file:../lisp/ogent-codemap.el::703][ogent-codemap-cache-ttl]] (3600s).
+[[file:../lisp/ogent-codemap-task.el::18][ogent-codemap-llm-model]], [[file:../lisp/ogent-codemap-task.el::30][ogent-codemap-cache-ttl]] (3600s).
 State: [[file:../lisp/ogent-codemap.el::42][ogent-codemap--file-cache]],
-[[file:../lisp/ogent-codemap.el::708][ogent-codemap--task-cache]] +
-[[file:../lisp/ogent-codemap.el::713][ogent-codemap--pending-requests]]. Caveat: the first
-=@codemap-task:= use returns a "[Generating…]" placeholder into the
-prompt ([[file:../lisp/ogent-codemap.el::948][ogent-codemap-task-handle-p]] path) until a later request hits
+[[file:../lisp/ogent-codemap-task.el::35][ogent-codemap--task-cache]] +
+[[file:../lisp/ogent-codemap-task.el::40][ogent-codemap--pending-requests]]. First
+=@codemap-task:= use starts async generation and leaves the handle unresolved
+instead of sending placeholder text to the model; a later request resolves from
 cache.
 
 *** [[file:../lisp/ogent-completions.el::1][ogent-completions.el]] — the contact sheet
@@ -2074,11 +2074,10 @@ The rules the code actively enforces, each with the enforcing line.
 
 2. *The approval gate is enforced in both execution paths.* ogent's own
    pipeline checks the spec policy inside
-   [[file:../lisp/ui/ogent-ui.el::1931][ogent-ui--check-tool-approval]] — a tool auto-runs only if it has a
-   spec AND neither =:confirm= nor approval-requiring effects (the
-   =cond= clause at [[file:../lisp/ui/ogent-ui.el::1945][lisp/ui/ogent-ui.el:1945]]); everything else falls
-   to the interactive prompt
-   [[file:../lisp/ui/ogent-ui.el::233][ogent-tool--prompt-approval]]. gptel-native execution is bridged by
+   [[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]] — a tool auto-runs only if it has a
+   spec AND neither =:confirm= nor approval-requiring effects; everything else
+   falls to the interactive prompt
+   [[file:../lisp/ogent-tool-approval.el::122][ogent-tool--prompt-approval]]. gptel-native execution is bridged by
    [[file:../lisp/ogent-models.el::251][ogent-tool-spec-confirm-p]], passed explicitly as =:confirm= at
    registration ([[file:../lisp/ogent-models.el::284][lisp/ogent-models.el:284]]) so gptel's own runner
    prompts under the same policy.

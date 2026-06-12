@@ -94,9 +94,9 @@ With Doom's default leader this makes commands available under SPC o."
   :type 'string
   :group 'ogent-keys)
 
-(defcustom ogent-review-prefix "C-c o"
+(defcustom ogent-review-prefix "C-c ,"
   "Prefix for ergonomic review keybindings.
-This prefix provides quick access to completion review commands."
+This punctuation prefix provides quick access to completion review commands."
   :type 'string
   :group 'ogent-keys)
 
@@ -182,7 +182,7 @@ Set to nil to disable automatic evil binding setup."
                       :desc "List sessions")
     ;; Misc
     (ask              :key "?" :command ogent-ask
-                      :desc "Quick ask"
+                      :desc "Ask about context"
                       :visual t)
     (notes            :key "d" :command ogent-notes-capture
                       :desc "Capture notes")
@@ -259,7 +259,7 @@ Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")
 
 (defconst ogent-review-action-registry
-  '(;; Ergonomic review commands (C-c o prefix)
+  '(;; Ergonomic review commands (`ogent-review-prefix' prefix)
     (review-next   :key "n" :command ogent-completion-next
                    :desc "Next completion")
     (review-prev   :key "p" :command ogent-completion-prev
@@ -268,7 +268,7 @@ The :visual flag indicates the action should also be bound in visual state.")
                    :desc "Accept completion")
     (review-reject :key "x" :command ogent-completion-reject
                    :desc "Reject completion"))
-  "Registry of review actions for the C-c o prefix.
+  "Registry of review actions for `ogent-review-prefix'.
 These are ergonomic keybindings optimized for the review workflow.")
 
 ;;; Binding Generators
@@ -287,7 +287,7 @@ These are ergonomic keybindings optimized for the review workflow.")
 
 (defun ogent-setup-review-bindings (keymap)
   "Set up ergonomic review keybindings in KEYMAP from review action registry.
-These use the `ogent-review-prefix' (C-c o by default)."
+These use `ogent-review-prefix' (`C-c ,' by default)."
   (dolist (entry ogent-review-action-registry)
     (let* ((key (plist-get (cdr entry) :key))
            (cmd (plist-get (cdr entry) :command))
@@ -457,7 +457,7 @@ PREFIX is used internally while recursing."
     (nreverse bindings)))
 
 (defun ogent-evil-display-mode-setup (mode mode-map mode-hook
-                                            &optional refresh-fn refresh-force-fn)
+                                           &optional refresh-fn refresh-force-fn)
   "Make MODE's read-only display buffer fully usable under Evil.
 
 MODE is the major-mode symbol, MODE-MAP its keymap value, MODE-HOOK
@@ -567,7 +567,7 @@ See `ogent-evil-display-mode-setup'."
                        (if visual-p " [visual]" "")))))
     ;; Review bindings
     (princ "\n")
-    (princ "Review Keybindings (C-c o prefix)\n")
+    (princ (format "Review Keybindings (%s prefix)\n" ogent-review-prefix))
     (princ "----------------------------------\n")
     (dolist (entry ogent-review-action-registry)
       (let* ((name (car entry))

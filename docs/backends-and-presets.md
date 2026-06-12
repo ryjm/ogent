@@ -21,7 +21,7 @@ ogent layers on top of gptel:
 1. **Direct gptel selection** (single model):
    - ogent uses `gptel-backend` and `gptel-model` when you send a single
      request.
-   - The prompt dispatcher (`C-c o p`) exposes this as the **Model** infix
+   - The prompt dispatcher (`C-c . p`) exposes this as the **Model** infix
      (key `m`), which lets you pick a provider/model from gptel's known
      backends.
 

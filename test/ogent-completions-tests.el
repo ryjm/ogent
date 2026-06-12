@@ -42,13 +42,13 @@
 (ert-deftest ogent-completions-review-bindings-setup ()
   "Review bindings are set up correctly."
   (let ((test-map (make-sparse-keymap))
-        (ogent-review-prefix "C-c o"))
+        (ogent-review-prefix "C-c ,"))
     (ogent-setup-review-bindings test-map)
     ;; Check that review commands are bound
-    (should (eq (lookup-key test-map (kbd "C-c o n")) 'ogent-completion-next))
-    (should (eq (lookup-key test-map (kbd "C-c o p")) 'ogent-completion-prev))
-    (should (eq (lookup-key test-map (kbd "C-c o a")) 'ogent-review-accept))
-    (should (eq (lookup-key test-map (kbd "C-c o x")) 'ogent-completion-reject))))
+    (should (eq (lookup-key test-map (kbd "C-c , n")) 'ogent-completion-next))
+    (should (eq (lookup-key test-map (kbd "C-c , p")) 'ogent-completion-prev))
+    (should (eq (lookup-key test-map (kbd "C-c , a")) 'ogent-review-accept))
+    (should (eq (lookup-key test-map (kbd "C-c , x")) 'ogent-completion-reject))))
 
 (ert-deftest ogent-completions-review-prefix-customizable-binding ()
   "Review prefix can be customized."
@@ -58,7 +58,7 @@
     ;; Should use custom prefix
     (should (eq (lookup-key test-map (kbd "C-c r n")) 'ogent-completion-next))
     ;; Default prefix should not be bound
-    (should-not (eq (lookup-key test-map (kbd "C-c o n")) 'ogent-completion-next))))
+    (should-not (eq (lookup-key test-map (kbd "C-c , n")) 'ogent-completion-next))))
 
 ;;; Question/Response Detection Tests
 
@@ -183,7 +183,7 @@
   (ogent-describe-bindings)
   (with-current-buffer "*Ogent Bindings*"
     (should (string-match-p "Review Keybindings" (buffer-string)))
-    (should (string-match-p "C-c o prefix" (buffer-string)))
+    (should (string-match-p "C-c , prefix" (buffer-string)))
     (should (string-match-p "review-next" (buffer-string)))
     (should (string-match-p "review-accept" (buffer-string))))
   (kill-buffer "*Ogent Bindings*"))

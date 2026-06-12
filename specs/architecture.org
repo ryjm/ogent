@@ -59,7 +59,7 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
 - =ogent-tool-registry= (in =ogent-models.el=) defines available tools,
   each declaring =:effects= and an optional =:confirm= flag
 - The request callback in =ogent-ui.el= owns the live execution path:
-  =ogent-ui--check-tool-approval= gates each call against the persistent
+  =ogent-tool-approval-check= gates each call against the persistent
   allow-list (=ogent-tool-allow-list=), the session deny list
   (=ogent-tool--denied-tools=), and the effects policy, prompting the user
   when required; =ogent-ui--execute-tool= then runs the tool, records the
@@ -124,7 +124,8 @@ execute, network, git, issue, and Emacs-state effects require approval.
 - Every new command exported to users needs an =ogent-= prefix and an associated test in =test/= mirroring the namespace.
 
 * Minor Mode Contract
-- =ogent-mode= owns the =C-c o= prefix; do not bind global keys directly.
+- =ogent-mode= owns the =C-c .= prefix for ogent commands; do not bind global keys directly.
+- =C-c ,= is reserved for the narrower completion-review prefix.
 - Autoload interactive entrypoints so Doom packaging can lazily load.
 - Keep state local to buffers: use buffer-local variables or plists on Org properties.
 
