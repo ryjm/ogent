@@ -40,6 +40,10 @@ Keys are (task-hash . file-hash), values are plists with
 (defvar ogent-codemap--pending-requests (make-hash-table :test 'equal)
   "Track pending LLM requests by task hash to avoid duplicates.")
 
+(defvar ogent-codemap--task-handles (make-hash-table :test 'equal)
+  "Registry of task handles to their generated content.
+Keys are handle strings, values are content strings or nil if pending.")
+
 ;;; Task Hash Generation
 
 (defun ogent-codemap--task-hash (task)
@@ -257,10 +261,6 @@ Interactively, prompts for the task description."
     (ogent-codemap-generate task)))
 
 ;;; Task Handle Integration
-
-(defvar ogent-codemap--task-handles (make-hash-table :test 'equal)
-  "Registry of task handles to their generated content.
-Keys are handle strings, values are content strings or nil if pending.")
 
 (defun ogent-codemap-task-handle-p (handle)
   "Return non-nil if HANDLE is a task-scoped codemap handle.
