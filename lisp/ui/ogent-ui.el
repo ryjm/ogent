@@ -17,6 +17,7 @@
 (require 'ogent-prompts)
 (require 'ogent-companion)
 (require 'ogent-tool-effects)
+(require 'ogent-tool-approval)
 (require 'ogent-ledger)
 (require 'ogent-provider-fallback)
 (require 'ogent-ui-status)
@@ -93,8 +94,8 @@ headings use * rather than #, etc."
   "When non-nil, replay prior exchanges as conversation history.
 Each completed \"** Request:\" / \"*** Response\" pair found in the
 transcript buffer before the current request is sent as a prior
-user/assistant turn, so the model sees the running conversation
-instead of a single-shot prompt.  History is bounded by
+user/assistant turn.  The model sees the running conversation, not
+only a single-shot prompt.  History is bounded by
 `ogent-multi-turn-token-budget'.  When `ogent-gptel-cache' includes
 message caching on a cache-capable Anthropic model, the replayed
 prefix becomes the cached prompt prefix across turns."
@@ -137,159 +138,6 @@ the command to complete. Only applies to async-capable tools like bash."
 Do NOT use markdown syntax. Use Org-mode syntax exclusively."
   "System directive instructing the LLM to format output as Org-mode.")
 
-;;; Tool Approval System
-
-(defun ogent-tool--name-string (tool-name)
-  "Return TOOL-NAME as a string, or nil when it is not usable."
-  (cond
-   ((null tool-name) nil)
-   ((stringp tool-name) tool-name)
-   ((symbolp tool-name) (symbol-name tool-name))
-   (t nil)))
-
-(defun ogent-tool--name-symbol (tool-name)
-  "Return TOOL-NAME as a symbol, or nil when it is not usable."
-  (cond
-   ((symbolp tool-name) tool-name)
-   ((stringp tool-name) (intern tool-name))
-   (t nil)))
-
-(defcustom ogent-tool-allow-list nil
-  "List of patterns for auto-approved tool calls.
-Each pattern is a string like \"ToolName(arg:pattern)\" where:
-- ToolName matches the tool name exactly
-- arg:pattern matches an argument (supports glob wildcards)
-- * inside parens matches any arguments
-- No parens means any invocation of that tool is allowed
-
-Examples:
-  \"read-file\" - allow all read-file calls
-  \"bash(command:git *)\" - allow bash with git commands
-  \"bash(command:make test:*)\" - allow make test and variations
-  \"glob(*)\" - allow all glob calls
-
-Patterns are case-sensitive and checked in order."
-  :type '(repeat string)
-  :group 'ogent-mode)
-
-(defcustom ogent-tool-require-approval t
-  "When non-nil, prompt for approval before executing tools.
-Tools matching `ogent-tool-allow-list' are auto-approved.
-When nil, all tools execute without prompting."
-  :type 'boolean
-  :group 'ogent-mode)
-
-(defun ogent-tool--pattern-match-p (pattern tool-name args)
-  "Return non-nil if TOOL-NAME with ARGS matches PATTERN.
-PATTERN format: \"tool-name\" or \"tool-name(arg:glob)\"."
-  (let ((tool-name (ogent-tool--name-string tool-name)))
-    (if (and tool-name
-             (string-match "^\\([^(]+\\)\\(?:(\\(.*\\))\\)?$" pattern))
-        (let ((pat-name (match-string 1 pattern))
-              (pat-args (match-string 2 pattern)))
-          (and (string= pat-name tool-name)
-               (or (null pat-args)
-                   (string= pat-args "*")
-                   (ogent-tool--args-match-p pat-args args))))
-      nil)))
-
-(defun ogent-tool--args-match-p (arg-pattern args)
-  "Return non-nil if ARG-PATTERN matches ARGS plist.
-ARG-PATTERN format: \"argname:glob\" or \"argname:glob,other:glob\"."
-  (let ((patterns (split-string arg-pattern ",")))
-    (cl-every
-     (lambda (pat)
-       (if (string-match "^\\([^:]+\\):\\(.*\\)$" pat)
-           (let* ((arg-name (match-string 1 pat))
-                  (glob (match-string 2 pat))
-                  ;; Try both :keyword and plain symbol forms
-                  (arg-keyword (intern (concat ":" arg-name)))
-                  (arg-val (plist-get args arg-keyword)))
-             (if arg-val
-                 (ogent-tool--glob-match-p glob (format "%s" arg-val))
-               ;; Arg not present, pattern fails unless glob is *
-               (string= glob "*")))
-         t))
-     patterns)))
-
-(defun ogent-tool--glob-match-p (pattern string)
-  "Return non-nil if PATTERN (glob-style) matches STRING.
-Supports * as wildcard."
-  ;; Split pattern on *, quote each part, join with .*
-  (let* ((parts (split-string pattern "\\*"))
-         (quoted-parts (mapcar #'regexp-quote parts))
-         (regexp (concat "^" (string-join quoted-parts ".*") "$")))
-    (string-match-p regexp string)))
-
-(defun ogent-tool--allowed-p (tool-name args)
-  "Return non-nil if TOOL-NAME with ARGS is in the allow-list."
-  (cl-some (lambda (pattern)
-             (ogent-tool--pattern-match-p pattern tool-name args))
-           ogent-tool-allow-list))
-
-(defun ogent-tool--format-preview (tool-name args)
-  "Format a preview string for TOOL-NAME with ARGS."
-  (let* ((tool-symbol (ogent-tool--name-symbol tool-name))
-         (spec (and tool-symbol
-                    (fboundp 'ogent-tool-spec-get)
-                    (ogent-tool-spec-get tool-symbol)))
-         (preview (format "Tool: %s\n" tool-name)))
-    (when spec
-      (setq preview
-            (concat preview
-                    "Effects:\n"
-                    (ogent-tool-effects-format
-                     (plist-get spec :effects))
-                    "\n")))
-    (when args
-      (setq preview (concat preview "Arguments:\n"))
-      (let ((pairs nil))
-        (while args
-          (push (format "  %s: %s" (car args) (cadr args)) pairs)
-          (setq args (cddr args)))
-        (setq preview (concat preview (string-join (nreverse pairs) "\n")))))
-    preview))
-
-(defun ogent-tool--prompt-approval (tool-name args)
-  "Prompt user to approve TOOL-NAME with ARGS.
-Returns symbol: `approve', `deny', `always', or `never'."
-  (let* ((preview (ogent-tool--format-preview tool-name args))
-         (prompt (format "%s\n\nAllow? (y)es, (n)o, (a)lways, n(e)ver: " preview))
-         (response (read-char-choice prompt '(?y ?n ?a ?e))))
-    (pcase response
-      (?y 'approve)
-      (?n 'deny)
-      (?a 'always)
-      (?e 'never))))
-
-(defun ogent-tool--add-to-allow-list (tool-name args)
-  "Add TOOL-NAME to `ogent-tool-allow-list'.
-If ARGS is non-nil, creates a pattern matching those specific args."
-  (when-let ((name (ogent-tool--name-string tool-name)))
-    (let ((pattern (if (and args (plist-get args :command))
-                       ;; For bash, include the command prefix
-                       (let ((cmd (plist-get args :command)))
-                         (if (string-match "^\\([^ ]+\\)" cmd)
-                             (format "%s(command:%s *)" name (match-string 1 cmd))
-                           name))
-                     name)))
-      (unless (member pattern ogent-tool-allow-list)
-        (customize-save-variable 'ogent-tool-allow-list
-                                 (cons pattern ogent-tool-allow-list))))))
-
-(defvar ogent-tool--denied-tools nil
-  "List of tool patterns permanently denied in this session.")
-
-(defun ogent-tool--add-to-deny-list (tool-name)
-  "Add TOOL-NAME to the session deny list."
-  (when-let ((name (ogent-tool--name-string tool-name)))
-    (unless (member name ogent-tool--denied-tools)
-      (push name ogent-tool--denied-tools))))
-
-(defun ogent-tool--denied-p (tool-name)
-  "Return non-nil if TOOL-NAME is in the session deny list."
-  (when-let ((name (ogent-tool--name-string tool-name)))
-    (member name ogent-tool--denied-tools)))
 
 ;;; gptel-style Variable Scope Management
 
@@ -1073,7 +921,11 @@ Shows model, context info, and pinned count."
 
 (defun ogent--desc-quick-ask ()
   "Return the description for quick ask."
-  "Quick ask...")
+  (let ((scope (ogent-ask-context-description)))
+    (if (string= scope "no context")
+        "Ask..."
+      (propertize (format "Ask about %s..." scope)
+                  'face 'ogent-theme-success))))
 
 (defun ogent--desc-quick-edit ()
   "Return the description for quick edit."
@@ -1666,9 +1518,9 @@ heading (see `ogent-shift-response-headings')."
           (let ((following-windows
                  (when (and ogent-auto-scroll
                             ogent--auto-scroll-enabled)
-	                   (ogent-ui--windows-following-position
-	                    (current-buffer)
-	                    marker))))
+                   (ogent-ui--windows-following-position
+                    (current-buffer)
+                    marker))))
             (save-excursion
               (goto-char marker)
               (insert processed-chunk)
@@ -1890,9 +1742,9 @@ Handles both regular text responses and tool call responses."
              (ogent-ui--update-status request 'tool))))
         ;; Check for tool calls in info plist (legacy/fallback). The
         ;; streaming callback fires once per chunk and gptel reuses the
-        ;; same :tool-use list object across the chunks of one turn, so
-        ;; guard on its identity to execute each payload exactly once —
-        ;; otherwise every subsequent text chunk re-runs the tools.
+        ;; same :tool-use list object across the chunks of one turn; we
+        ;; guard on its identity to execute each payload exactly once.
+        ;; Otherwise every subsequent text chunk re-runs the tools.
         (when (and (listp info) (plist-get info :tool-use)
                    (not (and (consp text) (memq (car text) '(tool-call tool-result))))
                    (not (eq (plist-get info :tool-use)
@@ -1913,7 +1765,7 @@ Handles both regular text responses and tool call responses."
           (ogent-ui--close-response request (plist-get info :error)))
          ;; Done when text is not a string (gptel sends t or nil to signal
          ;; completion).  But a (tool-call ...) / (tool-result ...) cons is
-         ;; an intermediate payload, not a completion signal — closing on it
+         ;; an intermediate payload, not a completion signal; closing on it
          ;; would drop the model's continuation after the tool round.
          ((and (not (stringp text))
                (not (and (consp text)
@@ -2051,7 +1903,7 @@ Uses the :async-function and :async-callback-style from the tool spec."
                   (funcall base-callback type data))))
           (ogent-ledger-record-tool-start tool-call effects)
           (apply async-func (append arg-values (list callback))))
-      ;; Fallback: no async function found — ogent-ui--execute-tool records
+      ;; Fallback: no async function found. ogent-ui--execute-tool records
       ;; its own ledger events.
       (let ((result (ogent-ui--execute-tool tool-name tool-args)))
         (ogent-ui--streaming-drawer-append drawer result)
@@ -2081,7 +1933,7 @@ Results are displayed in the buffer."
             (if (not tool-name)
                 (ogent-ui--insert-tool-block
                  "unknown" tool-args "[Malformed tool call: missing name]")
-              (let ((approval (ogent-ui--check-tool-approval tool-name tool-args)))
+              (let ((approval (ogent-tool-approval-check tool-name tool-args)))
                 (pcase approval
                   (`approved
                    (cond
@@ -2104,38 +1956,6 @@ Results are displayed in the buffer."
                    (ogent-ui--insert-tool-block tool-name tool-args
                                                 "[Tool execution denied by user]")))))))))))
 
-(defun ogent-ui--check-tool-approval (tool-name tool-args)
-  "Check if TOOL-NAME with TOOL-ARGS should be executed.
-Returns `approved' or `denied'."
-  (let ((tool-symbol (ogent-tool--name-symbol tool-name)))
-    (cond
-     ;; Malformed tool call.
-     ((not tool-symbol) 'denied)
-     ;; Approval disabled - always approve
-     ((not ogent-tool-require-approval) 'approved)
-     ;; Already denied this session
-     ((ogent-tool--denied-p tool-name) 'denied)
-     ;; In allow-list - auto-approve
-     ((ogent-tool--allowed-p tool-name tool-args) 'approved)
-     ;; Check tool spec policy.
-     ((let ((spec (and (fboundp 'ogent-tool-spec-get)
-                       (ogent-tool-spec-get tool-symbol))))
-        (and spec
-             (not (or (plist-get spec :confirm)
-                      (ogent-tool-effects-approval-required-p
-                       (plist-get spec :effects))))))
-      'approved)
-     ;; Prompt user
-     (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
-          (pcase response
-            ('approve 'approved)
-            ('deny 'denied)
-            ('always
-             (ogent-tool--add-to-allow-list tool-name tool-args)
-             'approved)
-            ('never
-             (ogent-tool--add-to-deny-list tool-name)
-             'denied)))))))
 
 (defun ogent-ui--tool-ledger-effects (name)
   "Return the declared :effects for tool NAME, or nil."

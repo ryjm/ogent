@@ -127,13 +127,13 @@ they are ordered from most to least fundamental.
 - approval :: The requirement that a human confirm a tool call before it
   runs. Policy predicate
   [[file:../lisp/ogent-tool-effects.el::112][ogent-tool-effects-approval-required-p]]; runtime gate
-  [[file:../lisp/ui/ogent-ui.el::1931][ogent-ui--check-tool-approval]]; interactive prompt
-  [[file:../lisp/ui/ogent-ui.el::233][ogent-tool--prompt-approval]].
+  [[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]]; interactive prompt
+  [[file:../lisp/ogent-tool-approval.el::122][ogent-tool--prompt-approval]].
 - allow-list :: User-saved ="tool(arg:glob)"= patterns that auto-approve
-  matching calls. Defcustom [[file:../lisp/ui/ogent-ui.el::137][ogent-tool-allow-list]]; master switch
-  [[file:../lisp/ui/ogent-ui.el::155][ogent-tool-require-approval]].
+  matching calls. Defcustom [[file:../lisp/ogent-tool-approval.el::15][ogent-tool-allow-list]]; master switch
+  [[file:../lisp/ogent-tool-approval.el::33][ogent-tool-require-approval]].
 - deny list :: The session-local set of tools the user answered "never"
-  for. [[file:../lisp/ui/ogent-ui.el::260][ogent-tool--denied-tools]].
+  for. [[file:../lisp/ogent-tool-approval.el::148][ogent-tool--denied-tools]].
 - confirm flag :: The gptel-facing =:confirm= computed from a spec's
   =:confirm= or effects, so gptel's own tool runner enforces the same
   policy. [[file:../lisp/ogent-models.el::251][ogent-tool-spec-confirm-p]].

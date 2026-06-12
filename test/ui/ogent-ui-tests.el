@@ -665,6 +665,11 @@
   (should (ogent-tool--glob-match-p "*" "anything"))
   (should (ogent-tool--glob-match-p "make test:*" "make test:all")))
 
+(ert-deftest ogent-tool-glob-match-does-not-match-inner-lines ()
+  "Glob pattern matching anchors to the whole string, not line boundaries."
+  (should-not (ogent-tool--glob-match-p "git *" "git log\nrm -rf ~"))
+  (should-not (ogent-tool--glob-match-p "git *" "echo ok\ngit status")))
+
 (ert-deftest ogent-tool-allow-list-check ()
   "Allow-list checking works correctly."
   (let ((ogent-tool-allow-list '("read-file" "bash(command:git *)")))
@@ -674,20 +679,27 @@
     (should-not (ogent-tool--allowed-p "write-file" nil))
     (should-not (ogent-tool--allowed-p "bash" '(:command "rm -rf /")))))
 
+(ert-deftest ogent-tool-allow-list-rejects-newline-injected-command ()
+  "Allow-listed shell commands do not approve later injected lines."
+  (let ((ogent-tool-allow-list '("bash(command:git *)")))
+    (should-not (ogent-tool--allowed-p
+                 "bash"
+                 '(:command "git status\nrm -rf ~")))))
+
 (ert-deftest ogent-tool-approval-disabled ()
   "When approval is disabled, all tools are approved."
   (let ((ogent-tool-require-approval nil)
         (ogent-tool-allow-list nil))
-    (should (eq (ogent-ui--check-tool-approval "bash" '(:command "rm -rf /"))
+    (should (eq (ogent-tool-approval-check "bash" '(:command "rm -rf /"))
                 'approved))))
 
 (ert-deftest ogent-tool-approval-allow-listed ()
   "Allow-listed tools are auto-approved."
   (let ((ogent-tool-require-approval t)
         (ogent-tool-allow-list '("read-file")))
-    (should (eq (ogent-ui--check-tool-approval "read-file" nil)
+    (should (eq (ogent-tool-approval-check "read-file" nil)
                 'approved))
-    (should (eq (ogent-ui--check-tool-approval 'read-file nil)
+    (should (eq (ogent-tool-approval-check 'read-file nil)
                 'approved))))
 
 (ert-deftest ogent-tool-approval-read-effect-auto-approves ()
@@ -701,7 +713,7 @@
               ((symbol-function 'ogent-tool--prompt-approval)
                (lambda (&rest _)
                  (error "approval prompt should not be called"))))
-      (should (eq (ogent-ui--check-tool-approval "read-file" nil)
+      (should (eq (ogent-tool-approval-check "read-file" nil)
                   'approved)))))
 
 (ert-deftest ogent-tool-approval-write-effect-prompts ()
@@ -717,7 +729,7 @@
                (lambda (&rest _)
                  (setq prompt-called t)
                  'deny)))
-      (should (eq (ogent-ui--check-tool-approval "write-file" nil)
+      (should (eq (ogent-tool-approval-check "write-file" nil)
                   'denied))
       (should prompt-called))))
 
@@ -912,6 +924,19 @@
     (activate-mark)
     (let ((prompt (ogent-ui--read-prompt)))
       (should (equal prompt "This is selected text")))))
+
+(ert-deftest ogent-ui-quick-ask-description-names-org-subtree ()
+  "Dispatcher quick ask label names the current Org subtree."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Target subtree\nBody\n")
+    (goto-char (point-min))
+    (search-forward "Target subtree")
+    (let* ((ogent-ask-include-buffer t)
+           (description (ogent--desc-quick-ask)))
+      (should (string-match-p
+               "Ask about subtree \"Target subtree\""
+               description)))))
 
 ;;; Inline Diff Display Tests
 
