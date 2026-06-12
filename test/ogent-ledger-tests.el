@@ -40,6 +40,23 @@
             (should (search-forward ":x 1" nil t))))
       (delete-directory dir t))))
 
+
+(ert-deftest ogent-ledger-hash/string-is-stable ()
+  "Hashing a string preserves the proof-ledger compatibility contract."
+  (should (equal (ogent-ledger-hash "hello")
+                 "5aa762ae383fbb727af3c7a36d4940a5b8c40a989452d2304fc958ff3f354e7a")))
+
+(ert-deftest ogent-ledger-sanitize/golden-shapes ()
+  "Sanitization keeps printable shapes stable for replay and audit."
+  (let ((table (make-hash-table :test 'equal)))
+    (puthash "k" "v" table)
+    (should (equal (ogent-ledger-sanitize [a "b" 3])
+                   [a "b" 3]))
+    (should (equal (ogent-ledger-sanitize '(:outer (:inner "v")))
+                   '(:outer (:inner "v"))))
+    (should (equal (ogent-ledger-sanitize table)
+                   '(("k" . "v"))))))
+
 (ert-deftest ogent-ledger-sanitize/buffer-and-marker ()
   "Sanitization converts buffers and markers to printable data."
   (with-temp-buffer
