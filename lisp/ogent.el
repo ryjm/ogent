@@ -3,7 +3,7 @@
 ;; Author: Jake Miller
 ;; Maintainer: Jake Miller
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (gptel "0.9") (transient "0.6") (org "9.6"))
+;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5") (transient "0.13.4") (org "9.8.5"))
 ;; Homepage: https://github.com/jake-87/ogent
 ;; Keywords: ai, llm, org-mode, tools, convenience
 
@@ -39,7 +39,7 @@
 ;;   (require 'ogent)
 ;;   (ogent-global-mode 1)
 ;;
-;; Then use C-c o p to open the prompt dispatcher.
+;; Then use C-c . p to open the prompt dispatcher.
 ;;
 ;; For more information, see the README at:
 ;; https://github.com/jake-87/ogent
@@ -105,6 +105,8 @@
 (require 'ogent-companion)
 (require 'ogent-core)
 (require 'ogent-codemap)
+(require 'ogent-codemap-task)
+(require 'ogent-doctor)
 (require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
 (require 'ogent-ui-backlinks)
