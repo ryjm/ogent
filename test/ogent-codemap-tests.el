@@ -2,6 +2,7 @@
 
 (require 'ogent-test-helper)
 (require 'ogent-codemap)
+(require 'ogent-codemap-task)
 (require 'cl-lib)
 
 (ert-deftest ogent-codemap-finds-context-file ()
@@ -579,11 +580,14 @@
     (should-not ogent-codemap--last-file-snapshot)))
 
 (ert-deftest ogent-codemap-clear-task-cache-empties ()
-  "Clear task cache empties the task cache."
-  (let ((ogent-codemap--task-cache (make-hash-table :test 'equal)))
+  "Clear task cache empties the task cache and handle registry."
+  (let ((ogent-codemap--task-cache (make-hash-table :test 'equal))
+        (ogent-codemap--task-handles (make-hash-table :test 'equal)))
     (puthash "key" '(:content "x" :timestamp 0) ogent-codemap--task-cache)
+    (puthash "codemap-task:x" nil ogent-codemap--task-handles)
     (ogent-codemap-clear-task-cache)
-    (should (= (hash-table-count ogent-codemap--task-cache) 0))))
+    (should (= (hash-table-count ogent-codemap--task-cache) 0))
+    (should (= (hash-table-count ogent-codemap--task-handles) 0))))
 
 ;;; Project root tests
 
@@ -868,6 +872,25 @@
          (setq callback-error error)))
       (should (string-match-p "already pending" callback-error)))))
 
+
+(ert-deftest ogent-codemap-generate-async-missing-gptel-stops ()
+  "Generate async reports missing gptel without falling through to request."
+  (let ((original-require (symbol-function 'require))
+        (callback-error nil))
+    (cl-letf (((symbol-function 'require)
+               (lambda (feature &optional filename noerror)
+                 (if (eq feature 'gptel)
+                     nil
+                   (funcall original-require feature filename noerror))))
+              ((symbol-function 'gptel-request)
+               (lambda (&rest _)
+                 (error "gptel-request should not be called"))))
+      (ogent-codemap--generate-async
+       "some task"
+       (lambda (_content error)
+         (setq callback-error error)))
+      (should (string-match-p "gptel is required" callback-error)))))
+
 (ert-deftest ogent-codemap-display-task-codemap-creates-buffer ()
   "Display task codemap creates org buffer with content."
   (let ((ogent-codemap--task-buffer-name "*ogent-codemap-test-task*"))
@@ -896,16 +919,32 @@
       (let ((content (ogent-codemap-resolve-task-handle "codemap-task:my question")))
         (should (string= content "* Resolved content"))))))
 
-(ert-deftest ogent-codemap-resolve-task-handle-generates-placeholder ()
-  "Resolve task handle returns placeholder when not cached."
+(ert-deftest ogent-codemap-resolve-task-handle-revalidates-resolved-registry ()
+  "Resolved task handles still honor the TTL/files-hash aware cache."
   (let ((ogent-codemap--task-cache (make-hash-table :test 'equal))
-        (ogent-codemap--pending-requests (make-hash-table :test 'equal))
+        (ogent-codemap--task-handles (make-hash-table :test 'equal))
         (ogent-codemap-cache-ttl 3600))
+    (puthash "codemap-task:my question" "* Stale content"
+             ogent-codemap--task-handles)
+    (cl-letf (((symbol-function 'ogent-codemap--cache-key)
+               (lambda (_task) "resolve-key")))
+      (ogent-codemap--cache-put "resolve-key" "* Fresh content")
+      (should (string= (ogent-codemap-resolve-task-handle
+                        "codemap-task:my question")
+                       "* Fresh content")))))
+(ert-deftest ogent-codemap-resolve-task-handle-starts-generation-unresolved ()
+  "Resolve task handle starts generation and returns nil until content exists."
+  (let ((ogent-codemap--task-cache (make-hash-table :test 'equal))
+        (ogent-codemap--task-handles (make-hash-table :test 'equal))
+        (ogent-codemap--pending-requests (make-hash-table :test 'equal))
+        (ogent-codemap-cache-ttl 3600)
+        (started nil))
     (cl-letf (((symbol-function 'ogent-codemap--generate-async)
-               (lambda (_task _callback) nil)))
-      (let ((content (ogent-codemap-resolve-task-handle "codemap-task:what is this")))
-        (should (string-match-p "Generating" content))
-        (should (string-match-p "what is this" content))))))
+               (lambda (_task _callback) (setq started t))))
+      (should-not (ogent-codemap-resolve-task-handle "codemap-task:what is this"))
+      (should started)
+      (should (eq (gethash "codemap-task:what is this" ogent-codemap--task-handles :missing)
+                  nil)))))
 
 (ert-deftest ogent-codemap-resolve-task-handle-rejects-non-task ()
   "Resolve task handle returns nil for non-task handles."
