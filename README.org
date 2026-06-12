@@ -24,7 +24,7 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 
 - *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
 
-- *Commands, not conversations*: =C-c . ?= for quick questions. =C-c . p= for full context dispatch. =C-c . E= for code edits. Each does one thing.
+- *Commands, not conversations*: =C-c . q= asks about the current subtree in place. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
 
 * Requirements
 - Emacs 29.1 or newer
@@ -117,11 +117,12 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
+- Press =C-c . q= to ask about the subtree at point; ogent inserts a folded =Request= and streams the =Response= below that subtree.
+- Press =C-c . ?= when you are unsure: the ask menu names the active scope and offers inline ask, popup ask, context preview, and the full dispatcher.
 - Press =C-c . p= to open the dispatcher, pick models, and send the current subtree.
 - Doom/Evil users get the same command surface under =SPC o= when =ogent-setup-doom-bindings= or evil bindings are active.
 - Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
 - Press =C-c . d= to capture the last AI response to a Notes child heading.
-- Use =C-c . ?= to ask a question about the current Org subtree or buffer; the minibuffer prompt names the scope.
 - To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
 
 ** Keybindings
@@ -149,7 +150,8 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . S= | =ogent-session-save=          | Save current session                     |
 | =C-c . L= | =ogent-session-load=          | Load a saved session                     |
 | =C-c . H= | =ogent-session-list=          | List saved sessions                      |
-| =C-c . ?= | =ogent-ask=                   | Ask about current subtree or buffer      |
+| =C-c . q= | =ogent-ask-here=              | Ask at point; insert Request/Response    |
+| =C-c . ?= | =ogent-ask-menu=              | Show contextual ask menu                 |
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
 

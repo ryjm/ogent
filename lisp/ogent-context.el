@@ -928,10 +928,12 @@ Returns a plist with :source-context for non-Org or standard Org context keys."
                 :dependencies nil))))))
 
 ;;;###autoload
-(defun ogent-context-build-with-source (source-buffer &optional region-start region-end)
+(defun ogent-context-build-with-source
+    (source-buffer &optional region-start region-end org-point)
   "Build combined context from SOURCE-BUFFER and current Org buffer.
 The current buffer should be an Org companion buffer.
 SOURCE-BUFFER is the code buffer the user is editing.
+ORG-POINT, when non-nil, selects the Org heading used as root.
 Returns context with both Org structure (if any), source code, and pinned items."
   (let* ((source-ctx (when (and source-buffer
                                 (buffer-live-p source-buffer)
@@ -942,7 +944,7 @@ Returns context with both Org structure (if any), source code, and pinned items.
                         source-buffer region-start region-end)))
          (org-ctx (when (derived-mode-p 'org-mode)
                     (condition-case nil
-                        (ogent-context-build-filtered)
+                        (ogent-context-build-filtered org-point)
                       (error nil))))
          (pinned-items (or (plist-get org-ctx :pinned)
                            (ogent-pinned-items-valid))))

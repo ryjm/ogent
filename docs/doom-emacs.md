@@ -89,6 +89,8 @@ Add to your `~/.doom.d/config.el`:
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
          :desc "Send request"        "r" #'ogent-request
+         :desc "Ask here"           "q" #'ogent-ask-here
+         :desc "Ask menu"           "?" #'ogent-ask-menu
          :desc "AI speed edit"       "v" #'ogent-ai-speed-edit
          :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Fix buffer diags"     "F" #'ogent-fix-buffer-diagnostics
@@ -113,6 +115,8 @@ Add to your `~/.doom.d/config.el`:
 
 All ogent commands are bound under `SPC o`:
 
+`ogent-ask-here` and `ogent-ask-menu` name the active ask scope in the minibuffer or menu. On a folded or bodyless child heading, that scope climbs to the nearest expanded parent, keeping visible sibling tasks in context.
+
 | Key       | Command                    | Description                          |
 |-----------|----------------------------|--------------------------------------|
 | `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
@@ -129,7 +133,8 @@ All ogent commands are bound under `SPC o`:
 | `SPC o l` | `ogent-list-pinned`        | List pinned context                  |
 | `SPC o a` | `ogent-abort-request`      | Abort in-progress request            |
 | `SPC o R` | `ogent-retry-request`      | Retry last request                   |
-| `SPC o ?` | `ogent-ask`                | Quick ask                            |
+| `SPC o q` | `ogent-ask-here`           | Ask at point; insert Request/Response |
+| `SPC o ?` | `ogent-ask-menu`           | Show contextual ask menu              |
 | `SPC o m` | `ogent-codemap-buffer`     | Show project codemap                 |
 | `SPC o j` | `ogent-armory-home`       | Armory Home                         |
 | `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
@@ -238,6 +243,7 @@ For org-mode specific commands, use localleader (`SPC m`):
       :localleader
       (:prefix ("o" . "ogent")
        :desc "Send subtree" "s" #'ogent-request
+       :desc "Ask here" "q" #'ogent-ask-here
        :desc "Preview context" "p" #'ogent-context-preview))
 ```
 

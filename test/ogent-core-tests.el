@@ -12,6 +12,8 @@
 (declare-function ogent-prompt-dispatch "ui/ogent-ui" t t)
 (declare-function ogent-request "ui/ogent-ui" t t)
 (declare-function ogent-context-preview "ui/ogent-ui" t t)
+(declare-function ogent-ask-here "ui/ogent-ui" t t)
+(declare-function ogent-ask-menu "ui/ogent-ui" t t)
 (declare-function ogent-codemap-buffer "ogent-codemap" t t)
 
 (ert-deftest ogent-mode-keymap-binds-dispatch ()
@@ -388,10 +390,12 @@
 
 ;;; ogent-ask Tests
 
-(ert-deftest ogent-ask-keybinding-exists ()
-  "ogent-ask should be bound to C-c . ?."
+(ert-deftest ogent-ask-keybindings-exist ()
+  "Ask commands should have discoverable subtree bindings."
+  (should (eq (lookup-key ogent-mode-map (kbd "C-c . q"))
+              #'ogent-ask-here))
   (should (eq (lookup-key ogent-mode-map (kbd "C-c . ?"))
-              #'ogent-ask)))
+              #'ogent-ask-menu)))
 
 (ert-deftest ogent-ask-display-popup-creates-buffer ()
   "ogent-ask--display-popup should create and populate buffer."
@@ -443,6 +447,17 @@
       (should (equal (ogent-ask-context-description)
                      "subtree \"Target subtree\"")))))
 
+(ert-deftest ogent-ask-context-description-climbs-from-bodyless-leaf ()
+  "Context description names the nearest expanded parent for a bodyless leaf."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Useful sibling\nForm DE 4 controls California withholding.\n** Bodyless leaf\n")
+    (goto-char (point-min))
+    (search-forward "Bodyless leaf")
+    (let ((ogent-ask-include-buffer t))
+      (should (equal (ogent-ask-context-description)
+                     "subtree \"Parent\"")))))
+
 (ert-deftest ogent-ask-read-question-advertises-org-subtree ()
   "Interactive prompt advertises the active Org subtree."
   (with-temp-buffer
@@ -475,6 +490,31 @@
       (should (string-match-p "Target body" prompt))
       (should (string-match-p "Child body" prompt))
       (should-not (string-match-p "Sibling body" prompt)))))
+
+(ert-deftest ogent-ask-prompt-uses-expanded-parent-for-bodyless-leaf ()
+  "Org quick ask includes sibling context when point is on a bodyless leaf."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Useful sibling\nForm DE 4 controls California withholding.\n** Bodyless leaf\n")
+    (goto-char (point-min))
+    (search-forward "Bodyless leaf")
+    (let* ((ogent-ask-include-buffer t)
+           (prompt (ogent-ask--prompt "What is DE 4?")))
+      (should (string-match-p "## Root: Parent" prompt))
+      (should (string-match-p "Form DE 4 controls California withholding" prompt))
+      (should (string-match-p "Bodyless leaf" prompt)))))
+
+(ert-deftest ogent-ask-prompt-falls-back-for-org-buffer-without-heading ()
+  "Org buffers without a heading use normal buffer context."
+  (with-temp-buffer
+    (org-mode)
+    (insert "Loose notes before any heading\n")
+    (let* ((ogent-ask-include-buffer t)
+           (prompt (ogent-ask--prompt "What is this?")))
+      (should (equal (ogent-ask-context-description)
+                     (format "buffer \"%s\"" (buffer-name))))
+      (should (string-match-p "# Buffer:" prompt))
+      (should (string-match-p "Loose notes before any heading" prompt)))))
 
 (ert-deftest ogent-ask-prompt-includes-buffer-and-focus ()
   "Default prompt carries the whole buffer plus a prioritized excerpt."

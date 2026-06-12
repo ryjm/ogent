@@ -353,14 +353,46 @@ line at point, clamped to the buffer boundaries."
 (defvar ogent-ask--is-streaming nil
   "Non-nil when ogent-ask is using streaming mode.")
 
-(defun ogent-ask--org-heading-title ()
-  "Return the Org heading title at point, or nil."
+(defun ogent-ask--org-visible-content-p (point)
+  "Return non-nil when the Org subtree at POINT has visible content."
+  (save-excursion
+    (goto-char point)
+    (let ((end (save-excursion
+                 (org-end-of-subtree t t)
+                 (point)))
+          (visible nil))
+      (forward-line 1)
+      (while (and (not visible) (< (point) end))
+        (unless (or (invisible-p (point))
+                    (memq (char-after) '(?\n ?\s ?\t)))
+          (setq visible t))
+        (forward-char 1))
+      visible)))
+
+(defun ogent-ask--org-scope-point ()
+  "Return the Org heading point `ogent-ask' should use, or nil."
   (when (derived-mode-p 'org-mode)
     (save-excursion
       (condition-case nil
           (progn
             (org-back-to-heading t)
-            (org-get-heading t t t t))
+            (let ((scope (point)))
+              (while (and (not (ogent-ask--org-visible-content-p scope))
+                          (org-up-heading-safe))
+                (setq scope (point)))
+              scope))
+        (error nil)))))
+
+(defun ogent-ask--org-heading-title (&optional point)
+  "Return the Org heading title at POINT or point, or nil."
+  (when (derived-mode-p 'org-mode)
+    (save-excursion
+      (condition-case nil
+          (progn
+            (when point
+              (goto-char point))
+            (org-back-to-heading t)
+            (substring-no-properties (org-get-heading t t t t)))
         (error nil)))))
 
 (defun ogent-ask-context-description ()
@@ -368,7 +400,8 @@ line at point, clamped to the buffer boundaries."
   (cond
    ((not ogent-ask-include-buffer)
     "no context")
-   ((let ((title (ogent-ask--org-heading-title)))
+   ((let* ((scope (ogent-ask--org-scope-point))
+           (title (and scope (ogent-ask--org-heading-title scope))))
       (when title
         (format "subtree \"%s\""
                 (truncate-string-to-width title 48 nil nil "...")))))
@@ -379,10 +412,11 @@ line at point, clamped to the buffer boundaries."
             (truncate-string-to-width (buffer-name) 48 nil nil "...")))))
 
 (defun ogent-ask--org-context-prompt (question)
-  "Return an Org context prompt for QUESTION at the current heading."
-  (when (ogent-ask--org-heading-title)
+  "Return an Org context prompt for QUESTION at the active ask scope."
+  (when-let ((scope (ogent-ask--org-scope-point)))
     (condition-case nil
-        (ogent-context-render-prompt question (ogent-context-build-filtered))
+        (ogent-context-render-prompt question
+                                     (ogent-context-build-filtered scope))
       (error nil))))
 
 (defun ogent-ask--read-question ()
@@ -461,7 +495,7 @@ current line, clamped to the accessible portion of the buffer."
 (defun ogent-ask--prompt (question)
   "Return the request prompt for QUESTION.
 When `ogent-ask-include-buffer' is non-nil, Org buffers use the
-current subtree context renderer.  Other buffers include the whole
+active ask scope context renderer.  Other buffers include the whole
 accessible buffer followed by a prioritized excerpt of the lines
 around point.  Otherwise, return QUESTION unchanged."
   (cond
