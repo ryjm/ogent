@@ -2,6 +2,7 @@
 
 (require 'ogent-test-helper)
 (require 'ogent-models)
+(require 'ogent-gptel)
 
 ;; Loaded at runtime inside the dangerous-tools test.
 (declare-function ogent-tools-install-defaults "ogent-tools")
@@ -86,6 +87,37 @@
           (should-not (get sym :capabilities)))
       (put sym :request-params nil)
       (put sym :capabilities nil))))
+
+
+(ert-deftest ogent-gptel-ensure-model-on-backend-registers-frontier-model ()
+  "New ogent model ids must be registered with gptel before sanitization."
+  (let* ((backend 'test-backend)
+         (models '(gpt-4o gpt-5))
+         (model (ogent-models-ensure "gpt-5.5"))
+         (symbol (intern "gpt-5.5"))
+         (old-symbol-plist (symbol-plist symbol))
+         (old-prototype-plist (symbol-plist 'gpt-5)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'gptel-backend-models)
+                   (lambda (candidate)
+                     (should (eq candidate backend))
+                     models))
+                  ((symbol-function 'ogent-gptel--set-backend-models)
+                   (lambda (candidate new-models)
+                     (should (eq candidate backend))
+                     (setq models new-models))))
+          (setplist symbol nil)
+          (put 'gpt-5 :capabilities '(media tool-use json url))
+          (put 'gpt-5 :context-window 400)
+          (should-not (memq symbol models))
+          (should (eq (ogent-gptel-ensure-model-on-backend model backend)
+                      symbol))
+          (should (memq symbol models))
+          (should (memq 'tool-use (get symbol :capabilities)))
+          (should (equal (get symbol :description)
+                         "OpenAI GPT-5.5 - flagship reasoning and coding")))
+      (setplist symbol old-symbol-plist)
+      (setplist 'gpt-5 old-prototype-plist))))
 
 (ert-deftest ogent-models-shipped-anthropic-entries-declare-cache ()
   "Every shipped Anthropic registry entry declares the cache capability."

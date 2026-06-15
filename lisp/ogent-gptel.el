@@ -8,8 +8,10 @@
 
 (require 'cl-lib)
 (require 'seq)
+(require 'subr-x)
 
 (declare-function gptel--model-name "ext:gptel")
+(declare-function gptel-backend-models "ext:gptel" (backend))
 
 (defvar gptel--known-backends)
 (defvar gptel-backend)
@@ -39,6 +41,52 @@ the cache-write surcharge."
         (format "%s" model)))
    (model (format "%s" model))
    (t "selected model")))
+
+(defconst ogent-gptel--model-property-keys
+  '(:description :capabilities :mime-types :context-window
+                 :input-cost :output-cost :cutoff-date)
+  "gptel model symbol properties copied from a known prototype.")
+
+(defun ogent-gptel--prototype-model (model-id)
+  "Return the closest built-in gptel prototype symbol for MODEL-ID."
+  (cond
+   ((string-suffix-p "-nano" model-id) 'gpt-5-nano)
+   ((string-suffix-p "-mini" model-id) 'gpt-5-mini)
+   ((string-prefix-p "gpt-5" model-id) 'gpt-5)
+   ((string-prefix-p "gpt-4.1" model-id) 'gpt-4.1)
+   (t nil)))
+
+(defun ogent-gptel--copy-missing-model-props (model-id symbol)
+  "Copy missing gptel model metadata for MODEL-ID onto SYMBOL."
+  (when-let* ((prototype (ogent-gptel--prototype-model model-id))
+              (props (symbol-plist prototype)))
+    (dolist (key ogent-gptel--model-property-keys)
+      (when (and (not (plist-member (symbol-plist symbol) key))
+                 (plist-member props key))
+        (put symbol key (plist-get props key))))))
+
+(defun ogent-gptel--set-backend-models (backend models)
+  "Set BACKEND's advertised model list to MODELS."
+  (aset backend (cl-struct-slot-offset 'gptel-backend 'models) models))
+
+(defun ogent-gptel-ensure-model-on-backend (model backend)
+  "Ensure MODEL is listed in gptel BACKEND before `gptel-request'.
+
+gptel silently rewrites an unsupported `gptel-model' to the first model in
+the backend's model list.  Ogent keeps a newer registry than bundled gptel, so
+new model ids must be added to the live backend or transcripts can claim
+`gpt-5.5' while the request actually went to the backend fallback."
+  (let* ((model-id (plist-get model :id))
+         (symbol (intern model-id)))
+    (ogent-gptel--copy-missing-model-props model-id symbol)
+    (when-let ((description (plist-get model :description)))
+      (put symbol :description description))
+    (when-let ((models (and (fboundp 'gptel-backend-models)
+                            (gptel-backend-models backend))))
+      (unless (memq symbol models)
+        (ogent-gptel--set-backend-models
+         backend (append models (list symbol)))))
+    symbol))
 
 (defun ogent-gptel-backend-matches-provider-p (backend-object provider)
   "Return non-nil when BACKEND-OBJECT has PROVIDER type."
