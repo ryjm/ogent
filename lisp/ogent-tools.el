@@ -33,6 +33,17 @@
   :type 'integer
   :group 'ogent-tools)
 
+
+(defcustom ogent-tools-grep-timeout 30
+  "Default timeout in seconds for grep searches."
+  :type 'integer
+  :group 'ogent-tools)
+
+(defcustom ogent-tools-grep-max-count 200
+  "Maximum matches per file returned by grep searches."
+  :type 'integer
+  :group 'ogent-tools)
+
 (defcustom ogent-tools-project-root nil
   "Project root for relative path resolution.
 If nil, uses `default-directory' or projectile/project.el root."
@@ -288,79 +299,129 @@ Returns files sorted by modification time (newest first)."
 
 ;;; Tool: Grep (Content Search)
 
+(defun ogent-tools--grep-pattern (pattern)
+  "Return validated grep PATTERN."
+  (unless (and (stringp pattern)
+               (not (string-empty-p (string-trim pattern))))
+    (error "grep requires a non-empty pattern"))
+  pattern)
+
+(defun ogent-tools--grep-target (path)
+  "Return a plist describing PATH as a grep target.
+The plist contains :directory for process `default-directory' and
+:target for the file or directory passed to grep."
+  (let* ((resolved (if path
+                       (ogent-tools--resolve-path path)
+                     (ogent-tools--project-root)))
+         (expanded (expand-file-name resolved)))
+    (cond
+     ((file-directory-p expanded)
+      (let ((directory (file-name-as-directory expanded)))
+        (list :directory directory :target directory)))
+     ((file-regular-p expanded)
+      (list :directory (file-name-directory expanded)
+            :target expanded))
+     (t
+      (error "Search path not found: %s" expanded)))))
+
+(defun ogent-tools--grep-command (pattern target glob-filter context)
+  "Return a shell command that searches TARGET for PATTERN."
+  (let ((use-rg (executable-find "rg"))
+        (max-count (and (integerp ogent-tools-grep-max-count)
+                        (> ogent-tools-grep-max-count 0)
+                        ogent-tools-grep-max-count)))
+    (if use-rg
+        (format "rg --no-heading --line-number --color=never %s %s %s %s %s"
+                (if (> context 0) (format "-C %d" context) "")
+                (if max-count (format "--max-count %d" max-count) "")
+                (if glob-filter (format "-g '%s'" glob-filter) "")
+                (shell-quote-argument pattern)
+                (shell-quote-argument target))
+      (format "grep -rn %s %s %s %s %s"
+              (if (> context 0) (format "-C %d" context) "")
+              (if max-count (format "-m %d" max-count) "")
+              (if glob-filter (format "--include='%s'" glob-filter) "")
+              (shell-quote-argument pattern)
+              (shell-quote-argument target)))))
+
 (defun ogent-tool--grep (pattern &optional path glob-filter context-lines)
   "Search for PATTERN in files with streaming progress.
 PATH is file or directory to search (default project root).
 GLOB-FILTER limits to matching files (e.g., \"*.el\").
 CONTEXT-LINES shows N lines before/after matches.
 Output is streamed incrementally via `ogent-tools-stream-callback'."
-  (let* ((dir (if path
-                  (ogent-tools--resolve-path path)
-                (ogent-tools--project-root)))
+  (let* ((pattern (ogent-tools--grep-pattern pattern))
+         (target-info (ogent-tools--grep-target path))
+         (dir (plist-get target-info :directory))
+         (target (plist-get target-info :target))
          (context (or context-lines 0))
-         (use-rg (executable-find "rg"))
-         (cmd (if use-rg
-                  ;; Use ripgrep if available
-                  (format "rg --no-heading --line-number --color=never %s %s %s %s"
-                          (if (> context 0) (format "-C %d" context) "")
-                          (if glob-filter (format "-g '%s'" glob-filter) "")
-                          (shell-quote-argument pattern)
-                          (shell-quote-argument dir))
-                ;; Fall back to grep
-                (format "grep -rn %s %s %s %s"
-                        (if (> context 0) (format "-C %d" context) "")
-                        (if glob-filter (format "--include='%s'" glob-filter) "")
-                        (shell-quote-argument pattern)
-                        (shell-quote-argument dir))))
+         (cmd (ogent-tools--grep-command pattern target glob-filter context))
          (default-directory dir)
          (output-buffer (generate-new-buffer " *ogent-grep*"))
          (start-time (current-time))
          output-chunks
-         exit-code output)
-    ;; Signal start
+         exit-code output
+         reported-error)
     (ogent-tools--stream-start 'grep
                                (list :pattern pattern
                                      :directory dir
+                                     :target target
                                      :filter glob-filter))
-    (unwind-protect
+    (condition-case err
         (progn
-          ;; Use make-process for streaming
-          (let ((proc (make-process
-                       :name "ogent-grep"
-                       :command (list shell-file-name
-                                      shell-command-switch
-                                      cmd)
-                       :buffer output-buffer
-                       :sentinel #'ignore
-                       :noquery t
-                       :filter (lambda (_proc chunk)
-                                 (push chunk output-chunks)
-                                 (ogent-tools--append-to-buffer-if-live
-                                  output-buffer chunk)
-                                 (ogent-tools--stream-output 'grep 'stdout chunk)))))
-            ;; Wait for completion (grep is usually fast, but can be slow on large codebases)
-            (while (process-live-p proc)
-              (accept-process-output proc 0.1))
-            ;; Emacs 29 can deliver the last process filter chunk just after
-            ;; the process exits. Drain once before reading collected output.
-            (accept-process-output proc 0.1)
-            (set-process-filter proc nil)
-            (setq exit-code (process-exit-status proc)))
-          (setq output (apply #'concat (nreverse output-chunks))))
-      ;; Cleanup
-      (ogent-tools--kill-buffer-if-live output-buffer))
-    ;; Signal completion
-    (ogent-tools--stream-done 'grep exit-code)
-    ;; Format result
-    (ogent-tools--truncate-output
-     (if (string-empty-p output)
-         (format "No matches found (searched in %.1fs)"
-                 (float-time (time-subtract (current-time) start-time)))
-       (format "%s\n\n[%d matches in %.1fs]"
-               output
-               (cl-count ?\n output)
-               (float-time (time-subtract (current-time) start-time))))
-     ogent-tools-max-output-chars)))
+          (unwind-protect
+              (let ((proc (make-process
+                           :name "ogent-grep"
+                           :command (list shell-file-name
+                                          shell-command-switch
+                                          cmd)
+                           :buffer output-buffer
+                           :sentinel #'ignore
+                           :noquery t
+                           :filter (lambda (_proc chunk)
+                                     (push chunk output-chunks)
+                                     (ogent-tools--append-to-buffer-if-live
+                                      output-buffer chunk)
+                                     (ogent-tools--stream-output 'grep
+                                                                 'stdout
+                                                                 chunk)))))
+                (let ((deadline (+ (float-time) ogent-tools-grep-timeout)))
+                  (while (and (process-live-p proc)
+                              (< (float-time) deadline))
+                    (accept-process-output proc 0.1))
+                  (when (process-live-p proc)
+                    (kill-process proc)
+                    (setq reported-error t)
+                    (ogent-tools--stream-error
+                     'grep
+                     (format "Timeout after %s"
+                             (ogent-tools--format-timeout
+                              ogent-tools-grep-timeout)))
+                    (error "grep timed out after %s"
+                           (ogent-tools--format-timeout
+                            ogent-tools-grep-timeout))))
+                (accept-process-output proc 0.1)
+                (set-process-filter proc nil)
+                (setq exit-code (process-exit-status proc))
+                (setq output (apply #'concat (nreverse output-chunks))))
+            (ogent-tools--kill-buffer-if-live output-buffer))
+          (ogent-tools--stream-done 'grep exit-code)
+          (ogent-tools--truncate-output
+           (if (string-empty-p output)
+               (format "No matches found (searched in %.1fs)"
+                       (float-time (time-subtract (current-time)
+                                                  start-time)))
+             (format "%s\n\n[%d matches in %.1fs]"
+                     output
+                     (cl-count ?\n output)
+                     (float-time (time-subtract (current-time)
+                                                start-time))))
+           ogent-tools-max-output-chars))
+      (error
+       (ogent-tools--kill-buffer-if-live output-buffer)
+       (unless reported-error
+         (ogent-tools--stream-error 'grep (error-message-string err)))
+       (signal (car err) (cdr err))))))
 
 (defun ogent-tool--grep-async (pattern &optional path glob-filter context-lines callback)
   "Search for PATTERN asynchronously with streaming.
@@ -370,32 +431,21 @@ CALLBACK is called with (TYPE DATA) where TYPE is:
   - `done': DATA is the total match count
   - `error': DATA is an error message
 If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'."
-  (let* ((dir (if path
-                  (ogent-tools--resolve-path path)
-                (ogent-tools--project-root)))
+  (let* ((pattern (ogent-tools--grep-pattern pattern))
+         (target-info (ogent-tools--grep-target path))
+         (dir (plist-get target-info :directory))
+         (target (plist-get target-info :target))
          (context (or context-lines 0))
-         (use-rg (executable-find "rg"))
-         (cmd (if use-rg
-                  (format "rg --no-heading --line-number --color=never %s %s %s %s"
-                          (if (> context 0) (format "-C %d" context) "")
-                          (if glob-filter (format "-g '%s'" glob-filter) "")
-                          (shell-quote-argument pattern)
-                          (shell-quote-argument dir))
-                (format "grep -rn %s %s %s %s"
-                        (if (> context 0) (format "-C %d" context) "")
-                        (if glob-filter (format "--include='%s'" glob-filter) "")
-                        (shell-quote-argument pattern)
-                        (shell-quote-argument dir))))
+         (cmd (ogent-tools--grep-command pattern target glob-filter context))
          (default-directory dir)
          (match-count 0)
          (pending-line "")
          (stderr-buffer (generate-new-buffer " *ogent-grep-stderr*"))
-         completed
-         proc)
-    ;; Signal start
+         completed timed-out timer proc)
     (ogent-tools--stream-start 'grep
                                (list :pattern pattern
                                      :directory dir
+                                     :target target
                                      :filter glob-filter))
     (condition-case err
         (cl-labels
@@ -426,7 +476,9 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
                       :stderr stderr-buffer
                       :noquery t
                       :filter (lambda (_proc output)
-                                (ogent-tools--stream-output 'grep 'stdout output)
+                                (ogent-tools--stream-output 'grep
+                                                            'stdout
+                                                            output)
                                 (emit-output output))))
           (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
             (set-process-query-on-exit-flag stderr-proc nil)
@@ -440,33 +492,51 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
            (lambda (process event)
              (unless completed
                (setq completed t)
+               (ogent-tools--cancel-timer timer)
                (ogent-tools--drop-active-process process)
                (unless (string-empty-p pending-line)
                  (emit-line pending-line)
                  (setq pending-line ""))
-               (let ((status (process-exit-status process)))
-                 (cond
-                  ((and (string-match-p "finished\\|exited" event)
-                        (memq status '(0 1)))
-                   (ogent-tools--stream-done 'grep status)
-                   (when callback
-                     (funcall callback 'done match-count)))
-                  (t
-                   (let ((message (string-trim
-                                   (or (and (buffer-live-p stderr-buffer)
-                                            (stderr-text))
-                                       ""))))
-                     (when (string-empty-p message)
-                       (setq message (string-trim event)))
+               (if timed-out
+                   (let ((message (format "Timeout after %s"
+                                          (ogent-tools--format-timeout
+                                           ogent-tools-grep-timeout))))
                      (ogent-tools--stream-error 'grep message)
                      (when callback
-                       (funcall callback 'error message)))))))
+                       (funcall callback 'error message)))
+                 (let ((status (process-exit-status process)))
+                   (cond
+                    ((and (string-match-p "finished\\|exited" event)
+                          (memq status '(0 1)))
+                     (ogent-tools--stream-done 'grep status)
+                     (when callback
+                       (funcall callback 'done match-count)))
+                    (t
+                     (let ((message (string-trim
+                                     (or (and (buffer-live-p stderr-buffer)
+                                              (stderr-text))
+                                         ""))))
+                       (when (string-empty-p message)
+                         (setq message (string-trim event)))
+                       (ogent-tools--stream-error 'grep message)
+                       (when callback
+                         (funcall callback 'error message))))))))
              (ogent-tools--kill-buffer-if-live stderr-buffer)))
+          (when (> ogent-tools-grep-timeout 0)
+            (setq timer
+                  (run-at-time ogent-tools-grep-timeout nil
+                               (lambda ()
+                                 (when (and (process-live-p proc)
+                                            (not completed))
+                                   (setq timed-out t)
+                                   (kill-process proc))))))
           (push (cons proc (list :callback callback
+                                 :timer timer
                                  :stderr-buffer stderr-buffer))
                 ogent-tools--active-processes)
           proc)
       (error
+       (ogent-tools--cancel-timer timer)
        (ogent-tools--kill-buffer-if-live stderr-buffer)
        (let ((message (error-message-string err)))
          (ogent-tools--stream-error 'grep message)
