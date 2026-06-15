@@ -286,6 +286,28 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 (ogent-register-tools)
 #+end_src
 
+* Tool-call display in Zen buffers
+
+In =ogent-zen-mode= buffers, tool calls are *not* inlined into the
+notebook as =:TOOL:= drawers.  Each completed (or streaming) tool call is
+recorded out of band in a buffer-local, session-scoped store, and the
+request headline keeps only a compact summary (=2 tools=, =tool error:
+grep=, =reading lisp/foo.el=).  This keeps the buffer small and
+responsive as prompt submissions accumulate, since large arguments and
+results never enter the notebook text.
+
+Inspect the recorded calls with =C-c . h= (=ogent-zen-show-tool-calls=):
+from any Org heading it opens a separate read-only buffer listing every
+tool call under that subtree (name, context, arguments, result, status),
+grouped by request and foldable like normal Org.  Legacy transcripts
+that already contain inline =:TOOL:= drawers are parsed and shown the
+same way.
+
+Set =ogent-zen-tool-calls-inline= to =t= to restore the legacy inline
+drawers (each embeds full arguments and results, so the buffer grows as
+runs accumulate).  Durable, cross-session tool history still lives in the
+proof ledger and =ogent-debug-tool-history= regardless of this setting.
+
 * Keybindings
 
 | Key       | Command                          | Description                    |
@@ -295,6 +317,7 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 | C-c . t r | ogent-debug-replay-last-tool     | Replay most recent tool call   |
 | C-c . t c | ogent-debug-clear-tool-history   | Clear tool history             |
 | C-c . t a | ogent-debug-show-approval-status | Show session approval status   |
+| C-c . h   | ogent-zen-show-tool-calls        | Tool calls under current heading |
 
 * Configuration Variables
 
@@ -305,6 +328,7 @@ You can extend ogent with custom tools by adding to =ogent-tool-registry=.
 | ogent-tools-shell-timeout      | 120     | Shell command timeout (seconds)      |
 | ogent-tools-project-root       | nil     | Override project root detection      |
 | ogent-tool-require-approval    | t       | Prompt before risky tool calls       |
+| ogent-zen-tool-calls-inline    | nil     | Inline :TOOL: drawers in Zen buffers |
 
 * Architecture
 

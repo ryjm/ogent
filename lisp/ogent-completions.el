@@ -21,6 +21,10 @@
 
 ;; Forward declarations
 (declare-function ogent-ui-request-marker "ui/ogent-ui" t t)
+(declare-function ogent-zen--transcript-request-heading "ogent-zen")
+(declare-function ogent-zen--current-response-heading "ogent-zen")
+(declare-function ogent-zen-accept-response "ogent-zen")
+(declare-function ogent-zen-mark-accepted "ogent-zen")
 (defvar ogent-session-buffer-p)
 
 ;;; Customization
@@ -409,44 +413,45 @@ the entire PROPERTIES drawer is removed."
 
 ;;;###autoload
 (defun ogent-review-accept ()
-  "Accept the current completion and remove transient metadata.
-Like `ogent-completion-accept', but also removes the RESPONSE-INDEX
-and CREATED properties from the accepted Response headline, cleaning
-up review-specific metadata that is no longer needed."
+  "Accept the current review item.
+In Zen transcripts, this accepts the current response or run.  In older
+Question/Response completion workflows, it accepts the current completion
+and removes transient metadata."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "ogent-review-accept only works in Org buffers"))
-  (let* ((question-marker (ogent-completions--find-question-marker))
-         (completions (ogent-completions--for-subtree)))
-    (unless question-marker
-      (user-error "Not in a Question/Response context"))
-    (unless completions
-      (user-error "No completions to accept"))
-    (let* ((key (marker-position question-marker))
-           (current-index (gethash key ogent-completions--current-index 0))
-           (current-completion (nth current-index completions))
-           (model (ogent-completion-model current-completion)))
-      ;; Confirm if there are multiple completions
-      (when (and (> (length completions) 1)
-                 (not (y-or-n-p (format "Accept completion from %s and delete %d others? "
-                                        model (1- (length completions))))))
-        (user-error "Cancelled"))
-      ;; Clear overlay on accepted completion
-      (ogent-completions--highlight current-completion)
-      (when (ogent-completion-overlay current-completion)
-        (delete-overlay (ogent-completion-overlay current-completion))
-        (setf (ogent-completion-overlay current-completion) nil))
-      ;; Delete all other completions (in reverse order to preserve positions)
-      (let ((to-delete (cl-remove current-completion completions)))
-        (dolist (completion (reverse to-delete))
-          (ogent-completions--delete-completion completion)))
-      ;; Remove transient metadata from accepted completion
-      (ogent-completions--remove-transient-metadata current-completion)
-      ;; Invalidate registry
-      (ogent-completions--invalidate-registry question-marker)
-      ;; Update status
-      (setf (ogent-completion-status current-completion) 'accepted)
-      (message "Accepted completion from %s (metadata cleaned)" model))))
+  (if (and (fboundp 'ogent-zen--transcript-request-heading)
+           (ogent-zen--transcript-request-heading))
+      (if (and (fboundp 'ogent-zen--current-response-heading)
+               (ogent-zen--current-response-heading))
+          (ogent-zen-accept-response)
+        (ogent-zen-mark-accepted))
+    (let* ((question-marker (ogent-completions--find-question-marker))
+           (completions (ogent-completions--for-subtree)))
+      (unless question-marker
+        (user-error "Not in a Question/Response context"))
+      (unless completions
+        (user-error "No completions to accept"))
+      (let* ((key (marker-position question-marker))
+             (current-index (gethash key ogent-completions--current-index 0))
+             (current-completion (nth current-index completions))
+             (model (ogent-completion-model current-completion)))
+        (when (and (> (length completions) 1)
+                   (not (y-or-n-p
+                         (format "Accept completion from %s and delete %d others? "
+                                 model (1- (length completions))))))
+          (user-error "Cancelled"))
+        (ogent-completions--highlight current-completion)
+        (when (ogent-completion-overlay current-completion)
+          (delete-overlay (ogent-completion-overlay current-completion))
+          (setf (ogent-completion-overlay current-completion) nil))
+        (let ((to-delete (cl-remove current-completion completions)))
+          (dolist (completion (reverse to-delete))
+            (ogent-completions--delete-completion completion)))
+        (ogent-completions--remove-transient-metadata current-completion)
+        (ogent-completions--invalidate-registry question-marker)
+        (setf (ogent-completion-status current-completion) 'accepted)
+        (message "Accepted completion from %s (metadata cleaned)" model)))))
 
 ;;;###autoload
 (defun ogent-completion-reject ()

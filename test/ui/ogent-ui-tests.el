@@ -106,6 +106,101 @@
                                  (put sym :request-params nil)
                                  (put sym :capabilities nil))))))
 
+
+(ert-deftest ogent-ui-send-request-enables-tools-for-workspace-intent ()
+  "Workspace-inspection context enables tools without forcing an infinite loop."
+  (let (captured-use captured-tools)
+    (with-temp-buffer
+      (org-mode)
+      (let ((request (make-ogent-ui-request
+                      :id "workspace-tools"
+                      :model '(:id "m" :backend gptel-openai :stream? nil)
+                      :context '(:root nil
+                                 :workspace-root "/tmp/"
+                                 :workspace-tool-intent t)
+                      :prompt "Look in the repo"
+                      :buffer (current-buffer))))
+        (cl-letf (((symbol-function 'ogent-ui--ensure-gptel)
+                   (lambda () nil))
+                  ((symbol-function 'ogent-ui--resolve-backend)
+                   (lambda (_model) 'backend))
+                  ((symbol-function 'gptel-backend-p)
+                   (lambda (_backend) t))
+                  ((symbol-function 'ogent-tools-enabled-list)
+                   (lambda () '(read-file grep glob)))
+                  ((symbol-function 'ogent-models-apply-gptel-props)
+                   (lambda (_model) nil))
+                  ((symbol-function 'gptel-request)
+                   (lambda (_prompt &rest _args)
+                     (setq captured-use gptel-use-tools)
+                     (setq captured-tools gptel-tools)
+                     'mock-handle)))
+          (ogent-ui--send-request request))))
+    (should (eq captured-use t))
+    (should (equal captured-tools '(read-file grep glob)))))
+
+(ert-deftest ogent-ui-dispatch-falls-back-from-unregistered-gptel-model ()
+  "Dispatching without explicit models uses `ogent-default-model' when gptel is stale."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-default-model "gpt-5.5")
+                                   (ogent-model-registry
+                                    '((:id "gpt-5.5" :backend gptel-openai :stream? t)))
+                                   (gptel-model "gpt-4o")
+                                   (captured-model nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq captured-model gptel-model)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "ok" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Prompt")
+                                 (should (equal captured-model "gpt-5.5"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "#+begin_src text :model gpt-5.5" nil t))))))))
+
+(ert-deftest ogent-ui-tool-use-waits-for-gptel-continuation ()
+  "A tool-use turn stays open until gptel streams the post-tool answer."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((manual-tool-handler-called nil))
+                               (cl-letf (((symbol-function 'ogent-ui--handle-tool-calls)
+                                          (lambda (&rest _)
+                                            (setq manual-tool-handler-called t)
+                                            (error "manual tool handler should not run")))
+                                         ((symbol-function 'gptel-tool-name)
+                                          (lambda (_tool) "glob"))
+                                         ((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback nil
+                                                       '(:tool-use ((:name "glob"
+                                                                     :args (:pattern "**/*.el")))))
+                                              (funcall callback
+                                                       '(tool-result
+                                                         (fake-tool
+                                                          (:pattern "**/*.el")
+                                                          "lisp/ui/ogent-ui.el"))
+                                                       '(:tool-success t))
+                                              (funcall callback "Final answer." nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Prompt" '("gpt-4o-mini"))
+                                 (should-not manual-tool-handler-called)
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "▶ glob: **/*.el" nil t))
+                                   (should (search-forward "lisp/ui/ogent-ui.el" nil t))
+                                   (should (search-forward "Final answer." nil t))))))))
+
 (ert-deftest ogent-ui-nested-headline-structure ()
   "Verify nested headline structure under the active Org heading."
   (ogent-test-with-fixture "data/fixture.org"
@@ -173,8 +268,9 @@
        '(:id "test-model"))
       (goto-char (point-min))
       (should (search-forward
-               "* Request: first line second line #+end_src * hostile"
+               "* Request: first line"
                nil t))
+      (should-not (search-forward "second line #+end_src * hostile" nil t))
       ;; The prompt is persisted in a single-line property drawer
       ;; directly under the headline (hostile newlines stay encoded).
       (forward-line 1)
@@ -334,35 +430,29 @@
         (should (not closed-called))
         (should-not (ogent-ui-request-closed request))))))
 
-(ert-deftest ogent-ui-callback-fallback-executes-tools-once ()
-  "The :tool-use fallback runs each payload once across repeated chunks."
+(ert-deftest ogent-ui-callback-native-tool-use-does-not-execute-fallback ()
+  "Native :tool-use turns mark tool status and wait for gptel continuation."
   (with-temp-buffer
     (org-mode)
     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
-          (handle-count 0))
+          (handle-called nil)
+          (close-called nil))
       (let* ((request (make-ogent-ui-request
                        :id "req-fb" :buffer (current-buffer)
                        :marker (copy-marker (point-max)) :status 'wait))
              (callback (ogent-ui--make-callback "req-fb"))
-             ;; Same object across chunks, as gptel reuses it within a turn.
              (tool-use '((:name "bash" :args (:command "ls"))))
              (info (list :tool-use tool-use)))
         (puthash "req-fb" request ogent-ui--request-table)
         (cl-letf (((symbol-function 'ogent-ui--handle-tool-calls)
-                   (lambda (&rest _) (cl-incf handle-count)))
-                  ((symbol-function 'ogent-ui--close-response) #'ignore))
-          ;; Three streamed text chunks all carrying the same :tool-use.
-          (funcall callback "chunk one " info)
-          (funcall callback "chunk two " info)
-          (funcall callback "chunk three" info))
-        (should (= handle-count 1))
-        ;; A genuinely new tool-use payload dispatches again.
-        (cl-letf (((symbol-function 'ogent-ui--handle-tool-calls)
-                   (lambda (&rest _) (cl-incf handle-count)))
-                  ((symbol-function 'ogent-ui--close-response) #'ignore))
-          (funcall callback "more"
-                   (list :tool-use '((:name "bash" :args (:command "pwd"))))))
-        (should (= handle-count 2))))))
+                   (lambda (&rest _) (setq handle-called t)))
+                  ((symbol-function 'ogent-ui--close-response)
+                   (lambda (&rest _) (setq close-called t))))
+          (funcall callback nil info))
+        (should-not handle-called)
+        (should-not close-called)
+        (should (eq (ogent-ui-request-status request) 'tool))
+        (should (eq (ogent-ui-request-handled-tool-use request) tool-use))))))
 
 (ert-deftest ogent-ui-callback-tool-result-does-not-close ()
   "A (tool-result ...) cons is intermediate and must not close the request."
@@ -2729,6 +2819,24 @@ Response heading for MODEL (default \"m\")."
             "** TODO Next sibling\n")
     (should (equal (ogent-ui--conversation-history (current-buffer) (point-max) "m")
                    '("get link" "direct link")))))
+
+(ert-deftest ogent-ui-conversation-history-reads-zen-transcripts ()
+  "History replay treats Zen Request/Response headings as normal turns."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n"
+            "** Task\n"
+            "*** Request: run bullet\n"
+            ":PROPERTIES:\n"
+            ":OGENT_STYLE: zen\n"
+            ":OGENT_KIND: request\n"
+            ":OGENT_PROMPT: run bullet\n"
+            ":END:\n"
+            "**** Response (m)\n"
+            "zen answer\n")
+    (should (equal (ogent-ui--conversation-history (current-buffer)
+                                                   (point-max) "m")
+                   '("run bullet" "zen answer")))))
 
 (ert-deftest ogent-ui-compact-history-evicts-oldest-pairs ()
   "Compaction drops whole oldest pairs and preserves alternation."

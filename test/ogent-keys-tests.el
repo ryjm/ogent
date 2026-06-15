@@ -66,6 +66,43 @@
   ;; prompt-dispatch does not
   (should-not (ogent-action-get 'prompt-dispatch :visual)))
 
+(ert-deftest ogent-keys-action-get-run-subtree ()
+  "Run subtree action uses RET and is visual."
+  (should (string= (ogent-action-get 'run-subtree :key) "RET"))
+  (should (eq (ogent-action-get 'run-subtree :command) 'ogent-run-subtree))
+  (should (string= (ogent-action-get 'run-subtree :desc) "Run subtree"))
+  (should (ogent-action-get 'run-subtree :visual)))
+
+(ert-deftest ogent-keys-action-get-zen-copy-response ()
+  "Zen copy response action uses the normal ogent prefix map."
+  (should (string= (ogent-action-get 'zen-copy-response :key) "w"))
+  (should (eq (ogent-action-get 'zen-copy-response :command)
+              'ogent-zen-copy-response))
+  (should (string= (ogent-action-get 'zen-copy-response :desc)
+                   "Copy Zen response")))
+
+(ert-deftest ogent-keys-action-get-zen-review-menu ()
+  "Zen review menu action uses the normal ogent prefix map."
+  (should (string= (ogent-action-get 'zen-review-menu :key) "u"))
+  (should (eq (ogent-action-get 'zen-review-menu :command)
+              'ogent-zen-review-menu))
+  (should (string= (ogent-action-get 'zen-review-menu :desc)
+                   "Review Zen run")))
+
+(ert-deftest ogent-keys-action-get-malleable-bindings ()
+  "Malleable Zen actions have direct prefix bindings."
+  (should (string= (ogent-action-get 'ask-region :key) "C-r"))
+  (should (eq (ogent-action-get 'ask-region :command)
+              'ogent-zen-run-region))
+  (should (ogent-action-get 'ask-region :visual))
+  (should (string= (ogent-action-get 'zen-edit-dwim :key) "C-e"))
+  (should (eq (ogent-action-get 'zen-edit-dwim :command)
+              'ogent-zen-edit-dwim))
+  (should (ogent-action-get 'zen-edit-dwim :visual))
+  (should (string= (ogent-action-get 'zen-apply-edit :key) "C-a"))
+  (should (eq (ogent-action-get 'zen-apply-edit :command)
+              'ogent-zen-apply-last-edit)))
+
 (ert-deftest ogent-keys-action-get-unknown ()
   "ogent-action-get returns nil for unknown action."
   (should-not (ogent-action-get 'nonexistent-action :key)))
@@ -79,8 +116,14 @@
     (ogent-setup-vanilla-bindings test-map)
     ;; Check that prompt-dispatch is bound
     (should (eq (lookup-key test-map (kbd "C-c . p")) 'ogent-prompt-dispatch))
+    ;; Check that run-subtree is bound
+    (should (eq (lookup-key test-map (kbd "C-c . RET")) 'ogent-run-subtree))
     ;; Check that request is bound
-    (should (eq (lookup-key test-map (kbd "C-c . r")) 'ogent-request))))
+    (should (eq (lookup-key test-map (kbd "C-c . r")) 'ogent-request))
+    ;; Check malleable Zen bindings
+    (should (eq (lookup-key test-map (kbd "C-c . C-r")) 'ogent-zen-run-region))
+    (should (eq (lookup-key test-map (kbd "C-c . C-e")) 'ogent-zen-edit-dwim))
+    (should (eq (lookup-key test-map (kbd "C-c . C-a")) 'ogent-zen-apply-last-edit))))
 
 (ert-deftest ogent-keys-vanilla-prefix-customizable ()
   "Vanilla prefix can be customized."
@@ -131,7 +174,8 @@
   (with-current-buffer "*Ogent Bindings*"
     (should (string-match-p "Ogent Keybindings" (buffer-string)))
     (should (string-match-p "Vanilla prefix" (buffer-string)))
-    (should (string-match-p "prompt-dispatch" (buffer-string))))
+    (should (string-match-p "prompt-dispatch" (buffer-string)))
+    (should (string-match-p "Run subtree" (buffer-string))))
   (kill-buffer "*Ogent Bindings*"))
 
 (ert-deftest ogent-keys-describe-bindings-shows-all-actions ()
@@ -213,6 +257,12 @@
   (should (assq 'goto-source ogent-action-registry))
   (should (assq 'goto-companion ogent-action-registry)))
 
+(ert-deftest ogent-keys-malleable-actions-present ()
+  "Malleable Zen actions are present in registry."
+  (should (assq 'ask-region ogent-action-registry))
+  (should (assq 'zen-edit-dwim ogent-action-registry))
+  (should (assq 'zen-apply-edit ogent-action-registry)))
+
 (ert-deftest ogent-keys-navigation-actions-present ()
   "Navigation actions are present in registry."
   (should (assq 'backlinks ogent-action-registry))
@@ -268,20 +318,24 @@
     (ogent-setup-review-bindings map)
     ;; Check that review keys are bound under review prefix
     (should (eq (lookup-key map (kbd (concat ogent-review-prefix " n")))
-                'ogent-completion-next))
+                'ogent-review-next))
     (should (eq (lookup-key map (kbd (concat ogent-review-prefix " p")))
-                'ogent-completion-prev))
+                'ogent-review-previous))
     (should (eq (lookup-key map (kbd (concat ogent-review-prefix " a")))
                 'ogent-review-accept))
     (should (eq (lookup-key map (kbd (concat ogent-review-prefix " x")))
-                'ogent-completion-reject))))
+                'ogent-review-reject))
+    (should (eq (lookup-key map (kbd (concat ogent-review-prefix " d")))
+                'ogent-review-dashboard))))
 
 (ert-deftest ogent-keys-review-registry-has-entries ()
   "Test that review action registry has expected entries."
   (should (assq 'review-next ogent-review-action-registry))
   (should (assq 'review-prev ogent-review-action-registry))
   (should (assq 'review-accept ogent-review-action-registry))
-  (should (assq 'review-reject ogent-review-action-registry)))
+  (should (assq 'review-reject ogent-review-action-registry))
+  (should (assq 'review-dashboard ogent-review-action-registry))
+  (should (assq 'review-describe ogent-review-action-registry)))
 
 (ert-deftest ogent-keys-doom-bindings-install-under-prefix ()
   "Doom leader bindings install the action registry under ogent-doom-prefix."
@@ -302,7 +356,13 @@
     (should (eq (lookup-key leader-map (kbd "o k"))
                 'ogent-quick-edit))
     (should (eq (lookup-key leader-map (kbd "o E"))
-                'ogent-request-edit))))
+                'ogent-request-edit))
+    (should (eq (lookup-key leader-map (kbd "o C-r"))
+                'ogent-zen-run-region))
+    (should (eq (lookup-key leader-map (kbd "o C-e"))
+                'ogent-zen-edit-dwim))
+    (should (eq (lookup-key leader-map (kbd "o C-a"))
+                'ogent-zen-apply-last-edit))))
 
 (ert-deftest ogent-keys-doom-bindings-noerror-without-doom ()
   "Doom setup returns nil when NOERROR is non-nil and Doom is absent."
@@ -321,7 +381,7 @@
       (should (commandp (lookup-key map (kbd (concat ogent-vanilla-prefix " p")))))
       ;; Review bindings should be set
       (should (eq (lookup-key map (kbd (concat ogent-review-prefix " n")))
-                  'ogent-completion-next)))))
+                  'ogent-review-next)))))
 
 ;;; Action Registry Properties
 
@@ -371,11 +431,11 @@
     (ogent-setup-review-bindings map)
     ;; Should use custom prefix
     (should (eq (lookup-key map (kbd "C-c r n"))
-                'ogent-completion-next))
+                'ogent-review-next))
     (should (eq (lookup-key map (kbd "C-c r p"))
-                'ogent-completion-prev))
+                'ogent-review-previous))
     ;; Default prefix should not be bound
-    (should-not (eq (lookup-key map (kbd "C-c , n")) 'ogent-completion-next))))
+    (should-not (eq (lookup-key map (kbd "C-c , n")) 'ogent-review-next))))
 
 ;;; Review Action Registry Validation Tests
 
@@ -468,10 +528,10 @@
       (should (eq (lookup-key map (kbd "C-c . p")) 'ogent-prompt-dispatch))
       (should (eq (lookup-key map (kbd "C-c . r")) 'ogent-request))
       ;; Review bindings
-      (should (eq (lookup-key map (kbd "C-c , n")) 'ogent-completion-next))
-      (should (eq (lookup-key map (kbd "C-c , p")) 'ogent-completion-prev))
+      (should (eq (lookup-key map (kbd "C-c , n")) 'ogent-review-next))
+      (should (eq (lookup-key map (kbd "C-c , p")) 'ogent-review-previous))
       (should (eq (lookup-key map (kbd "C-c , a")) 'ogent-review-accept))
-      (should (eq (lookup-key map (kbd "C-c , x")) 'ogent-completion-reject)))))
+      (should (eq (lookup-key map (kbd "C-c , x")) 'ogent-review-reject)))))
 
 (ert-deftest ogent-keys-setup-all-bindings-all-registry-actions ()
   "setup-all-bindings binds every action from registry."

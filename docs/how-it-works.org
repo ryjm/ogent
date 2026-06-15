@@ -423,7 +423,10 @@ buffers call [[file:../lisp/ogent-keys.el::458][ogent-evil-display-mode-setup]] 
 Key definitions: defcustoms [[file:../lisp/ogent-keys.el::71][ogent-vanilla-prefix]] (="C-c ."=),
 [[file:../lisp/ogent-keys.el::77][ogent-evil-prefix]] (="SPC o"=), [[file:../lisp/ogent-keys.el::84][ogent-enable-doom-bindings]],
 [[file:../lisp/ogent-keys.el::96][ogent-review-prefix]], [[file:../lisp/ogent-keys.el::102][ogent-enable-evil-bindings]]. The
-[[file:../lisp/ogent-keys.el::260][review action registry]] (n/p/a/x flow), the deferred-setup macro
+[[file:../lisp/ogent-keys.el::284][review action registry]] is now backend-aware: =C-c ,=
+drives completion review (next/prev/accept/reject) and Zen transcript
+review (queue navigation, accept/reject, useful/defer/stale, dashboard,
+describe) through one command surface.
 [[file:../lisp/ogent-keys.el::521][ogent-evil-setup-display-mode]], the keymap walker
 [[file:../lisp/ogent-keys.el::435][ogent-evil--keymap-command-bindings]], and
 [[file:../lisp/ogent-keys.el::534][ogent-describe-bindings]].
@@ -721,7 +724,21 @@ Design: Three cl-structs carry context —
 built by parsing the current subtree, regex-scanning for @handles, and
 resolving each via open buffers → codemap special-cases → org-roam.
 Everything funnels into one renderer that emits the exact model payload,
-manifest first. Lazy thunk variants defer expensive builds.
+manifest first. Normal requests summarize ancestors as compact references;
+Zen runs (=:zen-run=) render each ancestor's own body under
+=# Parent Bullets= — child subtrees and prior transcripts are trimmed by
+[[file:../lisp/ogent-zen.el::709][ogent-zen--own-body]] so re-runs never re-embed earlier payloads — and
+leave the current root content empty so the bullet text is not duplicated.
+They also scan the root and nearest parents for ordinary path prose such
+as =look in ~/repo for ideas=. Explicit workspace directives
+(=Context: ~/repo=, =Workspace:=, =Project:=, =Repo:=) remain supported,
+but are not required. A resolved workspace becomes =:workspace-root= /
+=# Workspace= in the prompt and is bound into ogent tool execution so
+relative paths are request-local. When the wording asks to look,
+inspect, search, ground ideas in code, or otherwise reason from the
+repo, Zen marks =:workspace-tool-intent= so the prompt asks for one or
+two targeted read-only tool calls before the model answers.
+Lazy thunk variants defer expensive builds.
 
 Intuition: A bibliographer assembling a dossier — it chases every
 "@citation" in your note, staples in pinned exhibits, and prepends a
@@ -735,7 +752,9 @@ Trace: [[file:../lisp/ogent-context.el::931][ogent-context-build-with-source]] �
 [[file:../lisp/ogent-context.el::793][ogent-context--dependency]] →
 [[file:../lisp/ogent-context.el::776][ogent-resolve-handle]]); later
 [[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]] →
-[[file:../lisp/ogent-context.el::559][ogent-context--format-manifest]].
+[[file:../lisp/ogent-context.el::559][ogent-context--format-manifest]]. When
+=:zen-run= is present, the renderer swaps the compact =# Org Ancestors=
+section for full =# Parent Bullets= payloads.
 
 Key definitions: defcustoms [[file:../lisp/ogent-context.el::37][ogent-context-handle-regexp]],
 [[file:../lisp/ogent-context.el::48][ogent-context-extra-buffers]],
@@ -875,9 +894,11 @@ cache.
 :CUSTOM_ID: mod-ogent-completions
 :END:
 
-Role: Review workflow for multiple LLM completions of one question —
-cycle between sibling "Response" subtrees, highlight the current one,
-accept (keep one, delete the rest) or reject.
+Role: Completion review backend plus the generic =ogent-review-accept=
+entrypoint. It still owns the older multi-completion workflow — cycle
+between sibling "Response" subtrees, highlight the current one, accept
+(keep one, delete the rest) or reject — but =ogent-review-accept= now
+dispatches to Zen acceptance when point is inside a Zen transcript.
 
 Design: Buffer-local hashes map a Question headline's position to
 [[file:../lisp/ogent-completions.el::50][ogent-completion]] structs (id from =RESPONSE-INDEX=, model from
@@ -1877,19 +1898,83 @@ Key functions: [[file:../lisp/ogent-ops-style.el::157][ogent-ops-status-symbol]]
 :END:
 
 Role: The request engine and primary UI — the dispatch transient,
-contextual ask menu, inline subtree ask command, request lifecycle
-(create/stream/close/abort/pause/retry), tool-call approval and
-execution, diff previews for edit tools, and error surfacing, all
-rendered as Org structure on top of gptel.
+contextual ask menu, inline subtree ask command, malleable region/sentence
+editing, request lifecycle (create/stream/close/abort/pause/retry),
+tool-call approval and execution, diff previews for edit tools, and error
+surfacing, all rendered as Org structure on top of gptel.
 
 Design: Centered on the [[file:../lisp/ui/ogent-ui.el::388][ogent-ui-request]] struct, which carries
 markers into the transcript; active requests live in
 [[file:../lisp/ui/ogent-ui.el::687][ogent-ui--request-table]] keyed by id, closed ones in retry history.
 Responses are written as a nested Org skeleton so a conversation is just
-an Org document. [[file:../lisp/ui/ogent-ui.el::676][ogent-response-function]] is the pluggable factory
-enabling alternative renderers. Tool calls are intercepted in the gptel
-callback and routed through the approval gate, then to sync execution,
-async streaming drawers, or diff previews.
+an Org document. Zen presentation is layered on top without changing
+that text: generated =Request:= headings keep a first-line prompt
+summary, but overlays can render from the original bullet title, a
+derived =OGENT_RESULT_TITLE=, or active tool state. Expanded requests are
+prompt-first; folded completed requests become result-first answer
+indexes and may add a muted virtual preview line. The suffix is built
+from semantic parts, then filtered by =ogent-zen-result-headline-density=
+(=minimal=, =balanced=, =rich=, =debug=): outcome badges, tool
+diagnostics, multi-model chips, selected response badges, lineage, model,
+latency, workspace, and debug counts are separate lanes rather than one
+hard-coded blob. Low-priority metadata right-aligns in wide graphical
+windows; terminals and narrow windows fall back to inline text.
+Individual tool-call failures stay as tool metadata instead of failing
+the run card; request-level model, network, and aborted runs name the
+failing subsystem inline and use the error face. Response overlays are
+muted secondary rows, but folded responses carry response-local previews
+and response-level review states can select the winning answer for a
+multi-model request.
+
+Zen review no longer hangs on one overloaded =OGENT_REVIEW= property.
+The implementation now persists structured review metadata:
+=OGENT_DECISION=, =OGENT_REVIEW_STATUS=, =OGENT_USEFULNESS=,
+=OGENT_LINEAGE=, =OGENT_OUTCOME=, =OGENT_REVIEWED_AT=,
+=OGENT_REVIEWER=, and =OGENT_REVIEW_NOTE=, then mirrors the dominant
+state back into legacy =OGENT_REVIEW= for compatibility. A visible
+=:REVIEW:= drawer makes the transcript self-describing in plain Org, and
+=ogent-zen-review-run= / =ogent-zen-review-response= make target choice
+explicit while =ogent-review-dashboard= exposes a queue over reviewable
+Zen items. Parent breadcrumb suffixes stay hidden unless
+=ogent-zen-show-breadcrumbs= is non-nil, overlay-local action bindings
+stay hidden unless =ogent-zen-heading-actions= is non-nil, and optional
+=ogent-zen-visual-lanes= can mirror status icons into the margin. Star
+compositions quiet bullets; active icons rotate only in visible buffers;
+org-fold hides transcript drawers/tool drawers/prompt blocks; earlier
+sibling runs collapse and unreviewed older runs become =superseded=; and
+=ogent-zen-copy-response= extracts just the response body for kill-ring
+reuse. All of this is reversible, so history replay and regex-based
+helpers keep working.
+
+Enabling: =ogent-zen-mode= is buffer-local and auto-enabled with
+=ogent-mode= in Org buffers when =ogent-zen-enable-in-org= is non-nil.
+=global-ogent-zen-mode= (a =define-globalized-minor-mode= driven by
+=ogent-zen--turn-on=) turns it on in every Org buffer independently of
+=ogent-mode=, restricted by the =(org-mode)= predicate and skipping
+space-prefixed scratch buffers so prompt-extraction temp buffers stay
+plain.
+
+Malleable editing adds =ogent-zen-scope= as the unit between headings and
+raw buffers. A scope separates the prompt target from the context root and
+transcript anchor: =ogent-run-subtree= still uses a subtree scope, while
+=ogent-zen-run-region= and =ogent-zen-edit-dwim= keep the nearest
+user-authored heading as the context/transcript anchor and store live
+markers around the selected region, paragraph, sentence, or Org element.
+Edit scopes ask for one SEARCH/REPLACE block, persist =OGENT_SCOPE_KIND=,
+=OGENT_TARGET_BEGIN=, =OGENT_TARGET_END=, =OGENT_TARGET_SHA256=, and
+=OGENT_EDIT_STATUS= on the generated request, then validate the response
+against live markers before falling back to a unique search inside the
+owning heading while skipping generated transcripts. Valid proposals
+replace the target with the new text and call =inline-diff-words-region=;
+=ogent-zen-accept-edit= keeps that text, and =ogent-zen-reject-edit=
+restores the snapshot.
+
+Refreshes are region-scoped per transcript
+([[file:../lisp/ogent-zen.el::372][ogent-zen-refresh-at]]) rather than whole-buffer rescans.
+[[file:../lisp/ui/ogent-ui.el::676][ogent-response-function]] is the
+pluggable factory enabling alternative renderers. Tool calls are
+intercepted in the gptel callback and routed through the approval gate,
+then to sync execution, async streaming drawers, or diff previews.
 
 Intuition: A switchboard operator with a logbook — every outgoing call
 gets a numbered ticket and a reserved page in the Org notebook; chunks
@@ -1920,7 +2005,8 @@ Key definitions (beyond those in the walkthrough): defcustoms
 [[file:../lisp/ui/ogent-ui.el::3142][ogent-pause-request]],
 [[file:../lisp/ui/ogent-ui.el::3171][ogent-resume-request]],
 [[file:../lisp/ui/ogent-ui.el::3191][ogent-retry-request]]. User entries:
-[[file:../lisp/ui/ogent-ui.el::962][ogent-ask-here]],
+[[file:../lisp/ogent-zen.el::203][ogent-run-subtree]] (run the current bullet
+without a minibuffer prompt), [[file:../lisp/ui/ogent-ui.el::962][ogent-ask-here]],
 [[file:../lisp/ui/ogent-ui.el::977][ogent-ask-menu]],
 [[file:../lisp/ui/ogent-ui.el::2121][ogent-request]].
 
@@ -2164,8 +2250,9 @@ The rules the code actively enforces, each with the enforcing line.
 What is *not* enforced, deliberately: there is no OS-level sandbox. The
 effects =:scope= (=workspace= / =unrestricted=) is declarative risk
 metadata for the approval prompt;
-[[file:../lisp/ogent-tools.el::180][ogent-tools--resolve-path]] anchors relative paths to the project root
-but absolute paths pass through. The human approval gate *is* the
+[[file:../lisp/ogent-tools.el::180][ogent-tools--resolve-path]] anchors relative paths to the request workspace
+(when Zen inferred one) or the project root, but absolute paths pass
+through. The human approval gate *is* the
 sandbox.
 
 * Failure modes

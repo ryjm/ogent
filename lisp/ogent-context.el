@@ -481,6 +481,9 @@ If REGION-START and REGION-END are provided, include the selected region."
   "Return structured provenance entries for CONTEXT."
   (let ((entries nil)
         (source-ctx (plist-get context :source-context))
+        (workspace-root (plist-get context :workspace-root))
+        (workspace-source (plist-get context :workspace-source))
+        (workspace-brief (plist-get context :workspace-brief))
         (root (plist-get context :root))
         (ancestors (plist-get context :ancestors))
         (dependencies (plist-get context :dependencies))
@@ -497,6 +500,17 @@ If REGION-START and REGION-END are provided, include the selected region."
                "active source buffer")
              (ogent-source-context-content source-ctx)
              (ogent-source-context-file source-ctx))
+            entries))
+    (when workspace-root
+      (push (ogent-context--manifest-entry
+             'workspace
+             workspace-root
+             (format "workspace root for relative tool paths%s"
+                     (if workspace-source
+                         (format "; inferred from %s" workspace-source)
+                       ""))
+             workspace-brief
+             workspace-root)
             entries))
     (when root
       (push (ogent-context--node-manifest-entry
@@ -559,6 +573,7 @@ If REGION-START and REGION-END are provided, include the selected region."
 (defun ogent-context--format-manifest (context)
   "Return a compact manifest for CONTEXT."
   (let* ((source-ctx (plist-get context :source-context))
+         (workspace-root (plist-get context :workspace-root))
          (root (plist-get context :root))
          (ancestors (plist-get context :ancestors))
          (dependencies (plist-get context :dependencies))
@@ -578,6 +593,8 @@ If REGION-START and REGION-END are provided, include the selected region."
                         (buffer-name (ogent-source-context-buffer source-ctx)))
                     (length (or (ogent-source-context-content source-ctx) "")))
             lines))
+    (when workspace-root
+      (push (format "- Workspace root: %s" workspace-root) lines))
     (when root
       (push (format "- Root: %s" (ogent-context--format-node-reference root))
             lines))
@@ -625,8 +642,14 @@ If REGION-START and REGION-END are provided, include the selected region."
 (defun ogent-context-render-prompt (prompt context)
   "Render PROMPT and CONTEXT into the exact payload sent to the model."
   (let* ((source-ctx (plist-get context :source-context))
+         (workspace-root (plist-get context :workspace-root))
+         (workspace-source (plist-get context :workspace-source))
+         (workspace-target (plist-get context :workspace-target))
+         (workspace-tool-intent (plist-get context :workspace-tool-intent))
+         (workspace-brief (plist-get context :workspace-brief))
          (root (plist-get context :root))
          (ancestors (plist-get context :ancestors))
+         (zen-run (plist-get context :zen-run))
          (dependencies (plist-get context :dependencies))
          (resolved-dependencies
           (cl-remove-if (lambda (dep)
@@ -645,17 +668,50 @@ If REGION-START and REGION-END are provided, include the selected region."
                  prompt
                  "# Context Manifest"
                  (ogent-context--format-manifest context)
+                 (when workspace-root
+                   (format
+                    "# Workspace\n%s"
+                    (string-join
+                     (delq nil
+                           (list
+                            (format "Root: %s" workspace-root)
+                            (when workspace-source
+                              (format "Source: inferred from %s"
+                                      workspace-source))
+                            (when (and workspace-target
+                                       (not (equal workspace-target
+                                                   workspace-root)))
+                              (format "Referenced path: %s"
+                                      workspace-target))
+                            (if workspace-tool-intent
+                                "Tool-use expectation: this request asks to inspect the workspace. Before giving substantive recommendations, call one or two targeted read-only ogent tools (`read-file`, `glob`, or `grep`) against the workspace or referenced path. Prefer `read-file` for known files and `glob` before broad search; use `grep` only with a concrete non-empty pattern. Then answer from those observations instead of looping on tools or relying on the brief alone."
+                              "Relative ogent tool paths resolve from this root for this request. If the user asks for code-grounded ideas, inspect relevant files before making implementation claims.")
+                            (when (and workspace-brief
+                                       (not (string-empty-p workspace-brief)))
+                              workspace-brief)))
+                     "\n\n")))
                  (when source-ctx
                    (format "# Source Buffer\n%s"
                            (ogent-context--format-source-context source-ctx)))
                  (when ancestors
-                   (format "# Org Ancestors\n%s"
-                           (mapconcat
-                            (lambda (node)
-                              (format "- %s"
-                                      (ogent-context--format-node-reference node)))
-                            ancestors
-                            "\n")))
+                   (if zen-run
+                       (format "# Parent Bullets\n%s"
+                               (mapconcat
+                                (lambda (entry)
+                                  (ogent-context--format-node-payload
+                                   (format "Parent %d" (car entry))
+                                   (cdr entry)))
+                                (cl-mapcar #'cons
+                                           (number-sequence 1 (length ancestors))
+                                           ancestors)
+                                "\n\n"))
+                     (format "# Org Ancestors\n%s"
+                             (mapconcat
+                              (lambda (node)
+                                (format "- %s"
+                                        (ogent-context--format-node-reference node)))
+                              ancestors
+                              "\n"))))
                  (when root
                    (format "# Org Root\n%s"
                            (ogent-context--format-node-payload "Root" root)))
@@ -717,13 +773,13 @@ If REGION-START and REGION-END are provided, include the selected region."
                              :buffer buffer)))
 
 (defun ogent-context--ancestor-elements (element)
-  "Return a list of ELEMENT's ancestor headline elements."
+  "Return ELEMENT's ancestor headlines from top-level to immediate parent."
   (let ((ancestors nil)
         (parent element))
     (while (setq parent (org-element-property :parent parent))
       (when (eq (org-element-type parent) 'headline)
         (push parent ancestors)))
-    (nreverse ancestors)))
+    ancestors))
 
 (defun ogent-context--collect-handles (text)
   "Return a list of unique handles (without the leading @) in TEXT."

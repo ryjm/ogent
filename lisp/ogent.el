@@ -109,6 +109,7 @@
 (require 'ogent-doctor)
 (require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
+(require 'ogent-zen)
 (require 'ogent-ui-backlinks)
 (require 'ogent-ui-graph)
 (require 'ogent-onboard)

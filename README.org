@@ -24,7 +24,7 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 
 - *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
 
-- *Commands, not conversations*: =C-c . q= asks about the current subtree in place. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+- *Commands, not conversations*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
 
 * Requirements
 - Emacs 29.1 or newer
@@ -117,18 +117,92 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
-- Press =C-c . q= to ask about the subtree at point; ogent inserts a folded =Request= and streams the =Response= below that subtree.
-- Press =C-c . ?= when you are unsure: the ask menu names the active scope and offers inline ask, popup ask, context preview, and the full dispatcher.
+- Write a normal Org bullet/heading, then press =C-c . RET= to run that subtree as the prompt; ogent inserts a compact =Request:= / =Response= transcript below it.
+- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs — each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
+- Workspace selection is prose-first: a bullet like =look in ~/vault/projects/ogent for ideas= makes that directory the request workspace. Explicit labels (=Context:=, =Workspace:=, =Project:=, =Repo:=) still work, but are optional. The payload shows a =# Workspace= section, relative ogent tool paths resolve from that root, and code-grounded wording asks gptel to use read-only tools before answering.
+- Re-run a bullet from anywhere inside its transcript: =C-c . RET= appends a fresh run, =C-c . != (or =C-c C-c= on the transcript) replaces it. Earlier runs collapse automatically when a new run starts.
+- Press =C-c . q= to ask a new minibuffer question about the subtree at point.
+- Press =C-c . ?= when you are unsure: the ask menu names the active scope and offers run-current-bullet, re-run, inline ask, popup ask, malleable region ask/rewrite, edit application, context preview, and the full dispatcher.
 - Press =C-c . p= to open the dispatcher, pick models, and send the current subtree.
 - Doom/Evil users get the same command surface under =SPC o= when =ogent-setup-doom-bindings= or evil bindings are active.
 - Use =C-c . c= for a context preview and =C-c . m= to inspect the codemap.
 - Press =C-c . d= to capture the last AI response to a Notes child heading.
 - To attach reusable prompt snippets, create Org nodes with an =OGENT_ID= (see =docs/prompts.org=).
 
+** Zen notebook presentation
+=ogent-zen-mode= (enabled with =ogent-mode= in Org buffers; see
+=ogent-zen-enable-in-org=) keeps the page quiet without touching the
+stored text.  To turn it on for every Org buffer independently of
+=ogent-mode=, enable =global-ogent-zen-mode= (it activates in Org
+buffers only and skips internal scratch buffers):
+- Heading stars compose into a uniform bullet (=ogent-zen-bullet=,
+  default =•=; skipped automatically when org-modern, org-bullets, or
+  org-superstar is active).
+- Generated =Request:= / =Response= headings render as compact run cards:
+  expanded requests stay prompt-first, while folded completed requests
+  become result-first indexes such as =✓ 10 grounded ideas · from “Better
+  headline display”=.  Folded results can add a muted virtual preview line
+  (=ogent-zen-folded-result-preview=) without changing the stored Org.
+  Request metadata is split into outcome badges and lower-priority
+  right-aligned metadata when the window can support it; density is
+  customizable with =ogent-zen-result-headline-density= (=minimal=,
+  =balanced=, =rich=, or =debug=).
+  Multi-model runs show model chips, selected/accepted responses, and
+  sibling lineage such as =latest= or =superseded by newer run=.  Active
+  tool work is promoted into the main title (=reading lisp/ogent-zen.el ·
+  Headline idea=) rather than buried in a suffix.  Tool-call failures stay
+  as inline diagnostics instead of failing the run card; only request-level
+  model/network/abort failures turn the headline red.  Empty runs show
+  =0 chars= instead of a vague warning.
+  Response headings are quieter secondary rows and, when folded, carry
+  response-local result previews plus review badges.  Zen review now
+  persists a structured decision model (=OGENT_DECISION=,
+  =OGENT_REVIEW_STATUS=, =OGENT_USEFULNESS=, =OGENT_LINEAGE=,
+  =OGENT_OUTCOME=, timestamps, reviewer, and a visible =:REVIEW:= drawer)
+  while keeping legacy =OGENT_REVIEW= in sync for older transcripts.
+  Review can explicitly target the run or one response, can accept a
+  response as the selected model, and exposes a queue/dashboard workflow
+  under =C-c ,=.  Active requests animate only in visible buffers
+  (=ogent-zen-pretty-headings=).  Parent breadcrumb suffixes are opt-in
+  via =ogent-zen-show-breadcrumbs=.  Overlay-local =RET= / =r= / =u= /
+  =e= action hints and bindings are opt-in via =ogent-zen-heading-actions=
+  so Evil and other modal keymaps keep owning those keys by default.
+  Use =C-c . w= (=ogent-zen-copy-response=) anywhere in a Zen transcript
+  to copy only the response body, without request metadata or headings.
+  Malleable editing uses the same tree-context machinery at smaller scope:
+  =C-c . C-r= (=ogent-zen-run-region=) asks about the active region,
+  =C-c . C-e= (=ogent-zen-edit-dwim=) rewrites the active region /
+  paragraph / sentence with a SEARCH/REPLACE response, and =C-c . C-a=
+  (=ogent-zen-apply-last-edit=) replays the latest structured edit into
+  an inline diff preview.  Accept or reject the preview with
+  =ogent-zen-accept-edit= / =ogent-zen-reject-edit= (or
+  =inline-diff-mode='s =C-c C-c= / =C-c C-k=).  Tool calls no longer
+  inline into the notebook: Zen records them out of band so repeated
+  prompt submissions stay responsive, keeps a compact count on the
+  request headline, and opens the full list (arguments, results, status)
+  in a separate buffer with =C-c . h= (=ogent-zen-show-tool-calls=).
+  Set =ogent-zen-tool-calls-inline= to restore the legacy inline
+  =:TOOL:= drawers.  Transcript property drawers and prompt blocks fold
+  away immediately (=ogent-zen-fold-noise=), and earlier runs collapse
+  with status, model, result titles, and =superseded= lineage when a new
+  run starts (=ogent-zen-collapse-previous-runs=).
+- Set =ogent-zen-center-column= to an integer (e.g. =80=) to center the
+  notebook in wide windows.
+Disabling the mode restores plain Org; the underlying transcript is
+always standard =Request:= / =Response= text, so history replay and
+older tooling keep working.
+
 ** Keybindings
 | Key       | Command                       | Description                              |
 |-----------+-------------------------------+------------------------------------------|
 | =C-c . p= | =ogent-prompt-dispatch=       | Open dispatcher to select models/presets |
+| =C-c . RET= | =ogent-run-subtree=            | Run current bullet/subtree as prompt     |
+| =C-c . != | =ogent-zen-rerun=              | Re-run transcript at point (or run bullet) |
+| =C-c . w= | =ogent-zen-copy-response=      | Copy only the Zen response body            |
+| =C-c . u= | =ogent-zen-review-menu=        | Mark Zen request/response review state    |
+| =C-c . C-r= | =ogent-zen-run-region=       | Ask about active region with Zen context |
+| =C-c . C-e= | =ogent-zen-edit-dwim=        | Rewrite region/paragraph/sentence        |
+| =C-c . C-a= | =ogent-zen-apply-last-edit=  | Re-preview latest structured edit        |
 | =C-c . r= | =ogent-request=               | Send request with current context        |
 | =C-c . a= | =ogent-abort-request=         | Abort current request                    |
 | =C-c . R= | =ogent-retry-request=         | Retry last request                       |
@@ -143,6 +217,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . C= | =ogent-edit-goto-companion=   | Go to companion from source              |
 | =C-c . t= | =ogent-debug-tools-menu=      | Tools debug menu                         |
 | =C-c . T= | =ogent-tool-rerun=            | Re-run tool at point                     |
+| =C-c . h= | =ogent-zen-show-tool-calls=   | List Zen tool calls under heading        |
 | =C-c . b= | =ogent-show-backlinks=        | Show backlinks to current heading        |
 | =C-c . g= | =ogent-show-dependency-graph= | Show dependency graph                    |
 | =C-c . o= | =ogent-open-block=            | Open source block with ogent-mode        |
@@ -154,6 +229,19 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 | =C-c . ?= | =ogent-ask-menu=              | Show contextual ask menu                 |
 | =C-c . d= | =ogent-notes-capture=         | Capture last response to Notes heading   |
 | =C-c . D= | =ogent-debug-mode=            | Toggle debug mode                        |
+
+** Review Prefix
+| Key       | Command                    | Description                              |
+|-----------+----------------------------+------------------------------------------|
+| =C-c , n= | =ogent-review-next=       | Next review item needing attention       |
+| =C-c , p= | =ogent-review-previous=   | Previous review item needing attention   |
+| =C-c , a= | =ogent-review-accept=     | Accept current completion/Zen item       |
+| =C-c , x= | =ogent-review-reject=     | Reject current completion/Zen item       |
+| =C-c , u= | =ogent-review-useful=     | Mark current Zen item useful             |
+| =C-c , m= | =ogent-review-defer=      | Mark current Zen item needs review       |
+| =C-c , s= | =ogent-review-stale=      | Mark current Zen item stale              |
+| =C-c , d= | =ogent-review-dashboard=  | Open the Zen review queue/dashboard      |
+| =C-c , .= | =ogent-review-describe=   | Explain current review target and state  |
 
 ** Cabinet
 
