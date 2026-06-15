@@ -714,6 +714,31 @@ pending sentinels, which would starve the loop."
             (should (string-match-p "matches" result))))
       (delete-directory temp-dir t))))
 
+
+(ert-deftest ogent-tools-grep-accepts-file-path ()
+  "Grep searches a single file without treating it as `default-directory'."
+  (let ((test-file (make-temp-file "ogent-grep-file-")))
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "headline overlay\nother text\n"))
+          (let ((ogent-tools-show-progress nil)
+                (ogent-tools-stream-callback nil)
+                (ogent-tools--progress-timer nil)
+                (ogent-tools--progress-state nil)
+                (result (ogent-tool--grep "headline" test-file)))
+            (should (string-match-p "headline overlay" result))
+            (should-not ogent-tools--progress-timer)))
+      (delete-file test-file))))
+
+(ert-deftest ogent-tools-grep-rejects-empty-pattern ()
+  "Grep rejects empty patterns before starting progress."
+  (let ((ogent-tools--progress-timer nil)
+        (ogent-tools--progress-state nil))
+    (should-error (ogent-tool--grep "" default-directory))
+    (should-not ogent-tools--progress-timer)
+    (should-not ogent-tools--progress-state)))
+
 (ert-deftest ogent-tools-grep-no-match ()
   "Grep sync returns no-matches message for unmatched pattern."
   (let ((temp-dir (make-temp-file "ogent-grep-" t)))
@@ -1047,6 +1072,44 @@ pending sentinels, which would starve the loop."
                                    events)))))
       (when (and proc (process-live-p proc))
         (kill-process proc))
+      (ogent-tools-cancel-all))))
+
+
+(ert-deftest ogent-tools-grep-async-accepts-file-path ()
+  "Async grep searches a single file without hanging on `default-directory'."
+  (let ((test-file (make-temp-file "ogent-grep-async-file-"))
+        (events nil)
+        (ogent-tools-show-progress nil)
+        (ogent-tools-stream-callback nil)
+        (ogent-tools--active-processes nil)
+        (ogent-tools--progress-state nil)
+        (ogent-tools--progress-timer nil)
+        proc)
+    (unwind-protect
+        (progn
+          (with-temp-file test-file
+            (insert "headline overlay\nother text\n"))
+          (setq proc
+                (ogent-tool--grep-async
+                 "headline" test-file nil nil
+                 (lambda (type data)
+                   (push (list type data) events))))
+          (should proc)
+          (should
+           (ogent-tools-tests--wait-until
+            (lambda ()
+              (cl-find 'done events :key #'car))
+            3 proc))
+          (should (seq-find
+                   (lambda (event)
+                     (and (eq (car event) 'match)
+                          (string-match-p "headline overlay" (cadr event))))
+                   events))
+          (should-not ogent-tools--active-processes))
+      (when (and proc (process-live-p proc))
+        (kill-process proc))
+      (when (file-exists-p test-file)
+        (delete-file test-file))
       (ogent-tools-cancel-all))))
 
 (ert-deftest ogent-tools-grep-async-registers-for-cancellation ()
