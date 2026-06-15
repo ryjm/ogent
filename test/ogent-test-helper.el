@@ -9,6 +9,15 @@
 (require 'subr-x)
 (require 'org)
 
+;; Batch test runs must never block on Org's interactive prompt
+;;   "Non-existent agenda file ... [R]emove from list or [A]bort?"
+;; Suites create and tear down temporary Org trees, so a stale entry can
+;; outlive its file; Emacs 29's bundled Org raises that prompt (Emacs 30
+;; does not), which hangs `emacs --batch' forever waiting on stdin.  Skip
+;; unreadable agenda files so the prompt never fires on any Org version.
+(require 'org-agenda nil t)
+(setq org-agenda-skip-unavailable-files t)
+
 ;; Exclude .elc from load-suffixes so stale bytecode (which may embed
 ;; outdated macro expansions, e.g. magit-insert-section) is never loaded.
 ;; load-prefer-newer alone is insufficient: it still picks a newer .elc
