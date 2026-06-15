@@ -39,6 +39,7 @@ Add to your `~/.doom.d/config.el`:
              ogent-onboard
              ogent-prompt-dispatch
              ogent-request
+             ogent-run-subtree
              ogent-ai-speed-edit
              ogent-fix-buffer-diagnostics
              ogent-fix-diagnostic
@@ -88,9 +89,14 @@ Add to your `~/.doom.d/config.el`:
   (map! :leader
         (:prefix ("o" . "ogent")
          :desc "Prompt dispatch"     "p" #'ogent-prompt-dispatch
+         :desc "Run current bullet"  "RET" #'ogent-run-subtree
+         :desc "Re-run at point"     "!" #'ogent-zen-rerun
          :desc "Send request"        "r" #'ogent-request
          :desc "Ask here"           "q" #'ogent-ask-here
          :desc "Ask menu"           "?" #'ogent-ask-menu
+         :desc "Ask region"            "C-r" #'ogent-zen-run-region
+         :desc "Rewrite here"          "C-e" #'ogent-zen-edit-dwim
+         :desc "Apply last edit"       "C-a" #'ogent-zen-apply-last-edit
          :desc "AI speed edit"       "v" #'ogent-ai-speed-edit
          :desc "Fix diagnostic"      "f" #'ogent-fix-diagnostic
          :desc "Fix buffer diags"     "F" #'ogent-fix-buffer-diagnostics
@@ -120,6 +126,8 @@ All ogent commands are bound under `SPC o`:
 | Key       | Command                    | Description                          |
 |-----------|----------------------------|--------------------------------------|
 | `SPC o p` | `ogent-prompt-dispatch`    | Open transient menu (main entry)     |
+| `SPC o RET` | `ogent-run-subtree`       | Run current bullet/subtree as prompt |
+| `SPC o !` | `ogent-zen-rerun`          | Re-run transcript at point           |
 | `SPC o r` | `ogent-request`            | Send request with current context    |
 | `SPC o v` | `ogent-ai-speed-edit`      | AI chooses a small reviewable edit   |
 | `SPC o f` | `ogent-fix-diagnostic`     | Fix diagnostic at point              |
@@ -135,6 +143,9 @@ All ogent commands are bound under `SPC o`:
 | `SPC o R` | `ogent-retry-request`      | Retry last request                   |
 | `SPC o q` | `ogent-ask-here`           | Ask at point; insert Request/Response |
 | `SPC o ?` | `ogent-ask-menu`           | Show contextual ask menu              |
+| `SPC o C-r` | `ogent-zen-run-region`    | Ask about selected text               |
+| `SPC o C-e` | `ogent-zen-edit-dwim`     | Rewrite region/paragraph/sentence     |
+| `SPC o C-a` | `ogent-zen-apply-last-edit` | Re-preview latest structured edit   |
 | `SPC o m` | `ogent-codemap-buffer`     | Show project codemap                 |
 | `SPC o j` | `ogent-armory-home`       | Armory Home                         |
 | `SPC o K` | `ogent-armory-status`     | Armory graph/status                 |
@@ -158,6 +169,20 @@ All ogent commands are bound under `SPC o`:
 | `SPC o W` | `ogent-armory-apps`       | Armory app artifacts                |
 | `SPC o X` | `ogent-armory-create-agent` | Create Armory agent               |
 | `SPC o Z` | `ogent-armory-create-job` | Create Armory job                   |
+
+Review workflow keeps its own punctuation prefix in Doom/Evil as well:
+
+| Key | Command | Description |
+|-----|---------|-------------|
+| `C-c , n` | `ogent-review-next` | Next review item needing attention |
+| `C-c , p` | `ogent-review-previous` | Previous review item needing attention |
+| `C-c , a` | `ogent-review-accept` | Accept current completion or Zen item |
+| `C-c , x` | `ogent-review-reject` | Reject current completion or Zen item |
+| `C-c , u` | `ogent-review-useful` | Mark current Zen item useful |
+| `C-c , m` | `ogent-review-defer` | Mark current Zen item needs review |
+| `C-c , s` | `ogent-review-stale` | Mark current Zen item stale |
+| `C-c , d` | `ogent-review-dashboard` | Open the Zen review queue |
+| `C-c , .` | `ogent-review-describe` | Explain current review target/state |
 
 ## API Key Configuration
 

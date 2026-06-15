@@ -25,8 +25,19 @@
 (declare-function ogent-fix-diagnostic "ogent-edit")
 (declare-function ogent-quick-edit "ogent-edit")
 (declare-function ogent-request-edit "ogent-edit")
-
-;; Declare completion commands (defined in ogent-completions.el)
+(declare-function ogent-zen-run-region "ogent-zen")
+(declare-function ogent-zen-edit-dwim "ogent-zen")
+(declare-function ogent-zen-apply-last-edit "ogent-zen")
+(declare-function ogent-zen-review-menu "ogent-zen")
+(declare-function ogent-review-next "ogent-zen")
+(declare-function ogent-review-previous "ogent-zen")
+(declare-function ogent-review-reject "ogent-zen")
+(declare-function ogent-review-useful "ogent-zen")
+(declare-function ogent-review-defer "ogent-zen")
+(declare-function ogent-review-stale "ogent-zen")
+(declare-function ogent-review-dashboard "ogent-zen")
+(declare-function ogent-review-describe "ogent-zen")
+(declare-function ogent-zen-show-tool-calls "ogent-zen")
 (declare-function ogent-completion-next "ogent-completions")
 (declare-function ogent-completion-prev "ogent-completions")
 (declare-function ogent-completion-accept "ogent-completions")
@@ -95,8 +106,9 @@ With Doom's default leader this makes commands available under SPC o."
   :group 'ogent-keys)
 
 (defcustom ogent-review-prefix "C-c ,"
-  "Prefix for ergonomic review keybindings.
-This punctuation prefix provides quick access to completion review commands."
+  "Prefix for backend-aware review commands.
+The review prefix drives both older completion review and newer Zen
+transcript review workflows through a shared command surface."
   :type 'string
   :group 'ogent-keys)
 
@@ -162,6 +174,8 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Tools debug menu")
     (tool-rerun       :key "T" :command ogent-tool-rerun
                       :desc "Re-run tool at point")
+    (zen-tool-calls   :key "h" :command ogent-zen-show-tool-calls
+                      :desc "Tool calls under heading")
     ;; Navigation (transient menu)
     (navigate         :key "n" :command ogent-navigate
                       :desc "Navigate menu")
@@ -181,9 +195,27 @@ Set to nil to disable automatic evil binding setup."
     (session-list     :key "H" :command ogent-session-list
                       :desc "List sessions")
     ;; Ask
+    (run-subtree      :key "RET" :command ogent-run-subtree
+                      :desc "Run subtree"
+                      :visual t)
+    (zen-rerun        :key "!" :command ogent-zen-rerun
+                      :desc "Re-run at point")
+    (zen-copy-response
+     :key "w" :command ogent-zen-copy-response
+     :desc "Copy Zen response")
+    (zen-review-menu :key "u" :command ogent-zen-review-menu
+                     :desc "Review Zen run")
     (ask-here         :key "q" :command ogent-ask-here
                       :desc "Ask here"
                       :visual t)
+    (ask-region       :key "C-r" :command ogent-zen-run-region
+                      :desc "Ask region"
+                      :visual t)
+    (zen-edit-dwim    :key "C-e" :command ogent-zen-edit-dwim
+                      :desc "Rewrite here"
+                      :visual t)
+    (zen-apply-edit   :key "C-a" :command ogent-zen-apply-last-edit
+                      :desc "Apply last edit")
     (ask-menu         :key "?" :command ogent-ask-menu
                       :desc "Ask menu")
     (notes            :key "d" :command ogent-notes-capture
@@ -261,17 +293,26 @@ Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")
 
 (defconst ogent-review-action-registry
-  '(;; Ergonomic review commands (`ogent-review-prefix' prefix)
-    (review-next   :key "n" :command ogent-completion-next
-                   :desc "Next completion")
-    (review-prev   :key "p" :command ogent-completion-prev
-                   :desc "Previous completion")
-    (review-accept :key "a" :command ogent-review-accept
-                   :desc "Accept completion")
-    (review-reject :key "x" :command ogent-completion-reject
-                   :desc "Reject completion"))
-  "Registry of review actions for `ogent-review-prefix'.
-These are ergonomic keybindings optimized for the review workflow.")
+  '(;; Backend-aware review commands (`ogent-review-prefix' prefix)
+    (review-next      :key "n" :command ogent-review-next
+                      :desc "Next review item")
+    (review-prev      :key "p" :command ogent-review-previous
+                      :desc "Previous review item")
+    (review-accept    :key "a" :command ogent-review-accept
+                      :desc "Accept current item")
+    (review-reject    :key "x" :command ogent-review-reject
+                      :desc "Reject current item")
+    (review-useful    :key "u" :command ogent-review-useful
+                      :desc "Mark useful")
+    (review-defer     :key "m" :command ogent-review-defer
+                      :desc "Needs review")
+    (review-stale     :key "s" :command ogent-review-stale
+                      :desc "Mark stale")
+    (review-dashboard :key "d" :command ogent-review-dashboard
+                      :desc "Review dashboard")
+    (review-describe  :key "." :command ogent-review-describe
+                      :desc "Describe review state"))
+  "Registry of backend-aware review actions for `ogent-review-prefix'.")
 
 ;;; Binding Generators
 

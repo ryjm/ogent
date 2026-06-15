@@ -146,8 +146,17 @@ they are ordered from most to least fundamental.
   effects stamped on every discovered MCP tool so none can auto-execute.
   Defcustom [[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]]; stamped in
   [[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]].
-- tool drawer :: The Org drawer a completed tool call is rendered into in
-  the transcript. [[file:../lisp/ui/ogent-ui.el::2249][ogent-ui--insert-tool-drawer]].
+- tool drawer :: The Org =:TOOL:= drawer a completed tool call can be
+  rendered into in the transcript.  Opt-in for Zen buffers
+  (=ogent-zen-tool-calls-inline=); by default Zen records calls out of
+  band instead. [[file:../lisp/ui/ogent-ui.el::2644][ogent-ui--insert-tool-drawer]].
+- Zen tool-call store :: The buffer-local, session-scoped record of tool
+  calls Zen keeps out of the notebook so it stays responsive as runs
+  accumulate, summarized on the request headline and inspected per
+  headline in a separate buffer.  Store
+  [[file:../lisp/ogent-zen.el::238][ogent-zen--tool-runs]]; recorder
+  [[file:../lisp/ogent-zen.el::290][ogent-zen-record-tool-call]]; inspector
+  [[file:../lisp/ogent-zen.el::909][ogent-zen-show-tool-calls]].
 - streaming drawer :: The live-updating drawer used for async tool (bash)
   output. Struct [[file:../lisp/ui/ogent-ui.el::2301][ogent-streaming-drawer]].
 - streaming callback :: The =(TOOL TYPE DATA)= event hook tools emit

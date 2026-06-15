@@ -36,8 +36,8 @@ ogent depends on [gptel](https://github.com/karthink/gptel) for LLM communicatio
 ```elisp
 (use-package! ogent
   :defer t
-  :commands (ogent-mode ogent-prompt-dispatch ogent-request
-             ogent-ai-speed-edit ogent-onboard)
+  :commands (ogent-mode ogent-prompt-dispatch ogent-run-subtree
+             ogent-request ogent-ai-speed-edit ogent-onboard)
   :init
   (setq ogent-enable-doom-bindings t
         ogent-doom-prefix "o")
@@ -70,8 +70,8 @@ git clone https://github.com/your-org/ogent.git ~/path/to/ogent
 ;; Load ogent
 (use-package ogent
   :after gptel
-  :commands (ogent-mode ogent-prompt-dispatch ogent-request
-             ogent-ai-speed-edit ogent-onboard)
+  :commands (ogent-mode ogent-prompt-dispatch ogent-run-subtree
+             ogent-request ogent-ai-speed-edit ogent-onboard)
   :bind-keymap ("C-c ." . ogent-mode-map)
   :config
   ;; Optional: set default model
@@ -96,8 +96,8 @@ dotspacemacs-additional-packages
 (defun dotspacemacs/user-config ()
   ;; ogent configuration
   (use-package ogent
-    :commands (ogent-mode ogent-prompt-dispatch ogent-request
-               ogent-ai-speed-edit ogent-onboard)
+    :commands (ogent-mode ogent-prompt-dispatch ogent-run-subtree
+               ogent-request ogent-ai-speed-edit ogent-onboard)
     :init
     (spacemacs/declare-prefix "ae" "ogent")
     (spacemacs/set-leader-keys
@@ -174,9 +174,9 @@ ogent works within Org-mode buffers, treating each heading as an addressable blo
 Open an Org file and run `M-x ogent-mode` (or `M-x ogent-global-mode` to
 enable it everywhere).
 
-### 2. Write Your Prompt
+### 2. Write a Bullet
 
-Under any heading, write your prompt as regular text. You can reference other headings using `@handle` syntax:
+Under any heading, write a normal Org child heading or bullet. Parent headings become context; the current subtree becomes the prompt:
 
 ```org
 * Project Overview
@@ -188,16 +188,42 @@ This project implements a REST API for user management.
 
 * Implementation Task
 
+Use the project conventions and keep the API small.
+
+** Add user authentication
+
 I need to add user authentication. Consider the context in @overview.
 Please suggest an implementation approach.
 ```
 
-### 3. Send a Request
+### 3. Run the Current Bullet
 
-With your cursor in the heading you want to send:
-- `M-x ogent-request` or
-- `SPC o r` (Doom/Evil) or
-- `C-c . r` (vanilla Emacs)
+With your cursor inside `Add user authentication`, run:
+- `M-x ogent-run-subtree` or
+- `SPC o RET` (Doom/Evil) or
+- `C-c . RET` (vanilla Emacs)
+
+ogent sends the bullet/subtree text as `# User Prompt`. Each parent bullet contributes its own body text under `# Parent Bullets` — children and earlier transcripts are trimmed out, so nothing in the payload is duplicated.
+
+
+For repo-aware dogfooding, just say where to look:
+
+```org
+* Ogent Zen
+Look in ~/vault/projects/ogent for the working code.
+
+** Result headline design
+*** Better way of displaying result headlines
+Come up with implementation-aware ideas grounded in the code.
+```
+
+ogent infers the workspace from ordinary path prose. `Context:`, `Workspace:`, `Project:`, and `Repo:` labels still work, but are not required. The selected workspace creates a `# Workspace` section in the payload, makes ogent tool calls resolve relative paths from that root, stores workspace metadata on the generated request, and code-inspection wording directs gptel toward targeted read-only tool calls before it answers.
+
+Inside the result, Zen headings act like small run cards without changing the stored Org transcript. Expanded requests stay prompt-first; folded completed requests become result-first indexes, add an optional muted preview line, and can use persisted `OGENT_RESULT_TITLE` values derived from the answer. Active tool work is promoted into the main title, multi-model runs show compact model chips, sibling reruns show lineage, and low-priority metadata can right-align in wide graphical windows. `ogent-zen-result-headline-density` switches between `minimal`, `balanced`, `rich`, and `debug`. Empty runs show `0 chars`; individual tool-call failures stay as inline metadata instead of turning the run card red, while request-level model/network/abort failures name the failing subsystem and use the error styling. Review is no longer just one legacy `OGENT_REVIEW` tag: Zen now persists structured review metadata (`OGENT_DECISION`, `OGENT_REVIEW_STATUS`, `OGENT_USEFULNESS`, `OGENT_LINEAGE`, `OGENT_OUTCOME`, timestamps, reviewer) and mirrors it into a visible `:REVIEW:` drawer plus the legacy alias for older transcripts.
+
+It also works from *inside* a result: with point anywhere in a generated transcript, `C-c . RET` re-runs the owning bullet (a fresh run is appended and the previous one collapses). To **replace** the transcript at point instead, use `C-c . !` (`ogent-zen-rerun`) or just press `C-c C-c` on it — edit the bullet, re-run, compare. To reuse an answer elsewhere, use `C-c . w` / `SPC o w` (`ogent-zen-copy-response`) anywhere in the transcript; it copies only the response body, not the request, metadata, or Org heading.
+
+Malleable editing splits context from the edit target. `C-c . C-r` / `SPC o C-r` (`ogent-zen-run-region`) asks about selected text while preserving parent bullet context. `C-c . C-e` / `SPC o C-e` (`ogent-zen-edit-dwim`) rewrites the active region, paragraph, sentence, or nearby Org element by asking the model for one SEARCH/REPLACE block; successful responses preview in-place with inline diff overlays. `C-c . C-a` / `SPC o C-a` (`ogent-zen-apply-last-edit`) reapplies the latest structured edit from a transcript when you need to retry validation manually. Accept with `ogent-zen-accept-edit` / `C-c C-c` in `inline-diff-mode`, or reject with `ogent-zen-reject-edit` / `C-c C-k`.
 
 For more control, use the **prompt dispatcher**:
 - `M-x ogent-prompt-dispatch` or
@@ -211,7 +237,7 @@ The dispatcher lets you:
 
 ### 4. Ask from the Current Subtree
 
-With your cursor inside an Org heading, run:
+Use `C-c . q` / `SPC o q` when you want to type a new minibuffer question about the current subtree instead of running the bullet text itself:
 - `M-x ogent-ask-here` or
 - `SPC o q` (Doom/Evil) or
 - `C-c . q` (vanilla Emacs)
@@ -220,21 +246,21 @@ The minibuffer names the active scope, for example `Ask here about subtree "Impl
 When point is on a folded or bodyless child heading, the ask scope climbs to the nearest expanded parent, keeping visible sibling tasks in context.
 The response is inserted under that subtree as a normal folded `Request` / `Response` transcript.
 
-If you are unsure what to press, run `C-c . ?` / `SPC o ?` for the ask menu. It shows the active scope and offers inline ask, popup ask, ask-context preview, and the full dispatcher.
+If you are unsure what to press, run `C-c . ?` / `SPC o ?` for the ask menu. It shows the active scope and offers run-current-bullet, inline ask, popup ask, region ask, malleable rewrite, edit application, ask-context preview, and the full dispatcher.
 
 ### 5. Review Responses
 
-Responses stream inline as Org source blocks:
+Zen review has two layers:
 
-```org
-* Implementation Task
-...your prompt...
+- `C-c . u` / `SPC o u`: context-aware review menu for the current run or response
+- `C-c ,`: backend-aware review prefix shared by completions and Zen transcripts
 
-** Response
-#+begin_src text :model claude-sonnet-4-6
-Here's my suggested approach for user authentication...
-#+end_src
-```
+In Zen, review actions can target:
+
+- the whole run
+- one model response
+
+Accepting a response selects its model on the parent request, records structured review metadata, and keeps the transcript readable as plain Org through a `:REVIEW:` drawer. `C-c , d` opens a review dashboard/queue for the current Org buffer, and `C-c , .` explains the current review target and metadata.
 
 ### 6. Preview Context
 
@@ -255,6 +281,11 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `r` | `C-c . r` | `SPC o r` | Send request |
 | `a` | `C-c . a` | `SPC o a` | Abort request |
 | `R` | `C-c . R` | `SPC o R` | Retry last request |
+| `w` | `C-c . w` | `SPC o w` | Copy Zen response body |
+| `u` | `C-c . u` | `SPC o u` | Review Zen request/response |
+| `C-r` | `C-c . C-r` | `SPC o C-r` | Ask about selected text |
+| `C-e` | `C-c . C-e` | `SPC o C-e` | Rewrite region/paragraph/sentence |
+| `C-a` | `C-c . C-a` | `SPC o C-a` | Re-preview latest structured edit |
 | `c` | `C-c . c` | `SPC o c` | Preview context |
 | `m` | `C-c . m` | `SPC o m` | Show codemap |
 | `M` | `C-c . M` | `SPC o M` | Generate task codemap |
@@ -278,6 +309,20 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `[` | `C-c . [` | `SPC o [` | Previous completion |
 | `z` | `C-c . z` | `SPC o z` | Accept completion |
 | `x` | `C-c . x` | `SPC o x` | Reject completion |
+
+Review prefix (`C-c ,`) works in both vanilla Emacs and Doom/Evil:
+
+| Key | Command | Description |
+|-----|---------|-------------|
+| `C-c , n` | `ogent-review-next` | Next review item needing attention |
+| `C-c , p` | `ogent-review-previous` | Previous review item needing attention |
+| `C-c , a` | `ogent-review-accept` | Accept current completion or Zen item |
+| `C-c , x` | `ogent-review-reject` | Reject current completion or Zen item |
+| `C-c , u` | `ogent-review-useful` | Mark current Zen item useful |
+| `C-c , m` | `ogent-review-defer` | Mark current Zen item needs review |
+| `C-c , s` | `ogent-review-stale` | Mark current Zen item stale |
+| `C-c , d` | `ogent-review-dashboard` | Open the Zen review queue |
+| `C-c , .` | `ogent-review-describe` | Explain current review target/state |
 
 Run `M-x ogent-describe-bindings` to see all bindings in a help buffer.
 

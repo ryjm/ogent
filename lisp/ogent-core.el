@@ -24,6 +24,8 @@
 (declare-function ogent-abort-request "ui/ogent-ui")
 (declare-function ogent-retry-request "ui/ogent-ui")
 (declare-function ogent-ui--setup-highlight-mode "ui/ogent-ui")
+(declare-function ogent-zen-mode "ogent-zen" (&optional arg))
+(defvar ogent-zen-enable-in-org)
 (declare-function ogent-show-backlinks "ui/ogent-ui-backlinks")
 (declare-function ogent-show-dependency-graph "ui/ogent-ui-graph")
 (declare-function ogent-codemap-buffer "ogent-codemap")
@@ -212,13 +214,19 @@ to maintain conversation history."
                     #'ogent-context-completion-at-point nil t)
           ;; Add C-c C-c handler for Question headlines
           (add-hook 'org-ctrl-c-ctrl-c-hook
-                    #'ogent-session--ctrl-c-ctrl-c-handler nil t)))
+                    #'ogent-session--ctrl-c-ctrl-c-handler nil t)
+          (when (and (bound-and-true-p ogent-zen-enable-in-org)
+                     (fboundp 'ogent-zen-mode))
+            (ogent-zen-mode 1))))
     ;; Remove on disable
     (when (derived-mode-p 'org-mode)
       (remove-hook 'completion-at-point-functions
                    #'ogent-context-completion-at-point t)
       (remove-hook 'org-ctrl-c-ctrl-c-hook
-                   #'ogent-session--ctrl-c-ctrl-c-handler t))))
+                   #'ogent-session--ctrl-c-ctrl-c-handler t)
+      (when (and (boundp 'ogent-zen-mode)
+                 (bound-and-true-p ogent-zen-mode))
+        (ogent-zen-mode -1)))))
 
 (defun ogent--maybe-enable ()
   "Enable `ogent-mode' in current buffer.

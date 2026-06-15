@@ -27,6 +27,33 @@
 (declare-function ogent-context-build-with-source "ogent-context")
 (declare-function ogent-context--format-source-context "ogent-context")
 (declare-function ogent-context-render-prompt "ogent-context")
+
+;; Forward declarations for Zen presentation
+(declare-function ogent-run-subtree "ogent-zen" (&optional models preset templates))
+(declare-function ogent-zen-rerun "ogent-zen" ())
+(declare-function ogent-zen-run-region
+                  "ogent-zen" (question &optional models preset templates))
+(declare-function ogent-zen-edit-dwim
+                  "ogent-zen" (instruction &optional models preset templates))
+(declare-function ogent-zen-apply-last-edit "ogent-zen" ())
+(declare-function ogent-zen-refresh "ogent-zen" (&optional begin end))
+(declare-function ogent-zen-refresh-at "ogent-zen" (position))
+(declare-function ogent-zen-after-insert "ogent-zen" (request-pos))
+(declare-function ogent-zen-store-result-title "ogent-zen" (request))
+(declare-function ogent-zen-preview-edit-from-request
+                  "ogent-zen" (context request-pos))
+(declare-function ogent-zen--heading-point "ogent-zen" () t)
+(declare-function ogent-zen--context-transform "ogent-zen" (context point) t)
+(declare-function ogent-zen--tool-record-active-p "ogent-zen" ())
+(declare-function ogent-zen-record-tool-call
+                  "ogent-zen" (name args result &optional status context))
+(declare-function ogent-zen-tool-record-append "ogent-zen" (record chunk))
+(declare-function ogent-zen-tool-record-finish
+                  "ogent-zen" (record status &optional detail))
+(defvar ogent-zen-tool-calls-inline)
+(declare-function org-fold-region "org-fold" (from to flag &optional spec))
+(defvar ogent-zen-mode)
+(defvar ogent-tools-project-root)
 ;; cl-defstruct accessors (fileonly: generated, not findable by check-declare)
 (declare-function ogent-pinned-item-type "ogent-context" t t)
 (declare-function ogent-pinned-item-label "ogent-context" t t)
@@ -58,12 +85,13 @@
 ;; Silence byte-compiler for functions that may not be loaded at compile time
 (declare-function ogent-presets-available "ogent-models")
 (declare-function ogent-preset-get "ogent-models")
-
+(declare-function ogent-gptel-ensure-model-on-backend "ogent-gptel" (model backend))
 ;; gptel integration
 (declare-function gptel-backend-name "ext:gptel")
 (declare-function gptel-backend-models "ext:gptel")
 (declare-function gptel--model-name "ext:gptel")
 (declare-function gptel-backend-p "ext:gptel")
+(declare-function gptel-tool-name "ext:gptel-request" (tool))
 (defvar gptel--known-backends)
 (defvar gptel-backend)
 (defvar gptel-model)
@@ -434,6 +462,24 @@ Makes the variable buffer-local for session-level control."
             (string-join (list template-text prompt) "\n\n")))
       prompt)))
 
+(defun ogent-ui--model-id-or-default (&optional model-id)
+  "Return registered MODEL-ID, or the configured ogent default.
+This keeps buffer-local gptel state from breaking ogent when a buffer
+remembers a model that is not in `ogent-model-registry'."
+  (let* ((candidate (or model-id
+                        (and (boundp 'gptel-model)
+                             gptel-model)))
+         (candidate (cond
+                     ((and candidate (fboundp 'gptel--model-name))
+                      (gptel--model-name candidate))
+                     ((symbolp candidate)
+                      (symbol-name candidate))
+                     (t candidate)))
+         (default (plist-get (ogent-models-default) :id)))
+    (if (and candidate (ogent-models-get candidate))
+        candidate
+      default)))
+
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
 Captures source buffer context and sends to companion without switching focus.
@@ -462,12 +508,8 @@ concurrently (fan-out mode)."
                     (setf (ogent-ui-request-preset request) effective-preset)
                     (setf (ogent-ui-request-source-buffer request) source-buffer)
                     (ogent-ui--send-request request)))
-              ;; Single model: use current gptel-backend/gptel-model
-              (let* ((model (list :id (if (fboundp 'gptel--model-name)
-                                          (gptel--model-name gptel-model)
-                                        gptel-model)
-                                  :backend gptel-backend
-                                  :stream? gptel-stream))
+              ;; Single model: use the current registered gptel model, or ogent default.
+              (let* ((model (ogent-models-ensure (ogent-ui--model-id-or-default)))
                      (request (funcall ogent-response-function final-prompt context model)))
                 (unless (ogent-ui-request-p request)
                   (user-error "ogent-response-function must return an `ogent-ui-request'"))
@@ -777,6 +819,18 @@ DIFF-RESULT is a list of plists from `ogent-ui--diff-strings'."
    (ogent-ui--render-prompt prompt context)
    models))
 
+
+(defun ogent-ui--maybe-transform-zen-context (context &optional point)
+  "Return CONTEXT adjusted to match the current Zen run, when active."
+  (if (and (bound-and-true-p ogent-zen-mode)
+           (fboundp 'ogent-zen--heading-point)
+           (fboundp 'ogent-zen--context-transform))
+      (let ((zen-point (or point (ogent-zen--heading-point))))
+        (if zen-point
+            (ogent-zen--context-transform context zen-point)
+          context))
+    context))
+
 ;;;###autoload
 (defun ogent-context-preview ()
   "Render the current subtree context into a preview buffer.
@@ -787,8 +841,13 @@ When invoked from a non-Org buffer, includes source buffer context."
          (region-end (when (use-region-p) (region-end)))
          (companion (ogent-ui--ensure-companion-context)))
     (with-current-buffer companion
-      (let* ((context (ogent-context-build-with-source
-                       source-buffer region-start region-end))
+      (let* ((org-point (and (bound-and-true-p ogent-zen-mode)
+                             (fboundp 'ogent-zen--heading-point)
+                             (ogent-zen--heading-point)))
+             (context (ogent-ui--maybe-transform-zen-context
+                       (ogent-context-build-with-source
+                        source-buffer region-start region-end org-point)
+                       org-point))
              (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
              (buffer (ogent-ui--context-buffer)))
         (with-current-buffer buffer
@@ -837,8 +896,13 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
            (region-end (when (use-region-p) (region-end)))
            (companion (ogent-ui--ensure-companion-context)))
       (with-current-buffer companion
-        (let* ((context (ogent-context-build-with-source
-                         source-buffer region-start region-end))
+        (let* ((org-point (and (bound-and-true-p ogent-zen-mode)
+                               (fboundp 'ogent-zen--heading-point)
+                               (ogent-zen--heading-point)))
+               (context (ogent-ui--maybe-transform-zen-context
+                         (ogent-context-build-with-source
+                          source-buffer region-start region-end org-point)
+                         org-point))
                (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
                (buffer (ogent-ui--context-buffer)))
           (with-current-buffer buffer
@@ -1006,9 +1070,15 @@ fall back to the popup `ogent-ask' path."
   "Ask about the current ogent context."
   [:description ogent-ask-menu--scope-line
    ["Ask"
+    ("RET" "Run current bullet" ogent-run-subtree)
+    ("!" "Re-run at point" ogent-zen-rerun)
     ("q" ogent-ask-here :description ogent--desc-ask-here)
     ("?" ogent-ask :description ogent--desc-quick-ask)
     ("r" "Send prompt..." ogent-request)]
+   ["Malleable"
+    ("g" "Ask about region" ogent-zen-run-region)
+    ("x" "Rewrite region/paragraph" ogent-zen-edit-dwim)
+    ("A" "Apply last edit" ogent-zen-apply-last-edit)]
    ["Inspect"
     ("c" "Preview ask context" ogent-ask-context-preview-toggle :transient t)
     ("p" "Full dispatcher" ogent-prompt-dispatch)
@@ -1256,11 +1326,17 @@ transcript copy from Org syntax that can terminate or split the block."
   (replace-regexp-in-string "^\\(\\*\\|#\\+\\)" ",\\1" content))
 
 (defun ogent-ui--prompt-headline-summary (prompt)
-  "Return a single-line headline summary for PROMPT."
-  (let ((summary (string-join
-                  (split-string (string-trim (format "%s" prompt))
-                                "[[:space:]\n\r]+" t)
-                  " ")))
+  "Return a compact one-line headline summary for PROMPT.
+Use the first non-empty prompt line, not the whole prompt body.  Zen
+prompts are markdown bullets, so strip a leading bullet marker before
+truncating."
+  (let* ((lines (split-string
+                 (string-trim (substring-no-properties (format "%s" prompt)))
+                 "[\n\r]+" t))
+         (summary (string-trim (substring-no-properties (or (car lines) "")))))
+    (setq summary (string-join (split-string summary "[[:space:]]+" t) " "))
+    (when (string-match "\\`[-+*][ \t]+\\(.+\\)\\'" summary)
+      (setq summary (substring-no-properties (match-string 1 summary))))
     (if (string-empty-p summary)
         "(empty prompt)"
       (truncate-string-to-width summary 60 nil nil "..."))))
@@ -1411,6 +1487,23 @@ compacted list."
        (goto-char (point-max))
        (unless (bolp) (insert "\n"))))))
 
+(defun ogent-ui--maybe-refresh-zen (&optional request)
+  "Refresh Zen overlays when `ogent-zen-mode' is active.
+With REQUEST, refresh only that request's transcript region instead of
+rescanning the whole buffer."
+  (when (and (bound-and-true-p ogent-zen-mode)
+             (fboundp 'ogent-zen-refresh))
+    (let ((pos (and request
+                    (fboundp 'ogent-zen-refresh-at)
+                    (let ((marker (ogent-ui-request-request-heading-pos
+                                   request)))
+                      (and (markerp marker)
+                           (eq (marker-buffer marker) (current-buffer))
+                           (marker-position marker))))))
+      (if pos
+          (ogent-zen-refresh-at pos)
+        (ogent-zen-refresh)))))
+
 (defun ogent-ui--create-response-block (prompt context model)
   "Insert a nested headline structure for a request with MODEL.
 Creates a Request child under the current Org heading containing the
@@ -1441,8 +1534,47 @@ Returns a plist containing a streaming marker and block-start marker."
     (insert ":PROPERTIES:\n"
             (format ":OGENT_PROMPT: %s\n"
                     (ogent-ui--encode-prompt-property
-                     (substring-no-properties prompt)))
-            ":END:\n")
+                     (substring-no-properties prompt))))
+    (when (plist-get context :zen-run)
+      (let ((selection (plist-get context :zen-selection))
+            (scope-kind (plist-get context :zen-scope-kind))
+            (instruction (plist-get context :zen-scope-instruction))
+            (edit-p (plist-get context :zen-edit)))
+        (insert ":OGENT_STYLE: zen\n"
+                (format ":OGENT_KIND: %s\n" (if edit-p "edit" "request"))
+                (format ":OGENT_PATH: %s\n"
+                        (or (plist-get context :zen-path) "")))
+        (when scope-kind
+          (insert (format ":OGENT_SCOPE_KIND: %s\n" scope-kind)))
+        (when instruction
+          (insert (format ":OGENT_INSTRUCTION: %s\n"
+                          (ogent-ui--encode-prompt-property
+                           (substring-no-properties instruction)))))
+        (when edit-p
+          (insert ":OGENT_EDIT_STATUS: waiting\n"))
+        (when selection
+          (when-let ((begin (plist-get selection :begin)))
+            (insert (format ":OGENT_TARGET_BEGIN: %s\n" begin)))
+          (when-let ((end (plist-get selection :end)))
+            (insert (format ":OGENT_TARGET_END: %s\n" end)))
+          (when-let ((length (plist-get selection :length)))
+            (insert (format ":OGENT_TARGET_LENGTH: %s\n" length)))
+          (when-let ((sha256 (plist-get selection :sha256)))
+            (insert (format ":OGENT_TARGET_SHA256: %s\n" sha256))))
+        (when-let ((workspace-root (plist-get context :workspace-root)))
+          (insert (format ":OGENT_WORKSPACE: %s\n"
+                          (file-name-nondirectory
+                           (directory-file-name workspace-root)))
+                  (format ":OGENT_WORKSPACE_ROOT: %s\n" workspace-root))
+          (when-let ((workspace-target (plist-get context :workspace-target)))
+            (insert (format ":OGENT_WORKSPACE_TARGET: %s\n"
+                            workspace-target)))
+          (when-let ((workspace-source (plist-get context :workspace-source)))
+            (insert (format ":OGENT_WORKSPACE_SOURCE: %s\n"
+                            workspace-source)))
+          (when (plist-get context :workspace-tool-intent)
+            (insert ":OGENT_TOOLS: true\n")))))
+    (insert ":END:\n")
     ;; Insert the prompt/context src block under the request headline
     (setq block-start (point-marker))
     (insert (format "#+begin_src text :model %s%s :status waiting\n"
@@ -1462,6 +1594,11 @@ Returns a plist containing a streaming marker and block-start marker."
       ;; Keep the next sibling headline on its own line even when the final
       ;; streamed chunk has no trailing newline.
       (insert "\n")
+      (if (and (plist-get context :zen-run)
+               (bound-and-true-p ogent-zen-mode)
+               (fboundp 'ogent-zen-after-insert))
+          (ogent-zen-after-insert request-heading-pos)
+        (ogent-ui--maybe-refresh-zen))
       (list :marker marker
             :block-start block-start
             :response-pos response-heading-pos
@@ -1684,7 +1821,11 @@ heading (see `ogent-shift-response-headings')."
   (ogent-ui--update-block-header request)
   ;; Update margin indicator
   (when (fboundp 'ogent-status-update-indicator)
-    (ogent-status-update-indicator request new-status)))
+    (ogent-status-update-indicator request new-status))
+  (when-let* ((buffer (ogent-ui-request-buffer request)))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (ogent-ui--maybe-refresh-zen request)))))
 
 (defun ogent-ui--format-latency (request)
   "Return a formatted latency string for REQUEST, or nil if incomplete."
@@ -1707,6 +1848,7 @@ heading (see `ogent-shift-response-headings')."
                    (latency (ogent-ui--format-latency request))
                    (status-str (pcase status
                                  ('wait "waiting")
+                                 ('tool "tool")
                                  ('type "typing")
                                  ('done "done")
                                  ('error "error")
@@ -1750,6 +1892,34 @@ heading (see `ogent-shift-response-headings')."
          (backend (plist-get model :backend)))
     (ogent-provider-maybe-offer-login model-id backend error-message)))
 
+(defun ogent-ui--maybe-store-zen-result-title (request)
+  "Persist a derived Zen result title for REQUEST when Zen support is loaded."
+  (when (and (plist-get (ogent-ui-request-context request) :zen-run)
+             (fboundp 'ogent-zen-store-result-title))
+    (when-let* ((buffer (ogent-ui-request-buffer request))
+                (marker (ogent-ui-request-request-heading-pos request)))
+      (when (and (buffer-live-p buffer)
+                 (markerp marker)
+                 (marker-position marker))
+        (with-current-buffer buffer
+          (ignore-errors
+            (ogent-zen-store-result-title (marker-position marker))))))))
+
+(defun ogent-ui--maybe-preview-zen-edit (request)
+  "Preview a completed Zen edit REQUEST when it carries edit scope metadata."
+  (when (and (plist-get (ogent-ui-request-context request) :zen-edit)
+             (fboundp 'ogent-zen-preview-edit-from-request))
+    (when-let* ((buffer (ogent-ui-request-buffer request))
+                (marker (ogent-ui-request-request-heading-pos request)))
+      (when (and (buffer-live-p buffer)
+                 (markerp marker)
+                 (marker-position marker))
+        (with-current-buffer buffer
+          (ignore-errors
+            (ogent-zen-preview-edit-from-request
+             (ogent-ui-request-context request)
+             (marker-position marker))))))))
+
 (defun ogent-ui--close-response (request &optional error-message final-status)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
 FINAL-STATUS overrides the default terminal status.
@@ -1769,6 +1939,8 @@ Provides visual feedback via mode-line flash."
       (ogent-ui--maybe-offer-provider-login request message))
     (unless error-message
       (ogent-ui--update-status request (or final-status 'done))
+      (ogent-ui--maybe-store-zen-result-title request)
+      (ogent-ui--maybe-preview-zen-edit request)
       ;; Flash success with latency info
       (let ((latency (ogent-ui--format-latency request)))
         (ogent-theme-flash 'success
@@ -1828,6 +2000,26 @@ Provides visual feedback via mode-line flash."
     (run-hook-with-args 'ogent-after-request-hook
                         (ogent-ui-request-context request))))
 
+(defun ogent-ui--gptel-tool-result-entry (entry)
+  "Normalize one gptel tool-result ENTRY to (:name NAME :args ARGS :result RESULT)."
+  (if (plist-member entry :result)
+      (list :name (plist-get entry :name)
+            :args (plist-get entry :args)
+            :result (plist-get entry :result))
+    (let* ((tool (nth 0 entry))
+           (args (nth 1 entry))
+           (result (nth 2 entry))
+           (name (cond
+                  ((and tool (fboundp 'gptel-tool-name))
+                   (condition-case nil
+                       (gptel-tool-name tool)
+                     (error (format "%s" tool))))
+                  ((and (consp tool) (plist-get tool :name))
+                   (plist-get tool :name))
+                  (tool (format "%s" tool))
+                  (t "unknown"))))
+      (list :name name :args args :result result))))
+
 (defun ogent-ui--make-callback (request-id)
   "Return a gptel callback that streams into REQUEST-ID.
 Handles both regular text responses and tool call responses."
@@ -1854,33 +2046,39 @@ Handles both regular text responses and tool call responses."
             (message "[ogent-debug] tool response: type=%s data=%S" (car text) (cdr text)))
           (pcase (car text)
             ('tool-result
-             ;; Tools were executed by gptel; record the outcome to the
-             ;; ledger (we never saw the start) and display results.
-             (dolist (result (cdr text))
-               (let ((tool-name (plist-get result :name))
-                     (tool-args (plist-get result :args))
-                     (tool-result (plist-get result :result)))
+             ;; Tools were executed by gptel and fed back into the FSM.
+             ;; Display the result, but do not close the request here: gptel
+             ;; will make the follow-up model call and stream the final text.
+             (dolist (entry (cdr text))
+               (let* ((normalized (ogent-ui--gptel-tool-result-entry entry))
+                      (tool-name (plist-get normalized :name))
+                      (tool-args (plist-get normalized :args))
+                      (tool-result (plist-get normalized :result)))
                  (ogent-ledger-record-tool-finish
                   (ogent-ui--tool-ledger-call tool-name tool-args)
                   tool-result nil nil
                   (ogent-ui--tool-ledger-effects tool-name))
-                 (ogent-ui--insert-tool-block tool-name tool-args
-                                              (or tool-result "[No result]")))))
+                 (when-let ((marker (ogent-ui-request-marker request)))
+                   (with-current-buffer (ogent-ui-request-buffer request)
+                     (save-excursion
+                       (goto-char marker)
+                       (ogent-ui--insert-tool-block
+                        tool-name tool-args (or tool-result "[No result]"))
+                       (set-marker marker (point))))))))
             ('tool-call
-             ;; Tools pending confirmation - gptel handles this
+             ;; Tools pending confirmation - gptel owns resuming the request
+             ;; through the callback it supplies in the pending call entry.
              (ogent-ui--update-status request 'tool))))
-        ;; Check for tool calls in info plist (legacy/fallback). The
-        ;; streaming callback fires once per chunk and gptel reuses the
-        ;; same :tool-use list object across the chunks of one turn; we
-        ;; guard on its identity to execute each payload exactly once.
-        ;; Otherwise every subsequent text chunk re-runs the tools.
+        ;; Native gptel reports :tool-use on the first response before it
+        ;; enters the TOOL state.  Do not execute these ourselves: doing so
+        ;; closes ogent before gptel can inject the tool results and ask the
+        ;; model for the final answer.
         (when (and (listp info) (plist-get info :tool-use)
-                   (not (and (consp text) (memq (car text) '(tool-call tool-result))))
-                   (not (eq (plist-get info :tool-use)
-                            (ogent-ui-request-handled-tool-use request))))
+                   (not (and (consp text)
+                             (memq (car text) '(tool-call tool-result)))))
           (setf (ogent-ui-request-handled-tool-use request)
                 (plist-get info :tool-use))
-          (ogent-ui--handle-tool-calls request (plist-get info :tool-use) info))
+          (ogent-ui--update-status request 'tool))
         ;; Update status based on what we're receiving
         ;; Note: gptel may pass t rather than a string in some cases
         (when (and (stringp text) (> (length text) 0))
@@ -1899,11 +2097,13 @@ Handles both regular text responses and tool call responses."
          ((and (not (stringp text))
                (not (and (consp text)
                          (memq (car text) '(tool-call tool-result)))))
-          (let ((tool-pending (and (listp info) (plist-get info :tool-pending))))
+          (let ((tool-active (and (listp info)
+                                  (or (plist-get info :tool-pending)
+                                      (plist-get info :tool-use)))))
             (when (bound-and-true-p ogent-ui-debug-stream-completion)
-              (message "[ogent-debug] stream complete (text=%s), tool-pending=%s, closing=%s"
-                       text tool-pending (not tool-pending)))
-            (unless tool-pending
+              (message "[ogent-debug] stream complete (text=%s), tool-active=%s, closing=%s"
+                       text tool-active (not tool-active)))
+            (unless tool-active
               (ogent-ui--close-response request)))))))))
 
 (defvar ogent-ui-debug-stream-completion nil
@@ -2045,47 +2245,57 @@ Uses the :async-function and :async-callback-style from the tool spec."
 Each tool call is checked for approval, then executed if approved.
 Edit tools (write-file, edit-file) show a diff preview for accept/reject.
 Results are displayed in the buffer."
-  (let ((buffer (ogent-ui-request-buffer request)))
+  (let ((buffer (ogent-ui-request-buffer request))
+        (workspace-root (plist-get (ogent-ui-request-context request)
+                                   :workspace-root)))
     (with-current-buffer buffer
-      (save-excursion
-        (goto-char (or (ogent-ui-request-response-pos request) (point-max)))
-        (dolist (tool-call tool-calls)
-          ;; Debug: log the raw tool-call structure
-          (when (bound-and-true-p ogent-ui-debug-stream-completion)
-            (message "[ogent-debug] tool-call raw: %S" tool-call))
-          (let* ((raw-tool-name (plist-get tool-call :name))
-                 (tool-name (ogent-tool--name-string raw-tool-name))
-                 ;; gptel normalizes to :args, but check :input/:arguments as fallback
-                 (tool-args (or (plist-get tool-call :args)
-                                (plist-get tool-call :input)
-                                (plist-get tool-call :arguments))))
-            (if (not tool-name)
-                (ogent-ui--insert-tool-block
-                 "unknown" tool-args "[Malformed tool call: missing name]")
-              (let ((approval (ogent-tool-approval-check tool-name tool-args)))
-                (pcase approval
-                  (`approved
-                   (cond
-                    ;; Edit tools: show diff preview.
-                    ((ogent-ui--is-edit-tool-p tool-name)
-                     (condition-case err
-                         (ogent-ui--show-diff-for-tool tool-name tool-args)
-                       (error
-                        (ogent-ui--insert-tool-block
-                         tool-name tool-args
-                         (format "[Diff preview error: %s]" (error-message-string err))))))
-                    ;; Async-capable tools: stream output incrementally
-                    ((ogent-ui--async-tool-p tool-name)
-                     (ogent-ui--execute-tool-async tool-name tool-args))
-                    ;; All other tools: execute synchronously
-                    (t
-                     (let ((result (ogent-ui--execute-tool tool-name tool-args)))
-                       (ogent-ui--insert-tool-block tool-name tool-args result)))))
-                  (`denied
-                   (ogent-ui--insert-tool-block tool-name tool-args
-                                                "[Tool execution denied by user]")))))))))))
+      (let ((ogent-tools-project-root workspace-root)
+            (default-directory (or workspace-root default-directory)))
+        (save-excursion
+          (goto-char (or (ogent-ui-request-response-pos request) (point-max)))
+          (dolist (tool-call tool-calls)
+            ;; Debug: log the raw tool-call structure
+            (when (bound-and-true-p ogent-ui-debug-stream-completion)
+              (message "[ogent-debug] tool-call raw: %S" tool-call))
+            (let* ((raw-tool-name (plist-get tool-call :name))
+                   (tool-name (ogent-tool--name-string raw-tool-name))
+                   ;; gptel normalizes to :args, but check
+                   ;; :input/:arguments as fallback.
+                   (tool-args (or (plist-get tool-call :args)
+                                  (plist-get tool-call :input)
+                                  (plist-get tool-call :arguments))))
+              (if (not tool-name)
+                  (ogent-ui--insert-tool-block
+                   "unknown" tool-args "[Malformed tool call: missing name]")
+                (let ((approval (ogent-tool-approval-check tool-name tool-args)))
+                  (pcase approval
+                    (`approved
+                     (cond
+                      ;; Edit tools: show diff preview.
+                      ((ogent-ui--is-edit-tool-p tool-name)
+                       (condition-case err
+                           (ogent-ui--show-diff-for-tool tool-name tool-args)
+                         (error
+                          (ogent-ui--insert-tool-block
+                           tool-name tool-args
+                           (format "[Diff preview error: %s]"
+                                   (error-message-string err))))))
+                      ;; Async-capable tools: stream output incrementally.
+                      ((ogent-ui--async-tool-p tool-name)
+                       (ogent-ui--execute-tool-async tool-name tool-args))
+                      ;; All other tools: execute synchronously.
+                      (t
+                       (let ((result (ogent-ui--execute-tool tool-name
+                                                             tool-args)))
+                         (ogent-ui--insert-tool-block tool-name tool-args
+                                                      result)))))
+                    (`denied
+                     (ogent-ui--insert-tool-block
+                      tool-name tool-args
+                      "[Tool execution denied by user]")))))))))))
 
 
+)
 (defun ogent-ui--tool-ledger-effects (name)
   "Return the declared :effects for tool NAME, or nil."
   (when-let* ((tool-symbol (ogent-tool--name-symbol name))
@@ -2231,9 +2441,6 @@ turns, compacted to `ogent-multi-turn-token-budget'."
           (setq prompt-text (concat ogent-org-format-directive "\n\n" prompt-text))
         ;; Normal mode: use system message
         (setq args (plist-put args :system ogent-org-format-directive))))
-    ;; Surface registry-declared :request-params / :capabilities to gptel,
-    ;; which reads both from the interned model symbol's plist.
-    (ogent-models-apply-gptel-props model)
     (condition-case err
         (progn
           (when (and (fboundp 'gptel-backend-p)
@@ -2241,6 +2448,10 @@ turns, compacted to `ogent-multi-turn-token-budget'."
             (user-error
              "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
              (plist-get model :backend) model-id))
+          ;; Surface the ogent registry to gptel before `gptel--sanitize-model'
+          ;; can silently rewrite a newer model id to the backend fallback.
+          (ogent-gptel-ensure-model-on-backend model backend)
+          (ogent-models-apply-gptel-props model)
           (let* ((sender (lambda ()
                            (apply #'gptel-request
                                   (if history
@@ -2264,6 +2475,56 @@ turns, compacted to `ogent-multi-turn-token-budget'."
       (error
        (ogent-ui--close-response request (error-message-string err))))))
 
+(defun ogent-ui--dispatch-request
+    (source-buffer region-start region-end raw-prompt models preset templates
+                   &optional org-point context-transform)
+  "Dispatch RAW-PROMPT using MODELS from SOURCE-BUFFER."
+  (let* ((companion (ogent-ui--ensure-companion-context))
+         (extracted (ogent-ui--extract-preset-cookies raw-prompt))
+         (clean-prompt (car extracted))
+         (cookie-presets (cdr extracted))
+         (effective-preset (or preset
+                               (car cookie-presets)
+                               ogent-ui--selected-preset))
+         (final-prompt (ogent-ui--apply-prompt-templates
+                        clean-prompt
+                        (or templates ogent-ui--selected-templates))))
+    (with-current-buffer companion
+      ;; Anchor the transcript at the requested heading: Zen runs may be
+      ;; invoked with point deep inside a generated transcript, and the
+      ;; response skeleton must attach to the user bullet, not to point.
+      (when (and org-point (eq companion source-buffer))
+        (goto-char org-point))
+      (let* ((context (ogent-context-build-with-source
+                       source-buffer region-start region-end org-point))
+             (context (if context-transform
+                          (funcall context-transform context)
+                        context))
+             ;; Use provided models or fall back to a registered/default ogent model.
+             (model-ids (or models
+                            (list (ogent-ui--model-id-or-default))))
+             last-request)
+        (if (ogent-validate-and-prompt context)
+            (progn
+              (dolist (model-id model-ids)
+                (let* ((model (ogent-models-ensure model-id))
+                       (request (funcall ogent-response-function
+                                         final-prompt context model)))
+                  (unless (ogent-ui-request-p request)
+                    (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                  (setf (ogent-ui-request-preset request) effective-preset)
+                  (setf (ogent-ui-request-source-buffer request) source-buffer)
+                  (ogent-ui--send-request request)
+                  (setq last-request request)))
+              ;; Position cursor at response heading in companion window.
+              (when-let* ((response-pos (and last-request
+                                             (ogent-ui-request-response-pos
+                                              last-request)))
+                          (win (get-buffer-window companion)))
+                (with-selected-window win
+                  (goto-char response-pos))))
+          (message "Ogent request canceled"))))))
+
 ;;;###autoload (autoload 'ogent-request "ogent" nil t)
 (defun ogent-request (&optional prompt models preset templates)
   "Dispatch PROMPT for the current subtree using MODELS via gptel.
@@ -2277,49 +2538,12 @@ When invoked from a non-Org buffer, automatically creates and displays
 a companion Org buffer to hold the request/response transcript.
 The source buffer content is captured for context."
   (interactive)
-  (let* ((source-buffer (current-buffer))
-         (region-start (when (use-region-p) (region-beginning)))
-         (region-end (when (use-region-p) (region-end)))
-         (companion (ogent-ui--ensure-companion-context))
-         (raw-prompt (or prompt (ogent-ui--read-prompt)))
-         (extracted (ogent-ui--extract-preset-cookies raw-prompt))
-         (clean-prompt (car extracted))
-         (cookie-presets (cdr extracted))
-         (effective-preset (or preset
-                               (car cookie-presets)
-                               ogent-ui--selected-preset))
-         (final-prompt (ogent-ui--apply-prompt-templates
-                        clean-prompt
-                        (or templates ogent-ui--selected-templates))))
-    (with-current-buffer companion
-      (let* ((context (ogent-context-build-with-source
-                       source-buffer region-start region-end))
-             ;; Use provided models or fall back to current gptel model
-             (model-ids (or models
-                            (list (if (and (boundp 'gptel-model) gptel-model)
-                                      (if (fboundp 'gptel--model-name)
-                                          (gptel--model-name gptel-model)
-                                        gptel-model)
-                                    (plist-get (ogent-models-default) :id)))))
-             last-request)
-        (if (ogent-validate-and-prompt context)
-            (progn
-              (dolist (model-id model-ids)
-                (let* ((model (ogent-models-ensure model-id))
-                       (request (funcall ogent-response-function final-prompt context model)))
-                  (unless (ogent-ui-request-p request)
-                    (user-error "ogent-response-function must return an `ogent-ui-request'"))
-                  (setf (ogent-ui-request-preset request) effective-preset)
-                  (setf (ogent-ui-request-source-buffer request) source-buffer)
-                  (ogent-ui--send-request request)
-                  (setq last-request request)))
-              ;; Position cursor at response heading in companion window
-              (when-let* ((response-pos (and last-request
-                                             (ogent-ui-request-response-pos last-request)))
-                          (win (get-buffer-window companion)))
-                (with-selected-window win
-                  (goto-char response-pos))))
-          (message "Ogent request canceled"))))))
+  (let ((source-buffer (current-buffer))
+        (region-start (when (use-region-p) (region-beginning)))
+        (region-end (when (use-region-p) (region-end)))
+        (raw-prompt (or prompt (ogent-ui--read-prompt))))
+    (ogent-ui--dispatch-request source-buffer region-start region-end
+                                raw-prompt models preset templates)))
 
 ;;; Tool and Reasoning Block Support
 
@@ -2393,6 +2617,30 @@ and responses marked with gptel text properties."
       ('running (propertize icon 'face 'warning))
       (_ icon))))
 
+(defun ogent-ui--fold-tool-drawer-region (start end)
+  "Fold the Org tool drawer spanning START to END.
+Zen buffers hide the entire drawer, including the `:TOOL:' line, because
+the run-card headline already carries the usable summary.  Plain Org
+buffers keep the normal drawer header visible."
+  (when (derived-mode-p 'org-mode)
+    (let ((start (if (markerp start) (marker-position start) start))
+          (end (if (markerp end) (marker-position end) end)))
+      (condition-case nil
+          (if (and (bound-and-true-p ogent-zen-mode)
+                   (fboundp 'org-fold-region))
+              (org-fold-region start end t 'drawer)
+            (save-excursion
+              (goto-char start)
+              (when (fboundp 'org-hide-drawer-toggle)
+                (org-hide-drawer-toggle t))))
+        (error nil)))))
+
+(defun ogent-ui--tool-result-status (result)
+  "Return `error' when RESULT is a tool error or denial string, else `done'."
+  (if (and (stringp result)
+           (string-match-p "\\[.*error\\|denied\\]" result))
+      'error 'done))
+
 (defun ogent-ui--insert-tool-drawer (name args result &optional status)
   "Insert a tool drawer with NAME, ARGS, RESULT, and STATUS.
 Uses Org drawer format for collapsible display with summary line."
@@ -2428,20 +2676,21 @@ Uses Org drawer format for collapsible display with summary line."
                                'ogent-tool-status status
                                'ogent-tool-args args
                                'ogent-tool-result result))
-    ;; Fold the drawer - use condition-case to handle edge cases
-    (save-excursion
-      (goto-char drawer-start)
-      (when (derived-mode-p 'org-mode)
-        (condition-case nil
-            (when (fboundp 'org-hide-drawer-toggle)
-              (org-hide-drawer-toggle t))
-          (error nil))))  ; Silently ignore folding errors
+    (ogent-ui--fold-tool-drawer-region drawer-start drawer-end)
     tool-id))
 
 (defun ogent-ui--insert-tool-block (name args result)
   "Insert a tool block with NAME, ARGS, and RESULT.
-Uses drawer format for collapsible display."
-  (ogent-ui--insert-tool-drawer name args result))
+In Zen buffers (unless `ogent-zen-tool-calls-inline'), record the call
+out of band instead of inserting a drawer so the notebook stays small."
+  (or (and (fboundp 'ogent-zen--tool-record-active-p)
+           (ogent-zen--tool-record-active-p)
+           (ogent-zen-record-tool-call
+            name args result
+            (ogent-ui--tool-result-status result)
+            (ogent-ui--tool-context-summary name args))
+           t)
+      (ogent-ui--insert-tool-drawer name args result)))
 
 ;;; Streaming Tool Drawer Support
 
@@ -2455,10 +2704,29 @@ Uses drawer format for collapsible display."
   status-marker    ; marker at status icon position
   name
   args
-  char-count)      ; total chars streamed
+  char-count       ; total chars streamed
+  record)          ; non-nil => virtual recorder; no buffer drawer
 
 (defun ogent-ui--insert-streaming-drawer (name args)
   "Insert a streaming tool drawer for NAME with ARGS.
+In Zen buffers (unless `ogent-zen-tool-calls-inline'), record the call
+out of band and return a virtual drawer instead of inserting buffer text.
+Returns an `ogent-streaming-drawer' struct for updating the drawer."
+  (if (and (fboundp 'ogent-zen--tool-record-active-p)
+           (ogent-zen--tool-record-active-p))
+      (if-let ((record (ogent-zen-record-tool-call
+                        name args "" 'running
+                        (ogent-ui--tool-context-summary name args))))
+          (make-ogent-streaming-drawer
+           :id (format "tool-%d" (cl-incf ogent-ui--tool-seq))
+           :buffer (current-buffer)
+           :name (if (stringp name) name (symbol-name name))
+           :args args :char-count 0 :record record)
+        (ogent-ui--insert-streaming-drawer-inline name args))
+    (ogent-ui--insert-streaming-drawer-inline name args)))
+
+(defun ogent-ui--insert-streaming-drawer-inline (name args)
+  "Insert a streaming tool drawer for NAME with ARGS as buffer text.
 Returns an `ogent-streaming-drawer' struct for updating the drawer."
   (let* ((tool-id (format "tool-%d" (cl-incf ogent-ui--tool-seq)))
          (context (ogent-ui--tool-context-summary name args))
@@ -2485,13 +2753,14 @@ Returns an `ogent-streaming-drawer' struct for updating the drawer."
     (set-marker-insertion-type result-end t)  ; stays at end
     (insert "#+end_src\n")
     (insert ":END:\n")
+    (ogent-ui--fold-tool-drawer-region (marker-position drawer-start)
+                                       (point))
     ;; Add text properties (will update when finalized)
     (add-text-properties (marker-position drawer-start) (point)
                          (list 'ogent-tool-id tool-id
                                'ogent-tool-name (intern name-str)
                                'ogent-tool-status 'running
                                'ogent-tool-args args))
-    ;; Return struct for updates
     (make-ogent-streaming-drawer
      :id tool-id
      :buffer (current-buffer)
@@ -2506,71 +2775,79 @@ Returns an `ogent-streaming-drawer' struct for updating the drawer."
 (defun ogent-ui--streaming-drawer-append (drawer chunk)
   "Append CHUNK to streaming DRAWER's result section.
 Returns nil if drawer buffer is dead."
-  (let ((buf (ogent-streaming-drawer-buffer drawer)))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf
-        (save-excursion
-          (let ((inhibit-read-only t)
-                (result-start (ogent-streaming-drawer-result-start drawer))
-                (result-end (ogent-streaming-drawer-result-end drawer))
-                (count (ogent-streaming-drawer-char-count drawer)))
-            ;; On first chunk, remove "(running...)" placeholder
-            (when (= count 0)
-              (goto-char result-start)
-              (when (looking-at "(running\\.\\.\\.)\n")
-                (delete-region result-start (match-end 0))))
-            ;; Append chunk at result-end
-            (goto-char result-end)
-            (insert chunk)
-            ;; Update char count
-            (setf (ogent-streaming-drawer-char-count drawer)
-                  (+ count (length chunk))))))
-      t)))
+  (if-let ((record (ogent-streaming-drawer-record drawer)))
+      (let ((text (if (stringp chunk) chunk (format "%s" chunk))))
+        (ogent-zen-tool-record-append record text)
+        (setf (ogent-streaming-drawer-char-count drawer)
+              (+ (ogent-streaming-drawer-char-count drawer) (length text)))
+        t)
+    (let ((buf (ogent-streaming-drawer-buffer drawer)))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (save-excursion
+            (let ((inhibit-read-only t)
+                  (result-start (ogent-streaming-drawer-result-start drawer))
+                  (result-end (ogent-streaming-drawer-result-end drawer))
+                  (count (ogent-streaming-drawer-char-count drawer)))
+              ;; On first chunk, remove "(running...)" placeholder
+              (when (= count 0)
+                (goto-char result-start)
+                (when (looking-at "(running\\.\\.\\.)\n")
+                  (delete-region result-start (match-end 0))))
+              ;; Append chunk at result-end
+              (goto-char result-end)
+              (insert chunk)
+              ;; Update char count
+              (setf (ogent-streaming-drawer-char-count drawer)
+                    (+ count (length chunk))))))
+        t))))
 
 (defun ogent-ui--streaming-drawer-finalize (drawer status &optional exit-code)
   "Finalize streaming DRAWER with STATUS and optional EXIT-CODE.
 STATUS is `success', `error', or other status symbol."
-  (let ((buf (ogent-streaming-drawer-buffer drawer)))
-    (when (buffer-live-p buf)
-      (with-current-buffer buf
-        (save-excursion
-          (let ((inhibit-read-only t)
-                (drawer-start (ogent-streaming-drawer-drawer-start drawer))
-                (status-marker (ogent-streaming-drawer-status-marker drawer))
-                (result-end (ogent-streaming-drawer-result-end drawer))
-                (new-icon (ogent-ui--tool-status-icon status)))
-            ;; Update status icon
-            (goto-char status-marker)
-            (when (looking-at ".")
-              (delete-char 1)
-              (insert new-icon))
-            ;; Add exit code line if provided
-            (when exit-code
-              (goto-char result-end)
-              (insert (format "\nExit code: %s" exit-code)))
-            ;; Update text properties
-            (let ((end-pos (save-excursion
-                             (goto-char drawer-start)
-                             (when (re-search-forward "^:END:$" nil t)
-                               (line-end-position)))))
-              (when end-pos
-                (put-text-property drawer-start end-pos
-                                   'ogent-tool-status status)))))
-        ;; Try to fold the drawer
-        (save-excursion
-          (goto-char (ogent-streaming-drawer-drawer-start drawer))
-          (when (derived-mode-p 'org-mode)
-            (condition-case nil
-                (when (fboundp 'org-hide-drawer-toggle)
-                  (org-hide-drawer-toggle t))
-              (error nil))))))))
+  (if-let ((record (ogent-streaming-drawer-record drawer)))
+      (progn
+        (when exit-code
+          (ogent-zen-tool-record-append
+           record (format "\nExit code: %s" exit-code)))
+        (ogent-zen-tool-record-finish
+         record (if (eq status 'success) 'done status)))
+    (let ((buf (ogent-streaming-drawer-buffer drawer)))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (save-excursion
+            (let* ((inhibit-read-only t)
+                   (drawer-start (ogent-streaming-drawer-drawer-start drawer))
+                   (status-marker (ogent-streaming-drawer-status-marker drawer))
+                   (result-end (ogent-streaming-drawer-result-end drawer))
+                   (new-icon (ogent-ui--tool-status-icon status))
+                   (drawer-end (save-excursion
+                                 (goto-char drawer-start)
+                                 (when (re-search-forward "^:END:$" nil t)
+                                   (line-end-position)))))
+              ;; Update status icon
+              (goto-char status-marker)
+              (when (looking-at ".")
+                (delete-char 1)
+                (insert new-icon))
+              ;; Add exit code line if provided
+              (when exit-code
+                (goto-char result-end)
+                (insert (format "\nExit code: %s" exit-code)))
+              ;; Update text properties
+              (when drawer-end
+                (put-text-property drawer-start drawer-end
+                                   'ogent-tool-status status))
+              (ogent-ui--fold-tool-drawer-region
+               drawer-start (or drawer-end result-end)))))))))
 
 (defun ogent-ui--streaming-drawer-cleanup (drawer)
   "Clean up markers from DRAWER."
-  (set-marker (ogent-streaming-drawer-drawer-start drawer) nil)
-  (set-marker (ogent-streaming-drawer-result-start drawer) nil)
-  (set-marker (ogent-streaming-drawer-result-end drawer) nil)
-  (set-marker (ogent-streaming-drawer-status-marker drawer) nil))
+  (unless (ogent-streaming-drawer-record drawer)
+    (set-marker (ogent-streaming-drawer-drawer-start drawer) nil)
+    (set-marker (ogent-streaming-drawer-result-start drawer) nil)
+    (set-marker (ogent-streaming-drawer-result-end drawer) nil)
+    (set-marker (ogent-streaming-drawer-status-marker drawer) nil)))
 
 (defun ogent-tool-at-point ()
   "Return tool info plist if point is within a tool drawer, nil otherwise.
