@@ -13,10 +13,24 @@
 ;;   "Non-existent agenda file ... [R]emove from list or [A]bort?"
 ;; Suites create and tear down temporary Org trees, so a stale entry can
 ;; outlive its file; Emacs 29's bundled Org raises that prompt (Emacs 30
-;; does not), which hangs `emacs --batch' forever waiting on stdin.  Skip
-;; unreadable agenda files so the prompt never fires on any Org version.
+;; does not), which hangs `emacs --batch' forever on `read-char'.  Skip
+;; unreadable agenda files, and make `org-check-agenda-file' non-interactive
+;; so the prompt can never fire regardless of the calling path.
 (require 'org-agenda nil t)
 (setq org-agenda-skip-unavailable-files t)
+
+(defun ogent-test--silence-agenda-check (orig file)
+  "Batch-safe `org-check-agenda-file': never prompt for a missing FILE.
+Validate an existing FILE through ORIG; for a missing FILE, drop it from
+`org-agenda-files' (Org's non-destructive [R]emove choice) and return nil
+instead of reading a keystroke."
+  (if (file-exists-p file)
+      (funcall orig file)
+    (when (boundp 'org-agenda-files)
+      (setq org-agenda-files (delete file org-agenda-files)))
+    nil))
+
+(advice-add 'org-check-agenda-file :around #'ogent-test--silence-agenda-check)
 
 ;; Exclude .elc from load-suffixes so stale bytecode (which may embed
 ;; outdated macro expansions, e.g. magit-insert-section) is never loaded.
