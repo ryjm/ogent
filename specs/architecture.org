@@ -123,6 +123,28 @@ execute, network, git, issue, and Emacs-state effects require approval.
 - Emacs Lisp modules must stay under =lisp/=, UI helpers under =lisp/ui/=, docs under =docs/=, specs here.
 - Every new command exported to users needs an =ogent-= prefix and an associated test in =test/= mirroring the namespace.
 
+* Module Layout (façade decomposition)
+The four largest source files were de-monolithized into same-directory siblings behind a
+filename-preserving *façade*: the original =ogent-<base>.el= keeps =(provide 'ogent-<base>)=,
+=require=s its new =ogent-<base>-<concern>.el= siblings, and (where relevant) hosts the load-time
+side effects + autoload redirects, so =ogent.el= and every external =(require 'ogent-<base>)= are
+unchanged. Plan of record + runbook: [[file:modularity/decomposition-plan.org][specs/modularity/]].
+- =ogent-ui.el= (façade) → =ogent-ui-core= / =-format= / =-toolcalls= / =-engine= / =-send= /
+  =-preview= / =-dispatch= (lisp/ui/). The two load-time forms (response-function migration, gptel
+  hook) live in the façade; autoload targets preserved (=ogent-request/-ask-menu/-prompt-dispatch=
+  → =ogent=, the rest → =ogent-ui=).
+- =ogent-ui-armory.el= (façade) → =ogent-ui-armory-core= + one file per buffer surface
+  (=-home/-agents/-org-chart/-agent/-jobs/-tasks/-conversations/-search/-apps=). The
+  =ogent-armory-ui--define-section-mode= macro + magit/evil bootstrap stay in core/façade.
+- =ogent-zen.el= (façade) → =ogent-zen-core= (base + =ogent-zen-scope= struct) / =-tools=
+  (tool-call store + inspection) / =-workspace= (=ogent-context= bridge) / =-edit= (inline-diff).
+- =ogent-issues.el= (façade + list core, in place) → =ogent-issues-detail= / =-kanban= / =-evil=.
+- =ogent-armory.el= is a *justified monolith* (one cohesive Org-file storage API, 25 requirers) —
+  intentionally NOT split. Do not size-split it.
+Rules for new siblings: keep =cl-defstruct= and macros in the file consumers =require= (compile-time
+visibility); cross-module references that would cycle (e.g. zen↔ui) use =declare-function= +
+=fboundp= guards, never =require=; keep each sibling flat in =lisp/= or =lisp/ui/= (load-path).
+
 * Minor Mode Contract
 - =ogent-mode= owns the =C-c .= prefix for ogent commands; do not bind global keys directly.
 - =C-c ,= is reserved for the narrower completion-review prefix.

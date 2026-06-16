@@ -21,8 +21,8 @@
 
 ;; Forward declarations
 (declare-function ogent-ui-request-marker "ui/ogent-ui" t t)
-(declare-function ogent-zen--transcript-request-heading "ogent-zen")
-(declare-function ogent-zen--current-response-heading "ogent-zen")
+(declare-function ogent-zen--transcript-request-heading "ogent-zen-core")
+(declare-function ogent-zen--current-response-heading "ogent-zen-core")
 (declare-function ogent-zen-accept-response "ogent-zen")
 (declare-function ogent-zen-mark-accepted "ogent-zen")
 (defvar ogent-session-buffer-p)
