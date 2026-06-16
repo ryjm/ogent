@@ -242,7 +242,8 @@
             (ogent-armory-tasks--goto agent job-id)))))))
 
 (defun ogent-armory-tasks--root (&optional directory)
-  "Return a Armory root for task commands."
+  "Return a Armory root for task commands.
+When DIRECTORY is non-nil, prefer it as the root."
   (ogent-armory-ui--root
    (or directory
        ogent-armory-tasks--root
@@ -250,7 +251,8 @@
        (read-directory-name "Armory root: "))))
 
 (defun ogent-armory-create-task (&optional directory agent title details)
-  "Capture a manual Armory task under DIRECTORY for AGENT."
+  "Capture a manual Armory task under DIRECTORY for AGENT.
+TITLE names the task and DETAILS provides its body; both are prompted when nil."
   (interactive)
   (let* ((root (ogent-armory-tasks--root directory))
          (slug (or agent (ogent-armory-tasks--read-agent root)))

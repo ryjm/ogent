@@ -281,9 +281,9 @@ rescanning the whole buffer."
 (defun ogent-ui--create-response-block (prompt context model)
   "Insert a nested headline structure for a request with MODEL.
 Creates a Request child under the current Org heading containing the
-prompt/context src block and a nested Response sub-headline where
-streamed content goes. This mimics Claude Code's conversation structure
-using org-mode idioms.
+PROMPT/CONTEXT src block and a nested Response sub-headline where
+streamed content goes.  This mimics Claude Code's conversation structure
+using `org-mode' idioms.
 The raw PROMPT is persisted in an OGENT_PROMPT property at the request
 headline so later requests can replay the exchange as history (see
 `ogent-ui--conversation-history').
@@ -399,7 +399,8 @@ Returns a plist containing a streaming marker and block-start marker."
 
 (defun ogent-ui-prepare-response-block (prompt context model)
   "Default `ogent-response-function' implementation.
-Creates an `ogent-ui-request' struct and registers it for streaming."
+Creates an `ogent-ui-request' struct and registers it for streaming.
+PROMPT, CONTEXT, and MODEL are forwarded to `ogent-ui--create-response-block'."
   (let* ((block (ogent-ui--create-response-block prompt context model))
          (request (make-ogent-ui-request
                    :id (ogent-ui--next-request-id)
@@ -547,7 +548,7 @@ heading (see `ogent-shift-response-headings')."
   (ogent-provider-error-message-string error-message))
 
 (defun ogent-ui--provider-access-error-p (error-message)
-  "Return non-nil when ERROR-MESSAGE looks like a provider access failure."
+  "Return non-nil when ERROR-MESSAGE resembles a provider access failure."
   (ogent-provider-access-error-p error-message))
 
 (defun ogent-ui--maybe-offer-provider-login (request error-message)

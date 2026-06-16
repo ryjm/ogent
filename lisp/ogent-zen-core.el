@@ -39,7 +39,7 @@ controls the extra visible breadcrumb suffix on compact run-card headings."
 (defcustom ogent-zen-heading-actions nil
   "When non-nil, install direct action bindings on Zen heading overlays.
 This experimental affordance adds overlay-local `RET', `r', `e', and
-mouse-1 bindings plus matching action hints.  Leave it nil when Evil or
+`mouse-1' bindings plus matching action hints.  Leave it nil when Evil or
 other modal keymaps should own those keys."
   :type 'boolean
   :group 'ogent-zen)

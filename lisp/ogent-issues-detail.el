@@ -93,7 +93,7 @@ Optionally refreshes in background if
 
 (defun ogent-issues--render-detail (issue &optional project-root buffer-name)
   "Render ISSUE in the detail buffer.
-PROJECT-ROOT is the beads project directory (for setting default-directory).
+PROJECT-ROOT is the beads project directory (for setting `default-directory').
 BUFFER-NAME is the detail buffer name (defaults to project-specific name).
 By default, displays in a side-by-side split to the right of the
 issues buffer, like magit's two-pane layouts.  Customize

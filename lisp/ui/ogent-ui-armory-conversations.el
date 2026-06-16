@@ -362,7 +362,8 @@
                                                                (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-armory-conversation--insert-turns (turns)
-  "Insert conversation TURNS."
+  "Insert each conversation turn.
+TURNS is the list of turn plists to insert."
   (ogent-armory-ui--with-section (ogent-armory-conversation-turns)
                                   (ogent-armory-ui--heading-text "Turns")
                                   (if turns

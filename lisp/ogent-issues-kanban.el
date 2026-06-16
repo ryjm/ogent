@@ -128,7 +128,7 @@
   (insert "\n"))
 
 (defun ogent-issues--insert-kanban-separator (col-width)
-  "Insert horizontal separator for Kanban board."
+  "Insert horizontal separator for Kanban board, each column COL-WIDTH wide."
   (insert "├")
   (dotimes (i (length ogent-issues-kanban-columns))
     (insert (make-string col-width ?─))
@@ -217,7 +217,7 @@
 
 (defun ogent-issues--ensure-sibling-loadpath ()
   "Ensure the directory containing ogent-issues sibling files is in `load-path'.
-This guards against load-path modifications after initial load."
+This guards against `load-path' modifications after initial load."
   (when (and ogent-issues--source-directory
              (not (member ogent-issues--source-directory load-path)))
     (add-to-list 'load-path ogent-issues--source-directory)))

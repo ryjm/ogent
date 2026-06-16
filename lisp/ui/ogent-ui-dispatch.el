@@ -65,7 +65,7 @@
   (oset obj model-value (and (boundp 'gptel-model) gptel-model)))
 
 (cl-defmethod transient-format-value ((obj ogent-provider-variable))
-  "Format the current backend:model selection for display."
+  "Format OBJ's current backend:model selection for display."
   (let ((backend (oref obj value))
         (model (oref obj model-value)))
     (if (and backend model)
@@ -80,7 +80,7 @@
       (propertize "not configured" 'face 'transient-inactive-value))))
 
 (cl-defmethod transient-infix-set ((obj ogent-provider-variable) value)
-  "Set backend and model from VALUE, which should be (backend . model)."
+  "Set OBJ's backend and model from VALUE, which should be (backend . model)."
   (pcase-let ((`(,backend ,model) value))
     (oset obj value backend)
     (oset obj model-value model)
@@ -92,7 +92,7 @@
   (funcall (oref obj reader) (transient-prompt obj) nil nil))
 
 (defun ogent--read-provider (prompt &rest _)
-  "Read provider:model using completing-read.
+  "Read provider:model using `completing-read'.
 PROMPT is the completion prompt."
   (unless (boundp 'gptel--known-backends)
     (require 'gptel nil t))
@@ -206,7 +206,7 @@ Makes the variable buffer-local for session-level control."
             (propertize "[none]" 'face 'font-lock-comment-face))))
 
 (defun ogent--read-templates (_prompt _initial _history)
-  "Read prompt template IDs using completing-read-multiple."
+  "Read prompt template IDs using `completing-read-multiple'."
   (let* ((available (if (fboundp 'ogent-prompt-ids)
                         (ogent-prompt-ids)
                       nil))
@@ -237,7 +237,7 @@ Makes the variable buffer-local for session-level control."
             (propertize "[single]" 'face 'font-lock-comment-face))))
 
 (defun ogent--read-models (_prompt _initial _history)
-  "Read multiple model IDs with completing-read-multiple."
+  "Read multiple model IDs with `completing-read-multiple'."
   (let* ((available (if (fboundp 'ogent-models-ids)
                         (ogent-models-ids)
                       nil))
