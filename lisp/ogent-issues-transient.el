@@ -35,8 +35,8 @@
 (declare-function ogent-issues-clear-filters "ogent-issues")
 (declare-function ogent-issues-view-list "ogent-issues")
 (declare-function ogent-issues-view-ready "ogent-issues")
-(declare-function ogent-issues-view-kanban "ogent-issues")
-(declare-function ogent-issues-view-deps "ogent-issues")
+(declare-function ogent-issues-view-kanban "ogent-issues-kanban")
+(declare-function ogent-issues-view-deps "ogent-issues-kanban")
 
 (defvar ogent-issues--current-view)
 (defvar ogent-issues--filters)

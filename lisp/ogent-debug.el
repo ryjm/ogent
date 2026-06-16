@@ -22,7 +22,7 @@
 
 (require 'cl-lib)
 
-(declare-function ogent-ui--execute-tool "ui/ogent-ui")
+(declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
 (declare-function gptel-backend-name "ext:gptel" t t)
 (defvar ogent-tool-allow-list)
 (defvar ogent-tool--denied-tools)

@@ -39,7 +39,7 @@
 (autoload 'ogent-cabinet-conversation "ogent-ui-cabinet" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
-(declare-function ogent-cabinet-jobs--goto "ogent-ui-cabinet" (agent job-id))
+(declare-function ogent-cabinet-jobs--goto "ogent-ui-cabinet-jobs" (agent job-id))
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-insert-section--create "ext:magit-section")
