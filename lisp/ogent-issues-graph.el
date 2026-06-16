@@ -16,7 +16,7 @@
 (declare-function ogent-issues-bd-get "ogent-issues-bd")
 (declare-function ogent-issues-bd-project-name "ogent-issues-bd")
 (declare-function ogent-issues--current-issue-id "ogent-issues")
-(declare-function ogent-issues--show-detail "ogent-issues" (issue))
+(declare-function ogent-issues--show-detail "ogent-issues-detail" (issue))
 
 ;; Buffer-local render state, declared before first use in the tree renderer.
 (defvar-local ogent-issues-graph--collapsed-nodes nil
