@@ -11,17 +11,11 @@
 
 ;;; Code:
 
-(require 'cl-lib)
-(require 'org)
-(require 'org-element)
-(require 'subr-x)
-(require 'ogent-context)
-(require 'ogent-ui-theme)
-(require 'inline-diff)
 (require 'ogent-zen-core)
 (require 'ogent-zen-tools)
 (require 'ogent-zen-workspace)
 (require 'ogent-zen-edit)
+(require 'ogent-ui-theme)
 
 (declare-function ogent-ui--dispatch-request "ui/ogent-ui"
                   (source-buffer region-start region-end raw-prompt
