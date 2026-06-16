@@ -658,7 +658,7 @@ Otherwise returns `ogent-issues-buffer-name'."
 (defun ogent-issues ()
   "Open the ogent-issues buffer for the current project.
 Like `magit-status', this always shows issues for the project containing
-the current buffer's file. By default, takes over the current window.
+the current buffer's file.  By default, takes over the current window.
 Customize `ogent-issues-display-buffer-action' to change display behavior."
   (interactive)
   (let ((current-project (ogent-issues-bd-project-root)))

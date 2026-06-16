@@ -41,7 +41,8 @@ and there's an active request."
     (insert "#+end_src\n")))
 
 (defun ogent-ui-insert-response-block (prompt context models)
-  "Default response function writing PROMPT and CONTEXT to Org."
+  "Default response function writing PROMPT and CONTEXT to Org.
+MODELS supplies the model label for the inserted block."
   (ogent-ui--insert-src-block
    (ogent-ui--render-prompt prompt context)
    models))
@@ -83,7 +84,7 @@ truncating."
 
 (defun ogent-ui--at-window-bottom-p (&optional window)
   "Return non-nil if WINDOW is scrolled to show the bottom.
-WINDOW defaults to the selected window. This checks if `window-end'
+WINDOW defaults to the selected window.  This checks if `window-end'
 is at or near `point-max', allowing for a small margin."
   (let ((win (or window (selected-window))))
     (when (window-live-p win)

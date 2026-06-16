@@ -807,7 +807,7 @@ Otherwise, it's a write operation comparing FILE-PATH to NEW-CONTENT."
 
 (defun ogent-ui--insert-diff-block (diff-id file-path diff-text status)
   "Insert a diff block with DIFF-ID for FILE-PATH.
-DIFF-TEXT is the unified diff content. STATUS is pending/applied/rejected."
+DIFF-TEXT is the unified diff content.  STATUS is pending/applied/rejected."
   (let ((marker (point))
         (status-face (pcase status
                        ('pending 'ogent-diff-pending)

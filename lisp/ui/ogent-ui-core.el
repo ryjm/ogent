@@ -47,7 +47,7 @@ pairs are dropped first (see `ogent-ui--compact-history')."
 (defcustom ogent-auto-scroll t
   "When non-nil, auto-scroll window to follow streaming responses.
 During a streaming response, the window will scroll to show new content
-as it arrives. Auto-scroll stops if the user manually scrolls away from
+as it arrives.  Auto-scroll stops if the user manually scrolls away from
 the bottom, and resumes when they scroll back to the bottom or when a
 new request starts."
   :type 'boolean
@@ -56,7 +56,7 @@ new request starts."
 (defcustom ogent-stream-tool-output t
   "When non-nil, stream shell command output incrementally.
 This shows command output as it arrives rather than waiting for
-the command to complete. Only applies to async-capable tools like bash."
+the command to complete.  Only applies to async-capable tools like bash."
   :type 'boolean
   :group 'ogent-mode)
 
@@ -108,7 +108,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   handled-tool-use)  ; Identity of the :tool-use payload already dispatched
 
 (defun ogent-ui--set-response-function (symbol value)
-  "Setter for `ogent-response-function' that migrates legacy values."
+  "Setter for `ogent-response-function' that migrates legacy values.
+Store VALUE in SYMBOL, mapping the obsolete function to its replacement."
   (set-default symbol
                (if (eq value #'ogent-ui-insert-response-block)
                    #'ogent-ui-prepare-response-block

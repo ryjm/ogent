@@ -242,7 +242,8 @@
             (ogent-cabinet-tasks--goto agent job-id)))))))
 
 (defun ogent-cabinet-tasks--root (&optional directory)
-  "Return a Cabinet root for task commands."
+  "Return a Cabinet root for task commands.
+When DIRECTORY is non-nil, prefer it as the root."
   (ogent-cabinet-ui--root
    (or directory
        ogent-cabinet-tasks--root
@@ -250,7 +251,8 @@
        (read-directory-name "Cabinet root: "))))
 
 (defun ogent-cabinet-create-task (&optional directory agent title details)
-  "Capture a manual Cabinet task under DIRECTORY for AGENT."
+  "Capture a manual Cabinet task under DIRECTORY for AGENT.
+TITLE names the task and DETAILS provides its body; both are prompted when nil."
   (interactive)
   (let* ((root (ogent-cabinet-tasks--root directory))
          (slug (or agent (ogent-cabinet-tasks--read-agent root)))

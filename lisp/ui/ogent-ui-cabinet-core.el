@@ -413,7 +413,8 @@ When AGENT is non-nil, narrow to that agent."
           nil t))))
 
 (defun ogent-cabinet-ui--turns-by-role (turns role)
-  "Return content strings from TURNS matching ROLE."
+  "Return matching conversation content strings.
+TURNS is the turn list; return content for turns matching ROLE."
   (delq
    nil
    (mapcar
@@ -469,7 +470,7 @@ When AGENT is non-nil, narrow to that agent."
 
 (defun ogent-cabinet-ui--conversation-append-event
     (root path type &optional payload)
-  "Append TYPE event with PAYLOAD for canonical conversation PATH."
+  "Append TYPE event with PAYLOAD for canonical conversation PATH under ROOT."
   (when (ogent-cabinet-ui--canonical-conversation-path-p path)
     (ogent-cabinet-conversation-append-event
      root
@@ -480,8 +481,8 @@ When AGENT is non-nil, narrow to that agent."
 
 (defun ogent-cabinet-ui--conversation-update-properties
     (root path properties &optional event payload)
-  "Update conversation PATH with Org PROPERTIES.
-When EVENT is non-nil, append it to the canonical event log."
+  "Update conversation PATH under ROOT with Org PROPERTIES.
+When EVENT is non-nil, append it to the canonical event log with PAYLOAD."
   (if (ogent-cabinet-ui--canonical-conversation-path-p path)
       (let ((id (ogent-cabinet-ui--canonical-conversation-id path)))
         (ogent-cabinet-conversation-update-properties root id properties)
@@ -494,7 +495,7 @@ When EVENT is non-nil, append it to the canonical event log."
       (ogent-cabinet-update-session-property path (car property) (cdr property)))))
 
 (defun ogent-cabinet-ui--conversation-artifacts (detail)
-  "Return artifact paths declared by DETAIL and its turns."
+  "Return artifact paths declared by DETAIL and each turn."
   (delete-dups
    (delq
     nil
@@ -560,7 +561,8 @@ When EVENT is non-nil, append it to the canonical event log."
 
 (defun ogent-cabinet-ui--read-optional-choice
     (prompt candidates &optional current)
-  "Read PROMPT from CANDIDATES, allowing a blank value."
+  "Read PROMPT from CANDIDATES, allowing a blank value.
+CURRENT is offered as the default value."
   (let ((completion-ignore-case t))
     (ogent-cabinet--blank-to-nil
      (completing-read prompt
@@ -588,7 +590,8 @@ When EVENT is non-nil, append it to the canonical event log."
 
 (defun ogent-cabinet-ui--read-model
     (provider prompt current &optional prefer-first)
-  "Read a Cabinet model for PROVIDER with PROMPT and CURRENT."
+  "Read a Cabinet model for PROVIDER with PROMPT and CURRENT.
+When PREFER-FIRST is non-nil, default to the first provider model."
   (ogent-cabinet-settings--read-model provider current prompt prefer-first))
 
 (defun ogent-cabinet-ui--provider-for-record (root record)

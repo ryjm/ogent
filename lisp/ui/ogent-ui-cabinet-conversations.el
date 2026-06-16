@@ -362,7 +362,8 @@
                                                                (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-cabinet-conversation--insert-turns (turns)
-  "Insert conversation TURNS."
+  "Insert each conversation turn.
+TURNS is the list of turn plists to insert."
   (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-turns)
                                   (ogent-cabinet-ui--heading-text "Turns")
                                   (if turns

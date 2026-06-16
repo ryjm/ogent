@@ -2133,7 +2133,8 @@ request dispatch unchanged."
 
 ;;;###autoload
 (defun ogent-zen-run-region (question &optional models preset templates)
-  "Ask QUESTION about the active region with Zen tree context."
+  "Ask QUESTION about the active region with Zen tree context.
+MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
   (interactive
    (list (read-string "Ask about selected text: ")))
   (ogent-zen-run-scope
@@ -2142,7 +2143,8 @@ request dispatch unchanged."
 
 ;;;###autoload
 (defun ogent-zen-edit-region (instruction &optional models preset templates)
-  "Rewrite the active region according to INSTRUCTION with Zen context."
+  "Rewrite the active region according to INSTRUCTION with Zen context.
+MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
   (interactive
    (list (read-string "Rewrite selected text: ")))
   (ogent-zen-run-scope
@@ -2151,7 +2153,8 @@ request dispatch unchanged."
 
 ;;;###autoload
 (defun ogent-zen-rewrite-paragraph (instruction &optional models preset templates)
-  "Rewrite the paragraph at point according to INSTRUCTION with Zen context."
+  "Rewrite the paragraph at point according to INSTRUCTION with Zen context.
+MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
   (interactive
    (list (read-string "Rewrite paragraph: ")))
   (ogent-zen-run-scope
@@ -2160,7 +2163,8 @@ request dispatch unchanged."
 
 ;;;###autoload
 (defun ogent-zen-rewrite-sentence (instruction &optional models preset templates)
-  "Rewrite the sentence at point according to INSTRUCTION with Zen context."
+  "Rewrite the sentence at point according to INSTRUCTION with Zen context.
+MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
   (interactive
    (list (read-string "Rewrite sentence: ")))
   (ogent-zen-run-scope
@@ -2169,7 +2173,8 @@ request dispatch unchanged."
 
 ;;;###autoload
 (defun ogent-zen-edit-dwim (instruction &optional models preset templates)
-  "Rewrite the active region or nearest text element according to INSTRUCTION."
+  "Rewrite the active region or nearest text element according to INSTRUCTION.
+MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
   (interactive
    (list (read-string "Rewrite here: ")))
   (ogent-zen-run-scope

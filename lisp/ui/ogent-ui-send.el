@@ -43,7 +43,7 @@
       (read-string "Prompt: ")))
 
 (defun ogent-ui--apply-prompt-templates (prompt &optional templates)
-  "Apply prompt templates to PROMPT, returning the combined string."
+  "Apply TEMPLATES to PROMPT, returning the combined string."
   (let ((templates (or templates ogent-ui--selected-templates)))
     (if (and templates (fboundp 'ogent-prompt-compose-with-params))
         (let ((template-text (ogent-prompt-compose-with-params templates)))
@@ -253,7 +253,10 @@ turns, compacted to `ogent-multi-turn-token-budget'."
 (defun ogent-ui--dispatch-request
     (source-buffer region-start region-end raw-prompt models preset templates
                    &optional org-point context-transform)
-  "Dispatch RAW-PROMPT using MODELS from SOURCE-BUFFER."
+  "Dispatch RAW-PROMPT using MODELS from SOURCE-BUFFER.
+REGION-START and REGION-END bound the active region in SOURCE-BUFFER.
+PRESET and TEMPLATES shape the request, ORG-POINT anchors the transcript
+heading, and CONTEXT-TRANSFORM, when non-nil, post-processes the context."
   (let* ((companion (ogent-ui--ensure-companion-context))
          (extracted (ogent-ui--extract-preset-cookies raw-prompt))
          (clean-prompt (car extracted))

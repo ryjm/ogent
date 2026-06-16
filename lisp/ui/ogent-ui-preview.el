@@ -179,7 +179,8 @@ DIFF-RESULT is a list of plists from `ogent-ui--diff-strings'."
     (setq ogent-ui--diff-clear-timer nil)))
 
 (defun ogent-ui--maybe-transform-zen-context (context &optional point)
-  "Return CONTEXT adjusted to match the current Zen run, when active."
+  "Return CONTEXT adjusted to match the current Zen run, when active.
+POINT overrides the Zen heading position when given."
   (if (and (bound-and-true-p ogent-zen-mode)
            (fboundp 'ogent-zen--heading-point)
            (fboundp 'ogent-zen--context-transform))
