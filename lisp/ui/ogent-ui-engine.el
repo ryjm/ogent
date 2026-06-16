@@ -30,9 +30,9 @@
 (declare-function ogent-zen-refresh "ogent-zen" (&optional begin end))
 (declare-function ogent-zen-refresh-at "ogent-zen" (position))
 (declare-function ogent-zen-after-insert "ogent-zen" (request-pos))
-(declare-function ogent-zen-store-result-title "ogent-zen" (request))
+(declare-function ogent-zen-store-result-title "ogent-zen-core" (request))
 (declare-function ogent-zen-preview-edit-from-request
-                  "ogent-zen" (context request-pos))
+                  "ogent-zen-edit" (context request-pos))
 
 ;; gptel integration (soft dependency).
 (declare-function gptel-request "ext:gptel")

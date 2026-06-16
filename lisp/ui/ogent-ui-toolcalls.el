@@ -22,12 +22,12 @@
 (defvar ogent-edit-display-method)
 
 ;; Zen out-of-band tool recording (decoupled: declare + fboundp, never required).
-(declare-function ogent-zen--tool-record-active-p "ogent-zen" ())
+(declare-function ogent-zen--tool-record-active-p "ogent-zen-tools" ())
 (declare-function ogent-zen-record-tool-call
-                  "ogent-zen" (name args result &optional status context))
-(declare-function ogent-zen-tool-record-append "ogent-zen" (record chunk))
+                  "ogent-zen-tools" (name args result &optional status context))
+(declare-function ogent-zen-tool-record-append "ogent-zen-tools" (record chunk))
 (declare-function ogent-zen-tool-record-finish
-                  "ogent-zen" (record status &optional detail))
+                  "ogent-zen-tools" (record status &optional detail))
 (declare-function org-fold-region "org-fold" (from to flag &optional spec))
 
 ;; Inline-edit display (loaded lazily by the edit subsystem).

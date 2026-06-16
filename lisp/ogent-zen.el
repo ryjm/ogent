@@ -17,7 +17,7 @@
 (require 'ogent-zen-edit)
 (require 'ogent-ui-theme)
 
-(declare-function ogent-ui--dispatch-request "ui/ogent-ui"
+(declare-function ogent-ui--dispatch-request "ogent-ui-send"
                   (source-buffer region-start region-end raw-prompt
                                  models preset templates
                                  &optional org-point context-transform))

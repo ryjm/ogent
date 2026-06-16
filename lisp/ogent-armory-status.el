@@ -39,7 +39,7 @@
 (autoload 'ogent-armory-conversation "ogent-ui-armory" nil t)
 
 (declare-function ogent-issues-bd-initialized-p "ogent-issues-bd" (&optional directory))
-(declare-function ogent-armory-jobs--goto "ogent-ui-armory" (agent job-id))
+(declare-function ogent-armory-jobs--goto "ogent-ui-armory-jobs" (agent job-id))
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-insert-section--create "ext:magit-section")
