@@ -37,11 +37,6 @@ Captured at load time so sibling requires remain robust.")
 
 (require 'ogent-issues-bd)
 
-;; Evil motions referenced in the optional Evil integration (fileonly:
-;; defined via `evil-define-motion').
-(declare-function evil-goto-line "ext:evil" t t)
-(declare-function evil-goto-first-line "ext:evil" t t)
-(declare-function evil-local-set-key "ext:evil" t t)
 (declare-function magit-section-cycle-global "ext:magit-section" t t)
 (declare-function magit-section-toggle "ext:magit-section" t t)
 (declare-function magit-insert-section "ext:magit-section" t t)
@@ -2034,57 +2029,9 @@ This guards against load-path modifications after initial load."
       (ogent-issues-graph-view id)
     (user-error "No issue at point")))
 
-;;; Evil Integration
-;; When evil is loaded, set up proper evil keybindings.
-;; j/k are NOT bound in the mode map so evil users get normal line movement.
-;; Use n/p for issue-to-issue navigation, gj/gk for section navigation.
-;; This section must be at the end of the file, after all keymaps are defined.
-
-;; Declare evil functions to avoid byte-compile warnings
-(declare-function evil-set-initial-state "ext:evil-core")
-(declare-function evil-make-overriding-map "ext:evil-core")
-(declare-function evil-normalize-keymaps "ext:evil-core")
-
-(defun ogent-issues--setup-evil ()
-  "Set up evil keybindings for ogent-issues modes.
-Called after evil is loaded."
-  (when (fboundp 'evil-set-initial-state)
-    ;; Set initial state to normal for ogent-issues modes
-    (evil-set-initial-state 'ogent-issues-mode 'normal)
-    (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
-    
-    ;; Make our keymaps override evil's state maps for non-movement keys.
-    ;; j/k are intentionally NOT in the mode map so evil handles them.
-    (evil-make-overriding-map ogent-issues-mode-map 'all)
-    (evil-make-overriding-map ogent-issues-detail-mode-map 'all)
-    
-    ;; Add evil-specific navigation using define-key on evil's state maps
-    ;; This avoids the evil-define-key macro which causes load-order issues
-    (when (boundp 'evil-normal-state-local-map)
-      (add-hook 'ogent-issues-mode-hook
-                (lambda ()
-                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
-                  (evil-local-set-key 'normal "G" #'evil-goto-line)
-                  (evil-local-set-key 'normal "gr" #'ogent-issues-refresh)
-                  (evil-local-set-key 'normal "gR" #'ogent-issues-refresh-force)
-                  (evil-local-set-key 'normal "gj" #'ogent-issues-next-section)
-                  (evil-local-set-key 'normal "gk" #'ogent-issues-prev-section)
-                  (evil-local-set-key 'normal "ZZ" #'quit-window)
-                  (evil-local-set-key 'normal "ZQ" #'quit-window)))
-      (add-hook 'ogent-issues-detail-mode-hook
-                (lambda ()
-                  (evil-local-set-key 'normal "gg" #'evil-goto-first-line)
-                  (evil-local-set-key 'normal "G" #'evil-goto-line)
-                  (evil-local-set-key 'normal "gr" #'ogent-issues-detail-refresh)
-                  (evil-local-set-key 'normal "ZZ" #'quit-window)
-                  (evil-local-set-key 'normal "ZQ" #'quit-window))))
-    
-    ;; Normalize keymaps when entering these modes
-    (add-hook 'ogent-issues-mode-hook #'evil-normalize-keymaps)
-    (add-hook 'ogent-issues-detail-mode-hook #'evil-normalize-keymaps)))
-
-(with-eval-after-load 'evil
-  (ogent-issues--setup-evil))
+;; Load the extracted satellite clusters so `(require 'ogent-issues)' still
+;; pulls in the full feature (and registers the Evil integration hook).
+(require 'ogent-issues-evil)
 
 (provide 'ogent-issues)
 
