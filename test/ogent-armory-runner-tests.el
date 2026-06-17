@@ -34,15 +34,22 @@
   "Wait for PROCESS to exit and its sentinel to finalize the conversation."
   (while (process-live-p process)
     (accept-process-output process 0.1))
-  ;; The exit sentinel finalizes the conversation and removes the process
-  ;; from the runner registry.  Poll for that with a nil process argument:
-  ;; for a dead process `accept-process-output' returns immediately without
-  ;; delivering pending sentinels, which would starve this loop.
-  (let ((deadline (+ (float-time) 5)))
+  ;; The exit sentinel removes PROCESS from the registry before it rewrites the
+  ;; canonical conversation record.  Poll until both the registry and stored
+  ;; conversation state reflect finalization.
+  (let* ((plan (process-get process 'ogent-armory-plan))
+         (root (plist-get plan :root))
+         (conversation-id (process-get process 'ogent-armory-conversation-id))
+         (deadline (+ (float-time) 5)))
     (while (and (< (float-time) deadline)
-                (memq process ogent-armory-runner--processes))
-      (accept-process-output nil 0.05)))
-  (accept-process-output nil 0.1))
+                (or (memq process ogent-armory-runner--processes)
+                    (let ((status (ignore-errors
+                                    (plist-get
+                                     (ogent-armory-conversation-read
+                                      root conversation-id)
+                                     :status))))
+                      (or (null status) (equal status "running")))))
+      (accept-process-output nil 0.05))))
 
 (ert-deftest ogent-armory-runner-builds-codex-plan-from-job ()
   "Codex plans use `codex exec' with subscription auth inherited from the CLI."

@@ -1026,10 +1026,18 @@ function lint-indent {
     # We load project source files as well, because they may contain
     # macros with (declare (indent)) rules which must be loaded to set
     # indentation.
+    local lint_indent_load_files=("${files_project_feature[@]}")
+    for file in "${files_project_test[@]}"
+    do
+        if [[ $file != test/ogent-bench.el ]]
+        then
+            lint_indent_load_files+=("$file")
+        fi
+    done
 
     run_emacs \
         --load "$(elisp-lint-indent-file)" \
-        $(args-load-files "${files_project_feature[@]}" "${files_project_test[@]}") \
+        $(args-load-files "${lint_indent_load_files[@]}") \
         --funcall makem-lint-indent-batch-and-exit \
         "${files_project_feature[@]}" "${files_project_test[@]}" \
         && success "Linting indentation finished without errors." \
