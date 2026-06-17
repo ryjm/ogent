@@ -1,10 +1,11 @@
 ;;; ogent.el --- AI assistant with Org-mode integration -*- lexical-binding: t; -*-
+;; Copyright (C) 2026 Jake Miller
 
 ;; Author: Jake Miller
 ;; Maintainer: Jake Miller
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5") (transient "0.13.4") (org "9.8.5"))
-;; Homepage: https://github.com/jake-87/ogent
+;; Homepage: https://github.com/ryjm/ogent
 ;; Keywords: ai, llm, org-mode, tools, convenience
 
 ;; This file is not part of GNU Emacs.
@@ -42,7 +43,7 @@
 ;; Then use C-c . p to open the prompt dispatcher.
 ;;
 ;; For more information, see the README at:
-;; https://github.com/jake-87/ogent
+;; https://github.com/ryjm/ogent
 
 ;;; Code:
 
