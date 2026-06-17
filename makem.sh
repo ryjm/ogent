@@ -1024,20 +1024,27 @@ function lint-elint {
 function lint-indent {
     verbose 1 "Linting indentation..."
 
-    # We load project source files as well, because they may contain
-    # macros with (declare (indent)) rules which must be loaded to set
-    # indentation.
+    # Load project source files plus most test files so custom macros can
+    # publish their indentation rules before we check for drift.  A few tests
+    # require compressed core libraries on Nix runners; skip preloading those
+    # and provide the small amount of indentation metadata they need directly.
     local lint_indent_load_files=("${files_project_feature[@]}")
     for file in "${files_project_test[@]}"
     do
-        if [[ $file != test/ogent-bench.el && $file != test/ogent-edit-tests.el ]]
-        then
-            lint_indent_load_files+=("$file")
-        fi
+        case "$file" in
+            test/ogent-bench.el|test/ogent-edit-tests.el|test/ogent-profile.el)
+                ;;
+            *)
+                lint_indent_load_files+=("$file")
+                ;;
+        esac
     done
 
     run_emacs \
         --load "$(elisp-lint-indent-file)" \
+        --eval "(put 'ogent-bench 'lisp-indent-function 'defun)" \
+        --eval "(put 'ogent-bench-multi 'lisp-indent-function 0)" \
+        --eval "(put 'ogent-with-profile 'lisp-indent-function 0)" \
         $(args-load-files "${lint_indent_load_files[@]}") \
         --funcall makem-lint-indent-batch-and-exit \
         "${files_project_feature[@]}" "${files_project_test[@]}" \
