@@ -53,7 +53,7 @@ ogent depends on [gptel](https://github.com/karthink/gptel) for LLM communicatio
 1. Clone the repository:
 
 ```bash
-git clone https://github.com/your-org/ogent.git ~/path/to/ogent
+git clone https://github.com/ryjm/ogent.git ~/path/to/ogent
 ```
 
 2. Add to your init file (`~/.emacs.d/init.el` or `~/.emacs`):
