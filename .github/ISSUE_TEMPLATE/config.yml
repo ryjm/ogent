@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/ryjm/ogent/discussions
+    about: Ask questions or start broader design discussions.
+  - name: Contributing guide
+    url: https://github.com/ryjm/ogent/blob/master/CONTRIBUTING.md
+    about: Review setup, testing, and contribution expectations before filing.
