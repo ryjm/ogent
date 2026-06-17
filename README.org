@@ -1,4 +1,5 @@
 #+title: ogent
+[[https://github.com/ryjm/ogent/actions/workflows/ci.yml][https://github.com/ryjm/ogent/actions/workflows/ci.yml/badge.svg]]
 
 *LLMs as Unix tools, not chatbots.*
 
@@ -40,7 +41,7 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
 * Install
 1. Clone the repository:
    #+begin_src shell
-   git clone https://github.com/<you>/ogent.git
+   git clone https://github.com/ryjm/ogent.git
    cd ogent
    #+end_src
 2. Ensure dependencies compile cleanly:
@@ -365,3 +366,9 @@ Then type =@code-review= and press TAB to expand the template.
 
 * Updating
 Pull the latest changes, then rerun =make lint= and =make test= to confirm your environment still passes before hacking.
+
+* Contributing
+See [[file:CONTRIBUTING.md][CONTRIBUTING.md]] for setup, testing, and pull request guidelines.
+
+* License
+ogent is licensed under GPL-3.0-or-later.  See [[file:LICENSE][LICENSE]] for the full license text.
