@@ -6,6 +6,9 @@
 (require 'ogent-context)
 (require 'cl-lib)
 
+(defvar ogent-tools-project-root)
+(declare-function ogent-review-accept "ogent-completions")
+
 (defun ogent-zen-tests--overlay-labels ()
   "Return display labels from active Zen overlays."
   (mapcar (lambda (overlay)

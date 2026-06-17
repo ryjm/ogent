@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; Provides an ergonomic workflow for reviewing, cycling, and accepting/rejecting
-;; LLM completions. Supports fan-out scenarios where multiple models produce
+;; LLM completions.  Supports fan-out scenarios where multiple models produce
 ;; responses, or retry scenarios with multiple attempts at the same prompt.
 ;;
 ;; Key bindings:
@@ -279,7 +279,7 @@ Removes dimming, expands the subtree."
   "Cycle to the next completion for the current Question subtree."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-completion-next only works in Org buffers"))
+    (user-error "Ogent-completion-next only works in Org buffers"))
   (let* ((question-marker (ogent-completions--find-question-marker))
          (completions (ogent-completions--for-subtree)))
     (unless question-marker
@@ -308,7 +308,7 @@ Removes dimming, expands the subtree."
   "Cycle to the previous completion for the current Question subtree."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-completion-prev only works in Org buffers"))
+    (user-error "Ogent-completion-prev only works in Org buffers"))
   (let* ((question-marker (ogent-completions--find-question-marker))
          (completions (ogent-completions--for-subtree)))
     (unless question-marker
@@ -365,7 +365,7 @@ The accepted completion remains, and all other Response siblings
 for this Question are deleted."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-completion-accept only works in Org buffers"))
+    (user-error "Ogent-completion-accept only works in Org buffers"))
   (let* ((question-marker (ogent-completions--find-question-marker))
          (completions (ogent-completions--for-subtree)))
     (unless question-marker
@@ -399,7 +399,7 @@ for this Question are deleted."
 (defun ogent-completions--remove-transient-metadata (completion)
   "Remove transient metadata properties from COMPLETION.
 Removes RESPONSE-INDEX and CREATED properties from the Response headline's
-drawer, leaving other properties intact. If no other properties remain,
+drawer, leaving other properties intact.  If no other properties remain,
 the entire PROPERTIES drawer is removed."
   (let ((marker (ogent-completion-marker completion)))
     (when (and marker (marker-buffer marker))
@@ -419,7 +419,7 @@ Question/Response completion workflows, it accepts the current completion
 and removes transient metadata."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-review-accept only works in Org buffers"))
+    (user-error "Ogent-review-accept only works in Org buffers"))
   (if (and (fboundp 'ogent-zen--transcript-request-heading)
            (ogent-zen--transcript-request-heading))
       (if (and (fboundp 'ogent-zen--current-response-heading)
@@ -459,7 +459,7 @@ and removes transient metadata."
 If this is the last completion, leaves point at the Question headline."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-completion-reject only works in Org buffers"))
+    (user-error "Ogent-completion-reject only works in Org buffers"))
   (let* ((question-marker (ogent-completions--find-question-marker))
          (completions (ogent-completions--for-subtree)))
     (unless question-marker

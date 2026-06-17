@@ -18,7 +18,7 @@
 
 ;;; Commentary:
 ;; Provides word-level inline diff display for showing changes between
-;; old and new text. Used by ogent-edit-display.el for the inline-diff
+;; old and new text.  Used by ogent-edit-display.el for the inline-diff
 ;; display method.
 ;;
 ;; Key features:
@@ -230,8 +230,8 @@ Returns list of (idx1 . idx2) pairs indicating matching positions."
       result)))
 
 (defun inline-diff--compute-changes (old-tokens new-tokens)
-  "Compute changes between OLD-TOKENS and NEW-TOKENS.
-Returns list of change operations:
+  "Compute change operations between OLD-TOKENS and NEW-TOKENS.
+Return list of change operations:
   (:keep old-idx new-idx)
   (:remove old-idx)
   (:add new-idx)"
@@ -447,7 +447,7 @@ When KEEP-SNAPSHOTS is non-nil, keep restoration snapshots."
 ;;; Accept/Reject
 
 (defun inline-diff-accept-all ()
-  "Accept all changes (keep buffer as-is, remove overlays)."
+  "Accept every proposed edit (keep buffer as-is, remove overlays)."
   (interactive)
   (inline-diff-clear)
   (run-hooks 'inline-diff-accept-hook)
@@ -455,7 +455,7 @@ When KEEP-SNAPSHOTS is non-nil, keep restoration snapshots."
   (message "All changes accepted"))
 
 (defun inline-diff-reject-all ()
-  "Reject all changes and restore the original text snapshots."
+  "Reject every proposed edit and restore the original text snapshots."
   (interactive)
   (if (yes-or-no-p "Reject all inline-diff changes and restore original text? ")
       (progn

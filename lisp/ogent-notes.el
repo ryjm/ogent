@@ -159,7 +159,7 @@ Creates the Notes heading if it doesn't exist.
 Appends the response with a timestamp."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-notes-capture only works in Org buffers"))
+    (user-error "Command `ogent-notes-capture' only works in Org buffers"))
   (let ((response (ogent-notes-get-last-response)))
     (unless response
       (user-error "No AI response to capture"))

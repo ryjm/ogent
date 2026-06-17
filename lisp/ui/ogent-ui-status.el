@@ -304,7 +304,7 @@ If REQUEST is provided, remove its margin indicator specifically."
 ;;; Minor Mode
 
 (defvar ogent-status--original-header-line nil
-  "Stores the original header-line-format when mode is enabled.")
+  "Store original `header-line-format' when mode is enabled.")
 
 ;;;###autoload
 (define-minor-mode ogent-status-mode

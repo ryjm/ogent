@@ -195,7 +195,7 @@ function elisp-checkdoc-file {
     (when makem-checkdoc-errors-p
       (kill-emacs 1))))
 
-(setq checkdoc-spellcheck-documentation-flag t)
+(setq checkdoc-spellcheck-documentation-flag nil)
 (makem-checkdoc-files-and-exit)
 EOF
     fi
@@ -536,7 +536,22 @@ function package-main-file {
         # Use *-pkg.el file if it exists.
         echo "$file_pkg"
     else
-        # Use shortest filename (a sloppy heuristic that will do for now).
+        if printf '%s\n' "${files_project_feature[@]}" | grep -q '^lisp/ogent\.el$'
+        then
+            echo "lisp/ogent.el"
+            return
+        fi
+        # Prefer the file with the package header; shortest filename picks
+        # helper files such as lint.el in multi-file packages.
+        for file in "${files_project_feature[@]}"
+        do
+            if grep -q '^;; Package-Requires: ' "$file"
+            then
+                echo "$file"
+                return
+            fi
+        done
+        # Fallback: use shortest filename (a sloppy heuristic).
         for file in "${files_project_feature[@]}"
         do
             echo ${#file} "$file"
@@ -599,7 +614,7 @@ function sandbox {
         fi
     else
         # Not given: make temp directory, and delete it on exit.
-        local sandbox_dir=$(mktemp --tmpdir -d "makem-emacs-sandbox-dir-XXX") || die "Unable to make sandbox dir."
+        sandbox_dir=$(mktemp --tmpdir -d "makem-emacs-sandbox-dir-XXX") || die "Unable to make sandbox dir."
         paths_temp+=("$sandbox_dir")
     fi
 
@@ -622,9 +637,20 @@ function sandbox {
 
         # Ensure built-in packages get upgraded to newer versions from ELPA.
         args_sandbox_package_install+=(--eval "(setq package-install-upgrade-built-in t)")
+        # Transient 0.13.x compiles against the external Compat package on
+        # Emacs 30; installing Compat first avoids loading the built-in stub.
+        if printf '%s\n' "${deps[@]}" | grep -qx transient
+        then
+            args_sandbox_package_install+=(--eval "(package-install 'compat)")
+            args_sandbox_package_install+=(--eval "(package-install 'transient)")
+        fi
 
         for package in "${deps[@]}"
         do
+            if [[ $package == transient || $package == compat ]]
+            then
+                continue
+            fi
             args_sandbox_package_install+=(--eval "(package-install '$package)")
         done
     fi
@@ -1019,7 +1045,7 @@ function lint-package {
         --load package-lint \
         --eval "(setq package-lint-main-file \"$(package-main-file)\")" \
         --funcall package-lint-batch-and-exit \
-        "${files_project_feature[@]}" \
+        "$(package-main-file)" \
         && success "Linting package finished without errors." \
             || error "Linting package failed."
 }

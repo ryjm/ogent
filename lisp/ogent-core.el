@@ -50,7 +50,7 @@
 (declare-function ogent-list-pinned "ogent-context")
 
 ;; gptel integration
-(declare-function gptel-request "ext:gptel" (prompt &rest args))
+(declare-function gptel-request "ext:gptel-request")
 (defvar gptel-model)
 (defvar gptel-stream)
 
@@ -193,7 +193,7 @@ Bindings are defined in `ogent-action-registry' and set up via
 
 ;;;###autoload (autoload 'ogent-mode "ogent" nil t)
 (define-minor-mode ogent-mode
-  "Minor mode providing ogent AI assistant commands via C-c . prefix.
+  "Minor mode providing ogent AI assistant commands via the ogent prefix.
 When enabled, provides access to ogent commands in any buffer.
 For non-Org buffers, companion Org buffers are automatically created
 to maintain conversation history."
@@ -535,7 +535,7 @@ Interactively, prompts for the question and names the active context.
 Response is displayed according to `ogent-ask-display-function'."
   (interactive (list (ogent-ask--read-question)))
   (unless (require 'gptel nil 'noerror)
-    (user-error "gptel is required for ogent-ask. Install gptel first"))
+    (user-error "Gptel is required for ogent-ask.  Install gptel first"))
   (when (string-empty-p (string-trim question))
     (user-error "Question cannot be empty"))
   ;; Reset streaming accumulator and set streaming flag
@@ -569,7 +569,7 @@ editing code.
 With prefix ARG, passed to `org-edit-special' (e.g., for session buffers)."
   (interactive "P")
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-open-block only works in Org buffers"))
+    (user-error "Ogent-open-block only works in Org buffers"))
   ;; Check if we're in a source block
   (let ((element (org-element-at-point)))
     (unless (memq (org-element-type element) '(src-block example-block))
@@ -692,11 +692,11 @@ Each Response headline includes a PROPERTIES drawer with:
   :RESPONSE-INDEX: - The sequential number of this response
   :CREATED: - Timestamp when the response was generated
 
-This function is designed to be called via C-c C-c when point is
+This function is designed to be called via \\[org-ctrl-c-ctrl-c] when point is
 in or under a Question headline."
   (interactive)
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent-session-prompt-from-question only works in Org buffers"))
+    (user-error "Ogent-session-prompt-from-question only works in Org buffers"))
   (unless (ogent-session--in-question-headline-p)
     (user-error "Point is not in a Question headline"))
   
@@ -708,7 +708,7 @@ in or under a Question headline."
     (let ((response-marker (ogent-session--create-response-headline)))
       ;; Send the request using gptel
       (unless (require 'gptel nil 'noerror)
-        (user-error "gptel is required for ogent session prompting. Install gptel first"))
+        (user-error "Gptel is required for ogent session prompting.  Install gptel first"))
       
       (message "Sending question to %s..."
                (if (and (boundp 'gptel-model) gptel-model)
@@ -756,8 +756,8 @@ TEXT is the chunk of response, INFO contains metadata."
     (message "Response complete"))))
 
 (defun ogent-session--ctrl-c-ctrl-c-handler ()
-  "Handler for C-c C-c in ogent session buffers.
-Returns non-nil if we handled the key, nil to fall through to other handlers."
+  "Handle \\[org-ctrl-c-ctrl-c] in ogent session buffers.
+Return non-nil if we handled the key, nil to fall through to other handlers."
   (when (and (derived-mode-p 'org-mode)
              (ogent-session--in-question-headline-p))
     (ogent-session-prompt-from-question)

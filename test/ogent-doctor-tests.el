@@ -24,17 +24,17 @@
 (ert-deftest ogent-doctor-format-matches-golden ()
   "Doctor report formatting is pinned by a golden Org artifact."
   (let* ((results '((:id emacs-version
-                     :label "Emacs version"
-                     :status ok
-                     :detail "Emacs 30.2 (required >= 29.1)")
+                         :label "Emacs version"
+                         :status ok
+                         :detail "Emacs 30.2 (required >= 29.1)")
                     (:id backend
-                     :label "gptel backend"
-                     :status warn
-                     :detail "Backend \"OpenAI\" has not resolved to an object")
+                         :label "gptel backend"
+                         :status warn
+                         :detail "Backend \"OpenAI\" has not resolved to an object")
                     (:id codex-auth
-                     :label "Codex OAuth cache"
-                     :status info
-                     :detail "No Codex auth file at ~/.codex/auth.json")))
+                         :label "Codex OAuth cache"
+                         :status info
+                         :detail "No Codex auth file at ~/.codex/auth.json")))
          (golden-file (expand-file-name "data/ogent-doctor-golden.org"
                                         ogent-test-root))
          (expected (with-temp-buffer

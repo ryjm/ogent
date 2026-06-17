@@ -503,8 +503,9 @@ PREFIX is used internally while recursing."
                                            &optional refresh-fn refresh-force-fn)
   "Make MODE's read-only display buffer fully usable under Evil.
 
-MODE is the major-mode symbol, MODE-MAP its keymap value, MODE-HOOK
-its mode-hook symbol.  Effects:
+MODE is the major-mode symbol, MODE-MAP its keymap value, and MODE-HOOK
+its mode-hook symbol.  REFRESH-FN and REFRESH-FORCE-FN are optional
+refresh commands.  Effects:
 
   * the buffer opens in Evil `normal' state,
   * every command MODE-MAP binds is mirrored into Evil `normal' and
@@ -563,7 +564,7 @@ directly (bare `g' refresh etc.) and is unaffected."
 
 ;;;###autoload
 (defmacro ogent-evil-setup-display-mode (mode mode-map mode-hook &rest plist)
-  "Defer canonical Evil display-buffer setup until Evil is loaded.
+  "Defer canonical Evil `display-buffer' setup until Evil is loaded.
 MODE and MODE-HOOK are quoted symbols; MODE-MAP is the keymap value.
 PLIST accepts :refresh and :refresh-force commands bound to gr / gR.
 See `ogent-evil-display-mode-setup'."

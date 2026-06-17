@@ -91,8 +91,8 @@ Returns a plist with :file, :line, :function, and :formatted keys."
         (let ((status (plist-get issue :status)))
           (pcase status
             ("open" (cl-incf open)
-                    (when (ogent-issues--issue-ready-p issue)
-                      (cl-incf ready)))
+             (when (ogent-issues--issue-ready-p issue)
+               (cl-incf ready)))
             ("in_progress" (cl-incf in-progress))
             ("blocked" (cl-incf blocked))
             ("closed" (cl-incf closed)))))
@@ -150,18 +150,18 @@ Returns a plist with :file, :line, :function, and :formatted keys."
 (transient-define-prefix ogent-issues-dispatch ()
   "Dispatch menu for ogent-issues."
   [:description ogent-issues-transient--format-header
-   ["Navigation"
-    ("n" "Next issue" ogent-issues-next-issue :transient t)
-    ("p" "Previous issue" ogent-issues-prev-issue :transient t)
-    ("N" "Next ready" ogent-issues-next-ready :transient t)
-    ("RET" "View details" ogent-issues-visit)
-    ("TAB" "Toggle section" ogent-issues-toggle-section :transient t)]
-   ["Actions"
-    ("c" "Create issue" ogent-issues-create-dispatch)
-    ("s" "Start working" ogent-issues-start)
-    ("K" "Close issue" ogent-issues-close)
-    ("R" "Reopen issue" ogent-issues-reopen)
-    ("C" "Add comment" ogent-issues-comment)]]
+                ["Navigation"
+                 ("n" "Next issue" ogent-issues-next-issue :transient t)
+                 ("p" "Previous issue" ogent-issues-prev-issue :transient t)
+                 ("N" "Next ready" ogent-issues-next-ready :transient t)
+                 ("RET" "View details" ogent-issues-visit)
+                 ("TAB" "Toggle section" ogent-issues-toggle-section :transient t)]
+                ["Actions"
+                 ("c" "Create issue" ogent-issues-create-dispatch)
+                 ("s" "Start working" ogent-issues-start)
+                 ("K" "Close issue" ogent-issues-close)
+                 ("R" "Reopen issue" ogent-issues-reopen)
+                 ("C" "Add comment" ogent-issues-comment)]]
   [["Filters"
     ("fs" "By status" ogent-issues-filter-status)
     ("ft" "By type" ogent-issues-filter-type)

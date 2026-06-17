@@ -129,8 +129,8 @@
   "Test that complex arguments are preserved."
   (let ((ogent-debug-tool-history nil))
     (let* ((complex-args '(:file_path "/test/path.txt"
-				      :content "Multi\nline\ntext"
-				      :options (:recursive t :depth 3)))
+                                      :content "Multi\nline\ntext"
+                                      :options (:recursive t :depth 3)))
            (tool-call (list :id "test-args"
                             :name 'complex-tool
                             :args complex-args))
@@ -230,7 +230,7 @@
                              :args ((:name "arg" :type "string" :description "Test"))
                              :confirm nil))))
           (let ((result (ogent-ui--execute-tool 'test-integration-tool
-                                                 '(:arg "hello"))))
+                                                '(:arg "hello"))))
             (should (equal result "Result: hello"))
             (should (= (length ogent-debug-tool-history) 1))
             (let ((entry (car ogent-debug-tool-history)))
@@ -255,7 +255,7 @@
                              :args ((:name "arg" :type "string" :description "Test"))
                              :confirm nil))))
           (let ((result (ogent-ui--execute-tool 'failing-integration-tool
-                                                 '(:arg "test"))))
+                                                '(:arg "test"))))
             (should (string-match-p "Boom!" result))
             (should (= (length ogent-debug-tool-history) 1))
             (let ((entry (car ogent-debug-tool-history)))

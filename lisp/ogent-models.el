@@ -5,7 +5,7 @@
 ;; code have a single source of truth.
 ;;
 ;; Tools are defined in `ogent-tool-registry' and registered with gptel
-;; via `gptel-make-tool'. All tools are available for all models.
+;; via `gptel-make-tool'.  All tools are available for all models.
 
 ;;; Code:
 
@@ -23,33 +23,33 @@
 
 (defcustom ogent-model-registry
   '((:id "gpt-5.5" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-5.5 - flagship reasoning and coding")
+         :description "OpenAI GPT-5.5 - flagship reasoning and coding")
     (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
-          :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
+         :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
     (:id "gpt-5.4" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-5.4 - professional coding and agentic work")
+         :description "OpenAI GPT-5.4 - professional coding and agentic work")
     (:id "gpt-5.4-mini" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
+         :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
     (:id "gpt-5.4-nano" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-5.4 nano - low-cost high-volume tasks")
+         :description "OpenAI GPT-5.4 nano - low-cost high-volume tasks")
     (:id "gpt-5.3-codex" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-5.3-Codex - agentic coding")
+         :description "OpenAI GPT-5.3-Codex - agentic coding")
     (:id "gpt-4.1" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-4.1 - non-reasoning long-context model")
+         :description "OpenAI GPT-4.1 - non-reasoning long-context model")
     (:id "gpt-4o-mini" :backend gptel-openai :stream? t
-          :description "OpenAI GPT-4o mini - legacy fallback")
+         :description "OpenAI GPT-4o mini - legacy fallback")
     (:id "claude-fable-5" :backend gptel-anthropic :stream? t
-          :capabilities (cache)
-          :description "Anthropic Claude Fable 5 - most powerful frontier model")
+         :capabilities (cache)
+         :description "Anthropic Claude Fable 5 - most powerful frontier model")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
-          :capabilities (cache)
-          :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
+         :capabilities (cache)
+         :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
-          :capabilities (cache)
-          :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
+         :capabilities (cache)
+         :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
-          :capabilities (cache)
-          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
+         :capabilities (cache)
+         :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 
@@ -64,7 +64,7 @@ Optional keys:
   :capabilities   - list of gptel capability symbols to add to the
                     model, e.g. (cache)"
   :type '(repeat (plist :options (:id :backend :preset :stream? :description
-                                  :request-params :capabilities)))
+                                      :request-params :capabilities)))
   :group 'ogent-models)
 
 (defun ogent-models-all ()
@@ -112,8 +112,8 @@ Falls back to the first registry entry if `ogent-default-model' is unset."
 
 (defconst ogent-default-presets
   '((:name ogent-code-review
-     :spec (:description "Code review assistant"
-            :system "You are a code reviewer. Analyze the provided code for:
+           :spec (:description "Code review assistant"
+                               :system "You are a code reviewer. Analyze the provided code for:
 - Bugs and logic errors
 - Security vulnerabilities
 - Performance issues
@@ -122,11 +122,11 @@ Falls back to the first registry entry if `ogent-default-model' is unset."
 
 Be specific and actionable. Reference line numbers when possible.
 Prioritize issues by severity (critical, warning, suggestion).")
-     :description "Code review: bugs, security, maintainability")
+           :description "Code review: bugs, security, maintainability")
 
     (:name ogent-explain
-     :spec (:description "Code explanation assistant"
-            :system "You are a code explainer. Your goal is to help developers understand code clearly.
+           :spec (:description "Code explanation assistant"
+                               :system "You are a code explainer. Your goal is to help developers understand code clearly.
 
 When explaining code:
 - Start with a high-level summary of what the code does
@@ -135,11 +135,11 @@ When explaining code:
 - Use analogies when helpful
 - Point out any non-obvious patterns or idioms
 - Keep explanations concise but thorough")
-     :description "Explain code clearly with examples")
+           :description "Explain code clearly with examples")
 
     (:name ogent-refactor
-     :spec (:description "Refactoring assistant"
-            :system "You are a refactoring expert. Suggest improvements to make code:
+           :spec (:description "Refactoring assistant"
+                               :system "You are a refactoring expert. Suggest improvements to make code:
 - More readable and maintainable
 - More efficient (when it matters)
 - Better aligned with language idioms
@@ -151,7 +151,7 @@ For each suggestion:
 3. Note any tradeoffs or considerations
 
 Focus on practical improvements, not theoretical perfection.")
-     :description "Suggest refactoring improvements"))
+           :description "Suggest refactoring improvements"))
   "Default ogent presets shipped with the package.
 These are merged with `ogent-preset-registry' when registering presets.")
 
@@ -267,9 +267,7 @@ This variable can be made buffer-local for per-session control."
                  (repeat :tag "Specific tools" symbol))
   :group 'ogent-models)
 
-(declare-function gptel-make-tool "ext:gptel"
-                  (&rest args &key name function description args
-                         category async include confirm &allow-other-keys))
+(declare-function gptel-make-tool "ext:gptel-request")
 (defvar gptel-tools)
 (defvar gptel-use-tools)
 

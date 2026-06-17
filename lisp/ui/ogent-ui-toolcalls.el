@@ -185,7 +185,7 @@ Results are displayed in the buffer."
                       "[Tool execution denied by user]")))))))))))
 
 
-)
+  )
 
 (defun ogent-ui--tool-ledger-effects (name)
   "Return the declared :effects for tool NAME, or nil."
@@ -922,41 +922,41 @@ Returns the diff-id if a diff was created, nil otherwise."
            (file-path (or (plist-get tool-args :file-path)
                           (plist-get tool-args :file_path)))
            diff-text)
-    (unless file-path
-      (error "No file path in tool args"))
-    ;; Generate diff based on tool type
-    (setq diff-text
-          (pcase tool-name
-            ("write-file"
-             (let ((content (plist-get tool-args :content)))
-               (ogent-ui--generate-diff file-path content)))
-            ("edit-file"
-             (let ((old-string (or (plist-get tool-args :old-string)
-                                   (plist-get tool-args :old_string)))
-                   (new-string (or (plist-get tool-args :new-string)
-                                   (plist-get tool-args :new_string))))
-               (ogent-ui--generate-diff file-path nil old-string new-string)))
-            (_ (error "Unknown edit tool: %s" tool-name))))
-    ;; Insert the diff block
-    (let ((marker (ogent-ui--insert-diff-block diff-id file-path diff-text 'pending)))
-      ;; Store pending diff info
-      (puthash diff-id
-               (list :id diff-id
-                     :file-path file-path
-                     :diff-text diff-text
-                     :tool-name tool-name
-                     :tool-args tool-args
-                     :buffer (current-buffer)
-                     :marker marker
-                     :status 'pending)
-               ogent-ui--pending-diffs)
-      diff-id))))
+      (unless file-path
+        (error "No file path in tool args"))
+      ;; Generate diff based on tool type
+      (setq diff-text
+            (pcase tool-name
+              ("write-file"
+               (let ((content (plist-get tool-args :content)))
+                 (ogent-ui--generate-diff file-path content)))
+              ("edit-file"
+               (let ((old-string (or (plist-get tool-args :old-string)
+                                     (plist-get tool-args :old_string)))
+                     (new-string (or (plist-get tool-args :new-string)
+                                     (plist-get tool-args :new_string))))
+                 (ogent-ui--generate-diff file-path nil old-string new-string)))
+              (_ (error "Unknown edit tool: %s" tool-name))))
+      ;; Insert the diff block
+      (let ((marker (ogent-ui--insert-diff-block diff-id file-path diff-text 'pending)))
+        ;; Store pending diff info
+        (puthash diff-id
+                 (list :id diff-id
+                       :file-path file-path
+                       :diff-text diff-text
+                       :tool-name tool-name
+                       :tool-args tool-args
+                       :buffer (current-buffer)
+                       :marker marker
+                       :status 'pending)
+                 ogent-ui--pending-diffs)
+        diff-id))))
 
 (defun ogent-ui--show-inline-diff-for-tool (tool-name tool-args)
   "Show an inline diff preview for TOOL-NAME with TOOL-ARGS.
 Returns a generated diff-id for tracking."
   (unless (ogent-ui--inline-diff-available-p)
-    (error "inline-diff not available"))
+    (error "Inline-diff not available"))
   (let* ((diff-id (ogent-ui--next-diff-id))
          (file-path (or (plist-get tool-args :file-path)
                         (plist-get tool-args :file_path))))

@@ -45,9 +45,9 @@
 (ert-deftest ogent-persist-formats-metadata-header ()
   "Metadata header is properly formatted as Org keywords."
   (let* ((metadata '(:id "session-001"
-			 :models ("gpt-4" "claude-3")
-			 :start-time (25000 0 0 0)
-			 :title "My Session"))
+                         :models ("gpt-4" "claude-3")
+                         :start-time (25000 0 0 0)
+                         :title "My Session"))
          (header (ogent-persist--format-metadata-header metadata)))
     (should (string-match-p "^#\\+title: My Session$" header))
     (should (string-match-p "^#\\+OGENT-SESSION-ID: session-001$" header))
@@ -151,8 +151,8 @@
     (unwind-protect
         (with-current-buffer buffer
           (let ((metadata '(:id "apply-001"
-				:models ("gpt-4")
-				:start-time (25000 0 0 0))))
+                                :models ("gpt-4")
+                                :start-time (25000 0 0 0))))
             (ogent-persist--apply-metadata metadata)
             
             (should (equal ogent-persist--id "apply-001"))
@@ -464,9 +464,9 @@
 (ert-deftest ogent-history-format-entry-full ()
   "Test format-entry with complete session metadata."
   (let ((session '(:title "My Session"
-                   :start-time (25000 0 0 0)
-                   :models ("gpt-4" "claude-3")
-                   :project "/home/user/project/")))
+                          :start-time (25000 0 0 0)
+                          :models ("gpt-4" "claude-3")
+                          :project "/home/user/project/")))
     (let ((entry (ogent-history--format-entry session)))
       (should (stringp entry))
       (should (string-match-p "My Session" entry))
@@ -654,21 +654,21 @@
 (ert-deftest ogent-persist-format-metadata-header-with-project ()
   "Metadata header includes project when present."
   (let* ((metadata '(:id "s1" :models nil :start-time (25000 0 0 0)
-                     :title "Test" :project "/home/user/proj/" :roam-id nil))
+                         :title "Test" :project "/home/user/proj/" :roam-id nil))
          (header (ogent-persist--format-metadata-header metadata)))
     (should (string-match-p "^#\\+OGENT-SESSION-PROJECT: /home/user/proj/$" header))))
 
 (ert-deftest ogent-persist-format-metadata-header-with-roam ()
   "Metadata header includes roam ID when present."
   (let* ((metadata '(:id "s1" :models nil :start-time (25000 0 0 0)
-                     :title "Test" :project nil :roam-id "roam-xyz"))
+                         :title "Test" :project nil :roam-id "roam-xyz"))
          (header (ogent-persist--format-metadata-header metadata)))
     (should (string-match-p "^#\\+OGENT-SESSION-ROAM: roam-xyz$" header))))
 
 (ert-deftest ogent-persist-format-metadata-header-minimal ()
   "Metadata header without optional fields omits those lines."
   (let* ((metadata '(:id "s1" :models nil :start-time (25000 0 0 0)
-                     :title "Test" :project nil :roam-id nil))
+                         :title "Test" :project nil :roam-id nil))
          (header (ogent-persist--format-metadata-header metadata)))
     (should-not (string-match-p "OGENT-SESSION-PROJECT" header))
     (should-not (string-match-p "OGENT-SESSION-ROAM" header))
@@ -772,10 +772,10 @@
     (unwind-protect
         (with-current-buffer buffer
           (let ((metadata '(:id "full-001"
-                            :models ("gpt-4" "claude")
-                            :start-time (25000 0 0 0)
-                            :project "/home/user/project/"
-                            :roam-id "roam-xyz")))
+                                :models ("gpt-4" "claude")
+                                :start-time (25000 0 0 0)
+                                :project "/home/user/project/"
+                                :roam-id "roam-xyz")))
             (ogent-persist--apply-metadata metadata)
             (should (equal ogent-persist--project "/home/user/project/"))
             (should (equal ogent-persist--roam-id "roam-xyz"))))

@@ -10,8 +10,8 @@
 (require 'seq)
 (require 'subr-x)
 
-(declare-function gptel--model-name "ext:gptel")
-(declare-function gptel-backend-models "ext:gptel" (backend))
+(declare-function gptel--model-name "ext:gptel-request")
+(declare-function gptel-backend-models "ext:gptel-request" t t)
 
 (defvar gptel--known-backends)
 (defvar gptel-backend)
@@ -45,7 +45,7 @@ the cache-write surcharge."
 (defconst ogent-gptel--model-property-keys
   '(:description :capabilities :mime-types :context-window
                  :input-cost :output-cost :cutoff-date)
-  "gptel model symbol properties copied from a known prototype.")
+  "Gptel model symbol properties copied from a known prototype.")
 
 (defun ogent-gptel--prototype-model (model-id)
   "Return the closest built-in gptel prototype symbol for MODEL-ID."

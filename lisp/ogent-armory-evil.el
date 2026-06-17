@@ -24,7 +24,7 @@
 (declare-function evil-local-set-key "ext:evil-core")
 
 (defconst ogent-armory-evil-display-states '(normal motion)
-  "Evil states that should expose Armory display-buffer commands.")
+  "Evil states that should expose Armory `display-buffer' commands.")
 
 (defconst ogent-armory-evil-reserved-normal-key-descriptions
   (append
@@ -45,7 +45,7 @@
 Armory buffers use these keys freely for vanilla Emacs users, but Evil users
 need the normal-state movement, search, repeat, text-object, and edit command
 surface to remain predictable.  Armory actions should use RET, TAB, q, M-*
-navigation, or explicit C-c chords in Evil states.")
+navigation, or explicit prefix-key chords in Evil states.")
 
 (defvar ogent-armory-evil--keymap-bindings (make-hash-table :test 'eq)
   "Direct Armory command bindings captured before Evil rewrites keymaps.")
@@ -67,7 +67,7 @@ navigation, or explicit C-c chords in Evil states.")
 
 (defun ogent-armory-evil-keymap-command-bindings (keymap &optional prefix)
   "Return direct command bindings from KEYMAP.
-Each result is a list of the form (KEY COMMAND). Parent keymaps are ignored.
+Each result is a list of the form (KEY COMMAND).  Parent keymaps are ignored.
 PREFIX is used internally while walking prefix maps."
   (let (bindings)
     (dolist (entry (ogent-armory-evil--direct-keymap-entries keymap))

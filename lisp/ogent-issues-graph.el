@@ -573,10 +573,10 @@ With prefix argument, prompts for issue ID to center on."
       (progn
         (require 'ogent-issues)
         (ogent-issues-bd-get id
-                              (lambda (issue)
-                                (ogent-issues--show-detail issue))
-                              (lambda (err)
-                                (message "Error fetching issue: %s" err))))
+                             (lambda (issue)
+                               (ogent-issues--show-detail issue))
+                             (lambda (err)
+                               (message "Error fetching issue: %s" err))))
     (user-error "No issue at point")))
 
 (defun ogent-issues-graph-next-node ()

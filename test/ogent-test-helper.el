@@ -65,7 +65,7 @@ instead of reading a keystroke."
 (setq transient-save-history nil)
 
 ;; Auto-detect magit-section from Doom Emacs straight builds.
-;; magit-section requires dash and compat on load-path.
+;; Prefer the sandbox/local Compat package when it already provides compat-31.
 ;; Pick the highest-versioned build dir available (exact version may not match).
 (unless (featurep 'magit-section)
   (let* ((straight-dir (expand-file-name
@@ -84,7 +84,9 @@ instead of reading a keystroke."
                         #'string<)))))
          (doom-build (when build-dir
                        (expand-file-name build-dir straight-dir)))
-         (deps '("compat" "dash" "seq" "magit-section")))
+         (deps (append (unless (locate-library "compat-31")
+                         '("compat"))
+                       '("dash" "seq" "magit-section"))))
     (when doom-build
       (let ((repos-dir (expand-file-name "repos" straight-dir)))
         (dolist (dep deps)

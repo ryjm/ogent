@@ -8,55 +8,55 @@
 (ert-deftest ogent-context-resolve-by-ogent-id ()
   "Handles using explicit OGENT_ID are resolved."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (let ((node (ogent-resolve-handle "details-block")))
-			       (should (ogent-context-node-p node))
-			       (should (string= (ogent-context-node-title node)
-						"Details Block"))))))
+                           (lambda ()
+                             (let ((node (ogent-resolve-handle "details-block")))
+                               (should (ogent-context-node-p node))
+                               (should (string= (ogent-context-node-title node)
+                                                "Details Block"))))))
 
 (ert-deftest ogent-context-resolve-by-slug ()
   "Handles derived from title slugs resolve when OGENT_ID is absent."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (let ((node (ogent-resolve-handle "deep-note")))
-			       (should (ogent-context-node-p node))
-			       (should (string= (ogent-context-node-title node)
-						"Deep Note"))))))
+                           (lambda ()
+                             (let ((node (ogent-resolve-handle "deep-note")))
+                               (should (ogent-context-node-p node))
+                               (should (string= (ogent-context-node-title node)
+                                                "Deep Note"))))))
 
 (ert-deftest ogent-context-build-collects-dependencies ()
   "Context builder tracks handles, ancestors, and missing nodes."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let* ((ctx (ogent-context-build))
-				    (handles (plist-get ctx :handles))
-				    (deps (plist-get ctx :dependencies)))
-			       (should (equal handles
-					      '("details-block" "deep-note" "appendix-note"
-						"missing-note")))
-			       (should (= (length deps) 4))
-			       (should-not (plist-get (nth 0 deps) :missing-p))
-			       (should (ogent-context-node-p
-					(plist-get (nth 1 deps) :node)))
-			       (should-not (plist-get (nth 2 deps) :missing-p))
-			       (should (plist-get (nth 3 deps) :missing-p))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ctx (ogent-context-build))
+                                    (handles (plist-get ctx :handles))
+                                    (deps (plist-get ctx :dependencies)))
+                               (should (equal handles
+                                              '("details-block" "deep-note" "appendix-note"
+                                                "missing-note")))
+                               (should (= (length deps) 4))
+                               (should-not (plist-get (nth 0 deps) :missing-p))
+                               (should (ogent-context-node-p
+                                        (plist-get (nth 1 deps) :node)))
+                               (should-not (plist-get (nth 2 deps) :missing-p))
+                               (should (plist-get (nth 3 deps) :missing-p))))))
 
 (ert-deftest ogent-context-build-provides-ancestors ()
   "Ancestors are ordered from top-level down to the immediate parent."
   ;; Skip on Emacs 28.x due to org-element :parent behavior differences
   (skip-unless (>= emacs-major-version 29))
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let* ((ctx (ogent-context-build))
-				    (ancestors (plist-get ctx :ancestors)))
-			       (should (= (length ancestors) 1))
-			       (should (string= (ogent-context-node-title (car ancestors))
-						"Root Overview"))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let* ((ctx (ogent-context-build))
+                                    (ancestors (plist-get ctx :ancestors)))
+                               (should (= (length ancestors) 1))
+                               (should (string= (ogent-context-node-title (car ancestors))
+                                                "Root Overview"))))))
 
 ;;; Source buffer context tests
 
@@ -105,68 +105,68 @@
 (ert-deftest ogent-context-build-with-source-combines-contexts ()
   "Combined context includes both source and Org context."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (let ((source-buffer (get-buffer-create "*test-combined.py*")))
-			       (unwind-protect
-				   (progn
-				     (with-current-buffer source-buffer
-				       (python-mode)
-				       (insert "def hello(): pass"))
-				     ;; In the Org buffer, build combined context
-				     (goto-char (point-min))
-				     (search-forward "Root Overview")
-				     (org-back-to-heading t)
-				     (let ((ctx (ogent-context-build-with-source source-buffer)))
-				       ;; Should have source context
-				       (should (plist-get ctx :source-context))
-				       (should (string-match-p
-						"def hello"
-						(ogent-source-context-content
-						 (plist-get ctx :source-context))))
-				       ;; Should also have Org context
-				       (should (plist-get ctx :root))
-				       (should (string= (ogent-context-node-title
-							 (plist-get ctx :root))
-							"Root Overview"))))
-					 (kill-buffer source-buffer))))))
+                           (lambda ()
+                             (let ((source-buffer (get-buffer-create "*test-combined.py*")))
+                               (unwind-protect
+                                   (progn
+                                     (with-current-buffer source-buffer
+                                       (python-mode)
+                                       (insert "def hello(): pass"))
+                                     ;; In the Org buffer, build combined context
+                                     (goto-char (point-min))
+                                     (search-forward "Root Overview")
+                                     (org-back-to-heading t)
+                                     (let ((ctx (ogent-context-build-with-source source-buffer)))
+                                       ;; Should have source context
+                                       (should (plist-get ctx :source-context))
+                                       (should (string-match-p
+                                                "def hello"
+                                                (ogent-source-context-content
+                                                 (plist-get ctx :source-context))))
+                                       ;; Should also have Org context
+                                       (should (plist-get ctx :root))
+                                       (should (string= (ogent-context-node-title
+                                                         (plist-get ctx :root))
+                                                        "Root Overview"))))
+                                 (kill-buffer source-buffer))))))
 
 (ert-deftest ogent-context-build-with-source-respects-exclusions ()
   "Combined context filters dependencies using excluded handles."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let* ((ogent-context-excluded-handles '("details-block"))
-				    (ctx (ogent-context-build-with-source (current-buffer)))
-				    (deps (plist-get ctx :dependencies))
-				    (handles (mapcar (lambda (dep)
-						       (plist-get dep :handle))
-						     deps)))
-			       (should-not (member "details-block" handles))
-			       (should (member "deep-note" handles))
-			       (should (equal (plist-get ctx :excluded-handles)
-					      '("details-block")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-context-excluded-handles '("details-block"))
+                                    (ctx (ogent-context-build-with-source (current-buffer)))
+                                    (deps (plist-get ctx :dependencies))
+                                    (handles (mapcar (lambda (dep)
+                                                       (plist-get dep :handle))
+                                                     deps)))
+                               (should-not (member "details-block" handles))
+                               (should (member "deep-note" handles))
+                               (should (equal (plist-get ctx :excluded-handles)
+                                              '("details-block")))))))
 
 (ert-deftest ogent-context-render-prompt-hydrates-dependencies ()
   "Rendered prompt includes resolved dependency content, not just names."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let* ((ctx (ogent-context-build-filtered))
-				    (payload (ogent-context-render-prompt
-					      "Explain this tree" ctx)))
-			       (should (string-match-p "# User Prompt" payload))
-			       (should (string-match-p "Explain this tree" payload))
-			       (should (string-match-p "# Resolved @handles" payload))
-			       (should (string-match-p "## @details-block: Details Block" payload))
-			       (should (string-match-p "This paragraph cites @appendix-note" payload))
-			       (should (string-match-p "## @appendix-note: Appendix Note" payload))
-			       (should (string-match-p "Final supporting text" payload))
-			       (should (string-match-p "# Missing @handles" payload))
-			       (should (string-match-p "- @missing-note" payload))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ctx (ogent-context-build-filtered))
+                                    (payload (ogent-context-render-prompt
+                                              "Explain this tree" ctx)))
+                               (should (string-match-p "# User Prompt" payload))
+                               (should (string-match-p "Explain this tree" payload))
+                               (should (string-match-p "# Resolved @handles" payload))
+                               (should (string-match-p "## @details-block: Details Block" payload))
+                               (should (string-match-p "This paragraph cites @appendix-note" payload))
+                               (should (string-match-p "## @appendix-note: Appendix Note" payload))
+                               (should (string-match-p "Final supporting text" payload))
+                               (should (string-match-p "# Missing @handles" payload))
+                               (should (string-match-p "- @missing-note" payload))))))
 
 (ert-deftest ogent-context-render-prompt-truncates-nodes-after-discovery ()
   "Rendered prompt caps Org node payloads after handle discovery."
@@ -220,34 +220,34 @@
 (ert-deftest ogent-context-build-lazy-defers-evaluation ()
   "Lazy context building defers evaluation until forced."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let* ((thunk (progn
-					     ;; Create thunk - should not call ogent-context-build yet
-					     (ogent-context-build-lazy))))
-			       ;; Thunk should be a closure, not evaluated yet
-			       (should (functionp thunk))
-			       ;; Force the thunk - now it evaluates
-			       (let ((ctx (thunk-force thunk)))
-				 (should (plist-get ctx :root))
-				 (should (string= (ogent-context-node-title (plist-get ctx :root))
-						  "Root Overview")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((thunk (progn
+                                             ;; Create thunk - should not call ogent-context-build yet
+                                             (ogent-context-build-lazy))))
+                               ;; Thunk should be a closure, not evaluated yet
+                               (should (functionp thunk))
+                               ;; Force the thunk - now it evaluates
+                               (let ((ctx (thunk-force thunk)))
+                                 (should (plist-get ctx :root))
+                                 (should (string= (ogent-context-node-title (plist-get ctx :root))
+                                                  "Root Overview")))))))
 
 (ert-deftest ogent-context-build-lazy-caches-result ()
   "Lazy context building caches result after first force."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((thunk (ogent-context-build-lazy)))
-			       ;; Force multiple times - should return same result
-			       (let ((ctx1 (thunk-force thunk))
-				     (ctx2 (thunk-force thunk)))
-				 ;; Results should be identical (same object due to caching)
-				 (should (eq ctx1 ctx2)))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((thunk (ogent-context-build-lazy)))
+                               ;; Force multiple times - should return same result
+                               (let ((ctx1 (thunk-force thunk))
+                                     (ctx2 (thunk-force thunk)))
+                                 ;; Results should be identical (same object due to caching)
+                                 (should (eq ctx1 ctx2)))))))
 
 (ert-deftest ogent-context-build-source-lazy-works ()
   "Lazy source context building works correctly."
@@ -267,91 +267,91 @@
 (ert-deftest ogent-context-with-lazy-binds-thunks ()
   "ogent-context-with-lazy creates thunk bindings."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((forced-count 0))
-			       (ogent-context-with-lazy
-				((ctx (progn
-					(cl-incf forced-count)
-					(ogent-context-build))))
-				;; Not forced yet
-				(should (= forced-count 0))
-				;; Force once
-				(let ((result (thunk-force ctx)))
-				  (should (= forced-count 1))
-				  (should (plist-get result :root)))
-				;; Force again - count shouldn't increase (cached)
-				(thunk-force ctx)
-				(should (= forced-count 1)))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((forced-count 0))
+                               (ogent-context-with-lazy
+                                   ((ctx (progn
+                                           (cl-incf forced-count)
+                                           (ogent-context-build))))
+                                 ;; Not forced yet
+                                 (should (= forced-count 0))
+                                 ;; Force once
+                                 (let ((result (thunk-force ctx)))
+                                   (should (= forced-count 1))
+                                   (should (plist-get result :root)))
+                                 ;; Force again - count shouldn't increase (cached)
+                                 (thunk-force ctx)
+                                 (should (= forced-count 1)))))))
 
 ;;; Completion-at-point tests
 
 (ert-deftest ogent-context-completion-triggers-after-at ()
   "Completion triggers when point is after @ character."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-max))
-			     (insert "\n* Test\nHere is @")
-			     ;; Should return nil when no text after @
-			     (should-not (ogent-context-completion-at-point))
-			     ;; Type partial text
-			     (insert "det")
-			     (let ((result (ogent-context-completion-at-point)))
-			       (should result)
-			       (should (= (nth 0 result)
-					  (- (point) 3)))  ; start of "det"
-			       (should (= (nth 1 result)
-					  (point)))))))      ; end of "det"
+                           (lambda ()
+                             (goto-char (point-max))
+                             (insert "\n* Test\nHere is @")
+                             ;; Should return nil when no text after @
+                             (should-not (ogent-context-completion-at-point))
+                             ;; Type partial text
+                             (insert "det")
+                             (let ((result (ogent-context-completion-at-point)))
+                               (should result)
+                               (should (= (nth 0 result)
+                                          (- (point) 3)))  ; start of "det"
+                               (should (= (nth 1 result)
+                                          (point)))))))      ; end of "det"
 
 (ert-deftest ogent-context-completion-includes-buffer-handles ()
   "Completion includes handles from current buffer."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-max))
-			     (insert "\n* Test\nHere is @d")
-			     (let* ((result (ogent-context-completion-at-point))
-				    (collection (nth 2 result)))
-			       (should (member "details-block" collection))
-			       (should (member "deep-note" collection))
-			       (should (member "appendix-note" collection))))))
+                           (lambda ()
+                             (goto-char (point-max))
+                             (insert "\n* Test\nHere is @d")
+                             (let* ((result (ogent-context-completion-at-point))
+                                    (collection (nth 2 result)))
+                               (should (member "details-block" collection))
+                               (should (member "deep-note" collection))
+                               (should (member "appendix-note" collection))))))
 
 (ert-deftest ogent-context-completion-annotation-works ()
   "Completion annotation shows content preview."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-max))
-			     (insert "\n* Test\nHere is @d")
-			     (let* ((result (ogent-context-completion-at-point))
-				    (annot-fn (plist-get (nthcdr 3 result) :annotation-function)))
-			       (should (functionp annot-fn))
-			       (let ((annotation (funcall annot-fn "details-block")))
-				 (should (stringp annotation))
-				 (should (string-match-p "This paragraph" annotation)))))))
+                           (lambda ()
+                             (goto-char (point-max))
+                             (insert "\n* Test\nHere is @d")
+                             (let* ((result (ogent-context-completion-at-point))
+                                    (annot-fn (plist-get (nthcdr 3 result) :annotation-function)))
+                               (should (functionp annot-fn))
+                               (let ((annotation (funcall annot-fn "details-block")))
+                                 (should (stringp annotation))
+                                 (should (string-match-p "This paragraph" annotation)))))))
 
 (ert-deftest ogent-context-completion-not-in-non-org-buffer ()
   "Completion does not activate in non-Org buffers."
   (let ((buf (get-buffer-create "*test-non-org*")))
     (unwind-protect
-	(with-current-buffer buf
-	  (emacs-lisp-mode)
-	  (insert "@handle")
-	  (should-not (ogent-context-completion-at-point)))
+        (with-current-buffer buf
+          (emacs-lisp-mode)
+          (insert "@handle")
+          (should-not (ogent-context-completion-at-point)))
       (kill-buffer buf))))
 
 (ert-deftest ogent-context-collect-all-handles-from-current ()
   "ogent-context--collect-all-handles gathers from current buffer."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (let ((handles (ogent-context--collect-all-handles)))
-			       (should (> (length handles) 0))
-			       (let ((handle-names (mapcar (lambda (entry)
-							     (plist-get entry :handle))
-							   handles)))
-				 (should (member "details-block" handle-names))
-				 (should (member "overview-root" handle-names))
-				 (should (member "appendix-note" handle-names)))))))
+                           (lambda ()
+                             (let ((handles (ogent-context--collect-all-handles)))
+                               (should (> (length handles) 0))
+                               (let ((handle-names (mapcar (lambda (entry)
+                                                             (plist-get entry :handle))
+                                                           handles)))
+                                 (should (member "details-block" handle-names))
+                                 (should (member "overview-root" handle-names))
+                                 (should (member "appendix-note" handle-names)))))))
 
 ;;; Handle exclusion tests
 
@@ -401,63 +401,63 @@
 (ert-deftest ogent-context-build-filtered-excludes-handles ()
   "ogent-context-build-filtered filters out excluded handles."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((ogent-context-excluded-handles '("details-block" "missing-note")))
-			       (let* ((ctx (ogent-context-build-filtered))
-				      (deps (plist-get ctx :dependencies))
-				      (excluded (plist-get ctx :excluded-handles))
-				      (dep-handles (mapcar (lambda (dep)
-							     (plist-get dep :handle))
-							   deps)))
-				 ;; Excluded handles should not be in dependencies
-				 (should-not (member "details-block" dep-handles))
-				 (should-not (member "missing-note" dep-handles))
-				 ;; Non-excluded handles should be present
-				 (should (member "deep-note" dep-handles))
-				 (should (member "appendix-note" dep-handles))
-				 ;; :excluded-handles should contain the exclusion list
-				 (should (equal excluded '("details-block" "missing-note"))))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((ogent-context-excluded-handles '("details-block" "missing-note")))
+                               (let* ((ctx (ogent-context-build-filtered))
+                                      (deps (plist-get ctx :dependencies))
+                                      (excluded (plist-get ctx :excluded-handles))
+                                      (dep-handles (mapcar (lambda (dep)
+                                                             (plist-get dep :handle))
+                                                           deps)))
+                                 ;; Excluded handles should not be in dependencies
+                                 (should-not (member "details-block" dep-handles))
+                                 (should-not (member "missing-note" dep-handles))
+                                 ;; Non-excluded handles should be present
+                                 (should (member "deep-note" dep-handles))
+                                 (should (member "appendix-note" dep-handles))
+                                 ;; :excluded-handles should contain the exclusion list
+                                 (should (equal excluded '("details-block" "missing-note"))))))))
 
 (ert-deftest ogent-context-build-filtered-with-no-exclusions ()
   "ogent-context-build-filtered works with empty exclusion list."
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Root Overview")
-			     (org-back-to-heading t)
-			     (let ((ogent-context-excluded-handles nil))
-			       (let* ((ctx (ogent-context-build-filtered))
-				      (deps (plist-get ctx :dependencies))
-				      (excluded (plist-get ctx :excluded-handles)))
-				 ;; All dependencies should be present
-				 (should (= (length deps) 4))
-				 ;; Excluded list should be empty
-				 (should (null excluded)))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let ((ogent-context-excluded-handles nil))
+                               (let* ((ctx (ogent-context-build-filtered))
+                                      (deps (plist-get ctx :dependencies))
+                                      (excluded (plist-get ctx :excluded-handles)))
+                                 ;; All dependencies should be present
+                                 (should (= (length deps) 4))
+                                 ;; Excluded list should be empty
+                                 (should (null excluded)))))))
 
 (ert-deftest ogent-context-build-filtered-preserves-other-fields ()
   "ogent-context-build-filtered preserves :root and :ancestors."
   ;; Skip on Emacs 28.x due to org-element :parent behavior differences
   (skip-unless (>= emacs-major-version 29))
   (ogent-test-with-fixture "data/fixture.org"
-			   (lambda ()
-			     (goto-char (point-min))
-			     (search-forward "Details Block")
-			     (org-back-to-heading t)
-			     (let ((ogent-context-excluded-handles '("details-block")))
-			       (let* ((ctx (ogent-context-build-filtered))
-				      (root (plist-get ctx :root))
-				      (ancestors (plist-get ctx :ancestors)))
-				 ;; Root should be present
-				 (should (ogent-context-node-p root))
-				 (should (string= (ogent-context-node-title root)
-						  "Details Block"))
-				 ;; Ancestors should be present
-				 (should (= (length ancestors) 1))
-				 (should (string= (ogent-context-node-title (car ancestors))
-						  "Root Overview")))))))
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-context-excluded-handles '("details-block")))
+                               (let* ((ctx (ogent-context-build-filtered))
+                                      (root (plist-get ctx :root))
+                                      (ancestors (plist-get ctx :ancestors)))
+                                 ;; Root should be present
+                                 (should (ogent-context-node-p root))
+                                 (should (string= (ogent-context-node-title root)
+                                                  "Details Block"))
+                                 ;; Ancestors should be present
+                                 (should (= (length ancestors) 1))
+                                 (should (string= (ogent-context-node-title (car ancestors))
+                                                  "Root Overview")))))))
 
 ;;; Slug generation tests
 

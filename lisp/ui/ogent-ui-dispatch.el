@@ -20,10 +20,10 @@
 (defvar gptel-model)
 
 ;; gptel integration (soft dependency).
-(declare-function gptel-backend-name "ext:gptel")
-(declare-function gptel-backend-models "ext:gptel")
-(declare-function gptel--model-name "ext:gptel")
-(declare-function gptel-backend-p "ext:gptel")
+(declare-function gptel-backend-name "ext:gptel-request" t t)
+(declare-function gptel-backend-models "ext:gptel-request" t t)
+(declare-function gptel--model-name "ext:gptel-request")
+(declare-function gptel-backend-p "ext:gptel-request" t t)
 
 ;; Model/preset/template lookups and key help.
 (declare-function ogent-presets-available "ogent-models")
@@ -53,11 +53,11 @@
 (autoload 'ogent-debug-mode "ogent-debug" nil t)
 
 (defclass ogent-provider-variable (transient-lisp-variable)
-	  ((model       :initarg :model)
-	   (model-value :initarg :model-value)
-	   (always-read :initform t)
-	   (set-value   :initarg :set-value :initform #'set))
-	  "Transient variable class for selecting gptel backend and model.")
+  ((model       :initarg :model)
+   (model-value :initarg :model-value)
+   (always-read :initform t)
+   (set-value   :initarg :set-value :initform #'set))
+  "Transient variable class for selecting gptel backend and model.")
 
 (cl-defmethod transient-init-value ((obj ogent-provider-variable))
   "Initialize OBJ's value from gptel-backend."
@@ -104,28 +104,28 @@ PROMPT is the completion prompt."
                                                backend model)))))
     (if models-alist
         (cdr (assoc (completing-read prompt models-alist nil t) models-alist))
-      (user-error "No gptel backends configured. Run gptel-make-* first"))))
+      (user-error "No gptel backends configured.  Run gptel-make-* first"))))
 
 (transient-define-infix ogent--infix-provider ()
-			"Select LLM provider and model."
-			:description "Model"
-			:class 'ogent-provider-variable
-			:variable 'gptel-backend
-			:model 'gptel-model
-			:set-value #'ogent--set-with-scope
-			:key "m"
-			:reader #'ogent--read-provider)
+  "Select LLM provider and model."
+  :description "Model"
+  :class 'ogent-provider-variable
+  :variable 'gptel-backend
+  :model 'gptel-model
+  :set-value #'ogent--set-with-scope
+  :key "m"
+  :reader #'ogent--read-provider)
 
 (transient-define-infix ogent--infix-prompt ()
-			"Enter a prompt to send."
-			:description "Prompt"
-			:class 'transient-lisp-variable
-			:variable 'ogent--transient-prompt
-			:key "p"
-			:prompt "Prompt: "
-			:reader (lambda (prompt _initial _history)
-				  (let ((text (read-string prompt)))
-				    (unless (string-empty-p text) text))))
+  "Enter a prompt to send."
+  :description "Prompt"
+  :class 'transient-lisp-variable
+  :variable 'ogent--transient-prompt
+  :key "p"
+  :prompt "Prompt: "
+  :reader (lambda (prompt _initial _history)
+            (let ((text (read-string prompt)))
+              (unless (string-empty-p text) text))))
 
 (defun ogent--tools-description ()
   "Return description string for tools infix showing current state."
@@ -159,15 +159,15 @@ Makes the variable buffer-local for session-level control."
            (if ogent-tools-enabled "enabled" "disabled")))
 
 (transient-define-infix ogent--infix-tools ()
-			"Toggle tool availability."
-			:description #'ogent--tools-description
-			:class 'transient-lisp-variable
-			:variable 'ogent-tools-enabled
-			:key "t"
-			:reader (lambda (_prompt _initial _history)
-				  (ogent--toggle-tools)
-				  ;; Return current value to satisfy the reader contract
-				  ogent-tools-enabled))
+  "Toggle tool availability."
+  :description #'ogent--tools-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-tools-enabled
+  :key "t"
+  :reader (lambda (_prompt _initial _history)
+            (ogent--toggle-tools)
+            ;; Return current value to satisfy the reader contract
+            ogent-tools-enabled))
 
 (defun ogent--preset-description ()
   "Return description string for preset infix showing current selection."
@@ -190,12 +190,12 @@ Makes the variable buffer-local for session-level control."
       selection)))
 
 (transient-define-infix ogent--infix-preset ()
-			"Select gptel preset."
-			:description #'ogent--preset-description
-			:class 'transient-lisp-variable
-			:variable 'ogent-ui--selected-preset
-			:key "s"
-			:reader #'ogent--read-preset)
+  "Select gptel preset."
+  :description #'ogent--preset-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-ui--selected-preset
+  :key "s"
+  :reader #'ogent--read-preset)
 
 (defun ogent--templates-description ()
   "Return description string for template infix showing selection."
@@ -221,12 +221,12 @@ Makes the variable buffer-local for session-level control."
       selection)))
 
 (transient-define-infix ogent--infix-templates ()
-			"Select prompt templates."
-			:description #'ogent--templates-description
-			:class 'transient-lisp-variable
-			:variable 'ogent-ui--selected-templates
-			:key "T"
-			:reader #'ogent--read-templates)
+  "Select prompt templates."
+  :description #'ogent--templates-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-ui--selected-templates
+  :key "T"
+  :reader #'ogent--read-templates)
 
 (defun ogent--models-description ()
   "Return description string for multi-model infix showing current selection."
@@ -252,12 +252,12 @@ Makes the variable buffer-local for session-level control."
       selection)))
 
 (transient-define-infix ogent--infix-models ()
-			"Select multiple models for fan-out."
-			:description #'ogent--models-description
-			:class 'transient-lisp-variable
-			:variable 'ogent-ui--selected-models
-			:key "M"
-			:reader #'ogent--read-models)
+  "Select multiple models for fan-out."
+  :description #'ogent--models-description
+  :class 'transient-lisp-variable
+  :variable 'ogent-ui--selected-models
+  :key "M"
+  :reader #'ogent--read-models)
 
 (defun ogent--format-model-header ()
   "Format the current model for display in transient header."
@@ -373,20 +373,20 @@ fall back to the popup `ogent-ask' path."
 (transient-define-prefix ogent-ask-menu ()
   "Ask about the current ogent context."
   [:description ogent-ask-menu--scope-line
-   ["Ask"
-    ("RET" "Run current bullet" ogent-run-subtree)
-    ("!" "Re-run at point" ogent-zen-rerun)
-    ("q" ogent-ask-here :description ogent--desc-ask-here)
-    ("?" ogent-ask :description ogent--desc-quick-ask)
-    ("r" "Send prompt..." ogent-request)]
-   ["Malleable"
-    ("g" "Ask about region" ogent-zen-run-region)
-    ("x" "Rewrite region/paragraph" ogent-zen-edit-dwim)
-    ("A" "Apply last edit" ogent-zen-apply-last-edit)]
-   ["Inspect"
-    ("c" "Preview ask context" ogent-ask-context-preview-toggle :transient t)
-    ("p" "Full dispatcher" ogent-prompt-dispatch)
-    ("h" "All keys" ogent-describe-bindings)]]
+                ["Ask"
+                 ("RET" "Run current bullet" ogent-run-subtree)
+                 ("!" "Re-run at point" ogent-zen-rerun)
+                 ("q" ogent-ask-here :description ogent--desc-ask-here)
+                 ("?" ogent-ask :description ogent--desc-quick-ask)
+                 ("r" "Send prompt..." ogent-request)]
+                ["Malleable"
+                 ("g" "Ask about region" ogent-zen-run-region)
+                 ("x" "Rewrite region/paragraph" ogent-zen-edit-dwim)
+                 ("A" "Apply last edit" ogent-zen-apply-last-edit)]
+                ["Inspect"
+                 ("c" "Preview ask context" ogent-ask-context-preview-toggle :transient t)
+                 ("p" "Full dispatcher" ogent-prompt-dispatch)
+                 ("h" "All keys" ogent-describe-bindings)]]
   (interactive)
   (transient-setup 'ogent-ask-menu))
 
@@ -462,37 +462,37 @@ A polished interface for AI-assisted workflows.
                     │      OGENT DISPATCHER       │
                     ╰─────────────────────────────╯"
   [:description ogent--format-status-header
-   [:description "Send"
-    (ogent--suffix-send-action)
-    ("v" ogent-ai-speed-edit :description ogent--desc-ai-speed-edit)
-    ("f" ogent-fix-diagnostic :description ogent--desc-fix-diagnostic)
-    ("F" ogent-fix-buffer-diagnostics
-     :description ogent--desc-fix-buffer-diagnostics)
-    ("a" ogent-ask-here :description ogent--desc-ask-here)
-    ("?" "Ask menu" ogent-ask-menu)]
-   [:description "Model"
-    (ogent--infix-provider)
-    (ogent--infix-preset)
-    (ogent--infix-models)]]
+                [:description "Send"
+                              (ogent--suffix-send-action)
+                              ("v" ogent-ai-speed-edit :description ogent--desc-ai-speed-edit)
+                              ("f" ogent-fix-diagnostic :description ogent--desc-fix-diagnostic)
+                              ("F" ogent-fix-buffer-diagnostics
+                               :description ogent--desc-fix-buffer-diagnostics)
+                              ("a" ogent-ask-here :description ogent--desc-ask-here)
+                              ("?" "Ask menu" ogent-ask-menu)]
+                [:description "Model"
+                              (ogent--infix-provider)
+                              (ogent--infix-preset)
+                              (ogent--infix-models)]]
 
   [[:description "Prompt"
-    (ogent--infix-prompt)
-    (ogent--infix-templates)
-    (ogent--infix-tools)]
+                 (ogent--infix-prompt)
+                 (ogent--infix-templates)
+                 (ogent--infix-tools)]
    [:description ogent--format-context-group
-    ("c" ogent-context-preview-toggle :description ogent--desc-preview :transient t)
-    ("C" ogent-codemap-buffer :description ogent--desc-codemap)
-    (ogent--suffix-pin-dwim)
-    (ogent--suffix-unpin)
-    (ogent--suffix-list-pinned)]]
+                 ("c" ogent-context-preview-toggle :description ogent--desc-preview :transient t)
+                 ("C" ogent-codemap-buffer :description ogent--desc-codemap)
+                 (ogent--suffix-pin-dwim)
+                 (ogent--suffix-unpin)
+                 (ogent--suffix-list-pinned)]]
 
   [[:description "Navigate"
-    ("e" ogent-edit-menu :description ogent--desc-edit-menu)
-    ("i" ogent-issues :description ogent--desc-issues)]
+                 ("e" ogent-edit-menu :description ogent--desc-edit-menu)
+                 ("i" ogent-issues :description ogent--desc-issues)]
    [:description "Session"
-    ("S" ogent-session-save :description ogent--desc-save)
-    ("L" ogent-session-load :description ogent--desc-load)
-    ("H" ogent-session-list :description ogent--desc-history)]
+                 ("S" ogent-session-save :description ogent--desc-save)
+                 ("L" ogent-session-load :description ogent--desc-load)
+                 ("H" ogent-session-list :description ogent--desc-history)]
    [""
     ("D" ogent-debug-mode :description ogent--desc-debug)
     ("q" transient-quit-one :description ogent--desc-quit)]]
@@ -501,47 +501,47 @@ A polished interface for AI-assisted workflows.
   (transient-setup 'ogent-prompt-dispatch))
 
 (transient-define-suffix ogent--suffix-pin-dwim ()
-			 "Pin current file/buffer/region to context."
-			 :key "P"
-			 :description
-			 (lambda ()
-			   (concat "Pin "
-				   (cond
-				    ((use-region-p) "region")
-				    ((buffer-file-name) "file")
-				    (t "buffer"))))
-			 :transient t
-			 (interactive)
-			 (ogent-pin-dwim)
-			 (ogent-theme-flash 'success "Pinned to context"))
+  "Pin current file/buffer/region to context."
+  :key "P"
+  :description
+  (lambda ()
+    (concat "Pin "
+            (cond
+             ((use-region-p) "region")
+             ((buffer-file-name) "file")
+             (t "buffer"))))
+  :transient t
+  (interactive)
+  (ogent-pin-dwim)
+  (ogent-theme-flash 'success "Pinned to context"))
 
 (transient-define-suffix ogent--suffix-unpin ()
-			 "Unpin an item from context."
-			 :key "U"
-			 :description
-			 (lambda ()
-			   (let ((count (ogent-pinned-count)))
-			     (if (zerop count)
-				 (propertize "Unpin..." 'face 'ogent-theme-muted)
-			       "Unpin...")))
-			 :transient t
-			 (interactive)
-			 (if (zerop (ogent-pinned-count))
-			     (message "%s No pinned items" (ogent-theme-icon 'warning))
-			   (ogent-unpin-interactive)
-			   (ogent-theme-flash 'info "Unpinned from context")))
+  "Unpin an item from context."
+  :key "U"
+  :description
+  (lambda ()
+    (let ((count (ogent-pinned-count)))
+      (if (zerop count)
+          (propertize "Unpin..." 'face 'ogent-theme-muted)
+        "Unpin...")))
+  :transient t
+  (interactive)
+  (if (zerop (ogent-pinned-count))
+      (message "%s No pinned items" (ogent-theme-icon 'warning))
+    (ogent-unpin-interactive)
+    (ogent-theme-flash 'info "Unpinned from context")))
 
 (transient-define-suffix ogent--suffix-list-pinned ()
-			 "List pinned context items."
-			 :key "l"
-			 :description
-			 (lambda ()
-			   (let ((count (ogent-pinned-count)))
-			     (concat "List"
-				     (when (> count 0)
-				       (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
-			 (interactive)
-			 (ogent-list-pinned))
+  "List pinned context items."
+  :key "l"
+  :description
+  (lambda ()
+    (let ((count (ogent-pinned-count)))
+      (concat "List"
+              (when (> count 0)
+                (propertize (format " (%d)" count) 'face 'ogent-theme-highlight)))))
+  (interactive)
+  (ogent-list-pinned))
 
 (defun ogent-next-response ()
   "Move to next response heading."

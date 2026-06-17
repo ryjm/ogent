@@ -14,41 +14,41 @@
 
 (defconst ogent-issues-test--sample-issues
   '((:id "test-001"
-	 :title "First test issue"
-	 :description "Description one"
-	 :status "open"
-	 :priority 1
-	 :issue_type "task"
-	 :created_at "2025-12-16T10:00:00-05:00"
-	 :updated_at "2025-12-16T10:00:00-05:00"
-	 :dependency_count 0)
+         :title "First test issue"
+         :description "Description one"
+         :status "open"
+         :priority 1
+         :issue_type "task"
+         :created_at "2025-12-16T10:00:00-05:00"
+         :updated_at "2025-12-16T10:00:00-05:00"
+         :dependency_count 0)
     (:id "test-002"
-	 :title "Second test issue"
-	 :description "Description two"
-	 :status "in_progress"
-	 :priority 2
-	 :issue_type "bug"
-	 :created_at "2025-12-16T11:00:00-05:00"
-	 :updated_at "2025-12-16T11:00:00-05:00"
-	 :dependency_count 1)
+         :title "Second test issue"
+         :description "Description two"
+         :status "in_progress"
+         :priority 2
+         :issue_type "bug"
+         :created_at "2025-12-16T11:00:00-05:00"
+         :updated_at "2025-12-16T11:00:00-05:00"
+         :dependency_count 1)
     (:id "test-003"
-	 :title "Third test issue"
-	 :description "Description three"
-	 :status "blocked"
-	 :priority 0
-	 :issue_type "feature"
-	 :created_at "2025-12-16T12:00:00-05:00"
-	 :updated_at "2025-12-16T12:00:00-05:00"
-	 :dependency_count 2)
+         :title "Third test issue"
+         :description "Description three"
+         :status "blocked"
+         :priority 0
+         :issue_type "feature"
+         :created_at "2025-12-16T12:00:00-05:00"
+         :updated_at "2025-12-16T12:00:00-05:00"
+         :dependency_count 2)
     (:id "test-004"
-	 :title "Fourth test issue"
-	 :description "Description four"
-	 :status "closed"
-	 :priority 3
-	 :issue_type "chore"
-	 :created_at "2025-12-16T13:00:00-05:00"
-	 :updated_at "2025-12-16T13:00:00-05:00"
-	 :dependency_count 0))
+         :title "Fourth test issue"
+         :description "Description four"
+         :status "closed"
+         :priority 3
+         :issue_type "chore"
+         :created_at "2025-12-16T13:00:00-05:00"
+         :updated_at "2025-12-16T13:00:00-05:00"
+         :dependency_count 0))
   "Sample issues for testing.")
 
 ;;; Mocking Utilities
@@ -80,19 +80,19 @@
   "Execute BODY in a fresh ogent-issues buffer."
   (declare (indent 0) (debug t))
   `(ogent-issues-test-with-mock
-    (let ((buf (get-buffer-create "*ogent-issues-test*")))
-      (unwind-protect
-          (with-current-buffer buf
-            (ogent-issues-mode)
-            ;; Most tests validate rendering/content semantics, not Magit internals.
-            ;; Force plain mode so constructor API differences do not break them.
-            (setq-local ogent-issues--magit-section-available nil)
-            (ogent-issues-refresh)
-            ;; Wait for async callback
-            (sit-for 0.01)
-            ,@body)
-        (when (buffer-live-p buf)
-          (kill-buffer buf))))))
+     (let ((buf (get-buffer-create "*ogent-issues-test*")))
+       (unwind-protect
+           (with-current-buffer buf
+             (ogent-issues-mode)
+             ;; Most tests validate rendering/content semantics, not Magit internals.
+             ;; Force plain mode so constructor API differences do not break them.
+             (setq-local ogent-issues--magit-section-available nil)
+             (ogent-issues-refresh)
+             ;; Wait for async callback
+             (sit-for 0.01)
+             ,@body)
+         (when (buffer-live-p buf)
+           (kill-buffer buf))))))
 
 (defun ogent-issues-test--magit-path-usable-p ()
   "Return non-nil when magit-section rendering path is usable in tests."
@@ -284,86 +284,86 @@
 (ert-deftest ogent-issues-test-buffer-contains-issues ()
   "Test that buffer contains issue IDs."
   (ogent-issues-test-with-buffer
-   (should (string-match-p "test-001" (buffer-string)))
-   (should (string-match-p "test-002" (buffer-string)))
-   (should (string-match-p "test-003" (buffer-string)))
-   (should (string-match-p "test-004" (buffer-string)))))
+    (should (string-match-p "test-001" (buffer-string)))
+    (should (string-match-p "test-002" (buffer-string)))
+    (should (string-match-p "test-003" (buffer-string)))
+    (should (string-match-p "test-004" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-buffer-contains-status-groups ()
   "Test that buffer contains status group headings."
   (ogent-issues-test-with-buffer
-   (should (string-match-p "Open" (buffer-string)))
-   (should (string-match-p "In Progress" (buffer-string)))
-   (should (string-match-p "Blocked" (buffer-string)))
-   (should (string-match-p "Closed" (buffer-string)))))
+    (should (string-match-p "Open" (buffer-string)))
+    (should (string-match-p "In Progress" (buffer-string)))
+    (should (string-match-p "Blocked" (buffer-string)))
+    (should (string-match-p "Closed" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-buffer-header ()
   "Test that buffer has header."
   (ogent-issues-test-with-buffer
-   (should (string-match-p "Issues" (buffer-string)))))
+    (should (string-match-p "Issues" (buffer-string)))))
 
 ;;; Header Line Tests
 
 (ert-deftest ogent-issues-test-header-line ()
   "Test header line generation."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--current-view 'list)
-         (ogent-issues--issues ogent-issues-test--sample-issues)
-         (ogent-issues--filters nil))
-     (let ((header (ogent-issues--header-line)))
-       (should (string-match-p "Issues" header))
-       (should (string-match-p "test-project" header))
-       (should (string-match-p "List" header))
-       (should (string-match-p "4" header))))))
+    (let ((ogent-issues--current-view 'list)
+          (ogent-issues--issues ogent-issues-test--sample-issues)
+          (ogent-issues--filters nil))
+      (let ((header (ogent-issues--header-line)))
+        (should (string-match-p "Issues" header))
+        (should (string-match-p "test-project" header))
+        (should (string-match-p "List" header))
+        (should (string-match-p "4" header))))))
 
 (ert-deftest ogent-issues-test-header-line-with-filters ()
   "Test header line shows active filters."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--filters '(:status "open" :priority 1)))
-     (let ((header (ogent-issues--header-line)))
-       (should (string-match-p "open" header))))))
+    (let ((ogent-issues--filters '(:status "open" :priority 1)))
+      (let ((header (ogent-issues--header-line)))
+        (should (string-match-p "open" header))))))
 
 ;;; Navigation Tests (without magit-section)
 
 (ert-deftest ogent-issues-test-current-issue-nil-at-header ()
   "Test that current-issue returns nil at buffer start."
   (ogent-issues-test-with-buffer
-   (goto-char (point-min))
-   ;; At header, should be nil (unless magit-section puts us on an issue)
-   ;; This test is mode-dependent
-   (should (or (null (ogent-issues--current-issue))
-               (ogent-issues--current-issue)))))
+    (goto-char (point-min))
+    ;; At header, should be nil (unless magit-section puts us on an issue)
+    ;; This test is mode-dependent
+    (should (or (null (ogent-issues--current-issue))
+                (ogent-issues--current-issue)))))
 
 ;;; View Tests
 
 (ert-deftest ogent-issues-test-view-list ()
   "Test switching to list view."
   (ogent-issues-test-with-buffer
-   (ogent-issues-view-list)
-   (should (eq ogent-issues--current-view 'list))))
+    (ogent-issues-view-list)
+    (should (eq ogent-issues--current-view 'list))))
 
 (ert-deftest ogent-issues-test-view-ready ()
   "Test switching to ready view."
   (ogent-issues-test-with-buffer
-   (ogent-issues-view-ready)
-   (sit-for 0.01)
-   (should (eq ogent-issues--current-view 'ready))
-   ;; Ready view should not include blocked issues
-   (should (string-match-p "Ready Work" (buffer-string)))
-   (should-not (string-match-p "test-003" (buffer-string)))))
+    (ogent-issues-view-ready)
+    (sit-for 0.01)
+    (should (eq ogent-issues--current-view 'ready))
+    ;; Ready view should not include blocked issues
+    (should (string-match-p "Ready Work" (buffer-string)))
+    (should-not (string-match-p "test-003" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-view-kanban ()
   "Test switching to Kanban view."
   (ogent-issues-test-with-buffer
-   (ogent-issues-view-kanban)
-   (sit-for 0.01)
-   (should (eq ogent-issues--current-view 'kanban))
-   (should (string-match-p "Kanban Board" (buffer-string)))
-   ;; Should have column headers
-   (should (string-match-p "In Progress" (buffer-string)))
-   (should (string-match-p "Open" (buffer-string)))
-   (should (string-match-p "Blocked" (buffer-string)))
-   (should (string-match-p "Closed" (buffer-string)))))
+    (ogent-issues-view-kanban)
+    (sit-for 0.01)
+    (should (eq ogent-issues--current-view 'kanban))
+    (should (string-match-p "Kanban Board" (buffer-string)))
+    ;; Should have column headers
+    (should (string-match-p "In Progress" (buffer-string)))
+    (should (string-match-p "Open" (buffer-string)))
+    (should (string-match-p "Blocked" (buffer-string)))
+    (should (string-match-p "Closed" (buffer-string)))))
 
 ;;; Format Filters Tests
 
@@ -486,18 +486,18 @@
 
 (defconst ogent-issues-test--detail-issue
   '(:id "test-detail"
-	:title "Test Issue for Detail View"
-	:description "This is a **bold** description with `code`."
-	:status "open"
-	:priority 1
-	:issue_type "feature"
-	:created_at "2025-12-16T10:00:00-05:00"
-	:updated_at "2025-12-16T14:30:00-05:00"
-	:blocks ("test-002" "test-003")
-	:blocked_by nil
-	:children ("test-sub-1")
-	:comments ((:author "jake" :created_at "2025-12-16T11:00:00-05:00" :text "First comment")
-		   (:author "claude" :created_at "2025-12-16T12:00:00-05:00" :text "Second comment")))
+        :title "Test Issue for Detail View"
+        :description "This is a **bold** description with `code`."
+        :status "open"
+        :priority 1
+        :issue_type "feature"
+        :created_at "2025-12-16T10:00:00-05:00"
+        :updated_at "2025-12-16T14:30:00-05:00"
+        :blocks ("test-002" "test-003")
+        :blocked_by nil
+        :children ("test-sub-1")
+        :comments ((:author "jake" :created_at "2025-12-16T11:00:00-05:00" :text "First comment")
+                   (:author "claude" :created_at "2025-12-16T12:00:00-05:00" :text "Second comment")))
   "Sample issue with full details for testing.")
 
 (ert-deftest ogent-issues-test-format-time-valid ()
@@ -668,9 +668,9 @@
 (ert-deftest ogent-issues-test-project-change-clears-issues ()
   "Test that changing projects clears the cached issues list."
   (let ((project-a-issues '((:id "a-001" :title "Project A" :status "open"
-				 :priority 1 :issue_type "task")))
+                                 :priority 1 :issue_type "task")))
         (project-b-issues '((:id "b-001" :title "Project B" :status "open"
-				 :priority 1 :issue_type "task"))))
+                                 :priority 1 :issue_type "task"))))
     (cl-letf (((symbol-function 'ogent-issues-bd-check-requirements)
                (lambda () nil))
               ((symbol-function 'ogent-issues-bd-project-name)
@@ -849,33 +849,33 @@
 (ert-deftest ogent-issues-test-format-issue-line-no-deps ()
   "Test issue line with zero dependencies."
   (let ((issue '(:id "test-abc"
-                      :title "No deps"
-                      :priority 2
-                      :issue_type "task"
-                      :status "open"
-                      :dependency_count 0)))
+                     :title "No deps"
+                     :priority 2
+                     :issue_type "task"
+                     :status "open"
+                     :dependency_count 0)))
     (let ((line (ogent-issues--format-issue-line issue)))
       (should-not (string-match-p "([0-9])" line)))))
 
 (ert-deftest ogent-issues-test-format-issue-line-nil-title ()
   "Test issue line with nil title."
   (let ((issue '(:id "test-abc"
-                      :title nil
-                      :priority 2
-                      :issue_type "task"
-                      :status "open"
-                      :dependency_count 0)))
+                     :title nil
+                     :priority 2
+                     :issue_type "task"
+                     :status "open"
+                     :dependency_count 0)))
     ;; Should not error
     (should (stringp (ogent-issues--format-issue-line issue)))))
 
 (ert-deftest ogent-issues-test-format-issue-line-nil-id ()
   "Test issue line with nil id uses fallback."
   (let ((issue '(:id nil
-                      :title "Test"
-                      :priority 2
-                      :issue_type "task"
-                      :status "open"
-                      :dependency_count 0)))
+                     :title "Test"
+                     :priority 2
+                     :issue_type "task"
+                     :status "open"
+                     :dependency_count 0)))
     (let ((line (ogent-issues--format-issue-line issue)))
       (should (string-match-p "\\?" line)))))
 
@@ -976,43 +976,43 @@
 (ert-deftest ogent-issues-test-header-line-shows-ready-count ()
   "Test header line includes ready count."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--current-view 'list)
-         (ogent-issues--issues
-          (list '(:id "t1" :status "open" :blocked_by nil)
-                '(:id "t2" :status "open" :blocked_by nil)
-                '(:id "t3" :status "closed" :blocked_by nil)))
-         (ogent-issues--filters nil))
-     (let ((header (ogent-issues--header-line)))
-       (should (string-match-p "2 ready" header))))))
+    (let ((ogent-issues--current-view 'list)
+          (ogent-issues--issues
+           (list '(:id "t1" :status "open" :blocked_by nil)
+                 '(:id "t2" :status "open" :blocked_by nil)
+                 '(:id "t3" :status "closed" :blocked_by nil)))
+          (ogent-issues--filters nil))
+      (let ((header (ogent-issues--header-line)))
+        (should (string-match-p "2 ready" header))))))
 
 (ert-deftest ogent-issues-test-header-line-shows-blocked-count ()
   "Test header line includes blocked count when > 0."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--current-view 'list)
-         (ogent-issues--issues
-          (list '(:id "t1" :status "blocked" :blocked_by ("x"))
-                '(:id "t2" :status "open" :blocked_by nil)))
-         (ogent-issues--filters nil))
-     (let ((header (ogent-issues--header-line)))
-       (should (string-match-p "1 blocked" header))))))
+    (let ((ogent-issues--current-view 'list)
+          (ogent-issues--issues
+           (list '(:id "t1" :status "blocked" :blocked_by ("x"))
+                 '(:id "t2" :status "open" :blocked_by nil)))
+          (ogent-issues--filters nil))
+      (let ((header (ogent-issues--header-line)))
+        (should (string-match-p "1 blocked" header))))))
 
 (ert-deftest ogent-issues-test-header-line-view-name ()
   "Test header line shows correct view name."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--current-view 'ready)
-         (ogent-issues--issues nil)
-         (ogent-issues--filters nil))
-     (let ((header (ogent-issues--header-line)))
-       (should (string-match-p "Ready" header))))))
+    (let ((ogent-issues--current-view 'ready)
+          (ogent-issues--issues nil)
+          (ogent-issues--filters nil))
+      (let ((header (ogent-issues--header-line)))
+        (should (string-match-p "Ready" header))))))
 
 (ert-deftest ogent-issues-test-header-line-loading ()
   "Test header line shows loading indicator when loading."
   (ogent-issues-test-with-buffer
-   (setq ogent-issues--loading t)
-   (setq ogent-issues--loading-frame 0)
-   (let ((header (ogent-issues--header-line)))
-     (should (string-match-p "Loading" header)))
-   (setq ogent-issues--loading nil)))
+    (setq ogent-issues--loading t)
+    (setq ogent-issues--loading-frame 0)
+    (let ((header (ogent-issues--header-line)))
+      (should (string-match-p "Loading" header)))
+    (setq ogent-issues--loading nil)))
 
 ;;; Format Filters for Header Tests
 
@@ -1040,10 +1040,10 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-header
      '(:title "Test Title"
-       :status "open"
-       :priority 1
-       :issue_type "bug"
-       :blocked_by nil))
+              :status "open"
+              :priority 1
+              :issue_type "bug"
+              :blocked_by nil))
     (should (string-match-p "Test Title" (buffer-string)))
     (should (string-match-p "Open" (buffer-string)))
     (should (string-match-p "BUG" (buffer-string)))))
@@ -1054,10 +1054,10 @@
     (with-temp-buffer
       (ogent-issues--insert-detail-header
        '(:title "Ready Issue"
-         :status "open"
-         :priority 0
-         :issue_type "task"
-         :blocked_by nil))
+                :status "open"
+                :priority 0
+                :issue_type "task"
+                :blocked_by nil))
       (should (string-match-p "ready" (buffer-string))))))
 
 (ert-deftest ogent-issues-test-format-detail-header-not-ready ()
@@ -1065,10 +1065,10 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-header
      '(:title "In Progress Issue"
-       :status "in_progress"
-       :priority 0
-       :issue_type "task"
-       :blocked_by nil))
+              :status "in_progress"
+              :priority 0
+              :issue_type "task"
+              :blocked_by nil))
     (should-not (string-match-p "ready" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-format-detail-header-nil-title ()
@@ -1085,8 +1085,8 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-dependencies
      '(:blocks ("issue-A" "issue-B")
-       :blocked_by nil
-       :dependents nil))
+               :blocked_by nil
+               :dependents nil))
     (should (string-match-p "Dependencies" (buffer-string)))
     (should (string-match-p "issue-A" (buffer-string)))
     (should (string-match-p "issue-B" (buffer-string)))))
@@ -1096,8 +1096,8 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-dependencies
      '(:blocks nil
-       :blocked_by ("blocker-1")
-       :dependents nil))
+               :blocked_by ("blocker-1")
+               :dependents nil))
     (should (string-match-p "blocker-1" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-format-dependencies-none ()
@@ -1146,42 +1146,42 @@
 (ert-deftest ogent-issues-test-filter-status-sets-filter ()
   "Test filter-status sets the status filter and refreshes."
   (ogent-issues-test-with-buffer
-   (should (null ogent-issues--filters))
-   (ogent-issues-filter-status "blocked")
-   (sit-for 0.01)
-   (should (equal "blocked" (plist-get ogent-issues--filters :status)))))
+    (should (null ogent-issues--filters))
+    (ogent-issues-filter-status "blocked")
+    (sit-for 0.01)
+    (should (equal "blocked" (plist-get ogent-issues--filters :status)))))
 
 (ert-deftest ogent-issues-test-filter-type-sets-filter ()
   "Test filter-type sets the type filter and refreshes."
   (ogent-issues-test-with-buffer
-   (ogent-issues-filter-type "bug")
-   (sit-for 0.01)
-   (should (equal "bug" (plist-get ogent-issues--filters :type)))))
+    (ogent-issues-filter-type "bug")
+    (sit-for 0.01)
+    (should (equal "bug" (plist-get ogent-issues--filters :type)))))
 
 (ert-deftest ogent-issues-test-filter-priority-sets-filter ()
   "Test filter-priority sets the priority filter and refreshes."
   (ogent-issues-test-with-buffer
-   (ogent-issues-filter-priority 1)
-   (sit-for 0.01)
-   (should (equal 1 (plist-get ogent-issues--filters :priority)))))
+    (ogent-issues-filter-priority 1)
+    (sit-for 0.01)
+    (should (equal 1 (plist-get ogent-issues--filters :priority)))))
 
 (ert-deftest ogent-issues-test-clear-filters-resets ()
   "Test clear-filters resets all filters to nil."
   (ogent-issues-test-with-buffer
-   (setq ogent-issues--filters '(:status "open" :type "bug" :priority 0))
-   (ogent-issues-clear-filters)
-   (sit-for 0.01)
-   (should (null ogent-issues--filters))))
+    (setq ogent-issues--filters '(:status "open" :type "bug" :priority 0))
+    (ogent-issues-clear-filters)
+    (sit-for 0.01)
+    (should (null ogent-issues--filters))))
 
 (ert-deftest ogent-issues-test-filter-combined-type-and-priority ()
   "Test setting both type and priority filters."
   (ogent-issues-test-with-buffer
-   (ogent-issues-filter-type "feature")
-   (sit-for 0.01)
-   (ogent-issues-filter-priority 0)
-   (sit-for 0.01)
-   (should (equal "feature" (plist-get ogent-issues--filters :type)))
-   (should (equal 0 (plist-get ogent-issues--filters :priority)))))
+    (ogent-issues-filter-type "feature")
+    (sit-for 0.01)
+    (ogent-issues-filter-priority 0)
+    (sit-for 0.01)
+    (should (equal "feature" (plist-get ogent-issues--filters :type)))
+    (should (equal 0 (plist-get ogent-issues--filters :priority)))))
 
 ;;; Detail Buffer Name Tests
 
@@ -1555,9 +1555,9 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-metadata
      '(:created_at "2025-12-16T10:00:00Z"
-       :updated_at "2025-12-16T14:30:00Z"
-       :parent_id nil
-       :labels nil))
+                   :updated_at "2025-12-16T14:30:00Z"
+                   :parent_id nil
+                   :labels nil))
     (should (string-match-p "Metadata" (buffer-string)))
     (should (string-match-p "Created" (buffer-string)))
     (should (string-match-p "Updated" (buffer-string)))
@@ -1568,9 +1568,9 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-metadata
      '(:created_at "2025-12-16T10:00:00Z"
-       :updated_at "2025-12-16T14:30:00Z"
-       :parent_id "parent-001"
-       :labels nil))
+                   :updated_at "2025-12-16T14:30:00Z"
+                   :parent_id "parent-001"
+                   :labels nil))
     (should (string-match-p "Parent" (buffer-string)))
     (should (string-match-p "parent-001" (buffer-string)))))
 
@@ -1579,9 +1579,9 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-metadata
      '(:created_at "2025-12-16T10:00:00Z"
-       :updated_at "2025-12-16T14:30:00Z"
-       :parent_id nil
-       :labels ("backend" "urgent")))
+                   :updated_at "2025-12-16T14:30:00Z"
+                   :parent_id nil
+                   :labels ("backend" "urgent")))
     (should (string-match-p "Labels" (buffer-string)))
     (should (string-match-p "backend" (buffer-string)))
     (should (string-match-p "urgent" (buffer-string)))))
@@ -1591,9 +1591,9 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-metadata
      '(:created_at "2025-01-01T00:00:00Z"
-       :updated_at "2025-01-01T00:00:00Z"
-       :parent_id nil
-       :labels "single-label"))
+                   :updated_at "2025-01-01T00:00:00Z"
+                   :parent_id nil
+                   :labels "single-label"))
     (should (string-match-p "Labels" (buffer-string)))
     (should (string-match-p "single-label" (buffer-string)))))
 
@@ -1604,11 +1604,11 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-subtasks
      '(:dependents ((:id "sub-1" :title "Subtask one" :status "open"
-                     :priority 1 :issue_type "task"
-                     :dependency_type "parent-child")
+                         :priority 1 :issue_type "task"
+                         :dependency_type "parent-child")
                     (:id "sub-2" :title "Subtask two" :status "closed"
-                     :priority 2 :issue_type "bug"
-                     :dependency_type "parent-child"))))
+                         :priority 2 :issue_type "bug"
+                         :dependency_type "parent-child"))))
     (should (string-match-p "Subtasks (2)" (buffer-string)))
     (should (string-match-p "sub-1" (buffer-string)))
     (should (string-match-p "sub-2" (buffer-string)))))
@@ -1624,8 +1624,8 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-subtasks
      '(:dependents ((:id "dep-1" :title "Blocker" :status "open"
-                     :priority 1 :issue_type "task"
-                     :dependency_type "blocks"))))
+                         :priority 1 :issue_type "task"
+                         :dependency_type "blocks"))))
     ;; Should be empty since no parent-child deps
     (should (string-empty-p (buffer-string)))))
 
@@ -1636,7 +1636,7 @@
   (with-temp-buffer
     (ogent-issues--insert-subtask-line
      '(:id "sub-1" :title "Open subtask" :status "open"
-       :priority 1 :issue_type "task"))
+           :priority 1 :issue_type "task"))
     (let ((content (buffer-string)))
       (should (string-match-p "sub-1" content))
       (should (string-match-p "Open subtask" content))
@@ -1648,7 +1648,7 @@
     (with-temp-buffer
       (ogent-issues--insert-subtask-line
        '(:id "sub-2" :title "Done subtask" :status "closed"
-         :priority 2 :issue_type "bug"))
+             :priority 2 :issue_type "bug"))
       (should (string-match-p "sub-2" (buffer-string))))))
 
 ;;; Dependencies Section - Dependents Tests
@@ -1658,9 +1658,9 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-dependencies
      '(:blocks nil
-       :blocked_by nil
-       :dependents ((:id "dep-1" :dependency_type "blocks")
-                    (:id "dep-2" :dependency_type "blocks"))))
+               :blocked_by nil
+               :dependents ((:id "dep-1" :dependency_type "blocks")
+                            (:id "dep-2" :dependency_type "blocks"))))
     (should (string-match-p "Dependents" (buffer-string)))
     (should (string-match-p "dep-1" (buffer-string)))
     (should (string-match-p "dep-2" (buffer-string)))))
@@ -1670,8 +1670,8 @@
   (with-temp-buffer
     (ogent-issues--insert-detail-dependencies
      '(:blocks nil
-       :blocked_by nil
-       :dependents ((:id "child-1" :dependency_type "parent-child"))))
+               :blocked_by nil
+               :dependents ((:id "child-1" :dependency_type "parent-child"))))
     ;; Should NOT show Dependents since parent-child is filtered out
     (should-not (string-match-p "Dependents" (buffer-string)))))
 
@@ -1839,7 +1839,7 @@ propagate, crashing the render buffer with \"Error rendering issues\"."
           (ogent-issues--last-position "nonexistent-id"))
       (ogent-issues--insert-buffer-contents
        '((:id "t1" :title "Test" :status "open"
-               :priority 1 :issue_type "task" :dependency_count 0)))
+              :priority 1 :issue_type "task" :dependency_count 0)))
       ;; Must not signal user-error
       (ogent-issues--restore-position)
       ;; Should fall back to first issue
@@ -1856,9 +1856,9 @@ propagate, crashing the render buffer with \"Error rendering issues\"."
           (ogent-issues--last-position "t2"))
       (ogent-issues--insert-buffer-contents
        '((:id "t1" :title "First" :status "open"
-               :priority 1 :issue_type "task" :dependency_count 0)
+              :priority 1 :issue_type "task" :dependency_count 0)
          (:id "t2" :title "Second" :status "open"
-               :priority 2 :issue_type "bug" :dependency_count 0)))
+              :priority 2 :issue_type "bug" :dependency_count 0)))
       (ogent-issues--restore-position)
       (should (equal "t2" (ogent-issues--current-issue-id))))))
 
@@ -1873,7 +1873,7 @@ propagate, crashing the render buffer with \"Error rendering issues\"."
           (ogent-issues--last-position nil))
       (ogent-issues--insert-buffer-contents
        '((:id "t1" :title "Test" :status "open"
-               :priority 1 :issue_type "task" :dependency_count 0)))
+              :priority 1 :issue_type "task" :dependency_count 0)))
       (ogent-issues--restore-position)
       (should (= (point) (point-min))))))
 
@@ -1890,9 +1890,9 @@ verify the buffer contains issue content and no error string."
           (ogent-issues--last-position "deleted-issue")
           (ogent-issues--issues
            '((:id "t1" :title "Surviving Issue" :status "open"
-                   :priority 1 :issue_type "task" :dependency_count 0)
+                  :priority 1 :issue_type "task" :dependency_count 0)
              (:id "t2" :title "Another Issue" :status "in_progress"
-                   :priority 2 :issue_type "bug" :dependency_count 0))))
+                  :priority 2 :issue_type "bug" :dependency_count 0))))
       (ogent-issues--render-buffer (current-buffer))
       ;; Buffer should contain rendered issues, not error
       (should (string-match-p "Surviving Issue" (buffer-string)))
@@ -1909,7 +1909,7 @@ Verifies the underlying behavior that restore-position must handle."
           (ogent-issues--magit-section-available t))
       (ogent-issues--insert-buffer-contents
        '((:id "t1" :title "Only Issue" :status "open"
-               :priority 1 :issue_type "task" :dependency_count 0)))
+              :priority 1 :issue_type "task" :dependency_count 0)))
       (goto-char (point-min))
       (ogent-issues-next-issue)  ; move to t1
       (should (equal "t1" (ogent-issues--current-issue-id)))
@@ -1962,9 +1962,9 @@ Verifies the underlying behavior that restore-position must handle."
 (ert-deftest ogent-issues-test-refresh-renders-issues ()
   "Test that refresh populates buffer with issues."
   (ogent-issues-test-with-buffer
-   ;; Buffer should be populated after refresh in the macro
-   (should (> (buffer-size) 0))
-   (should (string-match-p "test-001" (buffer-string)))))
+    ;; Buffer should be populated after refresh in the macro
+    (should (> (buffer-size) 0))
+    (should (string-match-p "test-001" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-refresh-error-callback ()
   "Test that refresh handles errors from bd-list."
@@ -2022,11 +2022,11 @@ Verifies the underlying behavior that restore-position must handle."
                (lambda (&optional _) "render-test")))
       (ogent-issues--render-detail
        '(:id "det-1" :title "Detail Test" :status "open"
-         :priority 1 :issue_type "task" :description "desc"
-         :created_at "2025-01-01T00:00:00Z"
-         :updated_at "2025-01-01T00:00:00Z"
-         :blocks nil :blocked_by nil :dependents nil
-         :comments nil)
+             :priority 1 :issue_type "task" :description "desc"
+             :created_at "2025-01-01T00:00:00Z"
+             :updated_at "2025-01-01T00:00:00Z"
+             :blocks nil :blocked_by nil :dependents nil
+             :comments nil)
        "/tmp/render-test"
        test-buf-name)
       (let ((buf (get-buffer test-buf-name)))
@@ -2151,7 +2151,7 @@ Verifies the underlying behavior that restore-position must handle."
 (ert-deftest ogent-issues-test-format-issue-line-nil-deps ()
   "Test issue line with nil dependency_count."
   (let ((issue '(:id "t1" :title "No dep count" :status "open"
-                 :priority 2 :issue_type "task" :dependency_count nil)))
+                     :priority 2 :issue_type "task" :dependency_count nil)))
     (let ((line (ogent-issues--format-issue-line issue)))
       (should (stringp line))
       ;; Should not show parenthesized count
@@ -2340,10 +2340,10 @@ Verifies the underlying behavior that restore-position must handle."
 (ert-deftest ogent-issues-test-view-ready-shows-sorted ()
   "Test ready view shows issues sorted by priority."
   (ogent-issues-test-with-buffer
-   (ogent-issues-view-ready)
-   (sit-for 0.01)
-   ;; The ready view should show Ready Work heading
-   (should (string-match-p "Ready Work" (buffer-string)))))
+    (ogent-issues-view-ready)
+    (sit-for 0.01)
+    ;; The ready view should show Ready Work heading
+    (should (string-match-p "Ready Work" (buffer-string)))))
 
 (ert-deftest ogent-issues-test-view-ready-empty ()
   "Test ready view with no ready issues."
@@ -2373,13 +2373,13 @@ Verifies the underlying behavior that restore-position must handle."
 (ert-deftest ogent-issues-test-header-line-no-blocked ()
   "Test header line does not show blocked when count is 0."
   (ogent-issues-test-with-buffer
-   (let ((ogent-issues--current-view 'list)
-         (ogent-issues--issues
-          (list '(:id "t1" :status "open" :blocked_by nil)))
-         (ogent-issues--filters nil)
-         (ogent-issues--loading nil))
-     (let ((header (ogent-issues--header-line)))
-       (should-not (string-match-p "blocked" header))))))
+    (let ((ogent-issues--current-view 'list)
+          (ogent-issues--issues
+           (list '(:id "t1" :status "open" :blocked_by nil)))
+          (ogent-issues--filters nil)
+          (ogent-issues--loading nil))
+      (let ((header (ogent-issues--header-line)))
+        (should-not (string-match-p "blocked" header))))))
 
 ;;; Format Filters Tests (Additional)
 
@@ -2428,10 +2428,10 @@ Verifies the underlying behavior that restore-position must handle."
                (lambda (&optional _) "ow-test")))
       (ogent-issues--render-detail
        '(:id "ow-1" :title "OW Test" :status "open"
-         :priority 1 :issue_type "task" :description "desc"
-         :created_at "2025-01-01T00:00:00Z"
-         :updated_at "2025-01-01T00:00:00Z"
-         :blocks nil :blocked_by nil :dependents nil :comments nil)
+             :priority 1 :issue_type "task" :description "desc"
+             :created_at "2025-01-01T00:00:00Z"
+             :updated_at "2025-01-01T00:00:00Z"
+             :blocks nil :blocked_by nil :dependents nil :comments nil)
        "/tmp/ow-test" test-buf-name)
       (should pop-called)
       (let ((buf (get-buffer test-buf-name)))
@@ -2456,10 +2456,10 @@ Verifies the underlying behavior that restore-position must handle."
                (lambda (&optional _) "right-test")))
       (ogent-issues--render-detail
        '(:id "right-1" :title "Right Test" :status "open"
-         :priority 1 :issue_type "task" :description "desc"
-         :created_at "2025-01-01T00:00:00Z"
-         :updated_at "2025-01-01T00:00:00Z"
-         :blocks nil :blocked_by nil :dependents nil :comments nil)
+             :priority 1 :issue_type "task" :description "desc"
+             :created_at "2025-01-01T00:00:00Z"
+             :updated_at "2025-01-01T00:00:00Z"
+             :blocks nil :blocked_by nil :dependents nil :comments nil)
        "/tmp/right-test" test-buf-name)
       ;; The overriding action wins over display-buffer-alist rules
       ;; (e.g. Doom's ^\* bottom-popup catch-all).
@@ -2488,10 +2488,10 @@ Verifies the underlying behavior that restore-position must handle."
                (lambda (&optional _) "defer-test")))
       (ogent-issues--render-detail
        '(:id "defer-1" :title "Defer Test" :status "open"
-         :priority 1 :issue_type "task" :description "desc"
-         :created_at "2025-01-01T00:00:00Z"
-         :updated_at "2025-01-01T00:00:00Z"
-         :blocks nil :blocked_by nil :dependents nil :comments nil)
+             :priority 1 :issue_type "task" :description "desc"
+             :created_at "2025-01-01T00:00:00Z"
+             :updated_at "2025-01-01T00:00:00Z"
+             :blocks nil :blocked_by nil :dependents nil :comments nil)
        "/tmp/defer-test" test-buf-name)
       ;; Unchanged ambient value: no overriding action was installed.
       (should (eq captured-override display-buffer-overriding-action))
@@ -2513,9 +2513,9 @@ Verifies the underlying behavior that restore-position must handle."
                (lambda (&optional _) "hl-test")))
       (ogent-issues--render-detail
        '(:id "hl-1" :title "HL Test" :status "open"
-         :priority 1 :issue_type "task" :description nil
-         :created_at nil :updated_at nil
-         :blocks nil :blocked_by nil :dependents nil :comments nil)
+             :priority 1 :issue_type "task" :description nil
+             :created_at nil :updated_at nil
+             :blocks nil :blocked_by nil :dependents nil :comments nil)
        "/tmp/hl-test" test-buf-name)
       (let ((buf (get-buffer test-buf-name)))
         (unwind-protect
@@ -2542,9 +2542,9 @@ Verifies the underlying behavior that restore-position must handle."
                  (setq get-called t))))
       (ogent-issues--show-detail
        '(:id "ar-1" :title "Auto Refresh" :status "open"
-         :priority 1 :issue_type "task" :description nil
-         :created_at nil :updated_at nil
-         :blocks nil :blocked_by nil :dependents nil :comments nil))
+             :priority 1 :issue_type "task" :description nil
+             :created_at nil :updated_at nil
+             :blocks nil :blocked_by nil :dependents nil :comments nil))
       (should get-called)
       ;; Clean up buffer
       (let ((buf (get-buffer "*ogent-issue: ar-test*")))
@@ -2566,9 +2566,9 @@ Verifies the underlying behavior that restore-position must handle."
                  (setq get-called t))))
       (ogent-issues--show-detail
        '(:id "noar-1" :title "No Auto Refresh" :status "open"
-         :priority 1 :issue_type "task" :description nil
-         :created_at nil :updated_at nil
-         :blocks nil :blocked_by nil :dependents nil :comments nil))
+             :priority 1 :issue_type "task" :description nil
+             :created_at nil :updated_at nil
+             :blocks nil :blocked_by nil :dependents nil :comments nil))
       (should-not get-called)
       (let ((buf (get-buffer "*ogent-issue: noar-test*")))
         (when (buffer-live-p buf)
@@ -2667,7 +2667,7 @@ Verifies the underlying behavior that restore-position must handle."
     (let ((ogent-issues--magit-section-available nil))
       (ogent-issues--insert-issue
        '(:id "ins-1" :title "Insert test" :status "open"
-         :priority 1 :issue_type "task" :dependency_count 0))
+             :priority 1 :issue_type "task" :dependency_count 0))
       (should (string-match-p "ins-1" (buffer-string)))
       ;; Should have ogent-issue property set
       (goto-char (point-min))
@@ -2828,7 +2828,7 @@ Verifies the underlying behavior that restore-position must handle."
   (let ((ogent-issues-use-unicode t))
     (let ((line (ogent-issues--format-issue-line
                  '(:id "test-001" :title "Test issue" :priority 1
-                   :issue_type "task" :status "open" :dependency_count 0))))
+                       :issue_type "task" :status "open" :dependency_count 0))))
       (should-not (string-match-p "→" line)))))
 
 (provide 'ogent-issues-tests)

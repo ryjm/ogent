@@ -87,15 +87,15 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex-cli"
-       :model "gpt-5.4"
-       :permission-mode "default"
-       :heartbeat "0 9 * * 1-5"
-       :active t
-       :workspace "engineering"
-       :tags ("engineering" "strategy"))
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex-cli"
+             :model "gpt-5.4"
+             :permission-mode "default"
+             :heartbeat "0 9 * * 1-5"
+             :active t
+             :workspace "engineering"
+             :tags ("engineering" "strategy"))
      "Keep the technical plan brutally clear.")
     (let ((agent (ogent-armory-read-agent dir "cto")))
       (should (equal (plist-get agent :slug) "cto"))
@@ -120,34 +120,34 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :display-name "Chief Architect"
-       :icon "lambda"
-       :color "#2255ff"
-       :avatar "avatars/cto.png"
-       :role "Architecture"
-       :department "Engineering"
-       :type "lead"
-       :scope "armory"
-       :can-dispatch t
-       :provider "codex-cli"
-       :adapter "codex-cli"
-       :adapter-config "sandbox=workspace-write"
-       :model "gpt-5.4"
-       :effort "high"
-       :runtime-mode "terminal"
-       :budget "200000"
-       :focus ("lisp" "specs")
-       :goals ("ship parity" "keep Org durable")
-       :channels ("org" "mail")
-       :skills ("review" "planning")
-       :recommended-skills ("security")
-       :setup-complete t
-       :last-heartbeat "2026-05-06T09:00:00-0700"
-       :next-heartbeat "2026-05-07T09:00:00-0700"
-       :active t
-       :workspace "engineering"
-       :tags ("engineering" "strategy"))
+             :name "CTO"
+             :display-name "Chief Architect"
+             :icon "lambda"
+             :color "#2255ff"
+             :avatar "avatars/cto.png"
+             :role "Architecture"
+             :department "Engineering"
+             :type "lead"
+             :scope "armory"
+             :can-dispatch t
+             :provider "codex-cli"
+             :adapter "codex-cli"
+             :adapter-config "sandbox=workspace-write"
+             :model "gpt-5.4"
+             :effort "high"
+             :runtime-mode "terminal"
+             :budget "200000"
+             :focus ("lisp" "specs")
+             :goals ("ship parity" "keep Org durable")
+             :channels ("org" "mail")
+             :skills ("review" "planning")
+             :recommended-skills ("security")
+             :setup-complete t
+             :last-heartbeat "2026-05-06T09:00:00-0700"
+             :next-heartbeat "2026-05-07T09:00:00-0700"
+             :active t
+             :workspace "engineering"
+             :tags ("engineering" "strategy"))
      "Keep the technical plan brutally clear.")
     (let ((agent (ogent-armory-read-agent dir "cto")))
       (should (equal (plist-get agent :display-name) "Chief Architect"))
@@ -209,12 +209,12 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto" :name "CTO" :department "Engineering" :type "lead"
-       :can-dispatch t)
+             :can-dispatch t)
      "Lead engineering.")
     (ogent-armory-write-agent
      dir
      '(:slug "builder" :name "Builder" :department "Engineering"
-       :type "specialist")
+             :type "specialist")
      "Build systems.")
     (ogent-armory-write-global-agent
      dir
@@ -248,9 +248,9 @@
     (ogent-armory-write-job
      dir "editor"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "0 9 * * 1"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "0 9 * * 1"
+           :enabled t)
      "Review recent Org pages and file a summary.")
     (let ((job (ogent-armory-read-job dir "editor" "weekly-review")))
       (should (equal (plist-get job :id) "weekly-review"))
@@ -311,13 +311,13 @@
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "0 9 * * 1"
-       :provider "claude"
-       :model "sonnet"
-       :workspace "engineering"
-       :tags ("strategy" "weekly")
-       :enabled t)
+           :name "Weekly Review"
+           :cron "0 9 * * 1"
+           :provider "claude"
+           :model "sonnet"
+           :workspace "engineering"
+           :tags ("strategy" "weekly")
+           :enabled t)
      "Review architecture notes.\n\nManual edits stay here.")
     (ogent-armory-update-job-property dir "cto" "weekly-review" "OGENT_ENABLED" "nil")
     (ogent-armory-update-job-property dir "cto" "weekly-review" "OGENT_MODEL" "opus")
@@ -342,9 +342,9 @@
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "bad cron"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "bad cron"
+           :enabled t)
      "Review architecture notes.")
     (ogent-armory-update-job-property
      dir "cto" "weekly-review" "OGENT_ENABLED" "maybe")
@@ -498,23 +498,23 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :tags ("strategy"))
+             :name "CTO"
+             :role "Architecture"
+             :tags ("strategy"))
      "Searchable strategy text.")
     (ogent-armory-write-agent
      dir
      '(:slug "editor"
-       :name "Editor"
-       :role "Writing"
-       :tags ("docs"))
+             :name "Editor"
+             :role "Writing"
+             :tags ("docs"))
      "Searchable docs text.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :tags ("strategy")
-       :enabled t)
+           :name "Weekly Review"
+           :tags ("strategy")
+           :enabled t)
      "Searchable job text.")
     (let ((agent-results (ogent-armory-search-records
                           dir "Searchable" :kind 'agent :agent "cto"))
@@ -533,9 +533,9 @@
     (let ((file (ogent-armory-conversation-create
                  dir
                  '(:id "conv-1"
-                   :title "Quarterly zanzibar review"
-                   :agent "cto"
-                   :status "completed"))))
+                       :title "Quarterly zanzibar review"
+                       :agent "cto"
+                       :status "completed"))))
       (let ((results (ogent-armory-search-records dir "zanzibar")))
         (should results)
         (dolist (result results)
@@ -549,14 +549,14 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture")
+             :name "CTO"
+             :role "Architecture")
      "Shared zanzibar marker in agent notes.")
     (ogent-armory-conversation-create
      dir
      '(:id "conv-1"
-       :title "Shared zanzibar marker conversation"
-       :agent "cto"))
+           :title "Shared zanzibar marker conversation"
+           :agent "cto"))
     (let ((conversation-results (ogent-armory-search-records
                                  dir "zanzibar" :kind 'conversation))
           (agent-results (ogent-armory-search-records
@@ -587,15 +587,15 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "Keep the plan direct.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :enabled t)
+           :name "Weekly Review"
+           :enabled t)
      "Find risks.")
     (let ((session-file (expand-file-name
                          "20260504T120000-run.org"
@@ -630,9 +630,9 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "Keep the plan direct.")
     (let* ((app-dir ".armory-state/dogfood-app")
            (app-file (expand-file-name "index.html" (expand-file-name app-dir dir)))

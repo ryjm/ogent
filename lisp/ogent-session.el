@@ -112,7 +112,7 @@ Returns a plist with :id, :models, :start-time, :title, :project."
 
 (defun ogent-persist--detect-project ()
   "Detect the project root directory.
-Uses `project-root' if available, or vc-root-dir as fallback."
+Use `project-root' if available, or `vc-root-dir' as fallback."
   (or (when (fboundp 'project-root)
         (when-let ((proj (project-current)))
           (project-root proj)))
@@ -574,7 +574,7 @@ Uses grep for fast full-text search."
   (unless ogent-session-roam-integration
     (user-error "Org-roam integration is not enabled"))
   (unless (require 'org-roam nil t)
-    (user-error "org-roam package not available"))
+    (user-error "Org-roam package not available"))
   (when-let* ((session (ogent-history--session-at-point))
               (file (plist-get session :file))
               (node (org-roam-node-read)))
@@ -600,7 +600,7 @@ Uses grep for fast full-text search."
   (unless ogent-session-roam-integration
     (user-error "Org-roam integration is not enabled"))
   (unless (require 'org-roam nil t)
-    (user-error "org-roam package not available"))
+    (user-error "Org-roam package not available"))
   (let* ((metadata (ogent-persist--extract-metadata))
          (title (plist-get metadata :title)))
     (org-roam-node-find nil (format "ogent: %s" title))))

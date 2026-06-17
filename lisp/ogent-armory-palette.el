@@ -32,36 +32,36 @@
 (defun ogent-armory-palette--command-records (root)
   "Return command records for ROOT."
   `((:kind command :title "Armory Home" :command ogent-armory-home
-     :path ,root :text "home overview")
+           :path ,root :text "home overview")
     (:kind command :title "Armory Data" :command ogent-armory-data
-     :path ,root :text "data browser pages files")
+           :path ,root :text "data browser pages files")
     (:kind command :title "Armory Agents" :command ogent-armory-agents
-     :path ,root :text "agents personas")
+           :path ,root :text "agents personas")
     (:kind command :title "Create Armory Task"
-     :command ogent-armory-create-task :path ,root
-     :text "capture task todo inbox manual")
+           :command ogent-armory-create-task :path ,root
+           :text "capture task todo inbox manual")
     (:kind command :title "Armory Tasks" :command ogent-armory-tasks
-     :path ,root :text "tasks board")
+           :path ,root :text "tasks board")
     (:kind command :title "Armory Conversations"
-     :command ogent-armory-conversations :path ,root :text "runs transcripts")
+           :command ogent-armory-conversations :path ,root :text "runs transcripts")
     (:kind command :title "Armory Schedule"
-     :command ogent-armory-schedule :path ,root :text "calendar jobs heartbeats")
+           :command ogent-armory-schedule :path ,root :text "calendar jobs heartbeats")
     (:kind command :title "Armory Apps" :command ogent-armory-apps
-     :path ,root :text "generated apps html")
+           :path ,root :text "generated apps html")
     (:kind command :title "Armory Git Status"
-     :command ogent-armory-git-status :path ,root :text "git dirty status")
+           :command ogent-armory-git-status :path ,root :text "git dirty status")
     (:kind command :title "Armory Settings"
-     :command ogent-armory-settings :path ,root :text "settings providers storage")
+           :command ogent-armory-settings :path ,root :text "settings providers storage")
     (:kind command :title "Armory Help"
-     :command ogent-armory-help :path ,root :text "help shortcuts demo")
+           :command ogent-armory-help :path ,root :text "help shortcuts demo")
     (:kind command :title "Armory Onboard"
-     :command ogent-armory-onboard :path ,root :text "setup storage provider team")
+           :command ogent-armory-onboard :path ,root :text "setup storage provider team")
     (:kind command :title "Armory Registry Import"
-     :command ogent-armory-registry-import-into :path ,root :text "template manifest import")
+           :command ogent-armory-registry-import-into :path ,root :text "template manifest import")
     (:kind command :title "Armory Backup"
-     :command ogent-armory-backup :path ,root :text "backup durable org data")
+           :command ogent-armory-backup :path ,root :text "backup durable org data")
     (:kind command :title "Armory Agenda"
-     :command ogent-armory-agenda :path ,root :text "org agenda")))
+           :command ogent-armory-agenda :path ,root :text "org agenda")))
 
 (defun ogent-armory-palette--file-text (record)
   "Return searchable text for data RECORD."
@@ -212,6 +212,7 @@
 ;;;###autoload
 (cl-defun ogent-armory-ranked-search (directory query &key limit rebuild)
   "Return ranked Armory records under DIRECTORY for QUERY.
+When LIMIT is non-nil, return at most LIMIT records.
 When REBUILD is non-nil, refresh the persisted index first."
   (let* ((records (if rebuild
                       (ogent-armory-search-index-build directory)
@@ -281,7 +282,8 @@ When REBUILD is non-nil, refresh the persisted index first."
 
 ;;;###autoload
 (defun ogent-armory-command-palette (&optional directory query)
-  "Open a ranked Armory command/search palette for DIRECTORY."
+  "Open a ranked Armory command/search palette for DIRECTORY.
+Use QUERY as the initial search string."
   (interactive
    (let ((root (or (ogent-armory-find-root)
                    (read-directory-name "Armory root: "))))

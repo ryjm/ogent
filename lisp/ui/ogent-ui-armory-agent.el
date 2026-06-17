@@ -58,11 +58,11 @@
 
 (ogent-armory-ui--define-section-mode ogent-armory-agent-mode "Armory-Agent"
                                        "Major mode for a single Armory agent profile."
-                                       (setq-local revert-buffer-function #'ogent-armory-agent-refresh)
-                                       (setq-local truncate-lines t)
-                                       (setq-local buffer-read-only t)
-                                       (ogent-armory-ui--configure-section-buffer)
-                                       (setq header-line-format '(:eval (ogent-armory-agent--header-line))))
+  (setq-local revert-buffer-function #'ogent-armory-agent-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (ogent-armory-ui--configure-section-buffer)
+  (setq header-line-format '(:eval (ogent-armory-agent--header-line))))
 
 (defun ogent-armory-agent--header-line ()
   "Return header text for the current Armory agent buffer."
@@ -105,7 +105,7 @@
 (defun ogent-armory-agent--insert-buffer ()
   "Insert the current Armory agent profile."
   (ogent-armory-ui--with-root-section (ogent-armory-agent-root)
-                                       (ogent-armory-agent--insert-buffer-content)))
+    (ogent-armory-agent--insert-buffer-content)))
 
 (defun ogent-armory-agent--insert-buffer-content ()
   "Insert the current Armory agent profile sections."
@@ -130,9 +130,9 @@
              'face 'ogent-armory-ui-dim)
             "\n\n")
     (ogent-armory-ui--with-section (ogent-armory-agent-composer)
-                                    (ogent-armory-ui--heading-text "Composer")
-                                    (insert "  c compose instruction and run this agent\n")
-                                    (insert "  R run job or session at point\n"))
+        (ogent-armory-ui--heading-text "Composer")
+      (insert "  c compose instruction and run this agent\n")
+      (insert "  R run job or session at point\n"))
     (insert "\n")
     (ogent-armory-agent--insert-inbox jobs)
     (ogent-armory-agent--insert-conversations sessions)
@@ -147,162 +147,162 @@
 (defun ogent-armory-agent--insert-inbox (jobs)
   "Insert Inbox section from JOBS."
   (ogent-armory-ui--with-section (ogent-armory-agent-inbox)
-                                  (ogent-armory-ui--heading-text "Inbox")
-                                  (let ((enabled (seq-filter (lambda (job) (plist-get job :enabled)) jobs)))
-                                    (if enabled
-                                        (dolist (job enabled)
-                                          (ogent-armory-ui--insert-item-line
-                                           (list :type 'job
-                                                 :agent (plist-get job :agent)
-                                                 :job-id (plist-get job :id)
-                                                 :path (ogent-armory-job-file
-                                                        ogent-armory-agent--root
-                                                        (plist-get job :agent)
-                                                        (plist-get job :id)))
-                                           (format "  TODO %s  %s"
-                                                   (or (plist-get job :name) (plist-get job :id))
-                                                   (or (plist-get job :cron) "manual"))))
-                                      (insert (propertize "  No enabled jobs\n" 'face 'ogent-armory-ui-dim)))))
+      (ogent-armory-ui--heading-text "Inbox")
+    (let ((enabled (seq-filter (lambda (job) (plist-get job :enabled)) jobs)))
+      (if enabled
+          (dolist (job enabled)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'job
+                   :agent (plist-get job :agent)
+                   :job-id (plist-get job :id)
+                   :path (ogent-armory-job-file
+                          ogent-armory-agent--root
+                          (plist-get job :agent)
+                          (plist-get job :id)))
+             (format "  TODO %s  %s"
+                     (or (plist-get job :name) (plist-get job :id))
+                     (or (plist-get job :cron) "manual"))))
+        (insert (propertize "  No enabled jobs\n" 'face 'ogent-armory-ui-dim)))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-conversations (sessions)
   "Insert Conversations section from SESSIONS."
   (ogent-armory-ui--with-section (ogent-armory-agent-conversations)
-                                  (ogent-armory-ui--heading-text "Conversations")
-                                  (if sessions
-                                      (dolist (session sessions)
-                                        (ogent-armory-ui--insert-item-line
-                                         (list :type 'session
-                                               :agent (plist-get session :agent)
-                                               :job-id (plist-get session :job-id)
-                                               :path (plist-get session :path))
-                                         (format "  %s  %s  %s"
-                                                 (or (plist-get session :status) "DONE")
-                                                 (or (plist-get session :name) (plist-get session :id))
-                                                 (or (plist-get session :finished) ""))))
-                                    (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim))))
+      (ogent-armory-ui--heading-text "Conversations")
+    (if sessions
+        (dolist (session sessions)
+          (ogent-armory-ui--insert-item-line
+           (list :type 'session
+                 :agent (plist-get session :agent)
+                 :job-id (plist-get session :job-id)
+                 :path (plist-get session :path))
+           (format "  %s  %s  %s"
+                   (or (plist-get session :status) "DONE")
+                   (or (plist-get session :name) (plist-get session :id))
+                   (or (plist-get session :finished) ""))))
+      (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-recent-work (sessions)
   "Insert Recent Work section from SESSIONS."
   (ogent-armory-ui--with-section (ogent-armory-agent-recent-work)
-                                  (ogent-armory-ui--heading-text "Recent Work")
-                                  (let ((recent (seq-take sessions 5)))
-                                    (if recent
-                                        (dolist (session recent)
-                                          (ogent-armory-ui--insert-item-line
-                                           (list :type 'session
-                                                 :agent (plist-get session :agent)
-                                                 :job-id (plist-get session :job-id)
-                                                 :path (plist-get session :path))
-                                           (format "  %s  %s"
-                                                   (or (plist-get session :status) "DONE")
-                                                   (or (plist-get session :name)
-                                                       (plist-get session :id)))))
-                                      (insert (propertize "  No recent work\n" 'face 'ogent-armory-ui-dim)))))
+      (ogent-armory-ui--heading-text "Recent Work")
+    (let ((recent (seq-take sessions 5)))
+      (if recent
+          (dolist (session recent)
+            (ogent-armory-ui--insert-item-line
+             (list :type 'session
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id)
+                   :path (plist-get session :path))
+             (format "  %s  %s"
+                     (or (plist-get session :status) "DONE")
+                     (or (plist-get session :name)
+                         (plist-get session :id)))))
+        (insert (propertize "  No recent work\n" 'face 'ogent-armory-ui-dim)))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-schedule (jobs)
   "Insert Schedule section from JOBS."
   (ogent-armory-ui--with-section (ogent-armory-agent-schedule)
-                                  (ogent-armory-ui--heading-text "Schedule")
-                                  (if jobs
-                                      (dolist (job jobs)
-                                        (ogent-armory-ui--insert-item-line
-                                         (list :type 'job
-                                               :agent (plist-get job :agent)
-                                               :job-id (plist-get job :id)
-                                               :path (ogent-armory-job-file
-                                                      ogent-armory-agent--root
-                                                      (plist-get job :agent)
-                                                      (plist-get job :id)))
-                                         (format "  %s  %s  %s"
-                                                 (if (plist-get job :enabled) "enabled" "disabled")
-                                                 (or (plist-get job :name) (plist-get job :id))
-                                                 (or (plist-get job :cron) "manual"))))
-                                    (insert (propertize "  No scheduled jobs\n" 'face 'ogent-armory-ui-dim))))
+      (ogent-armory-ui--heading-text "Schedule")
+    (if jobs
+        (dolist (job jobs)
+          (ogent-armory-ui--insert-item-line
+           (list :type 'job
+                 :agent (plist-get job :agent)
+                 :job-id (plist-get job :id)
+                 :path (ogent-armory-job-file
+                        ogent-armory-agent--root
+                        (plist-get job :agent)
+                        (plist-get job :id)))
+           (format "  %s  %s  %s"
+                   (if (plist-get job :enabled) "enabled" "disabled")
+                   (or (plist-get job :name) (plist-get job :id))
+                   (or (plist-get job :cron) "manual"))))
+      (insert (propertize "  No scheduled jobs\n" 'face 'ogent-armory-ui-dim))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-memory (root slug)
   "Insert Memory section for agent SLUG under ROOT."
   (ogent-armory-ui--with-section (ogent-armory-agent-memory)
-                                  (ogent-armory-ui--heading-text "Memory")
-                                  (dolist (file (list (ogent-armory-agent-memory-file root slug "context.org")
-                                                      (ogent-armory-agent-memory-file root slug "decisions.org")
-                                                      (ogent-armory-agent-memory-file root slug "learnings.org")
-                                                      (ogent-armory-agent-inbox-file root slug)
-                                                      (ogent-armory-agent-schedule-file root slug)))
-                                    (ogent-armory-ui--insert-item-line
-                                     (list :type 'file :path file)
-                                     (format "  %s" (file-relative-name file (ogent-armory-agent-directory
-                                                                              root slug))))))
+      (ogent-armory-ui--heading-text "Memory")
+    (dolist (file (list (ogent-armory-agent-memory-file root slug "context.org")
+                        (ogent-armory-agent-memory-file root slug "decisions.org")
+                        (ogent-armory-agent-memory-file root slug "learnings.org")
+                        (ogent-armory-agent-inbox-file root slug)
+                        (ogent-armory-agent-schedule-file root slug)))
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path file)
+       (format "  %s" (file-relative-name file (ogent-armory-agent-directory
+                                                root slug))))))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-tools (agent)
   "Insert Tools/Permissions section from AGENT."
   (ogent-armory-ui--with-section (ogent-armory-agent-tools)
-                                  (ogent-armory-ui--heading-text "Tools/Permissions")
-                                  (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
-                                  (ogent-armory-ui--insert-kv "Adapter" (plist-get agent :adapter))
-                                  (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
-                                  (ogent-armory-ui--insert-kv "Effort" (plist-get agent :effort))
-                                  (ogent-armory-ui--insert-kv "Runtime" (plist-get agent :runtime-mode))
-                                  (ogent-armory-ui--insert-kv "Budget" (plist-get agent :budget))
-                                  (ogent-armory-ui--insert-kv "Permission" (plist-get agent :permission-mode)))
+      (ogent-armory-ui--heading-text "Tools/Permissions")
+    (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
+    (ogent-armory-ui--insert-kv "Adapter" (plist-get agent :adapter))
+    (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
+    (ogent-armory-ui--insert-kv "Effort" (plist-get agent :effort))
+    (ogent-armory-ui--insert-kv "Runtime" (plist-get agent :runtime-mode))
+    (ogent-armory-ui--insert-kv "Budget" (plist-get agent :budget))
+    (ogent-armory-ui--insert-kv "Permission" (plist-get agent :permission-mode)))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-skills (agent)
   "Insert Skills section from AGENT."
   (ogent-armory-ui--with-section (ogent-armory-agent-skills)
-                                  (ogent-armory-ui--heading-text "Skills")
-                                  (ogent-armory-ui--insert-kv "Selected"
-                                                               (string-join
-                                                                (or (plist-get agent :skills) nil)
-                                                                ", "))
-                                  (ogent-armory-ui--insert-kv "Recommended"
-                                                               (string-join
-                                                                (or (plist-get agent :recommended-skills) nil)
-                                                                ", ")))
+      (ogent-armory-ui--heading-text "Skills")
+    (ogent-armory-ui--insert-kv "Selected"
+                                 (string-join
+                                  (or (plist-get agent :skills) nil)
+                                  ", "))
+    (ogent-armory-ui--insert-kv "Recommended"
+                                 (string-join
+                                  (or (plist-get agent :recommended-skills) nil)
+                                  ", ")))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-details (agent)
   "Insert Details section from AGENT."
   (ogent-armory-ui--with-section (ogent-armory-agent-details)
-                                  (ogent-armory-ui--heading-text "Details")
-                                  (ogent-armory-ui--insert-kv "Slug" (plist-get agent :slug))
-                                  (ogent-armory-ui--insert-kv "Scope" (symbol-name (plist-get agent :scope)))
-                                  (ogent-armory-ui--insert-kv "Display" (plist-get agent :display-name))
-                                  (ogent-armory-ui--insert-kv "Icon" (plist-get agent :icon))
-                                  (ogent-armory-ui--insert-kv "Color" (plist-get agent :color))
-                                  (ogent-armory-ui--insert-kv "Avatar" (plist-get agent :avatar))
-                                  (ogent-armory-ui--insert-kv "Department" (plist-get agent :department))
-                                  (ogent-armory-ui--insert-kv "Type" (plist-get agent :type))
-                                  (ogent-armory-ui--insert-kv "Can Dispatch"
-                                                               (if (plist-get agent :can-dispatch) "t" "nil"))
-                                  (ogent-armory-ui--insert-kv "Role" (plist-get agent :role))
-                                  (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
-                                  (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
-                                  (ogent-armory-ui--insert-kv "Heartbeat" (plist-get agent :heartbeat))
-                                  (ogent-armory-ui--insert-kv "Last Heartbeat" (plist-get agent :last-heartbeat))
-                                  (ogent-armory-ui--insert-kv "Next Heartbeat" (plist-get agent :next-heartbeat))
-                                  (ogent-armory-ui--insert-kv "Active" (if (plist-get agent :active) "t" "nil"))
-                                  (ogent-armory-ui--insert-kv "Setup Complete"
-                                                               (if (plist-get agent :setup-complete) "t" "nil"))
-                                  (ogent-armory-ui--insert-kv "Workspace" (plist-get agent :workspace))
-                                  (ogent-armory-ui--insert-kv "Focus" (string-join (or (plist-get agent :focus) nil) ", "))
-                                  (ogent-armory-ui--insert-kv "Goals" (string-join (or (plist-get agent :goals) nil) ", "))
-                                  (ogent-armory-ui--insert-kv "Channels" (string-join (or (plist-get agent :channels) nil) ", "))
-                                  (ogent-armory-ui--insert-kv "Tags" (string-join (or (plist-get agent :tags) nil) ", ")))
+      (ogent-armory-ui--heading-text "Details")
+    (ogent-armory-ui--insert-kv "Slug" (plist-get agent :slug))
+    (ogent-armory-ui--insert-kv "Scope" (symbol-name (plist-get agent :scope)))
+    (ogent-armory-ui--insert-kv "Display" (plist-get agent :display-name))
+    (ogent-armory-ui--insert-kv "Icon" (plist-get agent :icon))
+    (ogent-armory-ui--insert-kv "Color" (plist-get agent :color))
+    (ogent-armory-ui--insert-kv "Avatar" (plist-get agent :avatar))
+    (ogent-armory-ui--insert-kv "Department" (plist-get agent :department))
+    (ogent-armory-ui--insert-kv "Type" (plist-get agent :type))
+    (ogent-armory-ui--insert-kv "Can Dispatch"
+                                 (if (plist-get agent :can-dispatch) "t" "nil"))
+    (ogent-armory-ui--insert-kv "Role" (plist-get agent :role))
+    (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
+    (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
+    (ogent-armory-ui--insert-kv "Heartbeat" (plist-get agent :heartbeat))
+    (ogent-armory-ui--insert-kv "Last Heartbeat" (plist-get agent :last-heartbeat))
+    (ogent-armory-ui--insert-kv "Next Heartbeat" (plist-get agent :next-heartbeat))
+    (ogent-armory-ui--insert-kv "Active" (if (plist-get agent :active) "t" "nil"))
+    (ogent-armory-ui--insert-kv "Setup Complete"
+                                 (if (plist-get agent :setup-complete) "t" "nil"))
+    (ogent-armory-ui--insert-kv "Workspace" (plist-get agent :workspace))
+    (ogent-armory-ui--insert-kv "Focus" (string-join (or (plist-get agent :focus) nil) ", "))
+    (ogent-armory-ui--insert-kv "Goals" (string-join (or (plist-get agent :goals) nil) ", "))
+    (ogent-armory-ui--insert-kv "Channels" (string-join (or (plist-get agent :channels) nil) ", "))
+    (ogent-armory-ui--insert-kv "Tags" (string-join (or (plist-get agent :tags) nil) ", ")))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-persona (agent)
   "Insert Persona Instructions section from AGENT."
   (ogent-armory-ui--with-section (ogent-armory-agent-persona)
-                                  (ogent-armory-ui--heading-text "Persona Instructions")
-                                  (let ((body (plist-get agent :body)))
-                                    (if (and body (not (string-blank-p body)))
-                                        (insert body "\n")
-                                      (insert (propertize "No persona instructions.\n" 'face 'ogent-armory-ui-dim))))))
+      (ogent-armory-ui--heading-text "Persona Instructions")
+    (let ((body (plist-get agent :body)))
+      (if (and body (not (string-blank-p body)))
+          (insert body "\n")
+        (insert (propertize "No persona instructions.\n" 'face 'ogent-armory-ui-dim))))))
 
 (defun ogent-armory-agent-visit ()
   "Visit the Armory item at point or this agent's persona file."

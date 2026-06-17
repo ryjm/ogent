@@ -33,6 +33,8 @@
 (declare-function magit-section-toggle "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
 (defvar magit-section-visibility-indicator)
+(put 'magit-insert-section 'lisp-indent-function 2)
+(put 'magit-insert-heading 'lisp-indent-function 0)
 
 ;; Forward declarations for eieio
 (declare-function eieio-object-p "eieio-core")
@@ -218,8 +220,8 @@ EDITS is a list of `ogent-edit' structs."
 (defun ogent-edit-diff--render-magit (by-file)
   "Render BY-FILE alist using magit-section."
   (magit-insert-section (ogent-edit-diff-root-section)
-    ;; Header
-    (insert (propertize "Edit Proposals" 'face 'bold) "\n")
+      ;; Header
+      (insert (propertize "Edit Proposals" 'face 'bold) "\n")
     (insert (format "  %d edit(s) in %d file(s)\n\n"
                     (length ogent-edit-diff--edits)
                     (length by-file)))
@@ -248,14 +250,14 @@ EDITS is a list of `ogent-edit' structs."
   "Insert a file section for FILE with its EDITS."
   (magit-insert-section (ogent-edit-diff-file-section
                          :file file :edits edits)
-    ;; File heading
-    (magit-insert-heading
-      (propertize (format "  %s " (if (ogent-edit-diff--file-all-staged file edits)
-                                      "+" "-"))
-                  'face 'ogent-edit-diff-staged)
-      (propertize file 'face 'ogent-edit-diff-file-heading)
-      (propertize (format " (%d hunks)" (length edits))
-                  'face 'shadow))
+      ;; File heading
+      (magit-insert-heading
+        (propertize (format "  %s " (if (ogent-edit-diff--file-all-staged file edits)
+                                        "+" "-"))
+                    'face 'ogent-edit-diff-staged)
+        (propertize file 'face 'ogent-edit-diff-file-heading)
+        (propertize (format " (%d hunks)" (length edits))
+                    'face 'shadow))
     ;; Edit hunks
     (dolist (edit edits)
       (ogent-edit-diff--insert-hunk-section edit))))
@@ -275,15 +277,15 @@ _FILE is unused but kept for future per-file staging state."
          (new-text (ogent-edit-new-text edit)))
     (magit-insert-section (ogent-edit-diff-hunk-section
                            :edit edit :staged staged)
-      ;; Hunk heading with line info
-      (magit-insert-heading
-        (propertize (if staged "[staged] " "[      ] ")
-                    'face (if staged 'ogent-edit-diff-staged
-                            'ogent-edit-diff-unstaged))
-        (propertize (format "@@ -%d,%d +%d,%d @@"
-                            1 (length (split-string old-text "\n"))
-                            1 (length (split-string new-text "\n")))
-                    'face 'ogent-edit-diff-hunk-heading))
+        ;; Hunk heading with line info
+        (magit-insert-heading
+          (propertize (if staged "[staged] " "[      ] ")
+                      'face (if staged 'ogent-edit-diff-staged
+                              'ogent-edit-diff-unstaged))
+          (propertize (format "@@ -%d,%d +%d,%d @@"
+                              1 (length (split-string old-text "\n"))
+                              1 (length (split-string new-text "\n")))
+                      'face 'ogent-edit-diff-hunk-heading))
       ;; Diff content
       (ogent-edit-diff--insert-hunk-content old-text new-text))))
 

@@ -32,12 +32,12 @@
   (ogent-armory-write-agent
    root
    '(:slug "cto"
-     :name "CTO"
-     :role "Architecture"
-     :provider "codex"
-     :workspace "/"
-     :heartbeat "0 10 * * 1-5"
-     :active t)
+           :name "CTO"
+           :role "Architecture"
+           :provider "codex"
+           :workspace "/"
+           :heartbeat "0 10 * * 1-5"
+           :active t)
    "Keep the architecture honest."))
 
 (defun ogent-armory-schedule-test--events-by-source (events source-type)
@@ -55,9 +55,9 @@
     (ogent-armory-write-job
      root "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Review current work.")
     (let* ((start (ogent-armory-schedule-test--time 2026 5 4 0 0))
            (end (ogent-armory-schedule-test--time 2026 5 7 0 0))
@@ -88,18 +88,18 @@
     (ogent-armory-write-agent
      root
      '(:slug "ops"
-       :name "Ops"
-       :role "Operations"
-       :provider "codex"
-       :workspace "/"
-       :active t)
+             :name "Ops"
+             :role "Operations"
+             :provider "codex"
+             :workspace "/"
+             :active t)
      "Watch operations.")
     (ogent-armory-write-job
      root "ops"
      '(:id "weekend-watch"
-       :name "Weekend Watch"
-       :cron "0 9 * * 5-7"
-       :enabled t)
+           :name "Weekend Watch"
+           :cron "0 9 * * 5-7"
+           :enabled t)
      "Check weekend work.")
     (let* ((start (ogent-armory-schedule-test--time 2026 5 8 0 0))
            (end (ogent-armory-schedule-test--time 2026 5 11 0 0))
@@ -122,9 +122,9 @@
     (ogent-armory-write-job
      root "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Review current work.")
     (let* ((slot (ogent-armory-schedule-test--time 2026 5 4 9 0))
            (start (ogent-armory-schedule-test--time 2026 5 4 0 0))
@@ -164,10 +164,10 @@
     (ogent-armory-write-job
      root "cto"
      '(:id "launch-plan"
-       :name "Launch Plan"
-       :run-after "2026-05-04T11:30"
-       :owner-task "task-42"
-       :enabled t)
+           :name "Launch Plan"
+           :run-after "2026-05-04T11:30"
+           :owner-task "task-42"
+           :enabled t)
      "Prepare the launch plan.")
     (let* ((start (ogent-armory-schedule-test--time 2026 5 4 0 0))
            (end (ogent-armory-schedule-test--time 2026 5 5 0 0))
@@ -193,9 +193,9 @@
     (ogent-armory-write-job
      root "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Review current work.")
     (let ((files (mapcar #'file-truename
                          (ogent-armory-agenda-files root))))
@@ -226,9 +226,9 @@
     (ogent-armory-write-job
      root "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Review current work.")
     (let* ((date (ogent-armory-schedule-test--time 2026 5 4 12 0))
            (buffer (ogent-armory-schedule
@@ -276,9 +276,9 @@ keyword arguments, newest first."
   (ogent-armory-write-job
    root "cto"
    '(:id "daily-review"
-     :name "Daily Review"
-     :cron "0 9 * * *"
-     :enabled t)
+         :name "Daily Review"
+         :cron "0 9 * * *"
+         :enabled t)
    "Review current work."))
 
 (ert-deftest ogent-armory-schedule-scheduler-fires-due-cron-job ()
@@ -362,9 +362,9 @@ keyword arguments, newest first."
     (ogent-armory-write-job
      root "cto"
      '(:id "every-minute"
-       :name "Every Minute"
-       :cron "* * * * *"
-       :enabled t)
+           :name "Every Minute"
+           :cron "* * * * *"
+           :enabled t)
      "Tick often.")
     (ogent-armory-schedule-tests--with-scheduler root calls
       (setq ogent-armory-scheduler--last-tick
@@ -388,12 +388,12 @@ keyword arguments, newest first."
     (ogent-armory-write-agent
      root
      '(:slug "pulse"
-       :name "Pulse"
-       :role "Operations"
-       :provider "codex"
-       :workspace "/"
-       :heartbeat "* * * * *"
-       :active t)
+             :name "Pulse"
+             :role "Operations"
+             :provider "codex"
+             :workspace "/"
+             :heartbeat "* * * * *"
+             :active t)
      "Stay responsive.")
     (ogent-armory-schedule-tests--with-scheduler root calls
       (ogent-armory-scheduler-tick

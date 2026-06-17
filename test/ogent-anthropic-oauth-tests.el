@@ -118,10 +118,10 @@
   (let* ((ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-test-" t))
          (ogent-anthropic-oauth--token-file nil)  ; Reset to recalculate
          (test-tokens '(:mode max
-                        :type auth/oauth
-                        :api-key "test-access-token"
-                        :refresh-token "test-refresh-token"
-                        :expires-at 9999999999)))
+                              :type auth/oauth
+                              :api-key "test-access-token"
+                              :refresh-token "test-refresh-token"
+                              :expires-at 9999999999)))
     (unwind-protect
         (progn
           ;; Save tokens
@@ -172,15 +172,15 @@
 (ert-deftest ogent-oauth-test-authenticated-p-with-tokens ()
   "Test authenticated-p returns token when authenticated."
   (let ((ogent-anthropic-oauth--tokens '(:type auth/token
-                                         :api-key "test-key"))
+                                               :api-key "test-key"))
         (ogent-anthropic-oauth--mode 'console))
     (should (ogent-anthropic-oauth-authenticated-p))))
 
 (ert-deftest ogent-oauth-test-get-headers-bearer ()
   "Test header generation for bearer token (max mode)."
   (let ((ogent-anthropic-oauth--tokens '(:type auth/oauth
-                                         :api-key "test-access-token"
-                                         :expires-at 9999999999))
+                                               :api-key "test-access-token"
+                                               :expires-at 9999999999))
         (ogent-anthropic-oauth--mode 'max))
     (let ((headers (ogent-anthropic-oauth-get-headers)))
       (should headers)
@@ -192,7 +192,7 @@
 (ert-deftest ogent-oauth-test-get-headers-api-key ()
   "Test header generation for API key (console mode)."
   (let ((ogent-anthropic-oauth--tokens '(:type auth/token
-                                         :api-key "test-api-key"))
+                                               :api-key "test-api-key"))
         (ogent-anthropic-oauth--mode 'console))
     (let ((headers (ogent-anthropic-oauth-get-headers)))
       (should headers)
@@ -590,7 +590,7 @@
   "Test status display for console mode."
   (let ((ogent-anthropic-oauth--tokens
          '(:mode console :type auth/token :api-key "key"
-           :created-at 1700000000))
+                 :created-at 1700000000))
         (last-msg nil))
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args)
@@ -639,9 +639,9 @@
           (cl-letf (((symbol-function 'url-retrieve-synchronously)
                      (lambda (_url &rest _) mock-buffer)))
             (let ((result (ogent-anthropic-oauth--url-retrieve-sync
-                          "https://example.com/token"
-                          "POST" nil
-                          '(:grant_type "authorization_code"))))
+                           "https://example.com/token"
+                           "POST" nil
+                           '(:grant_type "authorization_code"))))
               (should (equal (plist-get result :access_token) "tok123"))
               (should (equal (plist-get result :expires_in) 3600)))))
       (when (buffer-live-p mock-buffer)

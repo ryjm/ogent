@@ -12,11 +12,11 @@
 (require 'subr-x)
 (require 'ogent-codemap)
 
-(declare-function gptel-request "ext:gptel" (prompt &rest args))
+(declare-function gptel-request "ext:gptel-request")
 (defvar gptel-model)
 
 (defcustom ogent-codemap-llm-model nil
-  "Model to use for codemap generation. nil means use gptel default."
+  "Model to use for codemap generation.  nil means use gptel default."
   :type '(choice (const :tag "Use gptel default" nil)
                  (string :tag "Model identifier"))
   :group 'ogent)

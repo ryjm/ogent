@@ -504,7 +504,7 @@
 (ert-deftest ogent-codemap-task-hash-different-tasks ()
   "Different tasks produce different hashes."
   (should-not (string= (ogent-codemap--task-hash "task alpha")
-                        (ogent-codemap--task-hash "task beta"))))
+                       (ogent-codemap--task-hash "task beta"))))
 
 ;;; Files hash tests
 
@@ -804,7 +804,7 @@
 (ert-deftest ogent-codemap-extract-task-with-spaces ()
   "Task extraction preserves spaces and punctuation."
   (should (string= (ogent-codemap--extract-task-from-handle
-                     "codemap-task:how does auth work?")
+                    "codemap-task:how does auth work?")
                    "how does auth work?")))
 
 (ert-deftest ogent-codemap-extract-task-no-match ()

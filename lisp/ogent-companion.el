@@ -47,7 +47,7 @@ Format: *ogent:<file>* or *ogent:<buffer-name>* for non-file buffers."
     (format "*ogent:%s*" (file-name-nondirectory name))))
 
 (defun ogent-companion--org-buffer-p (&optional buffer)
-  "Return non-nil if BUFFER (or current buffer) is in org-mode."
+  "Return non-nil if BUFFER (or current buffer) is in `org-mode'."
   (with-current-buffer (or buffer (current-buffer))
     (derived-mode-p 'org-mode)))
 

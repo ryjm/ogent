@@ -99,15 +99,15 @@ FILE-TYPE is one of `elisp', `elisp-test', `org', `markdown'."
 
 (defun ogent-codemap--snapshot-files ()
   "Create a snapshot of current files and their mtimes.
-Returns an alist of (FILE . MTIME)."
+Return an alist of (FILE . MTIME)."
   (let ((files (ogent-codemap--source-files)))
     (mapcar (lambda (f)
               (cons f (ogent-codemap--get-file-mtime f)))
             files)))
 
 (defun ogent-codemap--detect-changes ()
-  "Detect changes since last refresh.
-Returns a plist with :added :modified :removed :unchanged file lists.
+  "Detect file differences since last refresh.
+Return a plist with :added :modified :removed :unchanged file lists.
 Each list contains absolute file paths."
   (let* ((current-files (ogent-codemap--source-files))
          (old-snapshot (or ogent-codemap--last-file-snapshot '()))
@@ -161,8 +161,8 @@ Captures the symbol name in group 1.")
   (rx "(ert-deftest"
       (+ space)
       (group (+ (not (any space "(" ")")))))
-  "Regexp matching ert-deftest definitions.
-Captures the test name in group 1.")
+  "Regexp matching `ert-deftest' definitions.
+Capture the test name in group 1.")
 
 (defconst ogent-codemap--org-heading-rx
   (rx line-start
@@ -365,7 +365,7 @@ Returns t if section was found and removed, nil otherwise."
 
 (defun ogent-codemap--update-section (buffer file)
   "Update or insert the section for FILE in BUFFER.
-Preserves any manual annotations. FILE is an absolute path."
+Preserve any manual annotations.  FILE is an absolute path."
   (let* ((root (ogent-codemap--project-root))
          (relative (file-relative-name file root))
          (bounds (ogent-codemap--section-bounds buffer relative))
@@ -648,7 +648,7 @@ Supports:
 
 (defun ogent-codemap--extract-section (content section)
   "Extract SECTION from codemap CONTENT.
-SECTION should match a directory name (lisp, test, specs, docs)."
+SECTION should match a directory name (Lisp, test, specs, docs)."
   (let ((section-rx (format "^\\*\\* \\[\\[file:%s/" (regexp-quote section))))
     (with-temp-buffer
       (insert content)

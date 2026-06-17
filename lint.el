@@ -34,9 +34,9 @@ Buffer is killed afterwards."
   "Run checkdoc across every source file."
   (dolist (file (ogent--source-files))
     (ogent--with-source-buffer file
-      (lambda ()
-        (message "checkdoc %s" file)
-        (checkdoc-current-buffer t)))))
+                               (lambda ()
+                                 (message "checkdoc %s" file)
+                                 (checkdoc-current-buffer t)))))
 
 (defun ogent--lint-byte-compile ()
   "Byte-compile all source files with warnings promoted to errors."
