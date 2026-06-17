@@ -332,6 +332,26 @@ function run_emacs {
         "${args_load_paths[@]}"
     )
 
+    # Nix-built Emacs often ships core Lisp only as .el.gz.  Preloading an
+    # uncompressed jka-compr avoids recursive-load failures when batch rules
+    # touch compressed core libraries such as package.el, bytecomp.el, or elp.el.
+    local emacs_lisp_compat_dir
+    emacs_lisp_compat_dir=$(mktemp --tmpdir -d "makem-emacs-compat-dir-XXX") || die "Unable to make Emacs compat dir."
+    paths_temp+=("$emacs_lisp_compat_dir")
+    local emacs_lisp_dir
+    emacs_lisp_dir=$("${emacs_command[0]}" --batch --eval '(princ lisp-directory)')
+    if [[ -f "$emacs_lisp_dir/jka-compr.el.gz" ]]
+    then
+        gzip -dc "$emacs_lisp_dir/jka-compr.el.gz" > "$emacs_lisp_compat_dir/jka-compr.el"
+    elif [[ -f "$emacs_lisp_dir/jka-compr.el" ]]
+    then
+        cp "$emacs_lisp_dir/jka-compr.el" "$emacs_lisp_compat_dir/jka-compr.el"
+    fi
+    if [[ -f "$emacs_lisp_compat_dir/jka-compr.el" ]]
+    then
+        emacs_command+=(-L "$emacs_lisp_compat_dir" --load jka-compr)
+    fi
+
     # Show debug message with load-path from inside Emacs.
     [[ $debug_load_path ]] \
         && debug $("${emacs_command[@]}" \
@@ -364,11 +384,12 @@ function batch-byte-compile {
     debug "batch-byte-compile: ERROR-ON-WARN:$compile_error_on_warn"
 
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
+    [[ $sandbox ]] && local source_first=(--eval "(setq load-suffixes '(\".el\" \".elc\"))")
 
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
-        --eval "(setq load-suffixes '(\".el\" \".elc\"))" \
+        "${source_first[@]}" \
         --eval "(unless (makem-batch-byte-compile) (kill-emacs 1))" \
         "$@"
 }
@@ -378,12 +399,13 @@ function byte-compile-file {
     local file="$1"
 
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
+    [[ $sandbox ]] && local source_first=(--eval "(setq load-suffixes '(\".el\" \".elc\"))")
 
     # FIXME: Why is the line starting with "&& verbose 3" not indented properly?  Emacs insists on indenting it back a level.
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
-        --eval "(setq load-suffixes '(\".el\" \".elc\"))" \
+        "${source_first[@]}" \
         --eval "(pcase-let ((\`(,num-errors ,num-warnings) (makem-byte-compile-file \"$file\"))) (when (or (and byte-compile-error-on-warn (not (zerop num-warnings))) (not (zerop num-errors))) (kill-emacs 1)))" \
         && verbose 3 "Compiling $file finished without errors." \
             || { verbose 3 "Compiling file failed: $file"; return 1; }
