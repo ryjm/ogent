@@ -332,24 +332,54 @@ function run_emacs {
         "${args_load_paths[@]}"
     )
 
-    # Nix-built Emacs often ships core Lisp only as .el.gz.  Preloading an
-    # uncompressed jka-compr avoids recursive-load failures when batch rules
-    # touch compressed core libraries such as package.el, bytecomp.el, or elp.el.
+    # Nix-built Emacs often ships core Lisp only as .el.gz.  Some batch rules
+    # recurse while loading compressed core libraries, so surface uncompressed
+    # copies of the small subset this project actually touches.
     local emacs_lisp_compat_dir
     emacs_lisp_compat_dir=$(mktemp --tmpdir -d "makem-emacs-compat-dir-XXX") || die "Unable to make Emacs compat dir."
     paths_temp+=("$emacs_lisp_compat_dir")
     local emacs_lisp_dir
     emacs_lisp_dir=$("${emacs_command[0]}" --batch --eval '(princ lisp-directory)')
-    if [[ -f "$emacs_lisp_dir/jka-compr.el.gz" ]]
-    then
-        gzip -dc "$emacs_lisp_dir/jka-compr.el.gz" > "$emacs_lisp_compat_dir/jka-compr.el"
-    elif [[ -f "$emacs_lisp_dir/jka-compr.el" ]]
-    then
-        cp "$emacs_lisp_dir/jka-compr.el" "$emacs_lisp_compat_dir/jka-compr.el"
-    fi
+    local relative source_file source_target
+    for relative in \
+        jka-compr.el \
+        emacs-lisp/package.el \
+        emacs-lisp/bytecomp.el \
+        emacs-lisp/benchmark.el \
+        progmodes/flymake.el \
+        emacs-lisp/elp.el
+    do
+        source_file="$emacs_lisp_dir/$relative"
+        source_target="$emacs_lisp_compat_dir/$(basename "$source_file")"
+        if [[ -f "$source_file.gz" ]]
+        then
+            gzip -dc "$source_file.gz" > "$source_target"
+        elif [[ -f "$source_file" ]]
+        then
+            cp "$source_file" "$source_target"
+        fi
+    done
     if [[ -f "$emacs_lisp_compat_dir/jka-compr.el" ]]
     then
         emacs_command+=(-L "$emacs_lisp_compat_dir" --load jka-compr)
+    fi
+
+    # Local fast checks may rely on newer package installs than the Emacs
+    # bundled transient.  If the maintainer has user-installed transient bits,
+    # surface them ahead of the bundled copy.
+    if ! [[ $sandbox ]]
+    then
+        local user_elpa_dir="$HOME/.emacs.d/elpa"
+        local pattern dep_dir latest_dep
+        for pattern in compat-* cond-let-* transient-*
+        do
+            latest_dep=
+            for dep_dir in "$user_elpa_dir"/$pattern
+            do
+                [[ -d "$dep_dir" ]] && latest_dep="$dep_dir"
+            done
+            [[ $latest_dep ]] && emacs_command+=(-L "$latest_dep")
+        done
     fi
 
     # Show debug message with load-path from inside Emacs.
