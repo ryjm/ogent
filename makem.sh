@@ -325,7 +325,7 @@ function run_emacs {
     local emacs_command=(
         "${emacs_command[@]}"
         -Q
-        --eval "(setq load-prefer-newer t)"
+        --eval "(setq load-prefer-newer t load-suffixes '(\".el\" \".elc\"))"
         "${args_debug[@]}"
         "${args_sandbox[@]}"
         $arg_batch
@@ -1029,7 +1029,7 @@ function lint-indent {
     local lint_indent_load_files=("${files_project_feature[@]}")
     for file in "${files_project_test[@]}"
     do
-        if [[ $file != test/ogent-bench.el ]]
+        if [[ $file != test/ogent-bench.el && $file != test/ogent-edit-tests.el ]]
         then
             lint_indent_load_files+=("$file")
         fi
