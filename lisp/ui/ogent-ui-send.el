@@ -25,10 +25,10 @@
 (defvar gptel-use-tools)
 
 ;; gptel integration (soft dependency).
-(declare-function gptel-request "ext:gptel")
-(declare-function gptel-backend-p "ext:gptel")
-(declare-function gptel--model-name "ext:gptel")
-(declare-function gptel-with-preset "ext:gptel" (preset &rest body))
+(declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-backend-p "ext:gptel-request" t t)
+(declare-function gptel--model-name "ext:gptel-request")
+(declare-function gptel-with-preset "ext:gptel" t t)
 (declare-function ogent-gptel-ensure-model-on-backend "ogent-gptel" (model backend))
 (declare-function ogent-anthropic-oauth-using-bearer-p "ogent-anthropic-oauth")
 (declare-function ogent-tools-enabled-list "ogent-models")
@@ -94,7 +94,7 @@ concurrently (fan-out mode)."
                   (let* ((model (ogent-models-ensure model-id))
                          (request (funcall ogent-response-function final-prompt context model)))
                     (unless (ogent-ui-request-p request)
-                      (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                      (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
                     (setf (ogent-ui-request-preset request) effective-preset)
                     (setf (ogent-ui-request-source-buffer request) source-buffer)
                     (ogent-ui--send-request request)))
@@ -102,7 +102,7 @@ concurrently (fan-out mode)."
               (let* ((model (ogent-models-ensure (ogent-ui--model-id-or-default)))
                      (request (funcall ogent-response-function final-prompt context model)))
                 (unless (ogent-ui-request-p request)
-                  (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                  (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
                 (setf (ogent-ui-request-preset request) effective-preset)
                 (setf (ogent-ui-request-source-buffer request) source-buffer)
                 (ogent-ui--send-request request)))
@@ -136,7 +136,7 @@ The original window remains selected - companion is shown but not focused."
 (defun ogent-ui--ensure-gptel ()
   "Signal a user error if gptel is unavailable."
   (unless (require 'gptel nil 'noerror)
-    (user-error "gptel is required for ogent requests. Install gptel first"))
+    (user-error "Gptel is required for ogent requests.  Install gptel first"))
   (dolist (feature ogent-gptel-required-features)
     (unless (require feature nil 'noerror)
       (display-warning
@@ -221,7 +221,7 @@ turns, compacted to `ogent-multi-turn-token-budget'."
           (when (and (fboundp 'gptel-backend-p)
                      (not (gptel-backend-p backend)))
             (user-error
-             "Backend %S for model %s is not loaded. Require the backend module or update `ogent-model-registry'."
+             "Backend %S for model %s is not loaded.  Require the backend module or update `ogent-model-registry'"
              (plist-get model :backend) model-id))
           ;; Surface the ogent registry to gptel before `gptel--sanitize-model'
           ;; can silently rewrite a newer model id to the backend fallback.
@@ -242,8 +242,8 @@ turns, compacted to `ogent-multi-turn-token-budget'."
                  (handle (if preset
                              (if (fboundp 'gptel-with-preset)
                                  (gptel-with-preset
-                                     (if (stringp preset) (intern preset) preset)
-                                   (funcall sender))
+                                  (if (stringp preset) (intern preset) preset)
+                                  (funcall sender))
                                (funcall sender))
                            (funcall sender))))
             (setf (ogent-ui-request-gptel-handle request) handle)))
@@ -289,7 +289,7 @@ heading, and CONTEXT-TRANSFORM, when non-nil, post-processes the context."
                        (request (funcall ogent-response-function
                                          final-prompt context model)))
                   (unless (ogent-ui-request-p request)
-                    (user-error "ogent-response-function must return an `ogent-ui-request'"))
+                    (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
                   (setf (ogent-ui-request-preset request) effective-preset)
                   (setf (ogent-ui-request-source-buffer request) source-buffer)
                   (ogent-ui--send-request request)

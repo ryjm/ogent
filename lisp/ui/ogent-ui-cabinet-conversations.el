@@ -266,14 +266,14 @@
   "Keymap for `ogent-cabinet-conversation-mode'.")
 
 (ogent-cabinet-ui--define-section-mode ogent-cabinet-conversation-mode
-                                       "Cabinet-Conversation"
-                                       "Major mode for a single Cabinet conversation."
-                                       (setq-local revert-buffer-function #'ogent-cabinet-conversation-refresh)
-                                       (setq-local truncate-lines nil)
-                                       (setq-local buffer-read-only t)
-                                       (ogent-cabinet-ui--configure-section-buffer)
-                                       (setq header-line-format
-                                             "RET source  C-c g refresh  C-c r retry  C-c c continue  C-c o artifacts  C-c l logs  TAB fold"))
+    "Cabinet-Conversation"
+    "Major mode for a single Cabinet conversation."
+  (setq-local revert-buffer-function #'ogent-cabinet-conversation-refresh)
+  (setq-local truncate-lines nil)
+  (setq-local buffer-read-only t)
+  (ogent-cabinet-ui--configure-section-buffer)
+  (setq header-line-format
+        "RET source  C-c g refresh  C-c r retry  C-c c continue  C-c o artifacts  C-c l logs  TAB fold"))
 
 (defun ogent-cabinet-conversation (&optional directory file)
   "Open Cabinet conversation FILE under DIRECTORY."
@@ -318,7 +318,7 @@
 (defun ogent-cabinet-conversation--insert-buffer ()
   "Insert the current conversation detail."
   (ogent-cabinet-ui--with-root-section (ogent-cabinet-conversation-root)
-                                       (ogent-cabinet-conversation--insert-buffer-content)))
+    (ogent-cabinet-conversation--insert-buffer-content)))
 
 (defun ogent-cabinet-conversation--insert-overview (detail)
   "Insert compact run overview for DETAIL."
@@ -339,103 +339,103 @@
 (defun ogent-cabinet-conversation--insert-details (detail)
   "Insert detailed metadata for DETAIL."
   (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-metadata)
-                                  (ogent-cabinet-ui--heading-text "Details")
-                                  (ogent-cabinet-ui--insert-kv "Status" (plist-get detail :status))
-                                  (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
-                                  (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
-                                  (ogent-cabinet-ui--insert-kv "Trigger" (plist-get detail :trigger))
-                                  (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
-                                  (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
-                                  (ogent-cabinet-ui--insert-kv
-                                   "Exit status"
-                                   (when (plist-get detail :exit-status)
-                                     (number-to-string
-                                      (plist-get detail :exit-status))))
-                                  (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
-                                  (ogent-cabinet-ui--insert-kv "Started" (plist-get detail :started))
-                                  (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
-                                  (ogent-cabinet-ui--insert-kv "Last activity"
-                                                               (plist-get detail :last-activity))
-                                  (ogent-cabinet-ui--insert-kv "Archived"
-                                                               (if (plist-get detail :archived) "yes" "no"))
-                                  (ogent-cabinet-ui--insert-kv "Muted"
-                                                               (if (plist-get detail :muted) "yes" "no"))))
+      (ogent-cabinet-ui--heading-text "Details")
+    (ogent-cabinet-ui--insert-kv "Status" (plist-get detail :status))
+    (ogent-cabinet-ui--insert-kv "Agent" (plist-get detail :agent))
+    (ogent-cabinet-ui--insert-kv "Job" (plist-get detail :job-id))
+    (ogent-cabinet-ui--insert-kv "Trigger" (plist-get detail :trigger))
+    (ogent-cabinet-ui--insert-kv "Provider" (plist-get detail :provider))
+    (ogent-cabinet-ui--insert-kv "Model" (plist-get detail :model))
+    (ogent-cabinet-ui--insert-kv
+     "Exit status"
+     (when (plist-get detail :exit-status)
+       (number-to-string
+        (plist-get detail :exit-status))))
+    (ogent-cabinet-ui--insert-kv "Duration" (plist-get detail :duration))
+    (ogent-cabinet-ui--insert-kv "Started" (plist-get detail :started))
+    (ogent-cabinet-ui--insert-kv "Finished" (plist-get detail :finished))
+    (ogent-cabinet-ui--insert-kv "Last activity"
+                                 (plist-get detail :last-activity))
+    (ogent-cabinet-ui--insert-kv "Archived"
+                                 (if (plist-get detail :archived) "yes" "no"))
+    (ogent-cabinet-ui--insert-kv "Muted"
+                                 (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-cabinet-conversation--insert-turns (turns)
   "Insert each conversation turn.
 TURNS is the list of turn plists to insert."
   (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-turns)
-                                  (ogent-cabinet-ui--heading-text "Turns")
-                                  (if turns
-                                      (dolist (turn turns)
-                                        (insert
-                                         (propertize
-                                          (format "  %03d %s %s\n"
-                                                  (or (plist-get turn :turn) 0)
-                                                  (upcase (or (plist-get turn :role) "turn"))
-                                                  (or (plist-get turn :ts) ""))
-                                          'face 'ogent-cabinet-ui-dim))
-                                        (when-let ((tokens (plist-get turn :tokens)))
-                                          (insert
-                                           (format "  tokens input=%s output=%s cache=%s\n"
-                                                   (or (plist-get tokens :input) "")
-                                                   (or (plist-get tokens :output) "")
-                                                   (or (plist-get tokens :cache) ""))))
-                                        (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
-                                    (insert (propertize "  No turn files recorded\n"
-                                                        'face 'ogent-cabinet-ui-dim)))))
+      (ogent-cabinet-ui--heading-text "Turns")
+    (if turns
+        (dolist (turn turns)
+          (insert
+           (propertize
+            (format "  %03d %s %s\n"
+                    (or (plist-get turn :turn) 0)
+                    (upcase (or (plist-get turn :role) "turn"))
+                    (or (plist-get turn :ts) ""))
+            'face 'ogent-cabinet-ui-dim))
+          (when-let ((tokens (plist-get turn :tokens)))
+            (insert
+             (format "  tokens input=%s output=%s cache=%s\n"
+                     (or (plist-get tokens :input) "")
+                     (or (plist-get tokens :output) "")
+                     (or (plist-get tokens :cache) ""))))
+          (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
+      (insert (propertize "  No turn files recorded\n"
+                          'face 'ogent-cabinet-ui-dim)))))
 
 (defun ogent-cabinet-conversation--insert-artifacts (root detail)
   "Insert artifacts listed by DETAIL under ROOT."
   (let ((artifacts (ogent-cabinet-ui--conversation-artifacts detail)))
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-artifacts)
-                                    (ogent-cabinet-ui--heading-text "Artifacts")
-                                    (if artifacts
-                                        (dolist (artifact artifacts)
-                                          (let ((path (ogent-cabinet-ui--artifact-path root artifact)))
-                                            (ogent-cabinet-ui--insert-item-line
-                                             (list :type 'artifact :path path)
-                                             (format "  %s" artifact))))
-                                      (insert (propertize "  No artifacts recorded\n"
-                                                          'face 'ogent-cabinet-ui-dim))))))
+        (ogent-cabinet-ui--heading-text "Artifacts")
+      (if artifacts
+          (dolist (artifact artifacts)
+            (let ((path (ogent-cabinet-ui--artifact-path root artifact)))
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'artifact :path path)
+               (format "  %s" artifact))))
+        (insert (propertize "  No artifacts recorded\n"
+                            'face 'ogent-cabinet-ui-dim))))))
 
 (defun ogent-cabinet-conversation--insert-events (events)
   "Insert conversation EVENTS."
   (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-events)
-                                  (ogent-cabinet-ui--heading-text "Events")
-                                  (if events
-                                      (dolist (event events)
-                                        (insert
-                                         (format "  %06d %-24s %s\n"
-                                                 (or (plist-get event :seq) 0)
-                                                 (or (plist-get event :type) "")
-                                                 (or (plist-get event :ts) "")))
-                                        (when-let ((payload (ogent-cabinet--blank-to-nil
-                                                             (plist-get event :payload))))
-                                          (insert "  " (string-trim payload) "\n")))
-                                    (insert (propertize "  No events recorded\n"
-                                                        'face 'ogent-cabinet-ui-dim)))))
+      (ogent-cabinet-ui--heading-text "Events")
+    (if events
+        (dolist (event events)
+          (insert
+           (format "  %06d %-24s %s\n"
+                   (or (plist-get event :seq) 0)
+                   (or (plist-get event :type) "")
+                   (or (plist-get event :ts) "")))
+          (when-let ((payload (ogent-cabinet--blank-to-nil
+                               (plist-get event :payload))))
+            (insert "  " (string-trim payload) "\n")))
+      (insert (propertize "  No events recorded\n"
+                          'face 'ogent-cabinet-ui-dim)))))
 
 (defun ogent-cabinet-conversation--insert-runtime (detail)
   "Insert runtime metadata for DETAIL."
   (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-runtime)
-                                  (ogent-cabinet-ui--heading-text "Runtime")
-                                  (ogent-cabinet-ui--insert-kv "Adapter" (plist-get detail :adapter))
-                                  (ogent-cabinet-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
-                                  (ogent-cabinet-ui--insert-kv "Effort" (plist-get detail :effort))
-                                  (ogent-cabinet-ui--insert-kv "Context" (plist-get detail :context-window))
-                                  (ogent-cabinet-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
-                                  (when (or (plist-get detail :tokens-input)
-                                            (plist-get detail :tokens-output)
-                                            (plist-get detail :tokens-cache)
-                                            (plist-get detail :tokens-total))
-                                    (ogent-cabinet-ui--insert-kv
-                                     "Tokens"
-                                     (format "input=%s output=%s cache=%s total=%s"
-                                             (or (plist-get detail :tokens-input) "")
-                                             (or (plist-get detail :tokens-output) "")
-                                             (or (plist-get detail :tokens-cache) "")
-                                             (or (plist-get detail :tokens-total) ""))))))
+      (ogent-cabinet-ui--heading-text "Runtime")
+    (ogent-cabinet-ui--insert-kv "Adapter" (plist-get detail :adapter))
+    (ogent-cabinet-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
+    (ogent-cabinet-ui--insert-kv "Effort" (plist-get detail :effort))
+    (ogent-cabinet-ui--insert-kv "Context" (plist-get detail :context-window))
+    (ogent-cabinet-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
+    (when (or (plist-get detail :tokens-input)
+              (plist-get detail :tokens-output)
+              (plist-get detail :tokens-cache)
+              (plist-get detail :tokens-total))
+      (ogent-cabinet-ui--insert-kv
+       "Tokens"
+       (format "input=%s output=%s cache=%s total=%s"
+               (or (plist-get detail :tokens-input) "")
+               (or (plist-get detail :tokens-output) "")
+               (or (plist-get detail :tokens-cache) "")
+               (or (plist-get detail :tokens-total) ""))))))
 
 (defun ogent-cabinet-conversation--runtime-present-p (detail)
   "Return non-nil when DETAIL has runtime fields worth showing."
@@ -460,16 +460,16 @@ TURNS is the list of turn plists to insert."
                      ogent-cabinet-conversation-runtime-trace-preview-lines))
            (hidden (plist-get preview :hidden)))
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-runtime-trace)
-                                      (ogent-cabinet-ui--heading-text "Runtime Trace")
-                                      (ogent-cabinet-ui--insert-readable-text
-                                       (plist-get preview :text)
-                                       "  No runtime trace recorded\n")
-                                      (when (> hidden 0)
-                                        (insert
-                                         (propertize
-                                          (format "  %d more lines. Press l for logs or v for source Org.\n"
-                                                  hidden)
-                                          'face 'ogent-cabinet-ui-dim)))))))
+          (ogent-cabinet-ui--heading-text "Runtime Trace")
+        (ogent-cabinet-ui--insert-readable-text
+         (plist-get preview :text)
+         "  No runtime trace recorded\n")
+        (when (> hidden 0)
+          (insert
+           (propertize
+            (format "  %d more lines. Press l for logs or v for source Org.\n"
+                    hidden)
+            'face 'ogent-cabinet-ui-dim)))))))
 
 (defun ogent-cabinet-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
@@ -488,20 +488,20 @@ TURNS is the list of turn plists to insert."
     (when (or (plist-get detail :summary)
               (plist-get detail :context-summary))
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-summary)
-                                      (ogent-cabinet-ui--heading-text "Summary")
-                                      (when-let ((summary (plist-get detail :summary)))
-                                        (insert summary "\n"))
-                                      (when-let ((context (plist-get detail :context-summary)))
-                                        (insert "\nContext\n" context "\n")))
+          (ogent-cabinet-ui--heading-text "Summary")
+        (when-let ((summary (plist-get detail :summary)))
+          (insert summary "\n"))
+        (when-let ((context (plist-get detail :context-summary)))
+          (insert "\nContext\n" context "\n")))
       (insert "\n"))
     (when (plist-get detail :turns)
       (ogent-cabinet-conversation--insert-turns (plist-get detail :turns))
       (insert "\n"))
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-output)
-                                    (ogent-cabinet-ui--heading-text "Output")
-                                    (ogent-cabinet-ui--insert-readable-text
-                                     (plist-get detail :output)
-                                     "  No output recorded\n"))
+        (ogent-cabinet-ui--heading-text "Output")
+      (ogent-cabinet-ui--insert-readable-text
+       (plist-get detail :output)
+       "  No output recorded\n"))
     (insert "\n")
     (ogent-cabinet-conversation--insert-artifacts
      ogent-cabinet-conversation--root detail)
@@ -512,24 +512,24 @@ TURNS is the list of turn plists to insert."
       (ogent-cabinet-conversation--insert-runtime detail)
       (insert "\n"))
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-prompt)
-                                    (ogent-cabinet-ui--heading-text "Prompt")
-                                    (ogent-cabinet-ui--insert-readable-text
-                                     (plist-get detail :prompt)
-                                     "  No prompt recorded\n"))
+        (ogent-cabinet-ui--heading-text "Prompt")
+      (ogent-cabinet-ui--insert-readable-text
+       (plist-get detail :prompt)
+       "  No prompt recorded\n"))
     (insert "\n")
     (when (plist-get detail :tools)
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-tools)
-                                      (ogent-cabinet-ui--heading-text "Tool Blocks")
-                                      (dolist (tool (plist-get detail :tools))
-                                        (insert (format "  %s\n%s\n" (plist-get tool :header)
-                                                        (plist-get tool :body)))))
+          (ogent-cabinet-ui--heading-text "Tool Blocks")
+        (dolist (tool (plist-get detail :tools))
+          (insert (format "  %s\n%s\n" (plist-get tool :header)
+                          (plist-get tool :body)))))
       (insert "\n"))
     (when (ogent-cabinet--blank-to-nil (plist-get detail :error))
       (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-error)
-                                      (ogent-cabinet-ui--heading-text "Error")
-                                      (ogent-cabinet-ui--insert-readable-text
-                                       (plist-get detail :error)
-                                       "  No error recorded\n"))
+          (ogent-cabinet-ui--heading-text "Error")
+        (ogent-cabinet-ui--insert-readable-text
+         (plist-get detail :error)
+         "  No error recorded\n"))
       (insert "\n"))
     (ogent-cabinet-conversation--insert-runtime-trace
      (plist-get detail :runtime-trace))
@@ -538,10 +538,10 @@ TURNS is the list of turn plists to insert."
     (ogent-cabinet-conversation--insert-events (plist-get detail :events))
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-conversation-source)
-                                    (ogent-cabinet-ui--heading-text "Source Org")
-                                    (ogent-cabinet-ui--insert-item-line
-                                     (list :type 'file :path (plist-get detail :path))
-                                     (format "  %s" (plist-get detail :path))))))
+        (ogent-cabinet-ui--heading-text "Source Org")
+      (ogent-cabinet-ui--insert-item-line
+       (list :type 'file :path (plist-get detail :path))
+       (format "  %s" (plist-get detail :path))))))
 
 (defun ogent-cabinet-conversation-visit-source ()
   "Visit the Org source for this conversation."

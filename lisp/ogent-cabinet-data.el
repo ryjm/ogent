@@ -38,7 +38,7 @@
      (file-truename (ogent-cabinet--directory root)))))
 
 (defun ogent-cabinet-data--hidden-file-p (root file)
-  "Return non-nil when FILE is transient Cabinet or editor state."
+  "Return non-nil when FILE under ROOT is transient Cabinet or editor state."
   (let ((name (file-name-nondirectory file)))
     (or (member name '("." ".."))
         (string-prefix-p ".#" name)
@@ -136,7 +136,7 @@
 (cl-defun ogent-cabinet-page-create
     (directory title &key path kind tags body)
   "Create an Org Cabinet page under DIRECTORY with TITLE.
-PATH is relative to the Cabinet root unless absolute."
+Use PATH, KIND, TAGS, and BODY to seed page metadata and content."
   (interactive
    (let ((root (or (ogent-cabinet-find-root)
                    (read-directory-name "Cabinet root: "))))

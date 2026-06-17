@@ -325,7 +325,8 @@ The plist contains :directory for process `default-directory' and
       (error "Search path not found: %s" expanded)))))
 
 (defun ogent-tools--grep-command (pattern target glob-filter context)
-  "Return a shell command that searches TARGET for PATTERN."
+  "Build a search command for PATTERN in TARGET.
+Use GLOB-FILTER and CONTEXT to shape the command."
   (let ((use-rg (executable-find "rg"))
         (max-count (and (integerp ogent-tools-grep-max-count)
                         (> ogent-tools-grep-max-count 0)
@@ -450,24 +451,24 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
     (condition-case err
         (cl-labels
             ((emit-line
-              (line)
-              (unless (string-empty-p line)
-                (cl-incf match-count)
-                (when callback
-                  (funcall callback 'match line))))
+               (line)
+               (unless (string-empty-p line)
+                 (cl-incf match-count)
+                 (when callback
+                   (funcall callback 'match line))))
              (emit-output
-              (output)
-              (let* ((text (concat pending-line output))
-                     (lines (split-string text "\n")))
-                (setq pending-line (car (last lines)))
-                (dolist (line (butlast lines))
-                  (emit-line line))))
+               (output)
+               (let* ((text (concat pending-line output))
+                      (lines (split-string text "\n")))
+                 (setq pending-line (car (last lines)))
+                 (dolist (line (butlast lines))
+                   (emit-line line))))
              (stderr-text
-              ()
-              (if (buffer-live-p stderr-buffer)
-                  (with-current-buffer stderr-buffer
-                    (buffer-string))
-                "")))
+               ()
+               (if (buffer-live-p stderr-buffer)
+                   (with-current-buffer stderr-buffer
+                     (buffer-string))
+                 "")))
           (setq proc (make-process
                       :name "ogent-grep-async"
                       :command (list shell-file-name
@@ -819,87 +820,87 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
 (defvar ogent-tools-default-registry
   '((:name read-file
-	   :function ogent-tool--read-file
-	   :description "Read the contents of a file. Returns lines with line numbers."
-	   :args ((:name "file_path" :type "string"
-			 :description "Absolute path to the file to read")
-		  (:name "offset" :type "integer" :optional t
-			 :description "Line number to start from (1-indexed)")
-		  (:name "limit" :type "integer" :optional t
-			 :description "Maximum lines to read"))
-	   :category "filesystem"
-	   :effects ((:kind read :target file :scope workspace :risk low)))
+           :function ogent-tool--read-file
+           :description "Read the contents of a file. Returns lines with line numbers."
+           :args ((:name "file_path" :type "string"
+                         :description "Absolute path to the file to read")
+                  (:name "offset" :type "integer" :optional t
+                         :description "Line number to start from (1-indexed)")
+                  (:name "limit" :type "integer" :optional t
+                         :description "Maximum lines to read"))
+           :category "filesystem"
+           :effects ((:kind read :target file :scope workspace :risk low)))
 
     (:name glob
-	   :function ogent-tool--glob
-	   :description "Find files matching a glob pattern. Returns paths sorted by modification time."
-	   :args ((:name "pattern" :type "string"
-			 :description "Glob pattern like **/*.el or src/**/*.py")
-		  (:name "path" :type "string" :optional t
-			 :description "Directory to search in (default: project root)"))
-	   :category "search"
-	   :effects ((:kind read :target filesystem :scope workspace :risk low)))
+           :function ogent-tool--glob
+           :description "Find files matching a glob pattern. Returns paths sorted by modification time."
+           :args ((:name "pattern" :type "string"
+                         :description "Glob pattern like **/*.el or src/**/*.py")
+                  (:name "path" :type "string" :optional t
+                         :description "Directory to search in (default: project root)"))
+           :category "search"
+           :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name grep
-	   :function ogent-tool--grep
-	   :async-function ogent-tool--grep-async
-	   :async-callback-style :match  ; callback receives (match line), (done count), (error msg)
-	   :description "Search file contents using regex pattern. Uses ripgrep if available."
-	   :args ((:name "pattern" :type "string"
-			 :description "Regular expression pattern to search for")
-		  (:name "path" :type "string" :optional t
-			 :description "File or directory to search")
-		  (:name "glob_filter" :type "string" :optional t
-			 :description "Limit search to files matching pattern (e.g., *.el)")
-		  (:name "context_lines" :type "integer" :optional t
-			 :description "Lines of context around matches"))
-	   :category "search"
-	   :effects ((:kind read :target filesystem :scope workspace :risk low)))
+           :function ogent-tool--grep
+           :async-function ogent-tool--grep-async
+           :async-callback-style :match  ; callback receives (match line), (done count), (error msg)
+           :description "Search file contents using regex pattern. Uses ripgrep if available."
+           :args ((:name "pattern" :type "string"
+                         :description "Regular expression pattern to search for")
+                  (:name "path" :type "string" :optional t
+                         :description "File or directory to search")
+                  (:name "glob_filter" :type "string" :optional t
+                         :description "Limit search to files matching pattern (e.g., *.el)")
+                  (:name "context_lines" :type "integer" :optional t
+                         :description "Lines of context around matches"))
+           :category "search"
+           :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name bash
-	   :function ogent-tool--bash
-	   :async-function ogent-tool--bash-async
-	   :async-callback-style :stream  ; callback receives (stdout chunk), (stderr chunk), (done code), (error msg)
-	   :description "Execute a shell command and return output."
-	   :args ((:name "command" :type "string"
-			 :description "Shell command to execute")
-		  (:name "working_directory" :type "string" :optional t
-			 :description "Directory to run command in")
-		  (:name "timeout" :type "integer" :optional t
-			 :description "Timeout in seconds"))
-	   :category "shell"
-	   :effects ((:kind execute :target shell :scope unrestricted :risk critical)
-		     (:kind read :target filesystem :scope unrestricted :risk high)
-		     (:kind write :target filesystem :scope unrestricted :risk high)
-		     (:kind network :target external :scope command :risk high))
-	   :confirm t)
+           :function ogent-tool--bash
+           :async-function ogent-tool--bash-async
+           :async-callback-style :stream  ; callback receives (stdout chunk), (stderr chunk), (done code), (error msg)
+           :description "Execute a shell command and return output."
+           :args ((:name "command" :type "string"
+                         :description "Shell command to execute")
+                  (:name "working_directory" :type "string" :optional t
+                         :description "Directory to run command in")
+                  (:name "timeout" :type "integer" :optional t
+                         :description "Timeout in seconds"))
+           :category "shell"
+           :effects ((:kind execute :target shell :scope unrestricted :risk critical)
+                     (:kind read :target filesystem :scope unrestricted :risk high)
+                     (:kind write :target filesystem :scope unrestricted :risk high)
+                     (:kind network :target external :scope command :risk high))
+           :confirm t)
 
     (:name write-file
-	   :function ogent-tool--write-file
-	   :description "Write content to a file, creating it if it doesn't exist."
-	   :args ((:name "file_path" :type "string"
-			 :description "Absolute path to write to")
-		  (:name "content" :type "string"
-			 :description "Content to write"))
-	   :category "filesystem"
-	   :effects ((:kind write :target file :scope workspace :risk high))
-	   :confirm t)
+           :function ogent-tool--write-file
+           :description "Write content to a file, creating it if it doesn't exist."
+           :args ((:name "file_path" :type "string"
+                         :description "Absolute path to write to")
+                  (:name "content" :type "string"
+                         :description "Content to write"))
+           :category "filesystem"
+           :effects ((:kind write :target file :scope workspace :risk high))
+           :confirm t)
 
     (:name edit-file
-	   :function ogent-tool--edit-file
-	   :description "Replace a string in a file. The old_string must be unique."
-	   :args ((:name "file_path" :type "string"
-			 :description "Absolute path to the file")
-		  (:name "old_string" :type "string"
-			 :description "Exact string to replace (must be unique in file)")
-		  (:name "new_string" :type "string"
-			 :description "Replacement string")
-		  (:name "replace_all" :type "boolean" :optional t
-			 :description "If true, replace all occurrences"))
-	   :category "filesystem"
-	   :effects ((:kind read :target file :scope workspace :risk low)
-		     (:kind write :target file :scope workspace :risk high))
-	   :confirm t))
+           :function ogent-tool--edit-file
+           :description "Replace a string in a file. The old_string must be unique."
+           :args ((:name "file_path" :type "string"
+                         :description "Absolute path to the file")
+                  (:name "old_string" :type "string"
+                         :description "Exact string to replace (must be unique in file)")
+                  (:name "new_string" :type "string"
+                         :description "Replacement string")
+                  (:name "replace_all" :type "boolean" :optional t
+                         :description "If true, replace all occurrences"))
+           :category "filesystem"
+           :effects ((:kind read :target file :scope workspace :risk low)
+                     (:kind write :target file :scope workspace :risk high))
+           :confirm t))
   "Default tool definitions for ogent.
 These provide Claude Code-like functionality.")
 

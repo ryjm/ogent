@@ -61,27 +61,27 @@
   (ogent-cabinet-write-agent
    root
    '(:slug "cto"
-     :name "CTO"
-     :role "Architecture"
-     :provider "codex"
-     :model "gpt-5.4"
-     :active t
-     :workspace "engineering"
-     :tags ("strategy" "architecture"))
+           :name "CTO"
+           :role "Architecture"
+           :provider "codex"
+           :model "gpt-5.4"
+           :active t
+           :workspace "engineering"
+           :tags ("strategy" "architecture"))
    "Keep the technical plan clear.")
   (ogent-cabinet-write-job
    root "cto"
    '(:id "weekly-review"
-     :name "Weekly Review"
-     :cron "0 9 * * 1"
-     :enabled t)
+         :name "Weekly Review"
+         :cron "0 9 * * 1"
+         :enabled t)
    "Review architecture notes.")
   (ogent-cabinet-write-job
    root "cto"
    '(:id "old-report"
-     :name "Old Report"
-     :cron ""
-     :enabled nil)
+         :name "Old Report"
+         :cron ""
+         :enabled nil)
    "Archived job.")
   (ogent-ui-cabinet-test--write-session
    root "cto" "weekly-review-run" "DONE" 0 "weekly-review")
@@ -111,35 +111,35 @@
             (should (eq major-mode 'ogent-cabinet-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Cabinet Home" "Health" "Navigate" "Recent Activity"
-	                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
-	                               "Tasks" "Conversations"
-	                               "Data" "Search" "Apps" "Git" "Palette"
-	                               "Settings" "Help" "Graph" "Cabinet metadata"
-	                               "Source Org"))
+                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+                               "Tasks" "Conversations"
+                               "Data" "Search" "Apps" "Git" "Palette"
+                               "Settings" "Help" "Graph" "Cabinet metadata"
+                               "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "\\[C-c r run\\]" text))
               (should (string-match-p "\\[C-c E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-	            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
-	                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
-	                           "C-c a" "C-c t" "C-c c" "C-c s"))
-	              (should (string-match-p key (format "%s" header-line-format)))))
+            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
+                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
+                           "C-c a" "C-c t" "C-c c" "C-c s"))
+              (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-cabinet-home-daily-work-keybindings ()
   "Cabinet Home exposes the daily job development commands."
   (dolist (pair `(("C-c m" . ,#'ogent-cabinet-home-dispatch)
-	                  ("C-c ?" . ,#'ogent-cabinet-home-help)
-	                  ("C-c j" . ,#'ogent-cabinet-jobs)
-	                  ("C-c D" . ,#'ogent-cabinet-data)
-	                  ("C-c h" . ,#'ogent-cabinet-git-status)
-	                  ("C-c /" . ,#'ogent-cabinet-command-palette)
-	                  ("C-c ," . ,#'ogent-cabinet-settings)
-	                  ("C-c ." . ,#'ogent-cabinet-help)
-	                  ("C-c r" . ,#'ogent-cabinet-home-run)
+                  ("C-c ?" . ,#'ogent-cabinet-home-help)
+                  ("C-c j" . ,#'ogent-cabinet-jobs)
+                  ("C-c D" . ,#'ogent-cabinet-data)
+                  ("C-c h" . ,#'ogent-cabinet-git-status)
+                  ("C-c /" . ,#'ogent-cabinet-command-palette)
+                  ("C-c ," . ,#'ogent-cabinet-settings)
+                  ("C-c ." . ,#'ogent-cabinet-help)
+                  ("C-c r" . ,#'ogent-cabinet-home-run)
                   ("C-c E" . ,#'ogent-cabinet-home-edit-item)
                   ("C-c J" . ,#'ogent-cabinet-home-open-jobs)))
     (should (eq (lookup-key ogent-cabinet-home-mode-map (kbd (car pair)))
@@ -156,7 +156,7 @@
                     ("<backtab>" . ,#'ogent-cabinet-ui-cycle-sections)
                     ("M-n" . ,#'ogent-cabinet-ui-next-section)
                     ("M-p" . ,#'ogent-cabinet-ui-previous-section)
-	                    ("^" . ,#'ogent-cabinet-ui-up-section)))
+                    ("^" . ,#'ogent-cabinet-ui-up-section)))
       (should (eq (lookup-key map (kbd (car pair))) (cdr pair)))))
   (dolist (map (list ogent-cabinet-home-mode-map
                      ogent-cabinet-org-chart-mode-map
@@ -745,11 +745,11 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (let ((buffer (ogent-cabinet-home root)))
       (unwind-protect
@@ -800,19 +800,19 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (ogent-cabinet-write-job
      root
      "architect"
      '(:id "fresh-scan"
-       :name "Fresh Scan"
-       :cron "0 8 * * 1"
-       :enabled t)
+           :name "Fresh Scan"
+           :cron "0 8 * * 1"
+           :enabled t)
      "Review the Cabinet.")
     (let ((job (ogent-cabinet-read-job root "architect" "fresh-scan")))
       (should-not (ogent-cabinet-ui--stale-job-p root job))
@@ -838,19 +838,19 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (ogent-cabinet-write-job
      root
      "architect"
      '(:id "fresh-scan"
-       :name "Fresh Scan"
-       :cron "0 8 * * 1"
-       :enabled t)
+           :name "Fresh Scan"
+           :cron "0 8 * * 1"
+           :enabled t)
      "Review the Cabinet.")
     (ogent-ui-cabinet-test--write-session
      root "architect" "fresh-scan-run" "DONE" 0 "fresh-scan"
@@ -918,23 +918,23 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
-	    (ogent-cabinet-conversation-create
+    (ogent-cabinet-conversation-create
      root
      '(:id "conv-ui"
-       :agent "cto"
-       :title "Canonical Review"
-       :status "done"
-       :provider "codex"
-       :model "gpt-5.4"
-       :started "2026-05-06T10:00:00Z"
-       :completed "2026-05-06T10:01:00Z"
-       :duration "1s"
-       :artifact-paths ("apps/report")))
+           :agent "cto"
+           :title "Canonical Review"
+           :status "done"
+           :provider "codex"
+           :model "gpt-5.4"
+           :started "2026-05-06T10:00:00Z"
+           :completed "2026-05-06T10:01:00Z"
+           :duration "1s"
+           :artifact-paths ("apps/report")))
     (ogent-cabinet-conversation-append-turn
      root "conv-ui" "user" "Review this."
      :ts "2026-05-06T10:00:00Z")
@@ -958,7 +958,7 @@
             (search-forward "Canonical Review")
             (setq detail (ogent-cabinet-conversations-open))
             (with-current-buffer detail
-	              (let ((text (buffer-substring-no-properties
+              (let ((text (buffer-substring-no-properties
                            (point-min)
                            (point-max))))
                 (dolist (label '("Turns" "Artifacts" "Events" "Details"))
@@ -981,19 +981,19 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-cabinet-conversation-create
                  root
                  '(:id "conv-actions"
-                   :agent "cto"
-                   :title "Action Review"
-                   :status "awaiting-input"
-                   :awaiting-input t
-                   :provider "codex"))))
+                       :agent "cto"
+                       :title "Action Review"
+                       :status "awaiting-input"
+                       :awaiting-input t
+                       :provider "codex"))))
       (ogent-cabinet-conversation-append-turn
        root "conv-actions" "user" "Review this."
        :ts "2026-05-06T10:00:00Z")
@@ -1043,18 +1043,18 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-cabinet-conversation-create
                  root
                  '(:id "conv-continue"
-                   :agent "cto"
-                   :title "Continue Review"
-                   :status "done"
-                   :provider "codex")))
+                       :agent "cto"
+                       :title "Continue Review"
+                       :status "done"
+                       :provider "codex")))
           captured)
       (ogent-cabinet-conversation-append-turn
        root "conv-continue" "user" "Initial ask."
@@ -1092,17 +1092,17 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let* ((file (ogent-cabinet-conversation-create
                   root
                   '(:id "conv-delete"
-                    :agent "cto"
-                    :title "Delete Review"
-                    :status "done")))
+                        :agent "cto"
+                        :title "Delete Review"
+                        :status "done")))
            (directory (file-name-directory file))
            (buffer (ogent-cabinet-conversation root file)))
       (with-current-buffer buffer
@@ -1117,10 +1117,10 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-ui-cabinet-test--write-session
                  root "cto" "successful-run" "DONE" 0)))
@@ -1216,7 +1216,7 @@
             (should (eq major-mode 'ogent-cabinet-tasks-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (lane '("Inbox" "Needs Reply" "Running"
-                               "Just Finished" "Archive"))
+                              "Just Finished" "Archive"))
                 (should (string-match-p lane text)))
               (let ((case-fold-search nil))
                 (should-not (string-match-p "Scheduled" text))
@@ -1318,10 +1318,10 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "ops"
-       :name "Ops"
-       :role "Operations"
-       :provider "codex"
-       :active t)
+             :name "Ops"
+             :role "Operations"
+             :provider "codex"
+             :active t)
      "Keep daily operations moving.")
     (let ((buffer (ogent-cabinet-tasks root)))
       (unwind-protect
@@ -1350,10 +1350,10 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "ops"
-       :name "Ops"
-       :role "Operations"
-       :provider "codex"
-       :active t)
+             :name "Ops"
+             :role "Operations"
+             :provider "codex"
+             :active t)
      "Keep daily operations moving.")
     (ogent-cabinet-create-task root "ops" "Review pull requests" "")
     (ogent-cabinet-create-task root "ops" "Review pull requests" "")
@@ -1396,38 +1396,38 @@
     (ogent-cabinet-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (ogent-cabinet-conversation-create
      root
      '(:id "late"
-       :agent "cto"
-       :title "Late Card"
-       :status "done"
-       :completed "2026-05-06T11:00:00Z"
-       :last-activity "2026-05-06T11:00:00Z"
-       :board-order 20))
+           :agent "cto"
+           :title "Late Card"
+           :status "done"
+           :completed "2026-05-06T11:00:00Z"
+           :last-activity "2026-05-06T11:00:00Z"
+           :board-order 20))
     (ogent-cabinet-conversation-create
      root
      '(:id "early"
-       :agent "cto"
-       :title "Early Card"
-       :status "done"
-       :completed "2026-05-06T10:00:00Z"
-       :last-activity "2026-05-06T10:00:00Z"
-       :board-order 1))
+           :agent "cto"
+           :title "Early Card"
+           :status "done"
+           :completed "2026-05-06T10:00:00Z"
+           :last-activity "2026-05-06T10:00:00Z"
+           :board-order 1))
     (ogent-cabinet-conversation-create
      root
      '(:id "muted"
-       :agent "cto"
-       :title "Muted Card"
-       :status "done"
-       :completed "2026-05-06T09:00:00Z"
-       :last-activity "2026-05-06T09:00:00Z"
-       :muted t))
+           :agent "cto"
+           :title "Muted Card"
+           :status "done"
+           :completed "2026-05-06T09:00:00Z"
+           :last-activity "2026-05-06T09:00:00Z"
+           :muted t))
     (let ((sessions (ogent-cabinet-conversation-list-sessions root)))
       (should (equal (plist-get
                       (ogent-cabinet-tasks--session-item

@@ -53,17 +53,17 @@
       (ogent-cabinet-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :model "gpt-5.4"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :model "gpt-5.4"
+               :workspace "engineering")
        "Keep the architecture honest.")
       (ogent-cabinet-write-job
        dir "cto"
        '(:id "weekly-review"
-         :name "Weekly Review"
-         :cron "0 9 * * 1")
+             :name "Weekly Review"
+             :cron "0 9 * * 1")
        "Find risks and write next actions.")
       (let* ((plan (ogent-cabinet-runner-plan
                     dir "cto" :job-id "weekly-review"))
@@ -94,10 +94,10 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "cto" :instruction "Review this run."))
@@ -121,10 +121,10 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "builder"
-       :name "Builder"
-       :role "Implementation"
-       :provider "codex"
-       :workspace "/")
+             :name "Builder"
+             :role "Implementation"
+             :provider "codex"
+             :workspace "/")
      "Ship small patches.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "builder" :instruction "Implement the dashboard fix."))
@@ -141,16 +141,16 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-cabinet-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :enabled t)
+           :name "Weekly Review"
+           :enabled t)
      "Review recent work.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "cto" :job-id "weekly-review"))
@@ -167,11 +167,11 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "lead"
-       :name "Lead"
-       :role "Lead agent"
-       :provider "codex"
-       :can-dispatch t
-       :workspace "/")
+             :name "Lead"
+             :role "Lead agent"
+             :provider "codex"
+             :can-dispatch t
+             :workspace "/")
      "Coordinate follow-up work.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "lead" :instruction "Plan follow-up tasks."))
@@ -189,20 +189,20 @@
       (ogent-cabinet-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :model "gpt-5.4"
-         :workspace "/")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :model "gpt-5.4"
+               :workspace "/")
        "Keep the architecture honest.")
       (ogent-cabinet-write-job
        dir "cto"
        '(:id "weekly-review"
-         :name "Weekly Review"
-         :provider "claude"
-         :model "sonnet"
-         :workspace "reports"
-         :enabled t)
+             :name "Weekly Review"
+             :provider "claude"
+             :model "sonnet"
+             :workspace "reports"
+             :enabled t)
        "Find risks and write next actions.")
       (let* ((plan (ogent-cabinet-runner-plan
                     dir "cto" :job-id "weekly-review"))
@@ -220,17 +220,17 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-cabinet-write-job
      dir "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Find risks and write next actions.")
     (let* ((key "cto::job::daily-review::2026-05-04T09:00")
            (plan (ogent-cabinet-runner-plan
@@ -258,17 +258,17 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-cabinet-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "not a cron"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "not a cron"
+           :enabled t)
      "Find risks and write next actions.")
     (let* ((error (should-error
                    (ogent-cabinet-runner-plan dir "cto" :job-id "weekly-review")
@@ -284,19 +284,19 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "editor"
-       :name "Editor"
-       :role "Knowledge editor"
-       :provider "claude"
-       :model "sonnet"
-       :permission-mode "plan")
+             :name "Editor"
+             :role "Knowledge editor"
+             :provider "claude"
+             :model "sonnet"
+             :permission-mode "plan")
      "Keep the notes sharp.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "editor" :instruction "Summarize today."))
            (args (plist-get plan :args)))
-        (should (eq (plist-get plan :provider) 'claude))
-        (should (equal (plist-get plan :adapter-id) "claude-code"))
-        (should (equal (plist-get plan :program)
-                       ogent-cabinet-claude-executable))
+      (should (eq (plist-get plan :provider) 'claude))
+      (should (equal (plist-get plan :adapter-id) "claude-code"))
+      (should (equal (plist-get plan :program)
+                     ogent-cabinet-claude-executable))
       (should (member "-p" args))
       (should (member "--permission-mode" args))
       (should (member "plan" args))
@@ -317,24 +317,24 @@
     (ogent-cabinet-settings-write
      dir
      '(:default-provider "claude-code"
-       :default-model "opus-4.7"
-       :default-effort "xhigh"
-       :default-runtime "terminal")
+                         :default-model "opus-4.7"
+                         :default-effort "xhigh"
+                         :default-runtime "terminal")
      :merge t)
     (ogent-cabinet-write-agent
      dir
      '(:slug "lead"
-       :name "Lead"
-       :role "Coordinator"
-       :provider "claude-code"
-       :workspace "/")
+             :name "Lead"
+             :role "Coordinator"
+             :provider "claude-code"
+             :workspace "/")
      "Keep Cabinet work moving.")
     (ogent-cabinet-write-job
      dir "lead"
      '(:id "configure-master"
-       :name "Configure Master"
-       :enabled t
-       :workspace "/")
+           :name "Configure Master"
+           :enabled t
+           :workspace "/")
      "Configure this Cabinet.")
     (let* ((ogent-cabinet-runner-claude-permission-mode "default")
            (plan (ogent-cabinet-runner-plan
@@ -363,9 +363,9 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "#+end_src")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "cto" :instruction "#+end_src"))
@@ -381,9 +381,9 @@
     (ogent-cabinet-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "Keep the plan direct.")
     (let* ((plan (ogent-cabinet-runner-plan
                   dir "cto" :instruction "Review."))
@@ -404,10 +404,10 @@
       (ogent-cabinet-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-cabinet-codex-executable fixture)
              (ogent-cabinet-runner-confirm-before-run nil)
@@ -463,10 +463,10 @@ Return (MAIN . WORKTREE)."
       (ogent-cabinet-write-agent
        dir
        `(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace ,worktree)
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace ,worktree)
        "Keep the plan direct.")
       (let* ((ogent-cabinet-codex-executable fixture)
              (ogent-cabinet-runner-confirm-before-run nil)
@@ -495,10 +495,10 @@ Return (MAIN . WORKTREE)."
       (ogent-cabinet-write-agent
        dir
        `(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace ,worktree)
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace ,worktree)
        "Keep the plan direct.")
       (let* ((ogent-cabinet-codex-executable fixture)
              (ogent-cabinet-runner-confirm-before-run nil)
@@ -528,10 +528,10 @@ Return (MAIN . WORKTREE)."
       (ogent-cabinet-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-cabinet-codex-executable fixture)
              (ogent-cabinet-runner-confirm-before-run nil)
@@ -558,10 +558,10 @@ Return (MAIN . WORKTREE)."
       (ogent-cabinet-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-cabinet-codex-executable fixture)
              (ogent-cabinet-runner-confirm-before-run nil)
@@ -584,25 +584,25 @@ Return (MAIN . WORKTREE)."
   (ogent-cabinet-write-agent
    root
    '(:slug "lead"
-     :name "Lead"
-     :role "Lead agent"
-     :type "lead"
-     :can-dispatch t
-     :provider "codex")
+           :name "Lead"
+           :role "Lead agent"
+           :type "lead"
+           :can-dispatch t
+           :provider "codex")
    "Lead the work.")
   (ogent-cabinet-write-agent
    root
    '(:slug "builder"
-     :name "Builder"
-     :role "Implementation"
-     :provider "claude")
+           :name "Builder"
+           :role "Implementation"
+           :provider "claude")
    "Build the work.")
   (ogent-cabinet-conversation-create
    root
    '(:id "parent"
-     :agent "lead"
-     :title "Parent"
-     :status "done")))
+         :agent "lead"
+         :title "Parent"
+         :status "done")))
 
 (ert-deftest ogent-cabinet-runner-capture-actions-stores-lead-proposals ()
   "Lead proposals on a clean exit become readable pending actions."

@@ -9,6 +9,9 @@
 (require 'ogent-zen-core)
 (require 'ogent-context)
 
+(declare-function project-current "project")
+(declare-function project-root "project")
+
 (defun ogent-zen--workspace-base-directory ()
   "Return the directory used to resolve relative Zen workspace paths."
   (or (and buffer-file-name (file-name-directory buffer-file-name))

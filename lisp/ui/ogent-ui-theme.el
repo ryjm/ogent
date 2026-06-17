@@ -3,7 +3,7 @@
 ;;; Commentary:
 ;;
 ;; A cohesive design system for ogent, inspired by modern UI frameworks
-;; like Stripe's design system. Provides:
+;; like Stripe's design system.  Provides:
 ;;
 ;; - Semantic color palette with light/dark theme support
 ;; - Icon system with nerd-icons fallback to Unicode/ASCII
@@ -381,7 +381,7 @@ Defaults to `ogent-theme-highlight'."
 
 (defun ogent-theme-progress-bar (percent &optional width face)
   "Return a progress bar string for PERCENT (0-100).
-WIDTH defaults to 10 characters. FACE colors the filled portion."
+WIDTH defaults to 10 characters.  FACE colors the filled portion."
   (let* ((width (or width 10))
          (filled-width (round (* width (/ (min 100 (max 0 percent)) 100.0))))
          (empty-width (- width filled-width))
@@ -414,7 +414,8 @@ Uses box styling for visual distinction."
               'face (or face 'ogent-theme-badge)))
 
 (defun ogent-theme-count-badge (count &optional face)
-  "Return COUNT as a small badge, hidden if zero."
+  "Return COUNT as a small badge, hidden if zero.
+FACE defaults to `ogent-theme-muted'."
   (if (and count (> count 0))
       (propertize (format "(%d)" count)
                   'face (or face 'ogent-theme-muted))
@@ -453,7 +454,7 @@ KEY is highlighted, description is muted."
 
 (defun ogent-theme-keys (&rest key-desc-pairs)
   "Format multiple KEY-DESC-PAIRS for display.
-Each pair is (KEY . DESCRIPTION). Returns space-separated string."
+Each pair is (KEY . DESCRIPTION).  Return space-separated string."
   (mapconcat (lambda (pair)
                (ogent-theme-key (car pair) (cdr pair)))
              key-desc-pairs

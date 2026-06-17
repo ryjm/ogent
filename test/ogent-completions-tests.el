@@ -1071,10 +1071,10 @@
 (ert-deftest ogent-completions-make-overlay-nil-start-marker ()
   "ogent-completions--make-overlay returns nil with nil start marker."
   (let ((completion (make-ogent-completion
-                      :id 1 :model "test"
-                      :marker nil
-                      :end-marker nil
-                      :status 'pending :overlay nil)))
+                     :id 1 :model "test"
+                     :marker nil
+                     :end-marker nil
+                     :status 'pending :overlay nil)))
     (should-not (ogent-completions--make-overlay completion))))
 
 (ert-deftest ogent-completions-make-overlay-different-buffers ()
@@ -1088,9 +1088,9 @@
                (insert "content2")
                (point-marker)))
          (completion (make-ogent-completion
-                       :id 1 :model "test"
-                       :marker m1 :end-marker m2
-                       :status 'pending :overlay nil)))
+                      :id 1 :model "test"
+                      :marker m1 :end-marker m2
+                      :status 'pending :overlay nil)))
     (unwind-protect
         (should-not (ogent-completions--make-overlay completion))
       (kill-buffer buf1)

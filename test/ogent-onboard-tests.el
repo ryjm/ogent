@@ -31,13 +31,13 @@
   "Provider fallback keeps OAuth choices for the failed backend."
   (let* ((ogent-onboard-providers
           '((:id openai
-             :name "OpenAI"
-             :backend gptel-openai
-             :models ((:id "gpt")))
+                 :name "OpenAI"
+                 :backend gptel-openai
+                 :models ((:id "gpt")))
             (:id anthropic
-             :name "Anthropic"
-             :backend gptel-anthropic
-             :models ((:id "claude")))))
+                 :name "Anthropic"
+                 :backend gptel-anthropic
+                 :models ((:id "claude")))))
          (providers (ogent-onboard--providers-excluding-backend
                      'gptel-openai))
          (ids (mapcar (lambda (provider)
@@ -51,9 +51,9 @@
   "Anthropic backend failures still offer Anthropic OAuth login."
   (let* ((ogent-onboard-providers
           '((:id anthropic
-             :name "Anthropic"
-             :backend gptel-anthropic
-             :models ((:id "claude-3-5-sonnet-20241022")))))
+                 :name "Anthropic"
+                 :backend gptel-anthropic
+                 :models ((:id "claude-3-5-sonnet-20241022")))))
          (providers (ogent-onboard--providers-excluding-backend
                      'gptel-anthropic))
          (ids (mapcar (lambda (provider)
@@ -75,13 +75,13 @@
                  (setq setup-provider provider))))
       (let ((ogent-onboard-providers
              '((:id openai
-                :name "OpenAI"
-                :backend gptel-openai
-                :models ((:id "gpt")))
+                    :name "OpenAI"
+                    :backend gptel-openai
+                    :models ((:id "gpt")))
                (:id anthropic
-                :name "Anthropic"
-                :backend gptel-anthropic
-                :models ((:id "claude"))))))
+                    :name "Anthropic"
+                    :backend gptel-anthropic
+                    :models ((:id "claude"))))))
         (ogent-onboard-login-different-provider 'gptel-openai)
         (should (memq 'openai-codex
                       (mapcar (lambda (provider)
@@ -118,10 +118,10 @@
 (ert-deftest ogent-onboard-known-provider-models-ignore-stale-plists ()
   "Built-in OpenAI providers use the current catalog at selection time."
   (let* ((provider '(:id openai
-                     :name "OpenAI"
-                     :backend gptel-openai
-                     :models ((:id "gpt-3.5-turbo"
-                                    :description "Stale"))))
+                         :name "OpenAI"
+                         :backend gptel-openai
+                         :models ((:id "gpt-3.5-turbo"
+                                       :description "Stale"))))
          (models (ogent-onboard--models-for-provider provider))
          (ids (mapcar (lambda (model)
                         (plist-get model :id))
@@ -133,10 +133,10 @@
 (ert-deftest ogent-onboard-select-model-shows-current-openai-models ()
   "OpenAI model selection presents current built-in choices."
   (let ((provider '(:id openai
-                    :name "OpenAI"
-                    :backend gptel-openai
-                    :models ((:id "gpt-3.5-turbo"
-                                   :description "Stale"))))
+                        :name "OpenAI"
+                        :backend gptel-openai
+                        :models ((:id "gpt-3.5-turbo"
+                                      :description "Stale"))))
         (captured-choices nil))
     (cl-letf (((symbol-function 'completing-read)
                (lambda (_prompt choices &rest _)
@@ -154,10 +154,10 @@
 (ert-deftest ogent-onboard-known-anthropic-models-ignore-stale-plists ()
   "Built-in Anthropic providers use the current catalog at selection time."
   (let* ((provider '(:id anthropic
-                     :name "Anthropic"
-                     :backend gptel-anthropic
-                     :models ((:id "claude-3-5-sonnet-20241022"
-                                    :description "Stale"))))
+                         :name "Anthropic"
+                         :backend gptel-anthropic
+                         :models ((:id "claude-3-5-sonnet-20241022"
+                                       :description "Stale"))))
          (models (ogent-onboard--models-for-provider provider))
          (ids (mapcar (lambda (model)
                         (plist-get model :id))
@@ -173,9 +173,9 @@
   "Canonical providers restore built-in OAuth entries in stale sessions."
   (let* ((ogent-onboard-providers
           '((:id anthropic
-             :name "Anthropic"
-             :backend gptel-anthropic
-             :models ((:id "claude-3-5-sonnet-20241022")))))
+                 :name "Anthropic"
+                 :backend gptel-anthropic
+                 :models ((:id "claude-3-5-sonnet-20241022")))))
          (providers (ogent-onboard--providers))
          (ids (mapcar (lambda (provider)
                         (plist-get provider :id))
@@ -188,9 +188,9 @@
   "Provider selection shows Anthropic OAuth from canonical built-ins."
   (let ((ogent-onboard-providers
          '((:id anthropic
-            :name "Anthropic"
-            :backend gptel-anthropic
-            :models ((:id "claude-3-5-sonnet-20241022")))))
+                :name "Anthropic"
+                :backend gptel-anthropic
+                :models ((:id "claude-3-5-sonnet-20241022")))))
         (captured-choices nil))
     (cl-letf (((symbol-function 'completing-read)
                (lambda (_prompt choices &rest _)
@@ -216,8 +216,8 @@
   (let ((ogent-model-registry nil)
         (provider '(:id openai :backend gptel-openai))
         (model '(:id "gpt-5.5-pro"
-                 :stream? nil
-                 :description "Non-streaming model")))
+                     :stream? nil
+                     :description "Non-streaming model")))
     (let ((entry (ogent-onboard--add-to-registry provider model)))
       (should (equal (plist-get entry :id) "gpt-5.5-pro"))
       (should-not (plist-get entry :stream?))
@@ -248,8 +248,8 @@
 (ert-deftest ogent-onboard-create-backend-anthropic-placeholder ()
   "Anthropic backend uses oauth placeholder when key is nil."
   (let* ((provider '(:name "Anthropic"
-                    :backend-creator gptel-make-anthropic
-                    :models ((:id "m1") (:id "m2"))))
+                           :backend-creator gptel-make-anthropic
+                           :models ((:id "m1") (:id "m2"))))
          (captured nil))
     (cl-letf (((symbol-function 'gptel-make-anthropic)
                (lambda (name &rest args)
@@ -263,9 +263,9 @@
 (ert-deftest ogent-onboard-create-backend-openai-key ()
   "OpenAI backend passes API key to gptel-make-openai."
   (let* ((provider '(:name "OpenAI"
-                    :id openai
-                    :backend-creator gptel-make-openai
-                    :models ((:id "o1"))))
+                           :id openai
+                           :backend-creator gptel-make-openai
+                           :models ((:id "o1"))))
          (captured nil))
     (cl-letf (((symbol-function 'gptel-make-openai)
                (lambda (name &rest args)
@@ -284,8 +284,8 @@
   "Verify connection sets backend variable on success."
   (let ((ogent-onboard-tests--backend nil)
         (provider '(:name "Test"
-                   :feature test-feature
-                   :backend ogent-onboard-tests--backend)))
+                          :feature test-feature
+                          :backend ogent-onboard-tests--backend)))
     (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
               ((symbol-function 'ogent-onboard--create-backend)
                (lambda (&rest _) 'backend)))
@@ -296,8 +296,8 @@
   "Verification fails when backend feature cannot be required."
   (let ((ogent-onboard-tests--backend nil)
         (provider '(:name "Test"
-                   :feature missing-feature
-                   :backend ogent-onboard-tests--backend)))
+                          :feature missing-feature
+                          :backend ogent-onboard-tests--backend)))
     (cl-letf (((symbol-function 'require) (lambda (&rest _) nil)))
       (should-not (ogent-onboard--verify-connection provider "key" "m1"))
       (should (null ogent-onboard-tests--backend)))))
@@ -306,8 +306,8 @@
   "Verification fails when backend creation errors."
   (let ((ogent-onboard-tests--backend nil)
         (provider '(:name "Test"
-                   :feature test-feature
-                   :backend ogent-onboard-tests--backend)))
+                          :feature test-feature
+                          :backend ogent-onboard-tests--backend)))
     (cl-letf (((symbol-function 'require) (lambda (&rest _) t))
               ((symbol-function 'ogent-onboard--create-backend)
                (lambda (&rest _) (error "boom"))))
@@ -319,24 +319,24 @@
 (ert-deftest ogent-onboard-select-provider-interactive ()
   "Test provider selection with simulated input."
   (ogent-test-with-input "Anthropic (API Key) RET"
-			 (let ((provider (ogent-onboard--select-provider)))
-			   (should provider)
-			   (should (eq (plist-get provider :id) 'anthropic)))))
+    (let ((provider (ogent-onboard--select-provider)))
+      (should provider)
+      (should (eq (plist-get provider :id) 'anthropic)))))
 
 (ert-deftest ogent-onboard-select-provider-openai ()
   "Test selecting OpenAI provider."
   (ogent-test-with-input "OpenAI RET"
-			 (let ((provider (ogent-onboard--select-provider)))
-			   (should provider)
-			   (should (eq (plist-get provider :id) 'openai)))))
+    (let ((provider (ogent-onboard--select-provider)))
+      (should provider)
+      (should (eq (plist-get provider :id) 'openai)))))
 
 (ert-deftest ogent-onboard-select-model-interactive ()
   "Test model selection with simulated input."
   (ogent-test-with-input "claude-sonnet-4-6 RET"
-			 (let* ((provider (car ogent-onboard-providers))
-				(model (ogent-onboard--select-model provider)))
-			   (should model)
-			   (should (string-prefix-p "claude-sonnet-4-6" (plist-get model :id))))))
+    (let* ((provider (car ogent-onboard-providers))
+           (model (ogent-onboard--select-model provider)))
+      (should model)
+      (should (string-prefix-p "claude-sonnet-4-6" (plist-get model :id))))))
 
 ;;; Auth-source Integration Tests
 
@@ -549,10 +549,10 @@
               ((symbol-function 'y-or-n-p)
                (lambda (_prompt) t)))
       (let ((provider '(:name "OpenAI Codex"
-                        :oauth-feature ogent-codex-oauth
-                        :oauth-login ogent-codex-login
-                        :oauth-authenticated-p ogent-codex-oauth-authenticated-p
-                        :oauth-mode ogent-codex-oauth-mode)))
+                              :oauth-feature ogent-codex-oauth
+                              :oauth-login ogent-codex-login
+                              :oauth-authenticated-p ogent-codex-oauth-authenticated-p
+                              :oauth-mode ogent-codex-oauth-mode)))
         (should (ogent-onboard--configure-oauth provider))
         (should login-called)))))
 
@@ -561,8 +561,8 @@
 (ert-deftest ogent-onboard-create-backend-unknown-creator ()
   "Test create-backend returns nil for unknown backend creator."
   (let ((provider '(:name "Unknown"
-                   :backend-creator some-unknown-creator
-                   :models ((:id "m1")))))
+                          :backend-creator some-unknown-creator
+                          :models ((:id "m1")))))
     (should-not (ogent-onboard--create-backend provider "key"))))
 
 (ert-deftest ogent-onboard-create-backend-anthropic-with-key ()
@@ -573,8 +573,8 @@
                  (setq captured-key (plist-get args :key))
                  'backend)))
       (let ((provider '(:name "Anth"
-                        :backend-creator gptel-make-anthropic
-                        :models ((:id "m1")))))
+                              :backend-creator gptel-make-anthropic
+                              :models ((:id "m1")))))
         (ogent-onboard--create-backend provider "real-key")
         (should (equal "real-key" captured-key))))))
 
@@ -586,8 +586,8 @@
                  (setq captured-stream (plist-get args :stream))
                  'backend)))
       (let ((provider '(:name "Anth"
-                        :backend-creator gptel-make-anthropic
-                        :models ((:id "m1")))))
+                              :backend-creator gptel-make-anthropic
+                              :models ((:id "m1")))))
         (ogent-onboard--create-backend provider "k")
         (should captured-stream)))))
 

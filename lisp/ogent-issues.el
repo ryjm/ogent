@@ -41,6 +41,9 @@ Captured at load time so sibling requires remain robust.")
 (declare-function magit-section-toggle "ext:magit-section" t t)
 (declare-function magit-insert-section "ext:magit-section" t t)
 (declare-function magit-insert-heading "ext:magit-section" t t)
+(put 'magit-insert-section 'lisp-indent-function 2)
+(put 'magit-insert-heading 'lisp-indent-function 0)
+
 (declare-function magit-current-section "ext:magit-section" t t)
 (declare-function magit-section-forward "ext:magit-section" t t)
 (declare-function magit-section-backward "ext:magit-section" t t)
@@ -455,14 +458,14 @@ Used to detect project switches and clear stale state.")
 (eval-and-compile
   (when (bound-and-true-p ogent-issues--magit-section-available)
     (defclass ogent-issues-root-section (magit-section) ()
-	      "Root section for ogent-issues buffer.")
+      "Root section for ogent-issues buffer.")
 
     (defclass ogent-issues-status-section (magit-section) ()
-	      "Section for a status group (open, in_progress, etc.).
+      "Section for a status group (open, in_progress, etc.).
 The inherited `value' slot holds the status string.")
 
     (defclass ogent-issues-issue-section (magit-section) ()
-	      "Section for a single issue.
+      "Section for a single issue.
 The inherited `value' slot holds the issue plist.")))
 
 ;;; Keymap - Following magit conventions
@@ -664,7 +667,7 @@ Customize `ogent-issues-display-buffer-action' to change display behavior."
   (let ((current-project (ogent-issues-bd-project-root)))
     ;; Error if not in a beads project
     (unless current-project
-      (user-error "Not in a beads project (no .beads directory found). Run `bd init' to initialize"))
+      (user-error "Not in a beads project (no .beads directory found).  Run `bd init' to initialize"))
     ;; Bind default-directory to project root so buffer inherits it
     ;; This ensures subsequent calls from the issues buffer detect the correct project
     (let* ((default-directory current-project)
@@ -918,7 +921,7 @@ errors in `magit-section-post-command-hook'."
   (if ogent-issues--magit-section-available
       ;; Wrap in root section to prevent nil section errors
       (magit-insert-section (ogent-issues-root-section)
-        (ogent-issues--insert-empty-state-content))
+          (ogent-issues--insert-empty-state-content))
     (ogent-issues--insert-empty-state-content)))
 
 (defun ogent-issues--insert-empty-state-content ()
@@ -940,12 +943,12 @@ errors in `magit-section-post-command-hook'."
 (defun ogent-issues--insert-with-magit-section (issues)
   "Insert ISSUES using magit-section."
   (magit-insert-section (ogent-issues-root-section)
-			(ogent-issues--insert-header-section)
-			(insert "\n")
-			(let ((grouped (ogent-issues--group-by-status issues)))
-			  (dolist (status '("in_progress" "open" "blocked" "closed"))
-			    (when-let ((group (alist-get status grouped nil nil #'string=)))
-			      (ogent-issues--insert-status-section status group))))))
+      (ogent-issues--insert-header-section)
+    (insert "\n")
+    (let ((grouped (ogent-issues--group-by-status issues)))
+      (dolist (status '("in_progress" "open" "blocked" "closed"))
+        (when-let ((group (alist-get status grouped nil nil #'string=)))
+          (ogent-issues--insert-status-section status group))))))
 
 (defun ogent-issues--insert-plain (issues)
   "Insert ISSUES without magit-section (fallback)."
@@ -978,17 +981,17 @@ errors in `magit-section-post-command-hook'."
   (let ((collapsed (member status ogent-issues-collapsed-statuses))
         (count (length issues)))
     (magit-insert-section (ogent-issues-status-section status collapsed)
-			  (magit-insert-heading
-                           (ogent-issues--compose-status-heading status count))
-			  (dolist (issue issues)
-			    (ogent-issues--insert-issue issue))
-			  (insert "\n"))))
+        (magit-insert-heading
+          (ogent-issues--compose-status-heading status count))
+      (dolist (issue issues)
+        (ogent-issues--insert-issue issue))
+      (insert "\n"))))
 
 (defun ogent-issues--insert-issue (issue)
   "Insert a single ISSUE as a section."
   (if ogent-issues--magit-section-available
       (magit-insert-section (ogent-issues-issue-section issue)
-			    (insert (ogent-issues--format-issue-line issue) "\n"))
+          (insert (ogent-issues--format-issue-line issue) "\n"))
     (insert (ogent-issues--format-issue-line issue) "\n")
     (put-text-property (line-beginning-position 0)
                        (line-end-position 0)
@@ -1374,8 +1377,8 @@ errors in `magit-section-post-command-hook'."
                                        'face 'ogent-issues-dimmed))
                    (if ogent-issues--magit-section-available
                        (magit-insert-section (ogent-issues-root-section)
-					     (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
-					       (ogent-issues--insert-issue issue)))
+                           (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
+                             (ogent-issues--insert-issue issue)))
                      (dolist (issue (seq-sort-by (lambda (i) (or (plist-get i :priority) 2)) #'< issues))
                        (insert (ogent-issues--format-issue-line issue) "\n"))))
                (insert (propertize "Ready Work" 'face 'ogent-issues-section-heading))

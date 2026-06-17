@@ -297,12 +297,12 @@ start position remains valid while lower conflicts are removed."
         (funcall resolver)))))
 
 (defun ogent-edit-accept-all ()
-  "Accept all AI-proposed changes in current buffer."
+  "Accept every AI-proposed edit in current buffer."
   (interactive)
   (ogent-edit--resolve-all-smerge #'ogent-edit-accept-current))
 
 (defun ogent-edit-reject-all ()
-  "Reject all AI-proposed changes in current buffer."
+  "Reject every AI-proposed edit in current buffer."
   (interactive)
   (ogent-edit--resolve-all-smerge #'ogent-edit-reject-current))
 
@@ -412,7 +412,7 @@ Returns the preview buffer."
          (new-text (ogent-edit-new-text edit))
          (source-buf (ogent-edit-source-buffer edit))
          (buf-name "*ogent-diff*")
-         (diff-content (ogent-edit--generate-unified-diff 
+         (diff-content (ogent-edit--generate-unified-diff
                         file-path old-text new-text)))
     ;; Create or reuse diff buffer
     (with-current-buffer (get-buffer-create buf-name)
@@ -428,7 +428,7 @@ Returns the preview buffer."
         (setq ogent-edit-preview--current-edit edit
               ogent-edit-preview--source-buffer source-buf))
       ;; Display the buffer
-      (let ((win (display-buffer 
+      (let ((win (display-buffer
                   (current-buffer)
                   `((display-buffer-at-bottom)
                     (window-height . ,ogent-edit-preview-window-height)))))
@@ -840,7 +840,7 @@ shows word-level diff overlays.  Requires inline-diff.el to be
 installed.  Unless APPEND is non-nil, clear existing inline diffs
 first."
   (unless (ogent-edit-inline-diff-available-p)
-    (user-error "inline-diff not available; install inline-diff.el or use different display method"))
+    (user-error "Inline-diff not available; install inline-diff.el or use different display method"))
   (unless (eq (ogent-edit-status edit) 'pending)
     (user-error "Edit %s is not pending" (ogent-edit-id edit)))
   (unless (ogent-edit-start-pos edit)
@@ -872,14 +872,14 @@ first."
         (ogent-edit--track-edits (list edit))
         ;; Move to the change
         (goto-char start)
-        (message "Edit displayed with inline-diff. Use C-c C-c to accept, C-c C-k to reject.")))))
+        (message "Edit displayed with inline-diff.  Use \\[org-ctrl-c-ctrl-c] to accept, \\[org-edit-src-abort] to reject.")))))
 
 (defun ogent-edit-apply-all-as-inline-diff (edits)
   "Apply all valid EDITS using inline-diff display.
 Edits are applied in reverse position order to preserve positions.
 Returns list of successfully applied edits."
   (unless (ogent-edit-inline-diff-available-p)
-    (user-error "inline-diff not available; install inline-diff.el"))
+    (user-error "Inline-diff not available; install inline-diff.el"))
   (let* ((valid-edits (ogent-edit-filter-valid edits))
          (sorted (sort (copy-sequence valid-edits)
                        (lambda (a b)

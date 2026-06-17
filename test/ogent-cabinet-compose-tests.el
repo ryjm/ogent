@@ -28,16 +28,16 @@
   (ogent-cabinet-write-agent
    root
    '(:slug "cto"
-     :name "CTO"
-     :role "Architecture"
-     :provider "codex"
-     :active t)
+           :name "CTO"
+           :role "Architecture"
+           :provider "codex"
+           :active t)
    "Keep the architecture clear.")
   (ogent-cabinet-write-job
    root "cto"
    '(:id "weekly-review"
-     :name "Weekly Review"
-     :enabled t)
+         :name "Weekly Review"
+         :enabled t)
    "Review the week.")
   (let ((page (expand-file-name "notes/plan.org" root))
         (skill (expand-file-name ".agents/skills/review.org" root)))
@@ -54,9 +54,9 @@
   (ogent-cabinet-conversation-create
    root
    '(:id "conv"
-     :agent "cto"
-     :title "Prior Review"
-     :status "done"))
+         :agent "cto"
+         :title "Prior Review"
+         :status "done"))
   (ogent-cabinet-conversation-append-turn
    root "conv" "agent" "Prior answer."
    :ts "2026-05-06T10:00:00Z"))

@@ -88,7 +88,7 @@ This can produce verbose output for large contexts."
 (define-minor-mode ogent-debug-mode
   "Minor mode for debugging ogent LLM interactions.
 When enabled, logs requests, responses, edit parsing, and validation
-to the *ogent-debug* buffer. Also enables gptel's logging.
+to the *ogent-debug* buffer.  Also enables gptel's logging.
 
 Key bindings:
 \\{ogent-debug-mode-map}"
@@ -280,7 +280,7 @@ Example:
 ;;;###autoload
 (defun ogent-debug-enable ()
   "Enable ogent debug output.
-Note: This only affects interpreted code. Byte-compiled code
+Note: This only affects interpreted code.  Byte-compiled code
 must be recompiled to pick up the change."
   (interactive)
   (setq ogent-debug-enabled t)
@@ -418,9 +418,9 @@ Each entry maps line ranges to history plists.")
     (when (or (looking-at "^## \\[")
               (re-search-backward "^## \\[" nil t))
       (when-let* ((id-line (save-excursion
-                            (forward-line 1)
-                            (when (looking-at "^ID: \\(.+\\)$")
-                              (match-string 1)))))
+                             (forward-line 1)
+                             (when (looking-at "^ID: \\(.+\\)$")
+                               (match-string 1)))))
         (seq-find (lambda (e) (equal (plist-get e :id) id-line))
                   ogent-debug-tool-history)))))
 

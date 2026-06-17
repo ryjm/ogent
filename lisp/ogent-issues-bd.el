@@ -197,71 +197,71 @@ Returns the process object, or nil if no project root found."
                :stderr stderr-buffer
                :command full-command
                :sentinel
-           (lambda (process event)
-             ;; Cancel timeout timer
-             (when timer (cancel-timer timer))
-             
-             ;; Clean up process list
-             (setq ogent-issues-bd--processes
-                   (delq process ogent-issues-bd--processes))
-             
-              (cond
-               ;; Success
-               ((string= event "finished\n")
-                (with-current-buffer (process-buffer process)
-                  (goto-char (point-min))
-                  ;; Skip any leading whitespace or empty lines
-                  (skip-chars-forward " \t\n\r")
-                  (condition-case err
-                      (let ((result (if raw-output
-                                        (buffer-string)
-                                      (if (eobp)
-                                          ;; Empty output - return empty list
-                                          '()
-                                        (json-parse-buffer
-                                         :object-type 'plist
-                                         :array-type 'list
-                                         :null-object nil
-                                         :false-object nil)))))
-                        (funcall callback result))
-                    (error
+               (lambda (process event)
+                 ;; Cancel timeout timer
+                 (when timer (cancel-timer timer))
+                 
+                 ;; Clean up process list
+                 (setq ogent-issues-bd--processes
+                       (delq process ogent-issues-bd--processes))
+                 
+                 (cond
+                  ;; Success
+                  ((string= event "finished\n")
+                   (with-current-buffer (process-buffer process)
+                     (goto-char (point-min))
+                     ;; Skip any leading whitespace or empty lines
+                     (skip-chars-forward " \t\n\r")
+                     (condition-case err
+                         (let ((result (if raw-output
+                                           (buffer-string)
+                                         (if (eobp)
+                                             ;; Empty output - return empty list
+                                             '()
+                                           (json-parse-buffer
+                                            :object-type 'plist
+                                            :array-type 'list
+                                            :null-object nil
+                                            :false-object nil)))))
+                           (funcall callback result))
+                       (error
+                        (if error-callback
+                            (funcall error-callback
+                                     (format "JSON parse error: %s (buffer: %S)"
+                                             (error-message-string err)
+                                             (buffer-substring-no-properties
+                                              (point-min)
+                                              (min (point-max) (+ (point-min) 100)))))
+                          (message "ogent-bd: JSON parse error: %s" (error-message-string err))))))
+                   ;; Clean up buffers
+                   (when (buffer-live-p (process-buffer process))
+                     (kill-buffer (process-buffer process)))
+                   (when (buffer-live-p stderr-buffer)
+                     (kill-buffer stderr-buffer)))
+                  
+                  ;; Process exited with error
+                  ((string-match "exited abnormally" event)
+                   (let ((stderr-content
+                          (when (buffer-live-p stderr-buffer)
+                            (with-current-buffer stderr-buffer
+                              (string-trim (buffer-string))))))
                      (if error-callback
                          (funcall error-callback
-                                  (format "JSON parse error: %s (buffer: %S)"
-                                          (error-message-string err)
-                                          (buffer-substring-no-properties
-                                           (point-min)
-                                           (min (point-max) (+ (point-min) 100)))))
-                        (message "ogent-bd: JSON parse error: %s" (error-message-string err))))))
-                ;; Clean up buffers
-                (when (buffer-live-p (process-buffer process))
-                  (kill-buffer (process-buffer process)))
-                (when (buffer-live-p stderr-buffer)
-                  (kill-buffer stderr-buffer)))
-              
-              ;; Process exited with error
-              ((string-match "exited abnormally" event)
-               (let ((stderr-content
-                      (when (buffer-live-p stderr-buffer)
-                        (with-current-buffer stderr-buffer
-                          (string-trim (buffer-string))))))
-                 (if error-callback
-                     (funcall error-callback
-                              (or stderr-content
-                                  (format "bd command failed: %s" event)))
-                   (message "ogent-bd error: %s" (or stderr-content event))))
-               ;; Clean up buffers
-               (when (buffer-live-p (process-buffer process))
-                 (kill-buffer (process-buffer process)))
-               (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer)))
-              
-              ;; Other events (killed, etc.)
-              (t
-               (when (buffer-live-p (process-buffer process))
-                 (kill-buffer (process-buffer process)))
-               (when (buffer-live-p stderr-buffer)
-                 (kill-buffer stderr-buffer))))))))
+                                  (or stderr-content
+                                      (format "bd command failed: %s" event)))
+                       (message "ogent-bd error: %s" (or stderr-content event))))
+                   ;; Clean up buffers
+                   (when (buffer-live-p (process-buffer process))
+                     (kill-buffer (process-buffer process)))
+                   (when (buffer-live-p stderr-buffer)
+                     (kill-buffer stderr-buffer)))
+                  
+                  ;; Other events (killed, etc.)
+                  (t
+                   (when (buffer-live-p (process-buffer process))
+                     (kill-buffer (process-buffer process)))
+                   (when (buffer-live-p stderr-buffer)
+                     (kill-buffer stderr-buffer))))))))
       
       ;; Don't prompt "Buffer has a running process" on buffer kill
       (set-process-query-on-exit-flag proc nil)

@@ -564,16 +564,16 @@ missing separator and end marker")
           (with-current-buffer (find-file-noselect temp-file)
             (emacs-lisp-mode)
             (ogent-test-with-mock-gptel
-             (ogent-request-edit "Fix this")
-             (let* ((captured (ogent-test-last-request))
-                    (prompt (plist-get captured :prompt))
-                    (args (plist-get captured :args))
-                    (system (plist-get args :system)))
-               (should captured)
-               (should (string-match-p "Fix this" prompt))
-               (should (string-match-p "SEARCH/REPLACE" system))
-               (should (plist-get args :stream))
-               (should (plist-get args :callback))))
+              (ogent-request-edit "Fix this")
+              (let* ((captured (ogent-test-last-request))
+                     (prompt (plist-get captured :prompt))
+                     (args (plist-get captured :args))
+                     (system (plist-get args :system)))
+                (should captured)
+                (should (string-match-p "Fix this" prompt))
+                (should (string-match-p "SEARCH/REPLACE" system))
+                (should (plist-get args :stream))
+                (should (plist-get args :callback))))
             (kill-buffer)))
       (delete-file temp-file))))
 
@@ -591,12 +591,12 @@ missing separator and end marker")
                   (ogent-edit-log-to-companion t))
               (should-not (ogent-companion--get-linked-buffer source-buffer))
               (ogent-test-with-mock-gptel
-               (ogent-request-edit "Fix this")
-               (let ((companion
-                      (ogent-companion--get-linked-buffer source-buffer)))
-                 (should (buffer-live-p companion))
-                 (with-current-buffer companion
-                   (should (derived-mode-p 'org-mode))))))
+                (ogent-request-edit "Fix this")
+                (let ((companion
+                       (ogent-companion--get-linked-buffer source-buffer)))
+                  (should (buffer-live-p companion))
+                  (with-current-buffer companion
+                    (should (derived-mode-p 'org-mode))))))
             (kill-buffer)))
       (delete-file temp-file))))
 
@@ -640,7 +640,7 @@ missing separator and end marker")
             (let ((ogent-default-model "fresh-model")
                   (ogent-model-registry
                    '((:id "fresh-model"
-                      :backend ogent-edit-tests--backend)))
+                          :backend ogent-edit-tests--backend)))
                   (ogent-edit-tests--backend 'fresh-backend)
                   (gptel-model "stale-model")
                   (gptel-backend 'stale-backend)
@@ -999,8 +999,8 @@ missing separator and end marker")
   "ogent-fix-diagnostic uses Flycheck errors when Flymake has none."
   (let ((temp-file (make-temp-file "ogent-test" nil ".el"))
         (error '(:line 2 :column 3 :level error
-                 :message "Reference to free variable missing"
-                 :id "free-var")))
+                       :message "Reference to free variable missing"
+                       :id "free-var")))
     (unwind-protect
         (progn
           (with-temp-file temp-file

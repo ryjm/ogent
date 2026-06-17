@@ -15,10 +15,10 @@
 
 (defconst ogent-issues-transient-test--sample-issue
   '(:id "test-001"
-    :title "Test issue"
-    :status "open"
-    :priority 1
-    :issue_type "task")
+        :title "Test issue"
+        :status "open"
+        :priority 1
+        :issue_type "task")
   "Sample issue for testing.")
 
 ;;; Header Formatting Tests

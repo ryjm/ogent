@@ -63,8 +63,8 @@
   "ogent-mcp--make-request should include params when provided."
   (let ((ogent-mcp--request-id 0))
     (let ((req (ogent-mcp--make-request "tools/call"
-                                         '((name . "read_file")
-                                           (path . "/tmp/test")))))
+                                        '((name . "read_file")
+                                          (path . "/tmp/test")))))
       (should (alist-get 'params req))
       (should (equal "read_file" (alist-get 'name (alist-get 'params req)))))))
 
@@ -85,8 +85,8 @@
 (ert-deftest ogent-mcp--make-notification-includes-params ()
   "ogent-mcp--make-notification should include params when provided."
   (let ((notif (ogent-mcp--make-notification "notifications/message"
-                                              '((level . "info")
-                                                (message . "Hello")))))
+                                             '((level . "info")
+                                               (message . "Hello")))))
     (should (alist-get 'params notif))
     (should (equal "info" (alist-get 'level (alist-get 'params notif))))))
 
@@ -539,12 +539,12 @@
   (let ((ogent-tool-registry nil)
         (conn (make-ogent-mcp-connection :name "test-server")))
     (ogent-mcp--register-tools conn
-                                '(((name . "read_file")
-                                   (description . "Read a file")
-                                   (inputSchema . ((type . "object")
-                                                   (properties . ((path . ((type . "string")
-                                                                           (description . "File path")))))
-                                                   (required . ["path"]))))))
+                               '(((name . "read_file")
+                                  (description . "Read a file")
+                                  (inputSchema . ((type . "object")
+                                                  (properties . ((path . ((type . "string")
+                                                                          (description . "File path")))))
+                                                  (required . ["path"]))))))
     ;; Check tool was registered
     (should (= 1 (length ogent-tool-registry)))
     (let ((spec (car ogent-tool-registry)))
@@ -559,8 +559,8 @@
   (let ((ogent-tool-registry '((:name mcp-test-server-old_tool :function ignore)))
         (conn (make-ogent-mcp-connection :name "test-server")))
     (ogent-mcp--register-tools conn
-                                '(((name . "old_tool")
-                                   (description . "Updated description"))))
+                               '(((name . "old_tool")
+                                  (description . "Updated description"))))
     (should (= 1 (length ogent-tool-registry)))
     (should (string-match-p "Updated" (plist-get (car ogent-tool-registry) :description)))))
 
@@ -1129,8 +1129,8 @@
   "ogent-mcp-add-server correctly stores all arguments."
   (let ((ogent-mcp-servers nil))
     (ogent-mcp-add-server "full-srv" "node" '("srv.js" "--debug")
-                           '(("API_KEY" . "secret") ("PORT" . "3000"))
-                           t)
+                          '(("API_KEY" . "secret") ("PORT" . "3000"))
+                          t)
     (let ((config (cdr (assoc "full-srv" ogent-mcp-servers))))
       (should (equal "node" (plist-get config :command)))
       (should (equal '("srv.js" "--debug") (plist-get config :args)))

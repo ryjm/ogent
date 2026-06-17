@@ -39,13 +39,13 @@
   "Keymap for `ogent-cabinet-org-chart-mode'.")
 
 (ogent-cabinet-ui--define-section-mode
- ogent-cabinet-org-chart-mode "Cabinet-Org-Chart"
- "Major mode for Cabinet department and lead charts."
- (setq-local revert-buffer-function #'ogent-cabinet-org-chart-refresh)
- (setq-local buffer-read-only t)
- (ogent-cabinet-ui--configure-section-buffer)
- (setq header-line-format
-       "C-c g refresh  TAB section  M-n/p sections  C-c u up  q quit"))
+    ogent-cabinet-org-chart-mode "Cabinet-Org-Chart"
+    "Major mode for Cabinet department and lead charts."
+  (setq-local revert-buffer-function #'ogent-cabinet-org-chart-refresh)
+  (setq-local buffer-read-only t)
+  (ogent-cabinet-ui--configure-section-buffer)
+  (setq header-line-format
+        "C-c g refresh  TAB section  M-n/p sections  C-c u up  q quit"))
 
 (defun ogent-cabinet-org-chart (&optional directory)
   "Open a Cabinet org chart for DIRECTORY."
@@ -77,20 +77,20 @@
       (let ((department (plist-get group :department))
             (lead (plist-get group :lead)))
         (ogent-cabinet-ui--with-section
-         (ogent-cabinet-org-chart-department)
-         (ogent-cabinet-ui--heading-text department)
-         (when lead
-           (insert (format "  Lead: %s (%s)\n"
-                           (or (plist-get lead :display-name)
-                               (plist-get lead :name)
-                               (plist-get lead :slug))
-                           (plist-get lead :slug))))
-         (dolist (agent (plist-get group :agents))
-           (insert (format "  %s  %s  %s  %s\n"
-                           (plist-get agent :slug)
-                           (symbol-name (plist-get agent :scope))
-                           (or (plist-get agent :type) "agent")
-                           (or (plist-get agent :role) "")))))
+            (ogent-cabinet-org-chart-department)
+            (ogent-cabinet-ui--heading-text department)
+          (when lead
+            (insert (format "  Lead: %s (%s)\n"
+                            (or (plist-get lead :display-name)
+                                (plist-get lead :name)
+                                (plist-get lead :slug))
+                            (plist-get lead :slug))))
+          (dolist (agent (plist-get group :agents))
+            (insert (format "  %s  %s  %s  %s\n"
+                            (plist-get agent :slug)
+                            (symbol-name (plist-get agent :scope))
+                            (or (plist-get agent :type) "agent")
+                            (or (plist-get agent :role) "")))))
         (insert "\n")))
     (goto-char (point-min))))
 

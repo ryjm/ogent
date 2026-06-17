@@ -32,36 +32,36 @@
 (defun ogent-cabinet-palette--command-records (root)
   "Return command records for ROOT."
   `((:kind command :title "Cabinet Home" :command ogent-cabinet-home
-     :path ,root :text "home overview")
+           :path ,root :text "home overview")
     (:kind command :title "Cabinet Data" :command ogent-cabinet-data
-     :path ,root :text "data browser pages files")
+           :path ,root :text "data browser pages files")
     (:kind command :title "Cabinet Agents" :command ogent-cabinet-agents
-     :path ,root :text "agents personas")
+           :path ,root :text "agents personas")
     (:kind command :title "Create Cabinet Task"
-     :command ogent-cabinet-create-task :path ,root
-     :text "capture task todo inbox manual")
+           :command ogent-cabinet-create-task :path ,root
+           :text "capture task todo inbox manual")
     (:kind command :title "Cabinet Tasks" :command ogent-cabinet-tasks
-     :path ,root :text "tasks board")
+           :path ,root :text "tasks board")
     (:kind command :title "Cabinet Conversations"
-     :command ogent-cabinet-conversations :path ,root :text "runs transcripts")
+           :command ogent-cabinet-conversations :path ,root :text "runs transcripts")
     (:kind command :title "Cabinet Schedule"
-     :command ogent-cabinet-schedule :path ,root :text "calendar jobs heartbeats")
+           :command ogent-cabinet-schedule :path ,root :text "calendar jobs heartbeats")
     (:kind command :title "Cabinet Apps" :command ogent-cabinet-apps
-     :path ,root :text "generated apps html")
+           :path ,root :text "generated apps html")
     (:kind command :title "Cabinet Git Status"
-     :command ogent-cabinet-git-status :path ,root :text "git dirty status")
+           :command ogent-cabinet-git-status :path ,root :text "git dirty status")
     (:kind command :title "Cabinet Settings"
-     :command ogent-cabinet-settings :path ,root :text "settings providers storage")
+           :command ogent-cabinet-settings :path ,root :text "settings providers storage")
     (:kind command :title "Cabinet Help"
-     :command ogent-cabinet-help :path ,root :text "help shortcuts demo")
+           :command ogent-cabinet-help :path ,root :text "help shortcuts demo")
     (:kind command :title "Cabinet Onboard"
-     :command ogent-cabinet-onboard :path ,root :text "setup storage provider team")
+           :command ogent-cabinet-onboard :path ,root :text "setup storage provider team")
     (:kind command :title "Cabinet Registry Import"
-     :command ogent-cabinet-registry-import-into :path ,root :text "template manifest import")
+           :command ogent-cabinet-registry-import-into :path ,root :text "template manifest import")
     (:kind command :title "Cabinet Backup"
-     :command ogent-cabinet-backup :path ,root :text "backup durable org data")
+           :command ogent-cabinet-backup :path ,root :text "backup durable org data")
     (:kind command :title "Cabinet Agenda"
-     :command ogent-cabinet-agenda :path ,root :text "org agenda")))
+           :command ogent-cabinet-agenda :path ,root :text "org agenda")))
 
 (defun ogent-cabinet-palette--file-text (record)
   "Return searchable text for data RECORD."
@@ -212,6 +212,7 @@
 ;;;###autoload
 (cl-defun ogent-cabinet-ranked-search (directory query &key limit rebuild)
   "Return ranked Cabinet records under DIRECTORY for QUERY.
+When LIMIT is non-nil, return at most LIMIT records.
 When REBUILD is non-nil, refresh the persisted index first."
   (let* ((records (if rebuild
                       (ogent-cabinet-search-index-build directory)
@@ -281,7 +282,8 @@ When REBUILD is non-nil, refresh the persisted index first."
 
 ;;;###autoload
 (defun ogent-cabinet-command-palette (&optional directory query)
-  "Open a ranked Cabinet command/search palette for DIRECTORY."
+  "Open a ranked Cabinet command/search palette for DIRECTORY.
+Use QUERY as the initial search string."
   (interactive
    (let ((root (or (ogent-cabinet-find-root)
                    (read-directory-name "Cabinet root: "))))

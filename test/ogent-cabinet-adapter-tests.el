@@ -32,15 +32,15 @@
   (unwind-protect
       (let* ((adapter (ogent-cabinet-adapter-register
                        '(:id "fresh-cli"
-                         :provider-symbol fresh
-                         :name "Fresh CLI"
-                         :aliases ("fresh")
-                         :default-executable "fresh"
-                         :models ("stale-model")
-                         :model-list-function
-                         (lambda (_adapter)
-                           '("fresh-model" "other-model" "fresh-model"))
-                         :runtime-modes (native))))
+                             :provider-symbol fresh
+                             :name "Fresh CLI"
+                             :aliases ("fresh")
+                             :default-executable "fresh"
+                             :models ("stale-model")
+                             :model-list-function
+                             (lambda (_adapter)
+                               '("fresh-model" "other-model" "fresh-model"))
+                             :runtime-modes (native))))
              (models (ogent-cabinet-adapter-models adapter)))
         (should (equal models '("fresh-model" "other-model"))))
     (ogent-cabinet-adapter--builtin)))
@@ -50,15 +50,15 @@
   (unwind-protect
       (let* ((adapter (ogent-cabinet-adapter-register
                        '(:id "offline-cli"
-                         :provider-symbol offline
-                         :name "Offline CLI"
-                         :aliases ("offline")
-                         :default-executable "offline"
-                         :models ("backup-model")
-                         :model-list-function
-                         (lambda (_adapter)
-                           (error "provider unavailable"))
-                         :runtime-modes (native))))
+                             :provider-symbol offline
+                             :name "Offline CLI"
+                             :aliases ("offline")
+                             :default-executable "offline"
+                             :models ("backup-model")
+                             :model-list-function
+                             (lambda (_adapter)
+                               (error "provider unavailable"))
+                             :runtime-modes (native))))
              (models (ogent-cabinet-adapter-models adapter)))
         (should (equal models '("backup-model"))))
     (ogent-cabinet-adapter--builtin)))

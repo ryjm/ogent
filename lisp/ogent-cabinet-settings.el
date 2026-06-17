@@ -41,39 +41,39 @@
 
 (defconst ogent-cabinet-settings--fields
   '((:key :profile-name :property "OGENT_PROFILE_NAME" :section "Profile"
-     :label "Profile name" :type string)
+          :label "Profile name" :type string)
     (:key :profile-avatar :property "OGENT_PROFILE_AVATAR" :section "Profile"
-     :label "Profile avatar" :type string)
+          :label "Profile avatar" :type string)
     (:key :default-provider :property "OGENT_DEFAULT_PROVIDER"
-     :section "Providers" :label "Default provider" :type string)
+          :section "Providers" :label "Default provider" :type string)
     (:key :default-model :property "OGENT_DEFAULT_MODEL"
-     :section "Providers" :label "Default model" :type string)
+          :section "Providers" :label "Default model" :type string)
     (:key :default-effort :property "OGENT_DEFAULT_EFFORT"
-     :section "Runtime defaults" :label "Default effort" :type string)
+          :section "Runtime defaults" :label "Default effort" :type string)
     (:key :default-runtime :property "OGENT_DEFAULT_RUNTIME"
-     :section "Runtime defaults" :label "Default runtime" :type string)
+          :section "Runtime defaults" :label "Default runtime" :type string)
     (:key :skill-paths :property "OGENT_SKILL_PATHS" :section "Skills"
-     :label "Skill paths" :type list)
+          :label "Skill paths" :type list)
     (:key :storage-root :property "OGENT_STORAGE_ROOT" :section "Storage"
-     :label "Storage root" :type string)
+          :label "Storage root" :type string)
     (:key :data-directory :property "OGENT_DATA_DIRECTORY" :section "Storage"
-     :label "Data directory" :type string)
+          :label "Data directory" :type string)
     (:key :registry-source :property "OGENT_REGISTRY_SOURCE"
-     :section "Integrations" :label "Registry source" :type string)
+          :section "Integrations" :label "Registry source" :type string)
     (:key :mcp-enabled :property "OGENT_MCP_ENABLED" :section "Integrations"
-     :label "MCP enabled" :type boolean)
+          :label "MCP enabled" :type boolean)
     (:key :notifications :property "OGENT_NOTIFICATIONS"
-     :section "Notifications" :label "Notifications" :type boolean)
+          :section "Notifications" :label "Notifications" :type boolean)
     (:key :theme :property "OGENT_THEME" :section "Appearance"
-     :label "Theme" :type string)
+          :label "Theme" :type string)
     (:key :git-remote :property "OGENT_GIT_REMOTE" :section "Git"
-     :label "Git remote" :type string)
+          :label "Git remote" :type string)
     (:key :automation-mode :property "OGENT_AUTOMATION_MODE"
-     :section "Automation" :label "Automation mode" :type string)
+          :section "Automation" :label "Automation mode" :type string)
     (:key :telemetry :property "OGENT_TELEMETRY" :section "About"
-     :label "Telemetry" :type boolean)
+          :label "Telemetry" :type boolean)
     (:key :version :property "OGENT_VERSION" :section "About"
-     :label "Version" :type string))
+          :label "Version" :type string))
   "Cabinet settings fields persisted in the settings Org property drawer.")
 
 (defconst ogent-cabinet-demo-manifest
@@ -222,10 +222,10 @@ Missing settings files return defaults without writing a file."
         (ogent-cabinet-settings--read-file file directory)
       (ogent-cabinet-settings-defaults directory))))
 
-(defun ogent-cabinet-settings--plist-merge (base updates)
-  "Return BASE plist with UPDATES applied."
+(defun ogent-cabinet-settings--plist-merge (base change)
+  "Return a copy of BASE with CHANGE applied."
   (let ((merged (copy-sequence base))
-        (tail updates))
+        (tail change))
     (while tail
       (setq merged (plist-put merged (car tail) (cadr tail)))
       (setq tail (cddr tail)))
@@ -262,15 +262,15 @@ Missing settings files return defaults without writing a file."
          (mapconcat
           (lambda (field)
             (let ((value (plist-get settings (plist-get field :key))))
-	      (format "- %s: %s"
-	              (plist-get field :label)
-	              (if (listp value)
-	                  (string-join
-	                   (mapcar (lambda (item)
-	                             (format "%s" item))
-	                           value)
-	                   ", ")
-	                (format "%s" (or value ""))))))
+              (format "- %s: %s"
+                      (plist-get field :label)
+                      (if (listp value)
+                          (string-join
+                           (mapcar (lambda (item)
+                                     (format "%s" item))
+                                   value)
+                           ", ")
+                        (format "%s" (or value ""))))))
           (seq-filter (lambda (field)
                         (equal (plist-get field :section) section))
                       ogent-cabinet-settings--fields)
@@ -278,7 +278,7 @@ Missing settings files return defaults without writing a file."
          "\n"))
       sections
       "\n")
-    "\n")))
+     "\n")))
 
 (defun ogent-cabinet-settings-ensure (directory)
   "Ensure DIRECTORY has a settings file and return it."
@@ -308,9 +308,9 @@ When MERGE is non-nil, existing settings and defaults fill missing keys."
     (ogent-cabinet--write-file file (ogent-cabinet-settings--format settings))
     file))
 
-(defun ogent-cabinet-settings-update (directory &rest updates)
-  "Merge UPDATES into Cabinet settings for DIRECTORY."
-  (ogent-cabinet-settings-write directory updates :merge t))
+(defun ogent-cabinet-settings-update (directory &rest change)
+  "Apply CHANGE to Cabinet settings for DIRECTORY."
+  (ogent-cabinet-settings-write directory change :merge t))
 
 ;;;###autoload
 (defun ogent-cabinet-settings-export (directory output)
@@ -517,17 +517,19 @@ fallback default."
 
 (defconst ogent-cabinet-onboard-default-team
   '((:slug "lead" :name "Lead" :role "Lead agent and planning coordinator"
-     :department "Leadership" :type "lead" :can-dispatch t :tags ("lead"))
+           :department "Leadership" :type "lead" :can-dispatch t :tags ("lead"))
     (:slug "researcher" :name "Researcher" :role "Research and context agent"
-     :department "Research" :type "specialist" :tags ("research")))
+           :department "Research" :type "specialist" :tags ("research")))
   "Default team created by Cabinet onboarding.")
 
 ;;;###autoload
 (cl-defun ogent-cabinet-onboard
     (directory &key name default-provider default-model default-effort runtime team)
   "Onboard a Cabinet in DIRECTORY and return its root.
-NAME is the Cabinet name.  Provider/runtime defaults are written to settings.
-TEAM is a list of agent plists, or nil for `ogent-cabinet-onboard-default-team'."
+Use NAME as the Cabinet name.
+Use DEFAULT-PROVIDER, DEFAULT-MODEL, DEFAULT-EFFORT, and RUNTIME
+to seed settings.
+Use TEAM, or nil for `ogent-cabinet-onboard-default-team', as the agent roster."
   (interactive
    (let* ((directory (read-directory-name "Cabinet directory: "))
           (name (read-string "Cabinet name: "

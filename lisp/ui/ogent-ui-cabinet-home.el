@@ -95,11 +95,11 @@
 
 (ogent-cabinet-ui--define-section-mode ogent-cabinet-home-mode "Cabinet-Home"
                                        "Major mode for Cabinet Home."
-                                       (setq-local revert-buffer-function #'ogent-cabinet-home-refresh)
-                                       (setq-local truncate-lines t)
-                                       (setq-local buffer-read-only t)
-                                       (ogent-cabinet-ui--configure-section-buffer)
-                                       (setq-local header-line-format (ogent-cabinet-home--header-line)))
+  (setq-local revert-buffer-function #'ogent-cabinet-home-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (ogent-cabinet-ui--configure-section-buffer)
+  (setq-local header-line-format (ogent-cabinet-home--header-line)))
 
 (defun ogent-cabinet-home--header-line ()
   "Return header line for Cabinet Home."
@@ -139,7 +139,7 @@
 (defun ogent-cabinet-home--insert-buffer ()
   "Insert Cabinet Home contents."
   (ogent-cabinet-ui--with-root-section (ogent-cabinet-home-root)
-                                       (ogent-cabinet-home--insert-buffer-content)))
+    (ogent-cabinet-home--insert-buffer-content)))
 
 (defun ogent-cabinet-home--insert-buffer-content ()
   "Insert Cabinet Home content sections."
@@ -179,80 +179,80 @@
     (ogent-cabinet-ui--insert-kv "Description" (plist-get index :description))
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-health)
-                                    (ogent-cabinet-ui--heading-text "Health")
-                                    (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n"
-                                                    (length agents)
-                                                    (length (seq-filter (lambda (job)
-                                                                          (and (plist-get job :enabled)
-                                                                               (not (plist-get job :archived))))
-                                                                        jobs))
-                                                    (length failed)
-                                                    (length running)
-                                                    (length archived)
-                                                    (length apps))))
+        (ogent-cabinet-ui--heading-text "Health")
+      (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n"
+                      (length agents)
+                      (length (seq-filter (lambda (job)
+                                            (and (plist-get job :enabled)
+                                                 (not (plist-get job :archived))))
+                                          jobs))
+                      (length failed)
+                      (length running)
+                      (length archived)
+                      (length apps))))
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-navigate)
-                                    (ogent-cabinet-ui--heading-text "Navigate")
-                                    (ogent-cabinet-home--insert-nav "Data" "C-c D" #'ogent-cabinet-data)
-                                    (ogent-cabinet-home--insert-nav "Agents" "C-c a" #'ogent-cabinet-agents)
-                                    (ogent-cabinet-home--insert-nav "Jobs" "C-c j" #'ogent-cabinet-jobs)
-                                    (ogent-cabinet-home--insert-nav "Tasks" "C-c t" #'ogent-cabinet-tasks)
-                                    (ogent-cabinet-home--insert-nav "Conversations" "C-c c" #'ogent-cabinet-conversations)
-                                    (ogent-cabinet-home--insert-nav "Schedule" "C-c S" #'ogent-cabinet-schedule)
-                                    (ogent-cabinet-home--insert-nav "Search" "C-c s" #'ogent-cabinet-search)
-                                    (ogent-cabinet-home--insert-nav "Apps" "C-c A" #'ogent-cabinet-apps)
-                                    (ogent-cabinet-home--insert-nav "Git" "C-c h" #'ogent-cabinet-git-status)
-                                    (ogent-cabinet-home--insert-nav "Palette" "C-c /" #'ogent-cabinet-command-palette)
-                                    (ogent-cabinet-home--insert-nav "Settings" "C-c ," #'ogent-cabinet-settings)
-                                    (ogent-cabinet-home--insert-nav "Help" "C-c ." #'ogent-cabinet-help)
-                                    (ogent-cabinet-home--insert-nav "Graph" "C-c G" #'ogent-cabinet-status)
-                                    (ogent-cabinet-ui--insert-item-line
-                                     (list :type 'file :path (ogent-cabinet-index-file root))
-                                     "  [C-c e] Cabinet metadata")
-                                    (ogent-cabinet-ui--insert-item-line
-                                     (list :type 'file :path (ogent-cabinet-index-file root))
-                                     "  Source Org"))
+        (ogent-cabinet-ui--heading-text "Navigate")
+      (ogent-cabinet-home--insert-nav "Data" "C-c D" #'ogent-cabinet-data)
+      (ogent-cabinet-home--insert-nav "Agents" "C-c a" #'ogent-cabinet-agents)
+      (ogent-cabinet-home--insert-nav "Jobs" "C-c j" #'ogent-cabinet-jobs)
+      (ogent-cabinet-home--insert-nav "Tasks" "C-c t" #'ogent-cabinet-tasks)
+      (ogent-cabinet-home--insert-nav "Conversations" "C-c c" #'ogent-cabinet-conversations)
+      (ogent-cabinet-home--insert-nav "Schedule" "C-c S" #'ogent-cabinet-schedule)
+      (ogent-cabinet-home--insert-nav "Search" "C-c s" #'ogent-cabinet-search)
+      (ogent-cabinet-home--insert-nav "Apps" "C-c A" #'ogent-cabinet-apps)
+      (ogent-cabinet-home--insert-nav "Git" "C-c h" #'ogent-cabinet-git-status)
+      (ogent-cabinet-home--insert-nav "Palette" "C-c /" #'ogent-cabinet-command-palette)
+      (ogent-cabinet-home--insert-nav "Settings" "C-c ," #'ogent-cabinet-settings)
+      (ogent-cabinet-home--insert-nav "Help" "C-c ." #'ogent-cabinet-help)
+      (ogent-cabinet-home--insert-nav "Graph" "C-c G" #'ogent-cabinet-status)
+      (ogent-cabinet-ui--insert-item-line
+       (list :type 'file :path (ogent-cabinet-index-file root))
+       "  [C-c e] Cabinet metadata")
+      (ogent-cabinet-ui--insert-item-line
+       (list :type 'file :path (ogent-cabinet-index-file root))
+       "  Source Org"))
     (insert "\n")
     (ogent-cabinet-home--insert-active-jobs jobs root)
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-recent)
-                                    (ogent-cabinet-ui--heading-text "Recent Activity")
-                                    (if sessions
-                                        (dolist (session (seq-take sessions 5))
-                                          (ogent-cabinet-ui--insert-item-line
-                                           (list :type 'session :path (plist-get session :path)
-                                                 :agent (plist-get session :agent)
-                                                 :job-id (plist-get session :job-id))
-                                           (format "  %s  %s  %s"
-                                                   (or (plist-get session :status) "")
-                                                   (or (plist-get session :name) "")
-                                                   (or (plist-get session :finished) ""))))
-                                      (insert (propertize "  No conversations yet\n" 'face 'ogent-cabinet-ui-dim))))
+        (ogent-cabinet-ui--heading-text "Recent Activity")
+      (if sessions
+          (dolist (session (seq-take sessions 5))
+            (ogent-cabinet-ui--insert-item-line
+             (list :type 'session :path (plist-get session :path)
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id))
+             (format "  %s  %s  %s"
+                     (or (plist-get session :status) "")
+                     (or (plist-get session :name) "")
+                     (or (plist-get session :finished) ""))))
+        (insert (propertize "  No conversations yet\n" 'face 'ogent-cabinet-ui-dim))))
     (insert "\n")
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-attention)
-                                    (ogent-cabinet-ui--heading-text "Needs Attention")
-                                    (if (or failed stale missing-persona)
-                                        (progn
-                                          (dolist (session failed)
-                                            (ogent-cabinet-ui--insert-item-line
-                                             (list :type 'session :path (plist-get session :path)
-                                                   :agent (plist-get session :agent)
-                                                   :job-id (plist-get session :job-id))
-                                             (format "  failed session  %s" (plist-get session :name))))
-                                          (dolist (job stale)
-                                            (ogent-cabinet-ui--insert-item-line
-                                             (list :type 'job :agent (plist-get job :agent)
-                                                   :job-id (plist-get job :id)
-                                                   :path (ogent-cabinet-job-file root
-                                                                                 (plist-get job :agent)
-                                                                                 (plist-get job :id)))
-                                             (format "  stale job       %s" (plist-get job :name))))
-                                          (dolist (slug missing-persona)
-                                            (ogent-cabinet-ui--insert-item-line
-                                             (list :type 'agent :agent slug
-                                                   :path (ogent-cabinet-agent-file root slug))
-                                             (format "  missing persona %s" slug))))
-                                      (insert (propertize "  Nothing needs attention\n" 'face 'ogent-cabinet-ui-good))))))
+        (ogent-cabinet-ui--heading-text "Needs Attention")
+      (if (or failed stale missing-persona)
+          (progn
+            (dolist (session failed)
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'session :path (plist-get session :path)
+                     :agent (plist-get session :agent)
+                     :job-id (plist-get session :job-id))
+               (format "  failed session  %s" (plist-get session :name))))
+            (dolist (job stale)
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'job :agent (plist-get job :agent)
+                     :job-id (plist-get job :id)
+                     :path (ogent-cabinet-job-file root
+                                                   (plist-get job :agent)
+                                                   (plist-get job :id)))
+               (format "  stale job       %s" (plist-get job :name))))
+            (dolist (slug missing-persona)
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'agent :agent slug
+                     :path (ogent-cabinet-agent-file root slug))
+               (format "  missing persona %s" slug))))
+        (insert (propertize "  Nothing needs attention\n" 'face 'ogent-cabinet-ui-good))))))
 
 (defun ogent-cabinet-home--insert-active-jobs (jobs root)
   "Insert active development JOBS for ROOT."
@@ -261,23 +261,23 @@
                                    (not (plist-get job :archived))))
                             jobs)))
     (ogent-cabinet-ui--with-section (ogent-cabinet-home-active-jobs)
-                                    (ogent-cabinet-ui--heading-text "Active Jobs")
-                                    (if active
-                                        (dolist (job active)
-                                          (let ((agent (plist-get job :agent))
-                                                (job-id (plist-get job :id)))
-                                            (ogent-cabinet-ui--insert-item-line
-                                             (list :type 'job
-                                                   :agent agent
-                                                   :job-id job-id
-                                                   :path (ogent-cabinet-job-file root agent job-id))
-                                             (format "  %s  %s  %s  [C-c r run] [C-c E prompt] [C-c J jobs]"
-                                                     agent
-                                                     (or (plist-get job :name) job-id)
-                                                     (or (plist-get job :cron)
-                                                         (plist-get job :heartbeat)
-                                                         "manual")))))
-                                      (insert (propertize "  No active jobs\n" 'face 'ogent-cabinet-ui-dim))))))
+        (ogent-cabinet-ui--heading-text "Active Jobs")
+      (if active
+          (dolist (job active)
+            (let ((agent (plist-get job :agent))
+                  (job-id (plist-get job :id)))
+              (ogent-cabinet-ui--insert-item-line
+               (list :type 'job
+                     :agent agent
+                     :job-id job-id
+                     :path (ogent-cabinet-job-file root agent job-id))
+               (format "  %s  %s  %s  [C-c r run] [C-c E prompt] [C-c J jobs]"
+                       agent
+                       (or (plist-get job :name) job-id)
+                       (or (plist-get job :cron)
+                           (plist-get job :heartbeat)
+                           "manual")))))
+        (insert (propertize "  No active jobs\n" 'face 'ogent-cabinet-ui-dim))))))
 
 (defun ogent-cabinet-home-visit ()
   "Visit or dispatch the item at point in Cabinet Home."
@@ -387,45 +387,45 @@
        ""))))
 
 (transient-define-prefix ogent-cabinet-home-dispatch ()
-                         "Dispatch menu for Cabinet Home."
-                         [:description ogent-cabinet-home--transient-header
-                                       ["Daily Work"
-                                        ("j" "Jobs" ogent-cabinet-jobs)
-                                        ("J" "Related jobs" ogent-cabinet-home-open-jobs)
-                                        ("R" "Run/retry selected" ogent-cabinet-home-run)
-                                        ("E" "Edit selected" ogent-cabinet-home-edit-item)]
-                                       ["Navigate"
-                                        ("RET" "Visit selected" ogent-cabinet-home-visit)
-                                        ("TAB" "Toggle section" ogent-cabinet-ui-toggle-section :transient t)
-                                        ("M-n" "Next section" ogent-cabinet-ui-next-section :transient t)
-                                        ("M-p" "Previous section" ogent-cabinet-ui-previous-section :transient t)
-                                        ("^" "Up section" ogent-cabinet-ui-up-section :transient t)
-                                        ("n" "Next item" ogent-cabinet-home-next-item :transient t)
-                                        ("p" "Previous item" ogent-cabinet-home-previous-item :transient t)
-                                        ("g" "Refresh" ogent-cabinet-home-refresh :transient t)]]
-                         [["Surfaces"
-                           ("D" "Data" ogent-cabinet-data)
-                           ("a" "Agents" ogent-cabinet-agents)
-                           ("B" "Org chart" ogent-cabinet-org-chart)
-                           ("t" "Tasks" ogent-cabinet-tasks)
-                           ("c" "Conversations" ogent-cabinet-conversations)
-                           ("u" "Schedule" ogent-cabinet-schedule)
-                           ("N" "Action approvals" ogent-cabinet-actions)
-                           ("s" "Search" ogent-cabinet-search)
-                           ("A" "Apps" ogent-cabinet-apps)
-	                           ("h" "Git" ogent-cabinet-git-status)
-	                           ("/" "Palette" ogent-cabinet-command-palette)
-	                           ("," "Settings" ogent-cabinet-settings)
-	                           ("." "Help" ogent-cabinet-help)
-	                           ("G" "Graph" ogent-cabinet-status)]
-	                          ["Cabinet"
-	                           ("Q" "Agenda" ogent-cabinet-agenda)
-	                           ("'" "Onboard" ogent-cabinet-onboard)
-	                           ("=" "Registry import" ogent-cabinet-registry-import)
-	                           ("_" "Backup" ogent-cabinet-backup)
-	                           ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
-	                           ("?" "Help" ogent-cabinet-home-help)
-                           ("q" "Quit menu" transient-quit-one)]])
+  "Dispatch menu for Cabinet Home."
+  [:description ogent-cabinet-home--transient-header
+                ["Daily Work"
+                 ("j" "Jobs" ogent-cabinet-jobs)
+                 ("J" "Related jobs" ogent-cabinet-home-open-jobs)
+                 ("R" "Run/retry selected" ogent-cabinet-home-run)
+                 ("E" "Edit selected" ogent-cabinet-home-edit-item)]
+                ["Navigate"
+                 ("RET" "Visit selected" ogent-cabinet-home-visit)
+                 ("TAB" "Toggle section" ogent-cabinet-ui-toggle-section :transient t)
+                 ("M-n" "Next section" ogent-cabinet-ui-next-section :transient t)
+                 ("M-p" "Previous section" ogent-cabinet-ui-previous-section :transient t)
+                 ("^" "Up section" ogent-cabinet-ui-up-section :transient t)
+                 ("n" "Next item" ogent-cabinet-home-next-item :transient t)
+                 ("p" "Previous item" ogent-cabinet-home-previous-item :transient t)
+                 ("g" "Refresh" ogent-cabinet-home-refresh :transient t)]]
+  [["Surfaces"
+    ("D" "Data" ogent-cabinet-data)
+    ("a" "Agents" ogent-cabinet-agents)
+    ("B" "Org chart" ogent-cabinet-org-chart)
+    ("t" "Tasks" ogent-cabinet-tasks)
+    ("c" "Conversations" ogent-cabinet-conversations)
+    ("u" "Schedule" ogent-cabinet-schedule)
+    ("N" "Action approvals" ogent-cabinet-actions)
+    ("s" "Search" ogent-cabinet-search)
+    ("A" "Apps" ogent-cabinet-apps)
+    ("h" "Git" ogent-cabinet-git-status)
+    ("/" "Palette" ogent-cabinet-command-palette)
+    ("," "Settings" ogent-cabinet-settings)
+    ("." "Help" ogent-cabinet-help)
+    ("G" "Graph" ogent-cabinet-status)]
+   ["Cabinet"
+    ("Q" "Agenda" ogent-cabinet-agenda)
+    ("'" "Onboard" ogent-cabinet-onboard)
+    ("=" "Registry import" ogent-cabinet-registry-import)
+    ("_" "Backup" ogent-cabinet-backup)
+    ("e" "Edit metadata" ogent-cabinet-home-edit-metadata)
+    ("?" "Help" ogent-cabinet-home-help)
+    ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-cabinet-home-next-item ()
   "Move point to the next actionable Cabinet Home item."

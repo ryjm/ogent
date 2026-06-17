@@ -29,26 +29,26 @@
   (ogent-cabinet-write-agent
    root
    '(:slug "lead"
-     :name "Lead"
-     :type "lead"
-     :can-dispatch t
-     :provider "codex-cli"
-     :model "gpt-5.4"
-     :effort "high"
-     :runtime-mode "terminal")
+           :name "Lead"
+           :type "lead"
+           :can-dispatch t
+           :provider "codex-cli"
+           :model "gpt-5.4"
+           :effort "high"
+           :runtime-mode "terminal")
    "Lead the work.")
   (ogent-cabinet-write-agent
    root
    '(:slug "builder"
-     :name "Builder"
-     :provider "claude")
+           :name "Builder"
+           :provider "claude")
    "Build the work.")
   (ogent-cabinet-conversation-create
    root
    '(:id "parent"
-     :agent "lead"
-     :title "Parent"
-     :status "done")))
+         :agent "lead"
+         :title "Parent"
+         :status "done")))
 
 (ert-deftest ogent-cabinet-actions-parse-and-dedupe-proposals ()
   "Action parser handles line proposals, JSON blocks, and duplicates."

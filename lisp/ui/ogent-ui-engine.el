@@ -35,10 +35,10 @@
                   "ogent-zen-edit" (context request-pos))
 
 ;; gptel integration (soft dependency).
-(declare-function gptel-request "ext:gptel")
-(declare-function gptel-abort "ext:gptel")
-(declare-function gptel-tool-name "ext:gptel-request" (tool))
-(declare-function gptel-backend-name "ext:gptel")
+(declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-abort "ext:gptel-request")
+(declare-function gptel-tool-name "ext:gptel-request" t t)
+(declare-function gptel-backend-name "ext:gptel-request" t t)
 
 ;; Analytics (optional; loaded lazily).
 (declare-function ogent-analytics-start-request "ogent-analytics")
@@ -166,10 +166,10 @@ body.  Return nil when the region contains no Response heading."
                (this-model (match-string-no-properties 2))
                (body-start (min end (1+ (line-end-position))))
                (body-end (or (save-excursion
-                                (goto-char body-start)
-                                (ogent-ui--next-heading-at-or-above
-                                 response-level end))
-                              end))
+                               (goto-char body-start)
+                               (ogent-ui--next-heading-at-or-above
+                                response-level end))
+                             end))
                (body (string-trim (buffer-substring-no-properties
                                    body-start (max body-start body-end)))))
           (unless first (setq first body))

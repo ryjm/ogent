@@ -279,25 +279,25 @@
 (ert-deftest ogent-keys-cabinet-actions-present ()
   "Cabinet actions expose the complete Org OS entry surface."
   (dolist (action '(cabinet-home
-	                    cabinet-status
-	                    cabinet-agents
-	                    cabinet-agent-profile
-	                    cabinet-org-chart
-	                    cabinet-tasks
-	                    cabinet-conversations
-	                    cabinet-actions
-	                    cabinet-data
-	                    cabinet-schedule
-	                    cabinet-agenda
-	                    cabinet-git
-	                    cabinet-palette
-	                    cabinet-settings
-	                    cabinet-help
-	                    cabinet-onboard
-	                    cabinet-registry-import
-	                    cabinet-backup
-	                    cabinet-search
-	                    cabinet-apps
+                    cabinet-status
+                    cabinet-agents
+                    cabinet-agent-profile
+                    cabinet-org-chart
+                    cabinet-tasks
+                    cabinet-conversations
+                    cabinet-actions
+                    cabinet-data
+                    cabinet-schedule
+                    cabinet-agenda
+                    cabinet-git
+                    cabinet-palette
+                    cabinet-settings
+                    cabinet-help
+                    cabinet-onboard
+                    cabinet-registry-import
+                    cabinet-backup
+                    cabinet-search
+                    cabinet-apps
                     cabinet-create-agent
                     cabinet-create-job))
     (should (assq action ogent-action-registry))))

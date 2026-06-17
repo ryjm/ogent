@@ -179,7 +179,9 @@
 
 (cl-defun ogent-cabinet-schedule--event
     (&key root agent source-type source-id title time path job owner-task)
-  "Return one Cabinet schedule event."
+  "Return one Cabinet schedule event for ROOT and AGENT.
+Use SOURCE-TYPE, SOURCE-ID, TITLE, TIME, PATH, JOB, and OWNER-TASK
+as event metadata."
   (let* ((minute (ogent-cabinet-schedule--minute-iso time))
          (key (ogent-cabinet-schedule-key agent source-type source-id time)))
     (list :root root
@@ -282,7 +284,8 @@
    (t 'upcoming)))
 
 (defun ogent-cabinet-schedule--link-event (event conversation-table now)
-  "Return EVENT annotated with conversation linkage and state."
+  "Return EVENT annotated with CONVERSATION-TABLE linkage and state.
+Use NOW to classify missed events."
   (let* ((conversation (gethash (plist-get event :schedule-key)
                                 conversation-table))
          (state (ogent-cabinet-schedule--state event conversation now)))
@@ -304,7 +307,8 @@ FALLBACK-ID is used when KEY does not have the stable Cabinet shape."
             :source-id fallback-id))))
 
 (defun ogent-cabinet-schedule--manual-events (roots start end generated now)
-  "Return scheduled manual conversation events not already in GENERATED."
+  "Return scheduled manual events from ROOTS between START and END.
+Use GENERATED and NOW to suppress duplicates and classify events."
   (let ((seen (make-hash-table :test 'equal))
         events)
     (dolist (event generated)
@@ -355,7 +359,7 @@ FALLBACK-ID is used when KEY does not have the stable Cabinet shape."
 (cl-defun ogent-cabinet-schedule-events
     (directory start end &key now (include-visible t))
   "Return schedule events under DIRECTORY from START until END.
-NOW controls missed-run detection and defaults to the current time."
+Use NOW for missed-run detection and INCLUDE-VISIBLE for visible child Cabinets."
   (let* ((candidate (ogent-cabinet--directory directory))
          (root (directory-file-name
                 (file-truename
@@ -403,7 +407,7 @@ NOW controls missed-run detection and defaults to the current time."
                 conversation-roots start end linked now))))))
 
 (cl-defun ogent-cabinet-agenda-files (directory &key (include-visible t))
-  "Return Org agenda files for DIRECTORY and visible child Cabinets."
+  "Return Org agenda files for DIRECTORY according to INCLUDE-VISIBLE."
   (let* ((candidate (ogent-cabinet--directory directory))
          (root (directory-file-name
                 (file-truename

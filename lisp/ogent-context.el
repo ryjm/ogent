@@ -88,7 +88,7 @@ list when building context payloads.")
   "List of `ogent-pinned-item' structs representing pinned context.")
 
 (defun ogent-pin--make-label (type &optional path buffer start end)
-  "Generate a label for a pinned item of TYPE."
+  "Generate a label for TYPE using PATH, BUFFER, START, and END."
   (pcase type
     ('file (file-name-nondirectory path))
     ('buffer (buffer-name buffer))
@@ -246,7 +246,8 @@ Otherwise, pin the buffer."
   (length (ogent-pinned-items-valid)))
 
 (defun ogent-context--truncate-content (content label &optional total-length)
-  "Return CONTENT capped to `ogent-context-max-item-chars' for LABEL."
+  "Return CONTENT capped for LABEL and TOTAL-LENGTH.
+Use `ogent-context-max-item-chars' as the limit."
   (let ((limit ogent-context-max-item-chars)
         (size (or total-length (length content))))
     (if (and (integerp limit)
@@ -322,7 +323,7 @@ Otherwise, pin the buffer."
    ogent-pinned-context))
 
 (defun ogent-pinned-context-string ()
-  "Format all pinned items as a string for inclusion in prompts."
+  "Format all pinned items as a string for inclusion in prompt context."
   (let ((valid-items (ogent-pinned-items-valid)))
     (when valid-items
       (mapconcat
@@ -339,7 +340,7 @@ Otherwise, pin the buffer."
 (defun ogent-context--ensure-org ()
   "Ensure the current buffer is an Org buffer."
   (unless (derived-mode-p 'org-mode)
-    (user-error "ogent commands operate inside Org buffers")))
+    (user-error "Ogent commands operate inside Org buffers")))
 
 ;;; Source Buffer Context (non-Org modes)
 
@@ -458,7 +459,7 @@ If REGION-START and REGION-END are provided, include the selected region."
   (secure-hash 'sha256 (or content "")))
 
 (defun ogent-context--manifest-entry (kind label reason content &optional source)
-  "Return a provenance manifest entry."
+  "Return a provenance manifest entry for KIND, LABEL, REASON, CONTENT, and SOURCE."
   (list :kind kind
         :label label
         :reason reason
@@ -467,7 +468,7 @@ If REGION-START and REGION-END are provided, include the selected region."
         :hash (ogent-context--content-hash content)))
 
 (defun ogent-context--node-manifest-entry (kind reason node)
-  "Return a manifest entry for NODE."
+  "Return a manifest entry for KIND, REASON, and NODE."
   (ogent-context--manifest-entry
    kind
    (or (ogent-context-node-title node)
@@ -939,10 +940,10 @@ Returns a plist containing :root, :ancestors, :handles, and :dependencies."
 
 ;;;###autoload
 (defun ogent-context-build-filtered (&optional point)
-  "Build context payload with excluded handles filtered out.
+  "Build context payload with excluded handles filtered out from POINT.
 Like `ogent-context-build', but filters dependencies where :handle
 is in `ogent-context-excluded-handles'.
-Returns a plist with :root, :ancestors, :handles, :dependencies,
+Return a plist with :root, :ancestors, :handles, :dependencies,
 :excluded-handles, and :pinned keys."
   (let* ((ctx (ogent-context-build point))
          (all-dependencies (plist-get ctx :dependencies))
@@ -962,10 +963,10 @@ Returns a plist with :root, :ancestors, :handles, :dependencies,
 
 ;;;###autoload
 (defun ogent-context-build-for-buffer (&optional buffer region-start region-end)
-  "Build context from BUFFER, handling both Org and non-Org modes.
-For Org buffers, builds standard Org context.
-For non-Org buffers, builds source context with optional region.
-Returns a plist with :source-context for non-Org or standard Org context keys."
+  "Build context from BUFFER, handling Org and non-Org modes.
+For Org buffers, build standard Org context.  For non-Org buffers,
+build source context with optional REGION-START and REGION-END.
+Return a plist with :source-context for non-Org or standard Org context keys."
   (let ((buf (or buffer (current-buffer))))
     (with-current-buffer buf
       (if (derived-mode-p 'org-mode)
@@ -989,8 +990,8 @@ Returns a plist with :source-context for non-Org or standard Org context keys."
   "Build combined context from SOURCE-BUFFER and current Org buffer.
 The current buffer should be an Org companion buffer.
 SOURCE-BUFFER is the code buffer the user is editing.
-ORG-POINT, when non-nil, selects the Org heading used as root.
-Returns context with both Org structure (if any), source code, and pinned items."
+ORG-POINT, REGION-START, and REGION-END select the context region and root.
+Return context with both Org structure (if any), source code, and pinned items."
   (let* ((source-ctx (when (and source-buffer
                                 (buffer-live-p source-buffer)
                                 ;; Use buffer-local-value for faster check

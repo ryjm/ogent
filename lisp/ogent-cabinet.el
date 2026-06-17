@@ -218,7 +218,7 @@ When SUNDAY is non-nil, day of week value 7 is accepted as Sunday."
   (not (null (ogent-cabinet--cron-expression-fields value))))
 
 (defun ogent-cabinet--heartbeat-expression-p (value)
-  "Return non-nil when VALUE looks like a heartbeat or cron expression."
+  "Return non-nil when VALUE is a heartbeat or cron expression."
   (let ((trimmed (string-trim (or value ""))))
     (or (string-match-p "\\`[0-9]+[smhdw]?\\'" trimmed)
         (ogent-cabinet--cron-expression-p trimmed))))
@@ -278,7 +278,7 @@ PROPERTIES is an alist of property names to values."
                             (date-to-time text))))))
 
 (defun ogent-cabinet--time-expression-p (value)
-  "Return non-nil when VALUE parses as an Emacs time expression."
+  "Return non-nil when VALUE is readable as an Emacs time expression."
   (condition-case nil
       (progn
         (date-to-time value)
@@ -855,7 +855,7 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
                  records)))
 
 (cl-defun ogent-cabinet-list-visible-agents (directory &key include-visible)
-  "Return visible agent slugs for DIRECTORY."
+  "Return visible agent slugs for DIRECTORY according to INCLUDE-VISIBLE."
   (mapcar (lambda (agent) (plist-get agent :slug))
           (ogent-cabinet-agent-records
            directory
@@ -867,7 +867,8 @@ INCLUDE-VISIBLE is non-nil, non-shadowed child Cabinet agents are appended."
       (plist-get agent :can-dispatch)))
 
 (cl-defun ogent-cabinet-agents-by-department (directory &key include-visible)
-  "Return visible agents under DIRECTORY grouped by department."
+  "Return agents under DIRECTORY grouped by department.
+INCLUDE-VISIBLE controls whether hidden agents are included."
   (let ((groups (make-hash-table :test 'equal)))
     (dolist (agent (ogent-cabinet-agent-records
                     directory
@@ -1377,7 +1378,8 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
   (plist-get (ogent-cabinet-record-metadata file) :kind))
 
 (defun ogent-cabinet--record-matches-filters-p (metadata kind agent status tag archived)
-  "Return non-nil when METADATA matches supplied search filters."
+  "Return non-nil when METADATA matches search filters.
+Use KIND, AGENT, STATUS, TAG, and ARCHIVED as filter values."
   (and (or (null kind) (eq (plist-get metadata :kind) kind))
        (or (null agent) (equal (plist-get metadata :agent) agent))
        (or (null status) (equal (plist-get metadata :status) status))

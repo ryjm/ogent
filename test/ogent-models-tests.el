@@ -54,8 +54,8 @@
         (progn
           (ogent-models-apply-gptel-props
            '(:id "ogent-test-model-props"
-             :backend gptel-openai
-             :request-params (:reasoning_effort "high")))
+                 :backend gptel-openai
+                 :request-params (:reasoning_effort "high")))
           (should (equal (get sym :request-params)
                          '(:reasoning_effort "high"))))
       (put sym :request-params nil)
@@ -69,8 +69,8 @@
           (put sym :capabilities '(media))
           (ogent-models-apply-gptel-props
            '(:id "ogent-test-model-caps"
-             :backend gptel-anthropic
-             :capabilities (cache)))
+                 :backend gptel-anthropic
+                 :capabilities (cache)))
           (should (memq 'cache (get sym :capabilities)))
           (should (memq 'media (get sym :capabilities))))
       (put sym :capabilities nil))))
@@ -138,19 +138,19 @@
   ;; through to gptel without a confirm flag.
   (should (ogent-tool-spec-confirm-p
            '(:name shell
-             :effects ((:kind execute :target shell :scope unrestricted
-                              :risk critical)))))
+                   :effects ((:kind execute :target shell :scope unrestricted
+                                    :risk critical)))))
   (should (ogent-tool-spec-confirm-p
            '(:name writer
-             :effects ((:kind write :target file :scope workspace
-                              :risk high))))))
+                   :effects ((:kind write :target file :scope workspace
+                                    :risk high))))))
 
 (ert-deftest ogent-tool-spec-confirm-low-risk-needs-no-confirm ()
   "Low-risk read-only effects do not force confirmation."
   (should-not (ogent-tool-spec-confirm-p
                '(:name reader
-                 :effects ((:kind read :target file :scope workspace
-                                  :risk low)))))
+                       :effects ((:kind read :target file :scope workspace
+                                        :risk low)))))
   (should-not (ogent-tool-spec-confirm-p '(:name bare))))
 
 (ert-deftest ogent-register-tools-forwards-confirm-to-gptel ()
@@ -159,15 +159,15 @@ Without it, gptel auto-executes risky tools (the P0 bypass)."
   (let ((ogent--tools-registered nil)
         (ogent-tool-registry
          '((:name safe-read
-            :function ignore
-            :description "read"
-            :effects ((:kind read :target file :scope workspace :risk low)))
+                  :function ignore
+                  :description "read"
+                  :effects ((:kind read :target file :scope workspace :risk low)))
            (:name risky-shell
-            :function ignore
-            :description "shell"
-            :effects ((:kind execute :target shell :scope unrestricted
-                             :risk critical))
-            :confirm t)))
+                  :function ignore
+                  :description "shell"
+                  :effects ((:kind execute :target shell :scope unrestricted
+                                   :risk critical))
+                  :confirm t)))
         (captured nil))
     (cl-letf (((symbol-function 'gptel-make-tool)
                (lambda (&rest args)
@@ -278,7 +278,7 @@ Without it, gptel auto-executes risky tools (the P0 bypass)."
   "Test user presets override defaults with same name."
   (let ((ogent-preset-registry
          '((:name ogent-code-review :spec (:description "custom cr")
-            :description "User custom"))))
+                  :description "User custom"))))
     (let ((all (ogent--all-presets)))
       ;; Should find the user version
       (let ((found (seq-find (lambda (p) (eq (plist-get p :name) 'ogent-code-review))
@@ -306,7 +306,7 @@ Without it, gptel auto-executes risky tools (the P0 bypass)."
   "Test tools-enabled-list returns all tools when enabled is t."
   (let ((ogent-tools-enabled t)
         (ogent--tools-registered '((read-file . mock-tool-1)
-                                    (write-file . mock-tool-2))))
+                                   (write-file . mock-tool-2))))
     (cl-letf (((symbol-function 'ogent-register-tools)
                (lambda () ogent--tools-registered)))
       (let ((tools (ogent-tools-enabled-list)))

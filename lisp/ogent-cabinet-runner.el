@@ -95,7 +95,7 @@
 
 (defcustom ogent-cabinet-runner-response-templates
   '((implementation .
-     "Implementation response shape:
+                    "Implementation response shape:
 ** Changed
 - ...
 ** Verification
@@ -103,7 +103,7 @@
 ** Notes
 - ...")
     (review .
-     "Review response shape:
+            "Review response shape:
 ** Findings
 - ...
 ** Risks
@@ -111,7 +111,7 @@
 ** Tests
 - ...")
     (research .
-     "Research response shape:
+              "Research response shape:
 ** Answer
 - ...
 ** Sources
@@ -119,7 +119,7 @@
 ** Open Questions
 - ...")
     (planning .
-     "Planning response shape:
+              "Planning response shape:
 ** Decision
 - ...
 ** Tradeoffs
@@ -127,7 +127,7 @@
 ** Milestones
 - ...")
     (general .
-     "General response shape:
+             "General response shape:
 ** Summary
 - ...
 ** Details
@@ -364,7 +364,8 @@ a divergent per-worktree copy."
    "\n"))
 
 (defun ogent-cabinet-runner--response-contract (agent job instruction context)
-  "Return the full Cabinet response contract for a runner prompt."
+  "Return the Cabinet response contract for AGENT and JOB.
+Use INSTRUCTION and CONTEXT to build the runner prompt."
   (string-join
    (delq
     nil
@@ -802,8 +803,9 @@ JOB-ID selects a recurring job.  INSTRUCTION supplies an ad hoc prompt."
     (ogent-cabinet-conversation-file root conversation-id)))
 
 (defun ogent-cabinet-runner--capture-actions (plan output exit-status)
-  "Parse lead action proposals from OUTPUT and store them as pending actions.
-Only runs for lead agents on zero EXIT-STATUS.  Returns stored actions or nil."
+  "Parse lead action proposals from OUTPUT for PLAN.
+Store proposals as pending actions.  Run only for lead agents on zero
+EXIT-STATUS.  Return stored actions or nil."
   (condition-case err
       (when (and (eq exit-status 0)
                  (ogent-cabinet-agent-lead-p (plist-get plan :agent)))

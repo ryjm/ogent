@@ -278,7 +278,7 @@ faces via `propertize' with the `face' property; this function ensures
   (setq-local font-lock-unfontify-region-function
               (lambda (beg end)
                 (remove-text-properties beg end '(font-lock-face nil
-                                                  font-lock-multiline nil)))))
+                                                                 font-lock-multiline nil)))))
 
 (provide 'ogent-ops-style)
 ;;; ogent-ops-style.el ends here

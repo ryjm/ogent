@@ -25,6 +25,8 @@
     "Non-nil when `magit-section' is available for Cabinet status.")
   (when ogent-cabinet-status--magit-section-available
     (require 'magit-section)))
+(put 'magit-insert-section 'lisp-indent-function 2)
+(put 'magit-insert-heading 'lisp-indent-function 0)
 
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-cabinet-agents "ogent-ui-cabinet" nil t)
@@ -1246,23 +1248,23 @@ DIRECTION is either `next' or `previous'."
 (transient-define-prefix ogent-cabinet-status-dispatch ()
   "Dispatch menu for Cabinet status buffers."
   [:description ogent-cabinet-status--transient-header
-   ["Run"
-    ("R" "Run/retry selected" ogent-cabinet-status-run)
-    ("C" "Create job for agent" ogent-cabinet-status-create-job)]
-   ["Edit"
-    ("e" "Edit metadata" ogent-cabinet-status-edit)
-    ("E" "Edit body/prompt" ogent-cabinet-status-edit-body)
-    ("P" "Agent profile" ogent-cabinet-status-open-agent-profile)
-    ("J" "Agent jobs" ogent-cabinet-status-open-agent-jobs)]
-   ["Navigate"
-    ("RET" "Visit Org source" ogent-cabinet-status-visit)
-    ("TAB" "Toggle section" ogent-cabinet-status-toggle-section :transient t)
-    ("M-n" "Next section" ogent-cabinet-status-next-section :transient t)
-    ("M-p" "Previous section" ogent-cabinet-status-previous-section :transient t)
-    ("^" "Up section" ogent-cabinet-status-up-section :transient t)
-    ("n" "Next item" ogent-cabinet-status-next-item :transient t)
-    ("p" "Previous item" ogent-cabinet-status-previous-item :transient t)
-    ("g" "Refresh" ogent-cabinet-status-refresh :transient t)]]
+                ["Run"
+                 ("R" "Run/retry selected" ogent-cabinet-status-run)
+                 ("C" "Create job for agent" ogent-cabinet-status-create-job)]
+                ["Edit"
+                 ("e" "Edit metadata" ogent-cabinet-status-edit)
+                 ("E" "Edit body/prompt" ogent-cabinet-status-edit-body)
+                 ("P" "Agent profile" ogent-cabinet-status-open-agent-profile)
+                 ("J" "Agent jobs" ogent-cabinet-status-open-agent-jobs)]
+                ["Navigate"
+                 ("RET" "Visit Org source" ogent-cabinet-status-visit)
+                 ("TAB" "Toggle section" ogent-cabinet-status-toggle-section :transient t)
+                 ("M-n" "Next section" ogent-cabinet-status-next-section :transient t)
+                 ("M-p" "Previous section" ogent-cabinet-status-previous-section :transient t)
+                 ("^" "Up section" ogent-cabinet-status-up-section :transient t)
+                 ("n" "Next item" ogent-cabinet-status-next-item :transient t)
+                 ("p" "Previous item" ogent-cabinet-status-previous-item :transient t)
+                 ("g" "Refresh" ogent-cabinet-status-refresh :transient t)]]
   [["Surfaces"
     ("h" "Home" ogent-cabinet-home)
     ("a" "Agents" ogent-cabinet-agents)

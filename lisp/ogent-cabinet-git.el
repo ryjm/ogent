@@ -59,7 +59,7 @@
               (output (with-current-buffer buffer
                         (string-trim-right (buffer-string)))))
           (unless (zerop exit)
-            (user-error "git %s failed: %s"
+            (user-error "Git %s failed: %s"
                         (string-join args " ")
                         output))
           output)

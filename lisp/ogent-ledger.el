@@ -145,7 +145,7 @@ Return the event plist, or nil when the ledger is disabled."
            :status (ogent-ui-request-status request)))))
 
 (defun ogent-ledger-record-request-finish (request &optional error-message)
-  "Record REQUEST finish in the ledger."
+  "Record REQUEST finish with optional ERROR-MESSAGE in the ledger."
   (when ogent-ledger-enabled
     (let ((start (ogent-ui-request-start-time request))
           (end (or (ogent-ui-request-end-time request)
@@ -160,7 +160,7 @@ Return the event plist, or nil when the ledger is disabled."
              :error error-message)))))
 
 (defun ogent-ledger-record-tool-start (tool-call &optional effects)
-  "Record TOOL-CALL start in the ledger."
+  "Record TOOL-CALL start with optional EFFECTS in the ledger."
   (ogent-ledger-record
    'tool-start
    (append (copy-sequence tool-call)
@@ -169,7 +169,7 @@ Return the event plist, or nil when the ledger is disabled."
 
 (defun ogent-ledger-record-tool-finish (tool-call result error-message duration
                                                   &optional effects)
-  "Record TOOL-CALL completion in the ledger."
+  "Record TOOL-CALL completion with RESULT, ERROR-MESSAGE, DURATION, and EFFECTS."
   (ogent-ledger-record
    'tool-finish
    (append (copy-sequence tool-call)

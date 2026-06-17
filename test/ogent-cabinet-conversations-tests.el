@@ -27,23 +27,23 @@
     (let* ((file (ogent-cabinet-conversation-create
                   dir
                   '(:id "conv-1"
-                    :agent "cto"
-                    :title "Review architecture"
-                    :trigger "manual"
-                    :status "running"
-                    :started "2026-05-06T09:00:00Z"
-                    :provider "codex-cli"
-                    :adapter "codex_local"
-                    :model "gpt-5.4"
-                    :effort "high"
-                    :runtime-mode "native"
-                    :mentioned-paths ("roadmap.org" "systems/index.org")
-                    :attachment-paths ("attachments/design.pdf")
-                    :artifact-paths ("architecture.org")
-                    :summary "Initial architecture review"
-                    :context-summary "Keep architecture tight."
-                    :board-order 7
-                    :muted nil)))
+                        :agent "cto"
+                        :title "Review architecture"
+                        :trigger "manual"
+                        :status "running"
+                        :started "2026-05-06T09:00:00Z"
+                        :provider "codex-cli"
+                        :adapter "codex_local"
+                        :model "gpt-5.4"
+                        :effort "high"
+                        :runtime-mode "native"
+                        :mentioned-paths ("roadmap.org" "systems/index.org")
+                        :attachment-paths ("attachments/design.pdf")
+                        :artifact-paths ("architecture.org")
+                        :summary "Initial architecture review"
+                        :context-summary "Keep architecture tight."
+                        :board-order 7
+                        :muted nil)))
            (conversation (ogent-cabinet-conversation-read dir "conv-1")))
       (should (file-exists-p file))
       (should (string-suffix-p ".agents/.conversations/conv-1/index.org" file))
@@ -75,10 +75,10 @@
     (ogent-cabinet-conversation-create
      dir
      '(:id "conv-2"
-       :agent "editor"
-       :title "Draft update"
-       :status "idle"
-       :started "2026-05-06T10:00:00Z"))
+           :agent "editor"
+           :title "Draft update"
+           :status "idle"
+           :started "2026-05-06T10:00:00Z"))
     (let ((user-turn (ogent-cabinet-conversation-append-turn
                       dir "conv-2" "user" "Draft the update."
                       :ts "2026-05-06T10:01:00Z"
@@ -112,9 +112,9 @@
     (ogent-cabinet-conversation-create
      dir
      '(:id "conv-buffer"
-       :agent "editor"
-       :title "Buffer hygiene"
-       :status "idle"))
+           :agent "editor"
+           :title "Buffer hygiene"
+           :status "idle"))
     (let ((index (ogent-cabinet-conversation-file dir "conv-buffer")))
       (should-not (get-file-buffer index))
       (ogent-cabinet-conversation-append-turn
@@ -133,9 +133,9 @@
     (ogent-cabinet-conversation-create
      dir
      '(:id "conv-headings"
-       :agent "editor"
-       :title "Heading safety"
-       :status "idle"))
+           :agent "editor"
+           :title "Heading safety"
+           :status "idle"))
     (let* ((content (concat
                      "* Findings\n"
                      "Body.\n"
@@ -188,19 +188,19 @@
     (ogent-cabinet-conversation-create
      dir
      '(:id "old"
-       :agent "editor"
-       :title "Old"
-       :status "done"
-       :started "2026-05-06T08:00:00Z"
-       :last-activity "2026-05-06T08:30:00Z"))
+           :agent "editor"
+           :title "Old"
+           :status "done"
+           :started "2026-05-06T08:00:00Z"
+           :last-activity "2026-05-06T08:30:00Z"))
     (ogent-cabinet-conversation-create
      dir
      '(:id "new"
-       :agent "cto"
-       :title "New"
-       :status "running"
-       :started "2026-05-06T09:00:00Z"
-       :last-activity "2026-05-06T09:30:00Z"))
+           :agent "cto"
+           :title "New"
+           :status "running"
+           :started "2026-05-06T09:00:00Z"
+           :last-activity "2026-05-06T09:30:00Z"))
     (let ((conversations (ogent-cabinet-conversation-list dir)))
       (should (equal (mapcar (lambda (conversation)
                                (plist-get conversation :id))

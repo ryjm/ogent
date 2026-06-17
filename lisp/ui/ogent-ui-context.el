@@ -480,7 +480,7 @@ PREVIEW is a snippet of content."
             (ogent-context-include-handle handle)
             (ogent-ui-context--render-buffer)
             (message "Added @%s to context" handle))
-        (when (yes-or-no-p (format "Handle @%s not found. Add as missing? " handle))
+        (when (yes-or-no-p (format "Handle @%s not found.  Add as missing? " handle))
           (let* ((deps (plist-get ogent-ui-context--context :dependencies))
                  (new-dep (list :handle handle
                                 :missing-p t

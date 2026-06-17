@@ -58,7 +58,7 @@ Used to estimate token counts from text length."
   "Cache of open database connections by project path.")
 
 (defun ogent-analytics--project-root ()
-  "Get the project root directory, or default-directory."
+  "Get the project root directory, or `default-directory'."
   (or (when (fboundp 'project-root)
         (when-let ((proj (project-current)))
           (project-root proj)))
@@ -236,20 +236,20 @@ Returns nil if sqlite is not available."
         time_to_first_token_ms, completion_latency_ms,
         outcome, rating, question_preview, response_preview
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
-      (list
-       (ogent-analytics-completion-session-id completion)
-       (ogent-analytics-completion-model completion)
-       (ogent-analytics-completion-prompt-template completion)
-       (ogent-analytics-completion-prompt-tokens completion)
-       (ogent-analytics-completion-response-tokens completion)
-       (+ (or (ogent-analytics-completion-prompt-tokens completion) 0)
-          (or (ogent-analytics-completion-response-tokens completion) 0))
-       (ogent-analytics-completion-ttft-ms completion)
-       (ogent-analytics-completion-latency-ms completion)
-       (symbol-name (ogent-analytics-completion-outcome completion))
-       (ogent-analytics-completion-rating completion)
-       (ogent-analytics-completion-question-preview completion)
-       (ogent-analytics-completion-response-preview completion)))
+                    (list
+                     (ogent-analytics-completion-session-id completion)
+                     (ogent-analytics-completion-model completion)
+                     (ogent-analytics-completion-prompt-template completion)
+                     (ogent-analytics-completion-prompt-tokens completion)
+                     (ogent-analytics-completion-response-tokens completion)
+                     (+ (or (ogent-analytics-completion-prompt-tokens completion) 0)
+                        (or (ogent-analytics-completion-response-tokens completion) 0))
+                     (ogent-analytics-completion-ttft-ms completion)
+                     (ogent-analytics-completion-latency-ms completion)
+                     (symbol-name (ogent-analytics-completion-outcome completion))
+                     (ogent-analytics-completion-rating completion)
+                     (ogent-analytics-completion-question-preview completion)
+                     (ogent-analytics-completion-response-preview completion)))
     ;; Get the inserted row ID
     (let ((result (sqlite-select db "SELECT last_insert_rowid()")))
       (when result
@@ -264,10 +264,10 @@ Returns nil if sqlite is not available."
         outcome = ?,
         rating = ?
       WHERE id = ?"
-      (list
-       (symbol-name (ogent-analytics-completion-outcome completion))
-       (ogent-analytics-completion-rating completion)
-       id))))
+                    (list
+                     (symbol-name (ogent-analytics-completion-outcome completion))
+                     (ogent-analytics-completion-rating completion)
+                     id))))
 
 ;;; Accept/Reject Integration
 
