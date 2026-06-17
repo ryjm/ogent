@@ -41,7 +41,7 @@
                      directory conversation-id)))
 
 (defun ogent-armory-conversation-turns-directory (directory conversation-id)
-  "Return the turns directory for CONVERSATION-ID under DIRECTORY."
+  "Return the turn directory for CONVERSATION-ID under DIRECTORY."
   (expand-file-name "turns"
                     (ogent-armory-conversation-directory
                      directory conversation-id)))
@@ -129,7 +129,7 @@
     (directory pending-id conversation-id)
   "Move PENDING-ID attachments into CONVERSATION-ID under DIRECTORY."
   (let ((source-dir (ogent-armory-conversation-pending-attachments-directory
-                    directory pending-id))
+                     directory pending-id))
         (target-dir (ogent-armory-conversation-attachments-directory
                      directory conversation-id))
         attachments)
@@ -192,7 +192,7 @@
 
 (defun ogent-armory-conversations--turn-file
     (directory conversation-id turn role)
-  "Return the turn file for CONVERSATION-ID TURN and ROLE."
+  "Return the turn file under DIRECTORY for CONVERSATION-ID, TURN, and ROLE."
   (expand-file-name
    (ogent-armory-conversations--turn-file-name turn role)
    (ogent-armory-conversation-turns-directory directory conversation-id)))
@@ -479,7 +479,8 @@ Optional filters narrow by AGENT, STATUS, and TRIGGER."
 
 (cl-defun ogent-armory-conversation-list-sessions
     (directory &key agent status trigger)
-  "Return canonical conversations as session-shaped plists under DIRECTORY."
+  "Return canonical session-shaped plists under DIRECTORY.
+Use AGENT, STATUS, and TRIGGER to filter conversations."
   (mapcar
    #'ogent-armory-conversations--as-session
    (ogent-armory-conversation-list
@@ -554,7 +555,7 @@ PROPERTIES is an alist of Org property names to values."
 
 (defun ogent-armory-conversations--next-turn-number
     (directory conversation-id role)
-  "Return the next turn number for CONVERSATION-ID and ROLE."
+  "Return the next turn number under DIRECTORY for CONVERSATION-ID and ROLE."
   (let* ((turns (ogent-armory-conversation-read-turns
                  directory conversation-id))
          (max-turn (if turns
@@ -699,7 +700,7 @@ PROPERTIES is an alist of Org property names to values."
        :path file))))
 
 (defun ogent-armory-conversation-read-turns (directory conversation-id)
-  "Return turns for CONVERSATION-ID under DIRECTORY."
+  "Return turn records for CONVERSATION-ID under DIRECTORY."
   (let ((turns-dir (ogent-armory-conversation-turns-directory
                     directory conversation-id))
         turns)
@@ -854,7 +855,7 @@ PROPERTIES is an alist of Org property names to values."
           :ask-user ask-user)))
 
 (defun ogent-armory-conversation-detail (directory conversation-id)
-  "Return CONVERSATION-ID with turns and events."
+  "Return detailed CONVERSATION-ID including turn and event data under DIRECTORY."
   (let ((conversation (ogent-armory-conversation-read
                        directory conversation-id)))
     (append conversation
@@ -872,7 +873,8 @@ PROPERTIES is an alist of Org property names to values."
 
 (defun ogent-armory-conversation-replay-prompt
     (directory conversation-id instruction)
-  "Return a replay prompt for continuing CONVERSATION-ID with INSTRUCTION."
+  "Return a replay prompt under DIRECTORY for CONVERSATION-ID.
+Include INSTRUCTION as the next user request."
   (let* ((detail (ogent-armory-conversation-detail directory conversation-id))
          (turns (plist-get detail :turns)))
     (string-join

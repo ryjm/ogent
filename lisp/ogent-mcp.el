@@ -2,7 +2,7 @@
 
 ;;; Commentary:
 ;; Implements an MCP client enabling ogent to connect to MCP servers for
-;; extended tool capabilities. Supports:
+;; extended tool capabilities.  Supports:
 ;; - Stdio transport (JSON-RPC over stdin/stdout)
 ;; - Server discovery and configuration
 ;; - Dynamic tool registration from MCP servers
@@ -243,7 +243,7 @@ CALLBACK is called with (RESULT ERROR) where one is nil."
 
 (defun ogent-mcp--request-sync (conn method params &optional timeout)
   "Send a synchronous request to CONN with METHOD and PARAMS.
-Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
+Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
   (let ((timeout (or timeout ogent-mcp-connect-timeout))
         (done nil)
         (result nil)
@@ -269,7 +269,7 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
   (let ((params `((protocolVersion . ,ogent-mcp-protocol-version)
                   (capabilities . ((roots . ((listChanged . :json-false)))))
                   (clientInfo . ((name . ,ogent-mcp-client-name)
-                                (version . ,ogent-mcp-client-version))))))
+                                 (version . ,ogent-mcp-client-version))))))
     (ogent-mcp--request conn "initialize" params
                         (lambda (result error-obj)
                           (if error-obj
@@ -316,9 +316,9 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
              (desc (or (alist-get 'description spec) ""))
              (is-required (member name (append required nil))))
         (push `(:name ,name
-                :type ,type
-                :description ,desc
-                ,@(unless is-required '(:optional t)))
+                      :type ,type
+                      :description ,desc
+                      ,@(unless is-required '(:optional t)))
               args)))
     (nreverse args)))
 
@@ -337,13 +337,13 @@ Returns (RESULT . ERROR) cons cell. Blocks for up to TIMEOUT seconds."
                 (ogent-mcp--call-tool conn name call-args)))
         ;; Add to ogent-tool-registry
         (let ((spec `(:name ,tool-sym
-                      :function ,tool-sym
-                      :description ,(format "[MCP:%s] %s" server-name description)
-                      :args ,args
-                      :category ,(format "mcp-%s" server-name)
-                      ;; External, server-backed capability: gate behind
-                      ;; approval by default so it cannot auto-execute.
-                      :effects ,(copy-tree ogent-mcp-default-tool-effects))))
+                            :function ,tool-sym
+                            :description ,(format "[MCP:%s] %s" server-name description)
+                            :args ,args
+                            :category ,(format "mcp-%s" server-name)
+                            ;; External, server-backed capability: gate behind
+                            ;; approval by default so it cannot auto-execute.
+                            :effects ,(copy-tree ogent-mcp-default-tool-effects))))
           ;; Remove existing entry with same name
           (setq ogent-tool-registry
                 (cl-remove-if (lambda (s) (eq (plist-get s :name) tool-sym))
@@ -415,9 +415,9 @@ ENV is an optional alist of environment variables.
 AUTO-CONNECT if non-nil connects on ogent startup."
   (setq ogent-mcp-servers
         (cons (cons name `(:command ,command
-                           :args ,args
-                           :env ,env
-                           :auto-connect ,auto-connect))
+                                    :args ,args
+                                    :env ,env
+                                    :auto-connect ,auto-connect))
               (assoc-delete-all name ogent-mcp-servers))))
 
 ;;;###autoload

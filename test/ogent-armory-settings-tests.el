@@ -33,11 +33,11 @@
     (ogent-armory-settings-write
      root
      '(:profile-name "Operator"
-       :default-provider "claude"
-       :default-model "sonnet"
-       :default-effort "high"
-       :skill-paths ("skills/a" "skills/b")
-       :notifications t)
+                     :default-provider "claude"
+                     :default-model "sonnet"
+                     :default-effort "high"
+                     :skill-paths ("skills/a" "skills/b")
+                     :notifications t)
      :merge t)
     (let ((settings (ogent-armory-settings-read root)))
       (should (equal (plist-get settings :profile-name) "Operator"))
@@ -75,12 +75,12 @@
      :default-effort "medium"
      :runtime "native"
      :team '((:slug "planner"
-              :name "Planner"
-              :role "Plan project work"
-              :department "Ops"
-              :type "lead"
-              :can-dispatch t
-              :tags ("planning"))))
+                    :name "Planner"
+                    :role "Plan project work"
+                    :department "Ops"
+                    :type "lead"
+                    :can-dispatch t
+                    :tags ("planning"))))
     (let ((settings (ogent-armory-settings-read root))
           (agent (ogent-armory-read-agent root "planner")))
       (should (equal (plist-get settings :profile-name) "Acme"))
@@ -96,15 +96,15 @@
         (let ((model-candidates nil))
           (ogent-armory-adapter-register
            '(:id "fresh-cli"
-             :provider-symbol fresh
-             :name "Fresh CLI"
-             :aliases ("fresh")
-             :default-executable "fresh"
-             :models ("stale-model")
-             :model-list-function
-             (lambda (_adapter)
-               '("fresh-model" "other-model"))
-             :runtime-modes (native)))
+                 :provider-symbol fresh
+                 :name "Fresh CLI"
+                 :aliases ("fresh")
+                 :default-executable "fresh"
+                 :models ("stale-model")
+                 :model-list-function
+                 (lambda (_adapter)
+                   '("fresh-model" "other-model"))
+                 :runtime-modes (native)))
           (cl-letf (((symbol-function 'read-directory-name)
                      (lambda (&rest _args)
                        root))

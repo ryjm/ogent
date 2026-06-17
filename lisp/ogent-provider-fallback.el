@@ -10,7 +10,7 @@
 
 (autoload 'ogent-onboard-login-different-provider "ogent-onboard" nil t)
 
-(declare-function gptel--model-name "ext:gptel")
+(declare-function gptel--model-name "ext:gptel-request")
 
 (defgroup ogent-provider-fallback nil
   "Provider fallback behavior for failed model access."
@@ -58,7 +58,7 @@
    (t (format "%s" error-message))))
 
 (defun ogent-provider-access-error-p (error-message)
-  "Return non-nil when ERROR-MESSAGE looks like a provider access failure."
+  "Detect whether ERROR-MESSAGE reports a provider access failure."
   (let ((message (downcase (ogent-provider-error-message-string
                             error-message))))
     (cl-some (lambda (pattern)

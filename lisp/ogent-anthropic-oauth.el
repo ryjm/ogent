@@ -33,10 +33,10 @@
 (require 'json)
 
 ;; Forward declarations for gptel
-(declare-function gptel-backend-header "ext:gptel-openai")
+(declare-function gptel-backend-header "ext:gptel-request" t t)
 (declare-function gptel-curl--get-args "ext:gptel-curl")
-(declare-function gptel--request-data "ext:gptel")
-(declare-function gptel-anthropic-p "ext:gptel-anthropic")
+(declare-function gptel--request-data "ext:gptel-request")
+(declare-function gptel-anthropic-p "ext:gptel-anthropic" t t)
 (defvar gptel-backend)
 (defvar gptel--known-backends)
 (defvar gptel--system-message)
@@ -89,7 +89,7 @@
   :group 'ogent-anthropic-oauth)
 
 (defvar ogent-anthropic-oauth--token-file nil
-  "File where tokens are cached. Set from `ogent-anthropic-oauth-tokens-dir'.")
+  "File where tokens are cached.  Set from `ogent-anthropic-oauth-tokens-dir'.")
 
 (defvar ogent-anthropic-oauth--known-token-paths
   '("~/.emacs.d/ogent/anthropic-oauth/tokens.el"
@@ -176,7 +176,7 @@ Return plist (:verifier VERIFIER :challenge CHALLENGE)."
 ;;; Token Storage
 
 (defun ogent-anthropic-oauth--restore-tokens ()
-  "Restore saved tokens from file. Return tokens plist or nil."
+  "Restore saved tokens from file.  Return tokens plist or nil."
   (let ((file (ogent-anthropic-oauth--token-file)))
     (when (file-exists-p file)
       (condition-case nil
@@ -188,7 +188,7 @@ Return plist (:verifier VERIFIER :challenge CHALLENGE)."
         (error nil)))))
 
 (defun ogent-anthropic-oauth--save-tokens (tokens)
-  "Save TOKENS to file. Return TOKENS."
+  "Save TOKENS to file.  Return TOKENS."
   (let ((file (ogent-anthropic-oauth--token-file))
         (print-length nil)
         (print-level nil)
@@ -278,11 +278,11 @@ Return token plist with :access-token, :refresh-token, :expires-at."
                     ogent-anthropic-oauth--token-url
                     "POST" nil
                     `(:grant_type "authorization_code"
-                      :code ,auth-code
-                      :state ,state
-                      :client_id ,ogent-anthropic-oauth--client-id
-                      :redirect_uri ,ogent-anthropic-oauth--redirect-uri
-                      :code_verifier ,verifier))))
+                                  :code ,auth-code
+                                  :state ,state
+                                  :client_id ,ogent-anthropic-oauth--client-id
+                                  :redirect_uri ,ogent-anthropic-oauth--redirect-uri
+                                  :code_verifier ,verifier))))
     (unless (plist-get response :access_token)
       (error "Token exchange failed: %s"
              (or (plist-get response :error_description)
@@ -300,8 +300,8 @@ Return updated token plist."
                    ogent-anthropic-oauth--token-url
                    "POST" nil
                    `(:grant_type "refresh_token"
-                     :refresh_token ,refresh-token
-                     :client_id ,ogent-anthropic-oauth--client-id))))
+                                 :refresh_token ,refresh-token
+                                 :client_id ,ogent-anthropic-oauth--client-id))))
     (unless (plist-get response :access_token)
       (error "Token refresh failed: %s"
              (or (plist-get response :error_description)

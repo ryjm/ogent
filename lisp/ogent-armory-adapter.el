@@ -353,7 +353,7 @@ metadata as the fallback completion list."
     (ogent-armory-adapter-list))))
 
 (defun ogent-armory-runtime-picker (&optional prompt)
-  "Read and return a Armory runtime candidate."
+  "Read and return a Armory runtime candidate using PROMPT."
   (interactive)
   (let* ((candidates (ogent-armory-adapter-runtime-candidates))
          (choice (completing-read (or prompt "Runtime: ")
@@ -429,109 +429,109 @@ metadata as the fallback completion list."
   (dolist
       (adapter
        `((:id "codex-cli"
-          :provider-symbol codex
-          :adapter-type "codex_local"
-          :name "Codex CLI"
-          :aliases ("codex" "codex-cli" "openai-codex" "codex_local")
-          :default-executable "codex"
-          :executable-symbol ogent-armory-codex-executable
-          :models ("gpt-5.5" "gpt-5.4" "gpt-5.3-codex")
-          :effort-levels ("low" "medium" "high" "xhigh")
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--codex-invocation)
+              :provider-symbol codex
+              :adapter-type "codex_local"
+              :name "Codex CLI"
+              :aliases ("codex" "codex-cli" "openai-codex" "codex_local")
+              :default-executable "codex"
+              :executable-symbol ogent-armory-codex-executable
+              :models ("gpt-5.5" "gpt-5.4" "gpt-5.3-codex")
+              :effort-levels ("low" "medium" "high" "xhigh")
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--codex-invocation)
          (:id "claude-code"
-          :provider-symbol claude
-          :adapter-type "claude_local"
-          :name "Claude Code"
-          :aliases ("claude" "claude-code" "anthropic" "anthropic-claude"
-                    "claude_local")
-          :default-executable "claude"
-          :executable-symbol ogent-armory-claude-executable
-          :models ("fable" "opus" "sonnet")
-          :effort-levels ("low" "medium" "high" "xhigh" "max")
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--claude-invocation)
+              :provider-symbol claude
+              :adapter-type "claude_local"
+              :name "Claude Code"
+              :aliases ("claude" "claude-code" "anthropic" "anthropic-claude"
+                        "claude_local")
+              :default-executable "claude"
+              :executable-symbol ogent-armory-claude-executable
+              :models ("fable" "opus" "sonnet")
+              :effort-levels ("low" "medium" "high" "xhigh" "max")
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--claude-invocation)
          (:id "gemini-cli"
-          :provider-symbol gemini
-          :adapter-type "gemini_local"
-          :name "Gemini CLI"
-          :aliases ("gemini" "gemini-cli" "google-gemini" "gemini_local")
-          :default-executable "gemini"
-          :executable-symbol ogent-armory-gemini-executable
-          :models ("auto" "gemini-3-pro" "gemini-2.5-pro")
-          :effort-levels nil
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--gemini-invocation)
+              :provider-symbol gemini
+              :adapter-type "gemini_local"
+              :name "Gemini CLI"
+              :aliases ("gemini" "gemini-cli" "google-gemini" "gemini_local")
+              :default-executable "gemini"
+              :executable-symbol ogent-armory-gemini-executable
+              :models ("auto" "gemini-3-pro" "gemini-2.5-pro")
+              :effort-levels nil
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--gemini-invocation)
          (:id "cursor-cli"
-          :provider-symbol cursor
-          :adapter-type "cursor_local"
-          :name "Cursor Agent"
-          :aliases ("cursor" "cursor-cli" "cursor-agent" "cursor_local")
-          :default-executable "cursor-agent"
-          :executable-symbol ogent-armory-cursor-executable
-          :models ("auto" "gpt-5" "claude-4.5-sonnet")
-          :effort-levels nil
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--cursor-invocation)
+              :provider-symbol cursor
+              :adapter-type "cursor_local"
+              :name "Cursor Agent"
+              :aliases ("cursor" "cursor-cli" "cursor-agent" "cursor_local")
+              :default-executable "cursor-agent"
+              :executable-symbol ogent-armory-cursor-executable
+              :models ("auto" "gpt-5" "claude-4.5-sonnet")
+              :effort-levels nil
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--cursor-invocation)
          (:id "opencode"
-          :provider-symbol opencode
-          :adapter-type "opencode_local"
-          :name "OpenCode"
-          :aliases ("opencode" "opencode-cli" "opencode_local")
-          :default-executable "opencode"
-          :executable-symbol ogent-armory-opencode-executable
-          :models nil
-          :model-list-function ogent-armory-adapter--opencode-models
-          :effort-levels nil
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--opencode-invocation)
+              :provider-symbol opencode
+              :adapter-type "opencode_local"
+              :name "OpenCode"
+              :aliases ("opencode" "opencode-cli" "opencode_local")
+              :default-executable "opencode"
+              :executable-symbol ogent-armory-opencode-executable
+              :models nil
+              :model-list-function ogent-armory-adapter--opencode-models
+              :effort-levels nil
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--opencode-invocation)
          (:id "pi-cli"
-          :provider-symbol pi
-          :adapter-type "pi_local"
-          :name "Pi CLI"
-          :aliases ("pi" "pi-cli" "pi_local")
-          :default-executable "pi"
-          :executable-symbol ogent-armory-pi-executable
-          :models nil
-          :effort-levels ("brief" "normal" "deep")
-          :runtime-modes (native terminal)
-          :supports-session-resume t
-          :supports-detached-runs nil)
+              :provider-symbol pi
+              :adapter-type "pi_local"
+              :name "Pi CLI"
+              :aliases ("pi" "pi-cli" "pi_local")
+              :default-executable "pi"
+              :executable-symbol ogent-armory-pi-executable
+              :models nil
+              :effort-levels ("brief" "normal" "deep")
+              :runtime-modes (native terminal)
+              :supports-session-resume t
+              :supports-detached-runs nil)
          (:id "grok-cli"
-          :provider-symbol grok
-          :adapter-type "grok_local"
-          :name "Grok CLI"
-          :aliases ("grok" "grok-cli" "xai" "grok_local")
-          :default-executable "grok"
-          :executable-symbol ogent-armory-grok-executable
-          :models ("grok-4")
-          :effort-levels nil
-          :runtime-modes (native terminal)
-          :supports-session-resume nil
-          :supports-detached-runs nil)
+              :provider-symbol grok
+              :adapter-type "grok_local"
+              :name "Grok CLI"
+              :aliases ("grok" "grok-cli" "xai" "grok_local")
+              :default-executable "grok"
+              :executable-symbol ogent-armory-grok-executable
+              :models ("grok-4")
+              :effort-levels nil
+              :runtime-modes (native terminal)
+              :supports-session-resume nil
+              :supports-detached-runs nil)
          (:id "copilot-cli"
-          :provider-symbol copilot
-          :adapter-type "copilot_local"
-          :name "GitHub Copilot"
-          :aliases ("copilot" "github-copilot" "copilot-cli" "copilot_local")
-          :default-executable "copilot"
-          :executable-symbol ogent-armory-copilot-executable
-          :models ("gpt-5.2-codex" "gpt-5")
-          :effort-levels nil
-          :runtime-modes (native terminal)
-          :supports-session-resume nil
-          :supports-detached-runs t
-          :build-invocation ogent-armory-adapter--copilot-invocation)))
+              :provider-symbol copilot
+              :adapter-type "copilot_local"
+              :name "GitHub Copilot"
+              :aliases ("copilot" "github-copilot" "copilot-cli" "copilot_local")
+              :default-executable "copilot"
+              :executable-symbol ogent-armory-copilot-executable
+              :models ("gpt-5.2-codex" "gpt-5")
+              :effort-levels nil
+              :runtime-modes (native terminal)
+              :supports-session-resume nil
+              :supports-detached-runs t
+              :build-invocation ogent-armory-adapter--copilot-invocation)))
     (ogent-armory-adapter-register adapter)))
 
 (ogent-armory-adapter--builtin)

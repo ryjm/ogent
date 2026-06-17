@@ -70,18 +70,18 @@
   (let (files)
     (cl-labels
         ((walk
-          (dir)
-          (when (and (file-directory-p dir)
-                     (file-readable-p dir))
-            (dolist (entry (directory-files
-                            dir t directory-files-no-dot-files-regexp))
-              (cond
-               ((and (file-directory-p entry)
-                     (not (file-symlink-p entry)))
-                (walk entry))
-               ((and (file-regular-p entry)
-                     (string-match-p "\\.org\\'" entry))
-                (push entry files)))))))
+           (dir)
+           (when (and (file-directory-p dir)
+                      (file-readable-p dir))
+             (dolist (entry (directory-files
+                             dir t directory-files-no-dot-files-regexp))
+               (cond
+                ((and (file-directory-p entry)
+                      (not (file-symlink-p entry)))
+                 (walk entry))
+                ((and (file-regular-p entry)
+                      (string-match-p "\\.org\\'" entry))
+                 (push entry files)))))))
       (walk directory))
     (nreverse files)))
 

@@ -59,9 +59,9 @@ Returns a string of text surrounding the reference."
       (let* ((line-start (line-beginning-position))
              (line-end (line-end-position))
              (start (max line-start
-                        (- pos (/ ogent-backlinks-context-chars 2))))
+                         (- pos (/ ogent-backlinks-context-chars 2))))
              (end (min line-end
-                      (+ pos (/ ogent-backlinks-context-chars 2))))
+                       (+ pos (/ ogent-backlinks-context-chars 2))))
              (text (buffer-substring-no-properties start end)))
         ;; Trim and add ellipsis if truncated
         (concat (if (> start line-start) "..." "")
@@ -88,8 +88,8 @@ Uses word boundary matching - @ must be at word start, handle at word end."
                      (line (line-number-at-pos pos))
                      (context (ogent-backlinks--extract-context pos buffer)))
                 (push (list :line line
-                           :pos pos
-                           :context context)
+                            :pos pos
+                            :context context)
                       references)))
             (nreverse references)))))))
 
@@ -156,8 +156,8 @@ Handles the case where buffer is killed or position is invalid."
                                              pos buffer-name-str))))
                       'follow-link t
                       'help-echo (format "Jump to %s:%d"
-                                        buffer-name-str
-                                        line))))
+                                         buffer-name-str
+                                         line))))
 
 (defun ogent-backlinks--format-buffer (handle backlinks)
   "Format BACKLINKS for HANDLE in an Org-mode buffer."
@@ -168,14 +168,14 @@ Handles the case where buffer is killed or position is invalid."
     (if (null backlinks)
         (insert "No backlinks found.\n")
       (insert (format "* Backlinks (%d)\n\n"
-                     (apply #'+ (mapcar (lambda (x) (length (cdr x)))
-                                       backlinks))))
+                      (apply #'+ (mapcar (lambda (x) (length (cdr x)))
+                                         backlinks))))
       (dolist (entry backlinks)
         (let ((buffer (car entry))
               (refs (cdr entry)))
           (insert (format "** %s (%d)\n"
-                         (buffer-name buffer)
-                         (length refs)))
+                          (buffer-name buffer)
+                          (length refs)))
           (dolist (ref refs)
             (ogent-backlinks--insert-reference buffer ref))
           (insert "\n"))))

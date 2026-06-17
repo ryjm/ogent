@@ -455,7 +455,8 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
     (plist-put (copy-sequence action) :dispatched-id job-id)))
 
 (defun ogent-armory-actions--schedule-task (root conversation-id action triggering-agent)
-  "Create a scheduled conversation from ACTION under ROOT."
+  "Create a scheduled conversation from ACTION under ROOT for CONVERSATION-ID.
+TRIGGERING-AGENT is the dispatching agent."
   (let* ((id (format "%s-%s"
                      (format-time-string "%Y%m%dT%H%M%S")
                      (substring (plist-get action :id) 0 8)))

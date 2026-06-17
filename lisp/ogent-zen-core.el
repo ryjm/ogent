@@ -630,9 +630,9 @@ Return non-nil when point moved."
 (defun ogent-zen--result-title-clean (text)
   "Return TEXT as a compact result title."
   (when-let ((title (ogent-zen--detail-snippet
-                    (replace-regexp-in-string
-                     "[`*_~=]" "" (or text ""))
-                    ogent-zen-response-summary-width)))
+                     (replace-regexp-in-string
+                      "[`*_~=]" "" (or text ""))
+                     ogent-zen-response-summary-width)))
     (unless (string-empty-p title)
       title)))
 

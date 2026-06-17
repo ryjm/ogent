@@ -84,25 +84,25 @@ When ENSURE-EQUAL is non-nil, verify all forms produce equal results."
   (ogent-bench--with-fixture
    (lambda ()
      (ogent-bench 1000
-		  (ogent-context-build)))))
+       (ogent-context-build)))))
 
 (defun ogent-bench-resolve-handle ()
   "Benchmark ogent-resolve-handle."
   (ogent-bench--with-fixture
    (lambda ()
      (ogent-bench 1000
-		  (ogent-resolve-handle "details-block")))))
+       (ogent-resolve-handle "details-block")))))
 
 (defun ogent-bench-slug ()
   "Benchmark ogent-context--slug."
   (ogent-bench 10000
-	       (ogent-context--slug "My Test Heading With Spaces")))
+    (ogent-context--slug "My Test Heading With Spaces")))
 
 (defun ogent-bench-codemap-project-root ()
   "Benchmark ogent-codemap--project-root."
   (let ((default-directory ogent-project-root))
     (ogent-bench 1000
-		 (ogent-codemap--project-root))))
+      (ogent-codemap--project-root))))
 
 ;;; Runner
 

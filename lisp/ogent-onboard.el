@@ -29,24 +29,24 @@
 
 (defconst ogent-onboard--anthropic-models
   '((:id "claude-fable-5"
-     :description "Claude Fable 5 - most powerful")
+         :description "Claude Fable 5 - most powerful")
     (:id "claude-opus-4-8"
-     :description "Claude Opus 4.8 - most capable Opus")
+         :description "Claude Opus 4.8 - most capable Opus")
     (:id "claude-sonnet-4-6"
-     :description "Claude Sonnet 4.6 - balanced speed and intelligence")
+         :description "Claude Sonnet 4.6 - balanced speed and intelligence")
     (:id "claude-haiku-4-5-20251001"
-     :description "Claude Haiku 4.5 - fastest"))
+         :description "Claude Haiku 4.5 - fastest"))
   "Built-in Anthropic model catalog for onboarding.")
 
 (defconst ogent-onboard--openai-models
   '((:id "gpt-5.5"
-     :description "GPT-5.5 - flagship reasoning and coding")
+         :description "GPT-5.5 - flagship reasoning and coding")
     (:id "gpt-5.4"
-     :description "GPT-5.4 - coding and professional work")
+         :description "GPT-5.4 - coding and professional work")
     (:id "gpt-5.4-mini"
-     :description "GPT-5.4 mini - faster, lower-cost coding")
+         :description "GPT-5.4 mini - faster, lower-cost coding")
     (:id "gpt-5.4-nano"
-     :description "GPT-5.4 nano - lowest-latency OpenAI option"))
+         :description "GPT-5.4 nano - lowest-latency OpenAI option"))
   "Built-in OpenAI model catalog for onboarding.")
 
 (defconst ogent-onboard--built-in-models-by-provider
@@ -58,49 +58,49 @@
 
 (defconst ogent-onboard--built-in-providers
   `((:id anthropic-oauth
-     :name "Anthropic Claude Max/Pro (OAuth - Recommended)"
-     :host "api.anthropic.com"
-     :backend gptel-anthropic
-     :feature gptel-anthropic
-     :auth-type oauth
-     :oauth-feature ogent-anthropic-oauth
-     :oauth-login ogent-claude-code-login
-     :oauth-authenticated-p ogent-claude-code-authenticated-p
-     :oauth-mode ogent-anthropic-oauth-mode
-     :oauth-login-mode max
-     :backend-creator gptel-make-anthropic
-     :models ,ogent-onboard--anthropic-models)
+         :name "Anthropic Claude Max/Pro (OAuth - Recommended)"
+         :host "api.anthropic.com"
+         :backend gptel-anthropic
+         :feature gptel-anthropic
+         :auth-type oauth
+         :oauth-feature ogent-anthropic-oauth
+         :oauth-login ogent-claude-code-login
+         :oauth-authenticated-p ogent-claude-code-authenticated-p
+         :oauth-mode ogent-anthropic-oauth-mode
+         :oauth-login-mode max
+         :backend-creator gptel-make-anthropic
+         :models ,ogent-onboard--anthropic-models)
     (:id anthropic
-     :name "Anthropic (API Key)"
-     :host "api.anthropic.com"
-     :backend gptel-anthropic
-     :feature gptel-anthropic
-     :env-var "ANTHROPIC_API_KEY"
-     :auth-type api-key
-     :backend-creator gptel-make-anthropic
-     :models ,ogent-onboard--anthropic-models)
+         :name "Anthropic (API Key)"
+         :host "api.anthropic.com"
+         :backend gptel-anthropic
+         :feature gptel-anthropic
+         :env-var "ANTHROPIC_API_KEY"
+         :auth-type api-key
+         :backend-creator gptel-make-anthropic
+         :models ,ogent-onboard--anthropic-models)
     (:id openai
-     :name "OpenAI (GPT)"
-     :host "api.openai.com"
-     :backend gptel-openai
-     :feature gptel-openai
-     :env-var "OPENAI_API_KEY"
-     :auth-type api-key
-     :backend-creator gptel-make-openai
-     :models ,ogent-onboard--openai-models)
+         :name "OpenAI (GPT)"
+         :host "api.openai.com"
+         :backend gptel-openai
+         :feature gptel-openai
+         :env-var "OPENAI_API_KEY"
+         :auth-type api-key
+         :backend-creator gptel-make-openai
+         :models ,ogent-onboard--openai-models)
     (:id openai-codex
-     :name "OpenAI Codex / ChatGPT (OAuth - Recommended)"
-     :host "api.openai.com"
-     :backend gptel-openai
-     :feature gptel-openai
-     :auth-type oauth
-     :oauth-feature ogent-codex-oauth
-     :oauth-login ogent-codex-login
-     :oauth-authenticated-p ogent-codex-oauth-authenticated-p
-     :oauth-mode ogent-codex-oauth-mode
-     :oauth-key ogent-codex-oauth-get-api-key
-     :backend-creator gptel-make-openai
-     :models ,ogent-onboard--openai-models))
+         :name "OpenAI Codex / ChatGPT (OAuth - Recommended)"
+         :host "api.openai.com"
+         :backend gptel-openai
+         :feature gptel-openai
+         :auth-type oauth
+         :oauth-feature ogent-codex-oauth
+         :oauth-login ogent-codex-login
+         :oauth-authenticated-p ogent-codex-oauth-authenticated-p
+         :oauth-mode ogent-codex-oauth-mode
+         :oauth-key ogent-codex-oauth-get-api-key
+         :backend-creator gptel-make-openai
+         :models ,ogent-onboard--openai-models))
   "Canonical provider definitions shipped with ogent.")
 
 (defcustom ogent-onboard-providers
@@ -162,15 +162,15 @@ Each provider can have :auth-type of `oauth' or `api-key'."
 (defun ogent-onboard--canonicalize-provider (provider)
   "Return PROVIDER with current built-in fields for known provider IDs."
   (if-let ((built-in (ogent-onboard--provider-with-id
-                     (plist-get provider :id)
-                     ogent-onboard--built-in-providers)))
+                      (plist-get provider :id)
+                      ogent-onboard--built-in-providers)))
       (ogent-onboard--plist-add-missing built-in provider)
     provider))
 
 (defun ogent-onboard--providers (&optional providers)
   "Return onboarding PROVIDERS with current built-ins restored.
 Known built-in providers are refreshed from ogent's canonical
-definitions. Custom providers with unknown IDs remain available."
+definitions.  Custom providers with unknown IDs remain available."
   (let* ((configured (or providers ogent-onboard-providers))
          (result (mapcar
                   (lambda (built-in)
@@ -203,7 +203,7 @@ to \"Select provider: \"."
     (cdr (assoc name choices))))
 
 (defun ogent-onboard--same-backend-p (provider backend)
-  "Return non-nil when PROVIDER uses BACKEND."
+  "Compare PROVIDER and BACKEND for backend equality."
   (let ((provider-backend (plist-get provider :backend)))
     (or (eq provider-backend backend)
         (and (symbolp provider-backend)
@@ -269,7 +269,7 @@ choices in already-running Emacs sessions."
 ;;; API key configuration
 
 (defun ogent-onboard--configure-api-key (provider)
-  "Configure API key for PROVIDER. Returns the key or nil."
+  "Configure API key for PROVIDER.  Return the key or nil."
   (let* ((host (plist-get provider :host))
          (env-var (plist-get provider :env-var))
          (name (plist-get provider :name))
@@ -301,7 +301,7 @@ choices in already-running Emacs sessions."
       (funcall key-fn))))
 
 (defun ogent-onboard--configure-oauth (provider)
-  "Configure OAuth for PROVIDER. Returns non-nil on success."
+  "Configure OAuth for PROVIDER.  Return non-nil on success."
   (let* ((name (plist-get provider :name))
          (feature (or (plist-get provider :oauth-feature)
                       'ogent-anthropic-oauth))
@@ -360,15 +360,15 @@ For OAuth providers, API-KEY may be nil; authentication is handled by advice."
       (when (fboundp 'gptel-make-anthropic)
         ;; For OAuth, use a placeholder key; actual auth handled by advice
         (gptel-make-anthropic name
-          :key (or api-key "oauth-managed")
-          :stream t
-          :models models)))
+                              :key (or api-key "oauth-managed")
+                              :stream t
+                              :models models)))
      ((eq creator-sym 'gptel-make-openai)
       (when (fboundp 'gptel-make-openai)
         (gptel-make-openai name
-          :key api-key
-          :stream t
-          :models models)))
+                           :key api-key
+                           :stream t
+                           :models models)))
      (t nil))))
 
 (defun ogent-onboard--verify-connection (provider api-key _model-id)
@@ -413,9 +413,9 @@ MODEL-ID is accepted for future use but not currently verified."
                      (plist-get model-plist :stream?)
                    t))
          (entry `(:id ,model-id
-                  :backend ,backend
-                  :stream? ,stream
-                  :description ,description))
+                      :backend ,backend
+                      :stream? ,stream
+                      :description ,description))
          (existing (ogent-models-get model-id)))
     (unless existing
       (add-to-list 'ogent-model-registry entry t)
@@ -505,13 +505,13 @@ When nil, attempts to auto-detect from straight.el recipe or load path.
 Set this to your local checkout (e.g., \"~/projects/ogent\") for
 reliable reloading during development."
   :type '(choice (const :tag "Auto-detect" nil)
-          (directory :tag "Source directory"))
+                 (directory :tag "Source directory"))
   :group 'ogent)
 
 (defun ogent-onboard--source-root-from-path (path)
   "Return the ogent project root represented by PATH, or nil.
-PATH may name the project root, the lisp directory, or an ogent
-source file. Symlinks are resolved before the root is inferred."
+PATH may name the project root, the Lisp directory, or an ogent
+source file.  Symlinks are resolved before the root is inferred."
   (when path
     (let* ((resolved (file-truename (expand-file-name path)))
            (dir (directory-file-name
@@ -541,7 +541,7 @@ source file. Symlinks are resolved before the root is inferred."
 Priority:
 1. `ogent-source-directory' if set
 2. straight.el local repo path
-3. Fall back to load-file-name parent"
+3. Fall back to `load-file-name' parent"
   (or (when ogent-source-directory
         (or (ogent-onboard--source-root-from-path ogent-source-directory)
             (file-name-as-directory (expand-file-name ogent-source-directory))))
@@ -586,12 +586,12 @@ local checkout path."
         (byte-compile-file file))
       ;; Unload all ogent features
       (dolist (feat '(ogent-onboard ogent-issues ogent-ui ogent-codemap ogent-companion
-                      ogent-core ogent-models ogent-context ogent-tools ogent-debug
-                      ogent-session ogent-notes ogent-keys
-                      ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
-                      ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
-                      ogent-codex-oauth
-                      ogent ))
+                                    ogent-core ogent-models ogent-context ogent-tools ogent-debug
+                                    ogent-session ogent-notes ogent-keys
+                                    ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
+                                    ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                                    ogent-codex-oauth
+                                    ogent ))
         (when (featurep feat)
           (unload-feature feat t)))
       ;; Add source to load-path temporarily and reload
@@ -615,12 +615,12 @@ local checkout path."
     (message "Reloading ogent from %s..." project-root)
     ;; Unload all ogent features
     (dolist (feat '(ogent-onboard ogent-issues ogent-ui ogent-codemap ogent-companion
-                    ogent-core ogent-models ogent-context ogent-tools ogent-debug
-                    ogent-session ogent-notes ogent-keys
-                    ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
-                    ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
-                    ogent-codex-oauth
-                      ogent ))
+                                  ogent-core ogent-models ogent-context ogent-tools ogent-debug
+                                  ogent-session ogent-notes ogent-keys
+                                  ogent-edit ogent-edit-format ogent-edit-log ogent-edit-display
+                                  ogent-edit-parse ogent-edit-request ogent-anthropic-oauth
+                                  ogent-codex-oauth
+                                  ogent ))
       (when (featurep feat)
         (unload-feature feat t)))
     ;; Add source to load-path temporarily and reload

@@ -24,9 +24,9 @@
   (require 'flymake))
 
 ;; gptel integration
-(declare-function gptel-request "ext:gptel" (prompt &rest args))
-(declare-function gptel-backend-name "ext:gptel")
-(declare-function gptel--model-name "ext:gptel")
+(declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-backend-name "ext:gptel-request" t t)
+(declare-function gptel--model-name "ext:gptel-request")
 (defvar gptel-backend)
 (defvar gptel-model)
 
@@ -74,7 +74,7 @@ When enabled, edits are still logged to the companion buffer if
 (defun ogent-edit--ensure-gptel ()
   "Signal a user error if gptel is unavailable."
   (unless (require 'gptel nil 'noerror)
-    (user-error "gptel is required for ogent edit requests. Install gptel first")))
+    (user-error "Gptel is required for ogent edit requests.  Install gptel first")))
 
 (defun ogent-edit--current-model-name ()
   "Return the current gptel model name for edit error reporting."

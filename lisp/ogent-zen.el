@@ -872,9 +872,9 @@ Falls back to a full refresh when the transcript cannot be resolved."
 (defun ogent-zen--remove-animation-timer ()
   "Cancel the Zen animation timer when no Zen buffer remains."
   (unless (cl-some (lambda (buffer)
-                    (and (buffer-live-p buffer)
-                         (buffer-local-value 'ogent-zen-mode buffer)))
-                  (buffer-list))
+                     (and (buffer-live-p buffer)
+                          (buffer-local-value 'ogent-zen-mode buffer)))
+                   (buffer-list))
     (when (timerp ogent-zen--animation-timer)
       (cancel-timer ogent-zen--animation-timer))
     (setq ogent-zen--animation-timer nil)))

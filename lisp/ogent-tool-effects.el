@@ -29,7 +29,7 @@
   "Risk ordering used when combining tool effects.")
 
 (defun ogent-tool-effects--plist-p (value)
-  "Return non-nil when VALUE looks like a plist."
+  "Detect whether VALUE is a plist."
   (and (consp value)
        (keywordp (car value))))
 

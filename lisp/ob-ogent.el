@@ -30,7 +30,7 @@
 (require 'ogent-models)
 (require 'ogent-gptel)
 
-(declare-function gptel-request "ext:gptel-request" (prompt &rest args))
+(declare-function gptel-request "ext:gptel-request")
 (declare-function ogent-context--dependency "ogent-context" (handle))
 ;; cl-defstruct accessor (fileonly: generated, not a top-level defun)
 (declare-function ogent-context-node-content "ogent-context" t t)
@@ -109,7 +109,7 @@ timeout or an error response."
          (gptel-stream nil)
          (gptel-use-tools nil))
     (unless backend
-      (user-error "ob-ogent: no backend for model %s" model-id))
+      (user-error "Ob-ogent: no backend for model %s" model-id))
     (gptel-request prompt
                    :system (or system gptel--system-message)
                    :stream nil
@@ -127,8 +127,8 @@ timeout or an error response."
         (accept-process-output nil 0.1)))
     (cond
      ((not done)
-      (user-error "ob-ogent: request timed out after %ds" ob-ogent-timeout))
-     (failure (user-error "ob-ogent: %s" failure))
+      (user-error "Ob-ogent: request timed out after %ds" ob-ogent-timeout))
+     (failure (user-error "Ob-ogent: %s" failure))
      (t (string-trim (or result ""))))))
 
 ;;;###autoload
@@ -147,7 +147,7 @@ sends the result synchronously to the model named by :model."
                      (concat context-preamble expanded)
                    expanded)))
     (when (string-empty-p (string-trim expanded))
-      (user-error "ob-ogent: empty prompt"))
+      (user-error "Ob-ogent: empty prompt"))
     (ob-ogent--request-sync (format "%s" model-id) system prompt)))
 
 (provide 'ob-ogent)

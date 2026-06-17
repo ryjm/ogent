@@ -100,7 +100,7 @@
     (let ((cycles (ogent-graph--detect-cycles adj-list)))
       (should cycles)
       (should (cl-some (lambda (c) (and (string= (car c) "a")
-                                       (string= (cdr c) "a")))
+                                        (string= (cdr c) "a")))
                        cycles)))))
 
 (ert-deftest ogent-graph-detect-cycles-transitive ()

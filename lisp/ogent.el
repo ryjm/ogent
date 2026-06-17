@@ -1,10 +1,11 @@
 ;;; ogent.el --- AI assistant with Org-mode integration -*- lexical-binding: t; -*-
+;; Copyright (C) 2026 Jake Miller
 
 ;; Author: Jake Miller
 ;; Maintainer: Jake Miller
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5") (transient "0.13.4") (org "9.8.5"))
-;; Homepage: https://github.com/jake-87/ogent
+;; Homepage: https://github.com/ryjm/ogent
 ;; Keywords: ai, llm, org-mode, tools, convenience
 
 ;; This file is not part of GNU Emacs.
@@ -42,7 +43,7 @@
 ;; Then use C-c . p to open the prompt dispatcher.
 ;;
 ;; For more information, see the README at:
-;; https://github.com/jake-87/ogent
+;; https://github.com/ryjm/ogent
 
 ;;; Code:
 
@@ -65,38 +66,7 @@
                (not (member dir load-path)))
       (add-to-list 'load-path dir))))
 
-(defvar org-capture-templates-contexts nil
-  "Alist of Org capture templates and their valid contexts.")
-
-(defun ogent--ensure-org-capture-templates-contexts (&rest _)
-  "Ensure stale Org capture builds define `org-capture-templates-contexts'."
-  (unless (default-boundp 'org-capture-templates-contexts)
-    (setq-default org-capture-templates-contexts nil))
-  (unless (boundp 'org-capture-templates-contexts)
-    (setq org-capture-templates-contexts
-          (default-value 'org-capture-templates-contexts))))
-
-(defun ogent--with-org-capture-templates-contexts (fn &rest args)
-  "Call FN with ARGS and `org-capture-templates-contexts' safely bound."
-  (ogent--ensure-org-capture-templates-contexts)
-  (let ((org-capture-templates-contexts
-         (if (boundp 'org-capture-templates-contexts)
-             org-capture-templates-contexts
-           nil)))
-    (apply fn args)))
-
-(defun ogent--advise-org-capture-contexts (symbol)
-  "Advise SYMBOL to tolerate stale Org capture builds."
-  (unless (advice-member-p #'ogent--with-org-capture-templates-contexts symbol)
-    (advice-add symbol :around #'ogent--with-org-capture-templates-contexts)))
-
-(ogent--ensure-org-capture-templates-contexts)
-
-(with-eval-after-load 'org-capture
-  (ogent--ensure-org-capture-templates-contexts)
-  (ogent--advise-org-capture-contexts 'org-capture)
-  (ogent--advise-org-capture-contexts 'org-capture-goto-target)
-  (ogent--advise-org-capture-contexts 'org-capture-select-template))
+(require 'ogent-org-compat)
 
 (require 'ogent-context)
 (require 'ogent-models)
@@ -141,11 +111,6 @@
 
 ;; Install default tool implementations
 (ogent-tools-install-defaults)
-
-;; Enable the ogent Org Babel language so prompt src blocks execute.
-(with-eval-after-load 'org
-  (when (boundp 'org-babel-load-languages)
-    (add-to-list 'org-babel-load-languages '(ogent . t))))
 
 (provide 'ogent)
 

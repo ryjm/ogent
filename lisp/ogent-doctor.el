@@ -13,7 +13,7 @@
 (require 'ogent-gptel)
 (require 'ogent-models)
 
-(declare-function gptel-request "ext:gptel" (prompt &rest args))
+(declare-function gptel-request "ext:gptel-request")
 (declare-function ogent-codex-oauth--auth-file "ogent-codex-oauth")
 (declare-function ogent-codex-oauth-mode "ogent-codex-oauth")
 (declare-function ogent-codex-oauth-get-api-key "ogent-codex-oauth")
@@ -95,13 +95,14 @@
     (ogent-doctor--result id label 'error "Org is not loadable")))
 
 (defun ogent-doctor--check-gptel (id label)
-  "Check gptel can load and exposes its request entrypoint."
+  "Check gptel can load for ID and LABEL and exposes its request entrypoint."
   (if (and (require 'gptel nil t) (fboundp 'gptel-request))
       (ogent-doctor--result id label 'ok "gptel loaded and `gptel-request' is available")
     (ogent-doctor--result id label 'error "gptel is not loadable or lacks `gptel-request'")))
 
 (defun ogent-doctor--check-transient (id label)
-  "Check Transient can load and meets the configured minimum when versioned."
+  "Check Transient for ID and LABEL.
+Verify it can load and meets the configured minimum when versioned."
   (if (and (require 'transient nil t) (fboundp 'transient-define-prefix))
       (let* ((version (and (boundp 'transient-version) transient-version))
              (status (if version
@@ -116,7 +117,7 @@
     (ogent-doctor--result id label 'error "Transient is not loadable")))
 
 (defun ogent-doctor--check-model-registry (id label)
-  "Check the ogent model registry shape."
+  "Check the ogent model registry shape for ID and LABEL."
   (condition-case err
       (let* ((models (ogent-models-all))
              (bad (seq-filter (lambda (model)
@@ -133,7 +134,7 @@
     (error (ogent-doctor--result id label 'error (error-message-string err)))))
 
 (defun ogent-doctor--check-default-model (id label)
-  "Check `ogent-default-model' resolves to a registered model."
+  "Check `ogent-default-model' resolves to a registered model for ID and LABEL."
   (if (and (boundp 'ogent-default-model)
            ogent-default-model
            (ogent-models-get ogent-default-model))
@@ -144,7 +145,7 @@
                                        ogent-default-model)))))
 
 (defun ogent-doctor--check-backend (id label)
-  "Check the default model resolves to a gptel backend candidate."
+  "Check the default model resolves to a gptel backend candidate for ID and LABEL."
   (condition-case err
       (let* ((model (ogent-models-default))
              (backend (and model (ogent-gptel-resolve-backend model))))
@@ -163,19 +164,19 @@
     (error (ogent-doctor--result id label 'warn (error-message-string err)))))
 
 (defun ogent-doctor--check-gptel-tools (id label)
-  "Report whether gptel tool execution is enabled."
+  "Report whether gptel tool execution is enabled for ID and LABEL."
   (if (and (boundp 'gptel-use-tools) gptel-use-tools)
       (ogent-doctor--result id label 'ok "`gptel-use-tools' is enabled")
     (ogent-doctor--result id label 'info "`gptel-use-tools' is not enabled")))
 
 (defun ogent-doctor--check-br (id label)
-  "Check whether br is available for issue integration."
+  "Check whether br is available for issue integration for ID and LABEL."
   (if-let ((path (executable-find "br")))
       (ogent-doctor--result id label 'ok (format "br found at %s" path))
     (ogent-doctor--result id label 'warn "br executable not found in PATH")))
 
 (defun ogent-doctor--check-codex-auth (id label)
-  "Check local Codex OAuth cache presence without network calls."
+  "Check local Codex OAuth cache presence for ID and LABEL without network access."
   (if (require 'ogent-codex-oauth nil t)
       (let ((file (ogent-codex-oauth--auth-file))
             (mode (ignore-errors (ogent-codex-oauth-mode)))
@@ -194,7 +195,8 @@
     (ogent-doctor--result id label 'info "Codex OAuth module is not loadable")))
 
 (defun ogent-doctor--check-anthropic-auth (id label)
-  "Check local Claude OAuth token cache presence without network calls."
+  "Check Claude OAuth token cache for ID and LABEL.
+Do not make network calls."
   (if (require 'ogent-anthropic-oauth nil t)
       (if-let ((file (ignore-errors (ogent-anthropic-oauth--find-existing-token-file))))
           (ogent-doctor--result id label 'ok (format "Claude OAuth token file found at %s" file))
@@ -202,7 +204,7 @@
     (ogent-doctor--result id label 'info "Claude OAuth module is not loadable")))
 
 (defun ogent-doctor-run ()
-  "Run all ogent doctor checks and return result plists."
+  "Run every ogent doctor probe and return result plists."
   (mapcar
    (lambda (check)
      (let ((id (plist-get check :id))
@@ -244,7 +246,7 @@
   (concat
    "* Ogent Doctor\n"
    (format "Status: %s\n\n" (ogent-doctor--status-label
-                              (ogent-doctor-summary-status results)))
+                             (ogent-doctor-summary-status results)))
    (mapconcat #'ogent-doctor-format-check results "\n\n")
    "\n"))
 

@@ -353,7 +353,7 @@
   "ogent-prompt-apply-overrides can override title and compose-order."
   (let ((ogent-prompt-registry (make-hash-table :test 'equal))
         (ogent-prompt-overrides '(("my-prompt" . (:title "New Title"
-                                                  :compose-order 5)))))
+                                                         :compose-order 5)))))
     (ogent-prompt-register "my-prompt" :title "Old" :content "C" :compose-order 50)
     (ogent-prompt-apply-overrides)
     (let ((prompt (ogent-prompt-get "my-prompt")))

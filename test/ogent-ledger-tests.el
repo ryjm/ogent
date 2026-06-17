@@ -77,10 +77,10 @@
          (ogent-ledger-file file)
          (ogent-tool-registry
           '((:name echo-tool
-             :function (lambda (value) value)
-             :description "Echo value"
-             :args ((:name "value" :type "string"))
-             :effects ((:kind read :target memory :scope process :risk low)))))
+                   :function (lambda (value) value)
+                   :description "Echo value"
+                   :args ((:name "value" :type "string"))
+                   :effects ((:kind read :target memory :scope process :risk low)))))
          (seen-result nil)
          (seen-error nil))
     (unwind-protect

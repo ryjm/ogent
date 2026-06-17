@@ -73,7 +73,7 @@ Overrides `ogent-codemap-source-directories' when set.")
 (defvar-local ogent-project-prompts nil
   "Alist of project-specific prompt templates.
 Each entry is (ID . CONTENT) where ID is a string and CONTENT
-is the prompt text. These are registered with `ogent-prompt-register'.")
+is the prompt text.  These are registered with `ogent-prompt-register'.")
 
 (defvar-local ogent-project-tools nil
   "List of tool symbols to enable for this project.
@@ -174,7 +174,7 @@ Only allows known ogent variables to be set."
         (set (make-local-variable var) val)))))
 
 (defun ogent-presets--register-prompts ()
-  "Register project-specific prompts from `ogent-project-prompts'."
+  "Register project-specific templates from `ogent-project-prompts'."
   (when (and ogent-project-prompts
              (fboundp 'ogent-prompt-register))
     (dolist (entry ogent-project-prompts)
@@ -286,11 +286,11 @@ Creates or updates the .ogent.el file in the project root."
 
     ;; Context files
     (let* ((current (cdr (assq 'ogent-project-context-files settings)))
-             (current-str (mapconcat #'identity (or current '()) ", "))
-             (input (read-string
-                     (format "Context files (comma-sep, current: %s): "
-                             (if (string-empty-p current-str) "none" current-str))
-                     nil nil current-str)))
+           (current-str (mapconcat #'identity (or current '()) ", "))
+           (input (read-string
+                   (format "Context files (comma-sep, current: %s): "
+                           (if (string-empty-p current-str) "none" current-str))
+                   nil nil current-str)))
       (if (string-empty-p input)
           (setq settings (assq-delete-all 'ogent-project-context-files settings))
         (let ((files (mapcar #'string-trim (split-string input "," t))))

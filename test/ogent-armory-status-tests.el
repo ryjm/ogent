@@ -12,6 +12,8 @@
 (require 'ogent-ui-armory)
 
 (declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function magit-current-section "ext:magit-section" t t)
+(declare-function magit-section-hidden-body "ext:magit-section")
 
 (defmacro ogent-armory-status-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
@@ -29,17 +31,17 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex-cli"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex-cli"
+             :active t)
      "Maintain architecture.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "0 9 * * 1"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "0 9 * * 1"
+           :enabled t)
      "Review architecture notes.")
     (let* ((nested (expand-file-name "engineering" dir))
            (buffer nil))
@@ -146,11 +148,11 @@
   (let* ((year (format-time-string "%Y" (current-time)))
          (timestamp (format "%s-05-05T11:42:37-0700" year))
          (node `(:kind session
-                 :label "Architecture Steward Weekly Architecture Scan"
-                 :data (:status "FAILED"
-                        :agent "architecture-steward"
-                        :duration "153.76s"
-                        :finished ,timestamp)))
+                       :label "Architecture Steward Weekly Architecture Scan"
+                       :data (:status "FAILED"
+                                      :agent "architecture-steward"
+                                      :duration "153.76s"
+                                      :finished ,timestamp)))
          (text (substring-no-properties
                 (ogent-armory-status--format-session-line node))))
     (should (string-match-p "failed" text))
@@ -182,17 +184,17 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex-cli"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex-cli"
+             :active t)
      "Maintain architecture.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "0 9 * * 1"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "0 9 * * 1"
+           :enabled t)
      "Review architecture notes.")
     (let ((buffer (ogent-armory-status dir)))
       (unwind-protect
@@ -204,9 +206,9 @@
             (beginning-of-line)
             (let ((section (magit-current-section)))
               (should section)
-              (should-not (oref section hidden))
+              (should-not (magit-section-hidden-body section))
               (ogent-armory-status-toggle-section)
-              (should (oref section hidden))))
+              (should (magit-section-hidden-body section))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -219,17 +221,17 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex-cli"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex-cli"
+             :active t)
      "Maintain architecture.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "0 9 * * 1"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "0 9 * * 1"
+           :enabled t)
      "Review architecture notes.")
     (let ((buffer (ogent-armory-status dir)))
       (unwind-protect
@@ -281,17 +283,17 @@
   (ogent-armory-write-agent
    dir
    '(:slug "cto"
-     :name "CTO"
-     :role "Architecture"
-     :provider "codex-cli"
-     :active t)
+           :name "CTO"
+           :role "Architecture"
+           :provider "codex-cli"
+           :active t)
    "Maintain architecture.")
   (ogent-armory-write-job
    dir "cto"
    '(:id "weekly-review"
-     :name "Weekly Review"
-     :cron "0 9 * * 1"
-     :enabled t)
+         :name "Weekly Review"
+         :cron "0 9 * * 1"
+         :enabled t)
    "Review architecture notes."))
 
 (ert-deftest ogent-armory-status-edits-agent-and-job-properties ()
@@ -331,9 +333,9 @@
                          (lambda (&rest _) "nil")))
                 (ogent-armory-status-edit))
               (should-not (plist-get (ogent-armory-read-job dir
-                                                              "cto"
-                                                              "weekly-review")
-                                      :enabled))))
+                                                             "cto"
+                                                             "weekly-review")
+                                     :enabled))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 

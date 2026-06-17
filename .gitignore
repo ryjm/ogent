@@ -35,3 +35,13 @@ state.json
 # engine run state
 /.engine/
 .engine.prev-*/
+
+# Internal agent and runtime state
+.agents/
+.beads-legacy-bd/
+/.ogent-analytics.db
+sandbox/
+.armory-state/
+.jobs/
+.br_history/
+.beads/.br_history/

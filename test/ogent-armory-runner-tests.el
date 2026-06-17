@@ -34,15 +34,22 @@
   "Wait for PROCESS to exit and its sentinel to finalize the conversation."
   (while (process-live-p process)
     (accept-process-output process 0.1))
-  ;; The exit sentinel finalizes the conversation and removes the process
-  ;; from the runner registry.  Poll for that with a nil process argument:
-  ;; for a dead process `accept-process-output' returns immediately without
-  ;; delivering pending sentinels, which would starve this loop.
-  (let ((deadline (+ (float-time) 5)))
+  ;; The exit sentinel removes PROCESS from the registry before it rewrites the
+  ;; canonical conversation record.  Poll until both the registry and stored
+  ;; conversation state reflect finalization.
+  (let* ((plan (process-get process 'ogent-armory-plan))
+         (root (plist-get plan :root))
+         (conversation-id (process-get process 'ogent-armory-conversation-id))
+         (deadline (+ (float-time) 5)))
     (while (and (< (float-time) deadline)
-                (memq process ogent-armory-runner--processes))
-      (accept-process-output nil 0.05)))
-  (accept-process-output nil 0.1))
+                (or (memq process ogent-armory-runner--processes)
+                    (let ((status (ignore-errors
+                                    (plist-get
+                                     (ogent-armory-conversation-read
+                                      root conversation-id)
+                                     :status))))
+                      (or (null status) (equal status "running")))))
+      (accept-process-output nil 0.05))))
 
 (ert-deftest ogent-armory-runner-builds-codex-plan-from-job ()
   "Codex plans use `codex exec' with subscription auth inherited from the CLI."
@@ -53,17 +60,17 @@
       (ogent-armory-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :model "gpt-5.4"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :model "gpt-5.4"
+               :workspace "engineering")
        "Keep the architecture honest.")
       (ogent-armory-write-job
        dir "cto"
        '(:id "weekly-review"
-         :name "Weekly Review"
-         :cron "0 9 * * 1")
+             :name "Weekly Review"
+             :cron "0 9 * * 1")
        "Find risks and write next actions.")
       (let* ((plan (ogent-armory-runner-plan
                     dir "cto" :job-id "weekly-review"))
@@ -94,10 +101,10 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "cto" :instruction "Review this run."))
@@ -121,10 +128,10 @@
     (ogent-armory-write-agent
      dir
      '(:slug "builder"
-       :name "Builder"
-       :role "Implementation"
-       :provider "codex"
-       :workspace "/")
+             :name "Builder"
+             :role "Implementation"
+             :provider "codex"
+             :workspace "/")
      "Ship small patches.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "builder" :instruction "Implement the dashboard fix."))
@@ -141,16 +148,16 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :enabled t)
+           :name "Weekly Review"
+           :enabled t)
      "Review recent work.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "cto" :job-id "weekly-review"))
@@ -167,11 +174,11 @@
     (ogent-armory-write-agent
      dir
      '(:slug "lead"
-       :name "Lead"
-       :role "Lead agent"
-       :provider "codex"
-       :can-dispatch t
-       :workspace "/")
+             :name "Lead"
+             :role "Lead agent"
+             :provider "codex"
+             :can-dispatch t
+             :workspace "/")
      "Coordinate follow-up work.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "lead" :instruction "Plan follow-up tasks."))
@@ -189,20 +196,20 @@
       (ogent-armory-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :model "gpt-5.4"
-         :workspace "/")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :model "gpt-5.4"
+               :workspace "/")
        "Keep the architecture honest.")
       (ogent-armory-write-job
        dir "cto"
        '(:id "weekly-review"
-         :name "Weekly Review"
-         :provider "claude"
-         :model "sonnet"
-         :workspace "reports"
-         :enabled t)
+             :name "Weekly Review"
+             :provider "claude"
+             :model "sonnet"
+             :workspace "reports"
+             :enabled t)
        "Find risks and write next actions.")
       (let* ((plan (ogent-armory-runner-plan
                     dir "cto" :job-id "weekly-review"))
@@ -220,17 +227,17 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "daily-review"
-       :name "Daily Review"
-       :cron "0 9 * * *"
-       :enabled t)
+           :name "Daily Review"
+           :cron "0 9 * * *"
+           :enabled t)
      "Find risks and write next actions.")
     (let* ((key "cto::job::daily-review::2026-05-04T09:00")
            (plan (ogent-armory-runner-plan
@@ -258,17 +265,17 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :workspace "/")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
      "Keep the architecture honest.")
     (ogent-armory-write-job
      dir "cto"
      '(:id "weekly-review"
-       :name "Weekly Review"
-       :cron "not a cron"
-       :enabled t)
+           :name "Weekly Review"
+           :cron "not a cron"
+           :enabled t)
      "Find risks and write next actions.")
     (let* ((error (should-error
                    (ogent-armory-runner-plan dir "cto" :job-id "weekly-review")
@@ -284,19 +291,19 @@
     (ogent-armory-write-agent
      dir
      '(:slug "editor"
-       :name "Editor"
-       :role "Knowledge editor"
-       :provider "claude"
-       :model "sonnet"
-       :permission-mode "plan")
+             :name "Editor"
+             :role "Knowledge editor"
+             :provider "claude"
+             :model "sonnet"
+             :permission-mode "plan")
      "Keep the notes sharp.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "editor" :instruction "Summarize today."))
            (args (plist-get plan :args)))
-        (should (eq (plist-get plan :provider) 'claude))
-        (should (equal (plist-get plan :adapter-id) "claude-code"))
-        (should (equal (plist-get plan :program)
-                       ogent-armory-claude-executable))
+      (should (eq (plist-get plan :provider) 'claude))
+      (should (equal (plist-get plan :adapter-id) "claude-code"))
+      (should (equal (plist-get plan :program)
+                     ogent-armory-claude-executable))
       (should (member "-p" args))
       (should (member "--permission-mode" args))
       (should (member "plan" args))
@@ -317,24 +324,24 @@
     (ogent-armory-settings-write
      dir
      '(:default-provider "claude-code"
-       :default-model "opus-4.7"
-       :default-effort "xhigh"
-       :default-runtime "terminal")
+                         :default-model "opus-4.7"
+                         :default-effort "xhigh"
+                         :default-runtime "terminal")
      :merge t)
     (ogent-armory-write-agent
      dir
      '(:slug "lead"
-       :name "Lead"
-       :role "Coordinator"
-       :provider "claude-code"
-       :workspace "/")
+             :name "Lead"
+             :role "Coordinator"
+             :provider "claude-code"
+             :workspace "/")
      "Keep Armory work moving.")
     (ogent-armory-write-job
      dir "lead"
      '(:id "configure-master"
-       :name "Configure Master"
-       :enabled t
-       :workspace "/")
+           :name "Configure Master"
+           :enabled t
+           :workspace "/")
      "Configure this Armory.")
     (let* ((ogent-armory-runner-claude-permission-mode "default")
            (plan (ogent-armory-runner-plan
@@ -363,9 +370,9 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "#+end_src")
     (let* ((plan (ogent-armory-runner-plan
                   dir "cto" :instruction "#+end_src"))
@@ -381,9 +388,9 @@
     (ogent-armory-write-agent
      dir
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex")
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex")
      "Keep the plan direct.")
     (let* ((plan (ogent-armory-runner-plan
                   dir "cto" :instruction "Review."))
@@ -404,10 +411,10 @@
       (ogent-armory-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
@@ -463,10 +470,10 @@ Return (MAIN . WORKTREE)."
       (ogent-armory-write-agent
        dir
        `(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace ,worktree)
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace ,worktree)
        "Keep the plan direct.")
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
@@ -495,10 +502,10 @@ Return (MAIN . WORKTREE)."
       (ogent-armory-write-agent
        dir
        `(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace ,worktree)
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace ,worktree)
        "Keep the plan direct.")
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
@@ -528,10 +535,10 @@ Return (MAIN . WORKTREE)."
       (ogent-armory-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
@@ -558,10 +565,10 @@ Return (MAIN . WORKTREE)."
       (ogent-armory-write-agent
        dir
        '(:slug "cto"
-         :name "CTO"
-         :role "Architecture"
-         :provider "codex"
-         :workspace "engineering")
+               :name "CTO"
+               :role "Architecture"
+               :provider "codex"
+               :workspace "engineering")
        "Keep the plan direct.")
       (let* ((ogent-armory-codex-executable fixture)
              (ogent-armory-runner-confirm-before-run nil)
@@ -584,25 +591,25 @@ Return (MAIN . WORKTREE)."
   (ogent-armory-write-agent
    root
    '(:slug "lead"
-     :name "Lead"
-     :role "Lead agent"
-     :type "lead"
-     :can-dispatch t
-     :provider "codex")
+           :name "Lead"
+           :role "Lead agent"
+           :type "lead"
+           :can-dispatch t
+           :provider "codex")
    "Lead the work.")
   (ogent-armory-write-agent
    root
    '(:slug "builder"
-     :name "Builder"
-     :role "Implementation"
-     :provider "claude")
+           :name "Builder"
+           :role "Implementation"
+           :provider "claude")
    "Build the work.")
   (ogent-armory-conversation-create
    root
    '(:id "parent"
-     :agent "lead"
-     :title "Parent"
-     :status "done")))
+         :agent "lead"
+         :title "Parent"
+         :status "done")))
 
 (ert-deftest ogent-armory-runner-capture-actions-stores-lead-proposals ()
   "Lead proposals on a clean exit become readable pending actions."

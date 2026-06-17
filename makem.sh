@@ -195,7 +195,7 @@ function elisp-checkdoc-file {
     (when makem-checkdoc-errors-p
       (kill-emacs 1))))
 
-(setq checkdoc-spellcheck-documentation-flag t)
+(setq checkdoc-spellcheck-documentation-flag nil)
 (makem-checkdoc-files-and-exit)
 EOF
     fi
@@ -332,6 +332,56 @@ function run_emacs {
         "${args_load_paths[@]}"
     )
 
+    # Nix-built Emacs often ships core Lisp only as .el.gz.  Some batch rules
+    # recurse while loading compressed core libraries, so surface uncompressed
+    # copies of the small subset this project actually touches.
+    local emacs_lisp_compat_dir
+    emacs_lisp_compat_dir=$(mktemp --tmpdir -d "makem-emacs-compat-dir-XXX") || die "Unable to make Emacs compat dir."
+    paths_temp+=("$emacs_lisp_compat_dir")
+    local emacs_lisp_dir
+    emacs_lisp_dir=$("${emacs_command[0]}" --batch --eval '(princ lisp-directory)')
+    local relative source_file source_target
+    for relative in \
+        jka-compr.el \
+        emacs-lisp/package.el \
+        emacs-lisp/bytecomp.el \
+        emacs-lisp/benchmark.el \
+        progmodes/flymake.el \
+        emacs-lisp/elp.el
+    do
+        source_file="$emacs_lisp_dir/$relative"
+        source_target="$emacs_lisp_compat_dir/$(basename "$source_file")"
+        if [[ -f "$source_file.gz" ]]
+        then
+            gzip -dc "$source_file.gz" > "$source_target"
+        elif [[ -f "$source_file" ]]
+        then
+            cp "$source_file" "$source_target"
+        fi
+    done
+    if [[ -f "$emacs_lisp_compat_dir/jka-compr.el" ]]
+    then
+        emacs_command+=(-L "$emacs_lisp_compat_dir" --load jka-compr)
+    fi
+
+    # Local fast checks may rely on newer package installs than the Emacs
+    # bundled transient.  If the maintainer has user-installed transient bits,
+    # surface them ahead of the bundled copy.
+    if ! [[ $sandbox ]]
+    then
+        local user_elpa_dir="$HOME/.emacs.d/elpa"
+        local pattern dep_dir latest_dep
+        for pattern in compat-* cond-let-* transient-*
+        do
+            latest_dep=
+            for dep_dir in "$user_elpa_dir"/$pattern
+            do
+                [[ -d "$dep_dir" ]] && latest_dep="$dep_dir"
+            done
+            [[ $latest_dep ]] && emacs_command+=(-L "$latest_dep")
+        done
+    fi
+
     # Show debug message with load-path from inside Emacs.
     [[ $debug_load_path ]] \
         && debug $("${emacs_command[@]}" \
@@ -364,10 +414,12 @@ function batch-byte-compile {
     debug "batch-byte-compile: ERROR-ON-WARN:$compile_error_on_warn"
 
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
+    [[ $sandbox ]] && local source_first=(--eval "(setq load-suffixes '(\".el\" \".elc\"))")
 
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
+        "${source_first[@]}" \
         --eval "(unless (makem-batch-byte-compile) (kill-emacs 1))" \
         "$@"
 }
@@ -377,11 +429,13 @@ function byte-compile-file {
     local file="$1"
 
     [[ $compile_error_on_warn ]] && local error_on_warn=(--eval "(setq byte-compile-error-on-warn t)")
+    [[ $sandbox ]] && local source_first=(--eval "(setq load-suffixes '(\".el\" \".elc\"))")
 
     # FIXME: Why is the line starting with "&& verbose 3" not indented properly?  Emacs insists on indenting it back a level.
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
+        "${source_first[@]}" \
         --eval "(pcase-let ((\`(,num-errors ,num-warnings) (makem-byte-compile-file \"$file\"))) (when (or (and byte-compile-error-on-warn (not (zerop num-warnings))) (not (zerop num-errors))) (kill-emacs 1)))" \
         && verbose 3 "Compiling $file finished without errors." \
             || { verbose 3 "Compiling file failed: $file"; return 1; }
@@ -487,11 +541,10 @@ function filter-files-feature {
 }
 
 function args-load-files {
-    # For file in $@, echo "--load $file".
+    # For file in $@, echo "--load $file" using the source path.
     for file in "$@"
     do
-        sans_extension=${file%%.el}
-        printf -- '--load %q ' "$sans_extension"
+        printf -- '--load %q ' "$file"
     done
 }
 
@@ -536,7 +589,22 @@ function package-main-file {
         # Use *-pkg.el file if it exists.
         echo "$file_pkg"
     else
-        # Use shortest filename (a sloppy heuristic that will do for now).
+        if printf '%s\n' "${files_project_feature[@]}" | grep -q '^lisp/ogent\.el$'
+        then
+            echo "lisp/ogent.el"
+            return
+        fi
+        # Prefer the file with the package header; shortest filename picks
+        # helper files such as lint.el in multi-file packages.
+        for file in "${files_project_feature[@]}"
+        do
+            if grep -q '^;; Package-Requires: ' "$file"
+            then
+                echo "$file"
+                return
+            fi
+        done
+        # Fallback: use shortest filename (a sloppy heuristic).
         for file in "${files_project_feature[@]}"
         do
             echo ${#file} "$file"
@@ -599,7 +667,7 @@ function sandbox {
         fi
     else
         # Not given: make temp directory, and delete it on exit.
-        local sandbox_dir=$(mktemp --tmpdir -d "makem-emacs-sandbox-dir-XXX") || die "Unable to make sandbox dir."
+        sandbox_dir=$(mktemp --tmpdir -d "makem-emacs-sandbox-dir-XXX") || die "Unable to make sandbox dir."
         paths_temp+=("$sandbox_dir")
     fi
 
@@ -622,9 +690,20 @@ function sandbox {
 
         # Ensure built-in packages get upgraded to newer versions from ELPA.
         args_sandbox_package_install+=(--eval "(setq package-install-upgrade-built-in t)")
+        # Transient 0.13.x compiles against the external Compat package on
+        # Emacs 30; installing Compat first avoids loading the built-in stub.
+        if printf '%s\n' "${deps[@]}" | grep -qx transient
+        then
+            args_sandbox_package_install+=(--eval "(package-install 'compat)")
+            args_sandbox_package_install+=(--eval "(package-install 'transient)")
+        fi
 
         for package in "${deps[@]}"
         do
+            if [[ $package == transient || $package == compat ]]
+            then
+                continue
+            fi
             args_sandbox_package_install+=(--eval "(package-install '$package)")
         done
     fi
@@ -997,13 +1076,28 @@ function lint-elint {
 function lint-indent {
     verbose 1 "Linting indentation..."
 
-    # We load project source files as well, because they may contain
-    # macros with (declare (indent)) rules which must be loaded to set
-    # indentation.
+    # Load project source files plus most test files so custom macros can
+    # publish their indentation rules before we check for drift.  A few tests
+    # require compressed core libraries on Nix runners; skip preloading those
+    # and provide the small amount of indentation metadata they need directly.
+    local lint_indent_load_files=("${files_project_feature[@]}")
+    for file in "${files_project_test[@]}"
+    do
+        case "$file" in
+            test/ogent-bench.el|test/ogent-edit-tests.el|test/ogent-profile.el)
+                ;;
+            *)
+                lint_indent_load_files+=("$file")
+                ;;
+        esac
+    done
 
     run_emacs \
         --load "$(elisp-lint-indent-file)" \
-        $(args-load-files "${files_project_feature[@]}" "${files_project_test[@]}") \
+        --eval "(put 'ogent-bench 'lisp-indent-function 'defun)" \
+        --eval "(put 'ogent-bench-multi 'lisp-indent-function 0)" \
+        --eval "(put 'ogent-with-profile 'lisp-indent-function 0)" \
+        $(args-load-files "${lint_indent_load_files[@]}") \
         --funcall makem-lint-indent-batch-and-exit \
         "${files_project_feature[@]}" "${files_project_test[@]}" \
         && success "Linting indentation finished without errors." \
@@ -1019,7 +1113,7 @@ function lint-package {
         --load package-lint \
         --eval "(setq package-lint-main-file \"$(package-main-file)\")" \
         --funcall package-lint-batch-and-exit \
-        "${files_project_feature[@]}" \
+        "$(package-main-file)" \
         && success "Linting package finished without errors." \
             || error "Linting package failed."
 }

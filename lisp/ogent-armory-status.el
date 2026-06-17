@@ -25,6 +25,8 @@
     "Non-nil when `magit-section' is available for Armory status.")
   (when ogent-armory-status--magit-section-available
     (require 'magit-section)))
+(put 'magit-insert-section 'lisp-indent-function 2)
+(put 'magit-insert-heading 'lisp-indent-function 0)
 
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
@@ -1246,23 +1248,23 @@ DIRECTION is either `next' or `previous'."
 (transient-define-prefix ogent-armory-status-dispatch ()
   "Dispatch menu for Armory status buffers."
   [:description ogent-armory-status--transient-header
-   ["Run"
-    ("R" "Run/retry selected" ogent-armory-status-run)
-    ("C" "Create job for agent" ogent-armory-status-create-job)]
-   ["Edit"
-    ("e" "Edit metadata" ogent-armory-status-edit)
-    ("E" "Edit body/prompt" ogent-armory-status-edit-body)
-    ("P" "Agent profile" ogent-armory-status-open-agent-profile)
-    ("J" "Agent jobs" ogent-armory-status-open-agent-jobs)]
-   ["Navigate"
-    ("RET" "Visit Org source" ogent-armory-status-visit)
-    ("TAB" "Toggle section" ogent-armory-status-toggle-section :transient t)
-    ("M-n" "Next section" ogent-armory-status-next-section :transient t)
-    ("M-p" "Previous section" ogent-armory-status-previous-section :transient t)
-    ("^" "Up section" ogent-armory-status-up-section :transient t)
-    ("n" "Next item" ogent-armory-status-next-item :transient t)
-    ("p" "Previous item" ogent-armory-status-previous-item :transient t)
-    ("g" "Refresh" ogent-armory-status-refresh :transient t)]]
+                ["Run"
+                 ("R" "Run/retry selected" ogent-armory-status-run)
+                 ("C" "Create job for agent" ogent-armory-status-create-job)]
+                ["Edit"
+                 ("e" "Edit metadata" ogent-armory-status-edit)
+                 ("E" "Edit body/prompt" ogent-armory-status-edit-body)
+                 ("P" "Agent profile" ogent-armory-status-open-agent-profile)
+                 ("J" "Agent jobs" ogent-armory-status-open-agent-jobs)]
+                ["Navigate"
+                 ("RET" "Visit Org source" ogent-armory-status-visit)
+                 ("TAB" "Toggle section" ogent-armory-status-toggle-section :transient t)
+                 ("M-n" "Next section" ogent-armory-status-next-section :transient t)
+                 ("M-p" "Previous section" ogent-armory-status-previous-section :transient t)
+                 ("^" "Up section" ogent-armory-status-up-section :transient t)
+                 ("n" "Next item" ogent-armory-status-next-item :transient t)
+                 ("p" "Previous item" ogent-armory-status-previous-item :transient t)
+                 ("g" "Refresh" ogent-armory-status-refresh :transient t)]]
   [["Surfaces"
     ("h" "Home" ogent-armory-home)
     ("a" "Agents" ogent-armory-agents)

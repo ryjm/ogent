@@ -14,6 +14,8 @@
 (require 'ogent-ui-armory)
 
 (declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function magit-current-section "ext:magit-section" t t)
+(declare-function magit-section-hidden-body "ext:magit-section")
 
 (defmacro ogent-ui-armory-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Armory directory while running BODY."
@@ -61,27 +63,27 @@
   (ogent-armory-write-agent
    root
    '(:slug "cto"
-     :name "CTO"
-     :role "Architecture"
-     :provider "codex"
-     :model "gpt-5.4"
-     :active t
-     :workspace "engineering"
-     :tags ("strategy" "architecture"))
+           :name "CTO"
+           :role "Architecture"
+           :provider "codex"
+           :model "gpt-5.4"
+           :active t
+           :workspace "engineering"
+           :tags ("strategy" "architecture"))
    "Keep the technical plan clear.")
   (ogent-armory-write-job
    root "cto"
    '(:id "weekly-review"
-     :name "Weekly Review"
-     :cron "0 9 * * 1"
-     :enabled t)
+         :name "Weekly Review"
+         :cron "0 9 * * 1"
+         :enabled t)
    "Review architecture notes.")
   (ogent-armory-write-job
    root "cto"
    '(:id "old-report"
-     :name "Old Report"
-     :cron ""
-     :enabled nil)
+         :name "Old Report"
+         :cron ""
+         :enabled nil)
    "Archived job.")
   (ogent-ui-armory-test--write-session
    root "cto" "weekly-review-run" "DONE" 0 "weekly-review")
@@ -111,35 +113,35 @@
             (should (eq major-mode 'ogent-armory-home-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (label '("Armory Home" "Health" "Navigate" "Recent Activity"
-	                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
-	                               "Tasks" "Conversations"
-	                               "Data" "Search" "Apps" "Git" "Palette"
-	                               "Settings" "Help" "Graph" "Armory metadata"
-	                               "Source Org"))
+                               "Active Jobs" "Needs Attention" "Agents" "Jobs"
+                               "Tasks" "Conversations"
+                               "Data" "Search" "Apps" "Git" "Palette"
+                               "Settings" "Help" "Graph" "Armory metadata"
+                               "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "\\[C-c r run\\]" text))
               (should (string-match-p "\\[C-c E prompt\\]" text))
               (should (string-match-p "failed-run" text))
               (should (string-match-p "app artifacts: 1" text)))
-	            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
-	                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
-	                           "C-c a" "C-c t" "C-c c" "C-c s"))
-	              (should (string-match-p key (format "%s" header-line-format)))))
+            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
+                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
+                           "C-c a" "C-c t" "C-c c" "C-c s"))
+              (should (string-match-p key (format "%s" header-line-format)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-home-daily-work-keybindings ()
   "Armory Home exposes the daily job development commands."
   (dolist (pair `(("C-c m" . ,#'ogent-armory-home-dispatch)
-	                  ("C-c ?" . ,#'ogent-armory-home-help)
-	                  ("C-c j" . ,#'ogent-armory-jobs)
-	                  ("C-c D" . ,#'ogent-armory-data)
-	                  ("C-c h" . ,#'ogent-armory-git-status)
-	                  ("C-c /" . ,#'ogent-armory-command-palette)
-	                  ("C-c ," . ,#'ogent-armory-settings)
-	                  ("C-c ." . ,#'ogent-armory-help)
-	                  ("C-c r" . ,#'ogent-armory-home-run)
+                  ("C-c ?" . ,#'ogent-armory-home-help)
+                  ("C-c j" . ,#'ogent-armory-jobs)
+                  ("C-c D" . ,#'ogent-armory-data)
+                  ("C-c h" . ,#'ogent-armory-git-status)
+                  ("C-c /" . ,#'ogent-armory-command-palette)
+                  ("C-c ," . ,#'ogent-armory-settings)
+                  ("C-c ." . ,#'ogent-armory-help)
+                  ("C-c r" . ,#'ogent-armory-home-run)
                   ("C-c E" . ,#'ogent-armory-home-edit-item)
                   ("C-c J" . ,#'ogent-armory-home-open-jobs)))
     (should (eq (lookup-key ogent-armory-home-mode-map (kbd (car pair)))
@@ -156,7 +158,7 @@
                     ("<backtab>" . ,#'ogent-armory-ui-cycle-sections)
                     ("M-n" . ,#'ogent-armory-ui-next-section)
                     ("M-p" . ,#'ogent-armory-ui-previous-section)
-	                    ("^" . ,#'ogent-armory-ui-up-section)))
+                    ("^" . ,#'ogent-armory-ui-up-section)))
       (should (eq (lookup-key map (kbd (car pair))) (cdr pair)))))
   (dolist (map (list ogent-armory-home-mode-map
                      ogent-armory-org-chart-mode-map
@@ -346,9 +348,9 @@
             (beginning-of-line)
             (let ((section (magit-current-section)))
               (should section)
-              (should-not (oref section hidden))
+              (should-not (magit-section-hidden-body section))
               (ogent-armory-ui-toggle-section)
-              (should (oref section hidden))))
+              (should (magit-section-hidden-body section))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -396,7 +398,7 @@
               (let ((section (magit-current-section)))
                 (should section)
                 (ogent-armory-ui-toggle-section)
-                (should (oref section hidden))))
+                (should (magit-section-hidden-body section))))
             (with-current-buffer conversation-buffer
               (goto-char (point-min))
               (search-forward "Prompt")
@@ -404,7 +406,7 @@
               (let ((section (magit-current-section)))
                 (should section)
                 (ogent-armory-ui-toggle-section)
-                (should (oref section hidden)))))
+                (should (magit-section-hidden-body section)))))
         (dolist (buffer (list agent-buffer conversation-buffer))
           (when (buffer-live-p buffer)
             (kill-buffer buffer)))))))
@@ -745,11 +747,11 @@
     (ogent-armory-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (let ((buffer (ogent-armory-home root)))
       (unwind-protect
@@ -800,19 +802,19 @@
     (ogent-armory-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (ogent-armory-write-job
      root
      "architect"
      '(:id "fresh-scan"
-       :name "Fresh Scan"
-       :cron "0 8 * * 1"
-       :enabled t)
+           :name "Fresh Scan"
+           :cron "0 8 * * 1"
+           :enabled t)
      "Review the Armory.")
     (let ((job (ogent-armory-read-job root "architect" "fresh-scan")))
       (should-not (ogent-armory-ui--stale-job-p root job))
@@ -838,19 +840,19 @@
     (ogent-armory-write-agent
      root
      '(:slug "architect"
-       :name "Architect"
-       :role "Architecture"
-       :provider "codex"
-       :model "gpt-5.4"
-       :active t)
+             :name "Architect"
+             :role "Architecture"
+             :provider "codex"
+             :model "gpt-5.4"
+             :active t)
      "Keep the project structure legible.")
     (ogent-armory-write-job
      root
      "architect"
      '(:id "fresh-scan"
-       :name "Fresh Scan"
-       :cron "0 8 * * 1"
-       :enabled t)
+           :name "Fresh Scan"
+           :cron "0 8 * * 1"
+           :enabled t)
      "Review the Armory.")
     (ogent-ui-armory-test--write-session
      root "architect" "fresh-scan-run" "DONE" 0 "fresh-scan"
@@ -918,23 +920,23 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
-	    (ogent-armory-conversation-create
+    (ogent-armory-conversation-create
      root
      '(:id "conv-ui"
-       :agent "cto"
-       :title "Canonical Review"
-       :status "done"
-       :provider "codex"
-       :model "gpt-5.4"
-       :started "2026-05-06T10:00:00Z"
-       :completed "2026-05-06T10:01:00Z"
-       :duration "1s"
-       :artifact-paths ("apps/report")))
+           :agent "cto"
+           :title "Canonical Review"
+           :status "done"
+           :provider "codex"
+           :model "gpt-5.4"
+           :started "2026-05-06T10:00:00Z"
+           :completed "2026-05-06T10:01:00Z"
+           :duration "1s"
+           :artifact-paths ("apps/report")))
     (ogent-armory-conversation-append-turn
      root "conv-ui" "user" "Review this."
      :ts "2026-05-06T10:00:00Z")
@@ -958,7 +960,7 @@
             (search-forward "Canonical Review")
             (setq detail (ogent-armory-conversations-open))
             (with-current-buffer detail
-	              (let ((text (buffer-substring-no-properties
+              (let ((text (buffer-substring-no-properties
                            (point-min)
                            (point-max))))
                 (dolist (label '("Turns" "Artifacts" "Events" "Details"))
@@ -981,19 +983,19 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-armory-conversation-create
                  root
                  '(:id "conv-actions"
-                   :agent "cto"
-                   :title "Action Review"
-                   :status "awaiting-input"
-                   :awaiting-input t
-                   :provider "codex"))))
+                       :agent "cto"
+                       :title "Action Review"
+                       :status "awaiting-input"
+                       :awaiting-input t
+                       :provider "codex"))))
       (ogent-armory-conversation-append-turn
        root "conv-actions" "user" "Review this."
        :ts "2026-05-06T10:00:00Z")
@@ -1043,18 +1045,18 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-armory-conversation-create
                  root
                  '(:id "conv-continue"
-                   :agent "cto"
-                   :title "Continue Review"
-                   :status "done"
-                   :provider "codex")))
+                       :agent "cto"
+                       :title "Continue Review"
+                       :status "done"
+                       :provider "codex")))
           captured)
       (ogent-armory-conversation-append-turn
        root "conv-continue" "user" "Initial ask."
@@ -1092,17 +1094,17 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let* ((file (ogent-armory-conversation-create
                   root
                   '(:id "conv-delete"
-                    :agent "cto"
-                    :title "Delete Review"
-                    :status "done")))
+                        :agent "cto"
+                        :title "Delete Review"
+                        :status "done")))
            (directory (file-name-directory file))
            (buffer (ogent-armory-conversation root file)))
       (with-current-buffer buffer
@@ -1117,10 +1119,10 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (let ((file (ogent-ui-armory-test--write-session
                  root "cto" "successful-run" "DONE" 0)))
@@ -1216,7 +1218,7 @@
             (should (eq major-mode 'ogent-armory-tasks-mode))
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (dolist (lane '("Inbox" "Needs Reply" "Running"
-                               "Just Finished" "Archive"))
+                              "Just Finished" "Archive"))
                 (should (string-match-p lane text)))
               (let ((case-fold-search nil))
                 (should-not (string-match-p "Scheduled" text))
@@ -1318,10 +1320,10 @@
     (ogent-armory-write-agent
      root
      '(:slug "ops"
-       :name "Ops"
-       :role "Operations"
-       :provider "codex"
-       :active t)
+             :name "Ops"
+             :role "Operations"
+             :provider "codex"
+             :active t)
      "Keep daily operations moving.")
     (let ((buffer (ogent-armory-tasks root)))
       (unwind-protect
@@ -1350,10 +1352,10 @@
     (ogent-armory-write-agent
      root
      '(:slug "ops"
-       :name "Ops"
-       :role "Operations"
-       :provider "codex"
-       :active t)
+             :name "Ops"
+             :role "Operations"
+             :provider "codex"
+             :active t)
      "Keep daily operations moving.")
     (ogent-armory-create-task root "ops" "Review pull requests" "")
     (ogent-armory-create-task root "ops" "Review pull requests" "")
@@ -1396,38 +1398,38 @@
     (ogent-armory-write-agent
      root
      '(:slug "cto"
-       :name "CTO"
-       :role "Architecture"
-       :provider "codex"
-       :active t)
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :active t)
      "Maintain architecture.")
     (ogent-armory-conversation-create
      root
      '(:id "late"
-       :agent "cto"
-       :title "Late Card"
-       :status "done"
-       :completed "2026-05-06T11:00:00Z"
-       :last-activity "2026-05-06T11:00:00Z"
-       :board-order 20))
+           :agent "cto"
+           :title "Late Card"
+           :status "done"
+           :completed "2026-05-06T11:00:00Z"
+           :last-activity "2026-05-06T11:00:00Z"
+           :board-order 20))
     (ogent-armory-conversation-create
      root
      '(:id "early"
-       :agent "cto"
-       :title "Early Card"
-       :status "done"
-       :completed "2026-05-06T10:00:00Z"
-       :last-activity "2026-05-06T10:00:00Z"
-       :board-order 1))
+           :agent "cto"
+           :title "Early Card"
+           :status "done"
+           :completed "2026-05-06T10:00:00Z"
+           :last-activity "2026-05-06T10:00:00Z"
+           :board-order 1))
     (ogent-armory-conversation-create
      root
      '(:id "muted"
-       :agent "cto"
-       :title "Muted Card"
-       :status "done"
-       :completed "2026-05-06T09:00:00Z"
-       :last-activity "2026-05-06T09:00:00Z"
-       :muted t))
+           :agent "cto"
+           :title "Muted Card"
+           :status "done"
+           :completed "2026-05-06T09:00:00Z"
+           :last-activity "2026-05-06T09:00:00Z"
+           :muted t))
     (let ((sessions (ogent-armory-conversation-list-sessions root)))
       (should (equal (plist-get
                       (ogent-armory-tasks--session-item

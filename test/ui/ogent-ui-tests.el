@@ -85,9 +85,9 @@
                                    (ogent-gptel-cache '(message system))
                                    (ogent-model-registry
                                     '((:id "ogent-test-cache-model"
-                                       :backend gptel-openai :stream? t
-                                       :request-params (:reasoning_effort "high")
-                                       :capabilities (cache))))
+                                           :backend gptel-openai :stream? t
+                                           :request-params (:reasoning_effort "high")
+                                           :capabilities (cache))))
                                    (captured-cache 'unset))
                                (unwind-protect
                                    (progn
@@ -116,8 +116,8 @@
                       :id "workspace-tools"
                       :model '(:id "m" :backend gptel-openai :stream? nil)
                       :context '(:root nil
-                                 :workspace-root "/tmp/"
-                                 :workspace-tool-intent t)
+                                       :workspace-root "/tmp/"
+                                       :workspace-tool-intent t)
                       :prompt "Look in the repo"
                       :buffer (current-buffer))))
         (cl-letf (((symbol-function 'ogent-ui--ensure-gptel)
@@ -183,7 +183,7 @@
                                             (when-let ((callback (plist-get args :callback)))
                                               (funcall callback nil
                                                        '(:tool-use ((:name "glob"
-                                                                     :args (:pattern "**/*.el")))))
+                                                                           :args (:pattern "**/*.el")))))
                                               (funcall callback
                                                        '(tool-result
                                                          (fake-tool
@@ -799,7 +799,7 @@
     (cl-letf (((symbol-function 'ogent-tool-spec-get)
                (lambda (_name)
                  '(:name read-file
-                   :effects ((:kind read :target file :scope workspace)))))
+                         :effects ((:kind read :target file :scope workspace)))))
               ((symbol-function 'ogent-tool--prompt-approval)
                (lambda (&rest _)
                  (error "approval prompt should not be called"))))
@@ -814,7 +814,7 @@
     (cl-letf (((symbol-function 'ogent-tool-spec-get)
                (lambda (_name)
                  '(:name write-file
-                   :effects ((:kind write :target file :scope workspace)))))
+                         :effects ((:kind write :target file :scope workspace)))))
               ((symbol-function 'ogent-tool--prompt-approval)
                (lambda (&rest _)
                  (setq prompt-called t)
@@ -955,11 +955,11 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-error-mock "API rate limit exceeded"
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           ;; Verify request was captured
-                                                           (should (= 1 (ogent-test-request-count)))
-                                                           (let ((req (ogent-test-last-request)))
-                                                             (should (string-match-p "Test prompt" (plist-get req :prompt)))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 ;; Verify request was captured
+                                 (should (= 1 (ogent-test-request-count)))
+                                 (let ((req (ogent-test-last-request)))
+                                   (should (string-match-p "Test prompt" (plist-get req :prompt)))))))))
 
 (ert-deftest ogent-ui-streaming-chunks ()
   "Test streaming response with multiple chunks."
@@ -970,11 +970,11 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-streaming-mock '("Hello " "world " "!")
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               ;; Verify the streaming content was inserted
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 (should (search-forward "Hello world !" nil t))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 ;; Verify the streaming content was inserted
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Hello world !" nil t))))))))
 
 (ert-deftest ogent-ui-request-capture ()
   "Test that requests are properly captured for inspection."
@@ -985,25 +985,25 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-mock-gptel
-                                (ogent-request "First request" '("gpt-4o-mini"))
-                                (ogent-request "Second request" '("gpt-4o-mini"))
-                                ;; Two requests should be captured
-                                (should (= 2 (ogent-test-request-count)))
-                                ;; Most recent is first in list.  With multi-turn
-                                ;; history the prompt may be a conversation list
-                                ;; whose final element is the current prompt.
-                                (let ((p (plist-get (ogent-test-last-request) :prompt)))
-                                  (should (string-match-p
-                                           "Second"
-                                           (if (listp p) (car (last p)) p)))))))))
+                                 (ogent-request "First request" '("gpt-4o-mini"))
+                                 (ogent-request "Second request" '("gpt-4o-mini"))
+                                 ;; Two requests should be captured
+                                 (should (= 2 (ogent-test-request-count)))
+                                 ;; Most recent is first in list.  With multi-turn
+                                 ;; history the prompt may be a conversation list
+                                 ;; whose final element is the current prompt.
+                                 (let ((p (plist-get (ogent-test-last-request) :prompt)))
+                                   (should (string-match-p
+                                            "Second"
+                                            (if (listp p) (car (last p)) p)))))))))
 
 ;;; Interactive function tests (require with-simulated-input)
 
 (ert-deftest ogent-ui-read-prompt-interactive ()
   "Test reading prompt with simulated input."
   (ogent-test-with-input "Hello world RET"
-                         (let ((prompt (ogent-ui--read-prompt)))
-                           (should (equal prompt "Hello world")))))
+    (let ((prompt (ogent-ui--read-prompt)))
+      (should (equal prompt "Hello world")))))
 
 (ert-deftest ogent-ui-read-prompt-uses-region ()
   "Test that read-prompt uses region when active."
@@ -1980,11 +1980,11 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-streaming-mock '("Hello" "" " " "world" "" "!")
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 ;; Empty chunks should be handled gracefully
-                                                                 (should (search-forward "Hello world!" nil t))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Empty chunks should be handled gracefully
+                                   (should (search-forward "Hello world!" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-unicode-chunks ()
   "Test streaming with unicode characters split across chunks."
@@ -1995,10 +1995,10 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-streaming-mock '("Hello " "world " "from " "Emacs")
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 (should (search-forward "Hello world from Emacs" nil t))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Hello world from Emacs" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-large-response ()
   "Test streaming with many small chunks."
@@ -2011,11 +2011,11 @@
                                    ;; Generate 100 small chunks
                                    (chunks (make-list 100 "x")))
                                (ogent-test-with-streaming-mock chunks
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 ;; Should have 100 x's concatenated
-                                                                 (should (search-forward (make-string 100 ?x) nil t))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Should have 100 x's concatenated
+                                   (should (search-forward (make-string 100 ?x) nil t))))))))
 
 (ert-deftest ogent-ui-streaming-error-mid-stream ()
   "Test error occurring after partial response."
@@ -2050,10 +2050,10 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-streaming-mock '("Line 1\n" "Line 2\n" "Line 3")
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 (should (search-forward "Line 1\nLine 2\nLine 3" nil t))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Line 1\nLine 2\nLine 3" nil t))))))))
 
 (ert-deftest ogent-ui-streaming-code-block-content ()
   "Test streaming content that includes org code blocks."
@@ -2064,13 +2064,13 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-streaming-mock
-                                '("Here's code:\n" "#+begin_src elisp\n" "(message \"hi\")\n" "#+end_src")
-                                (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                (save-excursion
-                                  (goto-char (point-min))
-                                  ;; The nested code block should be preserved
-                                  (should (search-forward "#+begin_src elisp" nil t))
-                                  (should (search-forward "(message \"hi\")" nil t))))))))
+                                   '("Here's code:\n" "#+begin_src elisp\n" "(message \"hi\")\n" "#+end_src")
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; The nested code block should be preserved
+                                   (should (search-forward "#+begin_src elisp" nil t))
+                                   (should (search-forward "(message \"hi\")" nil t))))))))
 
 ;;; Error Injection Tests
 
@@ -2084,11 +2084,11 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
                                    (ogent-ui--error-history nil))
                                (ogent-test-with-error-mock "Rate limit exceeded. Please retry after 60 seconds."
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           ;; Error should be recorded in history
-                                                           (should (= 1 (length ogent-ui--error-history)))
-                                                           (should (string-match-p "Rate limit"
-                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 ;; Error should be recorded in history
+                                 (should (= 1 (length ogent-ui--error-history)))
+                                 (should (string-match-p "Rate limit"
+                                                         (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-error-invalid-api-key ()
   "Test handling of invalid API key error."
@@ -2100,10 +2100,10 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
                                    (ogent-ui--error-history nil))
                                (ogent-test-with-error-mock "Invalid API key provided"
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           (should (= 1 (length ogent-ui--error-history)))
-                                                           (should (string-match-p "Invalid API key"
-                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 1 (length ogent-ui--error-history)))
+                                 (should (string-match-p "Invalid API key"
+                                                         (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-provider-access-error-detection ()
   "Provider access error detection is narrow enough for retries."
@@ -2219,10 +2219,10 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
                                    (ogent-ui--error-history nil))
                                (ogent-test-with-error-mock "This model's maximum context length is 128000 tokens"
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           (should (= 1 (length ogent-ui--error-history)))
-                                                           (should (string-match-p "context length"
-                                                                                   (plist-get (car ogent-ui--error-history) :error))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 1 (length ogent-ui--error-history)))
+                                 (should (string-match-p "context length"
+                                                         (plist-get (car ogent-ui--error-history) :error))))))))
 
 (ert-deftest ogent-ui-error-network-timeout ()
   "Test handling of network timeout."
@@ -2234,8 +2234,8 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
                                    (ogent-ui--error-history nil))
                                (ogent-test-with-error-mock "Connection timed out"
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           (should (= 1 (length ogent-ui--error-history))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 1 (length ogent-ui--error-history))))))))
 
 (ert-deftest ogent-ui-error-malformed-response ()
   "Test handling of malformed JSON response."
@@ -2247,8 +2247,8 @@
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
                                    (ogent-ui--error-history nil))
                                (ogent-test-with-error-mock "JSON parse error: unexpected character at position 0"
-                                                           (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                           (should (= 1 (length ogent-ui--error-history))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 1 (length ogent-ui--error-history))))))))
 
 (ert-deftest ogent-ui-multiple-errors-recorded ()
   "Test that multiple errors are recorded in history."
@@ -2261,10 +2261,10 @@
                                    (ogent-ui--error-history nil))
                                ;; First error
                                (ogent-test-with-error-mock "Error 1"
-                                                           (ogent-request "Test prompt 1" '("gpt-4o-mini")))
+                                 (ogent-request "Test prompt 1" '("gpt-4o-mini")))
                                ;; Second error
                                (ogent-test-with-error-mock "Error 2"
-                                                           (ogent-request "Test prompt 2" '("gpt-4o-mini")))
+                                 (ogent-request "Test prompt 2" '("gpt-4o-mini")))
                                ;; Both should be recorded
                                (should (= 2 (length ogent-ui--error-history)))))))
 
@@ -2281,9 +2281,9 @@
                                                            (:id "test-model-2" :backend gptel-anthropic)))
                                    (ogent-ui--selected-models '("test-model-1" "test-model-2")))
                                (ogent-test-with-mock-gptel
-                                (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
-                                ;; Should have made 2 separate requests
-                                (should (= 2 (ogent-test-request-count))))))))
+                                 (ogent-request "Test prompt" '("test-model-1" "test-model-2"))
+                                 ;; Should have made 2 separate requests
+                                 (should (= 2 (ogent-test-request-count))))))))
 
 (ert-deftest ogent-ui-multi-model-distinct-backends ()
   "Test that each model request uses the correct backend."
@@ -2416,9 +2416,9 @@
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini")))
                                (ogent-test-with-mock-gptel
-                                (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                ;; Should have made exactly 1 request
-                                (should (= 1 (ogent-test-request-count))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 ;; Should have made exactly 1 request
+                                 (should (= 1 (ogent-test-request-count))))))))
 
 ;;; Large Context Handling Tests
 
@@ -2433,15 +2433,15 @@
                                    ;; Create a 500 character prompt
                                    (long-prompt (make-string 500 ?A)))
                                (ogent-test-with-mock-gptel
-                                (ogent-request long-prompt '("gpt-4o-mini"))
-                                (save-excursion
-                                  (goto-char (point-min))
-                                  ;; Headline should be truncated (max ~60 chars visible)
-                                  (should (search-forward "*** Request: AAAA" nil t))
-                                  (should (search-forward "..." nil t))
-                                  ;; But full prompt should be in the src block
-                                  (should (search-forward "#+begin_src text" nil t))
-                                  (should (search-forward long-prompt nil t))))))))
+                                 (ogent-request long-prompt '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Headline should be truncated (max ~60 chars visible)
+                                   (should (search-forward "*** Request: AAAA" nil t))
+                                   (should (search-forward "..." nil t))
+                                   ;; But full prompt should be in the src block
+                                   (should (search-forward "#+begin_src text" nil t))
+                                   (should (search-forward long-prompt nil t))))))))
 
 (ert-deftest ogent-ui-large-context-passed-to-gptel ()
   "Test that large context is properly passed through to gptel-request."
@@ -2477,21 +2477,21 @@
                                    ;; Generate 1000 chunks
                                    (chunks (make-list 1000 "chunk")))
                                (ogent-test-with-streaming-mock chunks
-                                                               (ogent-request "Test prompt" '("gpt-4o-mini"))
-                                                               (save-excursion
-                                                                 (goto-char (point-min))
-                                                                 (should (search-forward "**** Response" nil t))
-                                                                 ;; Response should contain all chunks concatenated
-                                                                 ;; Just verify it's there and reasonably sized
-                                                                 (let ((response-start (point)))
-                                                                   (should (search-forward "chunk" nil t))
-                                                                   ;; Count occurrences - should have many
-                                                                   (goto-char response-start)
-                                                                   (let ((count 0))
-                                                                     (while (search-forward "chunk" nil t)
-                                                                       (setq count (1+ count)))
-                                                                     ;; Should have all 1000 chunks
-                                                                     (should (= 1000 count))))))))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "**** Response" nil t))
+                                   ;; Response should contain all chunks concatenated
+                                   ;; Just verify it's there and reasonably sized
+                                   (let ((response-start (point)))
+                                     (should (search-forward "chunk" nil t))
+                                     ;; Count occurrences - should have many
+                                     (goto-char response-start)
+                                     (let ((count 0))
+                                       (while (search-forward "chunk" nil t)
+                                         (setq count (1+ count)))
+                                       ;; Should have all 1000 chunks
+                                       (should (= 1000 count))))))))))
 
 (ert-deftest ogent-ui-large-prompt-with-newlines ()
   "Test handling of large prompts with embedded newlines."
@@ -2506,14 +2506,14 @@
                                                                  (make-list 50 "This is a line of the prompt")
                                                                  "\n")))
                                (ogent-test-with-mock-gptel
-                                (ogent-request multi-line-prompt '("gpt-4o-mini"))
-                                (save-excursion
-                                  (goto-char (point-min))
-                                  ;; Headline should use first line only
-                                  (should (search-forward "*** Request: This is a line of the prompt" nil t))
-                                  ;; Full prompt with newlines should be in src block
-                                  (should (search-forward "#+begin_src text" nil t))
-                                  (should (search-forward "This is a line of the prompt" nil t))))))))
+                                 (ogent-request multi-line-prompt '("gpt-4o-mini"))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   ;; Headline should use first line only
+                                   (should (search-forward "*** Request: This is a line of the prompt" nil t))
+                                   ;; Full prompt with newlines should be in src block
+                                   (should (search-forward "#+begin_src text" nil t))
+                                   (should (search-forward "This is a line of the prompt" nil t))))))))
 
 (ert-deftest ogent-ui-empty-prompt-handling ()
   "Test that empty prompts are handled gracefully."
@@ -2526,7 +2526,7 @@
                                ;; Empty prompt should be rejected or handled gracefully
                                (condition-case err
                                    (ogent-test-with-mock-gptel
-                                    (ogent-request "" '("gpt-4o-mini")))
+                                     (ogent-request "" '("gpt-4o-mini")))
                                  (error
                                   ;; Expected - empty prompts may be rejected
                                   (should (stringp (error-message-string err)))))))))
@@ -2542,7 +2542,7 @@
                                ;; Whitespace-only prompt should be handled
                                (condition-case err
                                    (ogent-test-with-mock-gptel
-                                    (ogent-request "   \n\t  " '("gpt-4o-mini")))
+                                     (ogent-request "   \n\t  " '("gpt-4o-mini")))
                                  (error
                                   ;; May be rejected - that's fine
                                   (should (stringp (error-message-string err)))))))))

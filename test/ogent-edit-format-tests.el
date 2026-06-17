@@ -75,8 +75,8 @@
 (ert-deftest ogent-edit-format/struct-creation ()
   "ogent-edit struct can be created with make-ogent-edit."
   (let ((edit (make-ogent-edit :id "test-001"
-                                :old-text "old"
-                                :new-text "new")))
+                               :old-text "old"
+                               :new-text "new")))
     (should (ogent-edit-p edit))
     (should (string= (ogent-edit-id edit) "test-001"))
     (should (string= (ogent-edit-old-text edit) "old"))
@@ -120,7 +120,7 @@
 (ert-deftest ogent-edit-format/struct-fields-mutable ()
   "ogent-edit struct fields can be modified with setf."
   (let ((edit (make-ogent-edit :id "test-003"
-                                :status 'pending)))
+                               :status 'pending)))
     (should (eq (ogent-edit-status edit) 'pending))
     (setf (ogent-edit-status edit) 'applied)
     (should (eq (ogent-edit-status edit) 'applied))
@@ -376,16 +376,16 @@
 (ert-deftest ogent-edit-format/empty-old-text-struct ()
   "Struct can be created with empty old-text."
   (let ((edit (make-ogent-edit :id "test-empty"
-                                :old-text ""
-                                :new-text "replacement")))
+                               :old-text ""
+                               :new-text "replacement")))
     (should (string= (ogent-edit-old-text edit) ""))
     (should (string= (ogent-edit-new-text edit) "replacement"))))
 
 (ert-deftest ogent-edit-format/empty-new-text-for-deletion ()
   "Struct supports empty new-text for deletion edits."
   (let ((edit (make-ogent-edit :id "test-delete"
-                                :old-text "code to remove"
-                                :new-text "")))
+                               :old-text "code to remove"
+                               :new-text "")))
     (should (string= (ogent-edit-old-text edit) "code to remove"))
     (should (string= (ogent-edit-new-text edit) ""))))
 

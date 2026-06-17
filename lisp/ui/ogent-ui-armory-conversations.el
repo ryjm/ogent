@@ -266,14 +266,14 @@
   "Keymap for `ogent-armory-conversation-mode'.")
 
 (ogent-armory-ui--define-section-mode ogent-armory-conversation-mode
-                                       "Armory-Conversation"
-                                       "Major mode for a single Armory conversation."
-                                       (setq-local revert-buffer-function #'ogent-armory-conversation-refresh)
-                                       (setq-local truncate-lines nil)
-                                       (setq-local buffer-read-only t)
-                                       (ogent-armory-ui--configure-section-buffer)
-                                       (setq header-line-format
-                                             "RET source  C-c g refresh  C-c r retry  C-c c continue  C-c o artifacts  C-c l logs  TAB fold"))
+    "Armory-Conversation"
+    "Major mode for a single Armory conversation."
+  (setq-local revert-buffer-function #'ogent-armory-conversation-refresh)
+  (setq-local truncate-lines nil)
+  (setq-local buffer-read-only t)
+  (ogent-armory-ui--configure-section-buffer)
+  (setq header-line-format
+        "RET source  C-c g refresh  C-c r retry  C-c c continue  C-c o artifacts  C-c l logs  TAB fold"))
 
 (defun ogent-armory-conversation (&optional directory file)
   "Open Armory conversation FILE under DIRECTORY."
@@ -318,7 +318,7 @@
 (defun ogent-armory-conversation--insert-buffer ()
   "Insert the current conversation detail."
   (ogent-armory-ui--with-root-section (ogent-armory-conversation-root)
-                                       (ogent-armory-conversation--insert-buffer-content)))
+    (ogent-armory-conversation--insert-buffer-content)))
 
 (defun ogent-armory-conversation--insert-overview (detail)
   "Insert compact run overview for DETAIL."
@@ -339,103 +339,103 @@
 (defun ogent-armory-conversation--insert-details (detail)
   "Insert detailed metadata for DETAIL."
   (ogent-armory-ui--with-section (ogent-armory-conversation-metadata)
-                                  (ogent-armory-ui--heading-text "Details")
-                                  (ogent-armory-ui--insert-kv "Status" (plist-get detail :status))
-                                  (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
-                                  (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
-                                  (ogent-armory-ui--insert-kv "Trigger" (plist-get detail :trigger))
-                                  (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
-                                  (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
-                                  (ogent-armory-ui--insert-kv
-                                   "Exit status"
-                                   (when (plist-get detail :exit-status)
-                                     (number-to-string
-                                      (plist-get detail :exit-status))))
-                                  (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
-                                  (ogent-armory-ui--insert-kv "Started" (plist-get detail :started))
-                                  (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
-                                  (ogent-armory-ui--insert-kv "Last activity"
-                                                               (plist-get detail :last-activity))
-                                  (ogent-armory-ui--insert-kv "Archived"
-                                                               (if (plist-get detail :archived) "yes" "no"))
-                                  (ogent-armory-ui--insert-kv "Muted"
-                                                               (if (plist-get detail :muted) "yes" "no"))))
+      (ogent-armory-ui--heading-text "Details")
+    (ogent-armory-ui--insert-kv "Status" (plist-get detail :status))
+    (ogent-armory-ui--insert-kv "Agent" (plist-get detail :agent))
+    (ogent-armory-ui--insert-kv "Job" (plist-get detail :job-id))
+    (ogent-armory-ui--insert-kv "Trigger" (plist-get detail :trigger))
+    (ogent-armory-ui--insert-kv "Provider" (plist-get detail :provider))
+    (ogent-armory-ui--insert-kv "Model" (plist-get detail :model))
+    (ogent-armory-ui--insert-kv
+     "Exit status"
+     (when (plist-get detail :exit-status)
+       (number-to-string
+        (plist-get detail :exit-status))))
+    (ogent-armory-ui--insert-kv "Duration" (plist-get detail :duration))
+    (ogent-armory-ui--insert-kv "Started" (plist-get detail :started))
+    (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
+    (ogent-armory-ui--insert-kv "Last activity"
+                                 (plist-get detail :last-activity))
+    (ogent-armory-ui--insert-kv "Archived"
+                                 (if (plist-get detail :archived) "yes" "no"))
+    (ogent-armory-ui--insert-kv "Muted"
+                                 (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-armory-conversation--insert-turns (turns)
   "Insert each conversation turn.
 TURNS is the list of turn plists to insert."
   (ogent-armory-ui--with-section (ogent-armory-conversation-turns)
-                                  (ogent-armory-ui--heading-text "Turns")
-                                  (if turns
-                                      (dolist (turn turns)
-                                        (insert
-                                         (propertize
-                                          (format "  %03d %s %s\n"
-                                                  (or (plist-get turn :turn) 0)
-                                                  (upcase (or (plist-get turn :role) "turn"))
-                                                  (or (plist-get turn :ts) ""))
-                                          'face 'ogent-armory-ui-dim))
-                                        (when-let ((tokens (plist-get turn :tokens)))
-                                          (insert
-                                           (format "  tokens input=%s output=%s cache=%s\n"
-                                                   (or (plist-get tokens :input) "")
-                                                   (or (plist-get tokens :output) "")
-                                                   (or (plist-get tokens :cache) ""))))
-                                        (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
-                                    (insert (propertize "  No turn files recorded\n"
-                                                        'face 'ogent-armory-ui-dim)))))
+      (ogent-armory-ui--heading-text "Turns")
+    (if turns
+        (dolist (turn turns)
+          (insert
+           (propertize
+            (format "  %03d %s %s\n"
+                    (or (plist-get turn :turn) 0)
+                    (upcase (or (plist-get turn :role) "turn"))
+                    (or (plist-get turn :ts) ""))
+            'face 'ogent-armory-ui-dim))
+          (when-let ((tokens (plist-get turn :tokens)))
+            (insert
+             (format "  tokens input=%s output=%s cache=%s\n"
+                     (or (plist-get tokens :input) "")
+                     (or (plist-get tokens :output) "")
+                     (or (plist-get tokens :cache) ""))))
+          (insert (string-trim-right (or (plist-get turn :content) "")) "\n\n"))
+      (insert (propertize "  No turn files recorded\n"
+                          'face 'ogent-armory-ui-dim)))))
 
 (defun ogent-armory-conversation--insert-artifacts (root detail)
   "Insert artifacts listed by DETAIL under ROOT."
   (let ((artifacts (ogent-armory-ui--conversation-artifacts detail)))
     (ogent-armory-ui--with-section (ogent-armory-conversation-artifacts)
-                                    (ogent-armory-ui--heading-text "Artifacts")
-                                    (if artifacts
-                                        (dolist (artifact artifacts)
-                                          (let ((path (ogent-armory-ui--artifact-path root artifact)))
-                                            (ogent-armory-ui--insert-item-line
-                                             (list :type 'artifact :path path)
-                                             (format "  %s" artifact))))
-                                      (insert (propertize "  No artifacts recorded\n"
-                                                          'face 'ogent-armory-ui-dim))))))
+        (ogent-armory-ui--heading-text "Artifacts")
+      (if artifacts
+          (dolist (artifact artifacts)
+            (let ((path (ogent-armory-ui--artifact-path root artifact)))
+              (ogent-armory-ui--insert-item-line
+               (list :type 'artifact :path path)
+               (format "  %s" artifact))))
+        (insert (propertize "  No artifacts recorded\n"
+                            'face 'ogent-armory-ui-dim))))))
 
 (defun ogent-armory-conversation--insert-events (events)
   "Insert conversation EVENTS."
   (ogent-armory-ui--with-section (ogent-armory-conversation-events)
-                                  (ogent-armory-ui--heading-text "Events")
-                                  (if events
-                                      (dolist (event events)
-                                        (insert
-                                         (format "  %06d %-24s %s\n"
-                                                 (or (plist-get event :seq) 0)
-                                                 (or (plist-get event :type) "")
-                                                 (or (plist-get event :ts) "")))
-                                        (when-let ((payload (ogent-armory--blank-to-nil
-                                                             (plist-get event :payload))))
-                                          (insert "  " (string-trim payload) "\n")))
-                                    (insert (propertize "  No events recorded\n"
-                                                        'face 'ogent-armory-ui-dim)))))
+      (ogent-armory-ui--heading-text "Events")
+    (if events
+        (dolist (event events)
+          (insert
+           (format "  %06d %-24s %s\n"
+                   (or (plist-get event :seq) 0)
+                   (or (plist-get event :type) "")
+                   (or (plist-get event :ts) "")))
+          (when-let ((payload (ogent-armory--blank-to-nil
+                               (plist-get event :payload))))
+            (insert "  " (string-trim payload) "\n")))
+      (insert (propertize "  No events recorded\n"
+                          'face 'ogent-armory-ui-dim)))))
 
 (defun ogent-armory-conversation--insert-runtime (detail)
   "Insert runtime metadata for DETAIL."
   (ogent-armory-ui--with-section (ogent-armory-conversation-runtime)
-                                  (ogent-armory-ui--heading-text "Runtime")
-                                  (ogent-armory-ui--insert-kv "Adapter" (plist-get detail :adapter))
-                                  (ogent-armory-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
-                                  (ogent-armory-ui--insert-kv "Effort" (plist-get detail :effort))
-                                  (ogent-armory-ui--insert-kv "Context" (plist-get detail :context-window))
-                                  (ogent-armory-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
-                                  (when (or (plist-get detail :tokens-input)
-                                            (plist-get detail :tokens-output)
-                                            (plist-get detail :tokens-cache)
-                                            (plist-get detail :tokens-total))
-                                    (ogent-armory-ui--insert-kv
-                                     "Tokens"
-                                     (format "input=%s output=%s cache=%s total=%s"
-                                             (or (plist-get detail :tokens-input) "")
-                                             (or (plist-get detail :tokens-output) "")
-                                             (or (plist-get detail :tokens-cache) "")
-                                             (or (plist-get detail :tokens-total) ""))))))
+      (ogent-armory-ui--heading-text "Runtime")
+    (ogent-armory-ui--insert-kv "Adapter" (plist-get detail :adapter))
+    (ogent-armory-ui--insert-kv "Runtime" (plist-get detail :runtime-mode))
+    (ogent-armory-ui--insert-kv "Effort" (plist-get detail :effort))
+    (ogent-armory-ui--insert-kv "Context" (plist-get detail :context-window))
+    (ogent-armory-ui--insert-kv "Resume" (plist-get detail :last-resume-result))
+    (when (or (plist-get detail :tokens-input)
+              (plist-get detail :tokens-output)
+              (plist-get detail :tokens-cache)
+              (plist-get detail :tokens-total))
+      (ogent-armory-ui--insert-kv
+       "Tokens"
+       (format "input=%s output=%s cache=%s total=%s"
+               (or (plist-get detail :tokens-input) "")
+               (or (plist-get detail :tokens-output) "")
+               (or (plist-get detail :tokens-cache) "")
+               (or (plist-get detail :tokens-total) ""))))))
 
 (defun ogent-armory-conversation--runtime-present-p (detail)
   "Return non-nil when DETAIL has runtime fields worth showing."
@@ -460,16 +460,16 @@ TURNS is the list of turn plists to insert."
                      ogent-armory-conversation-runtime-trace-preview-lines))
            (hidden (plist-get preview :hidden)))
       (ogent-armory-ui--with-section (ogent-armory-conversation-runtime-trace)
-                                      (ogent-armory-ui--heading-text "Runtime Trace")
-                                      (ogent-armory-ui--insert-readable-text
-                                       (plist-get preview :text)
-                                       "  No runtime trace recorded\n")
-                                      (when (> hidden 0)
-                                        (insert
-                                         (propertize
-                                          (format "  %d more lines. Press l for logs or v for source Org.\n"
-                                                  hidden)
-                                          'face 'ogent-armory-ui-dim)))))))
+          (ogent-armory-ui--heading-text "Runtime Trace")
+        (ogent-armory-ui--insert-readable-text
+         (plist-get preview :text)
+         "  No runtime trace recorded\n")
+        (when (> hidden 0)
+          (insert
+           (propertize
+            (format "  %d more lines. Press l for logs or v for source Org.\n"
+                    hidden)
+            'face 'ogent-armory-ui-dim)))))))
 
 (defun ogent-armory-conversation--insert-buffer-content ()
   "Insert the current conversation detail sections."
@@ -488,20 +488,20 @@ TURNS is the list of turn plists to insert."
     (when (or (plist-get detail :summary)
               (plist-get detail :context-summary))
       (ogent-armory-ui--with-section (ogent-armory-conversation-summary)
-                                      (ogent-armory-ui--heading-text "Summary")
-                                      (when-let ((summary (plist-get detail :summary)))
-                                        (insert summary "\n"))
-                                      (when-let ((context (plist-get detail :context-summary)))
-                                        (insert "\nContext\n" context "\n")))
+          (ogent-armory-ui--heading-text "Summary")
+        (when-let ((summary (plist-get detail :summary)))
+          (insert summary "\n"))
+        (when-let ((context (plist-get detail :context-summary)))
+          (insert "\nContext\n" context "\n")))
       (insert "\n"))
     (when (plist-get detail :turns)
       (ogent-armory-conversation--insert-turns (plist-get detail :turns))
       (insert "\n"))
     (ogent-armory-ui--with-section (ogent-armory-conversation-output)
-                                    (ogent-armory-ui--heading-text "Output")
-                                    (ogent-armory-ui--insert-readable-text
-                                     (plist-get detail :output)
-                                     "  No output recorded\n"))
+        (ogent-armory-ui--heading-text "Output")
+      (ogent-armory-ui--insert-readable-text
+       (plist-get detail :output)
+       "  No output recorded\n"))
     (insert "\n")
     (ogent-armory-conversation--insert-artifacts
      ogent-armory-conversation--root detail)
@@ -512,24 +512,24 @@ TURNS is the list of turn plists to insert."
       (ogent-armory-conversation--insert-runtime detail)
       (insert "\n"))
     (ogent-armory-ui--with-section (ogent-armory-conversation-prompt)
-                                    (ogent-armory-ui--heading-text "Prompt")
-                                    (ogent-armory-ui--insert-readable-text
-                                     (plist-get detail :prompt)
-                                     "  No prompt recorded\n"))
+        (ogent-armory-ui--heading-text "Prompt")
+      (ogent-armory-ui--insert-readable-text
+       (plist-get detail :prompt)
+       "  No prompt recorded\n"))
     (insert "\n")
     (when (plist-get detail :tools)
       (ogent-armory-ui--with-section (ogent-armory-conversation-tools)
-                                      (ogent-armory-ui--heading-text "Tool Blocks")
-                                      (dolist (tool (plist-get detail :tools))
-                                        (insert (format "  %s\n%s\n" (plist-get tool :header)
-                                                        (plist-get tool :body)))))
+          (ogent-armory-ui--heading-text "Tool Blocks")
+        (dolist (tool (plist-get detail :tools))
+          (insert (format "  %s\n%s\n" (plist-get tool :header)
+                          (plist-get tool :body)))))
       (insert "\n"))
     (when (ogent-armory--blank-to-nil (plist-get detail :error))
       (ogent-armory-ui--with-section (ogent-armory-conversation-error)
-                                      (ogent-armory-ui--heading-text "Error")
-                                      (ogent-armory-ui--insert-readable-text
-                                       (plist-get detail :error)
-                                       "  No error recorded\n"))
+          (ogent-armory-ui--heading-text "Error")
+        (ogent-armory-ui--insert-readable-text
+         (plist-get detail :error)
+         "  No error recorded\n"))
       (insert "\n"))
     (ogent-armory-conversation--insert-runtime-trace
      (plist-get detail :runtime-trace))
@@ -538,10 +538,10 @@ TURNS is the list of turn plists to insert."
     (ogent-armory-conversation--insert-events (plist-get detail :events))
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-conversation-source)
-                                    (ogent-armory-ui--heading-text "Source Org")
-                                    (ogent-armory-ui--insert-item-line
-                                     (list :type 'file :path (plist-get detail :path))
-                                     (format "  %s" (plist-get detail :path))))))
+        (ogent-armory-ui--heading-text "Source Org")
+      (ogent-armory-ui--insert-item-line
+       (list :type 'file :path (plist-get detail :path))
+       (format "  %s" (plist-get detail :path))))))
 
 (defun ogent-armory-conversation-visit-source ()
   "Visit the Org source for this conversation."
