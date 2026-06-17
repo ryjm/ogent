@@ -12,8 +12,8 @@
 (require 'ogent-ui-cabinet)
 
 (declare-function evil-normalize-keymaps "ext:evil-core")
+(declare-function magit-current-section "ext:magit-section" t t)
 (declare-function magit-section-hidden-body "ext:magit-section")
-
 
 (defmacro ogent-cabinet-status-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
