@@ -325,7 +325,7 @@ function run_emacs {
     local emacs_command=(
         "${emacs_command[@]}"
         -Q
-        --eval "(setq load-prefer-newer t load-suffixes '(\".el\" \".elc\"))"
+        --eval "(setq load-prefer-newer t)"
         "${args_debug[@]}"
         "${args_sandbox[@]}"
         $arg_batch
@@ -368,6 +368,7 @@ function batch-byte-compile {
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
+        --eval "(setq load-suffixes '(\".el\" \".elc\"))" \
         --eval "(unless (makem-batch-byte-compile) (kill-emacs 1))" \
         "$@"
 }
@@ -382,6 +383,7 @@ function byte-compile-file {
     run_emacs \
         --load "$elisp_byte_compile_file" \
         "${error_on_warn[@]}" \
+        --eval "(setq load-suffixes '(\".el\" \".elc\"))" \
         --eval "(pcase-let ((\`(,num-errors ,num-warnings) (makem-byte-compile-file \"$file\"))) (when (or (and byte-compile-error-on-warn (not (zerop num-warnings))) (not (zerop num-errors))) (kill-emacs 1)))" \
         && verbose 3 "Compiling $file finished without errors." \
             || { verbose 3 "Compiling file failed: $file"; return 1; }
@@ -487,11 +489,10 @@ function filter-files-feature {
 }
 
 function args-load-files {
-    # For file in $@, echo "--load $file".
+    # For file in $@, echo "--load $file" using the source path.
     for file in "$@"
     do
-        sans_extension=${file%%.el}
-        printf -- '--load %q ' "$sans_extension"
+        printf -- '--load %q ' "$file"
     done
 }
 
