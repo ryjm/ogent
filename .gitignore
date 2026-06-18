@@ -41,6 +41,8 @@ state.json
 .beads-legacy-bd/
 /.ogent-analytics.db
 sandbox/
+# makem.sh CI/test sandboxes (downloaded ELPA packages + compiled output)
+.sandbox-*/
 .armory-state/
 .jobs/
 .br_history/
