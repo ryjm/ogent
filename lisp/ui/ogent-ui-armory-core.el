@@ -136,6 +136,13 @@
   "Face for Armory UI state requiring attention."
   :group 'ogent-ui-armory)
 
+(defface ogent-armory-ui-logo
+  '((((class color) (background dark)) :foreground "#b98aff" :weight bold)
+    (((class color) (background light)) :foreground "#7a3fb0" :weight bold)
+    (t :weight bold))
+  "Face for the Armory Home crest banner."
+  :group 'ogent-ui-armory)
+
 (defconst ogent-armory-agent-editable-properties
   '("OGENT_DISPLAY_NAME"
     "OGENT_ICON"

@@ -136,6 +136,42 @@
    (list :type 'command :command command)
    (format "  [%s] %s" key label)))
 
+(defconst ogent-armory-home--logo
+  "╭──────────────────────────────────────╮
+│                  █                   │
+│                 ███                  │
+│                █████                 │
+│               ╱  █  ╲                │
+│              ╱   █   ╲               │
+│             ┌┘   █   └┐              │
+│             │  ╔═╩═╗  │              │
+│             │  ║ ✦ ║  │              │
+│             │  ╚═╦═╝  │              │
+│             ┌┴───┴───┴┐              │
+│            │ ◣█▏   ▕█◢ │             │
+│            │  ▀▀   ▀▀  │             │
+│            ├┐ ┌─────┐ ┌┤             │
+│            │║ │▆▆▆▆▆│ ║│             │
+│            │║ └─────┘ ║│             │
+│             └╨───────╨┘              │
+│                                      │
+│    _____ _____  _____ _   _ _____    │
+│   |  _  |  __ \\|  ___| \\ | |_   _|   │
+│   | | | | |  \\/| |__ |  \\| | | |     │
+│   | | | | | __ |  __|| . ` | | |     │
+│   \\ \\_/ / |_\\ \\| |___| |\\  | | |     │
+│    \\___/ \\____/\\____/\\_| \\_/ \\_/     │
+│                                      │
+│         · agentic org-mode ·         │
+╰──────────────────────────────────────╯"
+  "ASCII crest banner shown atop Armory Home.")
+
+(defun ogent-armory-home--insert-logo ()
+  "Insert the ogent crest banner at the top of Armory Home."
+  (insert (propertize ogent-armory-home--logo
+                      'face 'ogent-armory-ui-logo)
+          "\n\n"))
+
 (defun ogent-armory-home--insert-buffer ()
   "Insert Armory Home contents."
   (ogent-armory-ui--with-root-section (ogent-armory-home-root)
@@ -170,6 +206,7 @@
                    (string-blank-p (or (plist-get agent :provider) ""))
                    (string-blank-p (or (plist-get agent :body) "")))))
            agents)))
+    (ogent-armory-home--insert-logo)
     (insert (propertize "Armory Home" 'face 'ogent-armory-ui-heading) "\n")
     (ogent-armory-ui--insert-kv "Title" (plist-get index :name))
     (ogent-armory-ui--insert-kv "Path" root)
