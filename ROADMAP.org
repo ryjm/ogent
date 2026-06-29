@@ -27,7 +27,7 @@ Each section maps vision statements to implementation status.
 1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
 2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
 3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
-4. *Multi-model Fan-out*: Concurrent requests to multiple models via transient UI (M key) - IMPLEMENTED in =ogent-ui.el=
+4. *Multi-model Fan-out*: Concurrent requests to multiple models via the prompt dispatcher's model fan-out infix - IMPLEMENTED in =ogent-ui.el=
 5. *Ergonomic Review (C-c . ] / [ / z / x)*: Cycle, accept, reject completions - IMPLEMENTED in =ogent-completions.el=
 6. *MCP Server Support*: Model Context Protocol client for external tools - IMPLEMENTED in =ogent-mcp.el=
 7. *LLM-Powered Codemap*: Task-scoped codemaps via @codemap-task: handles - IMPLEMENTED in =ogent-codemap.el=
@@ -237,10 +237,10 @@ These items from README.md are not yet tracked as beads:
 
 * Test Coverage
 
-The suite currently has ~3,450 =ert-deftest= forms across 65 =*-tests.el=
+The suite currently has ~2,600 =ert-deftest= forms across 60 =*-tests.el=
 files mirroring the =lisp/= tree (every armory, issues, analytics,
 schedule, and evil module has a suite). Run =make test= for the live
-totals — a hand-maintained per-module table goes stale too quickly to
+totals; a hand-maintained per-module table goes stale too quickly to
 keep here.
 
 * Release Milestones

@@ -204,7 +204,7 @@ M-x ogent-debug-mode
 ;; Or enable via variable
 (setq ogent-debug-log-level 'info)  ; or 'debug for verbose
 
-;; Enable for current session only
+;; Enable the debug-logging macro (interpreted code only)
 M-x ogent-debug-enable
 #+END_SRC
 

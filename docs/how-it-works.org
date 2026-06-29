@@ -13,17 +13,17 @@ ogent is *a newsroom that publishes everything it does as Org text*.
 
 Think of a newspaper office. Reporters don't wander in with rumors; every
 story is filed with its sources stapled to it. That is the *context
-engine*: a prompt never travels alone — the bibliographer
+engine*: a prompt never travels alone; the bibliographer
 ([[file:../lisp/ogent-context.el::864][ogent-context-build]]) chases each =@handle= citation, staples in pinned
 exhibits, and prepends a table of contents listing every source with its
 fingerprint ([[file:../lisp/ogent-context.el::480][the manifest]]). The editor-in-chief is the *dispatcher*
-([[file:../lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]): it assigns the story to a wire service (a
+([[file:../lisp/ui/ogent-ui-dispatch.el::456][ogent-prompt-dispatch]]): it assigns the story to a wire service (a
 gptel backend looked up in the [[file:../lisp/ogent-models.el::24][model registry]]) and opens a numbered
-ticket (an [[file:../lisp/ui/ogent-ui.el::388][ogent-ui-request]]) with a reserved page in the Org notebook
+ticket (an [[file:../lisp/ui/ogent-ui-core.el::101][ogent-ui-request]]) with a reserved page in the Org notebook
 where the copy streams in.
 
-When the wire service wants to *do* something rather than say something —
-read a file, run a shell command — it must pass the customs desk. Every
+When the wire service wants to *do* something rather than say something
+(read a file, run a shell command), it must pass the customs desk. Every
 tool ships with a hazard label (its [[file:../lisp/ogent-tool-effects.el::15][effects]]: kind, target, scope, risk)
 and one officer ([[file:../lisp/ogent-tool-effects.el::112][ogent-tool-effects-approval-required-p]]) decides who is
 waved through: =read= passes, everything else needs a human signature.
@@ -31,8 +31,8 @@ Every execution is stamped into the tamper-evident logbook (the
 [[file:../lisp/ogent-ledger.el::110][proof ledger]]) and the flight recorder ([[file:../lisp/ogent-analytics.el::196][analytics]]).
 
 Downstairs, the *Armory* is the syndication department: a directory of
-Org files that is itself a tiny operating system — agent personas, cron
-jobs, conversations, skills — where work is done not by gptel but by
+Org files that is itself a tiny operating system (agent personas, cron
+jobs, conversations, skills) where work is done not by gptel but by
 external coding CLIs (codex, claude, gemini, ...) booked through a travel
 agent ([[file:../lisp/ogent-armory-runner.el::426][the runner's plan]]) and filed back as Org
 [[file:../lisp/ogent-armory-conversations.el::268][conversation records]]. Agents may propose new work, but their proposals
@@ -107,20 +107,20 @@ and hit =RET=. Here is everything that happens, with the actual values.
 
 =C-c . p= lives in [[file:../lisp/ogent-core.el::182][ogent-mode-map]], which was generated at load time
 from the declarative [[file:../lisp/ogent-keys.el::110][action registry]] by
-[[file:../lisp/ogent-keys.el::397][ogent-setup-all-bindings]] — the same table that produces the Evil
-(=SPC o p=) and Doom bindings. The =prompt= action's command is
-[[file:../lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]], a transient prefix like magit's dispatch. Its
+[[file:../lisp/ogent-keys.el::397][ogent-setup-all-bindings]]; the same table that produces the Evil
+(=SPC o p=) and Doom bindings. The =prompt-dispatch= action's command is
+[[file:../lisp/ui/ogent-ui-dispatch.el::456][ogent-prompt-dispatch]], a transient prefix like magit's dispatch. Its
 infixes stash your choices in defvars: the provider infix sets
 =gptel-backend= / =gptel-model=, and the prompt infix holds your text.
-Pressing =RET= fires [[file:../lisp/ui/ogent-ui.el::1109][ogent--suffix-send-action]], which flashes the
+Pressing =RET= fires [[file:../lisp/ui/ogent-ui-dispatch.el::445][ogent--suffix-send-action]], which flashes the
 mode-line via [[file:../lisp/ui/ogent-ui-theme.el::317][ogent-theme-flash]] and calls
-[[file:../lisp/ui/ogent-ui.el::565][ogent--send-with-current-model]].
+[[file:../lisp/ui/ogent-ui-send.el::73][ogent--send-with-current-model]].
 
 ** 2. Companion and context
 
 Your source buffer is elisp, not Org, so
-[[file:../lisp/ui/ogent-ui.el::610][ogent-ui--ensure-companion-context]] asks
-[[file:../lisp/ogent-companion.el::98][ogent-companion-get-or-create]] for the Org sidecar — a buffer named
+[[file:../lisp/ui/ogent-ui-send.el::111][ogent-ui--ensure-companion-context]] asks
+[[file:../lisp/ogent-companion.el::98][ogent-companion-get-or-create]] for the Org sidecar; a buffer named
 =*ogent:ogent-tool-effects.el*= is created, linked both ways, and recorded
 in the persistent link registry so the pairing survives restarts.
 
@@ -129,14 +129,14 @@ context plist: an [[file:../lisp/ogent-context.el::346][ogent-source-context]] s
 =ogent-tool-effects.el= (mode =emacs-lisp-mode=, full buffer content), any
 =@handles= found (none in this prompt), and the global
 [[file:../lisp/ogent-context.el::87][pinned items]] (also none). The pre-send gate
-[[file:../lisp/ogent-core.el::112][ogent-validate-and-prompt]] checks for unresolved handles — with
+[[file:../lisp/ogent-core.el::112][ogent-validate-and-prompt]] checks for unresolved handles; with
 =ogent-validate-before-send= at its default =nil= it passes silently.
 
 ** 3. The request ticket
 
-[[file:../lisp/ui/ogent-ui.el::697][ogent-response-function]] (default
-[[file:../lisp/ui/ogent-ui.el::1512][ogent-ui-prepare-response-block]]) mints the request. First
-[[file:../lisp/ui/ogent-ui.el::1436][ogent-ui--create-response-block]] writes the Org skeleton into the
+[[file:../lisp/ui/ogent-ui-core.el::99][ogent-response-function]] (default
+[[file:../lisp/ui/ogent-ui-engine.el::400][ogent-ui-prepare-response-block]]) mints the request. First
+[[file:../lisp/ui/ogent-ui-engine.el::281][ogent-ui--create-response-block]] writes the Org skeleton into the
 companion:
 
 #+begin_example
@@ -152,19 +152,19 @@ companion:
 #+end_example
 
 A struct =ogent-ui-request= is created with =:id "ogent-request-1"= (ids
-come from the counter in [[file:../lisp/ui/ogent-ui.el::1306][ogent-ui--next-request-id]]), a streaming
+come from the counter in [[file:../lisp/ui/ogent-ui-engine.el::128][ogent-ui--next-request-id]]), a streaming
 marker parked after the Response headline, and =:status 'wait=.
-[[file:../lisp/ui/ogent-ui.el::1494][ogent-ui-register-request]] puts it in
-[[file:../lisp/ui/ogent-ui.el::708][ogent-ui--request-table]], stamps the start into the proof ledger
-([[file:../lisp/ogent-ledger.el::135][ogent-ledger-record-request-start]] — hash of the prompt, not the
+[[file:../lisp/ui/ogent-ui-engine.el::382][ogent-ui-register-request]] puts it in
+[[file:../lisp/ui/ogent-ui-core.el::129][ogent-ui--request-table]], stamps the start into the proof ledger
+([[file:../lisp/ogent-ledger.el::135][ogent-ledger-record-request-start]]; hash of the prompt, not the
 text), starts the analytics clock
 ([[file:../lisp/ogent-analytics.el::186][ogent-analytics-start-request]]), and creates the animated left-margin
 indicator ([[file:../lisp/ui/ogent-ui-status.el::250][ogent-status-set-request]]).
 
 ** 4. The provider call
 
-[[file:../lisp/ui/ogent-ui.el::2240][ogent-ui--send-request]] renders the final payload with
-[[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]] — manifest first:
+[[file:../lisp/ui/ogent-ui-send.el::174][ogent-ui--send-request]] renders the final payload with
+[[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]], manifest first:
 
 #+begin_example
 Context manifest:
@@ -174,64 +174,64 @@ Context manifest:
 then binds the enabled tool objects from
 [[file:../lisp/ogent-models.el::305][ogent-tools-enabled-list]] into =gptel-tools= and calls
 =gptel-request= with the callback from
-[[file:../lisp/ui/ogent-ui.el::1850][ogent-ui--make-callback]] closed over ="ogent-request-1"=.
+[[file:../lisp/ui/ogent-ui-engine.el::689][ogent-ui--make-callback]] closed over ="ogent-request-1"=.
 
 When =ogent-multi-turn-history= is non-nil (the default), the PROMPT
 argument is not a single string: completed =** Request:= /
 =*** Response= pairs earlier in the buffer are replayed as alternating
 user/assistant turns. The raw user prompt of each turn is read back
 from the =OGENT_PROMPT= property the skeleton writer persisted
-(newline-encoded; [[file:../lisp/ui/ogent-ui.el::1342][ogent-ui--encode-prompt-property]]), the
+(newline-encoded; [[file:../lisp/ui/ogent-ui-engine.el::133][ogent-ui--encode-prompt-property]]), the
 assistant turn from the matching Response body
-([[file:../lisp/ui/ogent-ui.el::1382][ogent-ui--conversation-history]]; fan-out picks the same model's
+([[file:../lisp/ui/ogent-ui-engine.el::180][ogent-ui--conversation-history]]; fan-out picks the same model's
 response, empty/aborted turns are skipped). The history is then
 compacted to =ogent-multi-turn-token-budget= estimated tokens by
 evicting the oldest pairs first
-([[file:../lisp/ui/ogent-ui.el::1421][ogent-ui--compact-history]]) and sent as =(user-1 reply-1 … prompt)=.
+([[file:../lisp/ui/ogent-ui-engine.el::219][ogent-ui--compact-history]]) and sent as =(user-1 reply-1 … prompt)=.
 The request also binds =gptel-cache= from =ogent-gptel-cache= and
 copies any registry =:request-params= / =:capabilities= onto the gptel
-model symbol ([[file:../lisp/ogent-models.el::86][ogent-models-apply-gptel-props]]) — on cache-capable
+model symbol ([[file:../lisp/ogent-models.el::86][ogent-models-apply-gptel-props]]); on cache-capable
 Anthropic models the replayed prefix becomes the cached prompt prefix
 across turns.
 
 Because you authenticated with Anthropic OAuth, two pieces of advice fire
-inside gptel: [[file:../lisp/ogent-anthropic-oauth.el::578][ogent-anthropic-oauth--request-data-advice]] swaps the
+inside gptel: [[file:../lisp/ogent-anthropic-oauth.el::603][ogent-anthropic-oauth--request-data-advice]] swaps the
 system message to the exact Claude Code prefix (OAuth bearer tokens are
 rejected without it), and
-[[file:../lisp/ogent-anthropic-oauth.el::602][ogent-anthropic-oauth--curl-args-advice]] injects =Authorization:
-Bearer …= plus the =anthropic-beta= headers — refreshing the token first
+[[file:../lisp/ogent-anthropic-oauth.el::633][ogent-anthropic-oauth--curl-args-advice]] injects =Authorization:
+Bearer …= plus the =anthropic-beta= headers, refreshing the token first
 if it is near expiry ([[file:../lisp/ogent-anthropic-oauth.el::329][ogent-anthropic-oauth--ensure-valid-token]]).
 
 ** 5. Streaming
 
 Chunks arrive in the callback and flow through
-[[file:../lisp/ui/ogent-ui.el::1650][ogent-ui--append-response]]: inserted at the request's marker, model
+[[file:../lisp/ui/ogent-ui-engine.el::437][ogent-ui--append-response]]: inserted at the request's marker, model
 headings demoted below the =*** Response= level, window scrolled if you
 haven't moved away. The first chunk flips status to ='typing= via
-[[file:../lisp/ui/ogent-ui.el::1698][ogent-ui--update-status]] (margin lamp starts spinning,
+[[file:../lisp/ui/ogent-ui-engine.el::487][ogent-ui--update-status]] (margin lamp starts spinning,
 [[file:../lisp/ui/ogent-ui-status.el::217][ogent-status--start-animation]]) and stamps the time-to-first-token
 ([[file:../lisp/ogent-analytics.el::191][ogent-analytics-first-token]]).
 
-** 6. Tool call #1 — grep, auto-approved
+** 6. Tool call #1: grep, auto-approved
 
 The model answers with a tool call:
 =grep(pattern: "ogent-tool-spec-confirm-p", glob_filter: "*.el")=. The
-callback routes it to [[file:../lisp/ui/ogent-ui.el::1910][ogent-ui--handle-tool-calls]], which first asks
+callback routes it to [[file:../lisp/ui/ogent-ui-toolcalls.el::133][ogent-ui--handle-tool-calls]], which first asks
 [[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]]. The decision cascade: approval is
 enabled; =grep= is not session-denied; not in your
 [[file:../lisp/ogent-tool-approval.el::15][allow-list]]; so the spec policy decides. =grep='s spec in
 [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]] declares =:effects ((:kind read :target
-filesystem :scope workspace :risk low))= — =read= is not in
+filesystem :scope workspace :risk low))=; =read= is not in
 [[file:../lisp/ogent-tool-effects.el::19][ogent-tool-effects-approval-kinds]] and =low= is below the =high=
 threshold, so [[file:../lisp/ogent-tool-effects.el::112][ogent-tool-effects-approval-required-p]] says no
 approval needed: *approved, no prompt shown*.
 
-[[file:../lisp/ui/ogent-ui.el::1977][ogent-ui--execute-tool]] records
+[[file:../lisp/ui/ogent-ui-toolcalls.el::201][ogent-ui--execute-tool]] records
 [[file:../lisp/ogent-ledger.el::162][ogent-ledger-record-tool-start]] (with those effects), runs
 [[file:../lisp/ogent-tools.el::291][ogent-tool--grep]] (ripgrep under the hood, project root resolved by
 [[file:../lisp/ogent-tools.el::170][ogent-tools--project-root]]), records the finish with a result hash,
 and renders the result into the transcript as a collapsible
-[[file:../lisp/ui/ogent-ui.el::2249][tool drawer]]:
+[[file:../lisp/ui/ogent-ui-toolcalls.el::331][tool drawer]]:
 
 #+begin_example
 :TOOL_CALL (grep):
@@ -244,9 +244,9 @@ test/ogent-models-tests.el:…
 
 The result is fed back to the model through gptel's tool loop.
 
-** 7. Tool call #2 — bash, human gate
+** 7. Tool call #2: bash, human gate
 
-Next the model calls =bash(command: "make test")=. Same cascade — but the
+Next the model calls =bash(command: "make test")=. Same cascade, but the
 bash spec is double-flagged: =:confirm t= *and* =:effects ((:kind execute
 :target shell :scope unrestricted :risk critical) …)=. Either alone forces
 the prompt. [[file:../lisp/ogent-tool-approval.el::122][ogent-tool--prompt-approval]] takes over the echo area:
@@ -258,14 +258,14 @@ Effects: execute shell (unrestricted) [critical]
 Execute? (y)es (n)o (a)lways (e)dit:
 #+end_example
 
-You press =y=. (Had you pressed =a=, the pattern =bash(command:make *)= —
-narrowed to the command's first word — would be persisted into
+You press =y=. (Had you pressed =a=, the pattern =bash(command:make *)=,
+narrowed to the command's first word, would be persisted into
 [[file:../lisp/ogent-tool-approval.el::15][ogent-tool-allow-list]] via =customize-save-variable=.) Because
 =ogent-stream-tool-output= defaults to =t=, execution goes through the
-async path [[file:../lisp/ui/ogent-ui.el::1850][ogent-ui--execute-tool-async]] →
+async path [[file:../lisp/ui/ogent-ui-toolcalls.el::97][ogent-ui--execute-tool-async]] →
 [[file:../lisp/ogent-tools.el::577][ogent-tool--bash-async]]: a =make-process= with a kill-timer at
 [[file:../lisp/ogent-tools.el::31][ogent-tools-shell-timeout]] (120s), stdout streaming into a live
-[[file:../lisp/ui/ogent-ui.el::2301][streaming drawer]] in the transcript while the spinner shows byte/line
+[[file:../lisp/ui/ogent-ui-toolcalls.el::460][streaming drawer]] in the transcript while the spinner shows byte/line
 counts. =make test= exits 0; the drawer is finalized with the exit code
 and the (truncated, per [[file:../lisp/ogent-tools.el::26][ogent-tools-max-output-chars]]) output goes
 back to the model.
@@ -276,10 +276,10 @@ The model streams its final prose ("=ogent-tool-spec-confirm-p= is
 referenced from the gptel tool-registration bridge … the suite passes").
 gptel signals completion; the callback (or, if the stream ends
 ambiguously, the fallback
-[[file:../lisp/ui/ogent-ui.el::1755][ogent-ui--gptel-post-response-handler]]) calls
-[[file:../lisp/ui/ogent-ui.el::1596][ogent-ui--close-response]] for ="ogent-request-1"=: status → ='done=,
+[[file:../lisp/ui/ogent-ui-engine.el::778][ogent-ui--gptel-post-response-handler]]) calls
+[[file:../lisp/ui/ogent-ui-engine.el::589][ogent-ui--close-response]] for ="ogent-request-1"=: status → ='done=,
 the =:status waiting= cookie in the prompt block is rewritten, the prompt
-block stays folded, a green flash fires, and three ledgers settle up —
+block stays folded, a green flash fires, and three ledgers settle up:
 [[file:../lisp/ogent-analytics.el::196][ogent-analytics-record-completion]] INSERTs a row (model
 ="claude-sonnet-4-6"=, estimated tokens, TTFT, latency) into
 =.ogent-analytics.db=; [[file:../lisp/ogent-ledger.el::147][ogent-ledger-record-request-finish]] appends the
@@ -290,7 +290,7 @@ margin lamp turns into a checkmark and is cleared two seconds later.
 
 Total state touched: one Org subtree in the companion buffer, one row in
 the SQLite analytics DB, ledger events (if enabled), the request moved
-from the active table into [[file:../lisp/ui/ogent-ui.el::1576][retry history]].
+from the active table into [[file:../lisp/ui/ogent-ui-engine.el::635][retry history]].
 
 ** Coda: the same shape in the Armory
 
@@ -299,7 +299,7 @@ The Armory pipeline rhymes, with external CLIs instead of gptel:
 [[file:../lisp/ogent-armory-runner.el::426][ogent-armory-runner-plan]] resolves agent/provider/model (instead of
 the model registry), [[file:../lisp/ogent-armory-runner.el::799][ogent-armory-runner-start]] spawns =codex exec=
 (instead of =gptel-request=), and instead of a response block the run is
-persisted as a conversation directory — created at start by
+persisted as a conversation directory, created at start by
 [[file:../lisp/ogent-armory-runner.el::663][ogent-armory-runner--create-conversation]] and finalized by
 [[file:../lisp/ogent-armory-runner.el::754][ogent-armory-runner--finalize-conversation]], which parses the agent's
 structured footer and files any proposed actions behind the
@@ -313,39 +313,41 @@ path, and exact-line links to its major defuns, defcustoms, and state.
 
 ** Entry point and core
 
-*** [[file:../lisp/ogent.el::1][ogent.el]] — the bootstrap
+*** [[file:../lisp/ogent.el::1][ogent.el]]: the bootstrap
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent
 :END:
 
-Role: Umbrella entry point — fixes up the =load-path=, hardens against
+Role: Umbrella entry point; fixes up the =load-path=, hardens against
 stale Org byte-code, =require=s every module in dependency order, and runs
-one-time install steps (default tools, the =ogent= Babel language).
+the one-time tool-install step (=ogent-tools-install-defaults=).
 
 Design: Almost no logic of its own. A top-level =let*= at
 [[file:../lisp/ogent.el::52][lisp/ogent.el:52]] pushes the entry file's directory, its =ui/= subdir,
 and their truename variants onto =load-path= (Doom/straight symlink builds
-otherwise miss sibling files), then a flat cascade of ~37 =require=s
-([[file:../lisp/ogent.el::101][lisp/ogent.el:101]]) defines the canonical load order. A small shim
-around =org-capture-templates-contexts= protects against old compiled Org.
+otherwise miss sibling files), then a flat cascade of ~40 =require=s
+([[file:../lisp/ogent.el::71][lisp/ogent.el:71]]) defines the canonical load order. The first
+require, =ogent-org-compat=, provides a shim around
+=org-capture-templates-contexts= that protects against old compiled Org.
 
-Intuition: The table of contents plus the power switch — it does nothing
+Intuition: The table of contents plus the power switch; it does nothing
 itself; it makes sure everything else is present and turned on in order.
 
-Trace: =(require 'ogent)= → load-path bootstrap → defensive
-[[file:../lisp/ogent.el::68][org-capture-templates-contexts]] defvar +
-[[file:../lisp/ogent.el::71][ogent--ensure-org-capture-templates-contexts]] → require cascade
+Trace: =(require 'ogent)= → load-path bootstrap → the =ogent-org-compat=
+shim (defensive [[file:../lisp/ogent-org-compat.el::10][org-capture-templates-contexts]] defvar +
+[[file:../lisp/ogent-org-compat.el::12][ogent--ensure-org-capture-templates-contexts]]) → require cascade
 (context → models → tools → core → UI → armory → presets → analytics) →
-[[file:../lisp/ogent.el::141][ogent-tools-install-defaults call]] populates the tool registry →
-=with-eval-after-load 'org= registers =(ogent . t)= in
-=org-babel-load-languages= ([[file:../lisp/ogent.el::144][lisp/ogent.el:144]]).
+the [[file:../lisp/ogent.el::113][ogent-tools-install-defaults call]] populates the tool registry. The =ogent=
+Babel language is provided by ob-ogent.el's autoloaded
+=org-babel-execute:ogent=, not a load-time registration here.
 
-Key definitions: [[file:../lisp/ogent.el::79][ogent--with-org-capture-templates-contexts]] (the
-:around advice body) and [[file:../lisp/ogent.el::88][ogent--advise-org-capture-contexts]]
-(idempotent installer) — applied to =org-capture= and friends inside
+Key definitions (in [[file:../lisp/ogent-org-compat.el::1][ogent-org-compat.el]]):
+[[file:../lisp/ogent-org-compat.el::20][ogent--with-org-capture-templates-contexts]] (the
+around advice body) and [[file:../lisp/ogent-org-compat.el::29][ogent--advise-org-capture-contexts]]
+(idempotent installer), applied to =org-capture= and friends inside
 =with-eval-after-load 'org-capture=.
 
-*** [[file:../lisp/ogent-core.el::1][ogent-core.el]] — minor mode, validation, notification
+*** [[file:../lisp/ogent-core.el::1][ogent-core.el]]: minor mode, validation, notification
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-core
 :END:
@@ -355,7 +357,7 @@ pre-send validation of @handles and prompt requirements, completion
 notification, and the lightweight standalone commands (=ogent-ask=,
 =ogent-open-block=, Question→Response session prompting).
 
-Design: Four loosely coupled sections — validation utilities that read
+Design: Four loosely coupled sections: validation utilities that read
 =:dependencies= off the context plist and write =:validation-warnings=
 back; the minor-mode scaffold whose keymap is generated from the
 ogent-keys action registry; a notification layer driven by hooks and a
@@ -364,7 +366,7 @@ module defvars (=ogent-ask=) or stream into an Org =Response= headline via
 a marker (sessions). =ogent-global-mode= hand-wraps the internal
 globalized mode so enabling it never disturbs window layout.
 
-Intuition: The front door and the doorman — it turns ogent on in buffers,
+Intuition: The front door and the doorman; it turns ogent on in buffers,
 checks your papers before requests leave, and rings the bell when
 responses come back.
 
@@ -389,10 +391,10 @@ Key definitions: defcustoms [[file:../lisp/ogent-core.el::58][ogent-after-reques
 [[file:../lisp/ogent-core.el::233][ogent-global-mode]]. Commands: [[file:../lisp/ogent-core.el::388][ogent-ask]] (popup Q&A; callback
 factory [[file:../lisp/ogent-core.el::359][ogent-ask--make-callback]]),
 [[file:../lisp/ogent-core.el::420][ogent-open-block]]. State: [[file:../lisp/ogent-core.el::182][ogent-mode-map]] (built at defvar time),
-[[file:../lisp/ogent-core.el::333][ogent-ask--streaming-response]] (global accumulator — two concurrent
+[[file:../lisp/ogent-core.el::333][ogent-ask--streaming-response]] (global accumulator; two concurrent
 =ogent-ask= calls interleave).
 
-*** [[file:../lisp/ogent-keys.el::1][ogent-keys.el]] — one registry, every binding frontend
+*** [[file:../lisp/ogent-keys.el::1][ogent-keys.el]]: one registry, every binding frontend
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-keys
 :END:
@@ -402,15 +404,15 @@ generates vanilla (=C-c .=), Evil leader (=SPC o=), Doom leader, review
 (=C-c ,=), and which-key bindings; also home of the canonical Evil
 display-buffer integration used by every read-only ogent buffer.
 
-Design: [[file:../lisp/ogent-keys.el::110][ogent-action-registry]] is a single source of truth —
-=(NAME :key K :command CMD :desc D)= rows — walked by per-frontend
+Design: [[file:../lisp/ogent-keys.el::110][ogent-action-registry]] is a single source of truth:
+=(NAME :key K :command CMD :desc D)= rows, walked by per-frontend
 generator functions, guaranteeing parity. The second half is
 [[file:../lisp/ogent-keys.el::458][ogent-evil-display-mode-setup]]: the magit/dired pattern
 (=evil-make-overriding-map= plus mirroring every mode-map command into
 Evil normal/motion state) so single-key affordances beat Vim operator
 keys, with =gr=/=gR= refresh, =ZZ=/=ZQ= conventions.
 
-Intuition: A routing table, not a keymap — actions are spreadsheet rows
+Intuition: A routing table, not a keymap; actions are spreadsheet rows
 and each frontend is just a different rendering of the same rows.
 
 Trace: ogent-core's keymap defvar → [[file:../lisp/ogent-keys.el::397][ogent-setup-all-bindings]] →
@@ -433,13 +435,13 @@ describe) through one command surface.
 
 ** Models, backends, presets
 
-*** [[file:../lisp/ogent-models.el::1][ogent-models.el]] — the registries
+*** [[file:../lisp/ogent-models.el::1][ogent-models.el]]: the registries
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-models
 :END:
 
 Role: Single source of truth for the models, presets, and tools ogent
-knows about — three declarative plist registries plus the functions that
+knows about: three declarative plist registries plus the functions that
 register presets/tools with gptel.
 
 Design: Each registry is a defcustom list of plists with small =seq-find=
@@ -449,7 +451,7 @@ is [[file:../lisp/ogent-models.el::251][ogent-tool-spec-confirm-p]], which bridg
 approval policy into gptel's =:confirm= flag so gptel-native execution
 cannot bypass approval.
 
-Intuition: The card catalog — UI and request code never hardcode a model,
+Intuition: The card catalog; UI and request code never hardcode a model,
 preset, or tool; they look it up here, and this module is also the clerk
 who files everything with gptel.
 
@@ -471,7 +473,7 @@ the cached gptel object). Accessors [[file:../lisp/ogent-models.el::295][ogent-t
 [[file:../lisp/ogent-models.el::316][ogent-tool-spec-get]], [[file:../lisp/ogent-models.el::81][ogent-models-ids]],
 [[file:../lisp/ogent-models.el::74][ogent-models-default]].
 
-*** [[file:../lisp/ogent-gptel.el::1][ogent-gptel.el]] — backend resolution shim
+*** [[file:../lisp/ogent-gptel.el::1][ogent-gptel.el]]: backend resolution shim
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-gptel
 :END:
@@ -484,7 +486,7 @@ Design: Three pure functions, no state. Symbol backends try =boundp=,
 then type-matching against the current =gptel-backend=, then a scan of
 =gptel--known-backends= by struct type.
 
-Intuition: A phone-book lookup — given the registry's loose name for a
+Intuition: A phone-book lookup; given the registry's loose name for a
 backend, find the living gptel object that answers to it.
 
 Trace: callers resolve a model via the registry, then
@@ -492,7 +494,7 @@ Trace: callers resolve a model via the registry, then
 [[file:../lisp/ogent-gptel.el::28][ogent-gptel-backend-matches-provider-p]] as needed; display strings
 from [[file:../lisp/ogent-gptel.el::17][ogent-gptel-model-display-name]].
 
-*** [[file:../lisp/ogent-presets.el::1][ogent-presets.el]] — per-project =.ogent.el=
+*** [[file:../lisp/ogent-presets.el::1][ogent-presets.el]]: per-project =.ogent.el=
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-presets
 :END:
@@ -500,7 +502,7 @@ from [[file:../lisp/ogent-gptel.el::17][ogent-gptel-model-display-name]].
 Role: Per-project configuration: discovers a project root, safely reads a
 =.ogent.el= settings file, and applies project model/preset/context
 files/codemap roots/tools/system prompt as buffer-local overrides.
-(Distinct from gptel presets in ogent-models — this module is about
+(Distinct from gptel presets in ogent-models; this module is about
 projects.)
 
 Design: Seven =defvar-local= override variables; a whitelist plus a
@@ -509,7 +511,7 @@ hash caches (root lookup; loaded-projects) keep the
 =buffer-list-update-hook= auto-loader cheap. Root detection cascades
 projectile → project.el → dominating =.ogent.el= → common markers.
 
-Intuition: =.dir-locals.el= but ogent-shaped and sandboxed — drop a
+Intuition: =.dir-locals.el= but ogent-shaped and sandboxed; drop a
 =.ogent.el= in a repo and every buffer there quietly inherits that
 project's AI settings.
 
@@ -528,12 +530,12 @@ Buffer-locals [[file:../lisp/ogent-presets.el::57][ogent-project-model]],
 [[file:../lisp/ogent-presets.el::138][ogent-presets--allowed-variables]]. Wizard
 [[file:../lisp/ogent-presets.el::254][ogent-presets-configure]]; inspector [[file:../lisp/ogent-presets.el::324][ogent-presets-show]].
 
-*** [[file:../lisp/ogent-provider-fallback.el::1][ogent-provider-fallback.el]] — access-error triage
+*** [[file:../lisp/ogent-provider-fallback.el::1][ogent-provider-fallback.el]]: access-error triage
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-provider-fallback
 :END:
 
-Role: Shared "your model just failed — log in to a different provider?"
+Role: Shared "your model just failed, log in to a different provider?"
 recovery path for both the chat and edit pipelines.
 
 Design: A regexp classifier over lowercased error text (built-in patterns
@@ -541,7 +543,7 @@ unioned with a user-extensible defcustom). The offer is deferred via
 =run-at-time 0= so =y-or-n-p= never runs inside a gptel callback;
 re-entrancy is suppressed by a dynamic flag.
 
-Intuition: The triage nurse for failed requests — if the error smells
+Intuition: The triage nurse for failed requests; if the error smells
 like "you can't use this provider" rather than a transient glitch, it
 offers to walk you to a different door.
 
@@ -554,24 +556,24 @@ Master switch: [[file:../lisp/ogent-provider-fallback.el::19][ogent-prompt-provi
 
 ** Tools and safety
 
-*** [[file:../lisp/ogent-tools.el::1][ogent-tools.el]] — the toolbox
+*** [[file:../lisp/ogent-tools.el::1][ogent-tools.el]]: the toolbox
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-tools
 :END:
 
-Role: Implements the built-in tool set — read-file, glob, grep, bash,
-write-file, edit-file — plus the streaming/progress plumbing and async
+Role: Implements the built-in tool set (read-file, glob, grep, bash,
+write-file, edit-file) plus the streaming/progress plumbing and async
 process management around them.
 
 Design: Each tool is a plain function (=ogent-tool--*=) with sync and
 async variants for the long-running ones; async variants use
 =make-process= with sentinels and register in an active-process list for
-cancellation. Tool metadata — including the all-important =:effects= and
-=:confirm= — lives declaratively in
+cancellation. Tool metadata, including the all-important =:effects= and
+=:confirm=, lives declaratively in
 [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]] and is merged into the global registry
 by [[file:../lisp/ogent-tools.el::836][ogent-tools-install-defaults]] without clobbering existing names.
 
-Intuition: A toolbox where every tool ships with its own warning label —
+Intuition: A toolbox where every tool ships with its own warning label;
 the implementations live here, but the labels are what the approval
 system reads.
 
@@ -595,15 +597,15 @@ Key definitions: defcustoms [[file:../lisp/ogent-tools.el::21][ogent-tools-max-f
 (unique-match replace). State: [[file:../lisp/ogent-tools.el::197][ogent-tools--active-processes]];
 cleanup via [[file:../lisp/ogent-tools.el::674][ogent-tools-cancel-all]]. Path anchoring:
 [[file:../lisp/ogent-tools.el::170][ogent-tools--project-root]] /
-[[file:../lisp/ogent-tools.el::180][ogent-tools--resolve-path]] (absolute paths pass through — scoping is
+[[file:../lisp/ogent-tools.el::180][ogent-tools--resolve-path]] (absolute paths pass through; scoping is
 declarative metadata, not an OS sandbox).
 
-*** [[file:../lisp/ogent-tool-effects.el::1][ogent-tool-effects.el]] — the policy vocabulary
+*** [[file:../lisp/ogent-tool-effects.el::1][ogent-tool-effects.el]]: the policy vocabulary
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-tool-effects
 :END:
 
-Role: Defines the effect schema — kind/target/scope/risk — and the single
+Role: Defines the effect schema (kind/target/scope/risk) and the single
 predicate that decides whether a tool may auto-run or must be approved.
 
 Design: A pure-function module with no state: three defconsts and
@@ -612,7 +614,7 @@ Missing risk is filled from a per-kind default table; the risk of an
 effect set is the max over a rank ordering; approval is required if any
 kind is in the approval set OR combined risk reaches =high=.
 
-Intuition: A hazard-label grammar plus one customs officer — everything
+Intuition: A hazard-label grammar plus one customs officer; everything
 gets stamped read/write/execute/... with a risk grade, and one function
 decides who gets waved through.
 
@@ -629,15 +631,15 @@ Key definitions: [[file:../lisp/ogent-tool-effects.el::15][ogent-tool-effects-kn
 network git issue emacs-state),
 [[file:../lisp/ogent-tool-effects.el::19][ogent-tool-effects-approval-kinds]] (everything but =read=),
 [[file:../lisp/ogent-tool-effects.el::23][ogent-tool-effects--risk-ranks]] (none<low<medium<high<critical).
-Caveat: unknown kinds silently normalize away — a typo'd kind vanishes,
+Caveat: unknown kinds silently normalize away; a typo'd kind vanishes,
 which is why callers also honor =:confirm=.
 
-*** [[file:../lisp/ogent-mcp.el::1][ogent-mcp.el]] — the embassy switchboard
+*** [[file:../lisp/ogent-mcp.el::1][ogent-mcp.el]]: the embassy switchboard
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-mcp
 :END:
 
-Role: MCP (Model Context Protocol) client — spawns stdio server
+Role: MCP (Model Context Protocol) client; spawns stdio server
 processes, speaks newline-delimited JSON-RPC, and registers each remote
 tool into the tool registry so the model can call them natively.
 
@@ -647,10 +649,10 @@ callback-async; tool calls are synchronous
 ([[file:../lisp/ogent-mcp.el::244][ogent-mcp--request-sync]] blocks with a timeout). Each discovered tool
 gets a generated =mcp-SERVER-NAME= symbol =fset= to a proxy closure, and
 its registry spec is stamped with
-[[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]] — =network/external/unrestricted/high=
-— so it can never auto-execute.
+[[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]]
+(=network/external/unrestricted/high=), so it can never auto-execute.
 
-Intuition: An embassy switchboard — foreign tools get a local extension
+Intuition: An embassy switchboard; foreign tools get a local extension
 wired into ogent's directory, but every extension is pre-stamped
 "untrusted external line" so the operator always asks before connecting.
 
@@ -671,7 +673,7 @@ Key definitions: defcustoms [[file:../lisp/ogent-mcp.el::33][ogent-mcp-servers]]
 [[file:../lisp/ogent-mcp.el::517][ogent-mcp-connect-all]]. Auto-connect runs one second after ogent
 loads ([[file:../lisp/ogent-mcp.el::549][ogent-mcp-setup]]).
 
-*** [[file:../lisp/ogent-session.el::1][ogent-session.el]] — conversation persistence
+*** [[file:../lisp/ogent-session.el::1][ogent-session.el]]: conversation persistence
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-session
 :END:
@@ -682,7 +684,7 @@ search, and optional org-roam linking.
 
 Design: Buffer-local =ogent-persist--*= variables carry live session
 identity; saves strip and regenerate the metadata preamble so they are
-idempotent. The files are the database — listings read just the first 2KB
+idempotent. The files are the database; listings read just the first 2KB
 of each file for metadata.
 
 Intuition: A filing armory where each conversation is an Org file with
@@ -697,7 +699,7 @@ Trace: [[file:../lisp/ogent-session.el::224][ogent-session-save]] →
 
 Key definitions: defcustoms [[file:../lisp/ogent-session.el::26][ogent-session-directory]]
 (=~/.emacs.d/ogent-sessions/=), [[file:../lisp/ogent-session.el::40][ogent-session-auto-save]]
-(nil/t/'prompt — wired Emacs-wide on =kill-buffer-hook= at
+(nil/t/'prompt, wired Emacs-wide on =kill-buffer-hook= at
 [[file:../lisp/ogent-session.el::362][ogent-persist--maybe-auto-save]]),
 [[file:../lisp/ogent-session.el::50][ogent-session-track-project]],
 [[file:../lisp/ogent-session.el::56][ogent-session-roam-integration]]. Search:
@@ -707,7 +709,7 @@ Key definitions: defcustoms [[file:../lisp/ogent-session.el::26][ogent-session-d
 
 ** Context, prompts, knowledge
 
-*** [[file:../lisp/ogent-context.el::1][ogent-context.el]] — the context engine
+*** [[file:../lisp/ogent-context.el::1][ogent-context.el]]: the context engine
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-context
 :END:
@@ -717,7 +719,7 @@ files/buffers/regions, and renders prompt payloads with a provenance
 manifest (what was included, why, how many chars, sha256). This file also
 hosts the root =ogent= defgroup ([[file:../lisp/ogent-context.el::14][lisp/ogent-context.el:14]]).
 
-Design: Three cl-structs carry context —
+Design: Three cl-structs carry context:
 [[file:../lisp/ogent-context.el::69][ogent-context-node]] (a resolved headline),
 [[file:../lisp/ogent-context.el::77][ogent-pinned-item]] (file/buffer/marker-tracked region), and
 [[file:../lisp/ogent-context.el::346][ogent-source-context]] (a code-buffer snapshot). A context is a plist
@@ -726,8 +728,8 @@ resolving each via open buffers → codemap special-cases → org-roam.
 Everything funnels into one renderer that emits the exact model payload,
 manifest first. Normal requests summarize ancestors as compact references;
 Zen runs (=:zen-run=) render each ancestor's own body under
-=# Parent Bullets= — child subtrees and prior transcripts are trimmed by
-[[file:../lisp/ogent-zen.el::709][ogent-zen--own-body]] so re-runs never re-embed earlier payloads — and
+=# Parent Bullets= (child subtrees and prior transcripts are trimmed by
+[[file:../lisp/ogent-zen-core.el::684][ogent-zen--own-body]] so re-runs never re-embed earlier payloads) and
 leave the current root content empty so the bullet text is not duplicated.
 They also scan the root and nearest parents for ordinary path prose such
 as =look in ~/repo for ideas=. Explicit workspace directives
@@ -740,7 +742,7 @@ repo, Zen marks =:workspace-tool-intent= so the prompt asks for one or
 two targeted read-only tool calls before the model answers.
 Lazy thunk variants defer expensive builds.
 
-Intuition: A bibliographer assembling a dossier — it chases every
+Intuition: A bibliographer assembling a dossier; it chases every
 "@citation" in your note, staples in pinned exhibits, and prepends a
 table of contents listing every source with its fingerprint.
 
@@ -770,7 +772,7 @@ by [[file:../lisp/ogent-context.el::248][ogent-context--truncate-content]]). Pin
 [[file:../lisp/ogent-context.el::480][ogent-context-manifest]]. Laziness: the
 [[file:../lisp/ogent-context.el::976][ogent-context-with-lazy]] macro.
 
-*** [[file:../lisp/ogent-prompts.el::1][ogent-prompts.el]] — the template spice rack
+*** [[file:../lisp/ogent-prompts.el::1][ogent-prompts.el]]: the template spice rack
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-prompts
 :END:
@@ -785,7 +787,7 @@ with blank lines; parameters are discovered by regex and filled from
 alists or interactive prompts. Defaults register once; the project file
 and overrides re-apply on every initialize.
 
-Intuition: A spice rack of named prompt fragments — pick several jars
+Intuition: A spice rack of named prompt fragments; pick several jars
 (=@code-review+@testing=), they pour in a fixed order, and any "{{fill
 me}}" blanks get asked about before serving.
 
@@ -806,7 +808,7 @@ Key definitions: [[file:../lisp/ogent-prompts.el::46][ogent-prompt-register]],
 [[file:../lisp/ogent-prompts.el::207][ogent-prompt-validate]]. Registry populates at load time
 ([[file:../lisp/ogent-prompts.el::417][lisp/ogent-prompts.el:417]]).
 
-*** [[file:../lisp/ogent-prompts-yasnippet.el::1][ogent-prompts-yasnippet.el]] — TAB-expandable prompts
+*** [[file:../lisp/ogent-prompts-yasnippet.el::1][ogent-prompts-yasnippet.el]]: TAB-expandable prompts
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-prompts-yasnippet
 :END:
@@ -816,7 +818,7 @@ expands from =@id= + TAB; can also materialize prompts as snippet files.
 
 Design/Intuition: A label-maker that prints each spice-rack jar as a
 TAB-expandable sticker yasnippet already knows how to peel. yasnippet is
-a soft dependency — every entry guards with =(require 'yasnippet nil t)=.
+a soft dependency; every entry guards with =(require 'yasnippet nil t)=.
 
 Trace: [[file:../lisp/ogent-prompts-yasnippet.el::116][ogent-prompts-yasnippet-mode]] →
 [[file:../lisp/ogent-prompts-yasnippet.el::126][ogent-prompts-yasnippet--enable]] →
@@ -825,7 +827,7 @@ Trace: [[file:../lisp/ogent-prompts-yasnippet.el::116][ogent-prompts-yasnippet-m
 [[file:../lisp/ogent-prompts-yasnippet.el::92][ogent-prompts-expand-at-point]]. Snippet dir defcustom at
 [[file:../lisp/ogent-prompts-yasnippet.el::27][ogent-prompts-snippet-dir]].
 
-*** [[file:../lisp/ogent-notes.el::1][ogent-notes.el]] — response capture
+*** [[file:../lisp/ogent-notes.el::1][ogent-notes.el]]: response capture
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-notes
 :END:
@@ -834,7 +836,7 @@ Role: Captures the last AI response into a "Notes" child heading under
 the current Org heading, turning ephemeral completions into persistent
 knowledge.
 
-Design/Intuition: A carbon-copy tray under the printer — every response
+Design/Intuition: A carbon-copy tray under the printer; every response
 drops a copy into a single-slot tray
 ([[file:../lisp/ogent-notes.el::38][ogent-notes--last-response]], refreshed by a
 =gptel-post-response-hook= function and cleared after capture), and the
@@ -848,10 +850,10 @@ Trace: gptel finishes →
 [[file:../lisp/ogent-notes.el::116][ogent-notes--create-notes-heading]] → timestamped entry. Defcustoms:
 [[file:../lisp/ogent-notes.el::20][ogent-notes-heading-name]],
 [[file:../lisp/ogent-notes.el::25][ogent-notes-timestamp-format]]. Tracking installs at load
-([[file:../lisp/ogent-notes.el::84][lisp/ogent-notes.el:84]]) — if gptel loads later, it silently never
+([[file:../lisp/ogent-notes.el::84][lisp/ogent-notes.el:84]]); if gptel loads later, it silently never
 starts.
 
-*** [[file:../lisp/ogent-codemap.el::1][ogent-codemap.el]] — the self-updating mall directory
+*** [[file:../lisp/ogent-codemap.el::1][ogent-codemap.el]]: the self-updating mall directory
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-codemap
 :END:
@@ -867,7 +869,7 @@ annotations. LLM: one-line file summaries plus a task sent to gptel
 under a strict Org-output system prompt, with a TTL cache keyed by
 md5(task)+md5(mtimes) and in-flight dedup.
 
-Intuition: A self-updating mall directory — the static map redraws only
+Intuition: A self-updating mall directory; the static map redraws only
 the stores that changed, and =@codemap-task:= asks a concierge to sketch
 a custom "here's where to go for X" route.
 
@@ -889,15 +891,15 @@ State: [[file:../lisp/ogent-codemap.el::42][ogent-codemap--file-cache]],
 instead of sending placeholder text to the model; a later request resolves from
 cache.
 
-*** [[file:../lisp/ogent-completions.el::1][ogent-completions.el]] — the contact sheet
+*** [[file:../lisp/ogent-completions.el::1][ogent-completions.el]]: the contact sheet
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-completions
 :END:
 
 Role: Completion review backend plus the generic =ogent-review-accept=
-entrypoint. It still owns the older multi-completion workflow — cycle
+entrypoint. It still owns the older multi-completion workflow: cycle
 between sibling "Response" subtrees, highlight the current one, accept
-(keep one, delete the rest) or reject — but =ogent-review-accept= now
+(keep one, delete the rest) or reject. But =ogent-review-accept= now
 dispatches to Zen acceptance when point is inside a Zen transcript.
 
 Design: Buffer-local hashes map a Question headline's position to
@@ -906,7 +908,7 @@ properties, start/end markers, overlay). The registry builds lazily by
 scanning sibling =Response= headlines and is invalidated after mutations
 or when a new response completes.
 
-Intuition: A photo contact sheet for AI answers — arrow keys flip
+Intuition: A photo contact sheet for AI answers; arrow keys flip
 between shots (others greyed and folded); "accept" keeps one print and
 shreds the negatives.
 
@@ -920,7 +922,7 @@ Trace: [[file:../lisp/ogent-completions.el::274][ogent-completion-next]] →
 [[file:../lisp/ogent-completions.el::518][lisp/ogent-completions.el:518]] adds
 [[file:../lisp/ogent-completions.el::491][ogent-completions--on-response-complete]] to the completion hook.
 
-*** [[file:../lisp/ob-ogent.el::1][ob-ogent.el]] — Org Babel backend
+*** [[file:../lisp/ob-ogent.el::1][ob-ogent.el]]: Org Babel backend
 :PROPERTIES:
 :CUSTOM_ID: mod-ob-ogent
 :END:
@@ -932,11 +934,11 @@ prepended) synchronously to a model and fills =#+RESULTS=.
 Design: Header parsing, context preamble via ogent-context's resolver,
 and a blocking gptel call that let-binds backend/model/stream (streaming
 and tools forced off) and spins =accept-process-output= until the
-callback fires or the timeout lapses. Synchronous by design — Babel must
+callback fires or the timeout lapses. Synchronous by design; Babel must
 return a value.
 
 Intuition: Turns an Org buffer into a Jupyter notebook whose kernel is
-an LLM — each src block is a reproducible, parameterizable cell.
+an LLM; each src block is a reproducible, parameterizable cell.
 
 Trace: =C-c C-c= → [[file:../lisp/ob-ogent.el::135][org-babel-execute:ogent]] →
 [[file:../lisp/ob-ogent.el::57][ob-ogent--expand-vars]] +
@@ -947,12 +949,12 @@ embedded as "(unresolved)" rather than erroring.
 
 ** The inline edit pipeline
 
-*** [[file:../lisp/ogent-edit.el::1][ogent-edit.el]] — the switchboard
+*** [[file:../lisp/ogent-edit.el::1][ogent-edit.el]]: the switchboard
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit
 :END:
 
-Role: Coordinator for inline AI code editing — builds prompts (quick
+Role: Coordinator for inline AI code editing; builds prompts (quick
 edits, diagnostic repairs, AI speed edits), sends via gptel, routes the
 parsed response to auto-apply, display, and logging.
 
@@ -963,7 +965,7 @@ targets are =(:scope :start :end)= plists chosen by heuristics (region >
 defun > line). Flymake and Flycheck diagnostics are normalized into one
 plist shape so the same machinery serves all repair commands.
 
-Intuition: The switchboard operator — composes the telegram, sends it
+Intuition: The switchboard operator; composes the telegram, sends it
 down the gptel wire, collects the reply tape, and hands it to the
 parsing room; it never touches buffer text itself.
 
@@ -985,7 +987,7 @@ Key definitions: defcustoms [[file:../lisp/ogent-edit.el::45][ogent-edit-auto-di
 [[file:../lisp/ogent-edit.el::829][ogent-edit-menu]]. Batch apply in reverse position order:
 [[file:../lisp/ogent-edit.el::705][ogent-edit-auto-apply-all]].
 
-*** [[file:../lisp/ogent-edit-format.el::1][ogent-edit-format.el]] — the protocol RFC
+*** [[file:../lisp/ogent-edit-format.el::1][ogent-edit-format.el]]: the protocol RFC
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit-format
 :END:
@@ -995,7 +997,7 @@ Role: Defines the SEARCH/REPLACE wire format (markers, regexes), the
 teach the model the format.
 
 Design/Intuition: Pure constants plus one cl-defstruct so every other
-edit module can depend on it without cycles — the protocol RFC and the
+edit module can depend on it without cycles; the protocol RFC and the
 passport blank in one file.
 
 Key definitions: markers at [[file:../lisp/ogent-edit-format.el::17][ogent-edit-search-marker]] /
@@ -1004,10 +1006,10 @@ Key definitions: markers at [[file:../lisp/ogent-edit-format.el::17][ogent-edit-
 the lifecycle struct [[file:../lisp/ogent-edit-format.el::40][ogent-edit]]; the system prompt
 [[file:../lisp/ogent-edit-format.el::71][ogent-edit-system-prompt]]; prompt wrapper
 [[file:../lisp/ogent-edit-format.el::87][ogent-edit-wrap-prompt]]; ID counter
-[[file:../lisp/ogent-edit-format.el::57][ogent-edit--counter]] (reset per parse — IDs repeat across
+[[file:../lisp/ogent-edit-format.el::57][ogent-edit--counter]] (reset per parse; IDs repeat across
 responses, a known cross-buffer lookup hazard).
 
-*** [[file:../lisp/ogent-edit-parse.el::1][ogent-edit-parse.el]] — the customs officer
+*** [[file:../lisp/ogent-edit-parse.el::1][ogent-edit-parse.el]]: the customs officer
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit-parse
 :END:
@@ -1016,10 +1018,10 @@ Role: Extracts SEARCH/REPLACE blocks from raw response text into structs
 and validates each against the live source buffer.
 
 Design: A single regex scan in a temp buffer; validation is
-uniqueness-based — the old text must match exactly one place in the
+uniqueness-based; the old text must match exactly one place in the
 buffer or the edit's status becomes ='error= with a message.
 
-Intuition: A customs officer — unpacks each crate from the shipment and
+Intuition: A customs officer; unpacks each crate from the shipment and
 stamps it valid only if its declared contents match exactly one place in
 the country.
 
@@ -1029,14 +1031,14 @@ Trace: [[file:../lisp/ogent-edit-parse.el::14][ogent-edit-parse-response]] →
 [[file:../lisp/ogent-edit-parse.el::114][ogent-edit-filter-valid]] /
 [[file:../lisp/ogent-edit-parse.el::118][ogent-edit-filter-errors]].
 
-*** [[file:../lisp/ogent-edit-display.el::1][ogent-edit-display.el]] — three lenses
+*** [[file:../lisp/ogent-edit-display.el::1][ogent-edit-display.el]]: three lenses
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit-display
 :END:
 
 Role: Renders validated edits for human review via three pluggable
-methods — smerge conflict markers, overlay holograms, inline-diff word
-highlighting — plus a unified-diff preview popup and source↔companion
+methods (smerge conflict markers, overlay holograms, inline-diff word
+highlighting) plus a unified-diff preview popup and source↔companion
 navigation.
 
 Design: Dispatchers switch on [[file:../lisp/ogent-edit-display.el::41][ogent-edit-display-method]]
@@ -1047,7 +1049,7 @@ the buffer; overlay keeps original text and projects the new text via a
 ghosts. Every resolution fires
 [[file:../lisp/ogent-edit-display.el::167][ogent-edit-resolved-hook]] so logging stays decoupled.
 
-Intuition: Three lenses over the same proposal — smerge tattoos the
+Intuition: Three lenses over the same proposal; smerge tattoos the
 change in, overlay projects it like a hologram, inline-diff commits it
 but leaves strike-through ghosts of the old words.
 
@@ -1062,12 +1064,12 @@ Trace: [[file:../lisp/ogent-edit-display.el::821][ogent-edit-display-all]] → e
 [[file:../lisp/ogent-edit-display.el::445][ogent-edit--overlay-list]] (buffer-local). Method cycling:
 [[file:../lisp/ogent-edit-display.el::795][ogent-edit-toggle-display-method]].
 
-*** [[file:../lisp/ogent-edit-diff.el::1][ogent-edit-diff.el]] — tiny magit-status for proposals
+*** [[file:../lisp/ogent-edit-diff.el::1][ogent-edit-diff.el]]: tiny magit-status for proposals
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit-diff
 :END:
 
-Role: The =*ogent-edits*= review buffer — collapsible file/hunk sections,
+Role: The =*ogent-edits*= review buffer: collapsible file/hunk sections,
 stage/unstage semantics, batch accept/reject.
 
 Design: Soft-depends on magit-section (probed at load,
@@ -1083,10 +1085,10 @@ Trace: [[file:../lisp/ogent-edit-diff.el::175][ogent-edit-diff-show]] →
 [[file:../lisp/ogent-edit-diff.el::193][ogent-edit-diff--render]] → stage with
 [[file:../lisp/ogent-edit-diff.el::366][ogent-edit-diff-stage]] →
 [[file:../lisp/ogent-edit-diff.el::427][ogent-edit-diff-accept-staged]] →
-[[file:../lisp/ogent-edit-diff.el::462][ogent-edit-diff--apply-edit]] (no re-validation — stale positions are
+[[file:../lisp/ogent-edit-diff.el::462][ogent-edit-diff--apply-edit]] (no re-validation; stale positions are
 a real hazard).
 
-*** [[file:../lisp/ogent-edit-log.el::1][ogent-edit-log.el]] — the flight recorder
+*** [[file:../lisp/ogent-edit-log.el::1][ogent-edit-log.el]]: the flight recorder
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-edit-log
 :END:
@@ -1106,12 +1108,12 @@ Trace: [[file:../lisp/ogent-edit-log.el::120][ogent-edit-log-all-proposals]] →
 [[file:../lisp/ogent-edit-log.el::97][ogent-edit-log-resolution]] (STATUS property + Resolution subtree).
 No companion linked → logs nothing, silently.
 
-*** [[file:../lisp/inline-diff.el::1][inline-diff.el]] — standalone track-changes
+*** [[file:../lisp/inline-diff.el::1][inline-diff.el]]: standalone track-changes
 :PROPERTIES:
 :CUSTOM_ID: mod-inline-diff
 :END:
 
-Role: Ogent-agnostic library for word-level inline diff display — given
+Role: Ogent-agnostic library for word-level inline diff display; given
 a region (new text) and the old text it replaced, paints add/remove
 overlays like a word processor's track changes.
 
@@ -1126,22 +1128,22 @@ Trace: [[file:../lisp/inline-diff.el::235][inline-diff-words-region]] →
 [[file:../lisp/inline-diff.el::406][inline-diff-mode]]. Navigation
 [[file:../lisp/inline-diff.el::338][inline-diff-next-change]]; teardown
 [[file:../lisp/inline-diff.el::326][inline-diff-clear]]. Caveat:
-[[file:../lisp/inline-diff.el::383][inline-diff-reject-all]] cannot restore old text — it clears
+[[file:../lisp/inline-diff.el::383][inline-diff-reject-all]] cannot restore old text; it clears
 decorations and tells you to undo.
 
-** The Armory — an Org agent OS
+** The Armory: an Org agent OS
 
-Armory (per [[file:../specs/armory-org-os.org][the spec]] and [[file:armory.org][the user guide]]) is a directory of Org files —
-index, agent personas, jobs, conversations, tasks, apps, imports — that
+Armory (per [[file:../specs/armory-org-os.org][the spec]] and [[file:armory.org][the user guide]]) is a directory of Org files
+(index, agent personas, jobs, conversations, tasks, apps, imports) that
 is the durable source of truth, with elisp editing property drawers and a
 runner layer turning records into external CLI processes.
 
-*** [[file:../lisp/ogent-armory.el::1][ogent-armory.el]] — the filesystem driver
+*** [[file:../lisp/ogent-armory.el::1][ogent-armory.el]]: the filesystem driver
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory
 :END:
 
-Role: Storage foundation for the whole Armory layer — defines the
+Role: Storage foundation for the whole Armory layer: defines the
 on-disk Org layout, the read/write/format functions for every record
 type, validation, search, and the typed graph projection. Every other
 armory module requires it.
@@ -1149,12 +1151,12 @@ armory module requires it.
 Design: Pure file-backed plumbing with no UI. Records are plists
 round-tripped through property drawers; machine reads use a hook-free
 org-mode ([[file:../lisp/ogent-armory.el::87][ogent-armory--org-mode]], =delay-mode-hooks=) so user hooks
-never fire. A armory root is any directory whose =index.org= contains
+never fire. An armory root is any directory whose =index.org= contains
 =:OGENT_ARMORY: t=. A hand-rolled five-field cron parser validates
 =OGENT_CRON=/=OGENT_HEARTBEAT=. The graph is rebuilt from scratch on
-demand — the spec explicitly defers incremental caching.
+demand; the spec explicitly defers incremental caching.
 
-Intuition: The filesystem driver plus schema for the agent OS —
+Intuition: The filesystem driver plus schema for the agent OS;
 everything above it is views and verbs over Org files this module knows
 how to read and write.
 
@@ -1185,12 +1187,12 @@ visible child in [[file:../lisp/ogent-armory.el::777][ogent-armory-resolve-agent
 [[file:../lisp/ogent-armory.el::1316][ogent-armory--hidden-path-p]]); imports
 [[file:../lisp/ogent-armory.el::1716][ogent-armory-import-artifacts]].
 
-*** [[file:../lisp/ogent-armory-conversations.el::1][ogent-armory-conversations.el]] — the flight recorder
+*** [[file:../lisp/ogent-armory-conversations.el::1][ogent-armory-conversations.el]]: the flight recorder
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-conversations
 :END:
 
-Role: The canonical conversation store — every run is a directory under
+Role: The canonical conversation store; every run is a directory under
 =.agents/.conversations/<id>/= with an Org index (~45 metadata
 properties), numbered turn files, an append-only event log, attachments,
 and artifacts; plus output parsing and legacy-session migration.
@@ -1203,7 +1205,7 @@ loading org-mode on the hot path. Turns are =turns/NNN-role.org= files
 numbers. Attachment staging is two-phase: copy into =_pending/=, then
 rename into the conversation when the run starts.
 
-Intuition: A flight recorder per run — the index is the flight log you
+Intuition: A flight recorder per run; the index is the flight log you
 stamp as the flight progresses, turn files are the cockpit transcript,
 events.org is the ordered black-box channel.
 
@@ -1227,12 +1229,12 @@ listing [[file:../lisp/ogent-armory-conversations.el::408][ogent-armory-conversa
 [[file:../lisp/ogent-armory-conversations.el::110][ogent-armory-conversation-stage-attachments]], migration
 [[file:../lisp/ogent-armory-conversations.el::953][ogent-armory-conversation-migrate-session]].
 
-*** [[file:../lisp/ogent-armory-adapter.el::1][ogent-armory-adapter.el]] — the USB driver table
+*** [[file:../lisp/ogent-armory-adapter.el::1][ogent-armory-adapter.el]]: the USB driver table
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-adapter
 :END:
 
-Role: Provider adapter registry for armory runs — normalizes provider
+Role: Provider adapter registry for armory runs; normalizes provider
 names (codex/claude/gemini/cursor/opencode/pi/grok/copilot), builds
 concrete CLI invocations, lists models, classifies errors, and renders a
 providers status buffer.
@@ -1240,11 +1242,11 @@ providers status buffer.
 Design: A hash registry keyed by id and aliases holding adapter plists
 (=:default-executable :models :runtime-modes :build-invocation ...=).
 Eight built-ins are (re)registered at load time. Invocation building is
-strategy dispatch — each adapter's function gets a context plist and
+strategy dispatch; each adapter's function gets a context plist and
 returns =:program/:args/:stdin=. Executable variables are only
 =defvar=-declared here to break the load cycle with the runner.
 
-Intuition: A USB driver table for AI CLIs — every provider plugs into
+Intuition: A USB driver table for AI CLIs; every provider plugs into
 the same socket (context in, process plan out), and the providers buffer
 is the device manager.
 
@@ -1258,15 +1260,15 @@ stdin) → [[file:../lisp/ogent-armory-adapter.el::90][ogent-armory-adapter-exec
 [[file:../lisp/ogent-armory-adapter.el::297][ogent-armory-adapter-classify-error]] into the taxonomy at
 [[file:../lisp/ogent-armory-adapter.el::37][ogent-armory-adapter-error-kinds]]. UI:
 [[file:../lisp/ogent-armory-adapter.el::386][ogent-armory-providers]]. Note the load-time registry reset at
-[[file:../lisp/ogent-armory-adapter.el::537][lisp/ogent-armory-adapter.el:537]] — re-loading wipes third-party
+[[file:../lisp/ogent-armory-adapter.el::537][lisp/ogent-armory-adapter.el:537]]; re-loading wipes third-party
 registrations.
 
-*** [[file:../lisp/ogent-armory-runner.el::1][ogent-armory-runner.el]] — the travel agent
+*** [[file:../lisp/ogent-armory-runner.el::1][ogent-armory-runner.el]]: the travel agent
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-runner
 :END:
 
-Role: Runs Armory agents through locally authenticated coding CLIs —
+Role: Runs Armory agents through locally authenticated coding CLIs:
 plans the command from Org persona/job records, starts an async process,
 and persists the run into the conversation store.
 
@@ -1280,7 +1282,7 @@ footer, self-check). Lifecycle is sentinel-driven: a conversation is
 created before launch and finalized on exit; live processes are tracked
 with the plan stashed in process properties.
 
-Intuition: A travel agent for AI CLIs — books the trip (plan), hands the
+Intuition: A travel agent for AI CLIs; books the trip (plan), hands the
 traveler a dress code (response contract), and files the trip report
 (conversation) when they return.
 
@@ -1310,12 +1312,12 @@ flags [[file:../lisp/ogent-armory-runner.el::136][ogent-armory-runner-codex-sand
 [[file:../lisp/ogent-armory-runner.el::887][ogent-armory-runner-stop-conversation]]; auth probes
 [[file:../lisp/ogent-armory-runner.el::963][ogent-armory-runner-auth-status]].
 
-*** [[file:../lisp/ogent-armory-compose.el::1][ogent-armory-compose.el]] — the mail merge
+*** [[file:../lisp/ogent-armory-compose.el::1][ogent-armory-compose.el]]: the mail merge
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-compose
 :END:
 
-Role: The shared prompt composer — resolves
+Role: The shared prompt composer: resolves
 =@agent:/@page:/@skill:/@job:/@conversation:= mentions, stages
 attachments, bundles skill instructions, and hands a finished prompt to
 the runner, from a minibuffer command or an Org composer buffer.
@@ -1327,7 +1329,7 @@ excerpt. The buffer flavor is a derived org-mode with a buffer-local capf
 for mention completion; attachments are copied into a =_pending=
 conversation folder so the run can adopt them atomically.
 
-Intuition: A mail-merge window for prompting — you write a short note
+Intuition: A mail-merge window for prompting; you write a short note
 with @-placeholders, and the composer expands every placeholder into the
 actual document contents before sealing the envelope.
 
@@ -1341,24 +1343,24 @@ Trace: [[file:../lisp/ogent-armory-compose.el::306][ogent-armory-compose-buffer]
 plan/confirm/start. One unresolvable @token aborts the whole submit with
 =user-error=.
 
-*** [[file:../lisp/ogent-armory-actions.el::1][ogent-armory-actions.el]] — the rubber stamp
+*** [[file:../lisp/ogent-armory-actions.el::1][ogent-armory-actions.el]]: the rubber stamp
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-actions
 :END:
 
-Role: The human approval gate for agent-proposed actions — parses
+Role: The human approval gate for agent-proposed actions: parses
 =LAUNCH_TASK= / =SCHEDULE_JOB= / =SCHEDULE_TASK= lines and
 =armory-actions= JSON blocks out of run output, validates them against
 visible agents, stores them per conversation, and dispatches only
 approved ones.
 
-Design: A pipeline of pure stages — parse (line protocol + JSON blocks,
+Design: A pipeline of pure stages: parse (line protocol + JSON blocks,
 deduped by content sha1) → validate (inherit provider/model from the
 triggering agent; attach =:errors/:warnings/:valid=) → store (one Org
 heading per action with =OGENT_ACTION_*= properties in =actions.org=) →
 dispatch (only =:valid= and ="approved"=, type-dispatched via =pcase=).
 
-Intuition: An outbox with a rubber stamp — agents drop typed request
+Intuition: An outbox with a rubber stamp; agents drop typed request
 slips into the conversation folder, and nothing leaves the building
 until a human stamps each slip approved.
 
@@ -1370,10 +1372,10 @@ Trace: runner output → [[file:../lisp/ogent-armory-actions.el::220][ogent-armo
 [[file:../lisp/ogent-armory-actions.el::412][ogent-armory-actions--launch]] (runner plan+start) or
 [[file:../lisp/ogent-armory-actions.el::440][ogent-armory-actions--schedule-job]] (job file) or
 [[file:../lisp/ogent-armory-actions.el::457][ogent-armory-actions--schedule-task]] (scheduled conversation).
-Caveat: malformed JSON in a proposals block is silently dropped — a typo
+Caveat: malformed JSON in a proposals block is silently dropped; a typo
 means "no proposals", not an error.
 
-*** [[file:../lisp/ogent-armory-schedule.el::1][ogent-armory-schedule.el]] — the player-piano roll
+*** [[file:../lisp/ogent-armory-schedule.el::1][ogent-armory-schedule.el]]: the player-piano roll
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-schedule
 :END:
@@ -1387,10 +1389,10 @@ Design: Events carry a stable key
 (=AGENT::SOURCE-TYPE::SOURCE-ID::YYYY-MM-DDTHH:MM=) so a generated slot
 joins to the conversation that ran it; the join yields a state (missed/
 upcoming/or the conversation's own status). Cron expansion is brute-force
-minute stepping over the visible range — deterministic and trivially
+minute stepping over the visible range; deterministic and trivially
 correct.
 
-Intuition: A player-piano roll — every cron is punched into discrete
+Intuition: A player-piano roll; every cron is punched into discrete
 minute holes for the window, then each hole is checked against the
 conversation log to see whether the note actually played.
 
@@ -1405,21 +1407,21 @@ Agenda bridge: [[file:../lisp/ogent-armory-schedule.el::431][ogent-armory-agenda
 [[file:../lisp/ogent-armory-schedule.el::424][ogent-armory-with-agenda-files]] macro. Key identity:
 [[file:../lisp/ogent-armory-schedule.el::74][ogent-armory-schedule-key]].
 
-*** [[file:../lisp/ogent-armory-data.el::1][ogent-armory-data.el]] — the Finder
+*** [[file:../lisp/ogent-armory-data.el::1][ogent-armory-data.el]]: the Finder
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-data
 :END:
 
-Role: The "files" surface — page (Org record) CRUD with cross-armory
+Role: The "files" surface: page (Org record) CRUD with cross-armory
 link rewriting and trash, a shared file-viewer dispatch, and a tabulated
 data browser over everything durable under the root.
 
 Design: Pure page operations preserve property drawers and rewrite
 =file:= links across the whole armory via org-element; the browser rows
-carry the record plist as the entry id. Deletion is soft by default —
+carry the record plist as the entry id. Deletion is soft by default;
 pages move to =.armory-state/trash/=.
 
-Intuition: A Finder for the armory — "delete" really means moving the
+Intuition: A Finder for the armory; "delete" really means moving the
 page into the armory's own wastebasket.
 
 Trace: [[file:../lisp/ogent-armory-data.el::449][ogent-armory-data]] →
@@ -1434,16 +1436,16 @@ Trace: [[file:../lisp/ogent-armory-data.el::449][ogent-armory-data]] →
 [[file:../lisp/ogent-armory-data.el::300][ogent-armory-page-delete]] (soft; =:hard= really deletes),
 [[file:../lisp/ogent-armory-data.el::327][ogent-armory-page-export]] (ox-html/md/ascii).
 
-*** [[file:../lisp/ogent-armory-skills.el::1][ogent-armory-skills.el]] — the spice rack with a search order
+*** [[file:../lisp/ogent-armory-skills.el::1][ogent-armory-skills.el]]: the spice rack with a search order
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-skills
 :END:
 
-Role: Org-backed skill discovery, import, and bundling — finds =.org=
+Role: Org-backed skill discovery, import, and bundling; finds =.org=
 skill files across armory, repo, and user-level roots and turns
 selected skills into prompt text for runs.
 
-Design: Skill roots are an ordered =(origin . directory)= alist —
+Design: Skill roots are an ordered =(origin . directory)= alist:
 =.agents/skills=, =skills/=, =.codex/skills=, plus =$CODEX_HOME/skills=
 and =~/.agents/skills= when
 [[file:../lisp/ogent-armory-skills.el::20][ogent-armory-skill-include-user-roots]] is on; first match wins.
@@ -1458,7 +1460,7 @@ Trace: catalog [[file:../lisp/ogent-armory-skills.el::249][ogent-armory-skills]]
 [[file:../lisp/ogent-armory-skills.el::165][ogent-armory-skill--find]]. Import:
 [[file:../lisp/ogent-armory-skills.el::190][ogent-armory-skill-import]].
 
-*** [[file:../lisp/ogent-armory-settings.el::1][ogent-armory-settings.el]] — the schema-driven panel
+*** [[file:../lisp/ogent-armory-settings.el::1][ogent-armory-settings.el]]: the schema-driven panel
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-settings
 :END:
@@ -1467,9 +1469,9 @@ Role: Armory-local settings (one Org file with an =OGENT_*= drawer),
 plus onboarding, registry-manifest import, filtered backup, the demo
 armory, and help.
 
-Design: One declarative table —
+Design: One declarative table,
 [[file:../lisp/ogent-armory-settings.el::42][ogent-armory-settings--fields]] (key ↔ Org property ↔ section ↔ type)
-— drives reading, writing, rendering, and the edit UI, so adding a
+drives reading, writing, rendering, and the edit UI, so adding a
 setting is one row. Settings live in =.armory-state/settings.org=;
 missing file reads return computed defaults without writing. Manifest
 import is permissive about key spellings so JSON from any tool imports.
@@ -1489,7 +1491,7 @@ Trace: [[file:../lisp/ogent-armory-settings.el::393][ogent-armory-settings]] →
 [[file:../lisp/ogent-armory-settings.el::879][ogent-armory-demo]] from the built-in manifest at
 [[file:../lisp/ogent-armory-settings.el::79][ogent-armory-demo-manifest]].
 
-*** [[file:../lisp/ogent-armory-palette.el::1][ogent-armory-palette.el]] — flat-file Spotlight
+*** [[file:../lisp/ogent-armory-palette.el::1][ogent-armory-palette.el]]: flat-file Spotlight
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-palette
 :END:
@@ -1498,7 +1500,7 @@ Role: A rebuildable, persisted search index plus a ranked command palette
 spanning commands, pages, agents, jobs, conversations, and apps.
 
 Design: Six record builders normalize each domain into flat plists; the
-union is =prin1='d to =.armory-state/search.el= — a derived cache always
+union is =prin1='d to =.armory-state/search.el=, a derived cache always
 rebuildable from Org. Ranking is tiered (exact title 1000 → prefix 750 →
 substring 500 → path 300 → body 150).
 
@@ -1510,7 +1512,7 @@ Trace: [[file:../lisp/ogent-armory-palette.el::283][ogent-armory-command-palette
 =.armory-state/search.el= breaks the cache read with no error handling
 (delete the file; it rebuilds).
 
-*** [[file:../lisp/ogent-armory-git.el::1][ogent-armory-git.el]] — pocket Magit
+*** [[file:../lisp/ogent-armory-git.el::1][ogent-armory-git.el]]: pocket Magit
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-git
 :END:
@@ -1532,12 +1534,12 @@ Trace: [[file:../lisp/ogent-armory-git.el::229][ogent-armory-git-status]] →
 [[file:../lisp/ogent-armory-git.el::162][ogent-armory-git-commit]]. Badge counts from
 [[file:../lisp/ogent-armory-git.el::94][ogent-armory-git-dirty-count]].
 
-*** [[file:../lisp/ogent-armory-status.el::1][ogent-armory-status.el]] — magit-status for agents
+*** [[file:../lisp/ogent-armory-status.el::1][ogent-armory-status.el]]: magit-status for agents
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-status
 :END:
 
-Role: The "magit-status of a Armory" — renders the armory graph
+Role: The "magit-status of an Armory"; renders the armory graph
 (agents, jobs, sessions, apps, issue bridges) as a collapsible
 operational buffer with run/edit/navigate actions and a transient
 dispatch.
@@ -1546,13 +1548,13 @@ Design: All data comes from the graph projection; rendering walks nodes
 by kind and joins jobs to agents via ='owns= edges. Sectioning degrades
 gracefully: an =eval-and-compile= probe picks =magit-section-mode= or
 =special-mode= as the parent at macro-expansion time
-([[file:../lisp/ogent-armory-status.el::352][ogent-armory-status--define-mode]] — the classic stale-=.elc= trap),
+([[file:../lisp/ogent-armory-status.el::352][ogent-armory-status--define-mode]]; the classic stale-=.elc= trap),
 and macro wrappers emit real magit sections or plain text. Each row
 carries its node plist as a text property; property editing is
 table-driven and validated before write.
 
 Intuition: Magit-status where commits are agents and hunks are their
-jobs — point at a row, press a key, act on the durable Org record behind
+jobs; point at a row, press a key, act on the durable Org record behind
 it.
 
 Trace: [[file:../lisp/ogent-armory-status.el::378][ogent-armory-status]] →
@@ -1565,7 +1567,7 @@ Trace: [[file:../lisp/ogent-armory-status.el::378][ogent-armory-status]] →
 [[file:../lisp/ogent-armory-status.el::1246][ogent-armory-status-dispatch]] (transient). Agent liveness from
 [[file:../lisp/ogent-armory-status.el::460][ogent-armory-status--agent-state]] (working = live runner process).
 
-*** [[file:../lisp/ogent-armory-evil.el::1][ogent-armory-evil.el]] — the treaty with Vim
+*** [[file:../lisp/ogent-armory-evil.el::1][ogent-armory-evil.el]]: the treaty with Vim
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-armory-evil
 :END:
@@ -1584,28 +1586,28 @@ unbound keys keep their Vim meaning, and each mode's =g= refresh is
 re-exposed as =gr=. Legacy mirroring helpers are retained for callers
 and tests but no longer drive setup.
 
-Intuition: A diplomatic treaty between Vim and Armory buffers —
+Intuition: A diplomatic treaty between Vim and Armory buffers;
 Armory's printed single-key affordances get right of way; everything
 else stays Vim.
 
 ** Issues, analytics, audit, auth
 
-*** [[file:../lisp/ogent-issues.el::1][ogent-issues.el]] — magit-status for the tracker
+*** [[file:../lisp/ogent-issues.el::1][ogent-issues.el]]: magit-status for the tracker
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-issues
 :END:
 
-Role: Magit-style issue viewer for beads (=br=) projects — a status-like
+Role: Magit-style issue viewer for beads (=br=) projects; a status-like
 buffer listing issues grouped by status, with detail view, kanban board,
 filters, and single-key actions.
 
 Design: One major mode whose parent is decided at macro-expansion time
-(=magit-section-mode= when available, else =special-mode= — macro at
+(=magit-section-mode= when available, else =special-mode=; macro at
 [[file:../lisp/ogent-issues.el::528][ogent-issues--define-mode]]). All data is buffer-local and fetched
 asynchronously through the data layer, so the UI never blocks; a
 timer-driven spinner animates the header line while loading.
 
-Intuition: =magit-status= for your issue tracker — same muscle memory
+Intuition: =magit-status= for your issue tracker; same muscle memory
 (=g= refresh, TAB fold, RET visit, =?= dispatch), but the "repo" is the
 =.beads/= database.
 
@@ -1613,21 +1615,21 @@ Trace: [[file:../lisp/ogent-issues.el::644][ogent-issues]] → project root chec
 [[file:../lisp/ogent-issues.el::1565][ogent-issues-refresh]] → async =br list= → filters
 ([[file:../lisp/ogent-issues.el::1622][ogent-issues--apply-filters]]) →
 [[file:../lisp/ogent-issues.el::1548][ogent-issues--render-buffer]]. RET →
-[[file:../lisp/ogent-issues.el::1153][ogent-issues--show-detail]]. Views: list/ready/kanban/deps
-(kanban board at [[file:../lisp/ogent-issues.el::1850][ogent-issues--insert-kanban-board]], card moves at
-[[file:../lisp/ogent-issues.el::1967][ogent-issues--kanban-move-issue]]). Actions
+[[file:../lisp/ogent-issues-detail.el::65][ogent-issues--show-detail]]. Views: list/ready/kanban/deps
+(kanban board at [[file:../lisp/ogent-issues-kanban.el::75][ogent-issues--insert-kanban-board]], card moves at
+[[file:../lisp/ogent-issues-kanban.el::192][ogent-issues--kanban-move-issue]]). Actions
 [[file:../lisp/ogent-issues.el::1678][ogent-issues-create]] /
 [[file:../lisp/ogent-issues.el::1695][ogent-issues-close]] /
 [[file:../lisp/ogent-issues.el::1723][ogent-issues-start]] are thin wrappers over the data layer.
 Defcustoms start at [[file:../lisp/ogent-issues.el::83][ogent-issues-buffer-name]]
 (per-project buffers, default view, collapsed statuses, icons).
 
-*** [[file:../lisp/ogent-issues-bd.el::1][ogent-issues-bd.el]] — porcelain over the br CLI
+*** [[file:../lisp/ogent-issues-bd.el::1][ogent-issues-bd.el]]: porcelain over the br CLI
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-issues-bd
 :END:
 
-Role: Async data-access layer wrapping the =br= CLI — non-blocking
+Role: Async data-access layer wrapping the =br= CLI; non-blocking
 process execution, JSON→plist parsing, TTL caching, and
 project/worktree detection. (The =-bd-= infix is historical and means
 "beads" generically.)
@@ -1639,7 +1641,7 @@ timer, sentinel JSON-parses stdout). A global cache keyed by
 invalidate it. The worktree-redirect section writes =.beads/redirect= so
 parallel agents in linked worktrees share one database.
 
-Intuition: The porcelain-over-plumbing boundary — like =magit-git-*= for
+Intuition: The porcelain-over-plumbing boundary; like =magit-git-*= for
 git, this is the only place Emacs shells out to =br=.
 
 Trace: [[file:../lisp/ogent-issues-bd.el::327][ogent-issues-bd-list]] →
@@ -1661,7 +1663,7 @@ buffer-local =org-agenda-files= so =r=/=g= stay scoped, re-reading the
 file without re-running br). The file defaults to a per-project cache
 under =user-emacs-directory/ogent/beads/= (override:
 =ogent-issues-agenda-file=), is overwritten on every invocation, and
-is one-way — state changes flow through the issue board, never back
+is one-way; state changes flow through the issue board, never back
 from the file. Statuses map to =TODO= / =RUNNING= / =BLOCKED=
 keywords with priority cookies and =OGENT_ISSUE_ID= property drawers.
 
@@ -1690,13 +1692,13 @@ file:line(function) as a context block
 [[file:../lisp/ogent-issues-transient.el::252][ogent-issues-create-epic]]; filters at
 [[file:../lisp/ogent-issues-transient.el::334][ogent-issues-filter-dispatch]].
 
-*** [[file:../lisp/ogent-analytics.el::1][ogent-analytics.el]] — the flight recorder
+*** [[file:../lisp/ogent-analytics.el::1][ogent-analytics.el]]: the flight recorder
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-analytics
 :END:
 
-Role: Per-project SQLite analytics for completions — token estimates,
-time-to-first-token, latency, accept/reject outcomes, thumbs ratings —
+Role: Per-project SQLite analytics for completions (token estimates,
+time-to-first-token, latency, accept/reject outcomes, thumbs ratings)
 plus a dashboard and CSV/Org exporters.
 
 Design: One DB per project root (=.ogent-analytics.db=), connections
@@ -1720,18 +1722,18 @@ completions workflow; ratings [[file:../lisp/ogent-analytics.el::289][ogent-anal
 [[file:../lisp/ogent-analytics.el::165][ogent-analytics-completion]]; setup/teardown installs hook + advice
 ([[file:../lisp/ogent-analytics.el::565][ogent-analytics-setup]]).
 
-*** [[file:../lisp/ogent-ledger.el::1][ogent-ledger.el]] — the tamper-evident logbook
+*** [[file:../lisp/ogent-ledger.el::1][ogent-ledger.el]]: the tamper-evident logbook
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ledger
 :END:
 
 Role: Append-only "proof ledger" recording request and tool events as
-Org headings with SHA-256 content hashes — ogent's audit trail.
+Org headings with SHA-256 content hashes; ogent's audit trail.
 
 Design: Disabled by default ([[file:../lisp/ogent-ledger.el::16][ogent-ledger-enabled]]). Every event is a
 dated Org subtree with =:OGENT_LEDGER_TYPE:/:OGENT_LEDGER_HASH:=
 properties and the sanitized event plist in a src block, appended with
-=append-to-file= — history is never rewritten.
+=append-to-file=; history is never rewritten.
 [[file:../lisp/ogent-ledger.el::58][ogent-ledger-sanitize]] converts buffers/markers/hashes into printable
 shapes so hashes are stable.
 
@@ -1744,18 +1746,18 @@ hash). Central entry [[file:../lisp/ogent-ledger.el::110][ogent-ledger-record]] 
 [[file:../lisp/ogent-ledger.el::84][ogent-ledger-hash]] → [[file:../lisp/ogent-ledger.el::88][ogent-ledger--append-event]]. File location
 defcustom [[file:../lisp/ogent-ledger.el::21][ogent-ledger-file]] (=.ogent/ledger.org=, project-relative).
 
-*** [[file:../lisp/ogent-debug.el::1][ogent-debug.el]] — the black box and tape deck
+*** [[file:../lisp/ogent-debug.el::1][ogent-debug.el]]: the black box and tape deck
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-debug
 :END:
 
-Role: Development logging and tool-call forensics — zero-cost-when-
+Role: Development logging and tool-call forensics; zero-cost-when-
 disabled debug macros, a global mode mirroring gptel logging, an
 in-memory tool-call history with a browse/replay buffer, and an
 approval-status report.
 
 Design: The [[file:../lisp/ogent-debug.el::224][ogent-debug]] macro expands to nil unless
-=ogent-debug-enabled= is non-nil *at expansion time* — production
+=ogent-debug-enabled= is non-nil *at expansion time*; production
 byte-code carries no overhead, and flipping the variable at runtime does
 not affect already-compiled call sites (documented in the macro).
 Replays route through the live executor so they honor the same approval
@@ -1769,19 +1771,19 @@ Trace: [[file:../lisp/ogent-debug.el::88][ogent-debug-mode]] → gptel pre/post 
 [[file:../lisp/ogent-debug.el::531][ogent-debug-show-approval-status]]. Exports at
 [[file:../lisp/ogent-debug.el::571][ogent-debug-export-tool-history-json]].
 
-*** [[file:../lisp/ogent-onboard.el::1][ogent-onboard.el]] — the setup wizard
+*** [[file:../lisp/ogent-onboard.el::1][ogent-onboard.el]]: the setup wizard
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-onboard
 :END:
 
-Role: Interactive provider setup — pick a provider (Anthropic OAuth or
+Role: Interactive provider setup; pick a provider (Anthropic OAuth or
 API key, OpenAI, Codex OAuth), authenticate, choose a model, verify a
 gptel backend, register the model; also hosts the dev
 =ogent-recompile=/=ogent-reload= commands.
 
 Design: Providers are declarative plists
 ([[file:../lisp/ogent-onboard.el::59][ogent-onboard--built-in-providers]]) carrying an auth strategy and
-OAuth handlers by symbol indirection — new providers are data, not code.
+OAuth handlers by symbol indirection; new providers are data, not code.
 API keys flow through auth-source.
 
 Trace: [[file:../lisp/ogent-onboard.el::474][ogent-onboard]] → provider select →
@@ -1793,9 +1795,9 @@ Trace: [[file:../lisp/ogent-onboard.el::474][ogent-onboard]] → provider select
 [[file:../lisp/ogent-onboard.el::407][ogent-onboard--add-to-registry]]. Recovery path used by
 provider-fallback: [[file:../lisp/ogent-onboard.el::485][ogent-onboard-login-different-provider]]. Dev
 tools: [[file:../lisp/ogent-onboard.el::559][ogent-recompile]] / [[file:../lisp/ogent-onboard.el::603][ogent-reload]] (brute-force
-=unload-feature= lists — a hazard if the hardcoded feature list drifts).
+=unload-feature= lists; a hazard if the hardcoded feature list drifts).
 
-*** [[file:../lisp/ogent-anthropic-oauth.el::1][ogent-anthropic-oauth.el]] — the valet key
+*** [[file:../lisp/ogent-anthropic-oauth.el::1][ogent-anthropic-oauth.el]]: the valet key
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-anthropic-oauth
 :END:
@@ -1804,7 +1806,7 @@ Role: OAuth 2.0 + PKCE for Anthropic Claude Pro/Max (auto-refreshing
 bearer tokens) or console mode (mints a static API key), wired into
 gptel transparently via advice.
 
-Design: Claude Code-compatible flow — PKCE pair, browser authorization,
+Design: Claude Code-compatible flow: PKCE pair, browser authorization,
 manual code paste, synchronous token exchange/refresh; tokens persist as
 a printed plist (mode 600). gptel integration is two =:around= advices:
 one swaps the system message to the exact Claude Code prefix (required
@@ -1812,7 +1814,7 @@ for OAuth tokens to be accepted), the other temporarily =aset='s the
 backend struct's header slot to inject =Authorization: Bearer= +
 =anthropic-beta= headers.
 
-Intuition: A valet key for Claude — it dresses every request up as
+Intuition: A valet key for Claude; it dresses every request up as
 Claude Code so Anthropic's OAuth gate waves it through, and re-cuts the
 key before it expires.
 
@@ -1820,25 +1822,25 @@ Trace: [[file:../lisp/ogent-anthropic-oauth.el::397][ogent-anthropic-login]] →
 [[file:../lisp/ogent-anthropic-oauth.el::167][ogent-anthropic-oauth--generate-pkce]] → browser → code paste →
 [[file:../lisp/ogent-anthropic-oauth.el::271][ogent-anthropic-oauth--exchange-code]] →
 [[file:../lisp/ogent-anthropic-oauth.el::190][ogent-anthropic-oauth--save-tokens]]. Per request: curl-args advice
-[[file:../lisp/ogent-anthropic-oauth.el::602][ogent-anthropic-oauth--curl-args-advice]] →
+[[file:../lisp/ogent-anthropic-oauth.el::633][ogent-anthropic-oauth--curl-args-advice]] →
 [[file:../lisp/ogent-anthropic-oauth.el::329][ogent-anthropic-oauth--ensure-valid-token]] (auto
 [[file:../lisp/ogent-anthropic-oauth.el::296][refresh]]); system-prefix advice
-[[file:../lisp/ogent-anthropic-oauth.el::578][ogent-anthropic-oauth--request-data-advice]]. Enable/disable:
+[[file:../lisp/ogent-anthropic-oauth.el::603][ogent-anthropic-oauth--request-data-advice]]. Enable/disable:
 [[file:../lisp/ogent-anthropic-oauth.el::644][ogent-anthropic-oauth-enable]] /
 [[file:../lisp/ogent-anthropic-oauth.el::659][ogent-anthropic-oauth-disable]]; auto-enabled under
 =with-eval-after-load 'gptel=.
 
-*** [[file:../lisp/ogent-codex-oauth.el::1][ogent-codex-oauth.el]] — the borrowed key
+*** [[file:../lisp/ogent-codex-oauth.el::1][ogent-codex-oauth.el]]: the borrowed key
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-codex-oauth
 :END:
 
-Role: Reuses the Codex CLI's OAuth credentials for OpenAI — shells out
+Role: Reuses the Codex CLI's OAuth credentials for OpenAI; shells out
 to =codex login/logout= for the actual flow and reads the API key from
 Codex's local =auth.json=.
 
 Design/Intuition: Deliberately thin; no OAuth protocol code at all. It
-doesn't own a key to OpenAI — it borrows the one Codex keeps under the
+doesn't own a key to OpenAI; it borrows the one Codex keeps under the
 doormat. Malformed auth file simply means "unauthenticated"; expiry is
 Codex's problem.
 
@@ -1849,17 +1851,17 @@ Key definitions: [[file:../lisp/ogent-codex-oauth.el::69][ogent-codex-oauth-get-
 [[file:../lisp/ogent-codex-oauth.el::33][ogent-codex-oauth-codex-executable]],
 [[file:../lisp/ogent-codex-oauth.el::38][ogent-codex-oauth-auth-file]].
 
-*** [[file:../lisp/ogent-companion.el::1][ogent-companion.el]] — the stapled notebook
+*** [[file:../lisp/ogent-companion.el::1][ogent-companion.el]]: the stapled notebook
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-companion
 :END:
 
-Role: Manages companion Org buffers — a session sidecar for any non-Org
+Role: Manages companion Org buffers; a session sidecar for any non-Org
 source buffer, with bidirectional links, persistence across Emacs
 sessions, and Doom-popup-aware display.
 
 Design: Links are buffer-local pointers each way; persistence is
-two-tier — a buffer-local file variable plus a global registry file in
+two-tier: a buffer-local file variable plus a global registry file in
 =user-emacs-directory=, restored via =hack-local-variables-hook= when
 files reopen.
 
@@ -1872,12 +1874,12 @@ window ([[file:../lisp/ogent-companion.el::260][ogent-companion--display-buffer-
 [[file:../lisp/ogent-companion.el::133][ogent-companion-persist-links]] (t),
 [[file:../lisp/ogent-companion.el::138][ogent-companion-link-registry-file]].
 
-*** [[file:../lisp/ogent-ops-style.el::1][ogent-ops-style.el]] — the TUI stylesheet
+*** [[file:../lisp/ogent-ops-style.el::1][ogent-ops-style.el]]: the TUI stylesheet
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ops-style
 :END:
 
-Role: Shared visual style contract for operational buffers — Unicode/
+Role: Shared visual style contract for operational buffers; Unicode/
 ASCII status, priority, activity, badge symbols, section headings,
 spinner frame sets, and font-lock face protection.
 
@@ -1892,20 +1894,26 @@ Key functions: [[file:../lisp/ogent-ops-style.el::157][ogent-ops-status-symbol]]
 
 ** The UI layer (lisp/ui/)
 
-*** [[file:../lisp/ui/ogent-ui.el::1][ui/ogent-ui.el]] — the request engine
+*** [[file:../lisp/ui/ogent-ui.el::1][ui/ogent-ui.el]]: the request engine
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui
 :END:
 
-Role: The request engine and primary UI — the dispatch transient,
+Role: The request engine and primary UI: the dispatch transient,
 contextual ask menu, inline subtree ask command, malleable region/sentence
 editing, request lifecycle (create/stream/close/abort/pause/retry),
 tool-call approval and execution, diff previews for edit tools, and error
 surfacing, all rendered as Org structure on top of gptel.
 
-Design: Centered on the [[file:../lisp/ui/ogent-ui.el::388][ogent-ui-request]] struct, which carries
+Implementation note: =ui/ogent-ui.el= is now a thin facade that =require=s
+the extracted submodules (=ogent-ui-core= state, =ogent-ui-format=,
+=ogent-ui-toolcalls=, =ogent-ui-engine=, =ogent-ui-send=, =ogent-ui-preview=,
+=ogent-ui-dispatch=); the symbols below live in those files, where the
+links now point.
+
+Design: Centered on the [[file:../lisp/ui/ogent-ui-core.el::101][ogent-ui-request]] struct, which carries
 markers into the transcript; active requests live in
-[[file:../lisp/ui/ogent-ui.el::687][ogent-ui--request-table]] keyed by id, closed ones in retry history.
+[[file:../lisp/ui/ogent-ui-core.el::129][ogent-ui--request-table]] keyed by id, closed ones in retry history.
 Responses are written as a nested Org skeleton so a conversation is just
 an Org document. Zen presentation is layered on top without changing
 that text: generated =Request:= headings keep a first-line prompt
@@ -1970,94 +1978,95 @@ replace the target with the new text and call =inline-diff-words-region=;
 restores the snapshot.
 
 Refreshes are region-scoped per transcript
-([[file:../lisp/ogent-zen.el::372][ogent-zen-refresh-at]]) rather than whole-buffer rescans.
-[[file:../lisp/ui/ogent-ui.el::676][ogent-response-function]] is the
+([[file:../lisp/ogent-zen.el::802][ogent-zen-refresh-at]]) rather than whole-buffer rescans.
+[[file:../lisp/ui/ogent-ui-core.el::99][ogent-response-function]] is the
 pluggable factory enabling alternative renderers. Tool calls are
 intercepted in the gptel callback and routed through the approval gate,
 then to sync execution, async streaming drawers, or diff previews.
 
-Intuition: A switchboard operator with a logbook — every outgoing call
+Intuition: A switchboard operator with a logbook; every outgoing call
 gets a numbered ticket and a reserved page in the Org notebook; chunks
 arriving on the wire are transcribed at that ticket's bookmark until the
 line closes.
 
-Trace: see [[#the-walkthrough][The walkthrough]] above — it traces this module
+Trace: see [[#the-walkthrough][The walkthrough]] above; it traces this module
 end to end.
 
 Key definitions (beyond those in the walkthrough): defcustoms
-[[file:../lisp/ui/ogent-ui.el::83][ogent-org-format-responses]] (inject the Org-syntax directive at
-[[file:../lisp/ui/ogent-ui.el::107][ogent-org-format-directive]]),
-[[file:../lisp/ui/ogent-ui.el::91][ogent-auto-scroll]],
-[[file:../lisp/ui/ogent-ui.el::100][ogent-stream-tool-output]],
-[[file:../lisp/ui/ogent-ui.el::1414][ogent-shift-response-headings]],
-[[file:../lisp/ui/ogent-ui.el::1213][ogent-gptel-required-features]],
-[[file:../lisp/ui/ogent-ui.el::2510][ogent-ui-edit-preview-style]] (='diff-block= or inline),
-[[file:../lisp/ui/ogent-ui.el::2179][ogent-enable-highlight-mode]]. Context preview with diff-vs-last:
-[[file:../lisp/ui/ogent-ui.el::909][ogent-context-preview]]. Pending edit-tool diffs:
-[[file:../lisp/ui/ogent-ui.el::2636][ogent-ui--generate-diff]] →
-[[file:../lisp/ui/ogent-ui.el::2713][ogent-ui--insert-diff-block]] →
-[[file:../lisp/ui/ogent-ui.el::2777][ogent-diff-accept]] / [[file:../lisp/ui/ogent-ui.el::2799][ogent-diff-reject]] /
-[[file:../lisp/ui/ogent-ui.el::2895][ogent-accept-all-diffs]]. Tool drawers re-runnable in place:
-[[file:../lisp/ui/ogent-ui.el::2439][ogent-tool-rerun]]. Errors:
-[[file:../lisp/ui/ogent-ui.el::2995][ogent-show-errors]] over
-[[file:../lisp/ui/ogent-ui.el::662][ogent-ui--error-history]]. Lifecycle commands:
-[[file:../lisp/ui/ogent-ui.el::3113][ogent-abort-request]],
-[[file:../lisp/ui/ogent-ui.el::3142][ogent-pause-request]],
-[[file:../lisp/ui/ogent-ui.el::3171][ogent-resume-request]],
-[[file:../lisp/ui/ogent-ui.el::3191][ogent-retry-request]]. User entries:
-[[file:../lisp/ogent-zen.el::203][ogent-run-subtree]] (run the current bullet
-without a minibuffer prompt), [[file:../lisp/ui/ogent-ui.el::962][ogent-ask-here]],
-[[file:../lisp/ui/ogent-ui.el::977][ogent-ask-menu]],
-[[file:../lisp/ui/ogent-ui.el::2121][ogent-request]].
+[[file:../lisp/ui/ogent-ui-core.el::20][ogent-org-format-responses]] (inject the Org-syntax directive at
+[[file:../lisp/ui/ogent-ui-core.el::63][ogent-org-format-directive]]),
+[[file:../lisp/ui/ogent-ui-core.el::47][ogent-auto-scroll]],
+[[file:../lisp/ui/ogent-ui-core.el::56][ogent-stream-tool-output]],
+[[file:../lisp/ui/ogent-ui-core.el::148][ogent-shift-response-headings]],
+[[file:../lisp/ui/ogent-ui-core.el::139][ogent-gptel-required-features]],
+[[file:../lisp/ui/ogent-ui-toolcalls.el::605][ogent-ui-edit-preview-style]] (='diff-block= or inline),
+[[file:../lisp/ui/ogent-ui-format.el::168][ogent-enable-highlight-mode]]. Context preview with diff-vs-last:
+[[file:../lisp/ui/ogent-ui-preview.el::193][ogent-context-preview]]. Pending edit-tool diffs:
+[[file:../lisp/ui/ogent-ui-toolcalls.el::731][ogent-ui--generate-diff]] →
+[[file:../lisp/ui/ogent-ui-toolcalls.el::808][ogent-ui--insert-diff-block]] →
+[[file:../lisp/ui/ogent-ui-toolcalls.el::872][ogent-diff-accept]] / [[file:../lisp/ui/ogent-ui-toolcalls.el::894][ogent-diff-reject]] /
+[[file:../lisp/ui/ogent-ui-toolcalls.el::990][ogent-accept-all-diffs]]. Tool drawers re-runnable in place:
+[[file:../lisp/ui/ogent-ui-toolcalls.el::548][ogent-tool-rerun]]. Errors:
+[[file:../lisp/ui/ogent-ui-engine.el::879][ogent-show-errors]] over
+[[file:../lisp/ui/ogent-ui-engine.el::57][ogent-ui--error-history]]. Lifecycle commands:
+[[file:../lisp/ui/ogent-ui-engine.el::982][ogent-abort-request]],
+[[file:../lisp/ui/ogent-ui-engine.el::1010][ogent-pause-request]],
+[[file:../lisp/ui/ogent-ui-engine.el::1038][ogent-resume-request]],
+[[file:../lisp/ui/ogent-ui-engine.el::1057][ogent-retry-request]]. User entries:
+[[file:../lisp/ogent-zen.el::2122][ogent-run-subtree]] (run the current bullet
+without a minibuffer prompt), [[file:../lisp/ui/ogent-ui-dispatch.el::359][ogent-ask-here]],
+[[file:../lisp/ui/ogent-ui-dispatch.el::373][ogent-ask-menu]],
+[[file:../lisp/ui/ogent-ui-send.el::306][ogent-request]].
 
-*** [[file:../lisp/ui/ogent-ui-armory.el::1][ui/ogent-ui-armory.el]] — the Armory front-end
+*** [[file:../lisp/ui/ogent-ui-armory.el::1][ui/ogent-ui-armory.el]]: the Armory front-end
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui-armory
 :END:
 
-Role: The interactive Armory UI — Home dashboard, agent list/profile,
+Role: The interactive Armory UI; Home dashboard, agent list/profile,
 org chart, jobs, tasks board, conversations list/reader, search, apps.
 
-Design: ~10 major modes in one file: reader-style buffers (Home, agent,
-conversation) built with magit-section when available — via macros
-[[file:../lisp/ui/ogent-ui-armory.el::712][ogent-armory-ui--with-section]] /
-[[file:../lisp/ui/ogent-ui-armory.el::752][ogent-armory-ui--define-section-mode]] that degrade to plain
-=special-mode= inserts — while list buffers derive from
+Design: ~10 major modes spread across the extracted =ogent-ui-armory-*=
+files; reader-style buffers (Home, agent,
+conversation) built with magit-section when available, via macros
+[[file:../lisp/ui/ogent-ui-armory-core.el::726][ogent-armory-ui--with-section]] /
+[[file:../lisp/ui/ogent-ui-armory-core.el::766][ogent-armory-ui--define-section-mode]] that degrade to plain
+=special-mode= inserts, while list buffers derive from
 =tabulated-list-mode=. Rows carry item plists as text properties read
-back by [[file:../lisp/ui/ogent-ui-armory.el::830][ogent-armory-ui--item-at-point]]. Notably it does *not*
-depend on ui/ogent-ui.el — Armory runs go through external processes,
+back by [[file:../lisp/ui/ogent-ui-armory-core.el::847][ogent-armory-ui--item-at-point]]. Notably it does *not*
+depend on ui/ogent-ui.el; Armory runs go through external processes,
 not gptel.
 
-Trace: [[file:../lisp/ui/ogent-ui-armory.el::946][ogent-armory-home]] →
-[[file:../lisp/ui/ogent-ui-armory.el::963][ogent-armory-home-refresh]] → sections; RET →
-[[file:../lisp/ui/ogent-ui-armory.el::1120][ogent-armory-home-visit]] dispatches by type to
-[[file:../lisp/ui/ogent-ui-armory.el::2930][ogent-armory-conversation]] (reader with
+Trace: [[file:../lisp/ui/ogent-ui-armory-home.el::108][ogent-armory-home]] →
+[[file:../lisp/ui/ogent-ui-armory-home.el::125][ogent-armory-home-refresh]] → sections; RET →
+[[file:../lisp/ui/ogent-ui-armory-home.el::319][ogent-armory-home-visit]] dispatches by type to
+[[file:../lisp/ui/ogent-ui-armory-conversations.el::278][ogent-armory-conversation]] (reader with
 turns/artifacts/events/runtime sections),
-[[file:../lisp/ui/ogent-ui-armory.el::1998][ogent-armory-jobs]], or
-[[file:../lisp/ui/ogent-ui-armory.el::1542][ogent-armory-agent]]; =r= →
-[[file:../lisp/ui/ogent-ui-armory.el::1135][ogent-armory-home-run]]. Conversation lifecycle:
-[[file:../lisp/ui/ogent-ui-armory.el::3215][ogent-armory-conversation-continue]] (replay prompt → runner plan →
-start), [[file:../lisp/ui/ogent-ui-armory.el::3247][stop]],
-[[file:../lisp/ui/ogent-ui-armory.el::3258][retry]],
-[[file:../lisp/ui/ogent-ui-armory.el::3325][compact]]. Other surfaces:
-[[file:../lisp/ui/ogent-ui-armory.el::1366][ogent-armory-agents]],
-[[file:../lisp/ui/ogent-ui-armory.el::1446][ogent-armory-org-chart]],
-[[file:../lisp/ui/ogent-ui-armory.el::2510][ogent-armory-tasks]] (kanban lanes at
-[[file:../lisp/ui/ogent-ui-armory.el::223][ogent-armory-task-lanes]]),
-[[file:../lisp/ui/ogent-ui-armory.el::2770][ogent-armory-conversations]],
-[[file:../lisp/ui/ogent-ui-armory.el::3435][ogent-armory-search]],
-[[file:../lisp/ui/ogent-ui-armory.el::3524][ogent-armory-apps]]. Agent CRUD:
-[[file:../lisp/ui/ogent-ui-armory.el::1845][ogent-armory-create-agent]] /
-[[file:../lisp/ui/ogent-ui-armory.el::1887][clone]] /
-[[file:../lisp/ui/ogent-ui-armory.el::1908][archive]]; job creation
-[[file:../lisp/ui/ogent-ui-armory.el::2131][ogent-armory-create-job]].
+[[file:../lisp/ui/ogent-ui-armory-jobs.el::85][ogent-armory-jobs]], or
+[[file:../lisp/ui/ogent-ui-armory-agent.el::75][ogent-armory-agent]]; =r= →
+[[file:../lisp/ui/ogent-ui-armory-home.el::334][ogent-armory-home-run]]. Conversation lifecycle:
+[[file:../lisp/ui/ogent-ui-armory-conversations.el::564][ogent-armory-conversation-continue]] (replay prompt → runner plan →
+start), [[file:../lisp/ui/ogent-ui-armory-conversations.el::596][stop]],
+[[file:../lisp/ui/ogent-ui-armory-conversations.el::607][retry]],
+[[file:../lisp/ui/ogent-ui-armory-conversations.el::674][compact]]. Other surfaces:
+[[file:../lisp/ui/ogent-ui-armory-agents.el::90][ogent-armory-agents]],
+[[file:../lisp/ui/ogent-ui-armory-org-chart.el::50][ogent-armory-org-chart]],
+[[file:../lisp/ui/ogent-ui-armory-tasks.el::338][ogent-armory-tasks]] (kanban lanes at
+[[file:../lisp/ui/ogent-ui-armory-core.el::234][ogent-armory-task-lanes]]),
+[[file:../lisp/ui/ogent-ui-armory-conversations.el::119][ogent-armory-conversations]],
+[[file:../lisp/ui/ogent-ui-armory-search.el::52][ogent-armory-search]],
+[[file:../lisp/ui/ogent-ui-armory-apps.el::56][ogent-armory-apps]]. Agent CRUD:
+[[file:../lisp/ui/ogent-ui-armory-agent.el::377][ogent-armory-create-agent]] /
+[[file:../lisp/ui/ogent-ui-armory-agent.el::418][clone]] /
+[[file:../lisp/ui/ogent-ui-armory-agent.el::438][archive]]; job creation
+[[file:../lisp/ui/ogent-ui-armory-jobs.el::217][ogent-armory-create-job]].
 
-*** [[file:../lisp/ui/ogent-ui-status.el::1][ui/ogent-ui-status.el]] — the departure board
+*** [[file:../lisp/ui/ogent-ui-status.el::1][ui/ogent-ui-status.el]]: the departure board
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui-status
 :END:
 
-Role: Live request feedback — a header-line segment (model, status icon,
+Role: Live request feedback; a header-line segment (model, status icon,
 elapsed time) plus animated left-margin overlays on Request headlines.
 
 Design: A 0.5s timer refreshes the header line for the buffer's current
@@ -2071,16 +2080,16 @@ margin. Overlay creation at
 [[file:../lisp/ui/ogent-ui-status.el::178][ogent-status--create-margin-overlay]]; spinner at
 [[file:../lisp/ui/ogent-ui-status.el::217][ogent-status--start-animation]].
 
-*** [[file:../lisp/ui/ogent-ui-theme.el::1][ui/ogent-ui-theme.el]] — the paint armory
+*** [[file:../lisp/ui/ogent-ui-theme.el::1][ui/ogent-ui-theme.el]]: the paint armory
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui-theme
 :END:
 
-Role: The design system — semantic faces, a three-tier icon table
+Role: The design system: semantic faces, a three-tier icon table
 (nerd-icons → Unicode → ASCII), and feedback utilities (mode-line flash,
 line pulse, progress bars, badges, key hints).
 
-Design: 14 semantic =defface=s (lines 72–184), one icon catalog
+Design: 14 semantic =defface=s (lines 72–176), one icon catalog
 ([[file:../lisp/ui/ogent-ui-theme.el::205][ogent-theme-icons]]) resolved at call time by
 [[file:../lisp/ui/ogent-ui-theme.el::268][ogent-theme-icon]] per the defcustoms
 [[file:../lisp/ui/ogent-ui-theme.el::39][ogent-theme-use-icons]] /
@@ -2091,12 +2100,12 @@ Design: 14 semantic =defface=s (lines 72–184), one icon catalog
 plain =defun=s in flash/pulse signals =no-catch= when
 [[file:../lisp/ui/ogent-ui-theme.el::58][ogent-theme-animation-speed]] is ='none=.
 
-*** [[file:../lisp/ui/ogent-ui-context.el::1][ui/ogent-ui-context.el]] — the luggage scale
+*** [[file:../lisp/ui/ogent-ui-context.el::1][ui/ogent-ui-context.el]]: the luggage scale
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui-context
 :END:
 
-Role: Interactive context inspection — renders the context plist as Org
+Role: Interactive context inspection; renders the context plist as Org
 with a visual token/char budget bar, and the =*Ogent Context Manager*=
 buffer for adding, deleting, and previewing elements.
 
@@ -2131,23 +2140,23 @@ Key definitions (backlinks): [[file:../lisp/ui/ogent-ui-backlinks.el::186][ogent
 [[file:../lisp/ui/ogent-ui-backlinks.el::108][ogent-backlinks--handle-at-point]] (OGENT_ID or title slug) →
 [[file:../lisp/ui/ogent-ui-backlinks.el::97][ogent-backlinks-for-handle]] →
 [[file:../lisp/ui/ogent-ui-backlinks.el::71][ogent-backlinks--find-in-buffer]]; scan cap
-[[file:../lisp/ui/ogent-ui-backlinks.el::31][ogent-backlinks-max-buffers]] (50 open buffers — deliberately cheap,
+[[file:../lisp/ui/ogent-ui-backlinks.el::31][ogent-backlinks-max-buffers]] (50 open buffers; deliberately cheap,
 no file loading).
 
-*** Transcript navigation — =ogent-navigate=
+*** Transcript navigation: =ogent-navigate=
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-navigate
 :END:
 
 Role: Quick movement between transcript headings. The
-[[file:../lisp/ui/ogent-ui.el::1263][ogent-navigate]] transient (autoloaded, bound to =n= in the action
+[[file:../lisp/ui/ogent-ui-dispatch.el::574][ogent-navigate]] transient (autoloaded, bound to =n= in the action
 registry) offers repeatable suffixes for response/request motion
 (=ogent-next-response=, =ogent-prev-response=, =ogent-next-request=,
-=ogent-prev-request= at [[file:../lisp/ui/ogent-ui.el::1234][lisp/ui/ogent-ui.el:1234]]) plus
+=ogent-prev-request= at [[file:../lisp/ui/ogent-ui-dispatch.el::546][lisp/ui/ogent-ui-dispatch.el:546]]) plus
 heading motion (=j=/=k=) and exits to the dependency graph, backlinks,
 and =ogent-open-block=. Edit operations live in the
 [[file:../lisp/ogent-edit.el::829][ogent-edit-menu]] transient; request operations in
-[[file:../lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]. (A legacy hydra module once duplicated
+[[file:../lisp/ui/ogent-ui-dispatch.el::456][ogent-prompt-dispatch]]. (A legacy hydra module once duplicated
 these menus; it was removed in favor of transients.)
 
 * Invariants
@@ -2157,13 +2166,13 @@ The rules the code actively enforces, each with the enforcing line.
 1. *No tool with non-read effects auto-executes.* The policy predicate
    [[file:../lisp/ogent-tool-effects.el::112][ogent-tool-effects-approval-required-p]] requires approval when any
    effect kind is in [[file:../lisp/ogent-tool-effects.el::19][ogent-tool-effects-approval-kinds]] (=write
-   execute network git issue emacs-state= — everything but =read=) *or*
+   execute network git issue emacs-state=; everything but =read=) *or*
    combined risk reaches =high= on the rank scale at
    [[file:../lisp/ogent-tool-effects.el::23][ogent-tool-effects--risk-ranks]].
 
 2. *The approval gate is enforced in both execution paths.* ogent's own
    pipeline checks the spec policy inside
-   [[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]] — a tool auto-runs only if it has a
+   [[file:../lisp/ogent-tool-approval.el::162][ogent-tool-approval-check]]; a tool auto-runs only if it has a
    spec AND neither =:confirm= nor approval-requiring effects; everything else
    falls to the interactive prompt
    [[file:../lisp/ogent-tool-approval.el::122][ogent-tool--prompt-approval]]. gptel-native execution is bridged by
@@ -2173,8 +2182,8 @@ The rules the code actively enforces, each with the enforcing line.
 
 3. *MCP tools always require approval by default.* Every tool discovered
    from an MCP server is stamped with
-   [[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]] — =(:kind network :target external
-   :scope unrestricted :risk high)= — inside
+   [[file:../lisp/ogent-mcp.el::65][ogent-mcp-default-tool-effects]], =(:kind network :target external
+   :scope unrestricted :risk high)=, inside
    [[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]] (the =copy-tree= there also prevents
    registered specs from aliasing the defcustom). Both clauses of
    invariant 1 fire: =network= is an approval kind AND =high= trips the
@@ -2182,36 +2191,36 @@ The rules the code actively enforces, each with the enforcing line.
    MCP spec satisfied the auto-run clause and could execute silently.
 
 4. *Malformed tool calls are denied, not guessed.* An unresolvable tool
-   name short-circuits to ='denied= at the top of the gate
-   ([[file:../lisp/ui/ogent-ui.el::1937][lisp/ui/ogent-ui.el:1937]]).
+   name is rejected at the top of the gate with a =[Malformed tool call]=
+   block rather than guessed ([[file:../lisp/ui/ogent-ui-toolcalls.el::157][lisp/ui/ogent-ui-toolcalls.el:157]]).
 
 5. *Dangerous built-ins are double-flagged.* =bash=, =write-file=, and
    =edit-file= carry both =:confirm t= and high/critical effects in
-   [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]] — either alone forces approval, so a
+   [[file:../lisp/ogent-tools.el::750][ogent-tools-default-registry]]; either alone forces approval, so a
    regression in one layer doesn't open the gate.
 
 6. *"Always allow" narrows shell patterns to the command word.* When you
    answer =a= to a bash prompt, the persisted allow-list pattern is
    narrowed to the command's first word in
-   [[file:../lisp/ui/ogent-ui.el::245][ogent-tool--add-to-allow-list]] — approving =make test= does not
+   [[file:../lisp/ogent-tool-approval.el::134][ogent-tool--add-to-allow-list]]; approving =make test= does not
    approve arbitrary commands.
 
 7. *Every tool execution is auditable.* The executor records start and
    finish (with declared effects and a result hash) to the proof ledger
-   in [[file:../lisp/ui/ogent-ui.el::1977][ogent-ui--execute-tool]] via
+   in [[file:../lisp/ui/ogent-ui-toolcalls.el::201][ogent-ui--execute-tool]] via
    [[file:../lisp/ogent-ledger.el::162][ogent-ledger-record-tool-start]] /
    [[file:../lisp/ogent-ledger.el::170][ogent-ledger-record-tool-finish]]; the ledger only ever appends
    ([[file:../lisp/ogent-ledger.el::88][ogent-ledger--append-event]] uses =append-to-file=).
 
 8. *Edit-tool writes go through review, not straight to disk.* When the
    model calls write-file/edit-file, the UI generates a pending diff
-   ([[file:../lisp/ui/ogent-ui.el::2636][ogent-ui--generate-diff]]) that must be accepted via
-   [[file:../lisp/ui/ogent-ui.el::2777][ogent-diff-accept]] before the file changes.
+   ([[file:../lisp/ui/ogent-ui-toolcalls.el::731][ogent-ui--generate-diff]]) that must be accepted via
+   [[file:../lisp/ui/ogent-ui-toolcalls.el::872][ogent-diff-accept]] before the file changes.
 
 9. *=.ogent.el= is parsed, never evaluated.* Project preset files go
    through =read= plus a variable whitelist in
    [[file:../lisp/ogent-presets.el::149][ogent-presets--safe-read]] against
-   [[file:../lisp/ogent-presets.el::138][ogent-presets--allowed-variables]] — a hostile repo cannot execute
+   [[file:../lisp/ogent-presets.el::138][ogent-presets--allowed-variables]]; a hostile repo cannot execute
    code via its settings file.
 
 10. *An edit applies only if its old text matches exactly once.*
@@ -2221,7 +2230,7 @@ The rules the code actively enforces, each with the enforcing line.
     [[file:../lisp/ogent-edit-parse.el::114][ogent-edit-filter-valid]]).
 
 11. *Batch edits apply in reverse position order* so earlier
-    replacements cannot shift later positions —
+    replacements cannot shift later positions:
     [[file:../lisp/ogent-edit.el::705][ogent-edit-auto-apply-all]] and
     [[file:../lisp/ogent-edit-display.el::107][ogent-edit-apply-all-as-smerge]] both sort descending.
 
@@ -2229,7 +2238,7 @@ The rules the code actively enforces, each with the enforcing line.
     Parsed actions are stored with status ="proposed"= and only
     =:valid= + ="approved"= actions pass the gate in
     [[file:../lisp/ogent-armory-actions.el::489][ogent-armory-actions-dispatch]] (validity check at
-    [[file:../lisp/ogent-armory-actions.el::250][ogent-armory-actions-validate]] — nonexistent target agents can
+    [[file:../lisp/ogent-armory-actions.el::250][ogent-armory-actions-validate]]; nonexistent target agents can
     never dispatch).
 
 13. *Model/preset/tool identity flows through registries.* Unknown model
@@ -2243,8 +2252,8 @@ The rules the code actively enforces, each with the enforcing line.
     [[file:../lisp/ogent-armory-runner.el::143][ogent-armory-runner-ensure-beads-redirect]], default t).
 
 15. *Anthropic OAuth requests always carry the Claude Code identity.*
-    [[file:../lisp/ogent-anthropic-oauth.el::578][ogent-anthropic-oauth--request-data-advice]] binds the exact system
-    prefix unconditionally when OAuth is active — without it the
+    [[file:../lisp/ogent-anthropic-oauth.el::603][ogent-anthropic-oauth--request-data-advice]] binds the exact system
+    prefix unconditionally when OAuth is active; without it the
     provider rejects bearer-token requests.
 
 What is *not* enforced, deliberately: there is no OS-level sandbox. The
@@ -2263,7 +2272,7 @@ What realistically breaks, and where it is detected.
   their parent class at byte-compile time: the issues mode macro
   ([[file:../lisp/ogent-issues.el::528][ogent-issues--define-mode]]), the armory status mode macro
   ([[file:../lisp/ogent-armory-status.el::352][ogent-armory-status--define-mode]]), and the armory UI section
-  modes ([[file:../lisp/ui/ogent-ui-armory.el::752][ogent-armory-ui--define-section-mode]]). Compile without
+  modes ([[file:../lisp/ui/ogent-ui-armory-core.el::766][ogent-armory-ui--define-section-mode]]). Compile without
   magit-section but run with it (or vice versa) and sections silently
   degrade or break; runtime capability checks
   ([[file:../lisp/ogent-armory-status.el::324][ogent-armory-status--magit-section-usable-p]]) soften the blow.
@@ -2273,8 +2282,8 @@ What realistically breaks, and where it is detected.
 
 - *gptel callback shape drift.* Stream-completion detection is
   heuristic. If gptel changes its info-plist shape, requests stick at
-  "typing" — the fallback
-  [[file:../lisp/ui/ogent-ui.el::1755][ogent-ui--gptel-post-response-handler]] closes any unclosed request
+  "typing"; the fallback
+  [[file:../lisp/ui/ogent-ui-engine.el::778][ogent-ui--gptel-post-response-handler]] closes any unclosed request
   whose handle matches the response start. Same heuristics exist in
   [[file:../lisp/ogent-edit.el::107][ogent-edit--make-callback]] and the
   [[file:../lisp/ogent-codemap.el::840][codemap generator]] (a stuck entry in its pending table then reports
@@ -2282,7 +2291,7 @@ What realistically breaks, and where it is detected.
 
 - *Duplicate tool execution across stream chunks.* gptel reuses one
   =:tool-use= list across chunks; the identity guard on the request's
-  =handled-tool-use= slot ([[file:../lisp/ui/ogent-ui.el::1720][lisp/ui/ogent-ui.el:1720]]) is what
+  =handled-tool-use= slot ([[file:../lisp/ui/ogent-ui-engine.el::745][lisp/ui/ogent-ui-engine.el:745]]) is what
   prevents tools firing once per chunk. A regression here re-runs tools.
 
 - *Provider/auth failures.* Access-class errors (401, model_not_found,
@@ -2291,7 +2300,7 @@ What realistically breaks, and where it is detected.
   refresh failure clears tokens and asks for re-login
   ([[file:../lisp/ogent-anthropic-oauth.el::329][ogent-anthropic-oauth--ensure-valid-token]]). gptel struct-layout
   changes silently break the OAuth header injection (raw =aset= by slot
-  offset at [[file:../lisp/ogent-anthropic-oauth.el::602][ogent-anthropic-oauth--curl-args-advice]]) — debug with
+  offset at [[file:../lisp/ogent-anthropic-oauth.el::633][ogent-anthropic-oauth--curl-args-advice]]); debug with
   =ogent-anthropic-oauth-debug=.
 
 - *Edits applied against a changed buffer.* Validation pins positions at
@@ -2305,7 +2314,7 @@ What realistically breaks, and where it is detected.
 
 - *Model ignores the wire format.* In the edit pipeline, malformed
   SEARCH/REPLACE markers parse to zero edits (scan loop at
-  [[file:../lisp/ogent-edit-parse.el::14][ogent-edit-parse-response]]) — visible only as "0 edit blocks". In
+  [[file:../lisp/ogent-edit-parse.el::14][ogent-edit-parse-response]]); visible only as "0 edit blocks". In
   the Armory, an agent that ignores the response contract is detected
   downstream when [[file:../lisp/ogent-armory-conversations.el::831][ogent-armory-conversation-parse-output]] finds no
   machine footer; non-zero exits are triaged by
@@ -2319,7 +2328,7 @@ What realistically breaks, and where it is detected.
   synthesized =-32000= timeouts in
   [[file:../lisp/ogent-mcp.el::244][ogent-mcp--request-sync]]; dead server processes flip connection
   status via the sentinel
-  ([[file:../lisp/ogent-mcp.el::176][ogent-mcp--make-process-sentinel]]) — but tools registered before a
+  ([[file:../lisp/ogent-mcp.el::176][ogent-mcp--make-process-sentinel]]); but tools registered before a
   reconnect still proxy to the dead connection until re-registered
   (closure capture in [[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]]).
 
@@ -2327,7 +2336,7 @@ What realistically breaks, and where it is detected.
   =:missing-p= dependency reported in the rendered prompt's "Missing
   @handles" section ([[file:../lisp/ogent-context.el::625][ogent-context-render-prompt]]) and optionally
   gates sending via [[file:../lisp/ogent-core.el::64][ogent-validate-before-send]]. In babel blocks it
-  is embedded as "(unresolved)" ([[file:../lisp/ob-ogent.el::79][ob-ogent--resolve-context]]) — the
+  is embedded as "(unresolved)" ([[file:../lisp/ob-ogent.el::79][ob-ogent--resolve-context]]); the
   model silently answers without that context.
 
 - *Armory records with malformed metadata.* Bad cron/boolean job
@@ -2345,7 +2354,7 @@ What realistically breaks, and where it is detected.
   Emacs-wide; an error or slow filesystem inside them degrades all of
   Emacs. Both are guarded (file-buffer check + caches; mode/id checks).
 
-- *SQLite-less Emacs.* Analytics degrades gracefully — connection getter
+- *SQLite-less Emacs.* Analytics degrades gracefully; connection getter
   returns nil ([[file:../lisp/ogent-analytics.el::80][ogent-analytics--get-db]]), dashboard prints "SQLite
   not available", exports raise =user-error=.
 
@@ -2358,11 +2367,12 @@ The non-obvious layers, demystified.
 =(require 'ogent)= does four things in sequence
 ([[file:../lisp/ogent.el::52][lisp/ogent.el:52]] onward): fix =load-path= (including truenames, for
 Doom/straight symlinked builds), shim old Org capture byte-code, require
-~37 modules in a deliberate order (=ogent-ui-theme= before =ogent-ui=;
+~40 modules in a deliberate order (=ogent-ui-theme= before =ogent-ui=;
 registries before their consumers; the armory stack bottom-up:
-armory → evil → adapter → conversations → data → skills → settings →
-runner → schedule → actions → compose → status), then install default
-tools ([[file:../lisp/ogent.el::141][lisp/ogent.el:141]]) and register the Babel language. Three
+armory → adapter → conversations → data → git → skills → compose →
+actions → runner → schedule → palette → settings → ui-armory → status),
+then install default tools ([[file:../lisp/ogent.el::113][lisp/ogent.el:113]]); the =ogent= Babel
+language is provided by ob-ogent.el. Three
 load-time side effects worth knowing: the prompt registry populates when
 =ogent-prompts= loads ([[file:../lisp/ogent-prompts.el::417][lisp/ogent-prompts.el:417]]), response tracking
 hooks into gptel when =ogent-notes= loads ([[file:../lisp/ogent-notes.el::84][lisp/ogent-notes.el:84]]),
@@ -2373,18 +2383,18 @@ and the adapter registry resets when =ogent-armory-adapter= loads
 
 - *Capability-switched modes.* [[file:../lisp/ogent-issues.el::528][ogent-issues--define-mode]],
   [[file:../lisp/ogent-armory-status.el::352][ogent-armory-status--define-mode]], and
-  [[file:../lisp/ui/ogent-ui-armory.el::752][ogent-armory-ui--define-section-mode]] choose
+  [[file:../lisp/ui/ogent-ui-armory-core.el::766][ogent-armory-ui--define-section-mode]] choose
   =magit-section-mode= vs =special-mode= as the parent *when the macro
   expands* (an =eval-and-compile= probe). This is why magit-section
-  availability must match between compile time and runtime — the
+  availability must match between compile time and runtime; the
   stale-=.elc= trap described under Failure modes.
 
 - *Section wrappers.* [[file:../lisp/ogent-armory-status.el::591][ogent-armory-status--with-section]] and
-  [[file:../lisp/ui/ogent-ui-armory.el::712][ogent-armory-ui--with-section]] emit real magit sections when
+  [[file:../lisp/ui/ogent-ui-armory-core.el::726][ogent-armory-ui--with-section]] emit real magit sections when
   usable and plain text otherwise, so rendering code is written once.
 
 - *Compile-away debug.* [[file:../lisp/ogent-debug.el::224][ogent-debug]] expands to =nil= unless
-  =ogent-debug-enabled= was set at expansion time — enabling it later
+  =ogent-debug-enabled= was set at expansion time; enabling it later
   requires recompiling (the macro warns about this).
 
 - *Deferred Evil setup.* [[file:../lisp/ogent-keys.el::521][ogent-evil-setup-display-mode]] expands to a
@@ -2404,13 +2414,13 @@ Exactly three subsystems use advice; everything else is hooks.
 
 1. *Anthropic OAuth* (the heaviest): =:around=
    =gptel-curl--get-args= to inject bearer/beta headers (installed at
-   [[file:../lisp/ogent-anthropic-oauth.el::625][lisp/ogent-anthropic-oauth.el:625]]) and =:around= the
+   [[file:../lisp/ogent-anthropic-oauth.el::633][lisp/ogent-anthropic-oauth.el:633]]) and =:around= the
    =gptel--request-data= generic to pin the Claude Code system prefix
-   ([[file:../lisp/ogent-anthropic-oauth.el::633][lisp/ogent-anthropic-oauth.el:633]]). Both no-op when no OAuth
+   ([[file:../lisp/ogent-anthropic-oauth.el::603][lisp/ogent-anthropic-oauth.el:603]]). Both no-op when no OAuth
    tokens exist.
 2. *Org capture shim*: =:around= =org-capture= and friends, purely
    defensive against stale Org builds
-   ([[file:../lisp/ogent.el::88][ogent--advise-org-capture-contexts]]).
+   ([[file:../lisp/ogent-org-compat.el::29][ogent--advise-org-capture-contexts]]).
 3. *Analytics outcomes*: =:around= the completions accept/reject
    commands to stamp outcome rows, installed by
    [[file:../lisp/ogent-analytics.el::565][ogent-analytics-setup]].
@@ -2419,7 +2429,7 @@ Exactly three subsystems use advice; everything else is hooks.
 
 The request loop is wired by hooks, not polling:
 =gptel-post-response-functions= gets
-[[file:../lisp/ui/ogent-ui.el::1787][ogent-ui--register-gptel-hook]]'s fallback handler;
+[[file:../lisp/ui/ogent-ui-engine.el::809][ogent-ui--register-gptel-hook]]'s fallback handler;
 =gptel-post-response-hook= feeds [[file:../lisp/ogent-notes.el::55][notes tracking]];
 =gptel-pre-request-hook= feeds [[file:../lisp/ogent-analytics.el::186][analytics timing]] and
 [[file:../lisp/ogent-debug.el::88][debug logging]]. Buffer-locally, =ogent-mode= adds the @handle capf and
@@ -2430,7 +2440,7 @@ the =C-c C-c= session handler ([[file:../lisp/ogent-core.el::192][ogent-mode]] b
 project preset loading ([[file:../lisp/ogent-presets.el::220][ogent-presets--on-buffer-switch]]),
 =hack-local-variables-hook= restores companion links
 ([[file:../lisp/ogent-companion.el::233][ogent-companion--restore-link]]), and =after-save-hook= can refresh
-the codemap ([[file:../lisp/ogent-codemap.el::560][lisp/ogent-codemap.el:560]] — installed always, gated by
+the codemap ([[file:../lisp/ogent-codemap.el::560][lisp/ogent-codemap.el:560]]; installed always, gated by
 its defcustom inside). The edit pipeline decouples logging from display
 through one hook: [[file:../lisp/ogent-edit-display.el::167][ogent-edit-resolved-hook]], consumed by
 [[file:../lisp/ogent-edit-log.el::149][lisp/ogent-edit-log.el:149]].
@@ -2438,7 +2448,7 @@ through one hook: [[file:../lisp/ogent-edit-display.el::167][ogent-edit-resolved
 ** Generated functions and timers
 
 MCP tools are =fset= at runtime
-([[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]]) — =mcp-SERVER-NAME= functions exist only
+([[file:../lisp/ogent-mcp.el::325][ogent-mcp--register-tools]]); =mcp-SERVER-NAME= functions exist only
 after a server connects and are invisible to the byte-compiler. MCP
 auto-connect runs on a one-second timer after ogent loads
 ([[file:../lisp/ogent-mcp.el::549][ogent-mcp-setup]]). The provider-fallback login offer is deferred via
@@ -2449,7 +2459,7 @@ header-line clock are repeating timers in
 
 ** Where state actually lives
 
-In-memory: the request table ([[file:../lisp/ui/ogent-ui.el::687][ogent-ui--request-table]]), the tool
+In-memory: the request table ([[file:../lisp/ui/ogent-ui-core.el::129][ogent-ui--request-table]]), the tool
 registries ([[file:../lisp/ogent-models.el::202][ogent-tool-registry]] +
 [[file:../lisp/ogent-models.el::264][ogent--tools-registered]] cache), pinned context
 ([[file:../lisp/ogent-context.el::87][ogent-pinned-context]]), MCP connections, tool-call history. On disk:
@@ -2458,9 +2468,9 @@ companion link registry (=user-emacs-directory=), sessions
 project), the ledger (=.ogent/ledger.org= per project), OAuth tokens
 (mode-600 =tokens.el=), and the entire Armory (Org files under the
 armory root; transient derivatives under =.armory-state/=). Nothing
-else persists — everything else is reconstructable from the Org text.
+else persists; everything else is reconstructable from the Org text.
 
 That is the whole bag of tricks: a load-path fixup, three pieces of
-advice, a handful of hooks, four capability-switched macros, and Org
+advice, a handful of hooks, three capability-switched macros, and Org
 files as the database. Open any file linked above and read it top to
-bottom — there's no magic in there.
+bottom; there's no magic in there.

@@ -429,8 +429,8 @@ Knobs:
 - =ogent-armory-scheduler-auto-run= :: When nil, due events are only
   announced in the echo area and left alone.
 - =ogent-armory-scheduler-catchup-window= :: Seconds of backlog (default
-  300) the scheduler fires automatically. Slots that came due earlier — for
-  example while the laptop slept overnight — are skipped and remain
+  300) the scheduler fires automatically. Slots that came due earlier (for
+  example, while the laptop slept overnight) are skipped and remain
   *missed*; run those by hand from the schedule buffer with =R= (run
   missed). The first tick after enabling the mode only arms the window and
   never fires.

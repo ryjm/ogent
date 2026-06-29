@@ -143,7 +143,7 @@ binds to `gptel-cache` on every request. The default `t` caches the full
 stable prefix (pinned context, system directive, tools); set it to `nil`
 to disable, or to a list of `message`/`system`/`tool` symbols for
 finer control. Only the Anthropic backend honors client-side cache
-control — other backends ignore the setting.
+control; other backends ignore the setting.
 
 ## Example .dir-locals.el
 

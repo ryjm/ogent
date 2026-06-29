@@ -2,8 +2,18 @@
 :PROPERTIES:
 :OGENT_ID: prompts-library
 :END:
-Reusable instructions you can attach via @handle syntax. Reference these in your
-prompts to include their content. Combine multiple with @code-review+@testing.
+Reusable prompt templates. Each is registered under a handle (its
+=OGENT_ID=, shown after the =@= in its heading); selecting a template
+prepends its text to your prompt. Apply them with the dispatcher's
+Templates infix (key =T=), with =M-x ogent-prompt-insert=, or by passing
+their handles to =ogent-request=; select several and their text composes
+into one block.
+
+Eight handles ship as built-in defaults and resolve out of the box:
+=code-review=, =refactoring=, =documentation=, =testing=, =explain-code=,
+=debug-steps=, =bug-diagnosis=, and =architecture-digest=. To register the
+full library below, point =ogent-project-prompts-file= at this file; ogent
+loads every heading carrying an =OGENT_ID= property.
 
 ** Code Analysis
 
@@ -243,7 +253,7 @@ Reference WCAG guidelines where applicable.
 
 ** Composition Examples
 
-Use =+= to combine prompts. Examples:
+Pairings that work well together (select both handles):
 - =@code-review+@security-audit= - Security-focused code review
 - =@testing+@documentation= - Generate tests with documentation
 - =@refactoring+@performance-review= - Optimize while refactoring

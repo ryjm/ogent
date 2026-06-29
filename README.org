@@ -123,7 +123,7 @@ authenticate via the Claude Code-compatible OAuth flow:
 #+end_src
 
 This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
-refreshes them as needed. No API key management required!
+refreshes them as needed, so there is no API key to manage.
 
 The older Anthropic-named commands still work. The Claude Code aliases are:
 =M-x ogent-claude-code-status= and =M-x ogent-claude-code-logout=.
@@ -321,25 +321,25 @@ Templates are defined in =docs/prompts.org= and can be referenced using =@handle
 
 ** Using Prompt Templates
 
-Reference a template by its =OGENT_ID= with the =@= prefix:
+Apply a template from the prompt dispatcher's Templates infix (=T= in
+=M-x ogent-prompt-dispatch=), or with =M-x ogent-prompt-insert=, which inserts
+the composed template text at point. With the optional yasnippet integration
+(see below), type a template's handle and press =TAB= to expand it inline:
 
 #+begin_example
 @code-review
-
-Please review the following function for bugs and improvements.
 #+end_example
 
 ** Composing Multiple Templates
 
-Combine templates with =+= syntax:
+Select more than one template from the Templates infix or =ogent-prompt-insert=;
+ogent concatenates them, ordered by each template's =compose-order=. The
+=@handle+@handle= shorthand is accepted by the compose API
+(=ogent-prompt-compose-from-string=):
 
-#+begin_example
-@code-review+@security-audit
-
-Analyze this authentication code.
-#+end_example
-
-Templates are sorted by their =compose-order= and concatenated.
+#+begin_src emacs-lisp
+(ogent-prompt-compose-from-string "@code-review+@security-audit")
+#+end_src
 
 ** Available Templates
 
