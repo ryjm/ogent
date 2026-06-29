@@ -37,7 +37,7 @@
 (declare-function gptel-curl--get-args "ext:gptel-curl")
 (declare-function gptel--request-data "ext:gptel-request")
 (declare-function gptel-anthropic-p "ext:gptel-anthropic" t t)
-(declare-function gptel--get-api-key "ext:gptel")
+(declare-function gptel--get-api-key "ext:gptel-request")
 (defvar gptel-backend)
 (defvar gptel--known-backends)
 (defvar gptel--system-message)
