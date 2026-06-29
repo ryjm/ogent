@@ -12,6 +12,13 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # The bleeding-edge `snapshot' Emacs is a moving target whose binary is
+    # fetched via purcell/setup-emacs through the GitHub API, which regularly
+    # throttles the download with transient HTTP 429 "secondary rate limit"
+    # errors. Keep snapshot in the matrix for early-warning signal, but do not
+    # let its flaky toolchain setup gate the build; the stable releases
+    # (29.1, 30.2) remain required.
+    continue-on-error: ${{ matrix.emacs_version == 'snapshot' }}
     strategy:
       fail-fast: false
       matrix:
