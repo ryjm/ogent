@@ -855,8 +855,8 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
      start
      (point)
      `(ogent-armory-node ,node
-                          mouse-face highlight
-                          help-echo ,(ogent-armory-status--node-help node)))))
+                         mouse-face highlight
+                         help-echo ,(ogent-armory-status--node-help node)))))
 
 (defun ogent-armory-status--node-help (node)
   "Return hover help for graph NODE."
@@ -1061,7 +1061,7 @@ DIRECTION is either `next' or `previous'."
                          nil t))
               (current (ogent-armory-status--read-current-property
                         (ogent-armory-agent-file ogent-armory-status--root
-                                                  slug)
+                                                 slug)
                         property))
               (value (ogent-armory-status--read-property-value
                       ogent-armory-status--root
@@ -1079,8 +1079,8 @@ DIRECTION is either `next' or `previous'."
                          nil t))
               (current (ogent-armory-status--read-current-property
                         (ogent-armory-job-file ogent-armory-status--root
-                                                agent
-                                                job-id)
+                                               agent
+                                               job-id)
                         property))
               (value (ogent-armory-status--read-property-value
                       ogent-armory-status--root

@@ -94,7 +94,7 @@
   "Keymap for `ogent-armory-home-mode'.")
 
 (ogent-armory-ui--define-section-mode ogent-armory-home-mode "Armory-Home"
-                                       "Major mode for Armory Home."
+                                      "Major mode for Armory Home."
   (setq-local revert-buffer-function #'ogent-armory-home-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
@@ -212,7 +212,7 @@
     (ogent-armory-ui--insert-kv "Path" root)
     (ogent-armory-ui--insert-kv "Kind" (plist-get index :kind))
     (ogent-armory-ui--insert-kv "Tags" (ogent-armory-ui--format-tags
-                                         (plist-get index :tags)))
+                                        (plist-get index :tags)))
     (ogent-armory-ui--insert-kv "Description" (plist-get index :description))
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-home-health)
@@ -281,8 +281,8 @@
                (list :type 'job :agent (plist-get job :agent)
                      :job-id (plist-get job :id)
                      :path (ogent-armory-job-file root
-                                                   (plist-get job :agent)
-                                                   (plist-get job :id)))
+                                                  (plist-get job :agent)
+                                                  (plist-get job :id)))
                (format "  stale job       %s" (plist-get job :name))))
             (dolist (slug missing-persona)
               (ogent-armory-ui--insert-item-line
@@ -323,11 +323,11 @@
     (pcase (plist-get item :type)
       ('command (funcall (plist-get item :command) ogent-armory-home--root))
       ('session (ogent-armory-conversation ogent-armory-home--root
-                                            (plist-get item :path)))
+                                           (plist-get item :path)))
       ('job (ogent-armory-jobs ogent-armory-home--root
-                                (plist-get item :agent)))
+                               (plist-get item :agent)))
       ('agent (ogent-armory-agent ogent-armory-home--root
-                                   (plist-get item :agent)))
+                                  (plist-get item :agent)))
       ('file (ogent-armory-ui--visit-path (plist-get item :path)))
       (_ (user-error "No Armory Home item at point")))))
 

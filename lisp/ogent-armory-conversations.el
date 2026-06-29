@@ -308,7 +308,7 @@ ID is the fallback conversation id."
        :agent (ogent-armory--blank-to-nil
                (org-entry-get nil "OGENT_AGENT"))
        :armory-path (ogent-armory--blank-to-nil
-                      (org-entry-get nil "OGENT_ARMORY_PATH"))
+                     (org-entry-get nil "OGENT_ARMORY_PATH"))
        :title (or (ogent-armory--blank-to-nil
                    (org-entry-get nil "OGENT_TITLE"))
                   title)

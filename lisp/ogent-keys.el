@@ -223,11 +223,11 @@ Set to nil to disable automatic evil binding setup."
     (debug-mode       :key "D" :command ogent-debug-mode
                       :desc "Toggle debug mode")
     (armory-home     :key "j" :command ogent-armory-home
-                      :desc "Armory Home")
+                     :desc "Armory Home")
     (armory-status   :key "K" :command ogent-armory-status
-                      :desc "Armory graph/status")
+                     :desc "Armory graph/status")
     (armory-agents   :key "y" :command ogent-armory-agents
-                      :desc "Armory agents")
+                     :desc "Armory agents")
     (armory-agent-profile
      :key "Y" :command ogent-armory-agent
      :desc "Armory agent profile")
@@ -235,37 +235,37 @@ Set to nil to disable automatic evil binding setup."
      :key "B" :command ogent-armory-org-chart
      :desc "Armory org chart")
     (armory-data     :key ";" :command ogent-armory-data
-                      :desc "Armory data browser")
+                     :desc "Armory data browser")
     (armory-tasks    :key "I" :command ogent-armory-tasks
-                      :desc "Armory tasks")
+                     :desc "Armory tasks")
     (armory-conversations
      :key "O" :command ogent-armory-conversations
      :desc "Armory conversations")
     (armory-actions  :key "N" :command ogent-armory-actions
-                      :desc "Armory action approvals")
+                     :desc "Armory action approvals")
     (armory-schedule :key "J" :command ogent-armory-schedule
-                      :desc "Armory schedule")
+                     :desc "Armory schedule")
     (armory-agenda   :key "Q" :command ogent-armory-agenda
-                      :desc "Armory agenda")
+                     :desc "Armory agenda")
     (armory-git      :key ":" :command ogent-armory-git-status
-                      :desc "Armory git status")
+                     :desc "Armory git status")
     (armory-palette  :key "/" :command ogent-armory-command-palette
-                      :desc "Armory command palette")
+                     :desc "Armory command palette")
     (armory-settings :key "," :command ogent-armory-settings
-                      :desc "Armory settings")
+                     :desc "Armory settings")
     (armory-help     :key "." :command ogent-armory-help
-                      :desc "Armory help")
+                     :desc "Armory help")
     (armory-onboard  :key "'" :command ogent-armory-onboard
-                      :desc "Onboard Armory")
+                     :desc "Onboard Armory")
     (armory-registry-import
      :key "=" :command ogent-armory-registry-import
      :desc "Import Armory registry")
     (armory-backup   :key "_" :command ogent-armory-backup
-                      :desc "Back up Armory")
+                     :desc "Back up Armory")
     (armory-search   :key "V" :command ogent-armory-search
-                      :desc "Armory search")
+                     :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps
-                      :desc "Armory apps")
+                     :desc "Armory apps")
     (armory-create-agent
      :key "X" :command ogent-armory-create-agent
      :desc "Create Armory agent")

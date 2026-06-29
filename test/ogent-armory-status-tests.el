@@ -333,8 +333,8 @@
                          (lambda (&rest _) "nil")))
                 (ogent-armory-status-edit))
               (should-not (plist-get (ogent-armory-read-job dir
-                                                             "cto"
-                                                             "weekly-review")
+                                                            "cto"
+                                                            "weekly-review")
                                      :enabled))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
@@ -393,8 +393,8 @@
             (should (equal (file-truename body-file)
                            (file-truename
                             (ogent-armory-job-file dir
-                                                    "cto"
-                                                    "weekly-review")))))
+                                                   "cto"
+                                                   "weekly-review")))))
         (dolist (buf (list buffer profile-buffer jobs-buffer))
           (when (buffer-live-p buf)
             (kill-buffer buf)))

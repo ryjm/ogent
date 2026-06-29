@@ -165,11 +165,11 @@
   (let ((item (ogent-armory-conversations--item)))
     (if-let ((job-id (plist-get item :job-id)))
         (ogent-armory-run-job ogent-armory-conversations--root
-                               (plist-get item :agent)
-                               job-id)
+                              (plist-get item :agent)
+                              job-id)
       (ogent-armory-run-agent ogent-armory-conversations--root
-                               (plist-get item :agent)
-                               (read-string "Instruction: ")))))
+                              (plist-get item :agent)
+                              (read-string "Instruction: ")))))
 
 (defun ogent-armory-conversations-archive ()
   "Archive the conversation at point."
@@ -218,8 +218,8 @@
   "Search within Armory conversations."
   (interactive)
   (ogent-armory-search ogent-armory-conversations--root
-                        (read-string "Search conversations: ")
-                        (list :kind 'session)))
+                       (read-string "Search conversations: ")
+                       (list :kind 'session)))
 
 (defvar ogent-armory-conversation-mode-map
   (let ((map (make-sparse-keymap)))
@@ -355,11 +355,11 @@
     (ogent-armory-ui--insert-kv "Started" (plist-get detail :started))
     (ogent-armory-ui--insert-kv "Finished" (plist-get detail :finished))
     (ogent-armory-ui--insert-kv "Last activity"
-                                 (plist-get detail :last-activity))
+                                (plist-get detail :last-activity))
     (ogent-armory-ui--insert-kv "Archived"
-                                 (if (plist-get detail :archived) "yes" "no"))
+                                (if (plist-get detail :archived) "yes" "no"))
     (ogent-armory-ui--insert-kv "Muted"
-                                 (if (plist-get detail :muted) "yes" "no"))))
+                                (if (plist-get detail :muted) "yes" "no"))))
 
 (defun ogent-armory-conversation--insert-turns (turns)
   "Insert each conversation turn.
@@ -610,11 +610,11 @@ TURNS is the list of turn plists to insert."
   (let ((detail (ogent-armory-conversation--detail)))
     (if-let ((job-id (plist-get detail :job-id)))
         (ogent-armory-run-job ogent-armory-conversation--root
-                               (plist-get detail :agent)
-                               job-id)
+                              (plist-get detail :agent)
+                              job-id)
       (ogent-armory-run-agent ogent-armory-conversation--root
-                               (plist-get detail :agent)
-                               (read-string "Instruction: ")))))
+                              (plist-get detail :agent)
+                              (read-string "Instruction: ")))))
 
 (defun ogent-armory-conversation-mark-done ()
   "Mark this conversation done."

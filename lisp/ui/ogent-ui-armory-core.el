@@ -879,8 +879,8 @@ DIRECTION is either `next' or `previous'."
      start
      (point)
      `(ogent-armory-item ,item
-                          mouse-face highlight
-                          help-echo "RET visits this Armory item"))))
+                         mouse-face highlight
+                         help-echo "RET visits this Armory item"))))
 
 (provide 'ogent-ui-armory-core)
 ;;; ogent-ui-armory-core.el ends here

@@ -57,7 +57,7 @@
   "Keymap for `ogent-armory-agent-mode'.")
 
 (ogent-armory-ui--define-section-mode ogent-armory-agent-mode "Armory-Agent"
-                                       "Major mode for a single Armory agent profile."
+                                      "Major mode for a single Armory agent profile."
   (setq-local revert-buffer-function #'ogent-armory-agent-refresh)
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
@@ -256,13 +256,13 @@
   (ogent-armory-ui--with-section (ogent-armory-agent-skills)
       (ogent-armory-ui--heading-text "Skills")
     (ogent-armory-ui--insert-kv "Selected"
-                                 (string-join
-                                  (or (plist-get agent :skills) nil)
-                                  ", "))
+                                (string-join
+                                 (or (plist-get agent :skills) nil)
+                                 ", "))
     (ogent-armory-ui--insert-kv "Recommended"
-                                 (string-join
-                                  (or (plist-get agent :recommended-skills) nil)
-                                  ", ")))
+                                (string-join
+                                 (or (plist-get agent :recommended-skills) nil)
+                                 ", ")))
   (insert "\n"))
 
 (defun ogent-armory-agent--insert-details (agent)
@@ -278,7 +278,7 @@
     (ogent-armory-ui--insert-kv "Department" (plist-get agent :department))
     (ogent-armory-ui--insert-kv "Type" (plist-get agent :type))
     (ogent-armory-ui--insert-kv "Can Dispatch"
-                                 (if (plist-get agent :can-dispatch) "t" "nil"))
+                                (if (plist-get agent :can-dispatch) "t" "nil"))
     (ogent-armory-ui--insert-kv "Role" (plist-get agent :role))
     (ogent-armory-ui--insert-kv "Provider" (plist-get agent :provider))
     (ogent-armory-ui--insert-kv "Model" (plist-get agent :model))
@@ -287,7 +287,7 @@
     (ogent-armory-ui--insert-kv "Next Heartbeat" (plist-get agent :next-heartbeat))
     (ogent-armory-ui--insert-kv "Active" (if (plist-get agent :active) "t" "nil"))
     (ogent-armory-ui--insert-kv "Setup Complete"
-                                 (if (plist-get agent :setup-complete) "t" "nil"))
+                                (if (plist-get agent :setup-complete) "t" "nil"))
     (ogent-armory-ui--insert-kv "Workspace" (plist-get agent :workspace))
     (ogent-armory-ui--insert-kv "Focus" (string-join (or (plist-get agent :focus) nil) ", "))
     (ogent-armory-ui--insert-kv "Goals" (string-join (or (plist-get agent :goals) nil) ", "))

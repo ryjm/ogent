@@ -80,7 +80,7 @@
   "Return tabulated entries for the current jobs buffer."
   (mapcar #'ogent-armory-jobs--entry
           (ogent-armory-ui--all-jobs ogent-armory-jobs--root
-                                      ogent-armory-jobs--agent)))
+                                     ogent-armory-jobs--agent)))
 
 (defun ogent-armory-jobs (&optional directory agent)
   "Open Armory jobs for DIRECTORY, optionally narrowed to AGENT."
@@ -146,8 +146,8 @@
   (interactive)
   (let ((item (ogent-armory-jobs--item)))
     (ogent-armory-run-job ogent-armory-jobs--root
-                           (plist-get item :agent)
-                           (plist-get item :job-id))))
+                          (plist-get item :agent)
+                          (plist-get item :job-id))))
 
 (defun ogent-armory-jobs-toggle-enabled ()
   "Toggle enabled state for the job at point."

@@ -420,7 +420,7 @@ START defaults to `default-directory'."
               :kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
                         (org-entry-get nil "OGENT_KIND"))
               :armory-kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
-                                (org-entry-get nil "OGENT_KIND"))
+                               (org-entry-get nil "OGENT_KIND"))
               :parent (ogent-armory--blank-to-nil
                        (org-entry-get nil "OGENT_ARMORY_PARENT"))
               :description (org-entry-get nil "OGENT_DESCRIPTION")
@@ -913,7 +913,7 @@ INCLUDE-VISIBLE controls whether hidden agents are included."
            (when (and (file-regular-p file)
                       (string-equal (file-name-extension file) "org"))
              (ogent-armory-read-job directory agent-slug
-                                     (file-name-base file))))
+                                    (file-name-base file))))
          (directory-files jobs-dir t "\\.org\\'")))))))
 
 (defun ogent-armory--format-job (agent-slug job body)
@@ -1034,7 +1034,7 @@ INCLUDE-VISIBLE controls whether hidden agents are included."
               :on-failure (ogent-armory--blank-to-nil
                            (org-entry-get nil "OGENT_ON_FAILURE"))
               :armory-path (ogent-armory--blank-to-nil
-                             (org-entry-get nil "OGENT_ARMORY_PATH"))
+                            (org-entry-get nil "OGENT_ARMORY_PATH"))
               :created-at (ogent-armory--blank-to-nil
                            (org-entry-get nil "OGENT_CREATED_AT"))
               :updated-at (ogent-armory--blank-to-nil
@@ -1666,8 +1666,8 @@ status buffers, future incremental indexes, and automation planners."
               edges)
         (when worker
           (push (ogent-armory--graph-edge node-id
-                                           (format "agent:%s" worker)
-                                           'assigned-worker)
+                                          (format "agent:%s" worker)
+                                          'assigned-worker)
                 edges))))
     (list :root (directory-file-name root)
           :nodes (nreverse nodes)
