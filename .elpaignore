@@ -16,6 +16,7 @@ lint.el
 *.org
 .agents/
 .beads-legacy-bd/
+.armory-state/
 AGENTS.md
 CLAUDE.md
 CONTRIBUTING.md
