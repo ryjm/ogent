@@ -33,6 +33,7 @@
 (declare-function magit-section-toggle "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
 (defvar magit-section-visibility-indicator)
+(defvar magit-section-visibility-indicators)
 (put 'magit-insert-section 'lisp-indent-function 2)
 (put 'magit-insert-heading 'lisp-indent-function 0)
 
@@ -170,7 +171,10 @@
   (setq ogent-edit-diff--source-buffers (make-hash-table :test 'equal))
   ;; Enable magit-section features if available
   (when (bound-and-true-p ogent-edit-diff--magit-available)
-    (setq-local magit-section-visibility-indicator nil)))
+    (if (boundp 'magit-section-visibility-indicators)
+        (setq-local magit-section-visibility-indicators nil)
+      (with-suppressed-warnings ((obsolete magit-section-visibility-indicator))
+        (setq-local magit-section-visibility-indicator nil)))))
 
 ;;; Buffer Construction
 

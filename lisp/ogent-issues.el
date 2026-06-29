@@ -43,6 +43,7 @@ Captured at load time so sibling requires remain robust.")
 (declare-function magit-insert-heading "ext:magit-section" t t)
 (put 'magit-insert-section 'lisp-indent-function 2)
 (put 'magit-insert-heading 'lisp-indent-function 0)
+(defvar magit-section-visibility-indicators)
 
 (declare-function magit-current-section "ext:magit-section" t t)
 (declare-function magit-section-forward "ext:magit-section" t t)
@@ -590,8 +591,11 @@ Other:
        (ogent-ops-protect-face-properties)
        ;; Configure magit-section if we're derived from it
        (when (bound-and-true-p ogent-issues--magit-section-available)
-         (setq-local magit-section-visibility-indicator
-                     (if ogent-issues-use-unicode '("…" . t) '("..." . t)))))))
+         (let ((ind (if ogent-issues-use-unicode '("…" . t) '("..." . t))))
+           (if (boundp 'magit-section-visibility-indicators)
+               (setq-local magit-section-visibility-indicators (list ind ind))
+             (with-suppressed-warnings ((obsolete magit-section-visibility-indicator))
+               (setq-local magit-section-visibility-indicator ind))))))))
 
 (ogent-issues--define-mode)
 

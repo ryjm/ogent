@@ -47,6 +47,7 @@
 (declare-function magit-section-up "ext:magit-section")
 (defvar magit-section-mode-map)
 (defvar magit-section-visibility-indicator)
+(defvar magit-section-visibility-indicators)
 (defvar magit-insert-section--current)
 (defvar magit-insert-section--oldroot)
 (defvar magit-insert-section--parent)
@@ -813,7 +814,10 @@ When PREFER-FIRST is non-nil, default to the first provider model."
 (defun ogent-armory-ui--configure-section-buffer ()
   "Configure local Magit section affordances for the current buffer."
   (when (ogent-armory-ui--magit-section-usable-p)
-    (setq-local magit-section-visibility-indicator '("..." . t))))
+    (if (boundp 'magit-section-visibility-indicators)
+        (setq-local magit-section-visibility-indicators '(("..." . t) ("..." . t)))
+      (with-suppressed-warnings ((obsolete magit-section-visibility-indicator))
+        (setq-local magit-section-visibility-indicator '("..." . t))))))
 
 (defun ogent-armory-ui--insert-kv (label value)
   "Insert LABEL and VALUE as one detail line."
