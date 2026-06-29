@@ -1850,7 +1850,7 @@ TARGET-KIND is one of nil, `run', or `response'."
   "Return a compact label for the review item at point."
   (cond
    ((ogent-zen--response-heading-p)
-    (format "response %s — %s"
+    (format "response %s: %s"
             (ogent-zen--response-model-id (org-get-heading t t t t))
             (or (ogent-zen--response-title-from-text
                  (ogent-zen--response-body-text (point)))
@@ -2185,7 +2185,7 @@ MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
 (defun ogent-zen-rerun ()
   "Re-run the Zen transcript at point, or run the current bullet.
 On a generated `Request:' / `Response' transcript, delete that
-transcript and dispatch the owning bullet again — edit the bullet, then
+transcript and dispatch the owning bullet again: edit the bullet, then
 re-run.  Anywhere else this behaves like `ogent-run-subtree'.  A
 still-streaming transcript must be aborted before it can be re-run.
 The deletion and the new run form one undoable change group."

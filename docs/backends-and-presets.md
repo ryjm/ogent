@@ -118,11 +118,11 @@ Example model entry with preset:
 
 Two optional registry keys surface gptel's per-model machinery:
 
-- `:request-params` — a plist of extra parameters merged into the HTTP
+- `:request-params`: a plist of extra parameters merged into the HTTP
   request body whenever that model is used. gptel reads it from the
   interned model symbol; ogent copies it there on each send via
   `ogent-models-apply-gptel-props`.
-- `:capabilities` — gptel capability symbols added (unioned, never
+- `:capabilities`: gptel capability symbols added (unioned, never
   replaced) to the model symbol. The shipped Anthropic entries declare
   `(cache)` so prompt caching works for model IDs newer than gptel's
   bundled tables.

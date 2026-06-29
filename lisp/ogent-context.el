@@ -1118,7 +1118,7 @@ Returns first ~50 chars of content, skipping property drawers."
               (let ((trimmed (string-trim line)))
                 (when (> (length trimmed) 0)
                   (throw 'found
-                         (concat " — "
+                         (concat ": "
                                  (if (> (length trimmed) 50)
                                      (concat (substring trimmed 0 50) "…")
                                    trimmed)))))))))
@@ -1184,7 +1184,7 @@ Uses caching to avoid re-parsing unchanged buffers."
                 (push (list :handle handle
                             :node nil
                             :roam-node node
-                            :annotation (concat " — " (truncate-string-to-width title 50)))
+                            :annotation (concat ": " (truncate-string-to-width title 50)))
                       handles)))))))
     (nreverse handles)))
 

@@ -150,7 +150,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
 - Write a normal Org bullet/heading, then press =C-c . RET= to run that subtree as the prompt; ogent inserts a compact =Request:= / =Response= transcript below it.
-- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs — each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
+- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs: each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
 - Workspace selection is prose-first: a bullet like =look in ~/vault/projects/ogent for ideas= makes that directory the request workspace. Explicit labels (=Context:=, =Workspace:=, =Project:=, =Repo:=) still work, but are optional. The payload shows a =# Workspace= section, relative ogent tool paths resolve from that root, and code-grounded wording asks gptel to use read-only tools before answering.
 - Re-run a bullet from anywhere inside its transcript: =C-c . RET= appends a fresh run, =C-c . != (or =C-c C-c= on the transcript) replaces it. Earlier runs collapse automatically when a new run starts.
 - Press =C-c . q= to ask a new minibuffer question about the subtree at point.

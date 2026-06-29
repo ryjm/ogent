@@ -145,7 +145,7 @@ companion:
 :OGENT_PROMPT: Which files reference ogent-tool-spec-confirm-p? Use grep, then summarize.
 :END:
 #+begin_src text :model claude-sonnet-4-6 :backend Claude :status waiting
-<rendered payload — folded immediately>
+<rendered payload, folded immediately>
 #+end_src
 
 *** Response (claude-sonnet-4-6)

@@ -820,7 +820,7 @@ EXIT-STATUS.  Return stored actions or nil."
              (plist-get plan :root)
              (plist-get plan :conversation-id)
              validated)
-            (message "ogent: %d lead action(s) pending approval — M-x ogent-armory-actions"
+            (message "ogent: %d lead action(s) pending approval; M-x ogent-armory-actions"
                      (length validated))
             validated)))
     (error

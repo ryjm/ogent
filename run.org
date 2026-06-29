@@ -46,7 +46,7 @@ This block *tangles* (=C-c C-v t= / =org-babel-tangle=) to a standalone
 init file you can hand to =emacs -Q -l /tmp/ogent-sandbox-init.el= for a
 clean interactive session against this checkout. It mirrors the canonical
 setup from [[file:README.org][README.org]] and [[file:docs/getting-started.md][docs/getting-started.md]]: both lisp dirs on
-the =load-path=, then =(require 'ogent)= — which is the package's whole
+the =load-path=, then =(require 'ogent)=, which is the package's whole
 bootstrap (load-path fixups, ordered requires, default tool install; see
 [[file:lisp/ogent.el::52][lisp/ogent.el:52]]).
 
@@ -190,7 +190,7 @@ Once a provider is configured (=M-x ogent-onboard=, the wizard at
 [[file:lisp/ogent-onboard.el::474][ogent-onboard]]), the day-to-day entry points are:
 
 1. =M-x ogent-prompt-dispatch= (=C-c . p= under
-   [[file:lisp/ogent-core.el::192][ogent-mode]]) — the transient dispatcher
+   [[file:lisp/ogent-core.el::192][ogent-mode]]), the transient dispatcher
    ([[file:lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]): pick provider/model, type a prompt, =RET=
    sends; the response streams into an Org =Response= block. The full
    journey of that keystroke is traced step by step in

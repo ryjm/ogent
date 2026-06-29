@@ -61,7 +61,7 @@ These live in the repo and take precedence over global knowledge:
 ## Doom Emacs Compatibility
 
 - Ship a lightweight `(package! ogent)` recipe and document a `(use-package! ogent :after org :config (map! :leader :desc "Prompt" "o p" #'ogent-prompt-dispatch))` example so the package drops cleanly into Doom configurations.
-- Wrap keybindings with `general`/`map!` only when Doom is detected; otherwise expose a vanilla `ogent-mode-map`. Avoid redefining Doom’s defaults—prefer leader-prefixed chords (`SPC o p`, `SPC o n`) over global bindings.
+- Wrap keybindings with `general`/`map!` only when Doom is detected; otherwise expose a vanilla `ogent-mode-map`. Avoid redefining Doom’s defaults; prefer leader-prefixed chords (`SPC o p`, `SPC o n`) over global bindings.
 - Follow Doom best practices: declare autoload cookies for interactive commands, respect `doom-leader-alt-key`, and ensure customization options live under the `ogent` customization group.
 
 ## Testing Guidelines

@@ -683,8 +683,8 @@ Return non-nil when point moved."
 
 (defun ogent-zen--own-body (content)
   "Return CONTENT trimmed to the heading's own body text.
-Everything from the first child heading onward is dropped — child
-bullets and generated transcripts alike — and a leading property
+Everything from the first child heading onward is dropped (child
+bullets and generated transcripts alike), and a leading property
 drawer is removed.  This keeps each parent bullet's contribution to
 the payload flat: without it, nested ancestors would repeat each
 other's subtrees and re-runs would embed prior transcripts."
