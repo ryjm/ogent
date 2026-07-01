@@ -32,31 +32,29 @@
 
 [[https://github.com/ryjm/ogent/actions/workflows/ci.yml][https://github.com/ryjm/ogent/actions/workflows/ci.yml/badge.svg]]
 
-*LLMs as Unix tools, not chatbots.*
+*Use LLMs in structured Org workflows*
 
-ogent brings language models into Org-mode the Emacs way: composable commands, text as the universal interface, and you in control. No chat windows. No copy-pasting between apps. Just structured context in, structured responses out.
+ogent brings language models into Org-mode the Emacs way: composable commands with text + org-mode as the universal interface.
 
-** Why an exoskeleton, not an agent
-
-The model generates text instantly. You're the one who has to verify it works. That's the bottleneck: review, not generation.
+** Exoskeleton + Agent
 
 ogent is designed around this constraint:
 
-- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Visual diffs beat reading prose. =C-c C-c= beats typing "yes".
+- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Tree based navigation beats scrolling and =C-c C-c= beats ad-hoc copy pasting for context management.
 
-- *Make context explicit*: No magic "send my whole project". You declare what goes in via =@handles=, pins, and codemap. Precise input means predictable output.
-
-The model is a tool. You wield it. That's the difference between an exoskeleton and a robot.
+- *Make context explicit*: You declare what goes in via =@handles=, pins, and codemap. Obviously just giving it the whole project works too.
 
 ** What ogent provides
 
-- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. You see exactly what the model sees before sending.
+- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. 
 
 - *Responses as structure*: Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
 
-- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
+- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. 
 
-- *Commands, not conversations*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+- *Commands*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+
+- *Armory*: A local agent workspace built from plain Org files. Armory gives you persistent agents, jobs, conversations, approvals, schedules, task boards, data views, git state, and generated app artifacts without leaving Emacs. It is the structured place where prompts become trackable work, model output becomes reviewable artifacts, and agent activity stays inspectable, auditable, and versionable.
 
 * Requirements
 - Emacs 29.1 or newer
@@ -277,7 +275,7 @@ older tooling keep working.
 
 ** Armory
 
-Armory turns a directory of Org files into a local AI-team workspace. Open
+Armory turns a directory of Org files into a local agent workspace. Open
 =M-x ogent-armory-home= or press =C-c . j=. The Armory surface includes
 agents, jobs, conversations, lead action approvals, data browsing, ranked
 palette search, git state, settings, backup, registry import, help, app
@@ -316,7 +314,7 @@ buffer.
 
 * Prompt Templates
 
-ogent includes a library of reusable prompt templates for common AI-assisted workflows.
+ogent includes a library of reusable prompt templates for common workflows.
 Templates are defined in =docs/prompts.org= and can be referenced using =@handle= syntax.
 
 ** Using Prompt Templates
