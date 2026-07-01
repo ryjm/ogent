@@ -1120,6 +1120,40 @@
       (search-forward "Request: Accepted")
       (should (equal (org-entry-get (point) "OGENT_REVIEW") "accepted")))))
 
+(ert-deftest ogent-zen-collapse-does-not-supersede-new-run ()
+  "Collapsing previous runs must not mark the new run superseded.
+Marking an older sibling inserts lineage properties and a review drawer,
+which shifts the new request heading downward.  The self-exclusion has to
+track that shift; a stale position let both the old and the new run end up
+superseded (the reported regression)."
+  (let ((ogent-zen-collapse-previous-runs t)
+        (ogent-zen-fold-noise nil))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\n"
+              "** Request: Old\n"
+              ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+              "#+begin_src text :model m :status done\nold\n#+end_src\n"
+              "*** Response (m)\nold\n"
+              "** Request: New\n"
+              ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+              "#+begin_src text :model m :status done\nnew\n#+end_src\n"
+              "*** Response (m)\nnew\n")
+      (goto-char (point-min))
+      (search-forward "Request: New")
+      (beginning-of-line)
+      (ogent-zen-after-insert (point))
+      ;; The older run is superseded.
+      (goto-char (point-min))
+      (search-forward "Request: Old")
+      (should (equal (org-entry-get (point) "OGENT_LINEAGE") "superseded"))
+      (should (equal (org-entry-get (point) "OGENT_REVIEW") "superseded"))
+      ;; The new run must stay clean despite the position shift above it.
+      (goto-char (point-min))
+      (search-forward "Request: New")
+      (should-not (org-entry-get (point) "OGENT_LINEAGE"))
+      (should-not (org-entry-get (point) "OGENT_REVIEW")))))
+
 (ert-deftest ogent-zen-headline-density-minimal-hides-metadata ()
   "Minimal density renders only the status icon and primary title."
   (let ((ogent-theme-use-icons nil)

@@ -949,13 +949,22 @@ cards already summarize tool state in the request headline."
   (save-excursion
     (goto-char request)
     (org-back-to-heading t)
-    (let ((level (org-current-level)))
+    ;; Track the *new* request heading with a live marker.  Marking older
+    ;; siblings below inserts property and drawer lines that shift every
+    ;; following heading -- including this one -- downward.  A raw integer
+    ;; position would go stale and the new request would drift out from
+    ;; under the self-exclusion test and get marked superseded too (the
+    ;; bug this guards against); a marker follows the shift.
+    (let ((self (point-marker))
+          (level (org-current-level)))
       (when (org-up-heading-safe)
-        ;; Point is on the parent bullet; walk its child headings.
-        (let ((end (ogent-zen--subtree-end)))
+        ;; Point is on the parent bullet; walk its child headings.  END is a
+        ;; marker so it grows as siblings gain metadata and later runs stay
+        ;; in range.
+        (let ((end (copy-marker (ogent-zen--subtree-end) t)))
           (while (and (outline-next-heading) (< (point) end))
             (when (and (eql (org-current-level) level)
-                       (/= (point) request)
+                       (/= (point) (marker-position self))
                        (ogent-zen--request-heading-p))
               (let ((review (or (org-entry-get (point) "OGENT_LINEAGE")
                                 (org-entry-get (point) "OGENT_REVIEW"))))
@@ -966,7 +975,9 @@ cards already summarize tool state in the request headline."
                   (ogent-zen--sync-legacy-review (point))
                   (ogent-zen--sync-review-drawer (point))))
               (when (fboundp 'org-fold-hide-subtree)
-                (ignore-errors (org-fold-hide-subtree))))))))))
+                (ignore-errors (org-fold-hide-subtree)))))
+          (set-marker end nil)))
+      (set-marker self nil))))
 
 (defun ogent-zen-after-insert (request-pos)
   "Apply Zen presentation after a transcript was inserted at REQUEST-POS.
