@@ -46,11 +46,11 @@ ogent is designed around this constraint:
 
 ** What ogent provides
 
-- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. 
+- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests.
 
 - *Responses as structure*: Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
 
-- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. 
+- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=.
 
 - *Commands*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
 
@@ -78,7 +78,7 @@ ogent is designed around this constraint:
    make lint
    make test
    #+end_src
-3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:  
+3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:
    #+begin_src emacs-lisp
    (add-to-list 'load-path (expand-file-name "lisp" "/path/to/ogent"))
    (add-to-list 'load-path (expand-file-name "lisp/ui" "/path/to/ogent"))
@@ -122,9 +122,6 @@ authenticate via the Claude Code-compatible OAuth flow:
 
 This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
 refreshes them as needed, so there is no API key to manage.
-
-The older Anthropic-named commands still work. The Claude Code aliases are:
-=M-x ogent-claude-code-status= and =M-x ogent-claude-code-logout=.
 
 ** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
