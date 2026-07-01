@@ -119,11 +119,53 @@
       (setplist symbol old-symbol-plist)
       (setplist 'gpt-5 old-prototype-plist))))
 
-(ert-deftest ogent-models-shipped-anthropic-entries-declare-cache ()
-  "Every shipped Anthropic registry entry declares the cache capability."
+(ert-deftest ogent-models-shipped-anthropic-entries-declare-capabilities ()
+  "Every shipped Anthropic entry declares media, tool-use, and cache.
+On gptel versions that predate a model, the interned symbol has no
+capability plist, and `gptel--model-capable-p' returns nil for
+`tool-use' - gptel then silently drops tools from the request.  The
+registry must therefore declare the full capability set itself;
+`ogent-models-apply-gptel-props' unions it onto the symbol at send
+time."
   (dolist (entry ogent-model-registry)
     (when (eq (plist-get entry :backend) 'gptel-anthropic)
-      (should (memq 'cache (plist-get entry :capabilities))))))
+      (dolist (cap '(media tool-use cache))
+        (should (memq cap (plist-get entry :capabilities)))))))
+
+(ert-deftest ogent-gptel-fable-5-gets-tool-use-on-stale-gptel ()
+  "claude-fable-5 must be tool-capable even when gptel predates it.
+Simulates gptel 0.9.9.5 (the minimum supported version): the model
+symbol has an empty plist and the Anthropic backend model list does
+not contain the id.  After the send-path setup sequence
+\(`ogent-gptel-ensure-model-on-backend' then
+`ogent-models-apply-gptel-props'), the symbol must be registered on
+the backend and carry tool-use, media, and cache capabilities."
+  (let* ((backend 'test-anthropic-backend)
+         (models '(claude-sonnet-4-5-20250929))
+         (model (ogent-models-ensure "claude-fable-5"))
+         (symbol (intern "claude-fable-5"))
+         (old-symbol-plist (symbol-plist symbol)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'gptel-backend-models)
+                   (lambda (candidate)
+                     (should (eq candidate backend))
+                     models))
+                  ((symbol-function 'ogent-gptel--set-backend-models)
+                   (lambda (candidate new-models)
+                     (should (eq candidate backend))
+                     (setq models new-models))))
+          (setplist symbol nil)
+          (should-not (memq symbol models))
+          ;; Same call order as ogent-ui--send-to-model.
+          (should (eq (ogent-gptel-ensure-model-on-backend model backend)
+                      symbol))
+          (ogent-models-apply-gptel-props model)
+          (should (memq symbol models))
+          (dolist (cap '(tool-use media cache))
+            (should (memq cap (get symbol :capabilities))))
+          (should (equal (get symbol :description)
+                         "Anthropic Claude Fable 5 - most powerful frontier model")))
+      (setplist symbol old-symbol-plist))))
 
 ;;; Tool confirmation policy (gptel approval bridge)
 

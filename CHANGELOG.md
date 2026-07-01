@@ -7,9 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Claude Fable 5 (`claude-fable-5`) is now fully supported: shipped
+  Anthropic registry entries declare `media`/`tool-use`/`cache`
+  capabilities so tool calling, image input, and prompt caching work
+  even on gptel releases that predate the model (older gptel would
+  otherwise silently drop tools from requests).
+
 ### Fixed
 - Anthropic OAuth (Claude Pro/Max) requests now work with current gptel releases: the request and curl-args advice tolerate gptel's widened function arities, and the backend emits Bearer OAuth headers instead of leaking the default `x-api-key` header.
 - Magit-Section 4.5.0+ compatibility: collapsible-section visibility indicators use the new `magit-section-visibility-indicators` variable when present, falling back to the deprecated singular variable on older Magit.
+- `make lint` is green again: removed an invalid `declare-function` for
+  the `magit-insert-section` macro, kept EIEIO's compile-time slot
+  validation out of the runtime-only edit-diff section classes, and
+  repointed org-roam/flycheck/evil forward declarations at their real
+  defining files (struct accessors and macro-generated commands are
+  declared file-only).
 
 ## [0.1.0] - 2026-06-17
 

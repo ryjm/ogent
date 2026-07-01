@@ -124,8 +124,10 @@ Two optional registry keys surface gptel's per-model machinery:
   `ogent-models-apply-gptel-props`.
 - `:capabilities`: gptel capability symbols added (unioned, never
   replaced) to the model symbol. The shipped Anthropic entries declare
-  `(cache)` so prompt caching works for model IDs newer than gptel's
-  bundled tables.
+  `(media tool-use cache)` so tool calling, image input, and prompt
+  caching keep working for model IDs newer than gptel's bundled tables
+  (an older gptel that predates a model would otherwise silently drop
+  tools from the request).
 
 ```elisp
 ;; OpenAI: raise reasoning effort for one model
@@ -134,7 +136,7 @@ Two optional registry keys surface gptel's per-model machinery:
 
 ;; Anthropic: enable extended thinking with a token budget
 (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
- :capabilities (cache)
+ :capabilities (media tool-use cache)
  :request-params (:thinking (:type "enabled" :budget_tokens 4096)))
 ```
 

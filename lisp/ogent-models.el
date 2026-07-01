@@ -9,6 +9,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'seq)
 (require 'ogent-tool-effects)
 
@@ -39,16 +40,16 @@
     (:id "gpt-4o-mini" :backend gptel-openai :stream? t
          :description "OpenAI GPT-4o mini - legacy fallback")
     (:id "claude-fable-5" :backend gptel-anthropic :stream? t
-         :capabilities (cache)
+         :capabilities (media tool-use cache)
          :description "Anthropic Claude Fable 5 - most powerful frontier model")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
-         :capabilities (cache)
+         :capabilities (media tool-use cache)
          :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
-         :capabilities (cache)
+         :capabilities (media tool-use cache)
          :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
-         :capabilities (cache)
+         :capabilities (media tool-use cache)
          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
