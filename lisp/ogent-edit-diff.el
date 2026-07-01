@@ -24,11 +24,15 @@
     (require 'magit-section)))
 
 ;; Forward declarations for magit-section functions.
-;; `magit-insert-section' is a macro, so it must NOT be declared via
-;; `declare-function' (check-declare rejects that, rightly).  The
-;; `eval-and-compile' require above makes it expandable at compile time
-;; whenever magit-section is installed; without magit-section the render
-;; path is unreachable (`ogent-edit-diff--magit-available' is nil).
+;; `magit-insert-section' is a macro: when magit-section is installed,
+;; the `eval-and-compile' require above makes it expandable at compile
+;; time and this declaration is inert.  Without magit-section (e.g. the
+;; CI lint sandbox, which installs only Package-Requires) the
+;; declaration keeps the byte-compiler from flagging the call sites as
+;; undefined; the render path is unreachable then anyway
+;; (`ogent-edit-diff--magit-available' is nil).  FILEONLY t stops
+;; check-declare from trying to resolve it as a defun, which it is not.
+(declare-function magit-insert-section "ext:magit-section" (&rest args) t)
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-section-forward "ext:magit-section")
 (declare-function magit-section-backward "ext:magit-section")
