@@ -2908,5 +2908,91 @@ Response heading for MODEL (default \"m\")."
                                  (dolist (p prompts)
                                    (should (stringp p))))))))
 
+;;; Request watchdog (stuck-run recovery)
+
+(ert-deftest ogent-ui-watchdog-closes-stuck-request ()
+  "The watchdog force-closes a request stuck in a non-terminal state.
+Reproduces a dropped/hung backend: the request never reaches a terminal
+status, so the timeout path must abort and close it."
+  (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+        (ogent-ui-request-timeout 60)
+        (closed nil) (close-status nil) (close-msg nil))
+    (let ((request (make-ogent-ui-request
+                    :id "stuck-1" :buffer (current-buffer) :status 'wait)))
+      (puthash "stuck-1" request ogent-ui--request-table)
+      (cl-letf (((symbol-function 'ogent-ui--close-response)
+                 (lambda (_req &optional msg status)
+                   (setq closed t close-msg msg close-status status)))
+                ((symbol-function 'gptel-abort) #'ignore))
+        (ogent-ui--watchdog-timeout "stuck-1"))
+      (should closed)
+      (should (eq close-status 'error))
+      (should (stringp close-msg))
+      (should (string-match-p "timed out" close-msg))
+      ;; The stale timer reference is cleared.
+      (should-not (ogent-ui-request-watchdog request)))))
+
+(ert-deftest ogent-ui-watchdog-ignores-finished-request ()
+  "The watchdog never re-closes a finished, closed, or unknown request."
+  (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+        (closed nil))
+    (cl-letf (((symbol-function 'ogent-ui--close-response)
+               (lambda (&rest _) (setq closed t))))
+      ;; A request already at a terminal status is left untouched.
+      (let ((done-req (make-ogent-ui-request :id "d" :status 'done)))
+        (puthash "d" done-req ogent-ui--request-table)
+        (ogent-ui--watchdog-timeout "d")
+        (should-not closed))
+      ;; A request flagged closed is left untouched.
+      (let ((closed-req (make-ogent-ui-request :id "c" :status 'type :closed t)))
+        (puthash "c" closed-req ogent-ui--request-table)
+        (ogent-ui--watchdog-timeout "c")
+        (should-not closed))
+      ;; An id that already left the table is a silent no-op.
+      (ogent-ui--watchdog-timeout "missing")
+      (should-not closed))))
+
+(ert-deftest ogent-ui-watchdog-timer-lifecycle ()
+  "Arming sets a live timer, re-arming replaces it, nil timeout disables it."
+  (let ((request (make-ogent-ui-request :id "wd-life" :status 'wait)))
+    (unwind-protect
+        (progn
+          ;; Disabled when the timeout is nil.
+          (let ((ogent-ui-request-timeout nil))
+            (ogent-ui--start-watchdog request)
+            (should-not (ogent-ui-request-watchdog request)))
+          ;; Armed when the timeout is a positive number.
+          (let ((ogent-ui-request-timeout 60))
+            (ogent-ui--start-watchdog request)
+            (let ((first (ogent-ui-request-watchdog request)))
+              (should (timerp first))
+              (should (memq first timer-list))
+              ;; Re-arming cancels the previous timer and installs a new one.
+              (ogent-ui--start-watchdog request)
+              (should-not (memq first timer-list))
+              (should (timerp (ogent-ui-request-watchdog request)))))
+          ;; Cancelling clears the slot and unschedules the timer.
+          (let ((current (ogent-ui-request-watchdog request)))
+            (ogent-ui--cancel-watchdog request)
+            (should-not (ogent-ui-request-watchdog request))
+            (when (timerp current)
+              (should-not (memq current timer-list)))))
+      (ogent-ui--cancel-watchdog request))))
+
+(ert-deftest ogent-ui-terminal-status-cancels-watchdog ()
+  "Reaching a terminal or paused status cancels the inactivity watchdog."
+  (cl-letf (((symbol-function 'ogent-ui--update-block-header) #'ignore)
+            ((symbol-function 'ogent-status-update-indicator) #'ignore))
+    (dolist (status '(done error aborted paused))
+      (let ((request (make-ogent-ui-request :id "wd-term" :status 'type))
+            (ogent-ui-request-timeout 60))
+        (unwind-protect
+            (progn
+              (ogent-ui--start-watchdog request)
+              (should (ogent-ui-request-watchdog request))
+              (ogent-ui--update-status request status)
+              (should-not (ogent-ui-request-watchdog request)))
+          (ogent-ui--cancel-watchdog request))))))
+
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

@@ -105,7 +105,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   request-heading-pos  ; Marker at the request's headline
   response-heading-level  ; Org level of the response headline
   paused-response  ; Stores partial response when paused for resume
-  handled-tool-use)  ; Identity of the :tool-use payload already dispatched
+  handled-tool-use  ; Identity of the :tool-use payload already dispatched
+  watchdog)  ; Inactivity timer that force-closes a hung request
 
 (defun ogent-ui--set-response-function (symbol value)
   "Setter for `ogent-response-function' that migrates legacy values.
