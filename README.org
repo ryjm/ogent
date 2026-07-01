@@ -44,7 +44,7 @@ ogent is designed around this constraint:
 
 - *Make context explicit*: You declare what goes in via =@handles=, pins, and codemap. Obviously just giving it the whole project works too.
 
-** What ogent provides
+** Features
 
 - *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests.
 
@@ -54,7 +54,7 @@ ogent is designed around this constraint:
 
 - *Commands*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
 
-- *Armory*: A local agent workspace built from plain Org files. Armory gives you persistent agents, jobs, conversations, approvals, schedules, task boards, data views, git state, and generated app artifacts without leaving Emacs. It is the structured place where prompts become trackable work, model output becomes reviewable artifacts, and agent activity stays inspectable, auditable, and versionable.
+- *Armory*: A local agent workspace built from plain Org files. Armory gives you persistent agents, jobs, conversations, approvals, schedules, task boards, data views, git state, and generated app artifacts without leaving Emacs.
 
 * Requirements
 - Emacs 29.1 or newer
