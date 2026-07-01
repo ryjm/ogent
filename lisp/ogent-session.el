@@ -564,9 +564,11 @@ Uses grep for fast full-text search."
 
 ;;; Org-roam Integration
 
-(declare-function org-roam-node-read "ext:org-roam")
-(declare-function org-roam-node-id "ext:org-roam")
-(declare-function org-roam-node-find "ext:org-roam")
+;; `org-roam-node-id' is a cl-defstruct accessor, which check-declare
+;; cannot resolve, hence the FILEONLY flag.
+(declare-function org-roam-node-read "ext:org-roam-node")
+(declare-function org-roam-node-id "ext:org-roam-node" (node) t)
+(declare-function org-roam-node-find "ext:org-roam-node")
 
 (defun ogent-history-link-roam ()
   "Link the session at point to an org-roam node."

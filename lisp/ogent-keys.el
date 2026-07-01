@@ -473,8 +473,10 @@ and which-key integration."
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function evil-local-set-key "ext:evil-core")
 (declare-function evil-define-key* "ext:evil-core")
-(declare-function evil-goto-first-line "ext:evil-commands")
-(declare-function evil-goto-line "ext:evil-commands")
+;; `evil-define-motion' generates these, so check-declare cannot resolve
+;; them; FILEONLY flags keep the declaration honest.
+(declare-function evil-goto-first-line "ext:evil-commands" (&optional count) t)
+(declare-function evil-goto-line "ext:evil-commands" (&optional count) t)
 
 (defun ogent-evil--keymap-command-bindings (keymap &optional prefix)
   "Return direct (KEYVEC . COMMAND) bindings of KEYMAP.

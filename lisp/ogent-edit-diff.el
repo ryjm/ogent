@@ -23,8 +23,12 @@
   (when ogent-edit-diff--magit-available
     (require 'magit-section)))
 
-;; Forward declarations for magit-section functions
-(declare-function magit-insert-section "ext:magit-section")
+;; Forward declarations for magit-section functions.
+;; `magit-insert-section' is a macro, so it must NOT be declared via
+;; `declare-function' (check-declare rejects that, rightly).  The
+;; `eval-and-compile' require above makes it expandable at compile time
+;; whenever magit-section is installed; without magit-section the render
+;; path is unreachable (`ogent-edit-diff--magit-available' is nil).
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-section-forward "ext:magit-section")
 (declare-function magit-section-backward "ext:magit-section")
@@ -364,10 +368,14 @@ _FILE is unused but kept for future per-file staging state."
   "Get the edit at point."
   (when (bound-and-true-p ogent-edit-diff--magit-available)
     (when-let ((section (magit-current-section)))
-      ;; Check if this section has an edit slot (hunk sections do)
-      (when (and (eieio-object-p section)
-                 (slot-exists-p section 'edit))
-        (eieio-oref section 'edit)))))
+      ;; The hunk section class is defclass'd at runtime only (see above),
+      ;; so EIEIO's compile-time slot validation cannot know its `edit'
+      ;; slot.  Bind the slot name to keep `eieio-oref' from
+      ;; constant-folding into that check.
+      (let ((slot 'edit))
+        (when (and (eieio-object-p section)
+                   (slot-exists-p section slot))
+          (eieio-oref section slot))))))
 
 (defun ogent-edit-diff-stage ()
   "Stage the edit at point for acceptance."
