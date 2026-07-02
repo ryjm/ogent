@@ -25,6 +25,7 @@
 
 ;;; Code:
 
+(require 'cl-lib)
 (require 'ogent-ops-style)
 (require 'ogent-ui-theme)
 
@@ -88,27 +89,31 @@
 
 ;;; Section macros
 
+(defun ogent-section--root-value (section)
+  "Return previous Magit root while registering SECTION as the active root."
+  (or (and (boundp 'magit-insert-section--oldroot)
+           (symbol-value 'magit-insert-section--oldroot))
+      (and (not (and (boundp 'magit-insert-section--parent)
+                     (symbol-value 'magit-insert-section--parent)))
+           (prog1 (and (boundp 'magit-root-section)
+                       (symbol-value 'magit-root-section))
+             (set 'magit-root-section section)))))
+
 (defmacro ogent-section-with (section heading &rest body)
   "Insert collapsible SECTION with HEADING around BODY when Magit is present."
   (declare (indent 2) (debug t))
   (let ((type (car section)))
     `(if (ogent-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (ignore magit-insert-section--current
-                   magit-insert-section--oldroot
-                   magit-insert-section--parent)
-           (catch 'cancel-section
-             (magit-insert-heading ,heading)
-             ,@body
-             (magit-insert-section--finish section))
-           section)
+         (let ((section (magit-insert-section--create ',type nil nil)))
+           (cl-progv '(magit-insert-section--current
+                       magit-insert-section--oldroot
+                       magit-insert-section--parent)
+               (list section (ogent-section--root-value section) section)
+             (catch 'cancel-section
+               (magit-insert-heading ,heading)
+               ,@body
+               (magit-insert-section--finish section))
+             section))
        (insert ,heading "\n")
        ,@body)))
 
@@ -117,21 +122,15 @@
   (declare (indent 1) (debug t))
   (let ((type (car section)))
     `(if (ogent-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (ignore magit-insert-section--current
-                   magit-insert-section--oldroot
-                   magit-insert-section--parent)
-           (catch 'cancel-section
-             ,@body
-             (magit-insert-section--finish section))
-           section)
+         (let ((section (magit-insert-section--create ',type nil nil)))
+           (cl-progv '(magit-insert-section--current
+                       magit-insert-section--oldroot
+                       magit-insert-section--parent)
+               (list section (ogent-section--root-value section) section)
+             (catch 'cancel-section
+               ,@body
+               (magit-insert-section--finish section))
+             section))
        ,@body)))
 
 (defmacro ogent-section-define-mode (mode name docstring &rest body)
