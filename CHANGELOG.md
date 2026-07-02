@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Anthropic OAuth (Claude Pro/Max) requests now work with current gptel releases: the request and curl-args advice tolerate gptel's widened function arities, and the backend emits Bearer OAuth headers instead of leaking the default `x-api-key` header.
 - Magit-Section 4.5.0+ compatibility: collapsible-section visibility indicators use the new `magit-section-visibility-indicators` variable when present, falling back to the deprecated singular variable on older Magit.
+- Armory transient dispatch menus no longer rely on `transient-define-group`
+  or named group references, so CI works with older Transient packages while
+  keeping the shared jump menu generated from one project macro.
 - `make lint` is green again: removed an invalid `declare-function` for
   the `magit-insert-section` macro, kept EIEIO's compile-time slot
   validation out of the runtime-only edit-diff section classes, and

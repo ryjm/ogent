@@ -387,7 +387,7 @@ With FORCE non-nil, invalidate cached Armory data first."
   (ogent-armory-tasks-refresh)
   (message "Armory tasks: %s view" ogent-armory-tasks--view))
 
-(transient-define-prefix ogent-armory-tasks-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-tasks-dispatch ()
   "Dispatch menu for the Armory task board."
   [["Item"
     ("RET" "Visit" ogent-armory-tasks-visit)
@@ -400,9 +400,8 @@ With FORCE non-nil, invalidate cached Armory data first."
     ("v" "Cycle view" ogent-armory-tasks-cycle-view :transient t)
     ("f" "Filter" ogent-armory-tasks-filter :transient t)
     ("g" "Refresh" ogent-armory-tasks-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (defun ogent-armory-tasks--after-run (process)
   "Refresh the task board, display PROCESS, and return PROCESS."

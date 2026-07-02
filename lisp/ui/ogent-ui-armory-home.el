@@ -409,7 +409,7 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
          (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
        ""))))
 
-(transient-define-prefix ogent-armory-home-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-home-dispatch ()
   "Dispatch menu for Armory Home."
   [:description ogent-armory-home--transient-header
                 ["Daily Work"
@@ -426,18 +426,17 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
                  ("n" "Next item" ogent-armory-home-next-item :transient t)
                  ("p" "Previous item" ogent-armory-home-previous-item :transient t)
                  ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Ops"
-    ("Q" "Agenda" ogent-armory-agenda)
-    ("N" "Action approvals" ogent-armory-actions)
-    ("'" "Onboard" ogent-armory-onboard)
-    ("=" "Registry import" ogent-armory-registry-import)
-    ("_" "Backup" ogent-armory-backup)
-    ("o" "Org chart" ogent-armory-org-chart)]
-   ["Help"
-    ("h" "Help" ogent-armory-home-help)
-    ("." "Docs" ogent-armory-help)
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Ops"
+   ("Q" "Agenda" ogent-armory-agenda)
+   ("N" "Action approvals" ogent-armory-actions)
+   ("'" "Onboard" ogent-armory-onboard)
+   ("=" "Registry import" ogent-armory-registry-import)
+   ("_" "Backup" ogent-armory-backup)
+   ("o" "Org chart" ogent-armory-org-chart)]
+  ["Help"
+   ("h" "Help" ogent-armory-home-help)
+   ("." "Docs" ogent-armory-help)
+   ("q" "Quit menu" transient-quit-one)])
 
 (defun ogent-armory-home-next-item ()
   "Move point to the next actionable Armory Home item."

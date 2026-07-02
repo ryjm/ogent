@@ -29,7 +29,7 @@
     map)
   "Keymap for `ogent-armory-agents-mode'.")
 
-(transient-define-prefix ogent-armory-agents-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-agents-dispatch ()
   "Dispatch menu for the Armory agent list."
   [["Item"
     ("RET" "Open agent profile" ogent-armory-agents-open-agent)
@@ -37,9 +37,8 @@
     ("R" "Run with instruction" ogent-armory-agents-run)]
    ["View"
     ("g" "Refresh" ogent-armory-agents-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-agents-mode tabulated-list-mode "Armory-Agents"
   "Major mode for Armory agent lists."

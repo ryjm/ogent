@@ -46,7 +46,7 @@
     map)
   "Keymap for `ogent-armory-conversations-mode'.")
 
-(transient-define-prefix ogent-armory-conversations-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-conversations-dispatch ()
   "Dispatch menu for the Armory conversation list."
   [["Item"
     ("RET" "Open conversation" ogent-armory-conversations-open)
@@ -58,9 +58,8 @@
     ("s" "Search transcripts" ogent-armory-conversations-search)
     ("f" "Filter" ogent-armory-conversations-filter :transient t)
     ("g" "Refresh" ogent-armory-conversations-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-conversations-mode tabulated-list-mode
   "Armory-Conversations"
@@ -282,7 +281,7 @@ With FORCE non-nil, invalidate cached Armory data first."
     map)
   "Keymap for `ogent-armory-conversation-mode'.")
 
-(transient-define-prefix ogent-armory-conversation-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-conversation-dispatch ()
   "Dispatch menu for a single Armory conversation."
   [["Conversation"
     ("RET" "Visit source Org" ogent-armory-conversation-visit-source)
@@ -301,9 +300,8 @@ With FORCE non-nil, invalidate cached Armory data first."
     ("l" "Logs" ogent-armory-conversation-open-logs)]
    ["View"
     ("g" "Refresh" ogent-armory-conversation-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (ogent-armory-ui--define-section-mode ogent-armory-conversation-mode
     "Armory-Conversation"

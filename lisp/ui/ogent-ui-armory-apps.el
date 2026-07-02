@@ -23,16 +23,15 @@
     map)
   "Keymap for `ogent-armory-apps-mode'.")
 
-(transient-define-prefix ogent-armory-apps-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-apps-dispatch ()
   "Dispatch menu for the Armory app artifact list."
   [["Item"
     ("RET" "Open app" ogent-armory-apps-open)
     ("v" "Visit app directory" ogent-armory-apps-visit-directory)]
    ["View"
     ("g" "Refresh" ogent-armory-apps-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-apps-mode tabulated-list-mode "Armory-Apps"
   "Major mode for Armory app artifacts."

@@ -28,7 +28,7 @@
     map)
   "Keymap for `ogent-armory-jobs-mode'.")
 
-(transient-define-prefix ogent-armory-jobs-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-jobs-dispatch ()
   "Dispatch menu for the Armory job list."
   [["Item"
     ("RET" "Visit job Org file" ogent-armory-jobs-visit)
@@ -40,9 +40,8 @@
     ("A" "Archive" ogent-armory-jobs-archive)]
    ["View"
     ("g" "Refresh" ogent-armory-jobs-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
   "Major mode for Armory jobs."

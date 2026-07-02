@@ -52,7 +52,7 @@
     map)
   "Keymap for `ogent-armory-agent-mode'.")
 
-(transient-define-prefix ogent-armory-agent-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-agent-dispatch ()
   "Dispatch menu for a single Armory agent profile."
   [["Agent"
     ("RET" "Visit at point" ogent-armory-agent-visit)
@@ -63,9 +63,8 @@
     ("g" "Refresh" ogent-armory-agent-refresh :transient t)
     ("n" "Next item" ogent-armory-ui-next-item :transient t)
     ("p" "Previous item" ogent-armory-ui-previous-item :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (ogent-armory-ui--define-section-mode ogent-armory-agent-mode "Armory-Agent"
                                       "Major mode for a single Armory agent profile."

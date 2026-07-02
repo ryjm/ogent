@@ -24,16 +24,15 @@
     map)
   "Keymap for `ogent-armory-search-mode'.")
 
-(transient-define-prefix ogent-armory-search-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-search-dispatch ()
   "Dispatch menu for Armory search results."
   [["Item"
     ("RET" "Visit result" ogent-armory-search-visit)]
    ["View"
     ("f" "Edit query" ogent-armory-search-edit-query :transient t)
     ("g" "Refresh" ogent-armory-search-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-search-mode tabulated-list-mode "Armory-Search"
   "Major mode for Armory search results."

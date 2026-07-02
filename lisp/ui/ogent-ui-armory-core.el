@@ -78,23 +78,35 @@
     map)
   "Cross-surface Armory jumps, bound to `j' in every Armory buffer.")
 
-(transient-define-group ogent-armory-ui--jump-group
-  ["Armory"
-   :pad-keys t
-   ("j h" "Home" ogent-armory-home)
-   ("j g" "Graph" ogent-armory-status)
-   ("j a" "Agents" ogent-armory-agents)
-   ("j o" "Org chart" ogent-armory-org-chart)
-   ("j t" "Tasks" ogent-armory-tasks)
-   ("j c" "Conversations" ogent-armory-conversations)
-   ("j j" "Jobs" ogent-armory-jobs)
-   ("j s" "Search" ogent-armory-search)
-   ("j A" "Apps" ogent-armory-apps)
-   ("j d" "Data" ogent-armory-data)
-   ("j u" "Schedule" ogent-armory-schedule)
-   ("j v" "Git" ogent-armory-git-status)
-   ("," "Settings" ogent-armory-settings)
-   ("/" "Palette" ogent-armory-command-palette)])
+(defmacro ogent-armory-ui--define-prefix (name arglist docstring primary-group &rest extra-groups)
+  "Define NAME as an Armory Transient prefix.
+ARGLIST, DOCSTRING, PRIMARY-GROUP, and EXTRA-GROUPS follow
+`transient-define-prefix'.  The shared Armory jump group is spliced
+into the expanded prefix as a literal group vector so older Transient
+releases never have to resolve a named group reference."
+  (declare (indent defun)
+           (debug (&define name lambda-list stringp sexp &rest sexp)))
+  `(transient-define-prefix ,name ,arglist
+     ,docstring
+     ,primary-group
+     ,(vconcat
+       [["Armory"
+         :pad-keys t
+         ("j h" "Home" ogent-armory-home)
+         ("j g" "Graph" ogent-armory-status)
+         ("j a" "Agents" ogent-armory-agents)
+         ("j o" "Org chart" ogent-armory-org-chart)
+         ("j t" "Tasks" ogent-armory-tasks)
+         ("j c" "Conversations" ogent-armory-conversations)
+         ("j j" "Jobs" ogent-armory-jobs)
+         ("j s" "Search" ogent-armory-search)
+         ("j A" "Apps" ogent-armory-apps)
+         ("j d" "Data" ogent-armory-data)
+         ("j u" "Schedule" ogent-armory-schedule)
+         ("j v" "Git" ogent-armory-git-status)
+         ("," "Settings" ogent-armory-settings)
+         ("/" "Palette" ogent-armory-command-palette)]]
+       (apply #'vector extra-groups))))
 
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."

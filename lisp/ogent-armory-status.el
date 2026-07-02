@@ -885,7 +885,7 @@ graph even when the cached copy is still fresh."
        ""))))
 
 ;;;###autoload (autoload 'ogent-armory-status-dispatch "ogent-armory-status" nil t)
-(transient-define-prefix ogent-armory-status-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-status-dispatch ()
   "Dispatch menu for Armory status buffers."
   [:description ogent-armory-status--transient-header
                 ["Run"
@@ -905,12 +905,11 @@ graph even when the cached copy is still fresh."
                  ("n" "Next item" ogent-armory-status-next-item :transient t)
                  ("p" "Previous item" ogent-armory-status-previous-item :transient t)
                  ("g" "Refresh" ogent-armory-status-refresh :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Bridges"
-    ("i" "Ogent Issues" ogent-armory-status-open-issues)]
-   ["Help"
-    ("h" "Help" ogent-armory-status-help)
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Bridges"
+   ("i" "Ogent Issues" ogent-armory-status-open-issues)]
+  ["Help"
+   ("h" "Help" ogent-armory-status-help)
+   ("q" "Quit menu" transient-quit-one)])
 
 (defun ogent-armory-status--evil-local-keys ()
   "Install local Evil keys for Armory status."

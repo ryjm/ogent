@@ -44,7 +44,7 @@
     map)
   "Keymap for `ogent-armory-org-chart-mode'.")
 
-(transient-define-prefix ogent-armory-org-chart-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-org-chart-dispatch ()
   "Dispatch menu for the Armory org chart."
   [["Item"
     ("RET" "Visit agent Org file" ogent-armory-org-chart-visit)]
@@ -55,9 +55,8 @@
     ("TAB" "Toggle section" ogent-section-toggle :transient t)
     ("M-n" "Next section" ogent-section-next :transient t)
     ("M-p" "Previous section" ogent-section-prev :transient t)]]
-  [ogent-armory-ui--jump-group
-   ["Help"
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (ogent-armory-ui--define-section-mode
     ogent-armory-org-chart-mode "Armory-Org-Chart"
