@@ -29,7 +29,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Magit-Section 4.5.0+ compatibility: collapsible-section visibility indicators use the new `magit-section-visibility-indicators` variable when present, falling back to the deprecated singular variable on older Magit.
 - Armory transient dispatch menus no longer rely on `transient-define-group`
   or named group references, so CI works with older Transient packages while
-  keeping the shared jump menu generated from one project macro.
+  keeping the shared jump menu generated from one project macro; shared
+  section macros also avoid sandbox-only byte-compile warnings when Magit is
+  absent.
 - `make lint` is green again: removed an invalid `declare-function` for
   the `magit-insert-section` macro, kept EIEIO's compile-time slot
   validation out of the runtime-only edit-diff section classes, and

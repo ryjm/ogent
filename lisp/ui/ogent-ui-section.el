@@ -40,6 +40,7 @@
 ;; byte-compiler from flagging call sites as undefined; the magit
 ;; render paths are unreachable then anyway
 ;; (`ogent-section-usable-p' is nil).
+(declare-function magit-section-mode "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-insert-section--create "ext:magit-section")
@@ -100,6 +101,9 @@
                           (prog1 magit-root-section
                             (setq magit-root-section section)))))
                 (magit-insert-section--parent section))
+           (ignore magit-insert-section--current
+                   magit-insert-section--oldroot
+                   magit-insert-section--parent)
            (catch 'cancel-section
              (magit-insert-heading ,heading)
              ,@body
@@ -121,6 +125,9 @@
                           (prog1 magit-root-section
                             (setq magit-root-section section)))))
                 (magit-insert-section--parent section))
+           (ignore magit-insert-section--current
+                   magit-insert-section--oldroot
+                   magit-insert-section--parent)
            (catch 'cancel-section
              ,@body
              (magit-insert-section--finish section))
