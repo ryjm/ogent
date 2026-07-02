@@ -21,13 +21,9 @@
 (require 'ogent-armory-data)
 (require 'ogent-armory-settings)
 (require 'ogent-armory-runner)
+(require 'ogent-ui-section)
 
-(eval-and-compile
-  (defvar ogent-armory-ui--magit-section-available
-    (require 'magit-section nil t)
-    "Non-nil when `magit-section' is available for Armory UI buffers.")
-  (when ogent-armory-ui--magit-section-available
-    (require 'magit-section)))
+;; magit-section availability probing lives in `ogent-ui-section' now.
 
 (autoload 'ogent-armory-status "ogent-armory-status" nil t)
 (autoload 'ogent-armory-actions "ogent-armory-actions" nil t)
@@ -704,120 +700,40 @@ When PREFER-FIRST is non-nil, default to the first provider model."
   "Insert Armory section heading LABEL."
   (insert (ogent-armory-ui--heading-text label) "\n"))
 
-(defun ogent-armory-ui--refresh-magit-section-availability ()
-  "Refresh `magit-section' availability for Armory UI buffers."
-  (setq ogent-armory-ui--magit-section-available
-        (or ogent-armory-ui--magit-section-available
-            (require 'magit-section nil t)))
-  (when (and ogent-armory-ui--magit-section-available
-             (not (featurep 'magit-section)))
-    (require 'magit-section))
-  ogent-armory-ui--magit-section-available)
+(defalias 'ogent-armory-ui--refresh-magit-section-availability
+  #'ogent-section-available-p)
 
-(defun ogent-armory-ui--magit-section-usable-p ()
-  "Return non-nil when Magit section APIs are usable."
-  (and (ogent-armory-ui--refresh-magit-section-availability)
-       (fboundp 'magit-current-section)
-       (fboundp 'magit-insert-heading)
-       (fboundp 'magit-section-toggle)
-       (fboundp 'magit-section-forward-sibling)
-       (fboundp 'magit-section-backward-sibling)))
+(defalias 'ogent-armory-ui--magit-section-usable-p
+  #'ogent-section-usable-p)
 
 (defmacro ogent-armory-ui--with-section (section heading &rest body)
-  "Insert collapsible SECTION with HEADING around BODY when Magit is present."
+  "Compatibility wrapper for `ogent-section-with'.
+Insert collapsible SECTION with HEADING around BODY."
   (declare (indent 2) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-ui--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             (magit-insert-heading ,heading)
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       (insert ,heading "\n")
-       ,@body)))
+  `(ogent-section-with ,section ,heading ,@body))
 
 (defmacro ogent-armory-ui--with-root-section (section &rest body)
-  "Insert root SECTION around BODY when Magit is present."
+  "Compatibility wrapper for `ogent-section-with-root'.
+Insert root SECTION around BODY."
   (declare (indent 1) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-ui--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       ,@body)))
+  `(ogent-section-with-root ,section ,@body))
 
 (defmacro ogent-armory-ui--define-section-mode (mode name docstring &rest body)
-  "Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
+  "Compatibility wrapper for `ogent-section-define-mode'.
+Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
   (declare (indent 3) (debug t))
-  (let ((parent (if (bound-and-true-p ogent-armory-ui--magit-section-available)
-                    'magit-section-mode
-                  'special-mode)))
-    `(define-derived-mode ,mode ,parent ,name ,docstring
-       :group 'ogent-ui-armory
-       ,@body)))
+  `(ogent-section-define-mode ,mode ,name ,docstring
+     :group 'ogent-ui-armory
+     ,@body))
 
-(defun ogent-armory-ui-toggle-section ()
-  "Toggle the current Armory UI section."
-  (interactive)
-  (if (ogent-armory-ui--magit-section-usable-p)
-      (if-let ((section (magit-current-section)))
-          (condition-case err
-              (magit-section-toggle section)
-            (user-error (message "%s" (error-message-string err))))
-        (message "No section at point"))
-    (message "Section toggling requires magit-section")))
+(defalias 'ogent-armory-ui-toggle-section #'ogent-section-toggle)
+(defalias 'ogent-armory-ui-cycle-sections #'ogent-section-cycle)
+(defalias 'ogent-armory-ui-next-section #'ogent-section-next)
+(defalias 'ogent-armory-ui-previous-section #'ogent-section-prev)
+(defalias 'ogent-armory-ui-up-section #'ogent-section-up)
 
-(defun ogent-armory-ui-cycle-sections ()
-  "Cycle visibility for all Armory UI sections."
-  (interactive)
-  (if (and (ogent-armory-ui--magit-section-usable-p)
-           (fboundp 'magit-section-cycle-global))
-      (magit-section-cycle-global)
-    (message "Section cycling requires magit-section")))
-
-(defun ogent-armory-ui-next-section ()
-  "Move to the next sibling Armory UI section."
-  (interactive)
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (magit-section-forward-sibling)))
-
-(defun ogent-armory-ui-previous-section ()
-  "Move to the previous sibling Armory UI section."
-  (interactive)
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (magit-section-backward-sibling)))
-
-(defun ogent-armory-ui-up-section ()
-  "Move to the parent Armory UI section."
-  (interactive)
-  (when (and (ogent-armory-ui--magit-section-usable-p)
-             (fboundp 'magit-section-up))
-    (magit-section-up)))
-
-(defun ogent-armory-ui--configure-section-buffer ()
-  "Configure local Magit section affordances for the current buffer."
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (if (boundp 'magit-section-visibility-indicators)
-        (setq-local magit-section-visibility-indicators '(("..." . t) ("..." . t)))
-      (with-suppressed-warnings ((obsolete magit-section-visibility-indicator))
-        (setq-local magit-section-visibility-indicator '("..." . t))))))
+(defalias 'ogent-armory-ui--configure-section-buffer
+  #'ogent-section-configure-buffer)
 
 (defun ogent-armory-ui--insert-kv (label value)
   "Insert LABEL and VALUE as one detail line."
@@ -847,44 +763,16 @@ When PREFER-FIRST is non-nil, default to the first provider model."
 (defun ogent-armory-ui--item-at-point ()
   "Return Armory item metadata at point."
   (or (get-text-property (point) 'ogent-armory-item)
-      (get-text-property (line-beginning-position) 'ogent-armory-item)
+      (ogent-section-item-at-point 'ogent-armory-item)
       (tabulated-list-get-id)))
 
-(defun ogent-armory-ui--visible-property-position (property direction)
-  "Return the next visible position with PROPERTY in DIRECTION.
-DIRECTION is either `next' or `previous'."
-  (let ((limit (if (eq direction 'next) (point-max) (point-min)))
-        (pos (point))
-        found)
-    (while (and (not found)
-                (if (eq direction 'next)
-                    (< pos limit)
-                  (> pos limit)))
-      (setq pos
-            (if (eq direction 'next)
-                (next-single-property-change pos property nil limit)
-              (previous-single-property-change pos property nil limit)))
-      (when pos
-        (when (eq direction 'previous)
-          (setq pos (max (point-min) (1- pos))))
-        (if (and (get-text-property pos property)
-                 (not (invisible-p pos)))
-            (setq found pos)
-          (setq pos (if (eq direction 'next)
-                        (min (point-max) (1+ pos))
-                      (max (point-min) (1- pos)))))))
-    found))
+(defalias 'ogent-armory-ui--visible-property-position
+  #'ogent-section-visible-item-position)
 
 (defun ogent-armory-ui--insert-item-line (item text)
   "Insert TEXT with Armory ITEM metadata."
-  (let ((start (point)))
-    (insert text "\n")
-    (add-text-properties
-     start
-     (point)
-     `(ogent-armory-item ,item
-                         mouse-face highlight
-                         help-echo "RET visits this Armory item"))))
+  (ogent-section-insert-item-line text 'ogent-armory-item item
+                                  "RET visits this Armory item"))
 
 (provide 'ogent-ui-armory-core)
 ;;; ogent-ui-armory-core.el ends here

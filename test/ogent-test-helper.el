@@ -32,6 +32,13 @@ instead of reading a keystroke."
 
 (advice-add 'org-check-agenda-file :around #'ogent-test--silence-agenda-check)
 
+;; Preload jka-compr while .elc is still in `load-suffixes'.  Without
+;; this, the exclusion below leaves only compressed built-in sources
+;; (e.g. face-remap.el.gz on Nix Emacs) loadable via jka-compr, whose
+;; own source is also compressed - requiring it then recurses fatally
+;; ("Recursive load ... jka-compr.el.gz").
+(require 'jka-compr)
+
 ;; Exclude .elc from load-suffixes so stale bytecode (which may embed
 ;; outdated macro expansions, e.g. magit-insert-section) is never loaded.
 ;; load-prefer-newer alone is insufficient: it still picks a newer .elc

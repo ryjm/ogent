@@ -17,6 +17,13 @@
 ;; 3. Feedback - Every action has visible response
 ;; 4. Accessibility - Works in terminal, respects user themes
 ;;
+;; Division of labor across the ogent style stack:
+;; - `ogent-ops-style'   - plain symbol/spinner tables (status, priority,
+;;                         activity glyph lookups) with no face knowledge.
+;; - `ogent-ui-theme'    - faces, icons, and visual feedback (this file).
+;; - `ogent-ui-section'  - magit-section buffer machinery (sections,
+;;                         navigation, point-preserving refresh).
+;;
 ;; Usage:
 ;;   (require 'ogent-ui-theme)
 ;;   (ogent-theme-icon 'send)        ; Get icon for action
@@ -73,7 +80,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#5e81ac" :weight bold)
     (((class color) (background dark))
-     :foreground "#88c0d0" :weight bold))
+     :foreground "#88c0d0" :weight bold)
+    (t :inherit font-lock-keyword-face))
   "Primary accent color - for main actions and focus."
   :group 'ogent-theme)
 
@@ -81,7 +89,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#81a1c1")
     (((class color) (background dark))
-     :foreground "#81a1c1"))
+     :foreground "#81a1c1")
+    (t :inherit font-lock-type-face))
   "Secondary accent - for supporting elements."
   :group 'ogent-theme)
 
@@ -89,7 +98,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#2e7d32" :weight bold)
     (((class color) (background dark))
-     :foreground "#a3be8c" :weight bold))
+     :foreground "#a3be8c" :weight bold)
+    (t :inherit success))
   "Success state - completions, confirmations."
   :group 'ogent-theme)
 
@@ -97,7 +107,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :background "#e8f5e9" :foreground "#1b5e20")
     (((class color) (background dark))
-     :background "#1e3a1e" :foreground "#a3be8c"))
+     :background "#1e3a1e" :foreground "#a3be8c")
+    (t :inherit success))
   "Success with background - for flash effects."
   :group 'ogent-theme)
 
@@ -105,7 +116,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#f57c00" :weight bold)
     (((class color) (background dark))
-     :foreground "#ebcb8b" :weight bold))
+     :foreground "#ebcb8b" :weight bold)
+    (t :inherit warning))
   "Warning state - caution, in-progress."
   :group 'ogent-theme)
 
@@ -113,7 +125,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :background "#fff3e0" :foreground "#e65100")
     (((class color) (background dark))
-     :background "#3d3426" :foreground "#ebcb8b"))
+     :background "#3d3426" :foreground "#ebcb8b")
+    (t :inherit warning))
   "Warning with background - for flash effects."
   :group 'ogent-theme)
 
@@ -121,7 +134,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#c62828" :weight bold)
     (((class color) (background dark))
-     :foreground "#bf616a" :weight bold))
+     :foreground "#bf616a" :weight bold)
+    (t :inherit error))
   "Error state - failures, destructive actions."
   :group 'ogent-theme)
 
@@ -129,7 +143,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :background "#ffebee" :foreground "#b71c1c")
     (((class color) (background dark))
-     :background "#3d2626" :foreground "#bf616a"))
+     :background "#3d2626" :foreground "#bf616a")
+    (t :inherit error))
   "Error with background - for flash effects."
   :group 'ogent-theme)
 
@@ -137,7 +152,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#1565c0")
     (((class color) (background dark))
-     :foreground "#5e81ac"))
+     :foreground "#5e81ac")
+    (t :inherit font-lock-doc-face))
   "Info state - neutral information."
   :group 'ogent-theme)
 
@@ -145,7 +161,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#78909c")
     (((class color) (background dark))
-     :foreground "#4c566a"))
+     :foreground "#6b7386")
+    (t :inherit shadow))
   "Muted text - secondary, less important."
   :group 'ogent-theme)
 
@@ -153,7 +170,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#6a1b9a" :weight bold)
     (((class color) (background dark))
-     :foreground "#b48ead" :weight bold))
+     :foreground "#b48ead" :weight bold)
+    (t :inherit highlight))
   "Highlight - special emphasis, active items."
   :group 'ogent-theme)
 
@@ -161,7 +179,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#5e35b1" :weight bold)
     (((class color) (background dark))
-     :foreground "#b48ead" :weight bold))
+     :foreground "#b48ead" :weight bold)
+    (t :inherit help-key-binding))
   "Keybinding display face."
   :group 'ogent-theme)
 
@@ -169,7 +188,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#455a64" :box (:line-width -1 :color "#90a4ae"))
     (((class color) (background dark))
-     :foreground "#d8dee9" :box (:line-width -1 :color "#4c566a")))
+     :foreground "#d8dee9" :box (:line-width -1 :color "#4c566a"))
+    (t :inherit font-lock-constant-face))
   "Badge/tag face - for type indicators, counts."
   :group 'ogent-theme)
 
@@ -177,7 +197,8 @@ Options: `fast', `normal', `slow', or `none'."
   '((((class color) (background light))
      :foreground "#37474f" :weight bold :height 1.1)
     (((class color) (background dark))
-     :foreground "#eceff4" :weight bold :height 1.1))
+     :foreground "#eceff4" :weight bold :height 1.1)
+    (t :inherit outline-1 :height 1.1))
   "Section heading face."
   :group 'ogent-theme)
 
@@ -187,7 +208,8 @@ Options: `fast', `normal', `slow', or `none'."
      :weight bold :box (:line-width 2 :color "#eceff1"))
     (((class color) (background dark))
      :background "#2e3440" :foreground "#eceff4"
-     :weight bold :box (:line-width 2 :color "#2e3440")))
+     :weight bold :box (:line-width 2 :color "#2e3440"))
+    (t :inherit header-line))
   "Header line background face."
   :group 'ogent-theme)
 
@@ -204,14 +226,14 @@ Options: `fast', `normal', `slow', or `none'."
 
 (defconst ogent-theme-icons
   '(;; Actions
-    (send        . (:nerd "nf-md-send"           :unicode ""  :ascii ">"))
+    (send        . (:nerd "nf-md-send"           :unicode "➤"  :ascii ">"))
     (cancel      . (:nerd "nf-md-close"          :unicode "✕"  :ascii "x"))
     (refresh     . (:nerd "nf-md-refresh"        :unicode "↻"  :ascii "R"))
     (settings    . (:nerd "nf-md-cog"            :unicode "⚙"  :ascii "*"))
     (help        . (:nerd "nf-md-help_circle"    :unicode "?"  :ascii "?"))
     (edit        . (:nerd "nf-md-pencil"         :unicode "✎"  :ascii "E"))
-    (save        . (:nerd "nf-md-content_save"   :unicode "💾" :ascii "S"))
-    (pin         . (:nerd "nf-md-pin"            :unicode "📌" :ascii "P"))
+    (save        . (:nerd "nf-md-content_save"   :unicode "⇓"  :ascii "S"))
+    (pin         . (:nerd "nf-md-pin"            :unicode "☰"  :ascii "P"))
     (unpin       . (:nerd "nf-md-pin_off"        :unicode "📍" :ascii "U"))
     
     ;; Status
@@ -225,15 +247,15 @@ Options: `fast', `normal', `slow', or `none'."
     (blocked     . (:nerd "nf-md-block_helper"   :unicode "⊘"  :ascii "X"))
     
     ;; Objects
-    (file        . (:nerd "nf-md-file"           :unicode "📄" :ascii "F"))
-    (folder      . (:nerd "nf-md-folder"         :unicode "📁" :ascii "D"))
+    (file        . (:nerd "nf-md-file"           :unicode "≡"  :ascii "F"))
+    (folder      . (:nerd "nf-md-folder"         :unicode "▸"  :ascii "D"))
     (code        . (:nerd "nf-md-code_tags"      :unicode "⟨⟩" :ascii "<>"))
     (terminal    . (:nerd "nf-md-console"        :unicode "⌨"  :ascii "$"))
-    (model       . (:nerd "nf-md-robot"          :unicode "🤖" :ascii "@"))
+    (model       . (:nerd "nf-md-robot"          :unicode "◈"  :ascii "@"))
     (context     . (:nerd "nf-md-text_box"       :unicode "📋" :ascii "C"))
     (session     . (:nerd "nf-md-history"        :unicode "📜" :ascii "H"))
     (issue       . (:nerd "nf-md-checkbox_marked":unicode "☑"  :ascii "[x]"))
-    (bug         . (:nerd "nf-md-bug"            :unicode "🐛" :ascii "B"))
+    (bug         . (:nerd "nf-md-bug"            :unicode "⚑"  :ascii "B"))
     (feature     . (:nerd "nf-md-star"           :unicode "★"  :ascii "*"))
     (task        . (:nerd "nf-md-checkbox_blank" :unicode "☐"  :ascii "[ ]"))
     (epic        . (:nerd "nf-md-flag"           :unicode "🚩" :ascii "E"))
@@ -314,7 +336,7 @@ error, info, muted, highlight, key, badge, heading, header."
 (defvar ogent-theme--flash-cookie nil
   "Face remapping cookie for mode-line flash.")
 
-(defun ogent-theme-flash (type &optional message)
+(cl-defun ogent-theme-flash (type &optional message)
   "Flash the mode-line with TYPE color and optional MESSAGE.
 TYPE is one of: `success', `warning', `error', `info'.
 The flash lasts for `ogent-theme-flash-duration' seconds."
@@ -358,7 +380,7 @@ The flash lasts for `ogent-theme-flash-duration' seconds."
     (setq ogent-theme--flash-cookie nil)
     (force-mode-line-update t)))
 
-(defun ogent-theme-pulse-line (&optional face)
+(cl-defun ogent-theme-pulse-line (&optional face)
   "Briefly highlight the current line with FACE.
 Defaults to `ogent-theme-highlight'."
   (when (eq ogent-theme-animation-speed 'none)
