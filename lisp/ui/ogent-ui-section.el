@@ -75,6 +75,8 @@
   (and (ogent-section-available-p)
        (fboundp 'magit-current-section)
        (fboundp 'magit-insert-heading)
+       (fboundp 'magit-insert-section--create)
+       (fboundp 'magit-insert-section--finish)
        (fboundp 'magit-section-toggle)
        (fboundp 'magit-section-forward-sibling)
        (fboundp 'magit-section-backward-sibling)))
@@ -99,20 +101,32 @@
                        (symbol-value 'magit-root-section))
              (set 'magit-root-section section)))))
 
+(defun ogent-section--create (type)
+  "Create a Magit section of TYPE."
+  (magit-insert-section--create type nil nil))
+
+(defun ogent-section--insert-heading (heading)
+  "Insert Magit section HEADING."
+  (magit-insert-heading heading))
+
+(defun ogent-section--finish (section)
+  "Finish Magit SECTION."
+  (magit-insert-section--finish section))
+
 (defmacro ogent-section-with (section heading &rest body)
   "Insert collapsible SECTION with HEADING around BODY when Magit is present."
   (declare (indent 2) (debug t))
   (let ((type (car section)))
     `(if (ogent-section-usable-p)
-         (let ((section (magit-insert-section--create ',type nil nil)))
+         (let ((section (ogent-section--create ',type)))
            (cl-progv '(magit-insert-section--current
                        magit-insert-section--oldroot
                        magit-insert-section--parent)
                (list section (ogent-section--root-value section) section)
              (catch 'cancel-section
-               (magit-insert-heading ,heading)
+               (ogent-section--insert-heading ,heading)
                ,@body
-               (magit-insert-section--finish section))
+               (ogent-section--finish section))
              section))
        (insert ,heading "\n")
        ,@body)))
@@ -122,14 +136,14 @@
   (declare (indent 1) (debug t))
   (let ((type (car section)))
     `(if (ogent-section-usable-p)
-         (let ((section (magit-insert-section--create ',type nil nil)))
+         (let ((section (ogent-section--create ',type)))
            (cl-progv '(magit-insert-section--current
                        magit-insert-section--oldroot
                        magit-insert-section--parent)
                (list section (ogent-section--root-value section) section)
              (catch 'cancel-section
                ,@body
-               (magit-insert-section--finish section))
+               (ogent-section--finish section))
              section))
        ,@body)))
 
