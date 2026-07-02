@@ -58,9 +58,9 @@
 This is the terminal/unthemed-display degradation contract: raw hex
 light/dark specs must never be the only clauses."
   (dolist (name '(primary secondary success success-bg
-                  warning warning-bg error error-bg
-                  info muted highlight key badge
-                  section-heading header-line))
+			  warning warning-bg error error-bg
+			  info muted highlight key badge
+			  section-heading header-line))
     (let* ((face (intern (format "ogent-theme-%s" name)))
            (spec (get face 'face-defface-spec))
            (last-clause (car (last spec))))

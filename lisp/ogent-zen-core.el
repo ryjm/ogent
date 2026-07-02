@@ -465,17 +465,25 @@ STATUS is one of the symbols `wait', `tool', `type', `done',
   "Return the primary review state at point."
   (ogent-zen--effective-review-state))
 
+(defun ogent-zen--review-badge-face (state)
+  "Return the semantic face for review badge STATE."
+  (pcase state
+    ((or 'accepted 'useful) 'ogent-theme-success)
+    ((or 'rejected 'failed) 'ogent-theme-error)
+    ((or 'needs-review 'stale 'superseded) 'ogent-theme-warning)
+    (_ 'ogent-zen-review-face)))
+
 (defun ogent-zen--review-badge (state)
   "Return a propertized review badge for STATE."
   (when-let ((entry (cdr (assq state ogent-zen--review-states))))
     (propertize (format "%s %s" (car entry) (cadr entry))
-                'face 'ogent-zen-review-face)))
+                'face (ogent-zen--review-badge-face state))))
 
 (defun ogent-zen--response-review-badge (model state)
   "Return a propertized review badge for response MODEL in STATE."
   (when-let ((entry (cdr (assq state ogent-zen--review-states))))
     (propertize (format "%s %s %s" (car entry) model (cadr entry))
-                'face 'ogent-zen-review-face)))
+                'face (ogent-zen--review-badge-face state))))
 
 (defun ogent-zen--review-badges (&optional target)
   "Return visible review badges for TARGET or point."

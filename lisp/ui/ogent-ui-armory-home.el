@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'ogent-ui-armory-core)
+(require 'ogent-armory-cache)
 
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -38,60 +39,31 @@
   (let ((map (make-sparse-keymap)))
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-home-visit))
-    (define-key map "m" #'ogent-armory-home-dispatch)
-    (define-key map (kbd "C-c m") #'ogent-armory-home-dispatch)
-    (define-key map "?" #'ogent-armory-home-help)
-    (define-key map (kbd "C-c ?") #'ogent-armory-home-help)
+    (define-key map "?" #'ogent-armory-home-dispatch)
     (define-key map "g" #'ogent-armory-home-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-home-refresh)
     (define-key map "q" #'quit-window)
-    (define-key map "j" #'ogent-armory-jobs)
-    (define-key map (kbd "C-c j") #'ogent-armory-jobs)
     (define-key map "J" #'ogent-armory-home-open-jobs)
-    (define-key map (kbd "C-c J") #'ogent-armory-home-open-jobs)
     (define-key map "R" #'ogent-armory-home-run)
-    (define-key map (kbd "C-c r") #'ogent-armory-home-run)
     (define-key map "E" #'ogent-armory-home-edit-item)
-    (define-key map (kbd "C-c E") #'ogent-armory-home-edit-item)
-    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
-    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
-    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
-    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
-    (define-key map (kbd "C-c u") #'ogent-armory-ui-up-section)
-    (define-key map "a" #'ogent-armory-agents)
-    (define-key map (kbd "C-c a") #'ogent-armory-agents)
-    (define-key map "D" #'ogent-armory-data)
-    (define-key map (kbd "C-c D") #'ogent-armory-data)
-    (define-key map "t" #'ogent-armory-tasks)
-    (define-key map (kbd "C-c t") #'ogent-armory-tasks)
-    (define-key map "c" #'ogent-armory-conversations)
-    (define-key map (kbd "C-c c") #'ogent-armory-conversations)
-    (define-key map "u" #'ogent-armory-schedule)
-    (define-key map (kbd "C-c S") #'ogent-armory-schedule)
-    (define-key map "s" #'ogent-armory-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-search)
-    (define-key map "A" #'ogent-armory-apps)
-    (define-key map (kbd "C-c A") #'ogent-armory-apps)
-    (define-key map "h" #'ogent-armory-git-status)
-    (define-key map (kbd "C-c h") #'ogent-armory-git-status)
-    (define-key map "/" #'ogent-armory-command-palette)
-    (define-key map (kbd "C-c /") #'ogent-armory-command-palette)
-    (define-key map "," #'ogent-armory-settings)
-    (define-key map (kbd "C-c ,") #'ogent-armory-settings)
-    (define-key map "." #'ogent-armory-help)
-    (define-key map (kbd "C-c .") #'ogent-armory-help)
-    (define-key map "G" #'ogent-armory-status)
-    (define-key map (kbd "C-c G") #'ogent-armory-status)
     (define-key map "e" #'ogent-armory-home-edit-metadata)
-    (define-key map (kbd "C-c e") #'ogent-armory-home-edit-metadata)
+    (define-key map (kbd "TAB") #'ogent-section-toggle)
+    (define-key map (kbd "<tab>") #'ogent-section-toggle)
+    (define-key map (kbd "<backtab>") #'ogent-section-cycle)
+    (define-key map (kbd "M-n") #'ogent-section-next)
+    (define-key map (kbd "M-p") #'ogent-section-prev)
+    (define-key map (kbd "^") #'ogent-section-up)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "n" #'ogent-armory-home-next-item)
-    (define-key map (kbd "C-c n") #'ogent-armory-home-next-item)
     (define-key map "p" #'ogent-armory-home-previous-item)
-    (define-key map (kbd "C-c p") #'ogent-armory-home-previous-item)
     map)
   "Keymap for `ogent-armory-home-mode'.")
+
+(defcustom ogent-armory-home-show-logo t
+  "Non-nil means render the ASCII crest banner atop Armory Home."
+  :type 'boolean
+  :group 'ogent-ui-armory)
 
 (ogent-armory-ui--define-section-mode ogent-armory-home-mode "Armory-Home"
                                       "Major mode for Armory Home."
@@ -99,11 +71,15 @@
   (setq-local truncate-lines t)
   (setq-local buffer-read-only t)
   (ogent-armory-ui--configure-section-buffer)
-  (setq-local header-line-format (ogent-armory-home--header-line)))
+  (setq header-line-format '(:eval (ogent-armory-home--header-line))))
 
 (defun ogent-armory-home--header-line ()
   "Return header line for Armory Home."
-  "C-c m menu  C-c ? help  C-c . docs  RET visit  TAB section  M-n/p sections  C-c g refresh  q quit  C-c / palette  C-c , settings  C-c j Jobs  C-c a Agents  C-c t Tasks  C-c c Conversations  C-c s Search")
+  (ogent-section-header-line
+   "Armory Home"
+   (and ogent-armory-home--root
+        (ogent-armory-ui--root-label ogent-armory-home--root))
+   '("?" . "menu") '("j" . "jump") '("g" . "refresh")))
 
 (defun ogent-armory-home (&optional directory)
   "Open Armory Home for DIRECTORY."
@@ -122,13 +98,19 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-home-refresh (&rest _)
-  "Refresh Armory Home."
-  (interactive)
+(defun ogent-armory-home-refresh (&optional force &rest _)
+  "Refresh Armory Home.
+With FORCE non-nil, invalidate cached Armory data before fetching."
+  (interactive "P")
   (let ((inhibit-read-only t))
-    (erase-buffer)
-    (ogent-armory-home--insert-buffer)
-    (goto-char (point-min))))
+    (ogent-armory-ui--invalidate-cache-when-force
+     force ogent-armory-home--root)
+    (ogent-section-preserve-point
+        ((lambda ()
+           (when-let ((item (ogent-section-item-at-point 'ogent-armory-item)))
+             (cons (plist-get item :type) (plist-get item :path)))))
+      (erase-buffer)
+      (ogent-armory-home--insert-buffer))))
 
 (defun ogent-armory-home--insert-nav (label key command)
   "Insert navigation LABEL for KEY dispatching to COMMAND."
@@ -167,10 +149,11 @@
   "ASCII crest banner shown atop Armory Home.")
 
 (defun ogent-armory-home--insert-logo ()
-  "Insert the ogent crest banner at the top of Armory Home."
-  (insert (propertize ogent-armory-home--logo
-                      'face 'ogent-armory-ui-logo)
-          "\n\n"))
+  "Insert the ogent crest banner when `ogent-armory-home-show-logo'."
+  (when ogent-armory-home-show-logo
+    (insert (propertize ogent-armory-home--logo
+                        'face 'ogent-armory-ui-logo)
+            "\n\n")))
 
 (defun ogent-armory-home--insert-buffer ()
   "Insert Armory Home contents."
@@ -230,22 +213,22 @@
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-home-navigate)
         (ogent-armory-ui--heading-text "Navigate")
-      (ogent-armory-home--insert-nav "Data" "C-c D" #'ogent-armory-data)
-      (ogent-armory-home--insert-nav "Agents" "C-c a" #'ogent-armory-agents)
-      (ogent-armory-home--insert-nav "Jobs" "C-c j" #'ogent-armory-jobs)
-      (ogent-armory-home--insert-nav "Tasks" "C-c t" #'ogent-armory-tasks)
-      (ogent-armory-home--insert-nav "Conversations" "C-c c" #'ogent-armory-conversations)
-      (ogent-armory-home--insert-nav "Schedule" "C-c S" #'ogent-armory-schedule)
-      (ogent-armory-home--insert-nav "Search" "C-c s" #'ogent-armory-search)
-      (ogent-armory-home--insert-nav "Apps" "C-c A" #'ogent-armory-apps)
-      (ogent-armory-home--insert-nav "Git" "C-c h" #'ogent-armory-git-status)
-      (ogent-armory-home--insert-nav "Palette" "C-c /" #'ogent-armory-command-palette)
-      (ogent-armory-home--insert-nav "Settings" "C-c ," #'ogent-armory-settings)
-      (ogent-armory-home--insert-nav "Help" "C-c ." #'ogent-armory-help)
-      (ogent-armory-home--insert-nav "Graph" "C-c G" #'ogent-armory-status)
+      (ogent-armory-home--insert-nav "Data" "j d" #'ogent-armory-data)
+      (ogent-armory-home--insert-nav "Agents" "j a" #'ogent-armory-agents)
+      (ogent-armory-home--insert-nav "Jobs" "j j" #'ogent-armory-jobs)
+      (ogent-armory-home--insert-nav "Tasks" "j t" #'ogent-armory-tasks)
+      (ogent-armory-home--insert-nav "Conversations" "j c" #'ogent-armory-conversations)
+      (ogent-armory-home--insert-nav "Schedule" "j u" #'ogent-armory-schedule)
+      (ogent-armory-home--insert-nav "Search" "j s" #'ogent-armory-search)
+      (ogent-armory-home--insert-nav "Apps" "j A" #'ogent-armory-apps)
+      (ogent-armory-home--insert-nav "Git" "j v" #'ogent-armory-git-status)
+      (ogent-armory-home--insert-nav "Palette" "/" #'ogent-armory-command-palette)
+      (ogent-armory-home--insert-nav "Settings" "," #'ogent-armory-settings)
+      (ogent-armory-home--insert-nav "Help" "? ." #'ogent-armory-help)
+      (ogent-armory-home--insert-nav "Graph" "j g" #'ogent-armory-status)
       (ogent-armory-ui--insert-item-line
        (list :type 'file :path (ogent-armory-index-file root))
-       "  [C-c e] Armory metadata")
+       "  [e] Armory metadata")
       (ogent-armory-ui--insert-item-line
        (list :type 'file :path (ogent-armory-index-file root))
        "  Source Org"))
@@ -308,7 +291,7 @@
                      :agent agent
                      :job-id job-id
                      :path (ogent-armory-job-file root agent job-id))
-               (format "  %s  %s  %s  [C-c r run] [C-c E prompt] [C-c J jobs]"
+               (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
                        agent
                        (or (plist-get job :name) job-id)
                        (or (plist-get job :cron)
@@ -399,19 +382,22 @@
     (princ "Home is the cockpit for developing a project with Armory.\n\n")
     (princ "Daily work\n")
     (princ "----------\n")
-    (princ "C-c j opens Jobs. C-c J opens jobs related to the item at point.\n")
-    (princ "C-c r runs or retries the selected agent, job, or conversation.\n")
-    (princ "C-c E edits the selected agent persona, job prompt, or source Org record.\n")
+    (princ "J opens jobs related to the item at point.\n")
+    (princ "R runs or retries the selected agent, job, or conversation.\n")
+    (princ "E edits the selected agent persona, job prompt, or source Org record.\n")
+    (princ "e visits the Armory metadata (index Org file).\n")
     (princ "RET opens the richer surface or durable source for the item at point.\n\n")
-    (princ "Navigation\n")
-    (princ "----------\n")
-    (princ "C-c D Data, C-c a Agents, C-c t Tasks, C-c c Conversations, C-c S Schedule, C-c s Search, C-c A Apps, C-c h Git, C-c / Palette, C-c , Settings, C-c . Help, C-c G Graph.\n")
-    (princ "C-c n and C-c p move between actionable rows. C-c g refreshes. q quits.\n")
-    (princ "TAB toggles a section. M-n/M-p move between sibling sections. C-c u moves to the parent section.\n\n")
-    (princ "Evil normal state keeps bare Vim navigation and exposes Armory actions through these chords.\n\n")
+    (princ "Jumps\n")
+    (princ "-----\n")
+    (princ "j h Home, j g Graph, j a Agents, j o Org chart, j t Tasks, j c Conversations,\n")
+    (princ "j j Jobs, j s Search, j A Apps, j d Data, j u Schedule, j v Git.\n")
+    (princ ", opens Settings. / opens the command palette.\n")
+    (princ "n and p move between actionable rows. g refreshes; C-u g forces a rebuild. q quits.\n")
+    (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n\n")
+    (princ "Evil: keys the buffer binds win over Evil motion; unbound keys keep their Evil meaning.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
-    (princ "C-c m opens the Transient menu. C-c ? opens this help buffer.\n")))
+    (princ "? opens the Transient menu (h inside it reopens this help).\n")))
 
 (defun ogent-armory-home--transient-header ()
   "Return the header text for `ogent-armory-home-dispatch'."
@@ -427,41 +413,30 @@
   "Dispatch menu for Armory Home."
   [:description ogent-armory-home--transient-header
                 ["Daily Work"
-                 ("j" "Jobs" ogent-armory-jobs)
                  ("J" "Related jobs" ogent-armory-home-open-jobs)
                  ("R" "Run/retry selected" ogent-armory-home-run)
-                 ("E" "Edit selected" ogent-armory-home-edit-item)]
+                 ("E" "Edit selected" ogent-armory-home-edit-item)
+                 ("e" "Edit metadata" ogent-armory-home-edit-metadata)]
                 ["Navigate"
                  ("RET" "Visit selected" ogent-armory-home-visit)
-                 ("TAB" "Toggle section" ogent-armory-ui-toggle-section :transient t)
-                 ("M-n" "Next section" ogent-armory-ui-next-section :transient t)
-                 ("M-p" "Previous section" ogent-armory-ui-previous-section :transient t)
-                 ("^" "Up section" ogent-armory-ui-up-section :transient t)
+                 ("TAB" "Toggle section" ogent-section-toggle :transient t)
+                 ("M-n" "Next section" ogent-section-next :transient t)
+                 ("M-p" "Previous section" ogent-section-prev :transient t)
+                 ("^" "Up section" ogent-section-up :transient t)
                  ("n" "Next item" ogent-armory-home-next-item :transient t)
                  ("p" "Previous item" ogent-armory-home-previous-item :transient t)
                  ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
-  [["Surfaces"
-    ("D" "Data" ogent-armory-data)
-    ("a" "Agents" ogent-armory-agents)
-    ("B" "Org chart" ogent-armory-org-chart)
-    ("t" "Tasks" ogent-armory-tasks)
-    ("c" "Conversations" ogent-armory-conversations)
-    ("u" "Schedule" ogent-armory-schedule)
-    ("N" "Action approvals" ogent-armory-actions)
-    ("s" "Search" ogent-armory-search)
-    ("A" "Apps" ogent-armory-apps)
-    ("h" "Git" ogent-armory-git-status)
-    ("/" "Palette" ogent-armory-command-palette)
-    ("," "Settings" ogent-armory-settings)
-    ("." "Help" ogent-armory-help)
-    ("G" "Graph" ogent-armory-status)]
-   ["Armory"
+  [ogent-armory-ui--jump-group
+   ["Ops"
     ("Q" "Agenda" ogent-armory-agenda)
+    ("N" "Action approvals" ogent-armory-actions)
     ("'" "Onboard" ogent-armory-onboard)
     ("=" "Registry import" ogent-armory-registry-import)
     ("_" "Backup" ogent-armory-backup)
-    ("e" "Edit metadata" ogent-armory-home-edit-metadata)
-    ("?" "Help" ogent-armory-home-help)
+    ("o" "Org chart" ogent-armory-org-chart)]
+   ["Help"
+    ("h" "Help" ogent-armory-home-help)
+    ("." "Docs" ogent-armory-help)
     ("q" "Quit menu" transient-quit-one)]])
 
 (defun ogent-armory-home-next-item ()
@@ -481,6 +456,21 @@
                    'previous)))
     (when previous
       (goto-char previous))))
+
+(defun ogent-armory-home--evil-local-keys ()
+  "Install local Evil keys for Armory Home buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-home-mode-map))
+
+(defun ogent-armory-home--setup-evil ()
+  "Set up Evil integration for Armory Home buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-home-mode
+   ogent-armory-home-mode-map
+   'ogent-armory-home-mode-hook
+   #'ogent-armory-home--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-home--setup-evil))
 
 (provide 'ogent-ui-armory-home)
 ;;; ogent-ui-armory-home.el ends here

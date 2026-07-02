@@ -81,13 +81,14 @@
   (should (string= (ogent-action-get 'zen-copy-response :desc)
                    "Copy Zen response")))
 
-(ert-deftest ogent-keys-action-get-zen-review-menu ()
-  "Zen review menu action uses the normal ogent prefix map."
-  (should (string= (ogent-action-get 'zen-review-menu :key) "u"))
-  (should (eq (ogent-action-get 'zen-review-menu :command)
-              'ogent-zen-review-menu))
-  (should (string= (ogent-action-get 'zen-review-menu :desc)
-                   "Review Zen run")))
+(ert-deftest ogent-keys-action-get-zen-dispatch ()
+  "Zen dispatch replaces the old review-menu action on the global prefix map."
+  (should-not (ogent-action-get 'zen-review-menu :key))
+  (should (string= (ogent-action-get 'zen-dispatch :key) "u"))
+  (should (eq (ogent-action-get 'zen-dispatch :command)
+              'ogent-zen-dispatch))
+  (should (string= (ogent-action-get 'zen-dispatch :desc)
+                   "Zen menu")))
 
 (ert-deftest ogent-keys-action-get-malleable-bindings ()
   "Malleable Zen actions have direct prefix bindings."

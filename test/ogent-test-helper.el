@@ -58,6 +58,23 @@ instead of reading a keystroke."
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
 
+;; Keep companion-link persistence tests writable even when the project source
+;; tree is read-only (for example, Nix checkouts where `user-emacs-directory'
+;; defaults under /nix/store/.../source).  `defcustom' preserves an existing
+;; binding, so set this before any test requires `ogent-companion'.  Individual
+;; persistence tests may still dynamically bind their own registry file.
+(defvar ogent-companion-link-registry-file)
+
+(defconst ogent-test-companion-link-registry-file
+  (make-temp-file "ogent-companion-links" nil ".el")
+  "Scratch companion link registry file used by batch tests.")
+
+(with-temp-file ogent-test-companion-link-registry-file
+  (insert "nil\n"))
+
+(setq ogent-companion-link-registry-file
+      ogent-test-companion-link-registry-file)
+
 (defvar transient-history-file)
 (defvar transient-save-history)
 

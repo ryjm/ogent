@@ -20,6 +20,28 @@
                             (ogent-status--format-elapsed start-time))))
   (should (equal (ogent-status--format-elapsed nil) "0.0s")))
 
+(defun ogent-status-tests--assert-header-status (status expected-face)
+  "Assert header rendering for STATUS uses its semantic icon and face."
+  (with-temp-buffer
+    (let* ((start-time (current-time))
+           (model (list :id "test-model"))
+           (request (make-ogent-ui-request
+                     :id (format "test-%s" status)
+                     :model model
+                     :status status
+                     :start-time start-time)))
+      (setq ogent-status--current-request request)
+      (let* ((header (ogent-status--format-header-line))
+             (plain (substring-no-properties header))
+             (icon (ogent-status--get-icon status))
+             (icon-start (string-match-p (regexp-quote icon) plain)))
+        (should (string-match-p "ogent" plain))
+        (should (string-match-p "test-model" plain))
+        (should icon-start)
+        (should (eq (get-text-property icon-start 'face header)
+                    expected-face))
+        (should (string-match-p "[0-9]\\.[0-9]s" plain))))))
+
 (ert-deftest ogent-status-format-header-line-ready ()
   "Header-line shows 'ready' when no active request."
   (with-temp-buffer
@@ -64,46 +86,16 @@
         (should (string-match-p "[0-9]\\.[0-9]s" header))))))
 
 (ert-deftest ogent-status-format-header-line-done ()
-  "Header-line shows done icon for completed request."
-  (with-temp-buffer
-    (let* ((start-time (time-subtract (current-time) (seconds-to-time 10.0)))
-           (model (list :id "claude-3.5-haiku"))
-           (request (make-ogent-ui-request
-                     :id "test-3"
-                     :model model
-                     :status 'done
-                     :start-time start-time)))
-      (setq ogent-status--current-request request)
-      (let ((header (ogent-status--format-header-line)))
-        (should (string-match-p "ogent: claude-3.5-haiku ✓" header))))))
+  "Header-line shows the semantic success icon for completed requests."
+  (ogent-status-tests--assert-header-status 'done 'ogent-theme-success))
 
 (ert-deftest ogent-status-format-header-line-error ()
-  "Header-line shows error icon for failed request."
-  (with-temp-buffer
-    (let* ((start-time (current-time))
-           (model (list :id "test-model"))
-           (request (make-ogent-ui-request
-                     :id "test-4"
-                     :model model
-                     :status 'error
-                     :start-time start-time)))
-      (setq ogent-status--current-request request)
-      (should (string-match-p "ogent: test-model ✗"
-                              (ogent-status--format-header-line))))))
+  "Header-line shows the semantic error icon for failed requests."
+  (ogent-status-tests--assert-header-status 'error 'ogent-theme-error))
 
 (ert-deftest ogent-status-format-header-line-aborted ()
-  "Header-line shows abort icon for aborted request."
-  (with-temp-buffer
-    (let* ((start-time (current-time))
-           (model (list :id "test-model"))
-           (request (make-ogent-ui-request
-                     :id "test-5"
-                     :model model
-                     :status 'aborted
-                     :start-time start-time)))
-      (setq ogent-status--current-request request)
-      (should (string-match-p "ogent: test-model ⊘"
-                              (ogent-status--format-header-line))))))
+  "Header-line shows the semantic blocked icon for aborted requests."
+  (ogent-status-tests--assert-header-status 'aborted 'ogent-theme-error))
 
 (ert-deftest ogent-status-set-request ()
   "Setting a request updates buffer state."

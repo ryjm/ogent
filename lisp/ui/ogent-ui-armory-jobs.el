@@ -12,22 +12,37 @@
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-jobs-visit))
     (define-key map "c" #'ogent-armory-create-job)
-    (define-key map (kbd "C-c c") #'ogent-armory-create-job)
     (define-key map "e" #'ogent-armory-jobs-edit)
-    (define-key map (kbd "C-c e") #'ogent-armory-jobs-edit)
     (define-key map "P" #'ogent-armory-jobs-edit-prompt)
-    (define-key map (kbd "C-c p") #'ogent-armory-jobs-edit-prompt)
     (define-key map "R" #'ogent-armory-jobs-run)
-    (define-key map (kbd "C-c r") #'ogent-armory-jobs-run)
     (define-key map "T" #'ogent-armory-jobs-toggle-enabled)
-    (define-key map (kbd "C-c t") #'ogent-armory-jobs-toggle-enabled)
     (define-key map "A" #'ogent-armory-jobs-archive)
-    (define-key map (kbd "C-c a") #'ogent-armory-jobs-archive)
     (define-key map "g" #'ogent-armory-jobs-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-jobs-refresh)
+    (define-key map "?" #'ogent-armory-jobs-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-jobs-mode'.")
+
+(transient-define-prefix ogent-armory-jobs-dispatch ()
+  "Dispatch menu for the Armory job list."
+  [["Item"
+    ("RET" "Visit job Org file" ogent-armory-jobs-visit)
+    ("c" "Create job" ogent-armory-create-job)
+    ("e" "Edit metadata" ogent-armory-jobs-edit)
+    ("P" "Edit prompt/body" ogent-armory-jobs-edit-prompt)
+    ("R" "Run job" ogent-armory-jobs-run)
+    ("T" "Toggle enabled" ogent-armory-jobs-toggle-enabled)
+    ("A" "Archive" ogent-armory-jobs-archive)]
+   ["View"
+    ("g" "Refresh" ogent-armory-jobs-refresh :transient t)]]
+  [ogent-armory-ui--jump-group
+   ["Help"
+    ("q" "Quit menu" transient-quit-one)]])
 
 (define-derived-mode ogent-armory-jobs-mode tabulated-list-mode "Armory-Jobs"
   "Major mode for Armory jobs."
@@ -44,6 +59,16 @@
   (setq-local tabulated-list-padding 2)
   (setq-local tabulated-list-sort-key '("Agent" . nil))
   (setq-local revert-buffer-function #'ogent-armory-jobs-refresh)
+  (setq-local tabulated-list-use-header-line nil)
+  (setq header-line-format
+        '(:eval (ogent-section-header-line
+                 "Jobs"
+                 (concat (and ogent-armory-jobs--root
+                              (ogent-armory-ui--root-label
+                               ogent-armory-jobs--root))
+                         (when ogent-armory-jobs--agent
+                           (format " · %s" ogent-armory-jobs--agent)))
+                 '("?" . "menu") '("j" . "jump") '("g" . "refresh"))))
   (tabulated-list-init-header))
 
 (defun ogent-armory-job-next-run (job)
@@ -113,9 +138,11 @@
      (list root slug)))
   (ogent-armory-jobs directory agent))
 
-(defun ogent-armory-jobs-refresh (&rest _)
-  "Refresh the Armory jobs buffer."
-  (interactive)
+(defun ogent-armory-jobs-refresh (&optional force &rest _)
+  "Refresh the Armory jobs buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force force ogent-armory-jobs--root)
   (tabulated-list-print t))
 
 (defun ogent-armory-jobs--goto (agent job-id)
@@ -264,6 +291,21 @@
     (let ((file (ogent-armory-write-job root slug job prompt)))
       (ogent-armory-ui--refresh-home-buffer root)
       file)))
+
+(defun ogent-armory-jobs--evil-local-keys ()
+  "Install local Evil keys for Armory jobs buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-jobs-mode-map))
+
+(defun ogent-armory-jobs--setup-evil ()
+  "Set up Evil integration for Armory jobs buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-jobs-mode
+   ogent-armory-jobs-mode-map
+   'ogent-armory-jobs-mode-hook
+   #'ogent-armory-jobs--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-jobs--setup-evil))
 
 (provide 'ogent-ui-armory-jobs)
 ;;; ogent-ui-armory-jobs.el ends here

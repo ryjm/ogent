@@ -28,7 +28,7 @@
 (declare-function ogent-zen-run-region "ogent-zen")
 (declare-function ogent-zen-edit-dwim "ogent-zen")
 (declare-function ogent-zen-apply-last-edit "ogent-zen-edit")
-(declare-function ogent-zen-review-menu "ogent-zen")
+(declare-function ogent-zen-dispatch "ogent-zen" t t)
 (declare-function ogent-review-next "ogent-zen")
 (declare-function ogent-review-previous "ogent-zen")
 (declare-function ogent-review-reject "ogent-zen")
@@ -203,8 +203,8 @@ Set to nil to disable automatic evil binding setup."
     (zen-copy-response
      :key "w" :command ogent-zen-copy-response
      :desc "Copy Zen response")
-    (zen-review-menu :key "u" :command ogent-zen-review-menu
-                     :desc "Review Zen run")
+    (zen-dispatch    :key "u" :command ogent-zen-dispatch
+                     :desc "Zen menu")
     (ask-here         :key "q" :command ogent-ask-here
                       :desc "Ask here"
                       :visual t)

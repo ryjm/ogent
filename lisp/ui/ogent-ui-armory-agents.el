@@ -17,18 +17,29 @@
     (define-key map (kbd "<return>") #'ogent-armory-agents-open-agent)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-agents-open-agent)
     (define-key map "v" #'ogent-armory-agents-visit)
-    (define-key map (kbd "C-c v") #'ogent-armory-agents-visit)
     (define-key map "R" #'ogent-armory-agents-run)
-    (define-key map (kbd "C-c r") #'ogent-armory-agents-run)
     (define-key map "g" #'ogent-armory-agents-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-agents-refresh)
-    (define-key map "t" #'ogent-armory-tasks)
-    (define-key map (kbd "C-c t") #'ogent-armory-tasks)
-    (define-key map "s" #'ogent-armory-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-search)
+    (define-key map "?" #'ogent-armory-agents-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-agents-mode'.")
+
+(transient-define-prefix ogent-armory-agents-dispatch ()
+  "Dispatch menu for the Armory agent list."
+  [["Item"
+    ("RET" "Open agent profile" ogent-armory-agents-open-agent)
+    ("v" "Visit agent Org file" ogent-armory-agents-visit)
+    ("R" "Run with instruction" ogent-armory-agents-run)]
+   ["View"
+    ("g" "Refresh" ogent-armory-agents-refresh :transient t)]]
+  [ogent-armory-ui--jump-group
+   ["Help"
+    ("q" "Quit menu" transient-quit-one)]])
 
 (define-derived-mode ogent-armory-agents-mode tabulated-list-mode "Armory-Agents"
   "Major mode for Armory agent lists."
@@ -51,6 +62,13 @@
   (setq-local tabulated-list-padding 2)
   (setq-local tabulated-list-sort-key '("Name" . nil))
   (setq-local revert-buffer-function #'ogent-armory-agents-refresh)
+  (setq-local tabulated-list-use-header-line nil)
+  (setq header-line-format
+        '(:eval (ogent-section-header-line
+                 "Agents"
+                 (and ogent-armory-agents--root
+                      (ogent-armory-ui--root-label ogent-armory-agents--root))
+                 '("?" . "menu") '("j" . "jump") '("g" . "refresh"))))
   (tabulated-list-init-header))
 
 (defun ogent-armory-agents--entries ()
@@ -105,9 +123,11 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-agents-refresh (&rest _)
-  "Refresh the Armory agents buffer."
-  (interactive)
+(defun ogent-armory-agents-refresh (&optional force &rest _)
+  "Refresh the Armory agents buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force force ogent-armory-agents--root)
   (tabulated-list-print t))
 
 (defun ogent-armory-agents--slug-at-point ()
@@ -139,6 +159,21 @@
      ogent-armory-agents--root
      slug
      (read-string "Instruction: "))))
+
+(defun ogent-armory-agents--evil-local-keys ()
+  "Install local Evil keys for Armory agents buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-agents-mode-map))
+
+(defun ogent-armory-agents--setup-evil ()
+  "Set up Evil integration for Armory agents buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-agents-mode
+   ogent-armory-agents-mode-map
+   'ogent-armory-agents-mode-hook
+   #'ogent-armory-agents--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-agents--setup-evil))
 
 (provide 'ogent-ui-armory-agents)
 ;;; ogent-ui-armory-agents.el ends here

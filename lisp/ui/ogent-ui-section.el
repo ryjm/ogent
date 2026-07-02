@@ -77,6 +77,14 @@
        (fboundp 'magit-section-forward-sibling)
        (fboundp 'magit-section-backward-sibling)))
 
+;;; Base mode
+
+(if (ogent-section-available-p)
+    (define-derived-mode ogent-section-mode magit-section-mode "Ogent Section"
+      "Base mode for sectioned ogent buffers.")
+  (define-derived-mode ogent-section-mode special-mode "Ogent Section"
+    "Fallback base mode for sectioned ogent buffers."))
+
 ;;; Section macros
 
 (defmacro ogent-section-with (section heading &rest body)
@@ -121,14 +129,12 @@
 
 (defmacro ogent-section-define-mode (mode name docstring &rest body)
   "Define section-capable MODE with NAME, DOCSTRING, and BODY.
-Derives from `magit-section-mode' when available at expansion time,
-`special-mode' otherwise."
+Every generated mode derives from `ogent-section-mode', whose parent
+is selected at load time from the user's runtime `magit-section'
+availability."
   (declare (indent 3) (debug t))
-  (let ((parent (if (bound-and-true-p ogent-section--magit-available)
-                    'magit-section-mode
-                  'special-mode)))
-    `(define-derived-mode ,mode ,parent ,name ,docstring
-       ,@body)))
+  `(define-derived-mode ,mode ogent-section-mode ,name ,docstring
+     ,@body))
 
 ;;; Navigation commands
 

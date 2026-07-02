@@ -4,14 +4,14 @@
 ;; Tests for the ogent-ui-section module covering:
 ;; - Point preservation across erase/reinsert refreshes (id match,
 ;;   line-number fallback, empty-buffer degradation)
-;; - Mode definition falling back to `special-mode' when magit-section
-;;   is unavailable at macroexpansion time
+;; - Mode definition deriving generated modes from the runtime-selected
+;;   `ogent-section-mode', never from macroexpansion-time Magit availability
 ;; - Header-line shape (view label, context, both key-hint shapes)
 ;; - Item-line round-trip (insert, read back, next/previous motion)
 ;;
 ;; None of these tests require magit-section to be installed: they
-;; exercise the plain-buffer plumbing and the fallback paths, stubbing
-;; availability where the contract depends on it.
+;; exercise the plain-buffer plumbing and assert contracts through the
+;; runtime availability state selected while loading `ogent-ui-section'.
 
 ;;; Code:
 
@@ -88,27 +88,28 @@ under the `test-item' property, below a plain heading line."
         (erase-buffer)))
     (should (= (point) (point-min)))))
 
-;;; Mode definition fallback
+;;; Mode definition
 
-(ert-deftest ogent-ui-section-define-mode-fallback-special-mode ()
-  "With magit unavailable at expansion time, modes derive from special-mode.
-The parent is chosen at macroexpansion from
-`ogent-section--magit-available', so expand under a nil binding."
-  (let* ((ogent-section--magit-available nil)
-         (expansion (macroexpand-1
-                     '(ogent-section-define-mode ogent-ui-section-tests-mode
-                          "Test" "Docstring."))))
-    (should (eq (car expansion) 'define-derived-mode))
-    (should (eq (nth 2 expansion) 'special-mode))))
+(ert-deftest ogent-ui-section-define-mode-parent-is-runtime-base-mode ()
+  "`ogent-section-define-mode' always derives from `ogent-section-mode'.
+The generated mode parent must not depend on
+`ogent-section--magit-available' at macroexpansion time: that choice is
+made once by `ogent-section-mode' when `ogent-ui-section' is loaded."
+  (dolist (available '(nil t))
+    (let* ((ogent-section--magit-available available)
+           (expansion (macroexpand-1
+                       '(ogent-section-define-mode ogent-ui-section-tests-mode
+                            "Test" "Docstring."))))
+      (should (eq (car expansion) 'define-derived-mode))
+      (should (eq (nth 1 expansion) 'ogent-ui-section-tests-mode))
+      (should (eq (nth 2 expansion) 'ogent-section-mode)))))
 
-(ert-deftest ogent-ui-section-define-mode-magit-parent ()
-  "With magit available at expansion time, modes derive from magit-section-mode."
-  (let* ((ogent-section--magit-available t)
-         (expansion (macroexpand-1
-                     '(ogent-section-define-mode ogent-ui-section-tests-mode
-                          "Test" "Docstring."))))
-    (should (eq (car expansion) 'define-derived-mode))
-    (should (eq (nth 2 expansion) 'magit-section-mode))))
+(ert-deftest ogent-ui-section-base-mode-parent-follows-runtime-availability ()
+  "`ogent-section-mode' records the parent selected at module load time."
+  (let ((parent (get 'ogent-section-mode 'derived-mode-parent)))
+    (if ogent-section--magit-available
+        (should (eq parent 'magit-section-mode))
+      (should (eq parent 'special-mode)))))
 
 (ert-deftest ogent-ui-section-with-fallback-plain-insert ()
   "With sections unusable, `ogent-section-with' inserts heading + body plainly."

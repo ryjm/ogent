@@ -32,29 +32,40 @@
     (define-key map (kbd "<return>") #'ogent-armory-agent-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-agent-visit)
     (define-key map "c" #'ogent-armory-agent-compose)
-    (define-key map (kbd "C-c c") #'ogent-armory-agent-compose)
     (define-key map "e" #'ogent-armory-agent-edit-property)
-    (define-key map (kbd "C-c e") #'ogent-armory-agent-edit-property)
     (define-key map "R" #'ogent-armory-agent-run-at-point)
-    (define-key map (kbd "C-c r") #'ogent-armory-agent-run-at-point)
     (define-key map "v" #'ogent-armory-agent-visit)
-    (define-key map (kbd "C-c v") #'ogent-armory-agent-visit)
     (define-key map "g" #'ogent-armory-agent-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-agent-refresh)
-    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
-    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
-    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
-    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
-    (define-key map (kbd "C-c u") #'ogent-armory-ui-up-section)
-    (define-key map "t" #'ogent-armory-tasks)
-    (define-key map (kbd "C-c t") #'ogent-armory-tasks)
-    (define-key map "s" #'ogent-armory-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-search)
+    (define-key map "?" #'ogent-armory-agent-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map (kbd "TAB") #'ogent-section-toggle)
+    (define-key map (kbd "<tab>") #'ogent-section-toggle)
+    (define-key map (kbd "<backtab>") #'ogent-section-cycle)
+    (define-key map (kbd "M-n") #'ogent-section-next)
+    (define-key map (kbd "M-p") #'ogent-section-prev)
+    (define-key map (kbd "^") #'ogent-section-up)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-agent-mode'.")
+
+(transient-define-prefix ogent-armory-agent-dispatch ()
+  "Dispatch menu for a single Armory agent profile."
+  [["Agent"
+    ("RET" "Visit at point" ogent-armory-agent-visit)
+    ("c" "Compose instruction" ogent-armory-agent-compose)
+    ("e" "Edit identity property" ogent-armory-agent-edit-property)
+    ("R" "Run job/session at point" ogent-armory-agent-run-at-point)]
+   ["View"
+    ("g" "Refresh" ogent-armory-agent-refresh :transient t)
+    ("n" "Next item" ogent-armory-ui-next-item :transient t)
+    ("p" "Previous item" ogent-armory-ui-previous-item :transient t)]]
+  [ogent-armory-ui--jump-group
+   ["Help"
+    ("q" "Quit menu" transient-quit-one)]])
 
 (ogent-armory-ui--define-section-mode ogent-armory-agent-mode "Armory-Agent"
                                       "Major mode for a single Armory agent profile."
@@ -66,11 +77,14 @@
 
 (defun ogent-armory-agent--header-line ()
   "Return header text for the current Armory agent buffer."
-  (format "C-c g refresh  RET visit  TAB section  M-n/p sections  C-c c compose  C-c e edit  C-c r run/retry  C-c t tasks  C-c s search  q quit    %s/%s"
-          (or (and ogent-armory-agent--root
-                   (ogent-armory-ui--root-label ogent-armory-agent--root))
-              "?")
-          (or ogent-armory-agent--slug "?")))
+  (ogent-section-header-line
+   "Agent"
+   (format "%s/%s"
+           (or (and ogent-armory-agent--root
+                    (ogent-armory-ui--root-label ogent-armory-agent--root))
+               "?")
+           (or ogent-armory-agent--slug "?"))
+   '("?" . "menu") '("j" . "jump") '("g" . "refresh")))
 
 (defun ogent-armory-agent (&optional directory agent-slug)
   "Open a single Armory AGENT-SLUG profile for DIRECTORY."
@@ -94,13 +108,18 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-agent-refresh (&rest _)
-  "Refresh the current Armory agent profile."
-  (interactive)
+(defun ogent-armory-agent-refresh (&optional force &rest _)
+  "Refresh the current Armory agent profile.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force force ogent-armory-agent--root)
   (let ((inhibit-read-only t))
-    (erase-buffer)
-    (ogent-armory-agent--insert-buffer)
-    (goto-char (point-min))))
+    (ogent-section-preserve-point
+        ((lambda ()
+           (when-let ((item (ogent-section-item-at-point 'ogent-armory-item)))
+             (or (plist-get item :path) (plist-get item :id)))))
+      (erase-buffer)
+      (ogent-armory-agent--insert-buffer))))
 
 (defun ogent-armory-agent--insert-buffer ()
   "Insert the current Armory agent profile."
@@ -446,6 +465,21 @@
   (let ((root (ogent-armory-ui--root directory)))
     (ogent-armory-update-agent-property root agent-slug "OGENT_ACTIVE" "nil")
     (ogent-armory-update-agent-property root agent-slug "OGENT_ARCHIVED" "t")))
+
+(defun ogent-armory-agent--evil-local-keys ()
+  "Install local Evil keys for Armory agent buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-agent-mode-map))
+
+(defun ogent-armory-agent--setup-evil ()
+  "Set up Evil integration for Armory agent buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-agent-mode
+   ogent-armory-agent-mode-map
+   'ogent-armory-agent-mode-hook
+   #'ogent-armory-agent--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-agent--setup-evil))
 
 (provide 'ogent-ui-armory-agent)
 ;;; ogent-ui-armory-agent.el ends here

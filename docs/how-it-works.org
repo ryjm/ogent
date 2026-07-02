@@ -1894,6 +1894,31 @@ Key functions: [[file:../lisp/ogent-ops-style.el::157][ogent-ops-status-symbol]]
 
 ** The UI layer (lisp/ui/)
 
+*** [[file:../lisp/ui/ogent-ui-section.el::1][ui/ogent-ui-section.el]]: the section chrome
+:PROPERTIES:
+:CUSTOM_ID: mod-ogent-ui-section
+:END:
+
+Role: Shared Magit-style section plumbing for display buffers. Armory
+surfaces and the Zen review dashboard use one wrapper for collapsible
+sections, item-row text properties, point-preserving refresh, section
+navigation, and header-line key hints.
+
+Design: =magit-section= is a soft dependency. Availability is probed at
+load time; =ogent-section-define-mode= derives from =magit-section-mode=
+when possible and =special-mode= otherwise. =ogent-section-preserve-point=
+captures a stable item key before erase/reinsert refreshes and restores
+point by key, falling back to the original line number. The header-line
+helper formats the shared "view · context   key:action" contract through
+=ogent-ui-theme= faces.
+
+Key functions: [[file:../lisp/ui/ogent-ui-section.el::82][ogent-section-with]],
+[[file:../lisp/ui/ogent-ui-section.el::122][ogent-section-define-mode]],
+[[file:../lisp/ui/ogent-ui-section.el::194][ogent-section-insert-item-line]],
+[[file:../lisp/ui/ogent-ui-section.el::206][ogent-section-visible-item-position]],
+[[file:../lisp/ui/ogent-ui-section.el::233][ogent-section-preserve-point]], and
+[[file:../lisp/ui/ogent-ui-section.el::272][ogent-section-header-line]].
+
 *** [[file:../lisp/ui/ogent-ui.el::1][ui/ogent-ui.el]]: the request engine
 :PROPERTIES:
 :CUSTOM_ID: mod-ogent-ui
@@ -1940,16 +1965,22 @@ The implementation now persists structured review metadata:
 =OGENT_LINEAGE=, =OGENT_OUTCOME=, =OGENT_REVIEWED_AT=,
 =OGENT_REVIEWER=, and =OGENT_REVIEW_NOTE=, then mirrors the dominant
 state back into legacy =OGENT_REVIEW= for compatibility. A visible
-=:REVIEW:= drawer makes the transcript self-describing in plain Org, and
-=ogent-zen-review-run= / =ogent-zen-review-response= make target choice
-explicit while =ogent-review-dashboard= exposes a queue over reviewable
-Zen items. Parent breadcrumb suffixes stay hidden unless
-=ogent-zen-show-breadcrumbs= is non-nil, overlay-local action bindings
-stay hidden unless =ogent-zen-heading-actions= is non-nil, and optional
+=:REVIEW:= drawer makes the transcript self-describing in plain Org.
+=ogent-zen-review-menu= makes run-vs-response target choice explicit,
+=ogent-zen-dispatch= gives Zen buffers a discoverable =?= menu, and
+=ogent-review-dashboard= is a sectioned queue over reviewable Zen items
+using the shared =ogent-ui-section= navigation/header contract. =n=/=p=
+move between runs, =D= cycles result-headline density, and semantic review
+badges inherit the same =ogent-theme-*= faces used elsewhere.
+
+Parent breadcrumb suffixes stay hidden unless =ogent-zen-show-breadcrumbs=
+is non-nil, overlay-local action bindings stay hidden unless
+=ogent-zen-heading-actions= is non-nil, and optional
 =ogent-zen-visual-lanes= can mirror status icons into the margin. Star
-compositions quiet bullets; active icons rotate only in visible buffers;
-org-fold hides transcript drawers/tool drawers/prompt blocks; earlier
-sibling runs collapse and unreviewed older runs become =superseded=; and
+compositions quiet bullets; active icons rotate only in visible Zen buffers
+that still have =wait=, =tool=, or =type= request headings; org-fold hides
+transcript drawers/tool drawers/prompt blocks; earlier sibling runs
+collapse and unreviewed older runs become =superseded=; and
 =ogent-zen-copy-response= extracts just the response body for kill-ring
 reuse. All of this is reversible, so history replay and regex-based
 helpers keep working.
@@ -2027,39 +2058,31 @@ Role: The interactive Armory UI; Home dashboard, agent list/profile,
 org chart, jobs, tasks board, conversations list/reader, search, apps.
 
 Design: ~10 major modes spread across the extracted =ogent-ui-armory-*=
-files; reader-style buffers (Home, agent,
-conversation) built with magit-section when available, via macros
-[[file:../lisp/ui/ogent-ui-armory-core.el::726][ogent-armory-ui--with-section]] /
-[[file:../lisp/ui/ogent-ui-armory-core.el::766][ogent-armory-ui--define-section-mode]] that degrade to plain
-=special-mode= inserts, while list buffers derive from
-=tabulated-list-mode=. Rows carry item plists as text properties read
-back by [[file:../lisp/ui/ogent-ui-armory-core.el::847][ogent-armory-ui--item-at-point]]. Notably it does *not*
-depend on ui/ogent-ui.el; Armory runs go through external processes,
-not gptel.
+files. Reader-style buffers (Home, agent, conversation, org chart) and
+the Zen review dashboard share =ogent-ui-section= for Magit-compatible
+sections, point-preserving refresh, header-line hints, and item navigation;
+list buffers derive from =tabulated-list-mode= but use the same header and
+item-row contract where applicable. Rows carry item plists as text
+properties read back by =ogent-armory-ui--item-at-point=. Armory data
+fetches go through =ogent-armory-cache=, a stamp-guarded cache keyed by
+root and data kind; =C-u g= passes FORCE through refresh commands to
+rebuild even when file mtimes look unchanged. Notably it does *not* depend
+on ui/ogent-ui.el; Armory runs go through external processes, not gptel.
 
-Trace: [[file:../lisp/ui/ogent-ui-armory-home.el::108][ogent-armory-home]] →
-[[file:../lisp/ui/ogent-ui-armory-home.el::125][ogent-armory-home-refresh]] → sections; RET →
-[[file:../lisp/ui/ogent-ui-armory-home.el::319][ogent-armory-home-visit]] dispatches by type to
-[[file:../lisp/ui/ogent-ui-armory-conversations.el::278][ogent-armory-conversation]] (reader with
-turns/artifacts/events/runtime sections),
-[[file:../lisp/ui/ogent-ui-armory-jobs.el::85][ogent-armory-jobs]], or
-[[file:../lisp/ui/ogent-ui-armory-agent.el::75][ogent-armory-agent]]; =r= →
-[[file:../lisp/ui/ogent-ui-armory-home.el::334][ogent-armory-home-run]]. Conversation lifecycle:
-[[file:../lisp/ui/ogent-ui-armory-conversations.el::564][ogent-armory-conversation-continue]] (replay prompt → runner plan →
-start), [[file:../lisp/ui/ogent-ui-armory-conversations.el::596][stop]],
-[[file:../lisp/ui/ogent-ui-armory-conversations.el::607][retry]],
-[[file:../lisp/ui/ogent-ui-armory-conversations.el::674][compact]]. Other surfaces:
-[[file:../lisp/ui/ogent-ui-armory-agents.el::90][ogent-armory-agents]],
-[[file:../lisp/ui/ogent-ui-armory-org-chart.el::50][ogent-armory-org-chart]],
-[[file:../lisp/ui/ogent-ui-armory-tasks.el::338][ogent-armory-tasks]] (kanban lanes at
-[[file:../lisp/ui/ogent-ui-armory-core.el::234][ogent-armory-task-lanes]]),
-[[file:../lisp/ui/ogent-ui-armory-conversations.el::119][ogent-armory-conversations]],
-[[file:../lisp/ui/ogent-ui-armory-search.el::52][ogent-armory-search]],
-[[file:../lisp/ui/ogent-ui-armory-apps.el::56][ogent-armory-apps]]. Agent CRUD:
-[[file:../lisp/ui/ogent-ui-armory-agent.el::377][ogent-armory-create-agent]] /
-[[file:../lisp/ui/ogent-ui-armory-agent.el::418][clone]] /
-[[file:../lisp/ui/ogent-ui-armory-agent.el::438][archive]]; job creation
-[[file:../lisp/ui/ogent-ui-armory-jobs.el::217][ogent-armory-create-job]].
+Trace: =ogent-armory-home= opens the dashboard, =ogent-armory-home-refresh=
+renders through =ogent-section-preserve-point=, and =RET= dispatches by item
+type to the conversation reader, jobs buffer, or agent profile. =R= runs or
+retries the selected item; =?= opens the local transient; =j= opens the
+shared cross-surface jump map. Conversation readers render turns/artifacts/
+events/runtime as sections.
+Conversation lifecycle commands continue through
+=ogent-armory-conversation-continue= (replay prompt → runner plan → start),
+=ogent-armory-conversation-stop=, =ogent-armory-conversation-retry=, and
+=ogent-armory-conversation-compact=. Other entry points include
+=ogent-armory-agents=, =ogent-armory-org-chart=, =ogent-armory-tasks=,
+=ogent-armory-conversations=, =ogent-armory-search=, and
+=ogent-armory-apps=. Agent CRUD remains in the agent profile module, and
+job creation remains in the jobs module.
 
 *** [[file:../lisp/ui/ogent-ui-status.el::1][ui/ogent-ui-status.el]]: the departure board
 :PROPERTIES:

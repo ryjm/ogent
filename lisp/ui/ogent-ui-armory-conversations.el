@@ -30,22 +30,37 @@
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-conversations-open))
     (define-key map "R" #'ogent-armory-conversations-retry)
-    (define-key map (kbd "C-c r") #'ogent-armory-conversations-retry)
     (define-key map "A" #'ogent-armory-conversations-archive)
-    (define-key map (kbd "C-c a") #'ogent-armory-conversations-archive)
     (define-key map "U" #'ogent-armory-conversations-unarchive)
-    (define-key map (kbd "C-c u") #'ogent-armory-conversations-unarchive)
     (define-key map "v" #'ogent-armory-conversations-visit-source)
-    (define-key map (kbd "C-c v") #'ogent-armory-conversations-visit-source)
     (define-key map "s" #'ogent-armory-conversations-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-conversations-search)
     (define-key map "f" #'ogent-armory-conversations-filter)
-    (define-key map (kbd "C-c f") #'ogent-armory-conversations-filter)
     (define-key map "g" #'ogent-armory-conversations-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-conversations-refresh)
+    (define-key map "?" #'ogent-armory-conversations-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-conversations-mode'.")
+
+(transient-define-prefix ogent-armory-conversations-dispatch ()
+  "Dispatch menu for the Armory conversation list."
+  [["Item"
+    ("RET" "Open conversation" ogent-armory-conversations-open)
+    ("R" "Retry" ogent-armory-conversations-retry)
+    ("A" "Archive" ogent-armory-conversations-archive)
+    ("U" "Unarchive" ogent-armory-conversations-unarchive)
+    ("v" "Visit source Org" ogent-armory-conversations-visit-source)]
+   ["View"
+    ("s" "Search transcripts" ogent-armory-conversations-search)
+    ("f" "Filter" ogent-armory-conversations-filter :transient t)
+    ("g" "Refresh" ogent-armory-conversations-refresh :transient t)]]
+  [ogent-armory-ui--jump-group
+   ["Help"
+    ("q" "Quit menu" transient-quit-one)]])
 
 (define-derived-mode ogent-armory-conversations-mode tabulated-list-mode
   "Armory-Conversations"
@@ -64,6 +79,16 @@
   (setq-local tabulated-list-padding 2)
   (setq-local tabulated-list-sort-key '("Finished" . t))
   (setq-local revert-buffer-function #'ogent-armory-conversations-refresh)
+  (setq-local tabulated-list-use-header-line nil)
+  (setq header-line-format
+        '(:eval (ogent-section-header-line
+                 "Conversations"
+                 (concat (and ogent-armory-conversations--root
+                              (ogent-armory-ui--root-label
+                               ogent-armory-conversations--root))
+                         (when ogent-armory-conversations--filters
+                           " · filtered"))
+                 '("?" . "menu") '("j" . "jump") '("g" . "refresh"))))
   (tabulated-list-init-header))
 
 (defun ogent-armory-conversations--matches-p (session)
@@ -136,9 +161,12 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-conversations-refresh (&rest _)
-  "Refresh the Armory conversations buffer."
-  (interactive)
+(defun ogent-armory-conversations-refresh (&optional force &rest _)
+  "Refresh the Armory conversations buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force
+   force ogent-armory-conversations--root)
   (tabulated-list-print t))
 
 (defun ogent-armory-conversations--item ()
@@ -225,45 +253,57 @@
   (let ((map (make-sparse-keymap)))
     (dolist (key '("RET" "<return>" "<kp-enter>" "v"))
       (define-key map (kbd key) #'ogent-armory-conversation-visit-source))
-    (define-key map (kbd "C-c v") #'ogent-armory-conversation-visit-source)
     (define-key map "c" #'ogent-armory-conversation-continue)
-    (define-key map (kbd "C-c c") #'ogent-armory-conversation-continue)
     (define-key map "k" #'ogent-armory-conversation-stop)
-    (define-key map (kbd "C-c k") #'ogent-armory-conversation-stop)
     (define-key map "R" #'ogent-armory-conversation-retry)
-    (define-key map (kbd "C-c r") #'ogent-armory-conversation-retry)
     (define-key map "d" #'ogent-armory-conversation-mark-done)
-    (define-key map (kbd "C-c d") #'ogent-armory-conversation-mark-done)
-    (define-key map "A" #'ogent-armory-conversation-archive)
-    (define-key map (kbd "C-c a") #'ogent-armory-conversation-archive)
-    (define-key map "U" #'ogent-armory-conversation-unarchive)
-    (define-key map (kbd "C-c u") #'ogent-armory-conversation-unarchive)
+    (define-key map "a" #'ogent-armory-conversation-toggle-archive)
     (define-key map "m" #'ogent-armory-conversation-mute)
-    (define-key map (kbd "C-c m") #'ogent-armory-conversation-mute)
     (define-key map "M" #'ogent-armory-conversation-unmute)
-    (define-key map (kbd "C-c M") #'ogent-armory-conversation-unmute)
     (define-key map "C" #'ogent-armory-conversation-compact)
-    (define-key map (kbd "C-c C") #'ogent-armory-conversation-compact)
     (define-key map "D" #'ogent-armory-conversation-delete)
-    (define-key map (kbd "C-c D") #'ogent-armory-conversation-delete)
     (define-key map "y" #'ogent-armory-conversation-copy-link)
-    (define-key map (kbd "C-c y") #'ogent-armory-conversation-copy-link)
     (define-key map "o" #'ogent-armory-conversation-open-artifacts)
-    (define-key map (kbd "C-c o") #'ogent-armory-conversation-open-artifacts)
     (define-key map "l" #'ogent-armory-conversation-open-logs)
-    (define-key map (kbd "C-c l") #'ogent-armory-conversation-open-logs)
     (define-key map "g" #'ogent-armory-conversation-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-conversation-refresh)
-    (define-key map (kbd "TAB") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<tab>") #'ogent-armory-ui-toggle-section)
-    (define-key map (kbd "<backtab>") #'ogent-armory-ui-cycle-sections)
-    (define-key map (kbd "M-n") #'ogent-armory-ui-next-section)
-    (define-key map (kbd "M-p") #'ogent-armory-ui-previous-section)
-    (define-key map (kbd "^") #'ogent-armory-ui-up-section)
-    (define-key map (kbd "C-c U") #'ogent-armory-ui-up-section)
+    (define-key map "?" #'ogent-armory-conversation-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map (kbd "TAB") #'ogent-section-toggle)
+    (define-key map (kbd "<tab>") #'ogent-section-toggle)
+    (define-key map (kbd "<backtab>") #'ogent-section-cycle)
+    (define-key map (kbd "M-n") #'ogent-section-next)
+    (define-key map (kbd "M-p") #'ogent-section-prev)
+    (define-key map (kbd "^") #'ogent-section-up)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-conversation-mode'.")
+
+(transient-define-prefix ogent-armory-conversation-dispatch ()
+  "Dispatch menu for a single Armory conversation."
+  [["Conversation"
+    ("RET" "Visit source Org" ogent-armory-conversation-visit-source)
+    ("c" "Continue" ogent-armory-conversation-continue)
+    ("R" "Retry" ogent-armory-conversation-retry)
+    ("k" "Stop" ogent-armory-conversation-stop)
+    ("d" "Mark done" ogent-armory-conversation-mark-done)
+    ("a" "Toggle archive" ogent-armory-conversation-toggle-archive)]
+   ["More"
+    ("m" "Mute" ogent-armory-conversation-mute)
+    ("M" "Unmute" ogent-armory-conversation-unmute)
+    ("C" "Compact" ogent-armory-conversation-compact)
+    ("D" "Delete" ogent-armory-conversation-delete)
+    ("y" "Copy link" ogent-armory-conversation-copy-link)
+    ("o" "Artifacts" ogent-armory-conversation-open-artifacts)
+    ("l" "Logs" ogent-armory-conversation-open-logs)]
+   ["View"
+    ("g" "Refresh" ogent-armory-conversation-refresh :transient t)]]
+  [ogent-armory-ui--jump-group
+   ["Help"
+    ("q" "Quit menu" transient-quit-one)]])
 
 (ogent-armory-ui--define-section-mode ogent-armory-conversation-mode
     "Armory-Conversation"
@@ -273,7 +313,11 @@
   (setq-local buffer-read-only t)
   (ogent-armory-ui--configure-section-buffer)
   (setq header-line-format
-        "RET source  C-c g refresh  C-c r retry  C-c c continue  C-c o artifacts  C-c l logs  TAB fold"))
+        '(:eval (ogent-section-header-line
+                 "Conversation"
+                 (and ogent-armory-conversation--file
+                      (file-name-base ogent-armory-conversation--file))
+                 '("?" . "menu") '("j" . "jump") '("g" . "refresh")))))
 
 (defun ogent-armory-conversation (&optional directory file)
   "Open Armory conversation FILE under DIRECTORY."
@@ -307,13 +351,19 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-conversation-refresh (&rest _)
-  "Refresh this conversation detail buffer."
-  (interactive)
+(defun ogent-armory-conversation-refresh (&optional force &rest _)
+  "Refresh this conversation detail buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force
+   force ogent-armory-conversation--root)
   (let ((inhibit-read-only t))
-    (erase-buffer)
-    (ogent-armory-conversation--insert-buffer)
-    (goto-char (point-min))))
+    (ogent-section-preserve-point
+        ((lambda ()
+           (when-let ((item (ogent-section-item-at-point 'ogent-armory-item)))
+             (plist-get item :path))))
+      (erase-buffer)
+      (ogent-armory-conversation--insert-buffer))))
 
 (defun ogent-armory-conversation--insert-buffer ()
   "Insert the current conversation detail."
@@ -651,6 +701,13 @@ TURNS is the list of turn plists to insert."
    "conversation.unarchived")
   (ogent-armory-conversation-refresh))
 
+(defun ogent-armory-conversation-toggle-archive ()
+  "Archive this conversation, or unarchive it when already archived."
+  (interactive)
+  (if (plist-get (ogent-armory-conversation--detail) :archived)
+      (ogent-armory-conversation-unarchive)
+    (ogent-armory-conversation-archive)))
+
 (defun ogent-armory-conversation-mute ()
   "Mute this conversation."
   (interactive)
@@ -735,6 +792,36 @@ With FORCE, skip confirmation."
        (ogent-armory-conversation-events-file
         ogent-armory-conversation--root conversation-id))
     (ogent-armory-conversation-visit-source)))
+
+(defun ogent-armory-conversations--evil-local-keys ()
+  "Install local Evil keys for Armory conversation list buffers."
+  (ogent-armory-evil-install-local-bindings
+   ogent-armory-conversations-mode-map))
+
+(defun ogent-armory-conversations--setup-evil ()
+  "Set up Evil integration for Armory conversation list buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-conversations-mode
+   ogent-armory-conversations-mode-map
+   'ogent-armory-conversations-mode-hook
+   #'ogent-armory-conversations--evil-local-keys))
+
+(defun ogent-armory-conversation--evil-local-keys ()
+  "Install local Evil keys for Armory conversation detail buffers."
+  (ogent-armory-evil-install-local-bindings
+   ogent-armory-conversation-mode-map))
+
+(defun ogent-armory-conversation--setup-evil ()
+  "Set up Evil integration for Armory conversation detail buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-conversation-mode
+   ogent-armory-conversation-mode-map
+   'ogent-armory-conversation-mode-hook
+   #'ogent-armory-conversation--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-conversations--setup-evil)
+  (ogent-armory-conversation--setup-evil))
 
 (provide 'ogent-ui-armory-conversations)
 ;;; ogent-ui-armory-conversations.el ends here

@@ -90,14 +90,57 @@
   (ogent-ui-armory-test--write-session
    root "cto" "failed-run" "FAILED" 1 "weekly-review"))
 
+(defun ogent-ui-armory-test--assert-bindings (map bindings)
+  "Assert MAP binds every (KEY . COMMAND) in BINDINGS."
+  (dolist (pair bindings)
+    (should (eq (lookup-key map (kbd (car pair)))
+                (cdr pair)))))
+
+(defun ogent-ui-armory-test--lookup-direct (map key)
+  "Return MAP's direct binding for KEY, ignoring inherited parent maps."
+  (let ((parent (keymap-parent map)))
+    (unwind-protect
+        (progn
+          (set-keymap-parent map nil)
+          (lookup-key map (kbd key)))
+      (set-keymap-parent map parent))))
+
+(defun ogent-ui-armory-test--assert-unbound (map keys)
+  "Assert MAP has no direct command binding for any key in KEYS."
+  (dolist (key keys)
+    (let ((binding (ogent-ui-armory-test--lookup-direct map key)))
+      (should (or (null binding) (numberp binding))))))
+
+(defun ogent-ui-armory-test--rendered-header-line ()
+  "Return the current buffer's header line as plain text."
+  (substring-no-properties
+   (cond
+    ((and (consp header-line-format)
+          (eq (car header-line-format) :eval))
+     (eval (cadr header-line-format) t))
+    ((stringp header-line-format)
+     header-line-format)
+    (t
+     (format "%s" header-line-format)))))
+
 (ert-deftest ogent-ui-armory-agents-mode-keybindings ()
-  "Agent list mode exposes expected Armory navigation actions."
-  (should (eq (lookup-key ogent-armory-agents-mode-map (kbd "RET"))
-              #'ogent-armory-agents-open-agent))
-  (should (eq (lookup-key ogent-armory-agents-mode-map (kbd "C-c v"))
-              #'ogent-armory-agents-visit))
-  (should (eq (lookup-key ogent-armory-agents-mode-map (kbd "C-c r"))
-              #'ogent-armory-agents-run)))
+  "Agent list mode exposes the bare-key Armory navigation contract."
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-agents-mode-map
+   `(("RET" . ,#'ogent-armory-agents-open-agent)
+     ("v" . ,#'ogent-armory-agents-visit)
+     ("R" . ,#'ogent-armory-agents-run)
+     ("g" . ,#'ogent-armory-agents-refresh)
+     ("?" . ,#'ogent-armory-agents-dispatch)
+     ("n" . ,#'ogent-armory-ui-next-item)
+     ("p" . ,#'ogent-armory-ui-previous-item)
+     ("j" . ,ogent-armory-jump-map)
+     ("," . ,#'ogent-armory-settings)
+     ("/" . ,#'ogent-armory-command-palette)
+     ("q" . ,#'quit-window)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-agents-mode-map
+   '("C-c v" "C-c r")))
 
 (ert-deftest ogent-ui-armory-home-renders-operational-overview ()
   "Armory Home is the single operational entry point for daily work."
@@ -120,72 +163,89 @@
                                "Source Org"))
                 (should (string-match-p label text)))
               (should (string-match-p "Weekly Review" text))
-              (should (string-match-p "\\[C-c r run\\]" text))
-              (should (string-match-p "\\[C-c E prompt\\]" text))
+              (should (string-match-p "\\[R run\\]" text))
+              (should (string-match-p "\\[E prompt\\]" text))
+              (should (string-match-p "\\[J jobs\\]" text))
+              (should (string-match-p "\\[j a\\] Agents" text))
+              (should (string-match-p "\\[j t\\] Tasks" text))
               (should (string-match-p "failed-run" text))
-              (should (string-match-p "app artifacts: 1" text)))
-            (dolist (key '("C-c m" "C-c ?" "C-c ." "RET" "TAB" "M-n"
-                           "C-c g" "q" "C-c /" "C-c ," "C-c j"
-                           "C-c a" "C-c t" "C-c c" "C-c s"))
-              (should (string-match-p key (format "%s" header-line-format)))))
+              (should (string-match-p "app artifacts: 1" text))
+              (should-not (string-match-p "\\[C-c r run\\]" text)))
+            (let ((header (ogent-ui-armory-test--rendered-header-line)))
+              (dolist (key '("?:menu" "j:jump" "g:refresh"))
+                (should (string-match-p (regexp-quote key) header)))
+              (should-not (string-match-p "C-c" header))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-home-daily-work-keybindings ()
-  "Armory Home exposes the daily job development commands."
-  (dolist (pair `(("C-c m" . ,#'ogent-armory-home-dispatch)
-                  ("C-c ?" . ,#'ogent-armory-home-help)
-                  ("C-c j" . ,#'ogent-armory-jobs)
-                  ("C-c D" . ,#'ogent-armory-data)
-                  ("C-c h" . ,#'ogent-armory-git-status)
-                  ("C-c /" . ,#'ogent-armory-command-palette)
-                  ("C-c ," . ,#'ogent-armory-settings)
-                  ("C-c ." . ,#'ogent-armory-help)
-                  ("C-c r" . ,#'ogent-armory-home-run)
-                  ("C-c E" . ,#'ogent-armory-home-edit-item)
-                  ("C-c J" . ,#'ogent-armory-home-open-jobs)))
-    (should (eq (lookup-key ogent-armory-home-mode-map (kbd (car pair)))
-                (cdr pair)))))
+  "Armory Home exposes daily-work actions and shared jumps without C-c clones."
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-home-mode-map
+   `(("?" . ,#'ogent-armory-home-dispatch)
+     ("j" . ,ogent-armory-jump-map)
+     ("/" . ,#'ogent-armory-command-palette)
+     ("," . ,#'ogent-armory-settings)
+     ("g" . ,#'ogent-armory-home-refresh)
+     ("q" . ,#'quit-window)
+     ("R" . ,#'ogent-armory-home-run)
+     ("E" . ,#'ogent-armory-home-edit-item)
+     ("e" . ,#'ogent-armory-home-edit-metadata)
+     ("J" . ,#'ogent-armory-home-open-jobs)
+     ("n" . ,#'ogent-armory-home-next-item)
+     ("p" . ,#'ogent-armory-home-previous-item)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-home-mode-map
+   '("C-c m" "C-c ?" "C-c j" "C-c D" "C-c h" "C-c /" "C-c ,"
+     "C-c ." "C-c r" "C-c E" "C-c J" "a" "t" "c" "s" "A" "D" "u" "h" "G")))
 
 (ert-deftest ogent-ui-armory-section-keybindings-are-consistent ()
-  "Armory special buffers expose Magit-style section navigation."
+  "Armory section buffers expose shared section and jump/navigation keys."
   (dolist (map (list ogent-armory-home-mode-map
                      ogent-armory-org-chart-mode-map
                      ogent-armory-agent-mode-map
                      ogent-armory-conversation-mode-map))
-    (dolist (pair `(("TAB" . ,#'ogent-armory-ui-toggle-section)
-                    ("<tab>" . ,#'ogent-armory-ui-toggle-section)
-                    ("<backtab>" . ,#'ogent-armory-ui-cycle-sections)
-                    ("M-n" . ,#'ogent-armory-ui-next-section)
-                    ("M-p" . ,#'ogent-armory-ui-previous-section)
-                    ("^" . ,#'ogent-armory-ui-up-section)))
-      (should (eq (lookup-key map (kbd (car pair))) (cdr pair)))))
+    (ogent-ui-armory-test--assert-bindings
+     map
+     `(("TAB" . ,#'ogent-section-toggle)
+       ("<tab>" . ,#'ogent-section-toggle)
+       ("<backtab>" . ,#'ogent-section-cycle)
+       ("M-n" . ,#'ogent-section-next)
+       ("M-p" . ,#'ogent-section-prev)
+       ("^" . ,#'ogent-section-up)
+       ("j" . ,ogent-armory-jump-map)
+       ("q" . ,#'quit-window))))
   (dolist (map (list ogent-armory-home-mode-map
                      ogent-armory-org-chart-mode-map
-                     ogent-armory-agent-mode-map))
-    (should (eq (lookup-key map (kbd "C-c u"))
-                #'ogent-armory-ui-up-section)))
-  (should (eq (lookup-key ogent-armory-conversation-mode-map (kbd "C-c U"))
-              #'ogent-armory-ui-up-section)))
+                     ogent-armory-agent-mode-map
+                     ogent-armory-conversation-mode-map))
+    (ogent-ui-armory-test--assert-unbound
+     map
+     '("C-c u" "C-c U"))))
 
 (ert-deftest ogent-ui-armory-conversation-keybindings-cover-detail-actions ()
-  "Conversation detail exposes Armory task actions."
-  (dolist (pair `(("C-c c" . ,#'ogent-armory-conversation-continue)
-                  ("C-c k" . ,#'ogent-armory-conversation-stop)
-                  ("C-c r" . ,#'ogent-armory-conversation-retry)
-                  ("C-c d" . ,#'ogent-armory-conversation-mark-done)
-                  ("C-c a" . ,#'ogent-armory-conversation-archive)
-                  ("C-c u" . ,#'ogent-armory-conversation-unarchive)
-                  ("C-c m" . ,#'ogent-armory-conversation-mute)
-                  ("C-c M" . ,#'ogent-armory-conversation-unmute)
-                  ("C-c C" . ,#'ogent-armory-conversation-compact)
-                  ("C-c D" . ,#'ogent-armory-conversation-delete)
-                  ("C-c y" . ,#'ogent-armory-conversation-copy-link)
-                  ("C-c o" . ,#'ogent-armory-conversation-open-artifacts)
-                  ("C-c l" . ,#'ogent-armory-conversation-open-logs)))
-    (should (eq (lookup-key ogent-armory-conversation-mode-map
-                            (kbd (car pair)))
-                (cdr pair)))))
+  "Conversation detail exposes its action surface on bare local keys."
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-conversation-mode-map
+   `(("RET" . ,#'ogent-armory-conversation-visit-source)
+     ("v" . ,#'ogent-armory-conversation-visit-source)
+     ("c" . ,#'ogent-armory-conversation-continue)
+     ("k" . ,#'ogent-armory-conversation-stop)
+     ("R" . ,#'ogent-armory-conversation-retry)
+     ("d" . ,#'ogent-armory-conversation-mark-done)
+     ("a" . ,#'ogent-armory-conversation-toggle-archive)
+     ("m" . ,#'ogent-armory-conversation-mute)
+     ("M" . ,#'ogent-armory-conversation-unmute)
+     ("C" . ,#'ogent-armory-conversation-compact)
+     ("D" . ,#'ogent-armory-conversation-delete)
+     ("y" . ,#'ogent-armory-conversation-copy-link)
+     ("o" . ,#'ogent-armory-conversation-open-artifacts)
+     ("l" . ,#'ogent-armory-conversation-open-logs)
+     ("?" . ,#'ogent-armory-conversation-dispatch)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-conversation-mode-map
+   '("C-c c" "C-c k" "C-c r" "C-c d" "C-c a" "C-c u" "C-c U"
+     "C-c m" "C-c M" "C-c C" "C-c D" "C-c y" "C-c o" "C-c l")))
 
 (ert-deftest ogent-ui-armory-conversation-reader-prioritizes-output ()
   "Conversation detail opens as a reader with output before metadata."
@@ -208,8 +268,11 @@
               (should (string-match-p "Source Org" text))
               (should (< output details))
               (should (< details prompt))
-              (should-not (string-match-p "^Actions$" text))
-              (should-not (string-match-p "D delete" header-line-format))))
+              (should-not (string-match-p "^Actions$" text)))
+            (let ((header (ogent-ui-armory-test--rendered-header-line)))
+              (dolist (key '("?:menu" "j:jump" "g:refresh"))
+                (should (string-match-p (regexp-quote key) header)))
+              (should-not (string-match-p "D delete" header))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -309,7 +372,7 @@
       (should (memq #'evil-normalize-keymaps hook)))))
 
 (ert-deftest ogent-ui-armory-evil-local-keys-mirror-safe-home-keys ()
-  "Armory Home Evil keys mirror only Vim-safe Home bindings."
+  "Legacy Evil local mirroring keeps only non-reserved Home bindings."
   (let (keys)
     (with-temp-buffer
       (ogent-armory-home-mode)
@@ -317,22 +380,31 @@
                  (lambda (state key command)
                    (push (list state key command) keys))))
         (ogent-armory-ui--evil-local-keys)))
-    (dolist (binding '(("C-c m" ogent-armory-home-dispatch)
-                       ("C-c ?" ogent-armory-home-help)
-                       ("C-c j" ogent-armory-jobs)
-                       ("C-c G" ogent-armory-status)
-                       ("C-c g" ogent-armory-home-refresh)
-                       ("TAB" ogent-armory-ui-toggle-section)
-                       ("RET" ogent-armory-home-visit)
+    (dolist (binding '(("RET" ogent-armory-home-visit)
+                       ("<return>" ogent-armory-home-visit)
+                       ("<kp-enter>" ogent-armory-home-visit)
+                       ("TAB" ogent-section-toggle)
+                       ("<tab>" ogent-section-toggle)
+                       ("<backtab>" ogent-section-cycle)
+                       ("M-n" ogent-section-next)
+                       ("M-p" ogent-section-prev)
+                       ("q" quit-window)
                        ("ZZ" quit-window)
                        ("ZQ" quit-window)))
       (dolist (state '(normal motion))
         (should (member (list state (kbd (car binding)) (cadr binding))
                         keys))))
-    (dolist (state '(normal motion))
-      (should-not (member (list state (kbd "j") #'ogent-armory-jobs) keys))
-      (should-not (member (list state (kbd "g") #'ogent-armory-home-refresh)
-                          keys)))))
+    (dolist (binding '(("J" ogent-armory-home-open-jobs)
+                       ("R" ogent-armory-home-run)
+                       ("E" ogent-armory-home-edit-item)
+                       ("?" ogent-armory-home-dispatch)
+                       ("j" ogent-armory-jump-map)
+                       ("g" ogent-armory-home-refresh)
+                       ("," ogent-armory-settings)
+                       ("/" ogent-armory-command-palette)))
+      (dolist (state '(normal motion))
+        (should-not (member (list state (kbd (car binding)) (cadr binding))
+                            keys))))))
 
 (ert-deftest ogent-ui-armory-home-magit-sections-collapse ()
   "Armory Home headings are real collapsible sections when Magit is present."
@@ -464,16 +536,19 @@
             (kill-buffer buf)))))))
 
 (ert-deftest ogent-ui-armory-home-help-and-transient-render ()
-  "Armory Home help and transient menu render without errors."
+  "Armory Home help and transient menu render the bare-key contract."
   (save-window-excursion
     (ogent-armory-home-help)
     (with-current-buffer "*Ogent Armory Home Help*"
       (let ((text (buffer-substring-no-properties (point-min) (point-max))))
         (should (string-match-p "Armory Home" text))
-        (should (string-match-p "C-c r runs" text))
-        (should (string-match-p "C-c j opens Jobs" text))
+        (should (string-match-p "R runs or retries" text))
+        (should (string-match-p "J opens jobs related" text))
+        (should (string-match-p "j h Home, j g Graph" text))
+        (should (string-match-p ", opens Settings" text))
         (should (string-match-p "TAB toggles" text))
-        (should (string-match-p "C-c m opens the Transient menu" text)))))
+        (should (string-match-p "? opens the Transient menu" text))
+        (should-not (string-match-p "C-c m opens" text)))))
   (unwind-protect
       (progn
         (transient-setup 'ogent-armory-home-dispatch)
@@ -522,14 +597,22 @@
 
 (ert-deftest ogent-ui-armory-agent-profile-keybindings-are-discoverable ()
   "The single-agent profile advertises and binds its main actions."
-  (dolist (pair `(("RET" . ,#'ogent-armory-agent-visit)
-                  ("C-c c" . ,#'ogent-armory-agent-compose)
-                  ("C-c e" . ,#'ogent-armory-agent-edit-property)
-                  ("C-c r" . ,#'ogent-armory-agent-run-at-point)
-                  ("C-c v" . ,#'ogent-armory-agent-visit)
-                  ("q" . ,#'quit-window)))
-    (should (eq (lookup-key ogent-armory-agent-mode-map (kbd (car pair)))
-                (cdr pair)))))
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-agent-mode-map
+   `(("RET" . ,#'ogent-armory-agent-visit)
+     ("c" . ,#'ogent-armory-agent-compose)
+     ("e" . ,#'ogent-armory-agent-edit-property)
+     ("R" . ,#'ogent-armory-agent-run-at-point)
+     ("v" . ,#'ogent-armory-agent-visit)
+     ("g" . ,#'ogent-armory-agent-refresh)
+     ("?" . ,#'ogent-armory-agent-dispatch)
+     ("n" . ,#'ogent-armory-ui-next-item)
+     ("p" . ,#'ogent-armory-ui-previous-item)
+     ("j" . ,ogent-armory-jump-map)
+     ("q" . ,#'quit-window)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-agent-mode-map
+   '("C-c c" "C-c e" "C-c r" "C-c v")))
 
 (ert-deftest ogent-ui-armory-create-clone-and-archive-agent ()
   "Agent management commands create, clone, and deactivate Org personas."
@@ -676,7 +759,7 @@
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (should (string-match-p "Weekly Review" text))
               (should (string-match-p "old-report" text)))
-            (should (eq (lookup-key ogent-armory-jobs-mode-map (kbd "C-c p"))
+            (should (eq (lookup-key ogent-armory-jobs-mode-map (kbd "P"))
                         #'ogent-armory-jobs-edit-prompt))
             (goto-char (point-min))
             (search-forward "Weekly Review")
@@ -1229,21 +1312,29 @@
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-tasks-keybindings-cover-daily-actions ()
-  "Task board bindings include run, archive, view modes, edit, and filters."
-  (dolist (pair `(("RET" . ,#'ogent-armory-tasks-visit)
-                  ("c" . ,#'ogent-armory-create-task)
-                  ("C-c c" . ,#'ogent-armory-create-task)
-                  ("C-c r" . ,#'ogent-armory-tasks-run)
-                  ("C-c a" . ,#'ogent-armory-tasks-archive)
-                  ("C-c u" . ,#'ogent-armory-tasks-unarchive)
-                  ("C-c b" . ,#'ogent-armory-tasks-board-view)
-                  ("C-c l" . ,#'ogent-armory-tasks-list-view)
-                  ("C-c S" . ,#'ogent-armory-tasks-schedule-view)
-                  ("C-c e" . ,#'ogent-armory-tasks-edit)
-                  ("C-c f" . ,#'ogent-armory-tasks-filter)
-                  ("C-c g" . ,#'ogent-armory-tasks-refresh)))
-    (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd (car pair)))
-                (cdr pair)))))
+  "Task board bindings include run, archive, view cycle, edit, and filters."
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-tasks-mode-map
+   `(("RET" . ,#'ogent-armory-tasks-visit)
+     ("c" . ,#'ogent-armory-create-task)
+     ("R" . ,#'ogent-armory-tasks-run)
+     ("A" . ,#'ogent-armory-tasks-archive)
+     ("U" . ,#'ogent-armory-tasks-unarchive)
+     ("v" . ,#'ogent-armory-tasks-cycle-view)
+     ("e" . ,#'ogent-armory-tasks-edit)
+     ("f" . ,#'ogent-armory-tasks-filter)
+     ("g" . ,#'ogent-armory-tasks-refresh)
+     ("?" . ,#'ogent-armory-tasks-dispatch)
+     ("n" . ,#'ogent-armory-ui-next-item)
+     ("p" . ,#'ogent-armory-ui-previous-item)
+     ("j" . ,ogent-armory-jump-map)
+     ("," . ,#'ogent-armory-settings)
+     ("/" . ,#'ogent-armory-command-palette)
+     ("q" . ,#'quit-window)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-tasks-mode-map
+   '("C-c c" "C-c r" "C-c a" "C-c u" "C-c b" "C-c l" "C-c S"
+     "C-c e" "C-c f" "C-c g")))
 
 (ert-deftest ogent-ui-armory-tasks-run-displays-started-process ()
   "Running a task from the task board makes the spawned process visible."
@@ -1300,16 +1391,20 @@
           (kill-buffer buffer))))))
 
 (ert-deftest ogent-ui-armory-tasks-buffer-advertises-capture ()
-  "The task board makes task creation discoverable."
+  "The task board makes task creation discoverable through its local menu."
   (ogent-ui-armory-test-with-temp-dir root
     (ogent-ui-armory-test--seed root)
     (let ((buffer (ogent-armory-tasks root)))
       (unwind-protect
           (with-current-buffer buffer
-            (should (string-match-p "c create task"
-                                    (buffer-substring-no-properties
-                                     (point-min)
-                                     (point-max)))))
+            (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd "c"))
+                        #'ogent-armory-create-task))
+            (should (eq (lookup-key ogent-armory-tasks-mode-map (kbd "?"))
+                        #'ogent-armory-tasks-dispatch))
+            (should (get 'ogent-armory-tasks-dispatch 'transient--prefix))
+            (let ((header (ogent-ui-armory-test--rendered-header-line)))
+              (dolist (key '("?:menu" "j:jump" "g:refresh"))
+                (should (string-match-p (regexp-quote key) header)))))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
 
@@ -1511,17 +1606,29 @@
         (should (equal opened (file-truename app-file)))))))
 
 (ert-deftest ogent-ui-armory-status-links-richer-commands ()
-  "Armory status mode links to the richer UI entry points."
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "C-c a"))
-              #'ogent-armory-agents))
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "C-c t"))
-              #'ogent-armory-tasks))
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "C-c s"))
-              #'ogent-armory-search))
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "C-c c"))
-              #'ogent-armory-conversations))
-  (should (eq (lookup-key ogent-armory-status-mode-map (kbd "C-c A"))
-              #'ogent-armory-apps)))
+  "Armory status exposes graph actions locally and richer views via jumps."
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-status-mode-map
+   `(("j" . ,ogent-armory-jump-map)
+     ("?" . ,#'ogent-armory-status-dispatch)
+     ("R" . ,#'ogent-armory-status-run)
+     ("e" . ,#'ogent-armory-status-edit)
+     ("E" . ,#'ogent-armory-status-edit-body)
+     ("P" . ,#'ogent-armory-status-open-agent-profile)
+     ("J" . ,#'ogent-armory-status-open-agent-jobs)
+     ("C" . ,#'ogent-armory-status-create-job)
+     ("i" . ,#'ogent-armory-status-open-issues)))
+  (ogent-ui-armory-test--assert-bindings
+   ogent-armory-jump-map
+   `(("a" . ,#'ogent-armory-agents)
+     ("t" . ,#'ogent-armory-tasks)
+     ("s" . ,#'ogent-armory-search)
+     ("c" . ,#'ogent-armory-conversations)
+     ("A" . ,#'ogent-armory-apps)
+     ("g" . ,#'ogent-armory-status)))
+  (ogent-ui-armory-test--assert-unbound
+   ogent-armory-status-mode-map
+   '("C-c a" "C-c t" "C-c s" "C-c c" "C-c A")))
 
 (ert-deftest ogent-ui-armory-evil-installs-dispatch-keymaps ()
   "Armory UI dispatch keys remain active in Evil states."

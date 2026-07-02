@@ -31,6 +31,16 @@
 (autoload 'ogent-armory-agenda "ogent-armory-schedule" nil t)
 (autoload 'ogent-armory-git-status "ogent-armory-git" nil t)
 (autoload 'ogent-armory-command-palette "ogent-armory-palette" nil t)
+(autoload 'ogent-armory-home "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-org-chart "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-tasks "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-conversations "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-jobs "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-search "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-apps "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-data "ogent-armory-data" nil t)
+(autoload 'ogent-armory-settings "ogent-armory-settings" nil t)
 
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -50,6 +60,41 @@
 (defvar magit-root-section)
 
 (declare-function ogent-armory-home-refresh "ogent-ui-armory-home")
+
+(defvar ogent-armory-jump-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "h" #'ogent-armory-home)
+    (define-key map "g" #'ogent-armory-status)      ; g = graph
+    (define-key map "a" #'ogent-armory-agents)
+    (define-key map "o" #'ogent-armory-org-chart)
+    (define-key map "t" #'ogent-armory-tasks)
+    (define-key map "c" #'ogent-armory-conversations)
+    (define-key map "j" #'ogent-armory-jobs)
+    (define-key map "s" #'ogent-armory-search)
+    (define-key map "A" #'ogent-armory-apps)
+    (define-key map "d" #'ogent-armory-data)
+    (define-key map "u" #'ogent-armory-schedule)
+    (define-key map "v" #'ogent-armory-git-status)
+    map)
+  "Cross-surface Armory jumps, bound to `j' in every Armory buffer.")
+
+(transient-define-group ogent-armory-ui--jump-group
+  ["Armory"
+   :pad-keys t
+   ("j h" "Home" ogent-armory-home)
+   ("j g" "Graph" ogent-armory-status)
+   ("j a" "Agents" ogent-armory-agents)
+   ("j o" "Org chart" ogent-armory-org-chart)
+   ("j t" "Tasks" ogent-armory-tasks)
+   ("j c" "Conversations" ogent-armory-conversations)
+   ("j j" "Jobs" ogent-armory-jobs)
+   ("j s" "Search" ogent-armory-search)
+   ("j A" "Apps" ogent-armory-apps)
+   ("j d" "Data" ogent-armory-data)
+   ("j u" "Schedule" ogent-armory-schedule)
+   ("j v" "Git" ogent-armory-git-status)
+   ("," "Settings" ogent-armory-settings)
+   ("/" "Palette" ogent-armory-command-palette)])
 
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."
@@ -136,7 +181,7 @@
 (defface ogent-armory-ui-logo
   '((((class color) (background dark)) :foreground "#b98aff" :weight bold)
     (((class color) (background light)) :foreground "#7a3fb0" :weight bold)
-    (t :weight bold))
+    (t :inherit font-lock-keyword-face :weight bold))
   "Face for the Armory Home crest banner."
   :group 'ogent-ui-armory)
 
@@ -292,6 +337,11 @@
          (root (or (ogent-armory-find-root candidate)
                    candidate)))
     (directory-file-name (file-truename root))))
+
+(defun ogent-armory-ui--invalidate-cache-when-force (force root)
+  "Invalidate cached Armory data for ROOT when FORCE is non-nil."
+  (when (and force root)
+    (ogent-armory-cache-invalidate (ogent-armory-ui--root root))))
 
 (defun ogent-armory-ui--root-label (root)
   "Return a compact label for ROOT."
@@ -553,6 +603,14 @@ When EVENT is non-nil, append it to the canonical event log with PAYLOAD."
   (org-end-of-meta-data t)
   (skip-chars-forward " \t\n"))
 
+(defun ogent-armory-ui--read-current-property (file property)
+  "Return PROPERTY from the first Org heading in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (ogent-armory--org-mode)
+    (ogent-armory--first-heading-title)
+    (org-entry-get nil property)))
+
 (defun ogent-armory-ui--read-string-default (prompt default)
   "Read string for PROMPT with DEFAULT shown as an Emacs default value."
   (let ((shown-prompt
@@ -769,10 +827,40 @@ Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
 (defalias 'ogent-armory-ui--visible-property-position
   #'ogent-section-visible-item-position)
 
+(defun ogent-armory-ui--tabulated-item-position (direction)
+  "Return the next tabulated-list row position in DIRECTION.
+DIRECTION is `next' or `previous'."
+  (when (derived-mode-p 'tabulated-list-mode)
+    (save-excursion
+      (let ((step (if (eq direction 'next) 1 -1))
+            found)
+        (while (and (not found)
+                    (zerop (forward-line step)))
+          (when (tabulated-list-get-id)
+            (setq found (line-beginning-position))))
+        found))))
+
+
 (defun ogent-armory-ui--insert-item-line (item text)
   "Insert TEXT with Armory ITEM metadata."
   (ogent-section-insert-item-line text 'ogent-armory-item item
                                   "RET visits this Armory item"))
+
+(defun ogent-armory-ui-next-item ()
+  "Move point to the next actionable Armory item line."
+  (interactive)
+  (when-let ((next (or (ogent-section-visible-item-position
+                        'ogent-armory-item 'next)
+                       (ogent-armory-ui--tabulated-item-position 'next))))
+    (goto-char next)))
+
+(defun ogent-armory-ui-previous-item ()
+  "Move point to the previous actionable Armory item line."
+  (interactive)
+  (when-let ((previous (or (ogent-section-visible-item-position
+                            'ogent-armory-item 'previous)
+                           (ogent-armory-ui--tabulated-item-position 'previous))))
+    (goto-char previous)))
 
 (provide 'ogent-ui-armory-core)
 ;;; ogent-ui-armory-core.el ends here
