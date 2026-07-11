@@ -18,15 +18,9 @@
 (require 'ogent-armory-runner)
 (require 'ogent-armory-settings)
 (require 'ogent-ops-style)
-
-(eval-and-compile
-  (defvar ogent-armory-status--magit-section-available
-    (require 'magit-section nil t)
-    "Non-nil when `magit-section' is available for Armory status.")
-  (when ogent-armory-status--magit-section-available
-    (require 'magit-section)))
-(put 'magit-insert-section 'lisp-indent-function 2)
-(put 'magit-insert-heading 'lisp-indent-function 0)
+(require 'ogent-ui-theme)
+(require 'ogent-ui-section)
+(require 'ogent-ui-armory-core)
 
 (autoload 'ogent-issues "ogent-issues" nil t)
 (autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
@@ -53,6 +47,7 @@
 (declare-function magit-section-up "ext:magit-section")
 (defvar magit-section-mode-map)
 (defvar magit-section-visibility-indicator)
+(defvar magit-section-visibility-indicators)
 (defvar magit-insert-section--current)
 (defvar magit-insert-section--oldroot)
 (defvar magit-insert-section--parent)
@@ -79,182 +74,34 @@
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-heading
-  '((((class color) (background light))
-     :foreground "#263238" :background "#eceff1" :weight bold :extend t)
-    (((class color) (background dark))
-     :foreground "#eceff4" :background "#3b4252" :weight bold :extend t)
-    (t :weight bold))
+  '((t :inherit ogent-theme-section-heading :extend t))
   "Face for Armory status section headings."
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-id
-  '((((class color) (background light)) :foreground "#546e7a")
-    (((class color) (background dark)) :foreground "#81a1c1")
-    (t :inherit shadow))
+  '((t :inherit ogent-theme-muted))
   "Face for Armory graph identifiers."
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-label
-  '((((class color) (background light)) :foreground "#263238" :weight bold)
-    (((class color) (background dark)) :foreground "#eceff4" :weight bold)
-    (t :weight bold))
+  '((t :inherit ogent-theme-info :weight bold))
   "Face for Armory graph labels."
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-dimmed
-  '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#677489")
-    (t :inherit shadow))
+  '((t :inherit ogent-theme-muted))
   "Face for secondary Armory status text."
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-connected
-  '((((class color) (background light)) :foreground "#2e7d32")
-    (((class color) (background dark)) :foreground "#a3be8c")
-    (t :inherit success))
+  '((t :inherit ogent-theme-success))
   "Face for connected operational bridges."
   :group 'ogent-armory-status)
 
 (defface ogent-armory-status-disconnected
-  '((((class color) (background light)) :foreground "#78909c")
-    (((class color) (background dark)) :foreground "#5c6370")
-    (t :inherit shadow))
+  '((t :inherit ogent-theme-error))
   "Face for inactive operational bridges."
   :group 'ogent-armory-status)
-
-(defconst ogent-armory-status-agent-editable-properties
-  '("OGENT_ROLE"
-    "OGENT_PROVIDER"
-    "OGENT_MODEL"
-    "OGENT_PERMISSION_MODE"
-    "OGENT_HEARTBEAT"
-    "OGENT_ACTIVE"
-    "OGENT_WORKSPACE"
-    "OGENT_TAGS")
-  "Agent properties editable from Armory status.")
-
-(defconst ogent-armory-status-job-editable-properties
-  '("OGENT_JOB_ID"
-    "OGENT_AGENT"
-    "OGENT_CRON"
-    "OGENT_HEARTBEAT"
-    "OGENT_ENABLED"
-    "OGENT_ADAPTER"
-    "OGENT_ADAPTER_CONFIG"
-    "OGENT_PROVIDER"
-    "OGENT_MODEL"
-    "OGENT_EFFORT"
-    "OGENT_RUNTIME_MODE"
-    "OGENT_WORKSPACE"
-    "OGENT_TIMEOUT"
-    "OGENT_ON_COMPLETE"
-    "OGENT_ON_FAILURE"
-    "OGENT_ARMORY_PATH"
-    "OGENT_CREATED_AT"
-    "OGENT_UPDATED_AT"
-    "OGENT_RUN_AFTER"
-    "OGENT_OWNER_TASK"
-    "OGENT_ONE_SHOT_STATE"
-    "OGENT_LAST_RUN"
-    "OGENT_NEXT_RUN"
-    "OGENT_TAGS"
-    "OGENT_ARCHIVED")
-  "Job properties editable from Armory status.")
-
-(defconst ogent-armory-status-job-property-keys
-  '(("OGENT_JOB_ID" . :id)
-    ("OGENT_AGENT" . :agent)
-    ("OGENT_CRON" . :cron)
-    ("OGENT_HEARTBEAT" . :heartbeat)
-    ("OGENT_ENABLED" . :enabled-raw)
-    ("OGENT_ADAPTER" . :adapter)
-    ("OGENT_ADAPTER_CONFIG" . :adapter-config)
-    ("OGENT_PROVIDER" . :provider)
-    ("OGENT_MODEL" . :model)
-    ("OGENT_EFFORT" . :effort)
-    ("OGENT_RUNTIME_MODE" . :runtime-mode)
-    ("OGENT_WORKSPACE" . :workspace)
-    ("OGENT_TIMEOUT" . :timeout)
-    ("OGENT_ON_COMPLETE" . :on-complete)
-    ("OGENT_ON_FAILURE" . :on-failure)
-    ("OGENT_ARMORY_PATH" . :armory-path)
-    ("OGENT_CREATED_AT" . :created-at)
-    ("OGENT_UPDATED_AT" . :updated-at)
-    ("OGENT_RUN_AFTER" . :run-after)
-    ("OGENT_OWNER_TASK" . :owner-task)
-    ("OGENT_ONE_SHOT_STATE" . :one-shot-state)
-    ("OGENT_LAST_RUN" . :last-run)
-    ("OGENT_NEXT_RUN" . :next-run)
-    ("OGENT_TAGS" . :tags)
-    ("OGENT_ARCHIVED" . :archived-raw))
-  "Map editable job Org properties to Armory job plist keys.")
-
-(defun ogent-armory-status--default-provider (root)
-  "Return the Armory default provider for ROOT."
-  (or (plist-get (ogent-armory-settings-read root) :default-provider)
-      ogent-armory-default-agent-provider))
-
-(defun ogent-armory-status--record-provider (root record)
-  "Return the provider for RECORD under ROOT."
-  (or (ogent-armory--blank-to-nil (plist-get record :provider))
-      (ogent-armory-status--default-provider root)))
-
-(defun ogent-armory-status--effort-candidates (provider)
-  "Return effort candidates for PROVIDER."
-  (or (ignore-errors
-        (plist-get (ogent-armory-adapter-resolve-provider provider)
-                   :effort-levels))
-      '("low" "medium" "high" "xhigh")))
-
-(defun ogent-armory-status--optional-choice
-    (prompt candidates &optional current)
-  "Read optional PROMPT from CANDIDATES with CURRENT as default."
-  (let ((completion-ignore-case t))
-    (ogent-armory--blank-to-nil
-     (completing-read prompt
-                      (delete-dups
-                       (seq-filter
-                        (lambda (candidate)
-                          (not (string-blank-p candidate)))
-                        (mapcar (lambda (candidate)
-                                  (format "%s" candidate))
-                                candidates)))
-                      nil nil nil nil current))))
-
-(defun ogent-armory-status--read-property-value
-    (root property current record)
-  "Read PROPERTY value under ROOT using CURRENT and RECORD completions."
-  (let* ((provider (ogent-armory-status--record-provider root record))
-         (prompt (format "%s: " property)))
-    (pcase property
-      ((or "OGENT_PROVIDER" "OGENT_ADAPTER")
-       (or (ogent-armory-settings--read-provider prompt current) ""))
-      ("OGENT_MODEL"
-       (or (ogent-armory-settings--read-model
-            provider current prompt)
-           ""))
-      ("OGENT_EFFORT"
-       (or (ogent-armory-status--optional-choice
-            prompt
-            (ogent-armory-status--effort-candidates provider)
-            current)
-           ""))
-      ("OGENT_RUNTIME_MODE"
-       (or (ogent-armory-status--optional-choice
-            prompt '("native" "terminal") current)
-           ""))
-      ((or "OGENT_ACTIVE" "OGENT_ARCHIVED" "OGENT_ENABLED")
-       (or (ogent-armory-status--optional-choice
-            prompt '("t" "nil") current)
-           ""))
-      ("OGENT_AGENT"
-       (or (ogent-armory-status--optional-choice
-            prompt
-            (ogent-armory-list-agents root)
-            current)
-           ""))
-      (_
-       (read-string prompt current)))))
 
 (defvar-local ogent-armory-status--root nil
   "Armory root shown by the current status buffer.")
@@ -265,111 +112,52 @@
 (defvar ogent-armory-status-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map "g" #'ogent-armory-status-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-status-refresh)
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-status-visit))
     (define-key map "n" #'ogent-armory-status-next-item)
-    (define-key map (kbd "C-c n") #'ogent-armory-status-next-item)
     (define-key map "p" #'ogent-armory-status-previous-item)
-    (define-key map (kbd "C-c p") #'ogent-armory-status-previous-item)
     (define-key map "i" #'ogent-armory-status-open-issues)
-    (define-key map (kbd "C-c i") #'ogent-armory-status-open-issues)
     (define-key map "R" #'ogent-armory-status-run)
-    (define-key map (kbd "C-c r") #'ogent-armory-status-run)
-    (define-key map "m" #'ogent-armory-status-dispatch)
-    (define-key map (kbd "C-c m") #'ogent-armory-status-dispatch)
-    (define-key map "?" #'ogent-armory-status-help)
-    (define-key map (kbd "C-c ?") #'ogent-armory-status-help)
+    (define-key map "?" #'ogent-armory-status-dispatch)
     (define-key map "e" #'ogent-armory-status-edit)
-    (define-key map (kbd "C-c e") #'ogent-armory-status-edit)
     (define-key map "E" #'ogent-armory-status-edit-body)
-    (define-key map (kbd "C-c E") #'ogent-armory-status-edit-body)
     (define-key map "P" #'ogent-armory-status-open-agent-profile)
-    (define-key map (kbd "C-c P") #'ogent-armory-status-open-agent-profile)
     (define-key map "J" #'ogent-armory-status-open-agent-jobs)
-    (define-key map (kbd "C-c J") #'ogent-armory-status-open-agent-jobs)
     (define-key map "C" #'ogent-armory-status-create-job)
-    (define-key map (kbd "C-c N") #'ogent-armory-status-create-job)
-    (define-key map (kbd "TAB") #'ogent-armory-status-toggle-section)
-    (define-key map (kbd "<tab>") #'ogent-armory-status-toggle-section)
-    (define-key map (kbd "<backtab>") #'ogent-armory-status-cycle-sections)
-    (define-key map (kbd "M-n") #'ogent-armory-status-next-section)
-    (define-key map (kbd "M-p") #'ogent-armory-status-previous-section)
-    (define-key map (kbd "^") #'ogent-armory-status-up-section)
-    (define-key map (kbd "C-c u") #'ogent-armory-status-up-section)
-    (define-key map "h" #'ogent-armory-home)
-    (define-key map (kbd "C-c h") #'ogent-armory-home)
-    (define-key map "a" #'ogent-armory-agents)
-    (define-key map (kbd "C-c a") #'ogent-armory-agents)
-    (define-key map "t" #'ogent-armory-tasks)
-    (define-key map (kbd "C-c t") #'ogent-armory-tasks)
-    (define-key map "c" #'ogent-armory-conversations)
-    (define-key map (kbd "C-c c") #'ogent-armory-conversations)
-    (define-key map "s" #'ogent-armory-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-search)
-    (define-key map "A" #'ogent-armory-apps)
-    (define-key map (kbd "C-c A") #'ogent-armory-apps)
+    (define-key map (kbd "TAB") #'ogent-section-toggle)
+    (define-key map (kbd "<tab>") #'ogent-section-toggle)
+    (define-key map (kbd "<backtab>") #'ogent-section-cycle)
+    (define-key map (kbd "M-n") #'ogent-section-next)
+    (define-key map (kbd "M-p") #'ogent-section-prev)
+    (define-key map (kbd "^") #'ogent-section-up)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-status-mode'.")
 
-(defun ogent-armory-status--refresh-magit-section-availability ()
-  "Refresh `magit-section' availability for Armory status."
-  (setq ogent-armory-status--magit-section-available
-        (or ogent-armory-status--magit-section-available
-            (require 'magit-section nil t)))
-  (when (and ogent-armory-status--magit-section-available
-             (not (featurep 'magit-section)))
-    (require 'magit-section))
-  ogent-armory-status--magit-section-available)
-
-(defun ogent-armory-status--magit-section-usable-p ()
-  "Return non-nil when Magit section APIs are usable."
-  (and (ogent-armory-status--refresh-magit-section-availability)
-       (fboundp 'magit-current-section)
-       (fboundp 'magit-insert-heading)
-       (fboundp 'magit-section-toggle)
-       (fboundp 'magit-section-forward-sibling)
-       (fboundp 'magit-section-backward-sibling)))
-
-(defun ogent-armory-status--mode-parent ()
-  "Return the parent mode for Armory status."
-  (if (ogent-armory-status--magit-section-usable-p)
-      'magit-section-mode
-    'special-mode))
-
-(defun ogent-armory-status--mode-setup ()
-  "Set up local state for Armory status buffers."
-  (setq-local revert-buffer-function #'ogent-armory-status-refresh)
-  (setq-local truncate-lines t)
-  (setq-local buffer-read-only t)
-  (font-lock-mode -1)
-  (ogent-ops-protect-face-properties)
-  (when (ogent-armory-status--magit-section-usable-p)
-    (when (boundp 'magit-section-mode-map)
-      (set-keymap-parent ogent-armory-status-mode-map magit-section-mode-map))
-    (setq-local magit-section-visibility-indicator '("..." . t)))
-  (setq header-line-format '(:eval (ogent-armory-status--header-line))))
-
-(defmacro ogent-armory-status--define-mode ()
-  "Define `ogent-armory-status-mode' with the available parent mode."
-  (let ((parent (if (bound-and-true-p ogent-armory-status--magit-section-available)
-                    'magit-section-mode
-                  'special-mode)))
-    `(define-derived-mode ogent-armory-status-mode ,parent "Armory"
-       "Major mode for Armory graph status.
+(ogent-section-define-mode ogent-armory-status-mode "Armory"
+                           "Major mode for Armory graph status.
 
 \\<ogent-armory-status-mode-map>
 \\[ogent-armory-status-refresh] refreshes the graph.
 \\[ogent-armory-status-visit] visits the Org record at point.
 \\[ogent-armory-status-dispatch] opens the status action menu.
 \\[ogent-armory-status-help] shows status help.
-\\[ogent-armory-status-toggle-section] toggles section visibility.
+\\[ogent-section-toggle] toggles section visibility.
 \\[ogent-armory-status-open-issues] opens Ogent Issues."
-       :group 'ogent-armory-status
-       (ogent-armory-status--mode-setup))))
-
-(ogent-armory-status--define-mode)
+  :group 'ogent-armory-status
+  (setq-local revert-buffer-function #'ogent-armory-status-refresh)
+  (setq-local truncate-lines t)
+  (setq-local buffer-read-only t)
+  (font-lock-mode -1)
+  (ogent-ops-protect-face-properties)
+  (when (and (ogent-section-usable-p)
+             (boundp 'magit-section-mode-map))
+    (set-keymap-parent ogent-armory-status-mode-map magit-section-mode-map))
+  (ogent-section-configure-buffer)
+  (setq header-line-format '(:eval (ogent-armory-status--header-line))))
 
 (defun ogent-armory-status--buffer-name (root)
   "Return the Armory status buffer name for ROOT."
@@ -398,36 +186,38 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-status-refresh (&rest _)
-  "Refresh the current Armory status buffer."
-  (interactive)
+(defun ogent-armory-status-refresh (&optional force &rest _)
+  "Refresh the current Armory status buffer.
+With FORCE (interactively, a prefix argument), rebuild the Armory
+graph even when the cached copy is still fresh."
+  (interactive "P")
   (unless ogent-armory-status--root
     (setq ogent-armory-status--root
           (or (ogent-armory-find-root)
               (read-directory-name "Armory root: "))))
   (let ((inhibit-read-only t))
-    (erase-buffer)
-    (setq ogent-armory-status--graph
-          (ogent-armory-build-graph ogent-armory-status--root))
-    (ogent-armory-status--insert-buffer)
-    (goto-char (point-min))))
+    (ogent-section-preserve-point
+        ((lambda ()
+           (when-let ((node (ogent-section-item-at-point 'ogent-armory-node)))
+             (plist-get node :id))))
+      (erase-buffer)
+      (setq ogent-armory-status--graph
+            (ogent-armory-build-graph ogent-armory-status--root force))
+      (ogent-armory-status--insert-buffer))))
 
 (defun ogent-armory-status--header-line ()
   "Return header line text for the current Armory status buffer."
   (let* ((node (ignore-errors (ogent-armory-status--node-at-point)))
-         (context (when node
-                    (format "    %s %s"
-                            (symbol-name (plist-get node :kind))
-                            (or (plist-get node :label) "")))))
-    (concat
-     "C-c m menu  C-c ? help  C-c g refresh  RET visit  TAB fold  M-n/p sections  C-c n/p items  q quit"
-     (when context
-       (propertize context 'face 'ogent-armory-status-dimmed))
-     (when ogent-armory-status--root
-       (concat "    "
-               (propertize
-                (abbreviate-file-name ogent-armory-status--root)
-                'face 'ogent-armory-status-dimmed))))))
+         (context (concat
+                   (when ogent-armory-status--root
+                     (abbreviate-file-name ogent-armory-status--root))
+                   (when node
+                     (format "  %s %s"
+                             (symbol-name (plist-get node :kind))
+                             (or (plist-get node :label) ""))))))
+    (ogent-section-header-line "Armory Graph" context
+                               '("?" . "menu") '("j" . "jump")
+                               '("g" . "refresh"))))
 
 (defun ogent-armory-status--nodes-by-kind (kind)
   "Return graph nodes whose `:kind' is KIND."
@@ -590,49 +380,9 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
          (rest (- (length items) (length visible))))
     (list :visible visible :rest rest)))
 
-(defmacro ogent-armory-status--with-section (section heading &rest body)
-  "Insert collapsible SECTION with HEADING around BODY when Magit is present."
-  (declare (indent 2) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-status--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             (magit-insert-heading ,heading)
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       (insert ,heading "\n")
-       ,@body)))
-
-(defmacro ogent-armory-status--with-root-section (section &rest body)
-  "Insert root SECTION around BODY when Magit is present."
-  (declare (indent 1) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-status--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       ,@body)))
-
 (defun ogent-armory-status--insert-buffer ()
   "Insert the Armory status buffer contents."
-  (ogent-armory-status--with-root-section (ogent-armory-status-root)
+  (ogent-section-with-root (ogent-armory-status-root)
     (ogent-armory-status--insert-buffer-content)))
 
 (defun ogent-armory-status--insert-buffer-content ()
@@ -669,7 +419,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
          (sessions (ogent-armory-status--node-count 'session))
          (apps (ogent-armory-status--node-count 'app))
          (issues (ogent-armory-status--node-count 'issue)))
-    (ogent-armory-status--with-section (ogent-armory-status-summary)
+    (ogent-section-with (ogent-armory-status-summary)
         (ogent-armory-status--heading-text "◇" "O" "Overview")
       (when armory
         (ogent-armory-status--insert-node-line
@@ -686,7 +436,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 (defun ogent-armory-status--insert-agents ()
   "Insert agents and their scheduled jobs."
   (let ((agents (ogent-armory-status--nodes-by-kind 'agent)))
-    (ogent-armory-status--with-section (ogent-armory-status-agents)
+    (ogent-section-with (ogent-armory-status-agents)
         (ogent-armory-status--heading-text "◆" "A" "Agents" (length agents))
       (if agents
           (dolist (agent agents)
@@ -737,7 +487,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                  ogent-armory-status-max-related-items))
          (visible (plist-get split :visible))
          (rest (plist-get split :rest)))
-    (ogent-armory-status--with-section (ogent-armory-status-recent-work)
+    (ogent-section-with (ogent-armory-status-recent-work)
         (ogent-armory-status--heading-text "◇" "W" "Recent Work" (length sessions))
       (if visible
           (progn
@@ -764,7 +514,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
                  ogent-armory-status-max-related-items))
          (visible (plist-get split :visible))
          (rest (plist-get split :rest)))
-    (ogent-armory-status--with-section (ogent-armory-status-artifacts)
+    (ogent-section-with (ogent-armory-status-artifacts)
         (ogent-armory-status--heading-text "◇" "F" "Artifacts" (length nodes))
       (if visible
           (progn
@@ -834,7 +584,7 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 
 (defun ogent-armory-status--insert-bridges ()
   "Insert operational bridge section."
-  (ogent-armory-status--with-section (ogent-armory-status-bridges)
+  (ogent-section-with (ogent-armory-status-bridges)
       (ogent-armory-status--heading-text "◈" "B" "Bridges")
     (ogent-armory-status--insert-bridge-line
      "Ogent Issues"
@@ -843,20 +593,14 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
 
 (defun ogent-armory-status--insert-node-line (node text &optional prefix)
   "Insert TEXT for NODE with optional PREFIX and visit metadata."
-  (let ((start (point)))
-    (insert (or prefix "  "))
-    (insert text)
-    (when ogent-armory-status-show-node-ids
-      (insert "  ")
-      (insert (propertize (plist-get node :id)
-                          'face 'ogent-armory-status-id)))
-    (insert "\n")
-    (add-text-properties
-     start
-     (point)
-     `(ogent-armory-node ,node
-                          mouse-face highlight
-                          help-echo ,(ogent-armory-status--node-help node)))))
+  (ogent-section-insert-item-line
+   (concat (or prefix "  ")
+           text
+           (when ogent-armory-status-show-node-ids
+             (concat "  " (propertize (plist-get node :id)
+                                      'face 'ogent-armory-status-id))))
+   'ogent-armory-node node
+   (ogent-armory-status--node-help node)))
 
 (defun ogent-armory-status--node-help (node)
   "Return hover help for graph NODE."
@@ -902,39 +646,6 @@ When DIRECTORY is nil, use the nearest armory root or prompt for one."
   (or (get-text-property (point) 'ogent-armory-node)
       (get-text-property (line-beginning-position) 'ogent-armory-node)))
 
-(defun ogent-armory-status--visible-node-position (direction)
-  "Return the next visible node position in DIRECTION.
-DIRECTION is either `next' or `previous'."
-  (let ((limit (if (eq direction 'next) (point-max) (point-min)))
-        (pos (point))
-        found)
-    (while (and (not found)
-                (if (eq direction 'next)
-                    (< pos limit)
-                  (> pos limit)))
-      (setq pos
-            (if (eq direction 'next)
-                (next-single-property-change
-                 pos
-                 'ogent-armory-node
-                 nil
-                 limit)
-              (previous-single-property-change
-               pos
-               'ogent-armory-node
-               nil
-               limit)))
-      (when pos
-        (when (eq direction 'previous)
-          (setq pos (max (point-min) (1- pos))))
-        (if (and (get-text-property pos 'ogent-armory-node)
-                 (not (invisible-p pos)))
-            (setq found pos)
-          (setq pos (if (eq direction 'next)
-                        (min (point-max) (1+ pos))
-                      (max (point-min) (1- pos)))))))
-    found))
-
 (defun ogent-armory-status--require-node ()
   "Return the graph node at point or signal a Armory status error."
   (or (ogent-armory-status--node-at-point)
@@ -955,45 +666,6 @@ DIRECTION is either `next' or `previous'."
       ('job (plist-get data :id))
       ((or 'session 'app) (plist-get data :job-id))
       (_ nil))))
-
-(defun ogent-armory-status--job-with-property (job property value)
-  "Return JOB copied with Org PROPERTY set to VALUE."
-  (let* ((copy (copy-sequence job))
-         (key (cdr (assoc property
-                          ogent-armory-status-job-property-keys))))
-    (unless key
-      (user-error "Unsupported Armory job property: %s" property))
-    (pcase property
-      ("OGENT_TAGS"
-       (plist-put copy key (ogent-armory--tags-from-string value)))
-      ("OGENT_ENABLED"
-       (plist-put copy :enabled-raw value)
-       (plist-put copy :enabled (ogent-armory--truth-value value)))
-      ("OGENT_ARCHIVED"
-       (plist-put copy :archived-raw value)
-       (plist-put copy :archived (ogent-armory--truth-value value)))
-      (_
-       (plist-put copy key value)))
-    copy))
-
-(defun ogent-armory-status--read-current-property (file property)
-  "Return PROPERTY from the first Org heading in FILE."
-  (with-temp-buffer
-    (insert-file-contents file)
-    (ogent-armory--org-mode)
-    (ogent-armory--first-heading-title)
-    (org-entry-get nil property)))
-
-(defun ogent-armory-status--visit-body (file)
-  "Visit FILE and move to the first body line."
-  (find-file file)
-  (org-mode)
-  (goto-char (point-min))
-  (unless (re-search-forward org-heading-regexp nil t)
-    (user-error "No Org heading found in %s" file))
-  (org-back-to-heading t)
-  (org-end-of-meta-data t)
-  (skip-chars-forward " \t\n"))
 
 (defun ogent-armory-status-visit ()
   "Visit the Org record at point."
@@ -1057,17 +729,18 @@ DIRECTION is either `next' or `previous'."
        (let* ((slug (plist-get data :slug))
               (property (completing-read
                          "Agent property: "
-                         ogent-armory-status-agent-editable-properties
+                         ogent-armory-agent-editable-properties
                          nil t))
-              (current (ogent-armory-status--read-current-property
+              (current (ogent-armory-ui--read-current-property
                         (ogent-armory-agent-file ogent-armory-status--root
-                                                  slug)
+                                                 slug)
                         property))
-              (value (ogent-armory-status--read-property-value
-                      ogent-armory-status--root
-                      property
-                      current
-                      data)))
+              (value (or (ogent-armory-ui--read-property-value
+                          ogent-armory-status--root
+                          property
+                          current
+                          data)
+                         "")))
          (ogent-armory-update-agent-property
           ogent-armory-status--root slug property value)))
       ('job
@@ -1075,19 +748,20 @@ DIRECTION is either `next' or `previous'."
               (job-id (plist-get data :id))
               (property (completing-read
                          "Job property: "
-                         ogent-armory-status-job-editable-properties
+                         ogent-armory-job-editable-properties
                          nil t))
-              (current (ogent-armory-status--read-current-property
+              (current (ogent-armory-ui--read-current-property
                         (ogent-armory-job-file ogent-armory-status--root
-                                                agent
-                                                job-id)
+                                               agent
+                                               job-id)
                         property))
-              (value (ogent-armory-status--read-property-value
-                      ogent-armory-status--root
-                      property
-                      current
-                      data))
-              (candidate (ogent-armory-status--job-with-property
+              (value (or (ogent-armory-ui--read-property-value
+                          ogent-armory-status--root
+                          property
+                          current
+                          data)
+                         ""))
+              (candidate (ogent-armory-ui--job-with-property
                           data property value)))
          (ogent-armory-validate-job candidate)
          (ogent-armory-update-job-property
@@ -1097,13 +771,14 @@ DIRECTION is either `next' or `previous'."
                          "Session property: "
                          '("OGENT_ARCHIVED" "OGENT_TAGS")
                          nil t))
-              (current (ogent-armory-status--read-current-property
+              (current (ogent-armory-ui--read-current-property
                         path property))
-              (value (ogent-armory-status--read-property-value
-                      ogent-armory-status--root
-                      property
-                      current
-                      data)))
+              (value (or (ogent-armory-ui--read-property-value
+                          ogent-armory-status--root
+                          property
+                          current
+                          data)
+                         "")))
          (ogent-armory-update-session-property path property value)))
       (_
        (user-error "No editable Armory record at point"))))
@@ -1116,7 +791,7 @@ DIRECTION is either `next' or `previous'."
          (path (plist-get node :path)))
     (unless (and path (file-exists-p path))
       (user-error "No Armory file at point"))
-    (ogent-armory-status--visit-body path)))
+    (ogent-armory-ui--visit-body path)))
 
 (defun ogent-armory-status-open-agent-profile ()
   "Open the agent profile associated with the current Armory node."
@@ -1156,73 +831,38 @@ DIRECTION is either `next' or `previous'."
   (with-help-window "*Ogent Armory Status Help*"
     (princ "Armory Status\n")
     (princ "==============\n\n")
-    (princ "Rows stay quiet by default. Use C-c m for actions on the item at point.\n")
-    (princ "Use Vim motions in Evil, C-c n/C-c p for actionable rows, and RET for the durable Org source.\n\n")
+    (princ "Rows stay quiet by default. Press ? for the action menu on the item at point.\n")
+    (princ "n/p move between actionable rows; RET visits the durable Org source.\n\n")
     (princ "Node actions\n")
     (princ "------------\n")
-    (princ "Agent:   C-c P opens profile, C-c e edits identity properties, C-c N creates a job, C-c r runs with a prompt.\n")
-    (princ "Job:     C-c r runs the job, C-c e edits metadata, C-c E edits the prompt/body, C-c J opens the job list.\n")
-    (princ "Session: C-c r retries linked work, C-c e edits archive/tags, RET visits the transcript.\n")
+    (princ "Agent:   P opens profile, e edits identity properties, C creates a job, R runs with a prompt.\n")
+    (princ "Job:     R runs the job, e edits metadata, E edits the prompt/body, J opens the job list.\n")
+    (princ "Session: R retries linked work, e edits archive/tags, RET visits the transcript.\n")
     (princ "App:     RET visits the source record when available.\n\n")
-    (princ "Surfaces\n")
-    (princ "--------\n")
-    (princ "C-c h Home, C-c a Agents, C-c t Tasks, C-c c Conversations, C-c s Search, C-c A Apps, C-c i Issues.\n\n")
+    (princ "Jumps\n")
+    (princ "-----\n")
+    (princ "j h Home, j g Graph, j a Agents, j o Org chart, j t Tasks, j c Conversations,\n")
+    (princ "j j Jobs, j s Search, j A Apps, j d Data, j u Schedule, j v Git.  i opens Issues.\n\n")
     (princ "Menus\n")
     (princ "-----\n")
-    (princ "C-c m opens the Transient menu. C-c ? opens this help buffer. C-c g refreshes. q quits.\n")
-    (princ "TAB toggles a section. M-n/M-p move between sibling sections. C-c u moves to the parent section.\n")
+    (princ "? opens the Transient menu (h inside it reopens this help). g refreshes; C-u g forces a rebuild. q quits.\n")
+    (princ ", opens Settings. / opens the command palette.\n")
+    (princ "TAB toggles a section. M-n/M-p move between sibling sections. ^ moves to the parent section.\n")
     (princ "Set `ogent-armory-status-show-node-ids' to show graph ids inline.\n")
-    (princ "Evil normal and motion states keep bare Vim navigation and expose Armory actions through these chords.\n")))
-
-(defun ogent-armory-status-toggle-section ()
-  "Toggle the current Armory status section."
-  (interactive)
-  (if (ogent-armory-status--magit-section-usable-p)
-      (if-let ((section (magit-current-section)))
-          (condition-case err
-              (magit-section-toggle section)
-            (user-error (message "%s" (error-message-string err))))
-        (message "No section at point"))
-    (message "Section toggling requires magit-section")))
-
-(defun ogent-armory-status-cycle-sections ()
-  "Cycle visibility for all Armory status sections."
-  (interactive)
-  (if (and (ogent-armory-status--magit-section-usable-p)
-           (fboundp 'magit-section-cycle-global))
-      (magit-section-cycle-global)
-    (message "Section cycling requires magit-section")))
-
-(defun ogent-armory-status-next-section ()
-  "Move to the next sibling Armory status section."
-  (interactive)
-  (when (ogent-armory-status--magit-section-usable-p)
-    (magit-section-forward-sibling)))
-
-(defun ogent-armory-status-previous-section ()
-  "Move to the previous sibling Armory status section."
-  (interactive)
-  (when (ogent-armory-status--magit-section-usable-p)
-    (magit-section-backward-sibling)))
-
-(defun ogent-armory-status-up-section ()
-  "Move to the parent Armory status section."
-  (interactive)
-  (when (and (ogent-armory-status--magit-section-usable-p)
-             (fboundp 'magit-section-up))
-    (magit-section-up)))
+    (princ "Evil: keys the buffer binds win over Evil motion; unbound keys keep their Evil meaning.\n")))
 
 (defun ogent-armory-status-next-item ()
   "Move point to the next Armory record line."
   (interactive)
-  (let ((next (ogent-armory-status--visible-node-position 'next)))
+  (let ((next (ogent-section-visible-item-position 'ogent-armory-node 'next)))
     (when next
       (goto-char next))))
 
 (defun ogent-armory-status-previous-item ()
   "Move point to the previous Armory record line."
   (interactive)
-  (let ((previous (ogent-armory-status--visible-node-position 'previous)))
+  (let ((previous (ogent-section-visible-item-position 'ogent-armory-node
+                                                       'previous)))
     (when previous
       (goto-char previous))))
 
@@ -1245,7 +885,7 @@ DIRECTION is either `next' or `previous'."
        ""))))
 
 ;;;###autoload (autoload 'ogent-armory-status-dispatch "ogent-armory-status" nil t)
-(transient-define-prefix ogent-armory-status-dispatch ()
+(ogent-armory-ui--define-prefix ogent-armory-status-dispatch ()
   "Dispatch menu for Armory status buffers."
   [:description ogent-armory-status--transient-header
                 ["Run"
@@ -1258,25 +898,18 @@ DIRECTION is either `next' or `previous'."
                  ("J" "Agent jobs" ogent-armory-status-open-agent-jobs)]
                 ["Navigate"
                  ("RET" "Visit Org source" ogent-armory-status-visit)
-                 ("TAB" "Toggle section" ogent-armory-status-toggle-section :transient t)
-                 ("M-n" "Next section" ogent-armory-status-next-section :transient t)
-                 ("M-p" "Previous section" ogent-armory-status-previous-section :transient t)
-                 ("^" "Up section" ogent-armory-status-up-section :transient t)
+                 ("TAB" "Toggle section" ogent-section-toggle :transient t)
+                 ("M-n" "Next section" ogent-section-next :transient t)
+                 ("M-p" "Previous section" ogent-section-prev :transient t)
+                 ("^" "Up section" ogent-section-up :transient t)
                  ("n" "Next item" ogent-armory-status-next-item :transient t)
                  ("p" "Previous item" ogent-armory-status-previous-item :transient t)
                  ("g" "Refresh" ogent-armory-status-refresh :transient t)]]
-  [["Surfaces"
-    ("h" "Home" ogent-armory-home)
-    ("a" "Agents" ogent-armory-agents)
-    ("t" "Tasks" ogent-armory-tasks)
-    ("c" "Conversations" ogent-armory-conversations)
-    ("s" "Search" ogent-armory-search)
-    ("A" "Apps" ogent-armory-apps)]
-   ["Bridges"
-    ("i" "Ogent Issues" ogent-armory-status-open-issues)]
-   ["Help"
-    ("?" "Help" ogent-armory-status-help)
-    ("q" "Quit menu" transient-quit-one)]])
+  ["Bridges"
+   ("i" "Ogent Issues" ogent-armory-status-open-issues)]
+  ["Help"
+   ("h" "Help" ogent-armory-status-help)
+   ("q" "Quit menu" transient-quit-one)])
 
 (defun ogent-armory-status--evil-local-keys ()
   "Install local Evil keys for Armory status."

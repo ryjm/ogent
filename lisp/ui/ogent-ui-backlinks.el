@@ -11,9 +11,11 @@
 (require 'org-element)
 (require 'ogent-context)
 
-;; Forward declarations for org-roam integration (optional)
-(declare-function org-roam-node-list "ext:org-roam")
-(declare-function org-roam-node-file "ext:org-roam-node")
+;; Forward declarations for org-roam integration (optional).
+;; `org-roam-node-file' is a cl-defstruct accessor, which check-declare
+;; cannot resolve, hence the FILEONLY flag.
+(declare-function org-roam-node-list "ext:org-roam-node")
+(declare-function org-roam-node-file "ext:org-roam-node" (node) t)
 
 ;; Forward declaration for org-fold.
 (declare-function org-fold-show-context "org-fold")

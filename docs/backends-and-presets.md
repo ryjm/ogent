@@ -155,14 +155,16 @@ Example model entry with preset:
 
 Two optional registry keys surface gptel's per-model machinery:
 
-- `:request-params` — a plist of extra parameters merged into the HTTP
+- `:request-params`: a plist of extra parameters merged into the HTTP
   request body whenever that model is used. gptel reads it from the
   interned model symbol; ogent copies it there on each send via
   `ogent-models-apply-gptel-props`.
-- `:capabilities` — gptel capability symbols added (unioned, never
+- `:capabilities`: gptel capability symbols added (unioned, never
   replaced) to the model symbol. The shipped Anthropic entries declare
-  `(cache)` so prompt caching works for model IDs newer than gptel's
-  bundled tables.
+  `(media tool-use cache)` so tool calling, image input, and prompt
+  caching keep working for model IDs newer than gptel's bundled tables
+  (an older gptel that predates a model would otherwise silently drop
+  tools from the request).
 
 ```elisp
 ;; OpenAI: raise reasoning effort for one model
@@ -171,7 +173,7 @@ Two optional registry keys surface gptel's per-model machinery:
 
 ;; Anthropic: enable extended thinking with a token budget
 (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
- :capabilities (cache)
+ :capabilities (media tool-use cache)
  :request-params (:thinking (:type "enabled" :budget_tokens 4096)))
 ```
 
@@ -180,7 +182,7 @@ binds to `gptel-cache` on every request. The default `t` caches the full
 stable prefix (pinned context, system directive, tools); set it to `nil`
 to disable, or to a list of `message`/`system`/`tool` symbols for
 finer control. Only the Anthropic backend honors client-side cache
-control — other backends ignore the setting.
+control; other backends ignore the setting.
 
 ## Example .dir-locals.el
 

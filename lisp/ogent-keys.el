@@ -29,7 +29,7 @@
 (declare-function ogent-zen-run-region "ogent-zen")
 (declare-function ogent-zen-edit-dwim "ogent-zen")
 (declare-function ogent-zen-apply-last-edit "ogent-zen-edit")
-(declare-function ogent-zen-review-menu "ogent-zen")
+(declare-function ogent-zen-dispatch "ogent-zen" t t)
 (declare-function ogent-review-next "ogent-zen")
 (declare-function ogent-review-previous "ogent-zen")
 (declare-function ogent-review-reject "ogent-zen")
@@ -206,8 +206,8 @@ Set to nil to disable automatic evil binding setup."
     (zen-copy-response
      :key "w" :command ogent-zen-copy-response
      :desc "Copy Zen response")
-    (zen-review-menu :key "u" :command ogent-zen-review-menu
-                     :desc "Review Zen run")
+    (zen-dispatch    :key "u" :command ogent-zen-dispatch
+                     :desc "Zen menu")
     (ask-here         :key "q" :command ogent-ask-here
                       :desc "Ask here"
                       :visual t)
@@ -226,11 +226,11 @@ Set to nil to disable automatic evil binding setup."
     (debug-mode       :key "D" :command ogent-debug-mode
                       :desc "Toggle debug mode")
     (armory-home     :key "j" :command ogent-armory-home
-                      :desc "Armory Home")
+                     :desc "Armory Home")
     (armory-status   :key "K" :command ogent-armory-status
-                      :desc "Armory graph/status")
+                     :desc "Armory graph/status")
     (armory-agents   :key "y" :command ogent-armory-agents
-                      :desc "Armory agents")
+                     :desc "Armory agents")
     (armory-agent-profile
      :key "Y" :command ogent-armory-agent
      :desc "Armory agent profile")
@@ -238,37 +238,37 @@ Set to nil to disable automatic evil binding setup."
      :key "B" :command ogent-armory-org-chart
      :desc "Armory org chart")
     (armory-data     :key ";" :command ogent-armory-data
-                      :desc "Armory data browser")
+                     :desc "Armory data browser")
     (armory-tasks    :key "I" :command ogent-armory-tasks
-                      :desc "Armory tasks")
+                     :desc "Armory tasks")
     (armory-conversations
      :key "O" :command ogent-armory-conversations
      :desc "Armory conversations")
     (armory-actions  :key "N" :command ogent-armory-actions
-                      :desc "Armory action approvals")
+                     :desc "Armory action approvals")
     (armory-schedule :key "J" :command ogent-armory-schedule
-                      :desc "Armory schedule")
+                     :desc "Armory schedule")
     (armory-agenda   :key "Q" :command ogent-armory-agenda
-                      :desc "Armory agenda")
+                     :desc "Armory agenda")
     (armory-git      :key ":" :command ogent-armory-git-status
-                      :desc "Armory git status")
+                     :desc "Armory git status")
     (armory-palette  :key "/" :command ogent-armory-command-palette
-                      :desc "Armory command palette")
+                     :desc "Armory command palette")
     (armory-settings :key "," :command ogent-armory-settings
-                      :desc "Armory settings")
+                     :desc "Armory settings")
     (armory-help     :key "." :command ogent-armory-help
-                      :desc "Armory help")
+                     :desc "Armory help")
     (armory-onboard  :key "'" :command ogent-armory-onboard
-                      :desc "Onboard Armory")
+                     :desc "Onboard Armory")
     (armory-registry-import
      :key "=" :command ogent-armory-registry-import
      :desc "Import Armory registry")
     (armory-backup   :key "_" :command ogent-armory-backup
-                      :desc "Back up Armory")
+                     :desc "Back up Armory")
     (armory-search   :key "V" :command ogent-armory-search
-                      :desc "Armory search")
+                     :desc "Armory search")
     (armory-apps     :key "W" :command ogent-armory-apps
-                      :desc "Armory apps")
+                     :desc "Armory apps")
     (armory-create-agent
      :key "X" :command ogent-armory-create-agent
      :desc "Create Armory agent")
@@ -476,8 +476,10 @@ and which-key integration."
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function evil-local-set-key "ext:evil-core")
 (declare-function evil-define-key* "ext:evil-core")
-(declare-function evil-goto-first-line "ext:evil-commands")
-(declare-function evil-goto-line "ext:evil-commands")
+;; `evil-define-motion' generates these, so check-declare cannot resolve
+;; them; FILEONLY flags keep the declaration honest.
+(declare-function evil-goto-first-line "ext:evil-commands" (&optional count) t)
+(declare-function evil-goto-line "ext:evil-commands" (&optional count) t)
 
 (defun ogent-evil--keymap-command-bindings (keymap &optional prefix)
   "Return direct (KEYVEC . COMMAND) bindings of KEYMAP.

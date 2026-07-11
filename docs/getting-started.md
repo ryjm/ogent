@@ -203,7 +203,7 @@ With your cursor inside `Add user authentication`, run:
 - `SPC o RET` (Doom/Evil) or
 - `C-c . RET` (vanilla Emacs)
 
-ogent sends the bullet/subtree text as `# User Prompt`. Each parent bullet contributes its own body text under `# Parent Bullets` — children and earlier transcripts are trimmed out, so nothing in the payload is duplicated.
+ogent sends the bullet/subtree text as `# User Prompt`. Each parent bullet contributes its own body text under `# Parent Bullets`; children and earlier transcripts are trimmed out, so nothing in the payload is duplicated.
 
 
 For repo-aware dogfooding, just say where to look:
@@ -221,7 +221,7 @@ ogent infers the workspace from ordinary path prose. `Context:`, `Workspace:`, `
 
 Inside the result, Zen headings act like small run cards without changing the stored Org transcript. Expanded requests stay prompt-first; folded completed requests become result-first indexes, add an optional muted preview line, and can use persisted `OGENT_RESULT_TITLE` values derived from the answer. Active tool work is promoted into the main title, multi-model runs show compact model chips, sibling reruns show lineage, and low-priority metadata can right-align in wide graphical windows. `ogent-zen-result-headline-density` switches between `minimal`, `balanced`, `rich`, and `debug`. Empty runs show `0 chars`; individual tool-call failures stay as inline metadata instead of turning the run card red, while request-level model/network/abort failures name the failing subsystem and use the error styling. Review is no longer just one legacy `OGENT_REVIEW` tag: Zen now persists structured review metadata (`OGENT_DECISION`, `OGENT_REVIEW_STATUS`, `OGENT_USEFULNESS`, `OGENT_LINEAGE`, `OGENT_OUTCOME`, timestamps, reviewer) and mirrors it into a visible `:REVIEW:` drawer plus the legacy alias for older transcripts.
 
-It also works from *inside* a result: with point anywhere in a generated transcript, `C-c . RET` re-runs the owning bullet (a fresh run is appended and the previous one collapses). To **replace** the transcript at point instead, use `C-c . !` (`ogent-zen-rerun`) or just press `C-c C-c` on it — edit the bullet, re-run, compare. To reuse an answer elsewhere, use `C-c . w` / `SPC o w` (`ogent-zen-copy-response`) anywhere in the transcript; it copies only the response body, not the request, metadata, or Org heading.
+It also works from *inside* a result: with point anywhere in a generated transcript, `C-c . RET` re-runs the owning bullet (a fresh run is appended and the previous one collapses). To **replace** the transcript at point instead, use `C-c . !` (`ogent-zen-rerun`) or just press `C-c C-c` on it: edit the bullet, re-run, compare. To reuse an answer elsewhere, use `C-c . w` / `SPC o w` (`ogent-zen-copy-response`) anywhere in the transcript; it copies only the response body, not the request, metadata, or Org heading.
 
 Malleable editing splits context from the edit target. `C-c . C-r` / `SPC o C-r` (`ogent-zen-run-region`) asks about selected text while preserving parent bullet context. `C-c . C-e` / `SPC o C-e` (`ogent-zen-edit-dwim`) rewrites the active region, paragraph, sentence, or nearby Org element by asking the model for one SEARCH/REPLACE block; successful responses preview in-place with inline diff overlays. `C-c . C-a` / `SPC o C-a` (`ogent-zen-apply-last-edit`) reapplies the latest structured edit from a transcript when you need to retry validation manually. Accept with `ogent-zen-accept-edit` / `C-c C-c` in `inline-diff-mode`, or reject with `ogent-zen-reject-edit` / `C-c C-k`.
 
@@ -390,6 +390,6 @@ Run `M-x ogent-describe-bindings` to see all bindings in a help buffer.
 ### Getting Help
 
 - Run `M-x ogent-describe-bindings` to see all available commands
-- Check the [README](../README.md) for detailed feature documentation
+- Check the [README](../README.org) for detailed feature documentation
 - See [debugging.org](debugging.org) for advanced troubleshooting
 - File issues on the project repository

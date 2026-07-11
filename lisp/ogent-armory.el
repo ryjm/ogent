@@ -10,6 +10,7 @@
 (require 'org)
 (require 'seq)
 (require 'subr-x)
+(require 'ogent-armory-cache)
 
 (defgroup ogent-armory nil
   "Org-native Armory-style knowledge bases."
@@ -246,11 +247,19 @@ PROPERTIES is an alist of property names to values."
     "\n")
    "\n:END:\n"))
 
+(defun ogent-armory--invalidate-cache-for-file (file)
+  "Invalidate cached Armory data for FILE's root, when FILE is inside one."
+  (when-let ((root (ignore-errors
+                     (ogent-armory-find-root (file-name-directory file)))))
+    (ogent-armory-cache-invalidate
+     (file-truename (ogent-armory--directory root)))))
+
 (defun ogent-armory--write-file (file content)
   "Write CONTENT to FILE, creating parent directories first."
   (make-directory (file-name-directory file) t)
   (with-temp-file file
-    (insert content)))
+    (insert content))
+  (ogent-armory--invalidate-cache-for-file file))
 
 (defun ogent-armory--write-file-if-missing (file content)
   "Write CONTENT to FILE when FILE does not exist."
@@ -420,7 +429,7 @@ START defaults to `default-directory'."
               :kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
                         (org-entry-get nil "OGENT_KIND"))
               :armory-kind (or (org-entry-get nil "OGENT_ARMORY_KIND")
-                                (org-entry-get nil "OGENT_KIND"))
+                               (org-entry-get nil "OGENT_KIND"))
               :parent (ogent-armory--blank-to-nil
                        (org-entry-get nil "OGENT_ARMORY_PARENT"))
               :description (org-entry-get nil "OGENT_DESCRIPTION")
@@ -913,7 +922,7 @@ INCLUDE-VISIBLE controls whether hidden agents are included."
            (when (and (file-regular-p file)
                       (string-equal (file-name-extension file) "org"))
              (ogent-armory-read-job directory agent-slug
-                                     (file-name-base file))))
+                                    (file-name-base file))))
          (directory-files jobs-dir t "\\.org\\'")))))))
 
 (defun ogent-armory--format-job (agent-slug job body)
@@ -1034,7 +1043,7 @@ INCLUDE-VISIBLE controls whether hidden agents are included."
               :on-failure (ogent-armory--blank-to-nil
                            (org-entry-get nil "OGENT_ON_FAILURE"))
               :armory-path (ogent-armory--blank-to-nil
-                             (org-entry-get nil "OGENT_ARMORY_PATH"))
+                            (org-entry-get nil "OGENT_ARMORY_PATH"))
               :created-at (ogent-armory--blank-to-nil
                            (org-entry-get nil "OGENT_CREATED_AT"))
               :updated-at (ogent-armory--blank-to-nil
@@ -1111,7 +1120,8 @@ INCLUDE-VISIBLE controls whether hidden agents are included."
         (user-error "No Org heading found in %s" file))
       (org-back-to-heading t)
       (org-entry-put nil property (ogent-armory--property-value value))
-      (save-buffer))))
+      (save-buffer)
+      (ogent-armory--invalidate-cache-for-file file))))
 
 (defun ogent-armory-update-index-property (directory property value)
   "Set Armory index PROPERTY to VALUE under DIRECTORY."
@@ -1294,8 +1304,18 @@ AGENT-SLUG is a fallback for older transcripts with sparse properties."
                :runtime-trace trace-text
                :tools (ogent-armory--tool-blocks)))))))
 
-(defun ogent-armory-list-sessions (directory &optional agent-slug)
+(defun ogent-armory-list-sessions (directory &optional agent-slug force)
   "Return Armory sessions under DIRECTORY.
+When AGENT-SLUG is non-nil, only return sessions for that agent.
+With FORCE non-nil, bypass the stamp cache and rebuild."
+  (let ((root (file-truename (ogent-armory--directory directory))))
+    (ogent-armory-cache-get
+     root (cons 'sessions agent-slug)
+     (lambda () (ogent-armory--list-sessions-uncached root agent-slug))
+     force)))
+
+(defun ogent-armory--list-sessions-uncached (directory &optional agent-slug)
+  "Return uncached Armory sessions under DIRECTORY.
 When AGENT-SLUG is non-nil, only return sessions for that agent."
   (let* ((root (ogent-armory--directory directory))
          (slugs (if agent-slug
@@ -1565,10 +1585,24 @@ An app artifact is a directory containing an index.html file."
           (push (append (list :path file) metadata) links))))
     (nreverse links)))
 
-(defun ogent-armory-build-graph (directory)
+(defun ogent-armory-build-graph (directory &optional force)
   "Return a typed graph projection for the Org armory under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
-status buffers, future incremental indexes, and automation planners."
+status buffers, future incremental indexes, and automation planners.
+With FORCE non-nil, bypass the stamp cache and rebuild."
+  (let* ((candidate (ogent-armory--directory directory))
+         (root (file-truename
+                (ogent-armory--directory
+                 (or (ogent-armory-find-root candidate)
+                     candidate)))))
+    (ogent-armory-cache-get
+     root 'graph
+     (lambda () (ogent-armory--build-graph-uncached root force))
+     force)))
+
+(defun ogent-armory--build-graph-uncached (directory &optional force)
+  "Return an uncached typed graph projection for the Org armory under DIRECTORY.
+With FORCE non-nil, force nested session listing rebuilds."
   (let* ((candidate (ogent-armory--directory directory))
          (root (file-truename
                 (ogent-armory--directory
@@ -1609,7 +1643,7 @@ status buffers, future incremental indexes, and automation planners."
                   edges)
             (push (ogent-armory--graph-edge node-id agent-id 'scheduled-by)
                   edges)))
-        (dolist (session (ogent-armory-list-sessions root slug))
+        (dolist (session (ogent-armory-list-sessions root slug force))
           (let* ((session-id (plist-get session :id))
                  (node-id (format "session:%s/%s" slug session-id))
                  (job-id (plist-get session :job-id)))
@@ -1666,8 +1700,8 @@ status buffers, future incremental indexes, and automation planners."
               edges)
         (when worker
           (push (ogent-armory--graph-edge node-id
-                                           (format "agent:%s" worker)
-                                           'assigned-worker)
+                                          (format "agent:%s" worker)
+                                          'assigned-worker)
                 edges))))
     (list :root (directory-file-name root)
           :nodes (nreverse nodes)

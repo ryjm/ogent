@@ -21,6 +21,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `OGENT_MODEL` Org property > task role > gptel session model > project
   model > default.  Org Babel blocks accept `@role` designators in `:model`
   and honor the inherited property.
+- Claude Fable 5 (`claude-fable-5`) is now fully supported: shipped
+  Anthropic registry entries declare `media`/`tool-use`/`cache`
+  capabilities so tool calling, image input, and prompt caching work
+  even on gptel releases that predate the model (older gptel would
+  otherwise silently drop tools from requests).
+- Armory display buffers now share Magit-style section chrome through
+  `ogent-ui-section`: one header-line contract, section navigation,
+  point-preserving refresh, shared jump prefix, and `C-u g` force refresh
+  semantics across Home, status, agents, jobs, tasks, conversations,
+  search, apps, org chart, and the Zen review dashboard.
+- Added a stamp-based `ogent-armory-cache` for Armory data fetches, keyed
+  by root and data kind and invalidated by durable Org/app file mtimes.
+- Zen transcripts now expose a `?` dispatch menu, direct run navigation,
+  review target selection, result-density cycling, and a sectioned review
+  dashboard using the shared ogent section UI.
 
 ### Changed
 - Onboarding model catalogs now resolve from `ogent-model-registry` (single
@@ -28,8 +43,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped minimum transient to 0.13.5 and Org to 9.8.7.
 
 ### Fixed
-- `ogent-theme-flash` no longer errors when `ogent-theme-animation-speed`
-  is `none`.
+- Anthropic OAuth (Claude Pro/Max) requests now work with current gptel releases: the request and curl-args advice tolerate gptel's widened function arities, and the backend emits Bearer OAuth headers instead of leaking the default `x-api-key` header.
+- Magit-Section 4.5.0+ compatibility: collapsible-section visibility indicators use the new `magit-section-visibility-indicators` variable when present, falling back to the deprecated singular variable on older Magit.
+- Armory transient dispatch menus no longer rely on `transient-define-group`
+  or named group references, so CI works with older Transient packages while
+  keeping the shared jump menu generated from one project macro; shared
+  section macros also avoid sandbox-only byte-compile warnings when Magit is
+  absent.
+- `make lint` is green again: removed an invalid `declare-function` for
+  the `magit-insert-section` macro, kept EIEIO's compile-time slot
+  validation out of the runtime-only edit-diff section classes, and
+  repointed org-roam/flycheck/evil forward declarations at their real
+  defining files (struct accessors and macro-generated commands are
+  declared file-only).
+- Theme visual feedback no longer uses `cl-return-from` in plain `defun`
+  bodies when animations are disabled, and every `ogent-theme-*` face now
+  carries a terminal fallback `:inherit` clause.
+- Zen review badges and request labels use semantic `ogent-theme-*` faces,
+  and active-run animation ticks now stay scoped to visible Zen buffers
+  that still contain active request headings.
 
 ## [0.1.0] - 2026-06-17
 

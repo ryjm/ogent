@@ -21,13 +21,9 @@
 (require 'ogent-armory-data)
 (require 'ogent-armory-settings)
 (require 'ogent-armory-runner)
+(require 'ogent-ui-section)
 
-(eval-and-compile
-  (defvar ogent-armory-ui--magit-section-available
-    (require 'magit-section nil t)
-    "Non-nil when `magit-section' is available for Armory UI buffers.")
-  (when ogent-armory-ui--magit-section-available
-    (require 'magit-section)))
+;; magit-section availability probing lives in `ogent-ui-section' now.
 
 (autoload 'ogent-armory-status "ogent-armory-status" nil t)
 (autoload 'ogent-armory-actions "ogent-armory-actions" nil t)
@@ -35,6 +31,16 @@
 (autoload 'ogent-armory-agenda "ogent-armory-schedule" nil t)
 (autoload 'ogent-armory-git-status "ogent-armory-git" nil t)
 (autoload 'ogent-armory-command-palette "ogent-armory-palette" nil t)
+(autoload 'ogent-armory-home "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-agents "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-org-chart "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-tasks "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-conversations "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-jobs "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-search "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-apps "ogent-ui-armory" nil t)
+(autoload 'ogent-armory-data "ogent-armory-data" nil t)
+(autoload 'ogent-armory-settings "ogent-armory-settings" nil t)
 
 (declare-function magit-current-section "ext:magit-section")
 (declare-function magit-insert-heading "ext:magit-section")
@@ -47,12 +53,60 @@
 (declare-function magit-section-up "ext:magit-section")
 (defvar magit-section-mode-map)
 (defvar magit-section-visibility-indicator)
+(defvar magit-section-visibility-indicators)
 (defvar magit-insert-section--current)
 (defvar magit-insert-section--oldroot)
 (defvar magit-insert-section--parent)
 (defvar magit-root-section)
 
 (declare-function ogent-armory-home-refresh "ogent-ui-armory-home")
+
+(defvar ogent-armory-jump-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "h" #'ogent-armory-home)
+    (define-key map "g" #'ogent-armory-status)      ; g = graph
+    (define-key map "a" #'ogent-armory-agents)
+    (define-key map "o" #'ogent-armory-org-chart)
+    (define-key map "t" #'ogent-armory-tasks)
+    (define-key map "c" #'ogent-armory-conversations)
+    (define-key map "j" #'ogent-armory-jobs)
+    (define-key map "s" #'ogent-armory-search)
+    (define-key map "A" #'ogent-armory-apps)
+    (define-key map "d" #'ogent-armory-data)
+    (define-key map "u" #'ogent-armory-schedule)
+    (define-key map "v" #'ogent-armory-git-status)
+    map)
+  "Cross-surface Armory jumps, bound to `j' in every Armory buffer.")
+
+(defmacro ogent-armory-ui--define-prefix (name arglist docstring primary-group &rest extra-groups)
+  "Define NAME as an Armory Transient prefix.
+ARGLIST, DOCSTRING, PRIMARY-GROUP, and EXTRA-GROUPS follow
+`transient-define-prefix'.  The shared Armory jump group is spliced
+into the expanded prefix as a literal group vector so older Transient
+releases never have to resolve a named group reference."
+  (declare (indent defun)
+           (debug (&define name lambda-list stringp sexp &rest sexp)))
+  `(transient-define-prefix ,name ,arglist
+     ,docstring
+     ,primary-group
+     ,(vconcat
+       [["Armory"
+         :pad-keys t
+         ("j h" "Home" ogent-armory-home)
+         ("j g" "Graph" ogent-armory-status)
+         ("j a" "Agents" ogent-armory-agents)
+         ("j o" "Org chart" ogent-armory-org-chart)
+         ("j t" "Tasks" ogent-armory-tasks)
+         ("j c" "Conversations" ogent-armory-conversations)
+         ("j j" "Jobs" ogent-armory-jobs)
+         ("j s" "Search" ogent-armory-search)
+         ("j A" "Apps" ogent-armory-apps)
+         ("j d" "Data" ogent-armory-data)
+         ("j u" "Schedule" ogent-armory-schedule)
+         ("j v" "Git" ogent-armory-git-status)
+         ("," "Settings" ogent-armory-settings)
+         ("/" "Palette" ogent-armory-command-palette)]]
+       (apply #'vector extra-groups))))
 
 (defgroup ogent-ui-armory nil
   "Richer UI surfaces for Org Armory records."
@@ -139,7 +193,7 @@
 (defface ogent-armory-ui-logo
   '((((class color) (background dark)) :foreground "#b98aff" :weight bold)
     (((class color) (background light)) :foreground "#7a3fb0" :weight bold)
-    (t :weight bold))
+    (t :inherit font-lock-keyword-face :weight bold))
   "Face for the Armory Home crest banner."
   :group 'ogent-ui-armory)
 
@@ -295,6 +349,11 @@
          (root (or (ogent-armory-find-root candidate)
                    candidate)))
     (directory-file-name (file-truename root))))
+
+(defun ogent-armory-ui--invalidate-cache-when-force (force root)
+  "Invalidate cached Armory data for ROOT when FORCE is non-nil."
+  (when (and force root)
+    (ogent-armory-cache-invalidate (ogent-armory-ui--root root))))
 
 (defun ogent-armory-ui--root-label (root)
   "Return a compact label for ROOT."
@@ -556,6 +615,14 @@ When EVENT is non-nil, append it to the canonical event log with PAYLOAD."
   (org-end-of-meta-data t)
   (skip-chars-forward " \t\n"))
 
+(defun ogent-armory-ui--read-current-property (file property)
+  "Return PROPERTY from the first Org heading in FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (ogent-armory--org-mode)
+    (ogent-armory--first-heading-title)
+    (org-entry-get nil property)))
+
 (defun ogent-armory-ui--read-string-default (prompt default)
   "Read string for PROMPT with DEFAULT shown as an Emacs default value."
   (let ((shown-prompt
@@ -703,117 +770,40 @@ When PREFER-FIRST is non-nil, default to the first provider model."
   "Insert Armory section heading LABEL."
   (insert (ogent-armory-ui--heading-text label) "\n"))
 
-(defun ogent-armory-ui--refresh-magit-section-availability ()
-  "Refresh `magit-section' availability for Armory UI buffers."
-  (setq ogent-armory-ui--magit-section-available
-        (or ogent-armory-ui--magit-section-available
-            (require 'magit-section nil t)))
-  (when (and ogent-armory-ui--magit-section-available
-             (not (featurep 'magit-section)))
-    (require 'magit-section))
-  ogent-armory-ui--magit-section-available)
+(defalias 'ogent-armory-ui--refresh-magit-section-availability
+  #'ogent-section-available-p)
 
-(defun ogent-armory-ui--magit-section-usable-p ()
-  "Return non-nil when Magit section APIs are usable."
-  (and (ogent-armory-ui--refresh-magit-section-availability)
-       (fboundp 'magit-current-section)
-       (fboundp 'magit-insert-heading)
-       (fboundp 'magit-section-toggle)
-       (fboundp 'magit-section-forward-sibling)
-       (fboundp 'magit-section-backward-sibling)))
+(defalias 'ogent-armory-ui--magit-section-usable-p
+  #'ogent-section-usable-p)
 
 (defmacro ogent-armory-ui--with-section (section heading &rest body)
-  "Insert collapsible SECTION with HEADING around BODY when Magit is present."
+  "Compatibility wrapper for `ogent-section-with'.
+Insert collapsible SECTION with HEADING around BODY."
   (declare (indent 2) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-ui--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             (magit-insert-heading ,heading)
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       (insert ,heading "\n")
-       ,@body)))
+  `(ogent-section-with ,section ,heading ,@body))
 
 (defmacro ogent-armory-ui--with-root-section (section &rest body)
-  "Insert root SECTION around BODY when Magit is present."
+  "Compatibility wrapper for `ogent-section-with-root'.
+Insert root SECTION around BODY."
   (declare (indent 1) (debug t))
-  (let ((type (car section)))
-    `(if (ogent-armory-ui--magit-section-usable-p)
-         (let* ((section (magit-insert-section--create ',type nil nil))
-                (magit-insert-section--current section)
-                (magit-insert-section--oldroot
-                 (or magit-insert-section--oldroot
-                     (and (not magit-insert-section--parent)
-                          (prog1 magit-root-section
-                            (setq magit-root-section section)))))
-                (magit-insert-section--parent section))
-           (catch 'cancel-section
-             ,@body
-             (magit-insert-section--finish section))
-           section)
-       ,@body)))
+  `(ogent-section-with-root ,section ,@body))
 
 (defmacro ogent-armory-ui--define-section-mode (mode name docstring &rest body)
-  "Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
+  "Compatibility wrapper for `ogent-section-define-mode'.
+Define section-capable Armory MODE with NAME, DOCSTRING, and BODY."
   (declare (indent 3) (debug t))
-  (let ((parent (if (bound-and-true-p ogent-armory-ui--magit-section-available)
-                    'magit-section-mode
-                  'special-mode)))
-    `(define-derived-mode ,mode ,parent ,name ,docstring
-       :group 'ogent-ui-armory
-       ,@body)))
+  `(ogent-section-define-mode ,mode ,name ,docstring
+     :group 'ogent-ui-armory
+     ,@body))
 
-(defun ogent-armory-ui-toggle-section ()
-  "Toggle the current Armory UI section."
-  (interactive)
-  (if (ogent-armory-ui--magit-section-usable-p)
-      (if-let ((section (magit-current-section)))
-          (condition-case err
-              (magit-section-toggle section)
-            (user-error (message "%s" (error-message-string err))))
-        (message "No section at point"))
-    (message "Section toggling requires magit-section")))
+(defalias 'ogent-armory-ui-toggle-section #'ogent-section-toggle)
+(defalias 'ogent-armory-ui-cycle-sections #'ogent-section-cycle)
+(defalias 'ogent-armory-ui-next-section #'ogent-section-next)
+(defalias 'ogent-armory-ui-previous-section #'ogent-section-prev)
+(defalias 'ogent-armory-ui-up-section #'ogent-section-up)
 
-(defun ogent-armory-ui-cycle-sections ()
-  "Cycle visibility for all Armory UI sections."
-  (interactive)
-  (if (and (ogent-armory-ui--magit-section-usable-p)
-           (fboundp 'magit-section-cycle-global))
-      (magit-section-cycle-global)
-    (message "Section cycling requires magit-section")))
-
-(defun ogent-armory-ui-next-section ()
-  "Move to the next sibling Armory UI section."
-  (interactive)
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (magit-section-forward-sibling)))
-
-(defun ogent-armory-ui-previous-section ()
-  "Move to the previous sibling Armory UI section."
-  (interactive)
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (magit-section-backward-sibling)))
-
-(defun ogent-armory-ui-up-section ()
-  "Move to the parent Armory UI section."
-  (interactive)
-  (when (and (ogent-armory-ui--magit-section-usable-p)
-             (fboundp 'magit-section-up))
-    (magit-section-up)))
-
-(defun ogent-armory-ui--configure-section-buffer ()
-  "Configure local Magit section affordances for the current buffer."
-  (when (ogent-armory-ui--magit-section-usable-p)
-    (setq-local magit-section-visibility-indicator '("..." . t))))
+(defalias 'ogent-armory-ui--configure-section-buffer
+  #'ogent-section-configure-buffer)
 
 (defun ogent-armory-ui--insert-kv (label value)
   "Insert LABEL and VALUE as one detail line."
@@ -843,44 +833,46 @@ When PREFER-FIRST is non-nil, default to the first provider model."
 (defun ogent-armory-ui--item-at-point ()
   "Return Armory item metadata at point."
   (or (get-text-property (point) 'ogent-armory-item)
-      (get-text-property (line-beginning-position) 'ogent-armory-item)
+      (ogent-section-item-at-point 'ogent-armory-item)
       (tabulated-list-get-id)))
 
-(defun ogent-armory-ui--visible-property-position (property direction)
-  "Return the next visible position with PROPERTY in DIRECTION.
-DIRECTION is either `next' or `previous'."
-  (let ((limit (if (eq direction 'next) (point-max) (point-min)))
-        (pos (point))
-        found)
-    (while (and (not found)
-                (if (eq direction 'next)
-                    (< pos limit)
-                  (> pos limit)))
-      (setq pos
-            (if (eq direction 'next)
-                (next-single-property-change pos property nil limit)
-              (previous-single-property-change pos property nil limit)))
-      (when pos
-        (when (eq direction 'previous)
-          (setq pos (max (point-min) (1- pos))))
-        (if (and (get-text-property pos property)
-                 (not (invisible-p pos)))
-            (setq found pos)
-          (setq pos (if (eq direction 'next)
-                        (min (point-max) (1+ pos))
-                      (max (point-min) (1- pos)))))))
-    found))
+(defalias 'ogent-armory-ui--visible-property-position
+  #'ogent-section-visible-item-position)
+
+(defun ogent-armory-ui--tabulated-item-position (direction)
+  "Return the next tabulated-list row position in DIRECTION.
+DIRECTION is `next' or `previous'."
+  (when (derived-mode-p 'tabulated-list-mode)
+    (save-excursion
+      (let ((step (if (eq direction 'next) 1 -1))
+            found)
+        (while (and (not found)
+                    (zerop (forward-line step)))
+          (when (tabulated-list-get-id)
+            (setq found (line-beginning-position))))
+        found))))
+
 
 (defun ogent-armory-ui--insert-item-line (item text)
   "Insert TEXT with Armory ITEM metadata."
-  (let ((start (point)))
-    (insert text "\n")
-    (add-text-properties
-     start
-     (point)
-     `(ogent-armory-item ,item
-                          mouse-face highlight
-                          help-echo "RET visits this Armory item"))))
+  (ogent-section-insert-item-line text 'ogent-armory-item item
+                                  "RET visits this Armory item"))
+
+(defun ogent-armory-ui-next-item ()
+  "Move point to the next actionable Armory item line."
+  (interactive)
+  (when-let ((next (or (ogent-section-visible-item-position
+                        'ogent-armory-item 'next)
+                       (ogent-armory-ui--tabulated-item-position 'next))))
+    (goto-char next)))
+
+(defun ogent-armory-ui-previous-item ()
+  "Move point to the previous actionable Armory item line."
+  (interactive)
+  (when-let ((previous (or (ogent-section-visible-item-position
+                            'ogent-armory-item 'previous)
+                           (ogent-armory-ui--tabulated-item-position 'previous))))
+    (goto-char previous)))
 
 (provide 'ogent-ui-armory-core)
 ;;; ogent-ui-armory-core.el ends here

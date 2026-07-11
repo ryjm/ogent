@@ -53,6 +53,21 @@
   (should (eq (ogent-theme-face 'custom-name) 'ogent-theme-custom-name))
   (should (eq (ogent-theme-face 'section-heading) 'ogent-theme-section-heading)))
 
+(ert-deftest ogent-ui-theme-faces-have-terminal-fallback ()
+  "Every ogent-theme face spec ends with a (t ...) clause carrying :inherit.
+This is the terminal/unthemed-display degradation contract: raw hex
+light/dark specs must never be the only clauses."
+  (dolist (name '(primary secondary success success-bg
+			  warning warning-bg error error-bg
+			  info muted highlight key badge
+			  section-heading header-line))
+    (let* ((face (intern (format "ogent-theme-%s" name)))
+           (spec (get face 'face-defface-spec))
+           (last-clause (car (last spec))))
+      (should spec)
+      (should (eq (car last-clause) t))
+      (should (plist-get (cdr last-clause) :inherit)))))
+
 ;;; Icon System Tests
 
 (ert-deftest ogent-theme-icons-constant-defined ()
@@ -128,7 +143,7 @@
     (should (equal (ogent-theme-icon-with-text 'success "Done" nil ": ")
                    "✓: Done"))
     (should (equal (ogent-theme-icon-with-text 'send "Message" nil " -> ")
-                   " -> Message"))))
+                   "➤ -> Message"))))
 
 (ert-deftest ogent-theme-icon-with-text-face ()
   "ogent-theme-icon-with-text applies face to both icon and text."
@@ -439,6 +454,32 @@
     (ogent-theme--clear-flash)
     (should (null ogent-theme--flash-timer))
     (should (null ogent-theme--flash-cookie))))
+
+(ert-deftest ogent-ui-theme-flash-none-does-not-signal ()
+  "ogent-theme-flash with animation-speed `none' returns without signaling.
+Regression: the old plain-defun `cl-return-from' crashed with
+\"No catch for tag\" whenever animations were disabled."
+  (let ((ogent-theme-animation-speed 'none)
+        (ogent-theme--flash-timer nil)
+        (ogent-theme--flash-cookie nil))
+    (should (null (ogent-theme-flash 'success)))
+    (should (null (ogent-theme-flash 'error "msg")))
+    ;; The disabled path must exit before starting a timer or
+    ;; remapping the mode-line face.
+    (should (null ogent-theme--flash-timer))
+    (should (null ogent-theme--flash-cookie))))
+
+(ert-deftest ogent-ui-theme-pulse-line-none-does-not-signal ()
+  "ogent-theme-pulse-line with animation-speed `none' returns without signaling.
+Same regression class as `ogent-ui-theme-flash-none-does-not-signal'."
+  (with-temp-buffer
+    (insert "line of text\n")
+    (goto-char (point-min))
+    (let ((ogent-theme-animation-speed 'none))
+      (should (null (ogent-theme-pulse-line)))
+      (should (null (ogent-theme-pulse-line 'ogent-theme-error)))
+      ;; The disabled path must not create a highlight overlay.
+      (should (null (overlays-in (point-min) (point-max)))))))
 
 ;;; Customization Variable Tests
 

@@ -3,6 +3,7 @@
 (require 'ogent-test-helper)
 (require 'ogent-ui)
 (require 'ogent-zen)
+(require 'ogent-completions)
 (require 'ogent-context)
 (require 'cl-lib)
 
@@ -438,6 +439,52 @@
         ;; Both transcripts attach to the bullet at the same level.
         (should (equal (nreverse levels) '(3 3)))))))
 
+(ert-deftest ogent-zen-dispatch-is-exposed-on-registry-and-heading-actions ()
+  "Zen dispatch is reachable from the registry and optional heading keymap."
+  (require 'ogent-keys)
+  (should (get 'ogent-zen-dispatch 'transient--prefix))
+  (let ((entry (assq 'zen-dispatch ogent-action-registry)))
+    (should entry)
+    (should (equal (plist-get (cdr entry) :key) "u"))
+    (should (eq (plist-get (cdr entry) :command) #'ogent-zen-dispatch)))
+  (let ((ogent-theme-use-icons nil)
+        (ogent-theme-use-unicode t)
+        (ogent-zen-heading-actions t))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\n** Request: Done\n"
+              ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+              "#+begin_src text :model m :status done\nprompt\n#+end_src\n\n"
+              "*** Response (m)\nanswer\n")
+      (ogent-zen-refresh)
+      (let ((map (overlay-get (car ogent-zen--overlays) 'keymap)))
+        (should (eq (lookup-key map (kbd "?")) #'ogent-zen-dispatch))
+        (should (eq (lookup-key map (kbd "n")) #'ogent-zen-next-run))
+        (should (eq (lookup-key map (kbd "p")) #'ogent-zen-previous-run))))))
+
+(ert-deftest ogent-zen-run-navigation-moves-between-request-headings ()
+  "Run navigation jumps between Zen request headings and skips lookalikes."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n"
+            "** Request: first\n"
+            ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+            "#+begin_src text :model m :status done\nprompt\n#+end_src\n\n"
+            "** Request: plain org heading\n"
+            "Not an ogent transcript.\n"
+            "** Regular heading\n"
+            "** Request: second\n"
+            ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+            "#+begin_src text :model m :status waiting\nprompt\n#+end_src\n")
+    (goto-char (point-min))
+    (search-forward "Request: first")
+    (org-back-to-heading t)
+    (ogent-zen-next-run)
+    (should (looking-at "\\*\\* Request: second"))
+    (ogent-zen-previous-run)
+    (should (looking-at "\\*\\* Request: first"))
+    (should-error (ogent-zen-previous-run) :type 'user-error)))
+
 (ert-deftest ogent-zen-collapse-previous-runs-on-new-run ()
   "Starting a new run folds previous siblings and prompt plumbing."
   (with-temp-buffer
@@ -703,6 +750,23 @@
       (search-forward "Request: Compare")
       (should (search-forward "Selected model: m2" nil t)))))
 
+(ert-deftest ogent-zen-review-badges-use-semantic-theme-faces ()
+  "Review badges carry the theme face matching their semantic state."
+  (dolist (case '(("OGENT_DECISION" "accepted" "accepted" ogent-theme-success)
+                  ("OGENT_DECISION" "rejected" "rejected" ogent-theme-error)
+                  ("OGENT_REVIEW_STATUS" "needs-review" "review" ogent-theme-warning)))
+    (pcase-let ((`(,property ,value ,label ,face) case))
+      (with-temp-buffer
+        (org-mode)
+        (insert "* Request: Review me\n"
+                ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n")
+        (goto-char (point-min))
+        (org-back-to-heading t)
+        (org-entry-put (point) property value)
+        (let ((badge (car (ogent-zen--review-badges))))
+          (should (string-match-p label (substring-no-properties badge)))
+          (should (eq (get-text-property 0 'face badge) face)))))))
+
 (ert-deftest ogent-review-accept-dispatches-to-zen-response ()
   "Generic review accept uses Zen semantics inside Zen transcripts."
   (with-temp-buffer
@@ -755,7 +819,7 @@
     (should (looking-at "\\*\\*\\* Response (m2)"))))
 
 (ert-deftest ogent-review-dashboard-lists-review-items ()
-  "The review dashboard shows pending and accepted Zen items."
+  "The review dashboard groups pending and accepted Zen items by section."
   (with-temp-buffer
     (org-mode)
     (insert "* Parent\n** Request: Compare\n"
@@ -764,13 +828,63 @@
             "*** Response (m1)\n:PROPERTIES:\n:OGENT_DECISION: accepted\n:OGENT_REVIEW: accepted\n:END:\nkept\n"
             "*** Response (m2)\nneeds attention\n")
     (let ((source (current-buffer)))
-      (ogent-review-dashboard)
-      (with-current-buffer "*Ogent Review*"
-        (should (equal ogent-review-dashboard-source-buffer source))
-        (should (string-match-p "Needs attention" (buffer-string)))
-        (should (string-match-p "\\[unreviewed\\] response m2" (buffer-string)))
-        (should (string-match-p "\\[accepted\\] response m1" (buffer-string))))
-      (kill-buffer "*Ogent Review*"))))
+      (unwind-protect
+          (progn
+            (ogent-review-dashboard)
+            (with-current-buffer "*Ogent Review*"
+              (should (eq major-mode 'ogent-review-dashboard-mode))
+              (should (equal ogent-review-dashboard-source-buffer source))
+              (let ((text (buffer-substring-no-properties
+                           (point-min) (point-max))))
+                (should (string-match-p "Unreviewed" text))
+                (should (string-match-p "Accepted" text))
+                (should (string-match-p "response m2: needs attention" text))
+                (should (string-match-p "response m1: kept" text)))))
+        (when (get-buffer "*Ogent Review*")
+          (kill-buffer "*Ogent Review*"))))))
+
+(ert-deftest ogent-review-dashboard-keymap-and-mark-row ()
+  "Dashboard rows expose section keys and marking updates the source Org item."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Parent\n** Request: Needs decision\n"
+            ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+            "#+begin_src text :model m :status done\nprompt\n#+end_src\n")
+    (let ((source (current-buffer)))
+      (unwind-protect
+          (progn
+            (ogent-review-dashboard)
+            (with-current-buffer "*Ogent Review*"
+              (should (get 'ogent-review-dashboard-dispatch 'transient--prefix))
+              (dolist (binding `(("?" . ogent-review-dashboard-dispatch)
+                                 ("n" . ogent-review-dashboard-next-item)
+                                 ("p" . ogent-review-dashboard-previous-item)
+                                 ("TAB" . ogent-section-toggle)
+                                 ("<backtab>" . ogent-section-cycle)
+                                 ("M-n" . ogent-section-next)
+                                 ("M-p" . ogent-section-prev)
+                                 ("^" . ogent-section-up)))
+                (should (eq (lookup-key ogent-review-dashboard-mode-map
+                                        (kbd (car binding)))
+                            (cdr binding))))
+              (goto-char (point-min))
+              (search-forward "run Request: Needs decision")
+              (beginning-of-line)
+              (should (markerp (get-text-property (line-beginning-position)
+                                                  'ogent-review-marker)))
+              (ogent-review-dashboard-mark "accepted")
+              (let ((text (buffer-substring-no-properties
+                           (point-min) (point-max))))
+                (should (string-match-p "Accepted" text))
+                (should (string-match-p "run Request: Needs decision" text))))
+            (with-current-buffer source
+              (goto-char (point-min))
+              (search-forward "Request: Needs decision")
+              (org-back-to-heading t)
+              (should (equal (org-entry-get (point) "OGENT_DECISION")
+                             "accepted"))))
+        (when (get-buffer "*Ogent Review*")
+          (kill-buffer "*Ogent Review*"))))))
 
 (ert-deftest ogent-zen-copy-response-copies-body-from-request ()
   "Copy response copies only the nearest Zen answer body from a request."
@@ -1120,6 +1234,40 @@
       (search-forward "Request: Accepted")
       (should (equal (org-entry-get (point) "OGENT_REVIEW") "accepted")))))
 
+(ert-deftest ogent-zen-collapse-does-not-supersede-new-run ()
+  "Collapsing previous runs must not mark the new run superseded.
+Marking an older sibling inserts lineage properties and a review drawer,
+which shifts the new request heading downward.  The self-exclusion has to
+track that shift; a stale position let both the old and the new run end up
+superseded (the reported regression)."
+  (let ((ogent-zen-collapse-previous-runs t)
+        (ogent-zen-fold-noise nil))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\n"
+              "** Request: Old\n"
+              ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+              "#+begin_src text :model m :status done\nold\n#+end_src\n"
+              "*** Response (m)\nold\n"
+              "** Request: New\n"
+              ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+              "#+begin_src text :model m :status done\nnew\n#+end_src\n"
+              "*** Response (m)\nnew\n")
+      (goto-char (point-min))
+      (search-forward "Request: New")
+      (beginning-of-line)
+      (ogent-zen-after-insert (point))
+      ;; The older run is superseded.
+      (goto-char (point-min))
+      (search-forward "Request: Old")
+      (should (equal (org-entry-get (point) "OGENT_LINEAGE") "superseded"))
+      (should (equal (org-entry-get (point) "OGENT_REVIEW") "superseded"))
+      ;; The new run must stay clean despite the position shift above it.
+      (goto-char (point-min))
+      (search-forward "Request: New")
+      (should-not (org-entry-get (point) "OGENT_LINEAGE"))
+      (should-not (org-entry-get (point) "OGENT_REVIEW")))))
+
 (ert-deftest ogent-zen-headline-density-minimal-hides-metadata ()
   "Minimal density renders only the status icon and primary title."
   (let ((ogent-theme-use-icons nil)
@@ -1135,6 +1283,23 @@
       (let ((labels (ogent-zen-tests--overlay-labels)))
         (should (member "✓ Done" labels))
         (should (member "↳ m" labels))))))
+
+(ert-deftest ogent-zen-cycle-density-rotates-through-debug-and-refreshes ()
+  "Density cycling advances through every supported value and refreshes once."
+  (let ((ogent-zen-result-headline-density 'minimal)
+        (refresh-count 0))
+    (cl-letf (((symbol-function 'ogent-zen-refresh)
+               (lambda (&rest _args)
+                 (cl-incf refresh-count))))
+      (ogent-zen-cycle-density)
+      (should (eq ogent-zen-result-headline-density 'balanced))
+      (ogent-zen-cycle-density)
+      (should (eq ogent-zen-result-headline-density 'rich))
+      (ogent-zen-cycle-density)
+      (should (eq ogent-zen-result-headline-density 'debug))
+      (ogent-zen-cycle-density)
+      (should (eq ogent-zen-result-headline-density 'minimal))
+      (should (= refresh-count 4)))))
 
 (ert-deftest ogent-zen-suffix-lanes-right-align-wide-graphic-windows ()
   "Right metadata uses a virtual alignment segment in wide graphical windows."
@@ -1255,6 +1420,38 @@
         ;; Second transcript's overlay objects survived untouched.
         (dolist (overlay second-overlays)
           (should (memq overlay ogent-zen--overlays)))))))
+
+(ert-deftest ogent-zen-animation-buffers-skip-visible-inactive-zen-buffers ()
+  "Animation buffers include only visible Zen buffers with active requests."
+  (let ((inactive (generate-new-buffer " zen-inactive"))
+        (active (generate-new-buffer " zen-active"))
+        (ogent-zen-active-animation-delay nil))
+    (unwind-protect
+        (progn
+          (with-current-buffer inactive
+            (org-mode)
+            (insert "* Parent\n** Request: Done\n"
+                    ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+                    "#+begin_src text :model m :status done\nprompt\n#+end_src\n\n"
+                    "*** Response (m)\nanswer\n")
+            (ogent-zen-mode 1))
+          (with-current-buffer active
+            (org-mode)
+            (insert "* Parent\n** Request: Waiting\n"
+                    ":PROPERTIES:\n:OGENT_STYLE: zen\n:OGENT_KIND: request\n:END:\n"
+                    "#+begin_src text :model m :status waiting\nprompt\n#+end_src\n")
+            (ogent-zen-mode 1))
+          (cl-letf (((symbol-function 'get-buffer-window-list)
+                     (lambda (buffer &rest _args)
+                       (and (memq buffer (list inactive active))
+                            '(visible)))))
+            (let ((buffers (ogent-zen--animation-buffers)))
+              (should (memq active buffers))
+              (should-not (memq inactive buffers)))))
+      (when (buffer-live-p inactive)
+        (kill-buffer inactive))
+      (when (buffer-live-p active)
+        (kill-buffer active)))))
 
 (ert-deftest ogent-zen-bullets-compose-and-restore ()
   "Star composition applies on enable and restores plain text on disable."

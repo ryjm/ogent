@@ -70,7 +70,7 @@ text in those Org files. Manual edits remain part of the record.
 
 5. Run the job:
 
-   Open =M-x ogent-armory-jobs=, move to the job, press =C-c r=.
+   Open =M-x ogent-armory-jobs=, move to the job, press =R=.
 
 6. Compose an ad hoc run:
 
@@ -154,9 +154,9 @@ text in those Org files. Manual edits remain part of the record.
 16. Inspect relationships:
 
     Use =M-x ogent-armory-status=. The graph includes armory, agent, job,
-    session, app, and issue-link nodes when available. Press
-    =C-c m= for the action menu or =C-c ?= for help. Agent and job rows advertise the
-    fastest edit/run actions inline.
+    session, app, and issue-link nodes when available. Press =?= for the
+    action menu, =j= for cross-surface jumps, =g= to refresh, or =C-u g= to
+    force a cache rebuild before rendering.
 
 17. Check provider adapters:
 
@@ -222,40 +222,43 @@ Main ogent dispatch bindings:
 | =C-c . X= / =SPC o X= | =ogent-armory-create-agent= |
 | =C-c . Z= / =SPC o Z= | =ogent-armory-create-job= |
 
-Armory Status:
+Shared Armory display buffers:
 
 | Key | Action |
 |-----+--------|
-| =C-c m= | Open the Transient action menu |
-| =C-c ?= | Open status help |
-| =RET= | Visit the durable Org source |
-| =C-c r= | Run or retry the selected agent, job, or session |
-| =C-c e= | Edit selected metadata in the Org property drawer |
-| =C-c E= | Visit the selected Org body or job prompt |
-| =C-c P= | Open the selected agent profile |
-| =C-c J= | Open the selected agent's jobs |
-| =C-c N= | Create a job for the selected agent |
-| =C-c g= | Refresh |
-| =C-c n= / =C-c p= | Move between graph rows |
-
-Armory Home:
-
-| Key | Action |
-|-----+--------|
-| =RET= | Visit the item at point |
+| =?= | Open the buffer's Transient action menu |
+| =RET= | Visit or open the item at point |
+| =g= | Refresh; =C-u g= forces the Armory data cache to rebuild first |
+| =n= / =p= | Move between actionable item rows |
+| =j= | Open the shared jump prefix (jobs, agents, graph, tasks, conversations, search, apps, settings) |
+| =,= | Open Armory settings |
+| =/= | Open the command palette |
 | =TAB= | Collapse or expand the section at point |
-| =M-n= / =M-p= | Move between sibling sections |
 | =<backtab>= | Cycle section visibility |
-| =C-c u= | Move to the parent section |
-| =C-c D= | Open the data browser |
-| =C-c h= | Open Armory git status |
-| =C-c /= | Open the command palette |
-| =C-c ,= | Open Armory settings |
-| =C-c .= | Open Armory help |
-| =C-c m= | Open the Home transient menu |
-| =C-c ?= | Open Home help |
-| =C-c g= | Refresh |
+| =M-n= / =M-p= | Move between sibling sections |
+| =^= | Move to the parent section |
 | =q= | Quit |
+
+Armory Status item actions:
+
+| Key | Action |
+|-----+--------|
+| =R= | Run or retry the selected agent, job, or session |
+| =e= | Edit selected metadata in the Org property drawer |
+| =E= | Visit the selected Org body or job prompt |
+| =P= | Open the selected agent profile |
+| =J= | Open the selected agent's jobs |
+| =C= | Create a job for the selected agent |
+| =i= | Open linked Ogent Issues |
+
+Armory Home item actions:
+
+| Key | Action |
+|-----+--------|
+| =J= | Open jobs related to the item at point |
+| =R= | Run or retry the selected agent, job, or conversation |
+| =E= | Edit the selected agent persona, job prompt, or source Org record |
+| =e= | Edit Armory metadata |
 
 Armory Data:
 
@@ -281,14 +284,8 @@ Armory Git:
 | =C-c g= | Refresh |
 | =q= | Quit |
 
-Org chart:
-
-| Key | Action |
-|-----+--------|
-| =TAB= | Collapse or expand the department at point |
-| =M-n= / =M-p= | Move between departments |
-| =C-c g= | Refresh |
-| =q= | Quit |
+Org chart item actions are the shared display-buffer keys plus =RET= to visit
+the selected agent's Org file.
 
 Action approvals:
 
@@ -356,17 +353,20 @@ Armory Schedule:
 | =q= | Quit |
 
 In Evil normal state, bare Vim navigation/search keys keep their Evil
-meanings. Armory display actions use the =C-c= chords above, while =RET=,
-=TAB=, =M-n=/=M-p=, =q=, =ZZ=, and =ZQ= remain available where documented.
+meanings unless an Armory display mode explicitly owns the key. The shared
+single-key display contract above keeps =RET=, =?=, =g=, =j=, =n=/=p=,
+=TAB=, =M-n=/=M-p=, =q=, =ZZ=, and =ZQ= available where documented.
 
 Agent profile:
 
 | Key | Action |
 |-----+--------|
-| =RET= / =C-c v= | Visit the file or record at point |
-| =C-c c= | Compose and run the agent manually |
-| =C-c e= | Edit identity metadata in the property drawer |
-| =C-c r= | Run the job at point or retry the conversation at point |
+| =RET= / =v= | Visit the file or record at point |
+| =c= | Compose and run the agent manually |
+| =e= | Edit identity metadata in the property drawer |
+| =R= | Run the job at point or retry the conversation at point |
+| =?= | Open the agent Transient menu |
+| =g= | Refresh |
 | =q= | Quit |
 
 Composer buffer:
@@ -390,25 +390,28 @@ Jobs:
 | Key | Action |
 |-----+--------|
 | =RET= | Visit source Org |
-| =C-c p= | Edit the job prompt/body |
-| =C-c e= | Edit job metadata |
-| =C-c r= | Run the job now |
-| =C-c t= | Enable or disable |
-| =C-c a= | Archive |
-| =C-c g= | Refresh |
+| =P= | Edit the job prompt/body |
+| =e= | Edit job metadata |
+| =R= | Run the job now |
+| =T= | Enable or disable |
+| =A= | Archive |
+| =?= | Open the jobs Transient menu |
+| =g= | Refresh |
 
 Task board:
 
 | Key | Action |
 |-----+--------|
-| =c= / =C-c c= | Capture a task |
+| =c= | Capture a task |
 | =RET= | Visit source Org |
-| =C-c r= | Run or retry |
-| =C-c a= | Archive |
-| =C-c u= | Unarchive |
-| =C-c e= | Edit metadata |
-| =C-c f= | Filter |
-| =C-c g= | Refresh |
+| =R= | Run or retry |
+| =A= | Archive |
+| =U= | Unarchive |
+| =v= | Cycle board/list/schedule view |
+| =e= | Edit metadata |
+| =f= | Filter |
+| =?= | Open the tasks Transient menu |
+| =g= | Refresh |
 
 * Scheduler
 
@@ -429,8 +432,8 @@ Knobs:
 - =ogent-armory-scheduler-auto-run= :: When nil, due events are only
   announced in the echo area and left alone.
 - =ogent-armory-scheduler-catchup-window= :: Seconds of backlog (default
-  300) the scheduler fires automatically. Slots that came due earlier — for
-  example while the laptop slept overnight — are skipped and remain
+  300) the scheduler fires automatically. Slots that came due earlier (for
+  example, while the laptop slept overnight) are skipped and remain
   *missed*; run those by hand from the schedule buffer with =R= (run
   missed). The first tick after enabling the mode only arms the window and
   never fires.

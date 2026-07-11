@@ -5,7 +5,7 @@ This document records the Emacs Lisp conventions the ogent codebase actually
 follows.  Every rule cites a live example as =file:line= so the convention can
 be checked against working code (citations verified 2026-06-11; treat them as
 pointers, not pinned offsets).  It replaces a verbatim import of the Emacs
-Package Dev Handbook — see [[*References][References]] for that material and proper
+Package Dev Handbook; see [[*References][References]] for that material and proper
 attribution.
 
 Buffer-name casing is deliberately /not/ legislated here; that decision is
@@ -16,7 +16,7 @@ owned by open bead =ogent-cnw.7=.
 - Every file's first line is the canonical header with lexical binding:
   =;;; ogent-models.el --- Model registry for ogent -*- lexical-binding: t; -*-=
   (=lisp/ogent-models.el:1=).
-- Only the package entry point carries the full package header — Author,
+- Only the package entry point carries the full package header: Author,
   Version, Package-Requires, Homepage, Keywords, License (=lisp/ogent.el:1-25=).
   Sub-files NEVER repeat it.
 - Sub-files use a slim layout: header line, =;;; Commentary:= with a short
@@ -34,7 +34,7 @@ owned by open bead =ogent-cnw.7=.
   callers indent like built-ins: =(declare (indent 1) (debug t))=
   (=test/ogent-armory-schedule-tests.el:19=).
 - Major sections within a file are separated by =;;;= outline comments
-  (=lisp/ogent-analytics.el:146= — =;;; Token Estimation=), which keeps
+  (=lisp/ogent-analytics.el:146=, =;;; Token Estimation=), which keeps
   =outline-minor-mode= navigation usable in large files.
 
 * Naming
@@ -51,7 +51,7 @@ owned by open bead =ogent-cnw.7=.
 
 * Data structures
 
-- Plists are the default shape for internal APIs — registry entries, context
+- Plists are the default shape for internal APIs: registry entries, context
   payloads, schedule events, conversation records.  Functions returning them
   say so: "Read CONVERSATION-ID from DIRECTORY and return a plist."
   (=lisp/ogent-armory-conversations.el:402-403=).
@@ -68,7 +68,7 @@ owned by open bead =ogent-cnw.7=.
 - Exactly one =defgroup= per module, placed immediately after the requires at
   the top of =;;; Code:=, parented under =ogent=
   (=lisp/ogent-models.el:15-17=).
-- Every =defcustom= carries both =:type= and =:group= — no exceptions
+- Every =defcustom= carries both =:type= and =:group=, no exceptions
   (=lisp/ogent-models.el:19-22=).
 - Defcustom docstrings open with a single summary sentence in the imperative
   / declarative style, then optional detail paragraphs
@@ -95,8 +95,8 @@ owned by open bead =ogent-cnw.7=.
 
 * Docstrings & checkdoc
 
-- Docstrings open with an imperative verb — "Return...", "Estimate...",
-  "Display..." — and name arguments in caps:
+- Docstrings open with an imperative verb ("Return...", "Estimate...",
+  "Display...") and name arguments in caps:
   "Estimate token count for TEXT using character-based heuristic."
   (=lisp/ogent-analytics.el:149=).
 - checkdoc cleanliness is a merge gate: =make lint= runs checkdoc,
@@ -135,7 +135,7 @@ owned by open bead =ogent-cnw.7=.
 - Shared Org fixtures live in =test/data/= and load through the helper:
   =(ogent-test-with-fixture "data/fixture.org" ...)=
   (=test/ogent-context-tests.el:10=).
-- Stub collaborators with =cl-letf= on =symbol-function= — never redefine or
+- Stub collaborators with =cl-letf= on =symbol-function=; never redefine or
   advise inside tests (=test/ogent-issues-bd-tests.el:61-64=).  Stub only at
   the process/network boundary; assert observable behavior (returned plists,
   buffer text, files written), not private state, and never mock what can
@@ -148,7 +148,7 @@ owned by open bead =ogent-cnw.7=.
 
 - Structural and architectural rules (context pipeline, model registry, tool
   FSM, testing expectations) live in [[file:architecture.org][specs/architecture.org]].
-- General Emacs Lisp packaging guidance — and the source of this file's
-  previous content — is Adam Porter's
+- General Emacs Lisp packaging guidance (and the source of this file's
+  previous content) is Adam Porter's
   [[https://github.com/alphapapa/emacs-package-dev-handbook][Emacs Package Dev Handbook]] (GPLv3).  Consult it for topics this guide
   does not cover; where the two disagree about ogent code, this guide wins.

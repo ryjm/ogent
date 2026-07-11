@@ -37,6 +37,7 @@
 (declare-function gptel-curl--get-args "ext:gptel-curl")
 (declare-function gptel--request-data "ext:gptel-request")
 (declare-function gptel-anthropic-p "ext:gptel-anthropic" t t)
+(declare-function gptel--get-api-key "ext:gptel-request")
 (defvar gptel-backend)
 (defvar gptel--known-backends)
 (defvar gptel--system-message)
@@ -575,20 +576,50 @@ MODE defaults to `max' for Claude Pro/Max subscriptions."
                (plist-get ogent-anthropic-oauth--tokens :type)))
     result))
 
-(defun ogent-anthropic-oauth--request-data-advice (orig-fn backend prompts)
+(defun ogent-anthropic-oauth--backend-header (&rest _info)
+  "Dynamic `header' function for an OAuth Anthropic backend.
+Return Bearer OAuth headers when OAuth is active, otherwise the standard
+x-api-key headers (matching gptel's default).  gptel now calls the
+backend `header' with an INFO argument, so we accept and ignore any args."
+  (if (ogent-anthropic-oauth--using-oauth-for-gptel-p)
+      (ogent-anthropic-oauth--get-oauth-headers-for-gptel)
+    (when-let* ((key (ignore-errors (gptel--get-api-key))))
+      `(("x-api-key" . ,key)
+        ("anthropic-version" . "2023-06-01")
+        ("anthropic-beta" . "extended-cache-ttl-2025-04-11")))))
+
+(defun ogent-anthropic-oauth--install-backend-header (backend)
+  "Permanently set BACKEND's `header' slot to the OAuth-aware function.
+The old approach -- temporarily overriding the header inside the
+`gptel-curl--get-args' advice -- does not survive into the point where
+gptel actually reads the header, so the default x-api-key leaked out and
+Anthropic rejected the request.  The header function is dynamic, so a
+non-OAuth request through the same backend still gets x-api-key headers."
+  (when (and backend (recordp backend))
+    (let ((slot (ogent-anthropic-oauth--get-header-slot-index)))
+      (unless (eq (aref backend slot) #'ogent-anthropic-oauth--backend-header)
+        (aset backend slot #'ogent-anthropic-oauth--backend-header)))))
+
+(defun ogent-anthropic-oauth--request-data-advice (orig-fn backend prompts &rest args)
   "Advice to prepend Claude Code system message for OAuth requests.
 ORIG-FN is the original `gptel--request-data' method.
-BACKEND and PROMPTS are passed through."
+BACKEND and PROMPTS are passed through; ARGS forwards any additional
+arguments gptel passes (its `gptel--request-data' arity has grown across
+versions, so we must not pin the count or the call fails with
+\"Wrong number of arguments\")."
   ;; Ensure tokens are loaded before checking
   (ogent-anthropic-oauth--ensure-tokens-loaded)
   (if (ogent-anthropic-oauth--using-oauth-for-gptel-p)
       ;; Use exact Claude Code system message - Anthropic requires exact match
       ;; for OAuth tokens to work. Additional instructions must go in user prompt.
       (let ((gptel--system-message ogent-anthropic-oauth--system-prefix))
+        ;; Make sure the backend emits OAuth (Bearer) headers, not x-api-key.
+        ;; This runs before gptel builds the request headers.
+        (ogent-anthropic-oauth--install-backend-header backend)
         (when ogent-anthropic-oauth-debug
           (message "OAuth debug: using system message: %s" gptel--system-message))
-        (funcall orig-fn backend prompts))
-    (funcall orig-fn backend prompts)))
+        (apply orig-fn backend prompts args))
+    (apply orig-fn backend prompts args)))
 
 (defvar ogent-anthropic-oauth--header-slot-index nil
   "Cached slot index for gptel-backend header field.")
@@ -599,10 +630,11 @@ BACKEND and PROMPTS are passed through."
       (setq ogent-anthropic-oauth--header-slot-index
             (cl-struct-slot-offset 'gptel-backend 'header))))
 
-(defun ogent-anthropic-oauth--curl-args-advice (orig-fn data token)
+(defun ogent-anthropic-oauth--curl-args-advice (orig-fn data token &rest args)
   "Advice to inject OAuth headers into curl args.
-ORIG-FN is `gptel-curl--get-args', DATA and TOKEN are passed through.
-We modify the backend struct's header slot temporarily."
+ORIG-FN is `gptel-curl--get-args', DATA and TOKEN are passed through;
+ARGS forwards any additional arguments gptel passes (its arity has grown
+across versions, so we must not pin the count)."
   (if-let ((oauth-headers (ogent-anthropic-oauth--get-oauth-headers-for-gptel)))
       ;; Temporarily override the backend's header slot
       (let* ((backend gptel-backend)
@@ -613,11 +645,15 @@ We modify the backend struct's header slot temporarily."
         (unwind-protect
             (progn
               ;; Set header slot to our OAuth headers function
-              (aset backend slot-idx (lambda () oauth-headers))
-              (funcall orig-fn data token))
+              ;; gptel's backend `header' function is now called with an
+              ;; `info' argument ((lambda (_info) ...)); accept any args so
+              ;; the OAuth headers replace the default x-api-key header
+              ;; instead of erroring (which would leak the x-api-key header).
+              (aset backend slot-idx (lambda (&rest _) oauth-headers))
+              (apply orig-fn data token args))
           ;; Restore original header
           (aset backend slot-idx original-header)))
-    (funcall orig-fn data token)))
+    (apply orig-fn data token args)))
 
 (defvar ogent-anthropic-oauth--advice-installed nil
   "Non-nil if gptel advice has been installed.")

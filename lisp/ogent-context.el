@@ -24,12 +24,14 @@
 (declare-function ogent-codemap-task-handle-p "ogent-codemap-task")
 (declare-function ogent-codemap-resolve-task-handle "ogent-codemap-task")
 
-;; Forward declarations for org-roam integration (optional dependency)
-(declare-function org-roam-node-title "ext:org-roam-node")
-(declare-function org-roam-node-aliases "ext:org-roam-node")
-(declare-function org-roam-node-file "ext:org-roam-node")
-(declare-function org-roam-node-point "ext:org-roam-node")
-(declare-function org-roam-node-list "ext:org-roam")
+;; Forward declarations for org-roam integration (optional dependency).
+;; The node accessors are cl-defstruct-generated, which check-declare
+;; cannot resolve, hence the FILEONLY flags.
+(declare-function org-roam-node-title "ext:org-roam-node" (node) t)
+(declare-function org-roam-node-aliases "ext:org-roam-node" (node) t)
+(declare-function org-roam-node-file "ext:org-roam-node" (node) t)
+(declare-function org-roam-node-point "ext:org-roam-node" (node) t)
+(declare-function org-roam-node-list "ext:org-roam-node")
 ;; Defined later in this file inside `with-eval-after-load', so the
 ;; byte-compiler cannot see it as a top-level definition.
 (declare-function ogent-context--roam-node-matches "ogent-context" t t)
@@ -1118,7 +1120,7 @@ Returns first ~50 chars of content, skipping property drawers."
               (let ((trimmed (string-trim line)))
                 (when (> (length trimmed) 0)
                   (throw 'found
-                         (concat " — "
+                         (concat ": "
                                  (if (> (length trimmed) 50)
                                      (concat (substring trimmed 0 50) "…")
                                    trimmed)))))))))
@@ -1184,7 +1186,7 @@ Uses caching to avoid re-parsing unchanged buffers."
                 (push (list :handle handle
                             :node nil
                             :roam-node node
-                            :annotation (concat " — " (truncate-string-to-width title 50)))
+                            :annotation (concat ": " (truncate-string-to-width title 50)))
                       handles)))))))
     (nreverse handles)))
 

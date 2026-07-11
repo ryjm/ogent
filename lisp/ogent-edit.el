@@ -30,14 +30,16 @@
 (defvar gptel-backend)
 (defvar gptel-model)
 
-;; Diagnostic integrations
+;; Diagnostic integrations.  The flycheck-error-* accessors are
+;; cl-defstruct-generated, which check-declare cannot resolve, hence
+;; the FILEONLY flags.
 (declare-function flycheck-overlay-errors-at "ext:flycheck" (pos))
-(declare-function flycheck-error-filename "ext:flycheck" (err))
-(declare-function flycheck-error-line "ext:flycheck" (err))
-(declare-function flycheck-error-column "ext:flycheck" (err))
-(declare-function flycheck-error-level "ext:flycheck" (err))
-(declare-function flycheck-error-message "ext:flycheck" (err))
-(declare-function flycheck-error-id "ext:flycheck" (err))
+(declare-function flycheck-error-filename "ext:flycheck" (err) t)
+(declare-function flycheck-error-line "ext:flycheck" (err) t)
+(declare-function flycheck-error-column "ext:flycheck" (err) t)
+(declare-function flycheck-error-level "ext:flycheck" (err) t)
+(declare-function flycheck-error-message "ext:flycheck" (err) t)
+(declare-function flycheck-error-id "ext:flycheck" (err) t)
 (defvar flycheck-current-errors)
 
 

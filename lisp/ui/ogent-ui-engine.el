@@ -379,6 +379,59 @@ Returns a plist containing a streaming marker and block-start marker."
             :request-heading-pos request-heading-pos
             :response-heading-level response-level))))
 
+(defcustom ogent-ui-request-timeout 180
+  "Seconds of inactivity before an in-flight request is force-closed.
+The watchdog is re-armed on every streamed chunk, tool event, and status
+change, so only a genuine stall trips it.  When it fires the request is
+aborted and its transcript is marked as timed out, so a dropped or hung
+backend never leaves a subtree stuck in a running state.  Set to nil (or
+a non-positive number) to disable the watchdog entirely."
+  :type '(choice (const :tag "Disabled" nil) (number :tag "Seconds"))
+  :group 'ogent-mode)
+
+(defun ogent-ui--cancel-watchdog (request)
+  "Cancel REQUEST's inactivity watchdog timer, if any."
+  (when-let ((timer (ogent-ui-request-watchdog request)))
+    (cancel-timer timer)
+    (setf (ogent-ui-request-watchdog request) nil)))
+
+(defun ogent-ui--watchdog-timeout (request-id)
+  "Force-close the request identified by REQUEST-ID after a stall.
+REQUEST-ID is looked up fresh in `ogent-ui--request-table' so a request
+that already finished (or was removed) is left untouched.  A still-active
+request has its gptel call aborted and is closed with a timeout error so
+its transcript leaves the running state."
+  (when-let ((request (gethash request-id ogent-ui--request-table)))
+    (setf (ogent-ui-request-watchdog request) nil)
+    (unless (or (ogent-ui-request-closed request)
+                (memq (ogent-ui-request-status request)
+                      '(done error aborted paused)))
+      (let ((buffer (ogent-ui-request-buffer request)))
+        ;; Best-effort abort of the underlying gptel request.
+        (when (and (buffer-live-p buffer) (fboundp 'gptel-abort))
+          (ignore-errors (gptel-abort buffer)))
+        (if (buffer-live-p buffer)
+            (ogent-ui--close-response
+             request
+             (format "Request timed out after %ss of inactivity"
+                     ogent-ui-request-timeout)
+             'error)
+          ;; The buffer is gone; just drop the orphaned request.
+          (remhash request-id ogent-ui--request-table))))))
+
+(defun ogent-ui--start-watchdog (request)
+  "Arm (or re-arm) REQUEST's inactivity watchdog.
+Cancels any pending timer first, then schedules a fresh one unless
+`ogent-ui-request-timeout' is disabled or REQUEST is already closed."
+  (ogent-ui--cancel-watchdog request)
+  (when (and (numberp ogent-ui-request-timeout)
+             (> ogent-ui-request-timeout 0)
+             (not (ogent-ui-request-closed request)))
+    (setf (ogent-ui-request-watchdog request)
+          (run-with-timer ogent-ui-request-timeout nil
+                          #'ogent-ui--watchdog-timeout
+                          (ogent-ui-request-id request)))))
+
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
   (setf (ogent-ui-request-start-time request) (current-time))
@@ -395,6 +448,9 @@ Returns a plist containing a streaming marker and block-start marker."
     (setq ogent--auto-scroll-enabled ogent-auto-scroll)
     ;; Add post-command hook to detect when user scrolls to bottom
     (add-hook 'post-command-hook #'ogent-ui--auto-scroll-post-command nil t))
+  ;; Arm the inactivity watchdog so a hung backend cannot leave this
+  ;; request stuck in a running state forever.
+  (ogent-ui--start-watchdog request)
   request)
 
 (defun ogent-ui-prepare-response-block (prompt context model)
@@ -489,6 +545,8 @@ heading (see `ogent-shift-response-headings')."
   (setf (ogent-ui-request-status request) new-status)
   (when (memq new-status '(done error aborted))
     (setf (ogent-ui-request-end-time request) (current-time)))
+  (when (memq new-status '(done error aborted paused))
+    (ogent-ui--cancel-watchdog request))
   (ogent-ui--update-block-header request)
   ;; Update margin indicator
   (when (fboundp 'ogent-status-update-indicator)
@@ -591,6 +649,8 @@ heading (see `ogent-shift-response-headings')."
 FINAL-STATUS overrides the default terminal status.
 The src block is already closed; this just updates status and folds.
 Provides visual feedback via mode-line flash."
+  ;; A finishing request is no longer stalled: stop its watchdog.
+  (ogent-ui--cancel-watchdog request)
   (if (ogent-ui-request-closed request)
       (remhash (ogent-ui-request-id request) ogent-ui--request-table)
     (when-let ((message (and error-message
@@ -704,6 +764,9 @@ Handles both regular text responses and tool call responses."
                  request-id (if request t nil) (hash-table-count ogent-ui--request-table)
                  (plist-get info :status)))
       (when request
+        ;; Any callback from gptel is activity: re-arm the inactivity
+        ;; watchdog so only a genuine stall trips it.
+        (ogent-ui--start-watchdog request)
         ;; Handle gptel tool-call/tool-result responses
         ;; gptel sends (tool-call . pending-calls) when waiting for confirmation
         ;; or (tool-result . results) after execution

@@ -32,31 +32,29 @@
 
 [[https://github.com/ryjm/ogent/actions/workflows/ci.yml][https://github.com/ryjm/ogent/actions/workflows/ci.yml/badge.svg]]
 
-*LLMs as Unix tools, not chatbots.*
+*Use LLMs in structured Org workflows*
 
-ogent brings language models into Org-mode the Emacs way: composable commands, text as the universal interface, and you in control. No chat windows. No copy-pasting between apps. Just structured context in, structured responses out.
+ogent brings language models into Org-mode the Emacs way: composable commands with text + org-mode as the universal interface.
 
-** Why an exoskeleton, not an agent
-
-The model generates text instantly. You're the one who has to verify it works. That's the bottleneck: review, not generation.
+** Exoskeleton + Agent
 
 ogent is designed around this constraint:
 
-- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Visual diffs beat reading prose. =C-c C-c= beats typing "yes".
+- *Make review fast*: Responses land in Org blocks you can fold, diff, and navigate with standard keybindings. Tree based navigation beats scrolling and =C-c C-c= beats ad-hoc copy pasting for context management.
 
-- *Make context explicit*: No magic "send my whole project". You declare what goes in via =@handles=, pins, and codemap. Precise input means predictable output.
+- *Make context explicit*: You declare what goes in via =@handles=, pins, and codemap. Obviously just giving it the whole project works too.
 
-The model is a tool. You wield it. That's the difference between an exoskeleton and a robot.
+** Features
 
-** What ogent provides
-
-- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests. You see exactly what the model sees before sending.
+- *Context as data*: =@handles= resolve to Org nodes, files, or org-roam entries. Codemap indexes your project. Pins persist across requests.
 
 - *Responses as structure*: Output lands in src blocks with metadata (=:model=, =:status=, =:latency=). Fold them, edit them, version them. It's just Org.
 
-- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=. No ambiguity about what changed.
+- *Edits as diffs*: Code changes render as smerge conflicts. Accept with =C-c C-c=, reject with =C-c C-k=.
 
-- *Commands, not conversations*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+- *Commands*: =C-c . RET= runs the current bullet as the prompt, with parent bullets passed as =# Parent Bullets= context. =C-c . q= asks a new minibuffer question about the current subtree. =C-c . ?= shows the ask menu. =C-c . p= opens full dispatch. =C-c . E= requests code edits.
+
+- *Armory*: A local agent workspace built from plain Org files. Armory gives you persistent agents, jobs, conversations, approvals, schedules, task boards, data views, git state, and generated app artifacts without leaving Emacs.
 
 * Requirements
 - Emacs 29.1 or newer
@@ -80,7 +78,7 @@ The model is a tool. You wield it. That's the difference between an exoskeleton 
    make lint
    make test
    #+end_src
-3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:  
+3. Add =lisp/= and =lisp/ui/= to your =load-path=, then require =ogent=:
    #+begin_src emacs-lisp
    (add-to-list 'load-path (expand-file-name "lisp" "/path/to/ogent"))
    (add-to-list 'load-path (expand-file-name "lisp/ui" "/path/to/ogent"))
@@ -123,10 +121,7 @@ authenticate via the Claude Code-compatible OAuth flow:
 #+end_src
 
 This stores refresh tokens in =~/.emacs.d/ogent/anthropic-oauth/= and automatically
-refreshes them as needed. No API key management required!
-
-The older Anthropic-named commands still work. The Claude Code aliases are:
-=M-x ogent-claude-code-status= and =M-x ogent-claude-code-logout=.
+refreshes them as needed, so there is no API key to manage.
 
 ** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
@@ -150,7 +145,7 @@ The older Anthropic-named commands still work. The Claude Code aliases are:
 * Usage
 - Open any Org buffer and toggle =ogent-mode= (or rely on =ogent-global-mode=).
 - Write a normal Org bullet/heading, then press =C-c . RET= to run that subtree as the prompt; ogent inserts a compact =Request:= / =Response= transcript below it.
-- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs — each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
+- Parent bullets are sent explicitly under =# Parent Bullets= for Zen runs: each parent contributes its own body text, never its children, so nothing is duplicated and prior transcripts never leak into the payload.
 - Workspace selection is prose-first: a bullet like =look in ~/vault/projects/ogent for ideas= makes that directory the request workspace. Explicit labels (=Context:=, =Workspace:=, =Project:=, =Repo:=) still work, but are optional. The payload shows a =# Workspace= section, relative ogent tool paths resolve from that root, and code-grounded wording asks gptel to use read-only tools before answering.
 - Re-run a bullet from anywhere inside its transcript: =C-c . RET= appends a fresh run, =C-c . != (or =C-c C-c= on the transcript) replaces it. Earlier runs collapse automatically when a new run starts.
 - Press =C-c . q= to ask a new minibuffer question about the subtree at point.
@@ -278,7 +273,7 @@ older tooling keep working.
 
 ** Armory
 
-Armory turns a directory of Org files into a local AI-team workspace. Open
+Armory turns a directory of Org files into a local agent workspace. Open
 =M-x ogent-armory-home= or press =C-c . j=. The Armory surface includes
 agents, jobs, conversations, lead action approvals, data browsing, ranked
 palette search, git state, settings, backup, registry import, help, app
@@ -317,30 +312,30 @@ buffer.
 
 * Prompt Templates
 
-ogent includes a library of reusable prompt templates for common AI-assisted workflows.
+ogent includes a library of reusable prompt templates for common workflows.
 Templates are defined in =docs/prompts.org= and can be referenced using =@handle= syntax.
 
 ** Using Prompt Templates
 
-Reference a template by its =OGENT_ID= with the =@= prefix:
+Apply a template from the prompt dispatcher's Templates infix (=T= in
+=M-x ogent-prompt-dispatch=), or with =M-x ogent-prompt-insert=, which inserts
+the composed template text at point. With the optional yasnippet integration
+(see below), type a template's handle and press =TAB= to expand it inline:
 
 #+begin_example
 @code-review
-
-Please review the following function for bugs and improvements.
 #+end_example
 
 ** Composing Multiple Templates
 
-Combine templates with =+= syntax:
+Select more than one template from the Templates infix or =ogent-prompt-insert=;
+ogent concatenates them, ordered by each template's =compose-order=. The
+=@handle+@handle= shorthand is accepted by the compose API
+(=ogent-prompt-compose-from-string=):
 
-#+begin_example
-@code-review+@security-audit
-
-Analyze this authentication code.
-#+end_example
-
-Templates are sorted by their =compose-order= and concatenated.
+#+begin_src emacs-lisp
+(ogent-prompt-compose-from-string "@code-review+@security-audit")
+#+end_src
 
 ** Available Templates
 

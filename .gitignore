@@ -47,3 +47,8 @@ sandbox/
 .jobs/
 .br_history/
 .beads/.br_history/
+
+# Dogfood/scratch Org artifacts (kept on disk, out of version control)
+/work.org
+/index.org
+/imports/

@@ -32,6 +32,13 @@ instead of reading a keystroke."
 
 (advice-add 'org-check-agenda-file :around #'ogent-test--silence-agenda-check)
 
+;; Preload jka-compr while .elc is still in `load-suffixes'.  Without
+;; this, the exclusion below leaves only compressed built-in sources
+;; (e.g. face-remap.el.gz on Nix Emacs) loadable via jka-compr, whose
+;; own source is also compressed - requiring it then recurses fatally
+;; ("Recursive load ... jka-compr.el.gz").
+(require 'jka-compr)
+
 ;; Exclude .elc from load-suffixes so stale bytecode (which may embed
 ;; outdated macro expansions, e.g. magit-insert-section) is never loaded.
 ;; load-prefer-newer alone is insufficient: it still picks a newer .elc
@@ -50,6 +57,23 @@ instead of reading a keystroke."
 (add-to-list 'load-path (expand-file-name "lisp/ui" ogent-project-root))
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
+
+;; Keep companion-link persistence tests writable even when the project source
+;; tree is read-only (for example, Nix checkouts where `user-emacs-directory'
+;; defaults under /nix/store/.../source).  `defcustom' preserves an existing
+;; binding, so set this before any test requires `ogent-companion'.  Individual
+;; persistence tests may still dynamically bind their own registry file.
+(defvar ogent-companion-link-registry-file)
+
+(defconst ogent-test-companion-link-registry-file
+  (make-temp-file "ogent-companion-links" nil ".el")
+  "Scratch companion link registry file used by batch tests.")
+
+(with-temp-file ogent-test-companion-link-registry-file
+  (insert "nil\n"))
+
+(setq ogent-companion-link-registry-file
+      ogent-test-companion-link-registry-file)
 
 (defvar transient-history-file)
 (defvar transient-save-history)

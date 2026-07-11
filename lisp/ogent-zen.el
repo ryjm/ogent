@@ -11,11 +11,13 @@
 
 ;;; Code:
 
+(require 'transient)
 (require 'ogent-zen-core)
 (require 'ogent-zen-tools)
 (require 'ogent-zen-workspace)
 (require 'ogent-zen-edit)
 (require 'ogent-ui-theme)
+(require 'ogent-ui-section)
 
 (declare-function ogent-ui--dispatch-request "ogent-ui-send"
                   (source-buffer region-start region-end raw-prompt
@@ -28,6 +30,9 @@
 (declare-function ogent-completion-next "ogent-completions")
 (declare-function ogent-completion-prev "ogent-completions")
 (declare-function ogent-completion-reject "ogent-completions")
+(declare-function ogent-evil-display-mode-setup "ogent-keys"
+                  (mode mode-map mode-hook &optional refresh-fn refresh-force-fn))
+(declare-function magit-section-hide "ext:magit-section" (section))
 
 ;; Autoloaded entry points relocated to extracted Zen modules.
 ;;;###autoload (autoload 'ogent-zen-show-tool-calls "ogent-zen" nil t)
@@ -598,7 +603,9 @@ PARTS, when non-nil, is the value from `ogent-zen--request-display-parts'."
                         (ogent-zen--char-count-label
                          (ogent-zen--response-char-count))
                       (ogent-zen--status-label status))
-                    (unless (eq density 'minimal) latency)
+                    (unless (eq density 'minimal)
+                      (and latency
+                           (propertize latency 'face 'ogent-theme-muted)))
                     (when (and folded
                                (eq status 'done)
                                (memq density '(rich debug)))
@@ -622,6 +629,9 @@ PARTS, when non-nil, is the value from `ogent-zen--request-display-parts'."
     (define-key map (kbd "RET") #'ogent-zen-toggle-transcript)
     (define-key map (kbd "r") #'ogent-zen-rerun)
     (define-key map (kbd "u") #'ogent-zen-review-menu)
+    (define-key map (kbd "?") #'ogent-zen-dispatch)
+    (define-key map (kbd "n") #'ogent-zen-next-run)
+    (define-key map (kbd "p") #'ogent-zen-previous-run)
     (define-key map (kbd "e") #'ogent-zen-show-error)
     (define-key map [mouse-1] #'ogent-zen--mouse-toggle-transcript)
     map)
@@ -640,10 +650,15 @@ PARTS, when non-nil, is the value from `ogent-zen--request-display-parts'."
 
 (defun ogent-zen--compose-face (base status)
   "Return a face list combining BASE with STATUS face when available."
-  (let ((status-face (when (fboundp 'ogent-status--get-face)
-                       (condition-case nil
-                           (ogent-status--get-face status)
-                         (error nil)))))
+  (let ((status-face
+         (if (fboundp 'ogent-status--get-face)
+             (condition-case nil
+                 (ogent-status--get-face status)
+               (error nil))
+           (pcase status
+             ('error 'ogent-theme-error)
+             ('done 'ogent-theme-success)
+             (_ nil)))))
     (if (and status-face (not (eq status-face 'default)))
         (list status-face base)
       base)))
@@ -721,8 +736,9 @@ AFTER-STRING and BEFORE-STRING are optional virtual display strings."
 
 (defun ogent-zen--response-overlay-label (model-id status suffix)
   "Return a quiet response overlay label for MODEL-ID, STATUS, and SUFFIX."
-  (let* ((face (ogent-zen--compose-face 'ogent-zen-muted-face status))
-         (label (propertize (format "↳ %s" model-id) 'face face)))
+  (ignore status)
+  (let ((label (concat (propertize "↳ " 'face 'ogent-theme-muted)
+                       (propertize model-id 'face 'ogent-theme-muted))))
     (if suffix
         (concat label " "
                 (propertize "· " 'face 'ogent-zen-muted-face)
@@ -821,20 +837,23 @@ Falls back to a full refresh when the transcript cannot be resolved."
   (and (ogent-zen--request-heading-p)
        (memq (ogent-zen--request-status) '(wait tool type))))
 
+(defun ogent-zen--active-request-positions ()
+  "Return active Zen request heading positions in the current buffer."
+  (save-excursion
+    (save-restriction
+      (widen)
+      (let (positions)
+        (goto-char (point-min))
+        (while (re-search-forward org-heading-regexp nil t)
+          (beginning-of-line)
+          (when (ogent-zen--active-request-p)
+            (push (point) positions))
+          (forward-line 1))
+        (nreverse positions)))))
+
 (defun ogent-zen--buffer-has-active-request-p ()
-  "Return non-nil when the current buffer has a visible active Zen request."
-  (and (get-buffer-window-list (current-buffer) nil t)
-       (save-excursion
-         (save-restriction
-           (widen)
-           (let (found)
-             (goto-char (point-min))
-             (while (and (not found)
-                         (re-search-forward org-heading-regexp nil t))
-               (beginning-of-line)
-               (setq found (ogent-zen--active-request-p))
-               (forward-line 1))
-             found)))))
+  "Return non-nil when the current buffer has an active Zen request."
+  (consp (ogent-zen--active-request-positions)))
 
 (defun ogent-zen--animation-buffers ()
   "Return visible Zen buffers with active request headings."
@@ -842,6 +861,7 @@ Falls back to a full refresh when the transcript cannot be resolved."
    (lambda (buffer)
      (and (buffer-live-p buffer)
           (buffer-local-value 'ogent-zen-mode buffer)
+          (get-buffer-window-list buffer nil t)
           (with-current-buffer buffer
             (ogent-zen--buffer-has-active-request-p))))
    (buffer-list)))
@@ -852,9 +872,11 @@ Falls back to a full refresh when the transcript cannot be resolved."
     (if buffers
         (dolist (buffer buffers)
           (with-current-buffer buffer
-            (setq ogent-zen--stream-frame
-                  (mod (1+ ogent-zen--stream-frame) 4))
-            (ogent-zen-refresh)))
+            (let ((positions (ogent-zen--active-request-positions)))
+              (setq ogent-zen--stream-frame
+                    (mod (1+ ogent-zen--stream-frame) 4))
+              (dolist (pos positions)
+                (ogent-zen-refresh-at pos)))))
       (when (timerp ogent-zen--animation-timer)
         (cancel-timer ogent-zen--animation-timer))
       (setq ogent-zen--animation-timer nil))))
@@ -949,13 +971,22 @@ cards already summarize tool state in the request headline."
   (save-excursion
     (goto-char request)
     (org-back-to-heading t)
-    (let ((level (org-current-level)))
+    ;; Track the *new* request heading with a live marker.  Marking older
+    ;; siblings below inserts property and drawer lines that shift every
+    ;; following heading -- including this one -- downward.  A raw integer
+    ;; position would go stale and the new request would drift out from
+    ;; under the self-exclusion test and get marked superseded too (the
+    ;; bug this guards against); a marker follows the shift.
+    (let ((self (point-marker))
+          (level (org-current-level)))
       (when (org-up-heading-safe)
-        ;; Point is on the parent bullet; walk its child headings.
-        (let ((end (ogent-zen--subtree-end)))
+        ;; Point is on the parent bullet; walk its child headings.  END is a
+        ;; marker so it grows as siblings gain metadata and later runs stay
+        ;; in range.
+        (let ((end (copy-marker (ogent-zen--subtree-end) t)))
           (while (and (outline-next-heading) (< (point) end))
             (when (and (eql (org-current-level) level)
-                       (/= (point) request)
+                       (/= (point) (marker-position self))
                        (ogent-zen--request-heading-p))
               (let ((review (or (org-entry-get (point) "OGENT_LINEAGE")
                                 (org-entry-get (point) "OGENT_REVIEW"))))
@@ -966,7 +997,9 @@ cards already summarize tool state in the request headline."
                   (ogent-zen--sync-legacy-review (point))
                   (ogent-zen--sync-review-drawer (point))))
               (when (fboundp 'org-fold-hide-subtree)
-                (ignore-errors (org-fold-hide-subtree))))))))))
+                (ignore-errors (org-fold-hide-subtree)))))
+          (set-marker end nil)))
+      (set-marker self nil))))
 
 (defun ogent-zen-after-insert (request-pos)
   "Apply Zen presentation after a transcript was inserted at REQUEST-POS.
@@ -1396,6 +1429,80 @@ EDIT-P is non-nil, the scope expects a SEARCH/REPLACE edit response."
       (beginning-of-line)
       (recenter))))
 
+;;; Run navigation and display controls
+
+(defun ogent-zen--move-run (direction)
+  "Move to the next Zen request heading in DIRECTION."
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Zen run navigation requires an Org buffer"))
+  (let (found)
+    (save-restriction
+      (widen)
+      (if (> direction 0)
+          (progn
+            (when (save-excursion
+                    (beginning-of-line)
+                    (looking-at org-heading-regexp))
+              (forward-line 1))
+            (while (and (not found)
+                        (re-search-forward org-heading-regexp nil t))
+              (beginning-of-line)
+              (if (ogent-zen--request-heading-p)
+                  (setq found (point))
+                (forward-line 1))))
+        (unless (and (bolp) (looking-at org-heading-regexp))
+          (beginning-of-line))
+        (while (and (not found)
+                    (re-search-backward org-heading-regexp nil t))
+          (beginning-of-line)
+          (when (ogent-zen--request-heading-p)
+            (setq found (point))))))
+    (unless found
+      (user-error "No more runs"))
+    (goto-char found)
+    (beginning-of-line)))
+
+;;;###autoload
+(defun ogent-zen-next-run ()
+  "Move point to the next Zen run heading."
+  (interactive)
+  (ogent-zen--move-run 1))
+
+;;;###autoload
+(defun ogent-zen-previous-run ()
+  "Move point to the previous Zen run heading."
+  (interactive)
+  (ogent-zen--move-run -1))
+
+;;;###autoload
+(defun ogent-zen-cycle-density ()
+  "Cycle Zen result headline density and refresh overlays."
+  (interactive)
+  (setq ogent-zen-result-headline-density
+        (pcase (ogent-zen--valid-density)
+          ('minimal 'balanced)
+          ('balanced 'rich)
+          ('rich 'debug)
+          (_ 'minimal)))
+  (ogent-zen-refresh)
+  (message "Zen density: %s" ogent-zen-result-headline-density))
+
+(defun ogent-zen--toggle-breadcrumbs ()
+  "Toggle Zen breadcrumb metadata and refresh overlays."
+  (interactive)
+  (setq ogent-zen-show-breadcrumbs (not ogent-zen-show-breadcrumbs))
+  (ogent-zen-refresh)
+  (message "Zen breadcrumbs %s"
+           (if ogent-zen-show-breadcrumbs "enabled" "disabled")))
+
+(defun ogent-zen--toggle-visual-lanes ()
+  "Toggle Zen visual status lanes and refresh overlays."
+  (interactive)
+  (setq ogent-zen-visual-lanes (not ogent-zen-visual-lanes))
+  (ogent-zen-refresh)
+  (message "Zen visual lanes %s"
+           (if ogent-zen-visual-lanes "enabled" "disabled")))
+
 (defconst ogent-zen--review-properties
   '("OGENT_DECISION"
     "OGENT_REVIEW_STATUS"
@@ -1678,37 +1785,68 @@ TARGET-KIND is one of nil, `run', or `response'."
         (ogent-zen--sync-review-drawer request))
       (ogent-zen-refresh-at request))))
 
-(defun ogent-zen--review-prompt (target-kind)
-  "Return a specific review prompt for TARGET-KIND."
-  (let* ((info (ogent-zen--resolve-review-target target-kind))
-         (kind (plist-get info :kind)))
-    (pcase kind
-      ('response
-       (format "Review response from %s: [a]ccept [u]seful [n]needs-review [s]stale [r]eject [f]failed [c]lear [.]describe"
-               (or (plist-get info :model) "model")))
-      (_
-       (save-excursion
-         (goto-char (plist-get info :request))
-         (format "Review run “%s”: [a]ccept [u]useful [n]needs-review [s]stale [x]superseded [r]eject [f]failed [c]lear [.]describe"
-                 (ogent-zen--request-display-title
-                  (substring-no-properties
-                   (or (org-entry-get (point) "OGENT_RESULT_TITLE")
-                       (org-get-heading t t t t))))))))))
+(transient-define-infix ogent-zen--review-target-infix ()
+  "Select the Zen review target for transient review actions."
+  :description "Target"
+  :class 'transient-option
+  :key "-t"
+  :argument "--target="
+  :choices '("auto" "run" "response")
+  :init-value (lambda (obj) (oset obj value "auto")))
 
-(defun ogent-zen--dispatch-review-key (key target-kind)
-  "Handle review KEY for TARGET-KIND."
-  (pcase key
-    (?a (ogent-zen--set-review-state "accepted" target-kind))
-    (?u (ogent-zen--set-review-state "useful" target-kind))
-    (?n (ogent-zen--set-review-state "needs-review" target-kind))
-    (?s (ogent-zen--set-review-state "stale" target-kind))
-    (?x (ogent-zen--set-review-state "superseded" target-kind))
-    (?r (ogent-zen--set-review-state "rejected" target-kind))
-    (?f (ogent-zen--set-review-state "failed" target-kind))
-    (?c (ogent-zen--set-review-state nil target-kind))
-    (?. (ogent-review-describe))
-    (?q (message "Review unchanged"))
-    (_ (user-error "Unknown review key"))))
+(defun ogent-zen--review-menu-target-kind ()
+  "Return the explicit review target selected in `ogent-zen-review-menu'."
+  (let* ((args (ignore-errors (transient-args 'ogent-zen-review-menu)))
+         (target (or (and args (transient-arg-value "--target=" args))
+                     "auto")))
+    (pcase target
+      ("run" 'run)
+      ("response" 'response)
+      (_ nil))))
+
+(defun ogent-zen--review-menu-apply-state (state)
+  "Apply review STATE using the current review-menu target."
+  (let ((target-kind (ogent-zen--review-menu-target-kind)))
+    (if target-kind
+        (ogent-zen--set-review-state state target-kind)
+      (pcase state
+        ("accepted" (ogent-zen-mark-accepted))
+        ("rejected" (ogent-zen-mark-rejected))
+        ("useful" (ogent-zen-mark-useful))
+        ("needs-review" (ogent-zen-mark-needs-review))
+        ("stale" (ogent-zen-mark-stale))
+        ((or `nil "clear") (ogent-zen-clear-review))
+        (_ (ogent-zen--set-review-state state))))))
+
+(defun ogent-zen--review-menu-mark-accepted ()
+  "Mark the selected Zen review target as accepted."
+  (interactive)
+  (ogent-zen--review-menu-apply-state "accepted"))
+
+(defun ogent-zen--review-menu-mark-rejected ()
+  "Mark the selected Zen review target as rejected."
+  (interactive)
+  (ogent-zen--review-menu-apply-state "rejected"))
+
+(defun ogent-zen--review-menu-mark-useful ()
+  "Mark the selected Zen review target as useful."
+  (interactive)
+  (ogent-zen--review-menu-apply-state "useful"))
+
+(defun ogent-zen--review-menu-mark-needs-review ()
+  "Mark the selected Zen review target as needing review."
+  (interactive)
+  (ogent-zen--review-menu-apply-state "needs-review"))
+
+(defun ogent-zen--review-menu-mark-stale ()
+  "Mark the selected Zen review target as stale."
+  (interactive)
+  (ogent-zen--review-menu-apply-state "stale"))
+
+(defun ogent-zen--review-menu-clear ()
+  "Clear review metadata from the selected Zen review target."
+  (interactive)
+  (ogent-zen--review-menu-apply-state nil))
 
 ;;;###autoload
 (defun ogent-zen-set-review (state)
@@ -1726,29 +1864,23 @@ TARGET-KIND is one of nil, `run', or `response'."
              choice))))
   (ogent-zen--set-review-state state))
 
-;;;###autoload
-(defun ogent-zen-review-run ()
-  "Review the current Zen run explicitly."
-  (interactive)
-  (message "%s" (ogent-zen--review-prompt 'run))
-  (ogent-zen--dispatch-review-key (read-key) 'run))
-
-;;;###autoload
-(defun ogent-zen-review-response ()
-  "Review the current Zen response explicitly."
-  (interactive)
-  (message "%s" (ogent-zen--review-prompt 'response))
-  (ogent-zen--dispatch-review-key (read-key) 'response))
-
-;;;###autoload
-(defun ogent-zen-review-menu ()
-  "Review the current Zen run or response with an explicit prompt."
-  (interactive)
-  (let ((target-kind (if (ogent-zen--current-response-heading)
-                         'response
-                       'run)))
-    (message "%s" (ogent-zen--review-prompt target-kind))
-    (ogent-zen--dispatch-review-key (read-key) target-kind)))
+;;;###autoload (autoload 'ogent-zen-review-menu "ogent-zen" nil t)
+(transient-define-prefix ogent-zen-review-menu ()
+  "Review the current Zen run or response."
+  :value '("--target=auto")
+  ["Target"
+   (ogent-zen--review-target-infix)]
+  ["Review"
+   ("a" "Accept" ogent-zen--review-menu-mark-accepted)
+   ("x" "Reject" ogent-zen--review-menu-mark-rejected)
+   ("u" "Useful" ogent-zen--review-menu-mark-useful)
+   ("m" "Needs review" ogent-zen--review-menu-mark-needs-review)
+   ("s" "Stale" ogent-zen--review-menu-mark-stale)
+   ("c" "Clear" ogent-zen--review-menu-clear)
+   ("d" "Dashboard" ogent-review-dashboard)
+   ("." "Describe" ogent-review-describe)]
+  ["Quit"
+   ("q" "Quit menu" transient-quit-one)])
 
 ;;;###autoload
 (defun ogent-zen-accept-response ()
@@ -1810,6 +1942,36 @@ TARGET-KIND is one of nil, `run', or `response'."
   (interactive)
   (ogent-zen--set-review-state nil))
 
+;;; Zen dispatch
+
+;;;###autoload (autoload 'ogent-zen-dispatch "ogent-zen" nil t)
+(transient-define-prefix ogent-zen-dispatch ()
+  "Dispatch menu for Zen Org transcripts."
+  [["Run"
+    ("RET" "Run subtree" ogent-run-subtree)
+    ("!" "Rerun" ogent-zen-rerun)
+    ("r" "Run region" ogent-zen-run-region)
+    ("E" "Edit DWIM" ogent-zen-edit-dwim)
+    ("A" "Apply last edit" ogent-zen-apply-last-edit)]
+   ["Review"
+    ("a" "Accept" ogent-zen-mark-accepted)
+    ("x" "Reject" ogent-zen-mark-rejected)
+    ("u" "Useful" ogent-zen-mark-useful)
+    ("m" "Needs review" ogent-zen-mark-needs-review)
+    ("s" "Stale" ogent-zen-mark-stale)
+    ("c" "Clear" ogent-zen-clear-review)
+    ("d" "Dashboard" ogent-review-dashboard)]
+   ["Navigate"
+    ("n" "Next run" ogent-zen-next-run :transient t)
+    ("p" "Previous run" ogent-zen-previous-run :transient t)
+    ("e" "Show error" ogent-zen-show-error)
+    ("t" "Show tool calls" ogent-zen-show-tool-calls)
+    ("TAB" "Toggle transcript" ogent-zen-toggle-transcript :transient t)]
+   ["Display"
+    ("D" "Cycle density" ogent-zen-cycle-density :transient t)
+    ("b" "Toggle breadcrumbs" ogent-zen--toggle-breadcrumbs :transient t)
+    ("l" "Toggle lanes" ogent-zen--toggle-visual-lanes :transient t)]])
+
 (defvar-local ogent-review-dashboard-source-buffer nil
   "Source Org buffer shown by the current review dashboard.")
 
@@ -1850,7 +2012,7 @@ TARGET-KIND is one of nil, `run', or `response'."
   "Return a compact label for the review item at point."
   (cond
    ((ogent-zen--response-heading-p)
-    (format "response %s — %s"
+    (format "response %s: %s"
             (ogent-zen--response-model-id (org-get-heading t t t t))
             (or (ogent-zen--response-title-from-text
                  (ogent-zen--response-body-text (point)))
@@ -1938,22 +2100,87 @@ TARGET-KIND is one of nil, `run', or `response'."
       (user-error "No Zen review items need attention"))
     (ogent-zen--jump-review-item (cdr target))))
 
+(defconst ogent-review-dashboard--states
+  '(unreviewed needs-review stale failed accepted useful rejected superseded)
+  "Review states rendered by `ogent-review-dashboard-mode'.")
+
+(defun ogent-review-dashboard--state-label (state)
+  "Return a human label for review STATE."
+  (or (alist-get state '((unreviewed . "Unreviewed")
+                         (needs-review . "Needs review")
+                         (stale . "Stale")
+                         (failed . "Failed")
+                         (accepted . "Accepted")
+                         (useful . "Useful")
+                         (rejected . "Rejected")
+                         (superseded . "Superseded")))
+      (symbol-name state)))
+
+(defun ogent-review-dashboard--state-face (state)
+  "Return the semantic face for review STATE."
+  (pcase state
+    ((or 'accepted 'useful) 'ogent-theme-success)
+    ((or 'rejected 'failed) 'ogent-theme-error)
+    ((or 'needs-review 'stale 'superseded) 'ogent-theme-warning)
+    (_ 'ogent-theme-muted)))
+
 (defvar ogent-review-dashboard-mode-map
   (let ((map (make-sparse-keymap)))
     (define-key map (kbd "RET") #'ogent-review-dashboard-visit)
     (define-key map (kbd "g") #'ogent-review-dashboard-refresh)
+    (define-key map (kbd "n") #'ogent-review-dashboard-next-item)
+    (define-key map (kbd "p") #'ogent-review-dashboard-previous-item)
+    (define-key map (kbd "TAB") #'ogent-section-toggle)
+    (define-key map (kbd "<backtab>") #'ogent-section-cycle)
+    (define-key map (kbd "M-n") #'ogent-section-next)
+    (define-key map (kbd "M-p") #'ogent-section-prev)
+    (define-key map (kbd "^") #'ogent-section-up)
+    (define-key map (kbd "a") #'ogent-review-dashboard-mark-accepted)
+    (define-key map (kbd "x") #'ogent-review-dashboard-mark-rejected)
+    (define-key map (kbd "u") #'ogent-review-dashboard-mark-useful)
+    (define-key map (kbd "m") #'ogent-review-dashboard-mark-needs-review)
+    (define-key map (kbd "s") #'ogent-review-dashboard-mark-stale)
+    (define-key map (kbd "?") #'ogent-review-dashboard-dispatch)
     (define-key map (kbd "q") #'quit-window)
     map)
   "Keymap for `ogent-review-dashboard-mode'.")
 
-(define-derived-mode ogent-review-dashboard-mode special-mode "Ogent-Review"
-  "Major mode for browsing Zen review queues.")
+(ogent-section-define-mode ogent-review-dashboard-mode "Ogent-Review"
+                           "Major mode for browsing Zen review queues."
+  :group 'ogent-zen
+  (ogent-section-configure-buffer)
+  (setq-local buffer-read-only t)
+  (setq-local truncate-lines t)
+  (setq-local revert-buffer-function #'ogent-review-dashboard-refresh)
+  (setq-local header-line-format
+              '(:eval (ogent-review-dashboard--header-line))))
+
+(defun ogent-review-dashboard--marker-at-point ()
+  "Return the review marker on the current dashboard line."
+  (ogent-section-item-at-point 'ogent-review-marker))
+
+(defun ogent-review-dashboard--item-key-at-point ()
+  "Return a stable key for the dashboard item at point."
+  (when-let ((marker (ogent-review-dashboard--marker-at-point)))
+    (and (markerp marker)
+         (marker-buffer marker)
+         (list (marker-buffer marker) (marker-position marker)))))
+
+(defun ogent-review-dashboard--header-line ()
+  "Return the review dashboard header line."
+  (ogent-section-header-line
+   "Review"
+   (and (buffer-live-p ogent-review-dashboard-source-buffer)
+        (buffer-name ogent-review-dashboard-source-buffer))
+   '("?" . "menu")
+   '("g" . "refresh")
+   '("RET" . "visit")))
 
 (defun ogent-review-dashboard-visit ()
   "Visit the review item at point."
   (interactive)
-  (let ((marker (get-text-property (point) 'ogent-review-marker)))
-    (unless marker
+  (let ((marker (ogent-review-dashboard--marker-at-point)))
+    (unless (and (markerp marker) (marker-buffer marker))
       (user-error "No review item on this line"))
     (pop-to-buffer (marker-buffer marker))
     (goto-char marker)
@@ -1961,54 +2188,160 @@ TARGET-KIND is one of nil, `run', or `response'."
       (org-fold-show-subtree))
     (recenter)))
 
+(defun ogent-review-dashboard--item-text (item)
+  "Return display text for dashboard ITEM."
+  (let ((kind (if (eq (plist-get item :kind) 'response) "response" "run"))
+        (label (or (plist-get item :label) "untitled"))
+        (path (plist-get item :path)))
+    (concat "  "
+            (propertize kind 'face 'ogent-theme-muted)
+            " "
+            label
+            (if (and path (not (string-empty-p path)))
+                (concat (propertize " · " 'face 'ogent-theme-muted)
+                        (propertize path 'face 'ogent-theme-muted))
+              ""))))
+
+(defun ogent-review-dashboard--insert-state-section (state items)
+  "Insert the review dashboard section for STATE from ITEMS."
+  (let* ((state-items
+          (cl-remove-if-not
+           (lambda (item) (eq (plist-get item :state) state))
+           items))
+         (count (length state-items))
+         (face (ogent-review-dashboard--state-face state))
+         (heading (concat
+                   (propertize (ogent-review-dashboard--state-label state)
+                               'face 'ogent-theme-section-heading)
+                   (when (> count 0)
+                     (concat " " (ogent-theme-count-badge count face))))))
+    (let ((section
+           (ogent-section-with (ogent-review-dashboard-state)
+               heading
+             (if state-items
+                 (dolist (item state-items)
+                   (ogent-section-insert-item-line
+                    (ogent-review-dashboard--item-text item)
+                    'ogent-review-marker
+                    (plist-get item :marker)
+                    "RET visits this review item"))
+               (insert (propertize "  No items\n" 'face 'ogent-theme-muted))))))
+      (when (and section
+                 (memq state '(accepted useful rejected superseded))
+                 (ogent-section-usable-p)
+                 (fboundp 'magit-section-hide))
+        (magit-section-hide section)))))
+
+(defun ogent-review-dashboard--insert (items)
+  "Insert review dashboard ITEMS."
+  (ogent-section-with-root (ogent-review-dashboard-root)
+    (dolist (state ogent-review-dashboard--states)
+      (ogent-review-dashboard--insert-state-section state items))))
+
 (defun ogent-review-dashboard-refresh ()
   "Refresh the current review dashboard."
   (interactive)
   (unless (buffer-live-p ogent-review-dashboard-source-buffer)
     (user-error "Dashboard source buffer is gone"))
   (let ((inhibit-read-only t))
-    (erase-buffer)
-    (let ((items (with-current-buffer ogent-review-dashboard-source-buffer
-                   (ogent-zen--collect-review-items)))
-          (states '(unreviewed needs-review stale failed accepted useful
-                               rejected superseded))
-          (counts (make-hash-table :test 'eq)))
-      (dolist (item items)
-        (puthash (plist-get item :state)
-                 (1+ (gethash (plist-get item :state) counts 0))
-                 counts))
-      (insert "Ogent Review Dashboard\n\n")
-      (insert (format "Source: %s\n\n"
-                      (buffer-name ogent-review-dashboard-source-buffer)))
-      (insert "Queue\n-----\n")
-      (dolist (state states)
-        (let ((count (gethash state counts 0)))
-          (when (> count 0)
-            (insert (format "%-12s %d\n" state count)))))
-      (insert "\nNeeds attention\n---------------\n")
-      (dolist (item items)
-        (when (ogent-zen--review-attention-p (plist-get item :state))
-          (let ((start (point)))
-            (insert (format "- [%s] %s\n"
-                            (plist-get item :state)
-                            (plist-get item :label)))
-            (add-text-properties
-             start (point)
-             (list 'ogent-review-marker
-                   (plist-get item :marker)
-                   'mouse-face 'highlight)))))
-      (insert "\nAll review items\n----------------\n")
-      (dolist (item items)
-        (let ((start (point)))
-          (insert (format "- [%s] %s\n"
-                          (plist-get item :state)
-                          (plist-get item :label)))
-          (add-text-properties
-           start (point)
-           (list 'ogent-review-marker
-                 (plist-get item :marker)
-                 'mouse-face 'highlight)))))
-    (goto-char (point-min))))
+    (ogent-section-preserve-point (#'ogent-review-dashboard--item-key-at-point)
+      (erase-buffer)
+      (ogent-review-dashboard--insert
+       (with-current-buffer ogent-review-dashboard-source-buffer
+         (ogent-zen--collect-review-items))))))
+
+(defun ogent-review-dashboard-next-item ()
+  "Move point to the next visible review item."
+  (interactive)
+  (if-let ((pos (ogent-section-visible-item-position
+                 'ogent-review-marker 'next)))
+      (goto-char pos)
+    (user-error "No next review item")))
+
+(defun ogent-review-dashboard-previous-item ()
+  "Move point to the previous visible review item."
+  (interactive)
+  (if-let ((pos (ogent-section-visible-item-position
+                 'ogent-review-marker 'previous)))
+      (goto-char pos)
+    (user-error "No previous review item")))
+
+(defun ogent-review-dashboard-mark (state)
+  "Mark the dashboard item at point with review STATE."
+  (interactive
+   (list (let ((choice (completing-read
+                        "Review state: "
+                        '("accepted" "rejected" "useful" "needs-review"
+                          "stale" "clear")
+                        nil t)))
+           (unless (string= choice "clear")
+             choice))))
+  (let ((marker (ogent-review-dashboard--marker-at-point)))
+    (unless (and (markerp marker) (marker-buffer marker))
+      (user-error "No review item on this line"))
+    (with-current-buffer (marker-buffer marker)
+      (save-excursion
+        (goto-char marker)
+        (ogent-zen--set-review-state state 'run)))
+    (ogent-review-dashboard-refresh)))
+
+(defun ogent-review-dashboard-mark-accepted ()
+  "Mark the dashboard item at point as accepted."
+  (interactive)
+  (ogent-review-dashboard-mark "accepted"))
+
+(defun ogent-review-dashboard-mark-rejected ()
+  "Mark the dashboard item at point as rejected."
+  (interactive)
+  (ogent-review-dashboard-mark "rejected"))
+
+(defun ogent-review-dashboard-mark-useful ()
+  "Mark the dashboard item at point as useful."
+  (interactive)
+  (ogent-review-dashboard-mark "useful"))
+
+(defun ogent-review-dashboard-mark-needs-review ()
+  "Mark the dashboard item at point as needing review."
+  (interactive)
+  (ogent-review-dashboard-mark "needs-review"))
+
+(defun ogent-review-dashboard-mark-stale ()
+  "Mark the dashboard item at point as stale."
+  (interactive)
+  (ogent-review-dashboard-mark "stale"))
+
+(defun ogent-review-dashboard-clear ()
+  "Clear review metadata from the dashboard item at point."
+  (interactive)
+  (ogent-review-dashboard-mark nil))
+
+;;;###autoload (autoload 'ogent-review-dashboard-dispatch "ogent-zen" nil t)
+(transient-define-prefix ogent-review-dashboard-dispatch ()
+  "Dispatch menu for Zen review dashboards."
+  [["Mark"
+    ("a" "Accept" ogent-review-dashboard-mark-accepted)
+    ("x" "Reject" ogent-review-dashboard-mark-rejected)
+    ("u" "Useful" ogent-review-dashboard-mark-useful)
+    ("m" "Needs review" ogent-review-dashboard-mark-needs-review)
+    ("s" "Stale" ogent-review-dashboard-mark-stale)
+    ("c" "Clear" ogent-review-dashboard-clear)]
+   ["Navigate"
+    ("RET" "Visit" ogent-review-dashboard-visit)
+    ("n" "Next item" ogent-review-dashboard-next-item :transient t)
+    ("p" "Previous item" ogent-review-dashboard-previous-item :transient t)
+    ("TAB" "Toggle section" ogent-section-toggle :transient t)
+    ("M-n" "Next section" ogent-section-next :transient t)
+    ("M-p" "Previous section" ogent-section-prev :transient t)
+    ("^" "Up section" ogent-section-up :transient t)]
+   ["View"
+    ("g" "Refresh" ogent-review-dashboard-refresh :transient t)
+    ("q" "Quit menu" transient-quit-one)]])
+
+(with-eval-after-load 'evil
+  (when (fboundp 'ogent-evil-display-mode-setup)
+    (ogent-evil-display-mode-setup
+     'ogent-review-dashboard-mode ogent-review-dashboard-mode-map
+     'ogent-review-dashboard-mode-hook #'ogent-review-dashboard-refresh)))
 
 ;;;###autoload
 (defun ogent-review-dashboard ()
@@ -2185,7 +2518,7 @@ MODELS, PRESET, and TEMPLATES are forwarded to request dispatch unchanged."
 (defun ogent-zen-rerun ()
   "Re-run the Zen transcript at point, or run the current bullet.
 On a generated `Request:' / `Response' transcript, delete that
-transcript and dispatch the owning bullet again — edit the bullet, then
+transcript and dispatch the owning bullet again: edit the bullet, then
 re-run.  Anywhere else this behaves like `ogent-run-subtree'.  A
 still-streaming transcript must be aborted before it can be re-run.
 The deletion and the new run form one undoable change group."

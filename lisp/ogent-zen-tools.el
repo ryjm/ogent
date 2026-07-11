@@ -336,7 +336,7 @@ Falls back to inline `:TOOL:' drawers for legacy transcripts."
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
-        (insert (format "#+title: Tool calls — %s\n\n" title))
+        (insert (format "#+title: Tool calls: %s\n\n" title))
         (if (zerop total)
             (insert "No tool calls recorded under this heading.\n")
           (mapc #'ogent-zen--insert-tool-call-group groups)))

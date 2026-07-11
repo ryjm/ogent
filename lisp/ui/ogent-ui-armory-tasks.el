@@ -15,27 +15,19 @@
     (define-key map (kbd "<return>") #'ogent-armory-tasks-visit)
     (define-key map (kbd "<kp-enter>") #'ogent-armory-tasks-visit)
     (define-key map "c" #'ogent-armory-create-task)
-    (define-key map (kbd "C-c c") #'ogent-armory-create-task)
     (define-key map "R" #'ogent-armory-tasks-run)
-    (define-key map (kbd "C-c r") #'ogent-armory-tasks-run)
     (define-key map "A" #'ogent-armory-tasks-archive)
-    (define-key map (kbd "C-c a") #'ogent-armory-tasks-archive)
     (define-key map "U" #'ogent-armory-tasks-unarchive)
-    (define-key map (kbd "C-c u") #'ogent-armory-tasks-unarchive)
-    (define-key map "b" #'ogent-armory-tasks-board-view)
-    (define-key map (kbd "C-c b") #'ogent-armory-tasks-board-view)
-    (define-key map "l" #'ogent-armory-tasks-list-view)
-    (define-key map (kbd "C-c l") #'ogent-armory-tasks-list-view)
-    (define-key map "S" #'ogent-armory-tasks-schedule-view)
-    (define-key map (kbd "C-c S") #'ogent-armory-tasks-schedule-view)
+    (define-key map "v" #'ogent-armory-tasks-cycle-view)
     (define-key map "e" #'ogent-armory-tasks-edit)
-    (define-key map (kbd "C-c e") #'ogent-armory-tasks-edit)
     (define-key map "f" #'ogent-armory-tasks-filter)
-    (define-key map (kbd "C-c f") #'ogent-armory-tasks-filter)
     (define-key map "g" #'ogent-armory-tasks-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-tasks-refresh)
-    (define-key map "s" #'ogent-armory-search)
-    (define-key map (kbd "C-c s") #'ogent-armory-search)
+    (define-key map "?" #'ogent-armory-tasks-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-tasks-mode'.")
@@ -52,20 +44,24 @@
                ("When" 24 t)])
   (setq-local tabulated-list-padding 2)
   (setq-local revert-buffer-function #'ogent-armory-tasks-refresh)
+  (setq-local tabulated-list-use-header-line nil)
+  (setq header-line-format
+        '(:eval (ogent-armory-tasks--header-line)))
   (tabulated-list-init-header))
 
-(defun ogent-armory-tasks--help-line ()
-  "Return the task board action hint."
-  (propertize
-   "c create task  RET visit  R run  A archive  U unarchive  b board  l list  S schedule  f filter  g refresh  q quit\n\n"
-   'face 'shadow))
+(defun ogent-armory-tasks--header-line ()
+  "Return the standard header line for the Armory task board."
+  (ogent-section-header-line
+   "Tasks"
+   (concat (when ogent-armory-tasks--root
+             (ogent-armory-ui--root-label ogent-armory-tasks--root))
+           (format " · %s view" (or ogent-armory-tasks--view 'board))
+           (when ogent-armory-tasks--filters " · filtered"))
+   '("?" . "menu") '("j" . "jump") '("g" . "refresh")))
 
 (defun ogent-armory-tasks--print ()
-  "Print the current task board with its action hint."
-  (tabulated-list-print t)
-  (let ((inhibit-read-only t))
-    (goto-char (point-min))
-    (insert (ogent-armory-tasks--help-line))))
+  "Print the current task board."
+  (tabulated-list-print t))
 
 (defun ogent-armory-tasks--job-item (root job)
   "Return a task item for JOB under ROOT."
@@ -355,9 +351,11 @@ TITLE names the task and DETAILS provides its body; both are prompted when nil."
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-tasks-refresh (&rest _)
-  "Refresh the Armory task lane buffer."
-  (interactive)
+(defun ogent-armory-tasks-refresh (&optional force &rest _)
+  "Refresh the Armory task lane buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force force ogent-armory-tasks--root)
   (ogent-armory-tasks--print))
 
 (defun ogent-armory-tasks-board-view ()
@@ -377,6 +375,33 @@ TITLE names the task and DETAILS provides its body; both are prompted when nil."
   (interactive)
   (setq ogent-armory-tasks--view 'schedule)
   (ogent-armory-tasks-refresh))
+
+(defun ogent-armory-tasks-cycle-view ()
+  "Cycle the Armory task board through board, list, and schedule views."
+  (interactive)
+  (setq ogent-armory-tasks--view
+        (pcase ogent-armory-tasks--view
+          ('board 'list)
+          ('list 'schedule)
+          (_ 'board)))
+  (ogent-armory-tasks-refresh)
+  (message "Armory tasks: %s view" ogent-armory-tasks--view))
+
+(ogent-armory-ui--define-prefix ogent-armory-tasks-dispatch ()
+  "Dispatch menu for the Armory task board."
+  [["Item"
+    ("RET" "Visit" ogent-armory-tasks-visit)
+    ("c" "Create task" ogent-armory-create-task)
+    ("R" "Run/retry" ogent-armory-tasks-run)
+    ("e" "Edit metadata" ogent-armory-tasks-edit)
+    ("A" "Archive" ogent-armory-tasks-archive)
+    ("U" "Unarchive" ogent-armory-tasks-unarchive)]
+   ["View"
+    ("v" "Cycle view" ogent-armory-tasks-cycle-view :transient t)
+    ("f" "Filter" ogent-armory-tasks-filter :transient t)
+    ("g" "Refresh" ogent-armory-tasks-refresh :transient t)]]
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (defun ogent-armory-tasks--after-run (process)
   "Refresh the task board, display PROCESS, and return PROCESS."
@@ -500,6 +525,21 @@ TITLE names the task and DETAILS provides its body; both are prompted when nil."
                         (ogent-armory-ui--task-status-candidates
                          ogent-armory-tasks--root)))))
   (ogent-armory-tasks-refresh))
+
+(defun ogent-armory-tasks--evil-local-keys ()
+  "Install local Evil keys for Armory tasks buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-tasks-mode-map))
+
+(defun ogent-armory-tasks--setup-evil ()
+  "Set up Evil integration for Armory tasks buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-tasks-mode
+   ogent-armory-tasks-mode-map
+   'ogent-armory-tasks-mode-hook
+   #'ogent-armory-tasks--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-tasks--setup-evil))
 
 (provide 'ogent-ui-armory-tasks)
 ;;; ogent-ui-armory-tasks.el ends here

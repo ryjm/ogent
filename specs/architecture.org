@@ -7,7 +7,7 @@ ogent treats language models as Unix tools: they take structured input, produce 
 ** Core Principles
 
 *** Text as Interface
-Everything flows through Org. Context is text. Responses are text. Diffs are text. This means standard Emacs operations—search, replace, version control, export—work on LLM interactions the same as any other buffer content.
+Everything flows through Org. Context is text. Responses are text. Diffs are text. This means standard Emacs operations (search, replace, version control, export) work on LLM interactions the same as any other buffer content.
 
 *** Explicit Context
 No implicit "send my whole project." The user declares what goes into the context window:
@@ -24,7 +24,7 @@ Model output lands in Org src blocks with structured headers:
 #+begin_src text :model claude-sonnet-4-6 :status done :latency 2.1s
 #+end_example
 
-This metadata enables programmatic access. Fold responses, navigate between them, extract them for export. The response is not ephemeral chat—it's a first-class Org element.
+This metadata enables programmatic access. Fold responses, navigate between them, extract them for export. The response is not ephemeral chat; it's a first-class Org element.
 
 *** Diffs Over Descriptions
 When the model suggests code changes, ogent renders them as smerge conflicts:
@@ -39,7 +39,7 @@ Visual review is faster than textual review. The interface should optimize for t
 *** Context Pipeline
 1. =ogent-context-build= resolves the current subtree, ancestors, and =@handle= dependencies
 2. =ogent-context-build-lazy= defers expensive resolution until needed
-3. Context flows as an immutable plist—presentation code never mutates it
+3. Context flows as an immutable plist; presentation code never mutates it
 4. =ogent-response-function= fires exactly once per request for reliable hook execution
 
 *** Model Orchestration
@@ -139,7 +139,7 @@ unchanged. Plan of record + runbook: [[file:modularity/decomposition-plan.org][s
 - =ogent-zen.el= (façade) → =ogent-zen-core= (base + =ogent-zen-scope= struct) / =-tools=
   (tool-call store + inspection) / =-workspace= (=ogent-context= bridge) / =-edit= (inline-diff).
 - =ogent-issues.el= (façade + list core, in place) → =ogent-issues-detail= / =-kanban= / =-evil=.
-- =ogent-armory.el= is a *justified monolith* (one cohesive Org-file storage API, 25 requirers) —
+- =ogent-armory.el= is a *justified monolith* (one cohesive Org-file storage API, 25 requirers),
   intentionally NOT split. Do not size-split it.
 Rules for new siblings: keep =cl-defstruct= and macros in the file consumers =require= (compile-time
 visibility); cross-module references that would cycle (e.g. zen↔ui) use =declare-function= +
@@ -176,7 +176,7 @@ visibility); cross-module references that would cycle (e.g. zen↔ui) use =decla
 - `ogent-response-function` must return an =ogent-ui-request= struct. The UI layer is responsible for inserting placeholder Org blocks before gptel fires.
 - Streaming callbacks append to the existing block and close it by writing =#+end_src= when gptel signals done/abort. Errors must produce a =#+begin_quote ogent-error= block without deleting prior context.
 - Maintain the request table (=ogent-ui--request-table=) so cancellation/resume features can target active streams.
-- Hooks (`ogent-after-request-hook`) are run exactly once per request—after blocks close successfully or with error annotations.
+- Hooks (`ogent-after-request-hook`) are run exactly once per request, after blocks close successfully or with error annotations.
 
 * Buffer Linking Outside Org-mode
 - Invoking ogent from a non-Org major mode must establish (or reuse) a companion Org buffer that holds the request/response transcript. By default, create a temp Org buffer named after the source buffer (e.g., `*ogent:<file>*`) and store the link in buffer-local metadata so follow-up commands reuse the same companion.

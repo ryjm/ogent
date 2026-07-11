@@ -12,12 +12,26 @@
     (dolist (key '("RET" "<return>" "<kp-enter>"))
       (define-key map (kbd key) #'ogent-armory-apps-open))
     (define-key map "v" #'ogent-armory-apps-visit-directory)
-    (define-key map (kbd "C-c v") #'ogent-armory-apps-visit-directory)
     (define-key map "g" #'ogent-armory-apps-refresh)
-    (define-key map (kbd "C-c g") #'ogent-armory-apps-refresh)
+    (define-key map "?" #'ogent-armory-apps-dispatch)
+    (define-key map "n" #'ogent-armory-ui-next-item)
+    (define-key map "p" #'ogent-armory-ui-previous-item)
+    (define-key map "j" ogent-armory-jump-map)
+    (define-key map "," #'ogent-armory-settings)
+    (define-key map "/" #'ogent-armory-command-palette)
     (define-key map "q" #'quit-window)
     map)
   "Keymap for `ogent-armory-apps-mode'.")
+
+(ogent-armory-ui--define-prefix ogent-armory-apps-dispatch ()
+  "Dispatch menu for the Armory app artifact list."
+  [["Item"
+    ("RET" "Open app" ogent-armory-apps-open)
+    ("v" "Visit app directory" ogent-armory-apps-visit-directory)]
+   ["View"
+    ("g" "Refresh" ogent-armory-apps-refresh :transient t)]]
+  ["Help"
+   ("q" "Quit menu" transient-quit-one)])
 
 (define-derived-mode ogent-armory-apps-mode tabulated-list-mode "Armory-Apps"
   "Major mode for Armory app artifacts."
@@ -30,6 +44,13 @@
   (setq-local tabulated-list-padding 2)
   (setq-local tabulated-list-sort-key '("Modified" . t))
   (setq-local revert-buffer-function #'ogent-armory-apps-refresh)
+  (setq-local tabulated-list-use-header-line nil)
+  (setq header-line-format
+        '(:eval (ogent-section-header-line
+                 "Apps"
+                 (and ogent-armory-apps--root
+                      (ogent-armory-ui--root-label ogent-armory-apps--root))
+                 '("?" . "menu") '("j" . "jump") '("g" . "refresh"))))
   (tabulated-list-init-header))
 
 (defun ogent-armory-apps--entry (app)
@@ -71,9 +92,11 @@
     (pop-to-buffer buffer)
     buffer))
 
-(defun ogent-armory-apps-refresh (&rest _)
-  "Refresh the Armory apps buffer."
-  (interactive)
+(defun ogent-armory-apps-refresh (&optional force &rest _)
+  "Refresh the Armory apps buffer.
+With FORCE non-nil, invalidate cached Armory data first."
+  (interactive "P")
+  (ogent-armory-ui--invalidate-cache-when-force force ogent-armory-apps--root)
   (tabulated-list-print t))
 
 (defun ogent-armory-apps--item ()
@@ -114,6 +137,21 @@
            (path (plist-get app :path)))
       (browse-url-of-file path)
       path)))
+
+(defun ogent-armory-apps--evil-local-keys ()
+  "Install local Evil keys for Armory apps buffers."
+  (ogent-armory-evil-install-local-bindings ogent-armory-apps-mode-map))
+
+(defun ogent-armory-apps--setup-evil ()
+  "Set up Evil integration for Armory apps buffers."
+  (ogent-armory-evil-setup-mode
+   'ogent-armory-apps-mode
+   ogent-armory-apps-mode-map
+   'ogent-armory-apps-mode-hook
+   #'ogent-armory-apps--evil-local-keys))
+
+(with-eval-after-load 'evil
+  (ogent-armory-apps--setup-evil))
 
 (provide 'ogent-ui-armory-apps)
 ;;; ogent-ui-armory-apps.el ends here

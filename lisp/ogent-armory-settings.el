@@ -559,10 +559,10 @@ Use TEAM, or nil for `ogent-armory-onboard-default-team', as the agent roster."
          (runtime (or runtime "native"))
          (team (or team ogent-armory-onboard-default-team)))
     (ogent-armory-scaffold root name
-                            :kind "root"
-                            :description "Armory created by ogent onboarding."
-                            :create-editor nil
-                            :skip-existing t)
+                           :kind "root"
+                           :description "Armory created by ogent onboarding."
+                           :create-editor nil
+                           :skip-existing t)
     (ogent-armory-settings-write
      root
      (list :profile-name name
@@ -740,10 +740,10 @@ When MANIFEST is non-nil, import that object without reading MANIFEST-FILE."
          (job-count 0)
          (page-count 0))
     (ogent-armory-scaffold root name
-                            :kind kind
-                            :description description
-                            :create-editor nil
-                            :skip-existing t)
+                           :kind kind
+                           :description description
+                           :create-editor nil
+                           :skip-existing t)
     (ogent-armory-settings-write root settings :merge t)
     (dolist (agent (ogent-armory-registry--sequence
                     (ogent-armory-registry--object-get manifest 'agents)))

@@ -30,10 +30,10 @@ make --version | head -1
 
 ** Byte-compile the tree
 
-Byte-compile warnings gate merges — keep this clean. The =recompile=
+Byte-compile warnings gate merges; keep this clean. The =recompile=
 target ([[file:Makefile::82][Makefile:82]]) deletes every =.elc= first, which is the cure for
 the stale-=.elc= trap (old byte-code shadowing new source, especially
-around the macro-generated modes — see the No magic section of
+around the macro-generated modes; see the No magic section of
 [[file:docs/how-it-works.org][how-it-works.org]]):
 
 #+begin_src sh :results output
@@ -46,7 +46,7 @@ This block *tangles* (=C-c C-v t= / =org-babel-tangle=) to a standalone
 init file you can hand to =emacs -Q -l /tmp/ogent-sandbox-init.el= for a
 clean interactive session against this checkout. It mirrors the canonical
 setup from [[file:README.org][README.org]] and [[file:docs/getting-started.md][docs/getting-started.md]]: both lisp dirs on
-the =load-path=, then =(require 'ogent)= — which is the package's whole
+the =load-path=, then =(require 'ogent)=, which is the package's whole
 bootstrap (load-path fixups, ordered requires, default tool install; see
 [[file:lisp/ogent.el::52][lisp/ogent.el:52]]).
 
@@ -69,7 +69,7 @@ bootstrap (load-path fixups, ordered requires, default tool install; see
 
 =make test= runs the full ERT suite through makem.sh's =test-ert= rule
 (byte-compile, load every =test/**/*-tests.el=, then
-=ert-run-tests-batch-and-exit= — see [[file:makem.sh::1071][makem.sh:1071]]). It is *silent on
+=ert-run-tests-batch-and-exit=; see [[file:makem.sh::1071][makem.sh:1071]]). It is *silent on
 success* at default verbosity; exit code 0 is the green signal. Use =-vv=
 to see the summary.
 
@@ -77,7 +77,7 @@ to see the summary.
 make test 2>&1 | tail -3; echo "exit: $?"
 #+end_src
 
-Real captured output (2026-06-10, this checkout — note the silence):
+Real captured output (2026-06-10, this checkout; note the silence):
 
 #+RESULTS:
 : exit: 0
@@ -123,7 +123,7 @@ Sandboxed lint with linters installed ([[file:Makefile::112][Makefile:112]]):
 make sandbox-lint 2>&1 | tail -5
 #+end_src
 
-Any target can be sandboxed via Makefile variables — =sandbox=1= for a
+Any target can be sandboxed via Makefile variables: =sandbox=1= for a
 temp dir, =sandbox=DIR= to keep and reuse the directory across runs
 (faster, since deps install once):
 
@@ -142,7 +142,7 @@ make bench 2>&1 | tail -15
 ** Interactive sandbox Emacs
 
 =make sandbox= ([[file:Makefile::108][Makefile:108]]) launches a *GUI/interactive* Emacs inside a
-clean makem sandbox with ogent and its deps loaded — the closest thing to
+clean makem sandbox with ogent and its deps loaded, the closest thing to
 "try the package as a new user". (Long-running; run from a terminal, not
 from a babel block.)
 
@@ -158,7 +158,7 @@ emacs -Q -l /tmp/ogent-sandbox-init.el
 
 ** The demo notebook
 
-=make demo= ([[file:Makefile::116][Makefile:116]]) opens [[file:sandbox/demo.org][sandbox/demo.org]] in =emacs -Q= — a
+=make demo= ([[file:Makefile::116][Makefile:116]]) opens [[file:sandbox/demo.org][sandbox/demo.org]] in =emacs -Q=: a
 17-line guided fixture that walks the core workflow: headings tagged with
 =:OGENT_ID:= properties, an =@handle= reference, and instructions to
 launch the dispatcher.
@@ -167,7 +167,7 @@ launch the dispatcher.
 make demo
 #+end_src
 
-Peek at the fixture without launching Emacs — real captured output
+Peek at the fixture without launching Emacs; real captured output
 (2026-06-10, this checkout):
 
 #+begin_src sh :results output
@@ -190,19 +190,19 @@ Once a provider is configured (=M-x ogent-onboard=, the wizard at
 [[file:lisp/ogent-onboard.el::474][ogent-onboard]]), the day-to-day entry points are:
 
 1. =M-x ogent-prompt-dispatch= (=C-c . p= under
-   [[file:lisp/ogent-core.el::192][ogent-mode]]) — the transient dispatcher
+   [[file:lisp/ogent-core.el::192][ogent-mode]]), the transient dispatcher
    ([[file:lisp/ui/ogent-ui.el::1121][ogent-prompt-dispatch]]): pick provider/model, type a prompt, =RET=
    sends; the response streams into an Org =Response= block. The full
    journey of that keystroke is traced step by step in
    [[file:docs/how-it-works.org][docs/how-it-works.org]] ("The walkthrough").
-2. =M-x ogent-ask= ([[file:lisp/ogent-core.el::388][ogent-ask]]) — quick popup Q&A bypassing context.
-3. =M-x ogent-quick-edit= ([[file:lisp/ogent-edit.el::603][ogent-quick-edit]]) — inline AI edit of
+2. =M-x ogent-ask= ([[file:lisp/ogent-core.el::388][ogent-ask]]), a quick popup Q&A bypassing context.
+3. =M-x ogent-quick-edit= ([[file:lisp/ogent-edit.el::603][ogent-quick-edit]]), an inline AI edit of
    region/defun/line with smerge/overlay review.
-4. =M-x ogent-armory-home= ([[file:lisp/ui/ogent-ui-armory.el::946][ogent-armory-home]]) — the Armory
+4. =M-x ogent-armory-home= ([[file:lisp/ui/ogent-ui-armory.el::946][ogent-armory-home]]), the Armory
    dashboard; =M-x ogent-armory-onboard= scaffolds a demo-able armory,
    or =M-x ogent-armory-demo= imports the built-in demo manifest
    ([[file:lisp/ogent-armory-settings.el::879][ogent-armory-demo]]).
-5. =M-x ogent-issues= ([[file:lisp/ogent-issues.el::644][ogent-issues]]) — the issue board (requires the
+5. =M-x ogent-issues= ([[file:lisp/ogent-issues.el::644][ogent-issues]]), the issue board (requires the
    =br= CLI and a =.beads/= directory; this repo has one).
 
 An executable taste of the org-babel integration (requires a configured
@@ -227,7 +227,7 @@ a [[file:lisp/ob-ogent.el::48][120s timeout]].
 make clean 2>&1 | tail -2; echo "exit: $?"
 #+end_src
 
-(Re-run =make recompile= afterwards if you want a compiled tree back —
+(Re-run =make recompile= afterwards if you want a compiled tree back;
 tests do their own compile pass.)
 
 ** Remove sandbox and tangle artifacts
@@ -243,7 +243,7 @@ rm -rf ~/.cache/ogent-sandbox
 ** Cancel runaway processes (interactive)
 
 If an async tool or MCP server is stuck inside Emacs:
-=M-x ogent-tools-cancel-all= ([[file:lisp/ogent-tools.el::674][ogent-tools-cancel-all]]) kills active tool
+=M-x ogent-tools-cancel-all= ([[file:lisp/ogent-tools.el::745][ogent-tools-cancel-all]]) kills active tool
 processes; =M-x ogent-mcp-disconnect= ([[file:lisp/ogent-mcp.el::472][ogent-mcp-disconnect]]) shuts down
 an MCP server and deregisters its tools; =M-x ogent-abort-request=
 ([[file:lisp/ui/ogent-ui.el::3113][ogent-abort-request]]) aborts an in-flight LLM request.

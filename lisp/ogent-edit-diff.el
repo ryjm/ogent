@@ -23,8 +23,16 @@
   (when ogent-edit-diff--magit-available
     (require 'magit-section)))
 
-;; Forward declarations for magit-section functions
-(declare-function magit-insert-section "ext:magit-section")
+;; Forward declarations for magit-section functions.
+;; `magit-insert-section' is a macro: when magit-section is installed,
+;; the `eval-and-compile' require above makes it expandable at compile
+;; time and this declaration is inert.  Without magit-section (e.g. the
+;; CI lint sandbox, which installs only Package-Requires) the
+;; declaration keeps the byte-compiler from flagging the call sites as
+;; undefined; the render path is unreachable then anyway
+;; (`ogent-edit-diff--magit-available' is nil).  FILEONLY t stops
+;; check-declare from trying to resolve it as a defun, which it is not.
+(declare-function magit-insert-section "ext:magit-section" (&rest args) t)
 (declare-function magit-insert-heading "ext:magit-section")
 (declare-function magit-section-forward "ext:magit-section")
 (declare-function magit-section-backward "ext:magit-section")
@@ -33,6 +41,7 @@
 (declare-function magit-section-toggle "ext:magit-section")
 (declare-function magit-current-section "ext:magit-section")
 (defvar magit-section-visibility-indicator)
+(defvar magit-section-visibility-indicators)
 (put 'magit-insert-section 'lisp-indent-function 2)
 (put 'magit-insert-heading 'lisp-indent-function 0)
 
@@ -170,7 +179,10 @@
   (setq ogent-edit-diff--source-buffers (make-hash-table :test 'equal))
   ;; Enable magit-section features if available
   (when (bound-and-true-p ogent-edit-diff--magit-available)
-    (setq-local magit-section-visibility-indicator nil)))
+    (if (boundp 'magit-section-visibility-indicators)
+        (setq-local magit-section-visibility-indicators nil)
+      (with-suppressed-warnings ((obsolete magit-section-visibility-indicator))
+        (setq-local magit-section-visibility-indicator nil)))))
 
 ;;; Buffer Construction
 
@@ -360,10 +372,14 @@ _FILE is unused but kept for future per-file staging state."
   "Get the edit at point."
   (when (bound-and-true-p ogent-edit-diff--magit-available)
     (when-let ((section (magit-current-section)))
-      ;; Check if this section has an edit slot (hunk sections do)
-      (when (and (eieio-object-p section)
-                 (slot-exists-p section 'edit))
-        (eieio-oref section 'edit)))))
+      ;; The hunk section class is defclass'd at runtime only (see above),
+      ;; so EIEIO's compile-time slot validation cannot know its `edit'
+      ;; slot.  Bind the slot name to keep `eieio-oref' from
+      ;; constant-folding into that check.
+      (let ((slot 'edit))
+        (when (and (eieio-object-p section)
+                   (slot-exists-p section slot))
+          (eieio-oref section slot))))))
 
 (defun ogent-edit-diff-stage ()
   "Stage the edit at point for acceptance."
