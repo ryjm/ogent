@@ -340,34 +340,35 @@ error, info, muted, highlight, key, badge, heading, header."
   "Flash the mode-line with TYPE color and optional MESSAGE.
 TYPE is one of: `success', `warning', `error', `info'.
 The flash lasts for `ogent-theme-flash-duration' seconds."
-  (if (eq ogent-theme-animation-speed 'none)
-      (when message (message "%s" message))
-    (let ((face (pcase type
-                  ('success 'ogent-theme-success-bg)
-                  ('warning 'ogent-theme-warning-bg)
-                  ('error 'ogent-theme-error-bg)
-                  (_ 'ogent-theme-info))))
-      ;; Cancel any existing flash
-      (ogent-theme--clear-flash)
-      ;; Apply face remapping to mode-line
-      (setq ogent-theme--flash-cookie
-            (face-remap-add-relative 'mode-line face))
-      ;; Show message if provided
-      (when message
-        (message "%s %s"
-                 (ogent-theme-icon (pcase type
-                                     ('success 'success)
-                                     ('warning 'warning)
-                                     ('error 'error)
-                                     (_ 'info))
-                                   face)
-                 message))
-      ;; Force redisplay
-      (force-mode-line-update t)
-      ;; Set timer to clear
-      (setq ogent-theme--flash-timer
-            (run-with-timer ogent-theme-flash-duration nil
-                            #'ogent-theme--clear-flash)))))
+  (when (eq ogent-theme-animation-speed 'none)
+    (when message (message "%s" message))
+    (cl-return-from ogent-theme-flash))
+  (let ((face (pcase type
+                ('success 'ogent-theme-success-bg)
+                ('warning 'ogent-theme-warning-bg)
+                ('error 'ogent-theme-error-bg)
+                (_ 'ogent-theme-info))))
+    ;; Cancel any existing flash
+    (ogent-theme--clear-flash)
+    ;; Apply face remapping to mode-line
+    (setq ogent-theme--flash-cookie
+          (face-remap-add-relative 'mode-line face))
+    ;; Show message if provided
+    (when message
+      (message "%s %s"
+               (ogent-theme-icon (pcase type
+                                   ('success 'success)
+                                   ('warning 'warning)
+                                   ('error 'error)
+                                   (_ 'info))
+                                 face)
+               message))
+    ;; Force redisplay
+    (force-mode-line-update t)
+    ;; Set timer to clear
+    (setq ogent-theme--flash-timer
+          (run-with-timer ogent-theme-flash-duration nil
+                          #'ogent-theme--clear-flash))))
 
 (defun ogent-theme--clear-flash ()
   "Clear any active flash effect."
