@@ -7,6 +7,9 @@
 ;; Loaded at runtime inside the dangerous-tools test.
 (declare-function ogent-tools-install-defaults "ogent-tools")
 
+;; gptel session state let-bound in the effective-model tests.
+(defvar gptel-model)
+
 (ert-deftest ogent-models-default-falls-back-to-first-entry ()
   "Default accessor returns the first registry entry when no override is set."
   (let ((ogent-default-model nil)
@@ -22,12 +25,15 @@
 
 (ert-deftest ogent-models-default-is-current-frontier-openai-model ()
   "The shipped default should use the current flagship OpenAI model."
-  (should (equal ogent-default-model "gpt-5.5"))
+  (should (equal ogent-default-model "gpt-5.6-sol"))
   (should (ogent-models-get ogent-default-model)))
 
 (ert-deftest ogent-models-registry-includes-current-frontier-models ()
   "The default registry includes current OpenAI and Anthropic text models."
-  (dolist (model-id '("gpt-5.5"
+  (dolist (model-id '("gpt-5.6-sol"
+                      "gpt-5.6-terra"
+                      "gpt-5.6-luna"
+                      "gpt-5.5"
                       "gpt-5.5-pro"
                       "gpt-5.4"
                       "gpt-5.4-mini"
@@ -35,6 +41,7 @@
                       "gpt-5.3-codex"
                       "claude-fable-5"
                       "claude-opus-4-8"
+                      "claude-sonnet-5"
                       "claude-sonnet-4-6"
                       "claude-haiku-4-5-20251001"))
     (should (ogent-models-get model-id))))
@@ -115,7 +122,7 @@
           (should (memq symbol models))
           (should (memq 'tool-use (get symbol :capabilities)))
           (should (equal (get symbol :description)
-                         "OpenAI GPT-5.5 - flagship reasoning and coding")))
+                         "OpenAI GPT-5.5 - previous flagship reasoning and coding")))
       (setplist symbol old-symbol-plist)
       (setplist 'gpt-5 old-prototype-plist))))
 
@@ -325,6 +332,125 @@ Without it, gptel auto-executes risky tools (the P0 bypass)."
   "Test tool-spec-get returns nil for missing tool."
   (let ((ogent-tool-registry nil))
     (should-not (ogent-tool-spec-get 'nonexistent))))
+
+;;; Model Role Tests
+
+(defmacro ogent-models-tests--with-roles (roles &rest body)
+  "Run BODY with a two-model registry and ROLES as the role alist."
+  (declare (indent 1) (debug t))
+  `(let ((ogent-default-model "alpha")
+         (ogent-model-registry '((:id "alpha" :backend gptel-openai)
+                                 (:id "beta" :backend gptel-anthropic)))
+         (ogent-model-roles ,roles))
+     ,@body))
+
+(ert-deftest ogent-models-resolve-role-returns-assignment ()
+  "A role assigned a registered model id resolves to that id."
+  (ogent-models-tests--with-roles '((edit . "beta"))
+    (should (equal (ogent-models-resolve-role 'edit) "beta"))))
+
+(ert-deftest ogent-models-resolve-role-follows-alias-chain ()
+  "A role aliasing another role resolves through the chain."
+  (ogent-models-tests--with-roles '((codemap . fast) (fast . "beta"))
+    (should (equal (ogent-models-resolve-role 'codemap) "beta"))))
+
+(ert-deftest ogent-models-resolve-role-falls-back-to-default ()
+  "Unassigned roles, cycles, and stale ids fall back to the default."
+  (ogent-models-tests--with-roles nil
+    (should (equal (ogent-models-resolve-role 'edit) "alpha")))
+  (ogent-models-tests--with-roles '((edit . deep) (deep . edit))
+    (should (equal (ogent-models-resolve-role 'edit) "alpha")))
+  (ogent-models-tests--with-roles '((edit . "retired-model"))
+    (should (equal (ogent-models-resolve-role 'edit) "alpha"))))
+
+(ert-deftest ogent-models-resolve-designator-forms ()
+  "Designators accept ids, @role strings, role symbols, and nil."
+  (ogent-models-tests--with-roles '((deep . "beta"))
+    (should (equal (ogent-models-resolve-designator "beta") "beta"))
+    (should (equal (ogent-models-resolve-designator "@deep") "beta"))
+    (should (equal (ogent-models-resolve-designator 'deep) "beta"))
+    (should (equal (ogent-models-resolve-designator "deep") "beta"))
+    (should (equal (ogent-models-resolve-designator nil) "alpha"))
+    (should-not (ogent-models-resolve-designator "no-such-model"))))
+
+(ert-deftest ogent-models-set-role-assigns-and-clears ()
+  "Set-role updates the alist; nil clears back to the default."
+  (ogent-models-tests--with-roles nil
+    (ogent-models-set-role 'edit "beta")
+    (should (equal (ogent-models-resolve-role 'edit) "beta"))
+    (ogent-models-set-role 'edit nil)
+    (should (equal (ogent-models-resolve-role 'edit) "alpha"))))
+
+(ert-deftest ogent-models-project-roles-shadow-global ()
+  "Buffer-local project role assignments win over the global alist."
+  (require 'ogent-presets)
+  (ogent-models-tests--with-roles '((edit . "alpha"))
+    (with-temp-buffer
+      (setq-local ogent-project-model-roles '((edit . "beta")))
+      (should (equal (ogent-models-resolve-role 'edit) "beta")))))
+
+;;; Effective Model Tests
+
+(ert-deftest ogent-models-effective-org-property-wins ()
+  "An inherited OGENT_MODEL property beats every other layer."
+  (ogent-models-tests--with-roles '((edit . "alpha"))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Heading\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\nBody\n")
+      (goto-char (point-max))
+      (let ((gptel-model "alpha"))
+        (should (equal (ogent-models-effective 'edit)
+                       '("beta" . org-property)))))))
+
+(ert-deftest ogent-models-effective-org-property-accepts-role ()
+  "An OGENT_MODEL property may name an @role designator."
+  (ogent-models-tests--with-roles '((deep . "beta"))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Heading\n:PROPERTIES:\n:OGENT_MODEL: @deep\n:END:\n")
+      (goto-char (point-max))
+      (should (equal (car (ogent-models-effective)) "beta")))))
+
+(ert-deftest ogent-models-effective-role-beats-session ()
+  "An assigned role wins over the buffer's gptel model."
+  (ogent-models-tests--with-roles '((edit . "beta"))
+    (with-temp-buffer
+      (let ((gptel-model "alpha"))
+        (should (equal (ogent-models-effective 'edit)
+                       '("beta" . role)))))))
+
+(ert-deftest ogent-models-effective-session-beats-default ()
+  "A registered gptel model wins over the default for default requests."
+  (ogent-models-tests--with-roles nil
+    (with-temp-buffer
+      (let ((gptel-model "beta"))
+        (should (equal (ogent-models-effective) '("beta" . session))))
+      (let ((gptel-model 'beta))
+        (should (equal (car (ogent-models-effective)) "beta"))))))
+
+(ert-deftest ogent-models-effective-skips-unregistered-session ()
+  "A stale gptel model falls through to the default."
+  (ogent-models-tests--with-roles nil
+    (with-temp-buffer
+      (let ((gptel-model "gpt-3.5-turbo"))
+        (should (equal (ogent-models-effective) '("alpha" . default)))))))
+
+(ert-deftest ogent-models-effective-no-session-skips-gptel-state ()
+  "NO-SESSION resolution ignores the gptel session layer."
+  (ogent-models-tests--with-roles nil
+    (with-temp-buffer
+      (let ((gptel-model "beta"))
+        (should (equal (ogent-models-effective nil 'no-session)
+                       '("alpha" . default)))))))
+
+(ert-deftest ogent-models-effective-project-model-beats-default ()
+  "The buffer-local project model wins over the default."
+  (require 'ogent-presets)
+  (ogent-models-tests--with-roles nil
+    (with-temp-buffer
+      (setq-local ogent-project-model "beta")
+      (let ((gptel-model nil))
+        (should (equal (ogent-models-effective) '("beta" . project)))))))
 
 (provide 'ogent-models-tests)
 ;;; ogent-models-tests.el ends here

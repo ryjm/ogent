@@ -164,6 +164,34 @@
                                    (goto-char (point-min))
                                    (should (search-forward "#+begin_src text :model gpt-5.5" nil t))))))))
 
+(ert-deftest ogent-ui-dispatch-honors-inherited-model-property ()
+  "An OGENT_MODEL property on an ancestor overrides the session model."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             ;; Pin the model on the level-1 ancestor...
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (org-entry-put (point) "OGENT_MODEL" "claude-pinned")
+                             ;; ...and dispatch from a level-3 descendant.
+                             (search-forward "Deep Note")
+                             (org-back-to-heading t)
+                             (let ((ogent-default-model "gpt-5.5")
+                                   (ogent-model-registry
+                                    '((:id "gpt-5.5" :backend gptel-openai :stream? t)
+                                      (:id "claude-pinned" :backend gptel-openai :stream? t)))
+                                   (gptel-model "gpt-5.5")
+                                   (captured-model nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq captured-model gptel-model)
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (funcall callback "ok" nil)
+                                              (funcall callback nil '(:done t)))
+                                            'mock-request)))
+                                 (ogent-request "Prompt")
+                                 (should (equal captured-model "claude-pinned")))))))
+
 (ert-deftest ogent-ui-tool-use-waits-for-gptel-continuation ()
   "A tool-use turn stays open until gptel streams the post-tool answer."
   (ogent-test-with-fixture "data/fixture.org"

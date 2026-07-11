@@ -12,6 +12,7 @@
 ;;
 ;; Example .ogent.el file:
 ;;   ((ogent-project-model . "claude-sonnet-4-6")
+;;    (ogent-project-model-roles . ((edit . "gpt-5.6-terra") (deep . "claude-fable-5")))
 ;;    (ogent-project-preset . ogent-code-review)
 ;;    (ogent-project-context-files . ("README.md" "ARCHITECTURE.md"))
 ;;    (ogent-project-codemap-roots . ("src" "lib"))
@@ -57,6 +58,11 @@ those files will be automatically pinned when entering a project."
 (defvar-local ogent-project-model nil
   "Project-specific model ID.
 Overrides `ogent-default-model' when set.")
+
+(defvar-local ogent-project-model-roles nil
+  "Project-specific model role assignments.
+An alist like `ogent-model-roles'; entries shadow the global
+alist when resolving roles in this project's buffers.")
 
 (defvar-local ogent-project-preset nil
   "Project-specific preset symbol.
@@ -137,6 +143,7 @@ Keys are project root directories, values are the load timestamp.")
 
 (defconst ogent-presets--allowed-variables
   '(ogent-project-model
+    ogent-project-model-roles
     ogent-project-preset
     ogent-project-context-files
     ogent-project-codemap-roots

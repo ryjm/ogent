@@ -51,6 +51,7 @@
 (autoload 'ogent-session-load "ogent-session" nil t)
 (autoload 'ogent-session-list "ogent-session" nil t)
 (autoload 'ogent-debug-mode "ogent-debug" nil t)
+(autoload 'ogent-model-picker "ogent-ui-models" nil t)
 
 (defclass ogent-provider-variable (transient-lisp-variable)
   ((model       :initarg :model)
@@ -260,19 +261,18 @@ Makes the variable buffer-local for session-level control."
   :reader #'ogent--read-models)
 
 (defun ogent--format-model-header ()
-  "Format the current model for display in transient header."
-  (if (and (boundp 'gptel-backend) gptel-backend
-           (boundp 'gptel-model) gptel-model)
-      (propertize
-       (format "%s:%s"
-               (if (fboundp 'gptel-backend-name)
-                   (gptel-backend-name gptel-backend)
-                 "backend")
-               (if (fboundp 'gptel--model-name)
-                   (gptel--model-name gptel-model)
-                 gptel-model))
-       'face 'ogent-theme-primary)
-    (propertize "not configured" 'face 'ogent-theme-muted)))
+  "Format the effective model and its source for the transient header."
+  (let* ((effective (ogent-models-effective))
+         (id (car effective))
+         (source (pcase (cdr effective)
+                   ('org-property "org")
+                   ('session "session")
+                   ('project "project")
+                   ('role "role")
+                   (_ "default"))))
+    (concat (propertize id 'face 'ogent-theme-primary)
+            " "
+            (propertize (format "·%s" source) 'face 'ogent-theme-muted))))
 
 (defun ogent--format-status-header ()
   "Format a comprehensive status line for the dispatcher header.
@@ -472,6 +472,7 @@ A polished interface for AI-assisted workflows.
                               ("?" "Ask menu" ogent-ask-menu)]
                 [:description "Model"
                               (ogent--infix-provider)
+                              ("@" "Model picker..." ogent-model-picker)
                               (ogent--infix-preset)
                               (ogent--infix-models)]]
 
