@@ -42,7 +42,7 @@ registry:
 - **Function**: the function is called and must return a backend object.
 
 Example registry entry. The shipped registry already includes the current
-frontier models (`gpt-5.5`, `claude-fable-5`, `claude-opus-4-8`, ...), so
+frontier models (`gpt-5.6-sol`, `claude-fable-5`, `claude-opus-4-8`, ...), so
 add your own entries with `add-to-list` instead of replacing it wholesale:
 
 ```elisp
@@ -59,7 +59,7 @@ Backends are created with gptel (or via `ogent-onboard`):
 ;; Example: OpenAI backend
 (setq gptel-backend
       (gptel-make-openai "OpenAI" :key "sk-..." :stream t))
-(setq gptel-model "gpt-5.5")
+(setq gptel-model "gpt-5.6-sol")
 ```
 
 `M-x ogent-onboard` is the recommended path. It will create backends and
@@ -67,17 +67,54 @@ update the model registry for you.
 
 ## Model selection
 
-- **Default model**: set `ogent-default-model` to the model ID you want to use
-  when no explicit selection is made.
+`M-x ogent-model-picker` (`C-c . @`) is the model cockpit: switch the
+session or buffer model, set the default, assign task roles, pin models
+onto Org subtrees, and browse the registry as an Org table.
+
+The model used by a request is resolved in layers (see
+`ogent-models-effective`):
+
+1. The inherited `OGENT_MODEL` Org property at point — set it with the
+   picker or `#+PROPERTY: OGENT_MODEL <model-or-@role>` for a whole file.
+2. The request's task role (`edit`, `codemap`, ...) from
+   `ogent-model-roles`.
+3. The buffer's current gptel model, when it is registered.
+4. The project model from `.ogent.el` (`ogent-project-model`).
+5. `ogent-default-model`.
+
+Org Babel blocks resolve `:model` first; without it they use Org
+property → project → default, deliberately skipping the transient gptel
+session layer so blocks stay reproducible.
+
+### Task roles
+
+Different tasks can run on different models, oh-my-pi style.
+`ogent-model-roles` maps roles to model ids or alias roles:
+
+```elisp
+(setq ogent-model-roles
+      '((fast . "gpt-5.6-luna")        ; high-volume background work
+        (deep . "claude-fable-5")      ; hardest reasoning
+        (edit . "gpt-5.6-terra")       ; inline edit requests
+        (codemap . fast)))             ; alias: codemap follows fast
+```
+
+Unassigned roles fall back to `ogent-default-model`.  Projects can shadow
+entries via `ogent-project-model-roles` in `.ogent.el`.  Org Babel blocks
+accept role designators too: `#+begin_src ogent :model @deep`.
+
+### Dispatcher shortcuts
+
 - **Single model**: the prompt dispatcher (key `m`) sets
-  `gptel-backend`/`gptel-model` for the current request.
+  `gptel-backend`/`gptel-model` for the current request; key `@` opens the
+  full model picker.
 - **Multiple models**: the prompt dispatcher (key `M`) selects model IDs
   from `ogent-model-registry` and streams responses side-by-side.
 
 You can also call `ogent-request` with a list of model IDs:
 
 ```elisp
-(ogent-request "Compare answers" '("gpt-5.5" "claude-fable-5"))
+(ogent-request "Compare answers" '("gpt-5.6-sol" "claude-fable-5"))
 ```
 
 ## Preset configuration
@@ -154,9 +191,9 @@ consistent across a repo:
 
 ```elisp
 ((org-mode .
-  ((ogent-default-model . "gpt-5.5")
+  ((ogent-default-model . "gpt-5.6-sol")
    (ogent-model-registry .
-    ((:id "gpt-5.5" :backend gptel-openai :stream? t :preset ogent-explain)
+    ((:id "gpt-5.6-sol" :backend gptel-openai :stream? t :preset ogent-explain)
      (:id "claude-fable-5" :backend gptel-anthropic :stream? t)))
    (ogent-preset-registry .
     ((:name my-summary

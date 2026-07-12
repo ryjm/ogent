@@ -433,18 +433,18 @@ light/dark specs must never be the only clauses."
 ;;; Flash Effect Tests
 
 (ert-deftest ogent-theme-flash-disabled-shows-message ()
-  "Flash with animation disabled just shows message."
-  (let ((ogent-theme-animation-speed 'none))
-    ;; cl-return-from in ogent-theme-flash uses cl-block, call within cl-block
-    ;; The function uses cl-return-from but tests run outside a block
-    ;; Just verify it doesn't error and returns nil (via the throw)
-    (condition-case nil
-        (ogent-theme-flash 'success "Test message")
-      ;; The cl-return-from error when called standalone varies by Emacs version:
-      ;; - Emacs 29.x: no-catch error
-      ;; - Emacs snapshot: void-variable error for --cl-block-*--
-      (no-catch nil)
-      (void-variable nil))))
+  "Flash with animation disabled returns normally without side effects."
+  (let ((ogent-theme-animation-speed 'none)
+        (ogent-theme--flash-timer nil)
+        (ogent-theme--flash-cookie nil)
+        (logged nil))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq logged (apply #'format fmt args)))))
+      (ogent-theme-flash 'success "Test message"))
+    (should (equal logged "Test message"))
+    (should (null ogent-theme--flash-timer))
+    (should (null ogent-theme--flash-cookie))))
 
 (ert-deftest ogent-theme-clear-flash-cleans-up ()
   "ogent-theme--clear-flash removes timer and cookie."

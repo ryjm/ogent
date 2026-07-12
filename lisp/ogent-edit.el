@@ -98,8 +98,11 @@ When enabled, edits are still logged to the companion buffer if
     (ogent-provider-maybe-offer-login model backend error-message)))
 
 (defun ogent-edit--request-model ()
-  "Return the ogent model used for edit requests."
-  (ogent-models-default))
+  "Return the ogent model used for edit requests.
+Resolves the `edit' model role at point, so an inherited
+`OGENT_MODEL' Org property or an (edit . ...) entry in
+`ogent-model-roles' takes precedence over the default model."
+  (ogent-models-effective-model 'edit))
 
 (defun ogent-edit--model-stream-p (model)
   "Return non-nil when MODEL should stream edit responses."

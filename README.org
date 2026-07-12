@@ -58,9 +58,9 @@ ogent is designed around this constraint:
 
 * Requirements
 - Emacs 29.1 or newer
-- Org 9.8.5 or newer
+- Org 9.8.7 or newer
 - [[https://github.com/karthink/gptel][gptel]] 0.9.9.5 or newer for transport and model selection
-- [[https://github.com/magit/transient][transient]] 0.13.4 or newer for command menus
+- [[https://github.com/magit/transient][transient]] 0.13.5 or newer for command menus
 - Optional: [[https://www.orgroam.com/][org-roam]] for cross-file handle resolution
 - An LLM provider:
   - **OpenAI Codex / ChatGPT**: Reuse Codex CLI OAuth credentials
@@ -126,7 +126,7 @@ refreshes them as needed, so there is no API key to manage.
 ** Vanilla Emacs (API Key)
 #+begin_src emacs-lisp
 (add-hook 'org-mode-hook #'ogent-mode)
-(setq ogent-default-model "gpt-5.5")
+(setq ogent-default-model "gpt-5.6-sol")
 #+end_src
 
 ** Doom Emacs
@@ -223,6 +223,7 @@ older tooling keep working.
 | Key       | Command                       | Description                              |
 |-----------+-------------------------------+------------------------------------------|
 | =C-c . p= | =ogent-prompt-dispatch=       | Open dispatcher to select models/presets |
+| =C-c . @= | =ogent-model-picker=          | Switch models, assign task roles, pin models |
 | =C-c . RET= | =ogent-run-subtree=            | Run current bullet/subtree as prompt     |
 | =C-c . != | =ogent-zen-rerun=              | Re-run transcript at point (or run bullet) |
 | =C-c . w= | =ogent-zen-copy-response=      | Copy only the Zen response body            |

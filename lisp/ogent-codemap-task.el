@@ -11,13 +11,18 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ogent-codemap)
+(require 'ogent-models)
+(require 'ogent-gptel)
 
 (declare-function gptel-request "ext:gptel-request")
 (defvar gptel-model)
+(defvar gptel-backend)
 
 (defcustom ogent-codemap-llm-model nil
-  "Model to use for codemap generation.  nil means use gptel default."
-  :type '(choice (const :tag "Use gptel default" nil)
+  "Model to use for codemap generation.
+nil resolves the `codemap' entry of `ogent-model-roles', falling
+back to `ogent-default-model'."
+  :type '(choice (const :tag "Use the codemap model role" nil)
                  (string :tag "Model identifier"))
   :group 'ogent)
 
@@ -181,8 +186,19 @@ CALLBACK receives (content error) where error is nil on success."
         (if (gethash cache-key ogent-codemap--pending-requests)
             (funcall callback nil "Request already pending for this task")
           (puthash cache-key t ogent-codemap--pending-requests)
-          (let ((prompt (ogent-codemap--build-prompt task))
-                (accumulated ""))
+          (let* ((prompt (ogent-codemap--build-prompt task))
+                 (accumulated "")
+                 ;; Resolve the codemap model: explicit override first,
+                 ;; then the `codemap' role (Org property aware).
+                 (model (if ogent-codemap-llm-model
+                            (ogent-models-ensure ogent-codemap-llm-model)
+                          (ogent-models-effective-model 'codemap)))
+                 (backend (ogent-gptel-resolve-backend model))
+                 (gptel-backend (or backend gptel-backend))
+                 (gptel-model (plist-get model :id)))
+            (when backend
+              (ogent-gptel-ensure-model-on-backend model backend)
+              (ogent-models-apply-gptel-props model))
             (gptel-request prompt
                            :system ogent-codemap--system-prompt
                            :stream t

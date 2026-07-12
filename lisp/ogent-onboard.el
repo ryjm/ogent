@@ -27,34 +27,35 @@
   "Interactive setup for ogent providers."
   :group 'ogent)
 
-(defconst ogent-onboard--anthropic-models
-  '((:id "claude-fable-5"
-         :description "Claude Fable 5 - most powerful")
-    (:id "claude-opus-4-8"
-         :description "Claude Opus 4.8 - most capable Opus")
-    (:id "claude-sonnet-4-6"
-         :description "Claude Sonnet 4.6 - balanced speed and intelligence")
-    (:id "claude-haiku-4-5-20251001"
-         :description "Claude Haiku 4.5 - fastest"))
-  "Built-in Anthropic model catalog for onboarding.")
+(defconst ogent-onboard--anthropic-model-ids
+  '("claude-fable-5"
+    "claude-opus-4-8"
+    "claude-sonnet-5"
+    "claude-haiku-4-5-20251001")
+  "Preferred Anthropic model ids for onboarding, in display order.
+Model metadata is resolved from `ogent-model-registry', the single
+source of truth for ids and descriptions.")
 
-(defconst ogent-onboard--openai-models
-  '((:id "gpt-5.5"
-         :description "GPT-5.5 - flagship reasoning and coding")
-    (:id "gpt-5.4"
-         :description "GPT-5.4 - coding and professional work")
-    (:id "gpt-5.4-mini"
-         :description "GPT-5.4 mini - faster, lower-cost coding")
-    (:id "gpt-5.4-nano"
-         :description "GPT-5.4 nano - lowest-latency OpenAI option"))
-  "Built-in OpenAI model catalog for onboarding.")
+(defconst ogent-onboard--openai-model-ids
+  '("gpt-5.6-sol"
+    "gpt-5.6-terra"
+    "gpt-5.6-luna"
+    "gpt-5.5"
+    "gpt-5.4")
+  "Preferred OpenAI model ids for onboarding, in display order.
+Model metadata is resolved from `ogent-model-registry', the single
+source of truth for ids and descriptions.")
 
-(defconst ogent-onboard--built-in-models-by-provider
-  `((anthropic . ,ogent-onboard--anthropic-models)
-    (anthropic-oauth . ,ogent-onboard--anthropic-models)
-    (openai . ,ogent-onboard--openai-models)
-    (openai-codex . ,ogent-onboard--openai-models))
-  "Current built-in model catalogs keyed by provider ID.")
+(defconst ogent-onboard--built-in-model-ids-by-provider
+  `((anthropic . ,ogent-onboard--anthropic-model-ids)
+    (anthropic-oauth . ,ogent-onboard--anthropic-model-ids)
+    (openai . ,ogent-onboard--openai-model-ids)
+    (openai-codex . ,ogent-onboard--openai-model-ids))
+  "Preferred model ids per built-in provider ID.")
+
+(defun ogent-onboard--registry-models (ids)
+  "Return registry model plists for IDS in order, skipping unknown ids."
+  (delq nil (mapcar #'ogent-models-get ids)))
 
 (defconst ogent-onboard--built-in-providers
   `((:id anthropic-oauth
@@ -69,7 +70,8 @@
          :oauth-mode ogent-anthropic-oauth-mode
          :oauth-login-mode max
          :backend-creator gptel-make-anthropic
-         :models ,ogent-onboard--anthropic-models)
+         :models ,(ogent-onboard--registry-models
+                   ogent-onboard--anthropic-model-ids))
     (:id anthropic
          :name "Anthropic (API Key)"
          :host "api.anthropic.com"
@@ -78,7 +80,8 @@
          :env-var "ANTHROPIC_API_KEY"
          :auth-type api-key
          :backend-creator gptel-make-anthropic
-         :models ,ogent-onboard--anthropic-models)
+         :models ,(ogent-onboard--registry-models
+                   ogent-onboard--anthropic-model-ids))
     (:id openai
          :name "OpenAI (GPT)"
          :host "api.openai.com"
@@ -87,7 +90,8 @@
          :env-var "OPENAI_API_KEY"
          :auth-type api-key
          :backend-creator gptel-make-openai
-         :models ,ogent-onboard--openai-models)
+         :models ,(ogent-onboard--registry-models
+                   ogent-onboard--openai-model-ids))
     (:id openai-codex
          :name "OpenAI Codex / ChatGPT (OAuth - Recommended)"
          :host "api.openai.com"
@@ -100,7 +104,8 @@
          :oauth-mode ogent-codex-oauth-mode
          :oauth-key ogent-codex-oauth-get-api-key
          :backend-creator gptel-make-openai
-         :models ,ogent-onboard--openai-models))
+         :models ,(ogent-onboard--registry-models
+                   ogent-onboard--openai-model-ids)))
   "Canonical provider definitions shipped with ogent.")
 
 (defcustom ogent-onboard-providers
@@ -239,9 +244,13 @@ credential sources can recover from quota or account failures."
         providers)))
 
 (defun ogent-onboard--built-in-models-for-provider (provider)
-  "Return the current built-in model catalog for PROVIDER."
-  (alist-get (plist-get provider :id)
-             ogent-onboard--built-in-models-by-provider))
+  "Return the current built-in model catalog for PROVIDER.
+Resolves the provider's preferred ids against
+`ogent-model-registry' in order, skipping ids that are no longer
+registered."
+  (when-let* ((ids (alist-get (plist-get provider :id)
+                              ogent-onboard--built-in-model-ids-by-provider)))
+    (ogent-onboard--registry-models ids)))
 
 (defun ogent-onboard--models-for-provider (provider)
   "Return model choices for PROVIDER.

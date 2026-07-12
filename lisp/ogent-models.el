@@ -17,14 +17,20 @@
   "Configuration for ogent model registry."
   :group 'ogent)
 
-(defcustom ogent-default-model "gpt-5.5"
+(defcustom ogent-default-model "gpt-5.6-sol"
   "Default model identifier used when dispatching prompts."
   :type 'string
   :group 'ogent-models)
 
 (defcustom ogent-model-registry
-  '((:id "gpt-5.5" :backend gptel-openai :stream? t
-         :description "OpenAI GPT-5.5 - flagship reasoning and coding")
+  '((:id "gpt-5.6-sol" :backend gptel-openai :stream? t
+         :description "OpenAI GPT-5.6 Sol - flagship reasoning and coding")
+    (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
+         :description "OpenAI GPT-5.6 Terra - balanced intelligence and cost")
+    (:id "gpt-5.6-luna" :backend gptel-openai :stream? t
+         :description "OpenAI GPT-5.6 Luna - cost-efficient high-volume tasks")
+    (:id "gpt-5.5" :backend gptel-openai :stream? t
+         :description "OpenAI GPT-5.5 - previous flagship reasoning and coding")
     (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
          :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
     (:id "gpt-5.4" :backend gptel-openai :stream? t
@@ -41,13 +47,16 @@
          :description "OpenAI GPT-4o mini - legacy fallback")
     (:id "claude-fable-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
-         :description "Anthropic Claude Fable 5 - most powerful frontier model")
+         :description "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
+    (:id "claude-sonnet-5" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         :description "Anthropic Claude Sonnet 5 - best combination of speed and intelligence")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
-         :description "Anthropic Claude Sonnet 4.6 - balanced speed and intelligence")
+         :description "Anthropic Claude Sonnet 4.6 - previous balanced Claude model")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
@@ -108,6 +117,184 @@ Falls back to the first registry entry if `ogent-default-model' is unset."
   "Return a list of known model identifiers."
   (mapcar (lambda (entry) (plist-get entry :id))
           (ogent-models-all)))
+
+;;; Model Roles
+;;
+;; Roles let different tasks run on different models, in the spirit of
+;; oh-my-pi's model roles: `edit' requests can use a fast model while
+;; `deep' work runs on the strongest one.  A role maps to a designator,
+;; which is either a model id from `ogent-model-registry' or another
+;; role symbol (an alias).  Unassigned roles fall back to the `default'
+;; role, which resolves to `ogent-default-model'.
+
+(defconst ogent-model-known-roles '(default fast deep edit codemap)
+  "Built-in task roles that ogent features resolve models through.
+`default' - interactive requests (dispatch, ask, zen)
+`fast'    - low-latency, high-volume background work
+`deep'    - hardest reasoning tasks
+`edit'    - inline edit requests from `ogent-edit'
+`codemap' - codemap generation tasks")
+
+(defcustom ogent-model-roles
+  '((fast . "gpt-5.6-luna")
+    (deep . "claude-fable-5")
+    (edit . "gpt-5.6-terra")
+    (codemap . fast))
+  "Alist mapping task roles to model designators.
+Each value is a model id string from `ogent-model-registry' or
+another role symbol, which makes the entry an alias (for example
+\(codemap . fast)).  Roles missing from this alist resolve to the
+`default' role, i.e. `ogent-default-model'.  Projects can shadow
+entries with `ogent-project-model-roles' in `.ogent.el'."
+  :type '(alist :key-type symbol
+                :value-type (choice (string :tag "Model id")
+                                    (symbol :tag "Alias role")))
+  :group 'ogent-models)
+
+(defconst ogent-models-org-property "OGENT_MODEL"
+  "Org property that pins the model for a subtree.
+The value is a model designator: a model id such as
+\"claude-fable-5\" or an \"@role\" reference such as \"@deep\".
+The property is inherited, so a file-level
+`#+PROPERTY: OGENT_MODEL ...' line applies to the whole file and
+deeper headings can override it.")
+
+;; Org is a soft dependency here: the property lookup only runs inside
+;; Org buffers, where these are guaranteed to be loaded.
+(declare-function org-entry-get "org" (epom property &optional inherit literal-nil))
+
+;; Buffer-local project overrides, defined in ogent-presets.el.
+(defvar ogent-project-model)
+(defvar ogent-project-model-roles)
+
+;; gptel session state, consulted for the effective model.
+(defvar gptel-model)
+(declare-function gptel--model-name "ext:gptel-request")
+
+(defun ogent-models--role-alist ()
+  "Return the effective role alist, project overrides first."
+  (append (and (boundp 'ogent-project-model-roles)
+               ogent-project-model-roles)
+          ogent-model-roles))
+
+(defun ogent-models-known-roles ()
+  "Return every known role symbol, built-in roles first."
+  (delete-dups
+   (append (copy-sequence ogent-model-known-roles)
+           (mapcar #'car (ogent-models--role-alist)))))
+
+(defun ogent-models-role-designator (role)
+  "Return the raw designator assigned to ROLE, or nil when unset."
+  (cdr (assq role (ogent-models--role-alist))))
+
+(defun ogent-models-resolve-role (role)
+  "Return the model id that ROLE resolves to.
+Follows role-alias chains with a cycle guard.  Unknown roles,
+cycles, and assignments naming unregistered models all fall back
+to `ogent-default-model'."
+  (let ((seen nil)
+        (current role))
+    (while (and current (symbolp current) (not (memq current seen)))
+      (push current seen)
+      (setq current (if (eq current 'default)
+                        (plist-get (ogent-models-default) :id)
+                      (or (ogent-models-role-designator current)
+                          'default))))
+    (if (and (stringp current) (ogent-models-get current))
+        current
+      (plist-get (ogent-models-default) :id))))
+
+(defun ogent-models-resolve-designator (designator)
+  "Return the model id DESIGNATOR names, or nil when unresolvable.
+DESIGNATOR is a model id string, a role symbol, a bare role name
+string, or an \"@role\" string such as \"@deep\".  nil resolves
+to the `default' role."
+  (cond
+   ((null designator) (ogent-models-resolve-role 'default))
+   ((symbolp designator)
+    (if (memq designator (ogent-models-known-roles))
+        (ogent-models-resolve-role designator)
+      (ogent-models-resolve-designator (symbol-name designator))))
+   ((stringp designator)
+    (let ((name (string-trim designator)))
+      (cond
+       ((string-prefix-p "@" name)
+        (ogent-models-resolve-role (intern (substring name 1))))
+       ((ogent-models-get name) name)
+       ((memq (intern name) (ogent-models-known-roles))
+        (ogent-models-resolve-role (intern name)))
+       (t nil))))))
+
+(defun ogent-models-set-role (role designator)
+  "Assign DESIGNATOR to ROLE in `ogent-model-roles'.
+DESIGNATOR nil clears the assignment so ROLE falls back to the
+`default' role.  Returns the updated alist."
+  (setq ogent-model-roles (assq-delete-all role ogent-model-roles))
+  (when designator
+    (push (cons role designator) ogent-model-roles))
+  ogent-model-roles)
+
+(defun ogent-models-org-designator ()
+  "Return the inherited `OGENT_MODEL' designator at point, or nil."
+  (when (derived-mode-p 'org-mode)
+    (let ((value (org-entry-get (point) ogent-models-org-property t)))
+      (and value
+           (not (string-empty-p (string-trim value)))
+           (string-trim value)))))
+
+(defun ogent-models--session-id ()
+  "Return the current gptel model id when it is a registered ogent model."
+  (when (boundp 'gptel-model)
+    (let* ((raw gptel-model)
+           (name (cond
+                  ((null raw) nil)
+                  ((stringp raw) raw)
+                  ((fboundp 'gptel--model-name) (gptel--model-name raw))
+                  ((symbolp raw) (symbol-name raw))
+                  (t raw))))
+      (and (stringp name) (ogent-models-get name) name))))
+
+(defun ogent-models-effective (&optional role no-session)
+  "Return a cons (MODEL-ID . SOURCE) for a ROLE request at point.
+SOURCE names the layer that decided: `org-property', `role',
+`session', `project', or `default'.  Resolution order:
+1. the inherited `OGENT_MODEL' Org property at point
+2. ROLE's assignment from `ogent-models-role-designator'
+   (skipped for the `default' role)
+3. the buffer's current gptel model when it is registered
+4. the buffer-local project model from `.ogent.el'
+5. `ogent-default-model'
+When NO-SESSION is non-nil, layer 3 is skipped so resolution only
+considers declared state; declarative callers such as Org Babel
+use this to stay reproducible."
+  (let ((role (or role 'default)))
+    (or (when-let* ((designator (ogent-models-org-designator))
+                    (id (ogent-models-resolve-designator designator)))
+          (cons id 'org-property))
+        (and (not (eq role 'default))
+             (ogent-models-role-designator role)
+             (cons (ogent-models-resolve-role role) 'role))
+        (and (not no-session)
+             (when-let* ((id (ogent-models--session-id)))
+               (cons id 'session)))
+        (when-let* ((id (and (boundp 'ogent-project-model)
+                             ogent-project-model
+                             (ogent-models-get ogent-project-model)
+                             ogent-project-model)))
+          (cons id 'project))
+        (cons (plist-get (ogent-models-default) :id) 'default))))
+
+(defun ogent-models-effective-id (&optional role no-session)
+  "Return the effective model id for a ROLE request at point.
+NO-SESSION skips the gptel session layer, as in
+`ogent-models-effective'."
+  (car (ogent-models-effective role no-session)))
+
+(defun ogent-models-effective-model (&optional role no-session)
+  "Return the effective model plist for a ROLE request at point.
+NO-SESSION skips the gptel session layer, as in
+`ogent-models-effective'."
+  (ogent-models-ensure (ogent-models-effective-id role no-session)))
 
 ;;; Preset Registry
 

@@ -4,7 +4,7 @@
 ;; Author: Jake Miller
 ;; Maintainer: Jake Miller
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5") (transient "0.13.4") (org "9.8.5"))
+;; Package-Requires: ((emacs "29.1") (gptel "0.9.9.5") (transient "0.13.5") (org "9.8.7"))
 ;; Homepage: https://github.com/ryjm/ogent
 ;; Keywords: ai, llm, org-mode, tools, convenience
 
@@ -79,6 +79,7 @@
 (require 'ogent-doctor)
 (require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
+(require 'ogent-ui-models)
 (require 'ogent-zen)
 (require 'ogent-ui-backlinks)
 (require 'ogent-ui-graph)

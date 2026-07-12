@@ -32,12 +32,12 @@
   :type 'string
   :group 'ogent-doctor)
 
-(defcustom ogent-doctor-required-org-version "9.8.5"
+(defcustom ogent-doctor-required-org-version "9.8.7"
   "Minimum Org version supported by ogent."
   :type 'string
   :group 'ogent-doctor)
 
-(defcustom ogent-doctor-required-transient-version "0.13.4"
+(defcustom ogent-doctor-required-transient-version "0.13.5"
   "Minimum Transient version supported by ogent."
   :type 'string
   :group 'ogent-doctor)

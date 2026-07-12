@@ -15,6 +15,7 @@
 (require 'cl-lib)
 
 (defvar gptel--system-message nil)
+(defvar gptel-model)
 
 (defmacro ob-ogent-tests--with-stub-request (capture &rest body)
   "Run BODY with `gptel-request' stubbed to echo a canned response.
@@ -130,6 +131,75 @@ CAPTURE is set to the prompt string the executor sent."
               (ogent-default-model "claude-fable-5"))
       (org-babel-execute:ogent "hi" nil)
       (should (equal captured-model "claude-fable-5")))))
+
+(ert-deftest ob-ogent-execute-resolves-role-designator ()
+  "A :model @role header resolves through `ogent-model-roles'."
+  (let (captured-model)
+    (cl-letf (((symbol-function 'gptel-request)
+               (lambda (_prompt &rest args)
+                 (funcall (plist-get args :callback) "ok" '(:status "done"))))
+              ((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_m) 'b)))
+      (let ((ogent-default-model "alpha")
+            (ogent-model-registry '((:id "alpha" :backend b)
+                                    (:id "beta" :backend b)))
+            (ogent-model-roles '((deep . "beta"))))
+        (cl-letf (((symbol-function 'ogent-models-ensure)
+                   (lambda (id)
+                     (setq captured-model id)
+                     (list :id id :backend 'b))))
+          (org-babel-execute:ogent "hi" '((:model . "@deep")))
+          (should (equal captured-model "beta")))))))
+
+(ert-deftest ob-ogent-execute-unknown-model-errors ()
+  "An unknown :model designator signals a user error."
+  (let ((ogent-model-registry '((:id "alpha" :backend b)))
+        (ogent-model-roles nil))
+    (should-error (org-babel-execute:ogent "hi" '((:model . "nope")))
+                  :type 'user-error)))
+
+(ert-deftest ob-ogent-execute-honors-org-model-property ()
+  "Without :model, an inherited OGENT_MODEL property picks the model."
+  (let (captured-model)
+    (cl-letf (((symbol-function 'gptel-request)
+               (lambda (_prompt &rest args)
+                 (funcall (plist-get args :callback) "ok" '(:status "done"))))
+              ((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_m) 'b)))
+      (let ((ogent-default-model "alpha")
+            (ogent-model-registry '((:id "alpha" :backend b)
+                                    (:id "beta" :backend b)))
+            (ogent-model-roles nil))
+        (cl-letf (((symbol-function 'ogent-models-ensure)
+                   (lambda (id)
+                     (setq captured-model id)
+                     (list :id id :backend 'b))))
+          (with-temp-buffer
+            (org-mode)
+            (insert "* Block heading\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n")
+            (goto-char (point-max))
+            (org-babel-execute:ogent "hi" nil))
+          (should (equal captured-model "beta")))))))
+
+(ert-deftest ob-ogent-execute-ignores-session-model ()
+  "Without :model, the transient gptel session model is skipped."
+  (let (captured-model)
+    (cl-letf (((symbol-function 'gptel-request)
+               (lambda (_prompt &rest args)
+                 (funcall (plist-get args :callback) "ok" '(:status "done"))))
+              ((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_m) 'b)))
+      (let ((ogent-default-model "alpha")
+            (ogent-model-registry '((:id "alpha" :backend b)
+                                    (:id "beta" :backend b)))
+            (ogent-model-roles nil)
+            (gptel-model "beta"))
+        (cl-letf (((symbol-function 'ogent-models-ensure)
+                   (lambda (id)
+                     (setq captured-model id)
+                     (list :id id :backend 'b))))
+          (org-babel-execute:ogent "hi" nil)
+          (should (equal captured-model "alpha")))))))
 
 (provide 'ob-ogent-tests)
 ;;; ob-ogent-tests.el ends here

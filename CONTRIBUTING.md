@@ -8,8 +8,8 @@ Thanks for your interest in contributing to ogent.
 
 - Emacs 29.1 or later
 - [gptel](https://github.com/karthink/gptel) 0.9.9.5
-- transient 0.13.4
-- Org 9.8.5
+- transient 0.13.5
+- Org 9.8.7
 
 ### Setup
 

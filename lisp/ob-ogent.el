@@ -15,7 +15,10 @@
 ;; cacheable like any other src block.
 ;;
 ;; Header arguments:
-;;   :model    Model id from `ogent-model-registry' (default `ogent-default-model').
+;;   :model    Model designator: a model id from `ogent-model-registry'
+;;             or an @role reference such as @fast (see
+;;             `ogent-model-roles').  Defaults to the effective model at
+;;             the block, so an inherited OGENT_MODEL property applies.
 ;;   :system   System prompt string.
 ;;   :context  Space/comma-separated @handles to resolve and prepend.
 ;;   :var      Standard Babel vars; `${name}' in the body is replaced by the value.
@@ -135,8 +138,21 @@ timeout or an error response."
 (defun org-babel-execute:ogent (body params)
   "Execute an ogent prompt BODY with Babel PARAMS, returning the response.
 Expands `${var}' placeholders, prepends any resolved :context, and
-sends the result synchronously to the model named by :model."
-  (let* ((model-id (or (cdr (assq :model params)) ogent-default-model))
+sends the result synchronously to the model named by :model.
+The :model value is a designator (model id or @role); when absent
+the effective model at the block is used, so an inherited
+`OGENT_MODEL' Org property applies."
+  (let* ((designator (cdr (assq :model params)))
+         (model-id (if designator
+                       (or (ogent-models-resolve-designator
+                            (format "%s" designator))
+                           (user-error "Ob-ogent: unknown model or role: %s"
+                                       designator))
+                     ;; No :model header: resolve declared layers only
+                     ;; (OGENT_MODEL property, project, default).  The
+                     ;; transient gptel session model is skipped so
+                     ;; blocks stay reproducible.
+                     (ogent-models-effective-id nil 'no-session)))
          (system (cdr (assq :system params)))
          (vars (org-babel--get-vars params))
          (context-preamble

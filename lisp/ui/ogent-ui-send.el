@@ -53,22 +53,15 @@
       prompt)))
 
 (defun ogent-ui--model-id-or-default (&optional model-id)
-  "Return registered MODEL-ID, or the configured ogent default.
-This keeps buffer-local gptel state from breaking ogent when a buffer
+  "Return registered MODEL-ID, or the effective model id at point.
+Resolution follows `ogent-models-effective': an inherited
+`OGENT_MODEL' Org property, then the buffer's registered gptel
+model, then the project model, then `ogent-default-model'.  This
+keeps buffer-local gptel state from breaking ogent when a buffer
 remembers a model that is not in `ogent-model-registry'."
-  (let* ((candidate (or model-id
-                        (and (boundp 'gptel-model)
-                             gptel-model)))
-         (candidate (cond
-                     ((and candidate (fboundp 'gptel--model-name))
-                      (gptel--model-name candidate))
-                     ((symbolp candidate)
-                      (symbol-name candidate))
-                     (t candidate)))
-         (default (plist-get (ogent-models-default) :id)))
-    (if (and candidate (ogent-models-get candidate))
-        candidate
-      default)))
+  (if (and model-id (ogent-models-get model-id))
+      model-id
+    (ogent-models-effective-id)))
 
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
@@ -98,7 +91,8 @@ concurrently (fan-out mode)."
                     (setf (ogent-ui-request-preset request) effective-preset)
                     (setf (ogent-ui-request-source-buffer request) source-buffer)
                     (ogent-ui--send-request request)))
-              ;; Single model: use the current registered gptel model, or ogent default.
+              ;; Single model: resolve the effective model at point
+              ;; (Org property > session > project > default).
               (let* ((model (ogent-models-ensure (ogent-ui--model-id-or-default)))
                      (request (funcall ogent-response-function final-prompt context model)))
                 (unless (ogent-ui-request-p request)
