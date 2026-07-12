@@ -82,6 +82,10 @@ The model used by a request is resolved in layers (see
 4. The project model from `.ogent.el` (`ogent-project-model`).
 5. `ogent-default-model`.
 
+Official provider aliases resolve everywhere a model id is accepted:
+`gpt-5.6` canonicalizes to `gpt-5.6-sol` and `claude-haiku-4-5` to its
+dated snapshot id (see the `:aliases` registry key).
+
 Org Babel blocks resolve `:model` first; without it they use Org
 property → project → default, deliberately skipping the transient gptel
 session layer so blocks stay reproducible.

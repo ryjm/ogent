@@ -123,6 +123,23 @@ Animations are disabled so command flashes stay side-effect free."
         (should (equal ogent-default-model "beta"))
         (should (eq gptel-model 'beta))))))
 
+(ert-deftest ogent-ui-models-set-default-canonicalizes-alias ()
+  "Setting the default via an alias stores the canonical id."
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry
+         '((:id "alpha" :backend gptel-openai)
+           (:id "beta-canonical" :backend gptel-anthropic
+                :aliases ("beta"))))
+        (ogent-model-roles nil)
+        (ogent-theme-animation-speed 'none))
+    (cl-letf (((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_model) nil)))
+      (let ((gptel-model 'unset)
+            (gptel-backend nil))
+        (ogent-model-set-default "beta")
+        (should (equal ogent-default-model "beta-canonical"))
+        (should (eq gptel-model 'beta-canonical))))))
+
 ;;; Org pinning
 
 (ert-deftest ogent-ui-models-pin-heading-sets-property ()
@@ -169,6 +186,69 @@ Animations are disabled so command flashes stay side-effect free."
       (insert "* Heading\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n")
       (goto-char (point-max))
       (ogent-model-unpin)
+      (should-not (org-entry-get (point) "OGENT_MODEL" t)))))
+
+(ert-deftest ogent-ui-models-unpin-inherited-asks-and-removes-at-ancestor ()
+  "Unpinning under an inherited pin removes it at the ancestor on consent.
+A file-wide keyword must survive: the ancestor pin is the effective
+source, so only it may be removed."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (org-mode)
+      (insert "#+PROPERTY: OGENT_MODEL alpha\n"
+              "* Parent\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n"
+              "** Child\nBody\n")
+      (org-set-regexps-and-options)
+      (goto-char (point-max))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+        (ogent-model-unpin))
+      ;; Ancestor pin gone, file keyword still present.
+      (should-not (org-entry-get (point) "OGENT_MODEL" nil))
+      (should (string-match-p "#\\+PROPERTY: OGENT_MODEL alpha"
+                              (buffer-string)))
+      ;; The file-wide pin now takes effect for the child.
+      (should (equal (car (ogent-models-effective)) "alpha")))))
+
+(ert-deftest ogent-ui-models-unpin-inherited-keeps-pin-on-refusal ()
+  "Refusing the inherited-unpin prompt leaves the ancestor pin alone."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n"
+              "** Child\nBody\n")
+      (goto-char (point-max))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) nil)))
+        (ogent-model-unpin))
+      (should (equal (org-entry-get (point) "OGENT_MODEL" t) "beta")))))
+
+(ert-deftest ogent-ui-models-unpin-file-keyword-from-heading-asks ()
+  "With only a file-wide pin, unpinning at a heading asks first."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (org-mode)
+      (insert "#+PROPERTY: OGENT_MODEL beta\n* Heading\nBody\n")
+      (org-set-regexps-and-options)
+      (goto-char (point-max))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+        (ogent-model-unpin))
+      (should-not (string-match-p "OGENT_MODEL" (buffer-string)))
+      (should (equal (car (ogent-models-effective)) "alpha")))))
+
+(ert-deftest ogent-ui-models-unpin-inherited-works-under-narrowing ()
+  "Unpinning an ancestor pin works while narrowed to the child subtree."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n"
+              "** Child\nBody\n")
+      (goto-char (point-max))
+      (org-back-to-heading t)
+      (org-narrow-to-subtree)
+      (goto-char (point-max))
+      (cl-letf (((symbol-function 'y-or-n-p) (lambda (_prompt) t)))
+        (ogent-model-unpin))
+      (widen)
+      (goto-char (point-max))
       (should-not (org-entry-get (point) "OGENT_MODEL" t)))))
 
 (ert-deftest ogent-ui-models-pin-requires-org-buffer ()
@@ -255,6 +335,45 @@ Animations are disabled so command flashes stay side-effect free."
                            "alpha"))
             (goto-char (point-min))
             (should-not (ogent-ui-models--browser-model-at-point))))))
+    (when (get-buffer ogent-ui-models--browser-buffer-name)
+      (kill-buffer ogent-ui-models--browser-buffer-name))))
+
+(ert-deftest ogent-ui-models-browser-refresh-preserves-origin ()
+  "Refreshing from inside the browser keeps the origin's effective pin."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Pinned\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\nBody\n")
+      (goto-char (point-max))
+      (let ((gptel-model "alpha"))
+        (save-window-excursion
+          (ogent-models-browse)
+          ;; Simulate `g': re-invoke from inside the browser buffer.
+          (with-current-buffer ogent-ui-models--browser-buffer-name
+            (ogent-models-browse))
+          (with-current-buffer ogent-ui-models--browser-buffer-name
+            (should (string-match-p
+                     "Effective model: =beta= (via org property)"
+                     (buffer-string)))))))
+    (when (get-buffer ogent-ui-models--browser-buffer-name)
+      (kill-buffer ogent-ui-models--browser-buffer-name))))
+
+(ert-deftest ogent-ui-models-browser-refresh-survives-dead-origin ()
+  "Refreshing after the origin buffer dies falls back gracefully."
+  (ogent-ui-models-tests--with-registry
+    (let ((gptel-model nil))
+      (save-window-excursion
+        (with-temp-buffer
+          (org-mode)
+          (insert "* Pinned\n:PROPERTIES:\n:OGENT_MODEL: beta\n:END:\n")
+          (goto-char (point-max))
+          (ogent-models-browse))
+        ;; The temp origin is dead now; refresh must not error and
+        ;; must resolve honestly without the stale pin.
+        (with-current-buffer ogent-ui-models--browser-buffer-name
+          (ogent-models-browse)
+          (should (string-match-p "Effective model: =alpha= (via default)"
+                                  (buffer-string))))))
     (when (get-buffer ogent-ui-models--browser-buffer-name)
       (kill-buffer ogent-ui-models--browser-buffer-name))))
 

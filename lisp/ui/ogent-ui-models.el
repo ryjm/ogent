@@ -142,18 +142,20 @@ designators are offered too.  Returns the selected string."
 
 (defun ogent-ui-models--apply (model-id &optional buffer-local)
   "Point gptel at MODEL-ID and return the model plist.
+MODEL-ID may be an alias; all gptel state uses the canonical id.
 Resolves the backend, registers the model on it, and copies
 request params and capabilities onto the model symbol.  With
 BUFFER-LOCAL non-nil only the current buffer's gptel state
 changes; otherwise the global default is updated."
   (let* ((model (ogent-models-ensure model-id))
+         (canonical (plist-get model :id))
          (backend (ogent-gptel-resolve-backend model))
          (backend (and (fboundp 'gptel-backend-p)
                        (gptel-backend-p backend)
                        backend))
          (symbol (if backend
                      (ogent-gptel-ensure-model-on-backend model backend)
-                   (intern model-id))))
+                   (intern canonical))))
     (ogent-models-apply-gptel-props model)
     (if buffer-local
         (progn
@@ -165,40 +167,53 @@ changes; otherwise the global default is updated."
 
 ;;;###autoload
 (defun ogent-model-switch (model-id)
-  "Switch the session model to MODEL-ID.
+  "Switch the session model to MODEL-ID (a model id or alias).
 Updates the global gptel backend and model so every ogent request
 without a more specific override (Org property, role, project)
 uses MODEL-ID."
   (interactive (list (ogent-ui-models--read-id "Switch model (session): ")))
-  (ogent-ui-models--apply model-id)
-  (ogent-theme-flash 'success (format "Model: %s" model-id)))
+  (let ((model (ogent-ui-models--apply model-id)))
+    (ogent-theme-flash 'success
+                       (format "Model: %s" (plist-get model :id)))))
 
 ;;;###autoload
 (defun ogent-model-switch-buffer (model-id)
-  "Switch this buffer's model to MODEL-ID.
+  "Switch this buffer's model to MODEL-ID (a model id or alias).
 Sets buffer-local gptel state; other buffers keep the session model."
   (interactive (list (ogent-ui-models--read-id "Switch model (buffer): ")))
-  (ogent-ui-models--apply model-id 'buffer-local)
-  (ogent-theme-flash 'success (format "Buffer model: %s" model-id)))
+  (let ((model (ogent-ui-models--apply model-id 'buffer-local)))
+    (ogent-theme-flash 'success
+                       (format "Buffer model: %s" (plist-get model :id)))))
 
 ;;;###autoload
 (defun ogent-model-set-default (model-id)
-  "Set MODEL-ID as `ogent-default-model' and the session model."
+  "Set MODEL-ID as `ogent-default-model' and the session model.
+MODEL-ID may be an alias; the canonical id is stored."
   (interactive (list (ogent-ui-models--read-id "Default model: ")))
-  (setq ogent-default-model model-id)
-  (ogent-ui-models--apply model-id)
-  (ogent-theme-flash 'success (format "Default model: %s" model-id)))
+  (let ((model (ogent-ui-models--apply model-id)))
+    (setq ogent-default-model (plist-get model :id))
+    (ogent-theme-flash 'success
+                       (format "Default model: %s" ogent-default-model))))
 
 ;;; Org pinning
+
+(defconst ogent-ui-models--file-keyword-regexp
+  (format "^#\\+\\(?:PROPERTY\\|property\\):[ \t]+%s\\(?:[ \t].*\\)?$"
+          (regexp-quote ogent-models-org-property))
+  "Regexp matching the file-level OGENT_MODEL property keyword.")
+
+(defun ogent-ui-models--file-keyword-position ()
+  "Return the position of the file-level OGENT_MODEL keyword, or nil."
+  (org-with-wide-buffer
+   (goto-char (point-min))
+   (when (re-search-forward ogent-ui-models--file-keyword-regexp nil t)
+     (match-beginning 0))))
 
 (defun ogent-ui-models--pin-file-keyword (designator)
   "Insert or update a file-level OGENT_MODEL property with DESIGNATOR."
   (org-with-wide-buffer
    (goto-char (point-min))
-   (if (re-search-forward
-        (format "^#\\+\\(?:PROPERTY\\|property\\):[ \t]+%s\\(?:[ \t].*\\)?$"
-                (regexp-quote ogent-models-org-property))
-        nil t)
+   (if (re-search-forward ogent-ui-models--file-keyword-regexp nil t)
        (replace-match (format "#+PROPERTY: %s %s"
                               ogent-models-org-property designator)
                       t t)
@@ -209,6 +224,39 @@ Sets buffer-local gptel state; other buffers keep the session model."
                      ogent-models-org-property designator))))
   ;; Refresh Org's cached file keywords so the pin applies immediately.
   (org-set-regexps-and-options))
+
+(defun ogent-ui-models--remove-file-keyword ()
+  "Remove the file-level OGENT_MODEL keyword and refresh Org's cache.
+Returns non-nil when a keyword was found and removed.  The
+trailing newline is deleted explicitly: appending \"\\n?\" to the
+anchored regexp would demote its `$' to a literal dollar sign."
+  (prog1
+      (org-with-wide-buffer
+       (goto-char (point-min))
+       (when (re-search-forward ogent-ui-models--file-keyword-regexp nil t)
+         (delete-region (match-beginning 0)
+                        (min (point-max) (1+ (match-end 0))))
+         t))
+    (org-set-regexps-and-options)))
+
+(defun ogent-ui-models--pin-source ()
+  "Return the source of the model pin in effect at point.
+The result is a cons (heading . POS) when a heading in the
+ancestry carries a direct `OGENT_MODEL' property, (file . POS)
+when only the file-level keyword applies, or nil when nothing
+pins a model at point."
+  (or (org-with-wide-buffer
+       (unless (org-before-first-heading-p)
+         (org-back-to-heading t)
+         (let ((found nil)
+               (continue t))
+           (while (and continue (not found))
+             (if (org-entry-get (point) ogent-models-org-property nil)
+                 (setq found (cons 'heading (point)))
+               (setq continue (org-up-heading-safe))))
+           found)))
+      (when-let* ((pos (ogent-ui-models--file-keyword-position)))
+        (cons 'file pos))))
 
 ;;;###autoload
 (defun ogent-model-pin-heading (designator)
@@ -240,29 +288,45 @@ heading inherits unless a deeper pin overrides it."
 ;;;###autoload
 (defun ogent-model-unpin ()
   "Remove the model pin in effect at point.
-Deletes the `OGENT_MODEL' property from the current heading, or
-removes the file-level keyword when point is before the first
-heading."
+Deletes a pin set directly on the current heading without asking.
+When the effective pin is inherited - from an ancestor heading or
+from the file-level keyword - asks before removing it at its
+source, and leaves it in place on refusal."
   (interactive)
   (unless (derived-mode-p 'org-mode)
     (user-error "Model pinning requires an Org buffer"))
-  (cond
-   ((and (not (org-before-first-heading-p))
-         (org-entry-get (point) ogent-models-org-property nil))
-    (org-entry-delete (point) ogent-models-org-property)
-    (ogent-theme-flash 'info "Removed subtree model pin"))
-   (t
-    (org-with-wide-buffer
-     (goto-char (point-min))
-     (if (re-search-forward
-          (format "^#\\+\\(?:PROPERTY\\|property\\):[ \t]+%s\\(?:[ \t].*\\)?\n?"
-                  (regexp-quote ogent-models-org-property))
-          nil t)
+  (pcase (ogent-ui-models--pin-source)
+    (`(heading . ,pos)
+     (let ((direct (and (not (org-before-first-heading-p))
+                        (= pos (save-excursion
+                                 (org-back-to-heading t)
+                                 (point))))))
+       (if direct
+           (progn
+             (org-entry-delete pos ogent-models-org-property)
+             (ogent-theme-flash 'info "Removed subtree model pin"))
+         ;; The ancestor may sit outside a subtree narrowing, where
+         ;; `goto-char' silently clamps; widen for every access.
+         (let ((title (org-with-wide-buffer
+                       (goto-char pos)
+                       (org-get-heading t t t t))))
+           (if (y-or-n-p (format "Model pin is inherited from \"%s\"; remove it there? "
+                                 title))
+               (progn
+                 (org-with-wide-buffer
+                  (goto-char pos)
+                  (org-entry-delete (point) ogent-models-org-property))
+                 (ogent-theme-flash
+                  'info (format "Removed model pin from \"%s\"" title)))
+             (message "ogent: kept model pin on \"%s\"" title))))))
+    (`(file . ,_pos)
+     (if (or (org-before-first-heading-p)
+             (y-or-n-p "Model pin is file-wide; remove the #+PROPERTY keyword? "))
          (progn
-           (replace-match "" t t)
-           (org-set-regexps-and-options)
+           (ogent-ui-models--remove-file-keyword)
            (ogent-theme-flash 'info "Removed file model pin"))
-       (message "ogent: no model pin at point"))))))
+       (message "ogent: kept file-wide model pin")))
+    (_ (message "ogent: no model pin at point"))))
 
 ;;; Roles
 
@@ -325,6 +389,41 @@ Saves `ogent-default-model' and `ogent-model-roles' with Custom."
          (current-buffer))
      ,@body))
 
+(defun ogent-ui-models--roles-lines (width)
+  "Return the header's role summary as lines at most WIDTH wide.
+Roles never break mid-token: when the next role summary would
+overflow WIDTH display columns, it starts a continuation line
+aligned under the first role."
+  (let* ((label (propertize "roles  " 'face 'transient-heading))
+         (indent (make-string (string-width label) ?\s))
+         (lines nil)
+         (current label)
+         (first t))
+    (dolist (role (ogent-models-known-roles))
+      (let ((chunk (ogent-ui-models--format-role role)))
+        (cond
+         (first
+          (setq current (concat current chunk)
+                first nil))
+         ((> (+ (string-width current) 3 (string-width chunk)) width)
+          (push current lines)
+          (setq current (concat indent chunk)))
+         (t
+          (setq current (concat current "   " chunk))))))
+    (nreverse (cons current lines))))
+
+(defvar transient--window)
+
+(defun ogent-ui-models--display-width ()
+  "Return the usable width of the window hosting the picker.
+Prefers the live transient window (which may be a half-frame
+split under custom `transient-display-buffer-action' values) and
+falls back to the frame width."
+  (if (and (boundp 'transient--window)
+           (window-live-p transient--window))
+      (window-body-width transient--window)
+    (frame-width)))
+
 (defun ogent-ui-models--status-description ()
   "Format the picker header: effective model, source, and roles."
   (ogent-ui-models--in-invocation-buffer
@@ -332,7 +431,8 @@ Saves `ogent-default-model' and `ogent-model-roles' with Custom."
            (id (car effective))
            (model (ogent-models-get id))
            (desc (or (plist-get model :description) ""))
-           (source (ogent-ui-models--source-label (cdr effective))))
+           (source (ogent-ui-models--source-label (cdr effective)))
+           (width (max 40 (- (ogent-ui-models--display-width) 4))))
       (concat
        (propertize id 'face 'ogent-theme-primary)
        "  "
@@ -342,10 +442,7 @@ Saves `ogent-default-model' and `ogent-model-roles' with Custom."
        "\n "
        (propertize desc 'face 'ogent-theme-muted)
        "\n "
-       (propertize "roles  " 'face 'transient-heading)
-       (mapconcat #'ogent-ui-models--format-role
-                  (ogent-models-known-roles)
-                  "   ")
+       (mapconcat #'identity (ogent-ui-models--roles-lines width) "\n ")
        "\n"))))
 
 (defun ogent-ui-models--org-buffer-p ()
@@ -379,6 +476,12 @@ Saves `ogent-default-model' and `ogent-model-roles' with Custom."
 
 (defvar ogent-ui-models--browser-buffer-name "*ogent models*"
   "Buffer name for the model registry browser.")
+
+(defvar-local ogent-ui-models--browser-origin nil
+  "Marker into the buffer this browser was opened from, or nil.
+Refreshes and row actions resolve the effective model at this
+marker so the browser keeps describing the originating buffer -
+including its `OGENT_MODEL' pins - rather than itself.")
 
 (defvar-keymap ogent-models-browser-mode-map
   :doc "Keymap for `ogent-models-browser-mode'."
@@ -481,16 +584,30 @@ the browser was opened from."
 
 ;;;###autoload
 (defun ogent-models-browse ()
-  "Browse the model registry and role assignments as Org tables."
+  "Browse the model registry and role assignments as Org tables.
+The effective model shown is resolved at the position the browser
+was opened from; refreshing from inside the browser keeps that
+origin."
   (interactive)
-  ;; Resolve the effective model in the buffer the user came from.
-  (let ((effective (ogent-models-effective))
-        (buffer (get-buffer-create ogent-ui-models--browser-buffer-name)))
+  (let* ((browser (get-buffer ogent-ui-models--browser-buffer-name))
+         (origin
+          (if (eq (current-buffer) browser)
+              ;; Refresh from inside the browser: keep a live origin.
+              (let ((prior ogent-ui-models--browser-origin))
+                (and (markerp prior)
+                     (buffer-live-p (marker-buffer prior))
+                     prior))
+            (point-marker)))
+         (effective (if origin
+                        (org-with-point-at origin (ogent-models-effective))
+                      (ogent-models-effective)))
+         (buffer (get-buffer-create ogent-ui-models--browser-buffer-name)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
         (unless (derived-mode-p 'ogent-models-browser-mode)
           (ogent-models-browser-mode))
+        (setq ogent-ui-models--browser-origin origin)
         (ogent-ui-models--browser-insert effective)
         (goto-char (point-min))))
     (pop-to-buffer buffer)))

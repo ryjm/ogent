@@ -151,6 +151,14 @@ CAPTURE is set to the prompt string the executor sent."
           (org-babel-execute:ogent "hi" '((:model . "@deep")))
           (should (equal captured-model "beta")))))))
 
+(ert-deftest ob-ogent-execute-unknown-role-errors ()
+  "A :model @role typo signals a user error instead of a silent fallback."
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry '((:id "alpha" :backend b)))
+        (ogent-model-roles nil))
+    (should-error (org-babel-execute:ogent "hi" '((:model . "@no-such-role")))
+                  :type 'user-error)))
+
 (ert-deftest ob-ogent-execute-unknown-model-errors ()
   "An unknown :model designator signals a user error."
   (let ((ogent-model-registry '((:id "alpha" :backend b)))

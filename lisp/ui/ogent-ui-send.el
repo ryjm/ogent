@@ -59,9 +59,8 @@ Resolution follows `ogent-models-effective': an inherited
 model, then the project model, then `ogent-default-model'.  This
 keeps buffer-local gptel state from breaking ogent when a buffer
 remembers a model that is not in `ogent-model-registry'."
-  (if (and model-id (ogent-models-get model-id))
-      model-id
-    (ogent-models-effective-id)))
+  (or (and model-id (ogent-models-canonical-id model-id))
+      (ogent-models-effective-id)))
 
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.

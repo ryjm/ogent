@@ -24,6 +24,7 @@
 
 (defcustom ogent-model-registry
   '((:id "gpt-5.6-sol" :backend gptel-openai :stream? t
+         :aliases ("gpt-5.6")
          :description "OpenAI GPT-5.6 Sol - flagship reasoning and coding")
     (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
          :description "OpenAI GPT-5.6 Terra - balanced intelligence and cost")
@@ -59,6 +60,7 @@
          :description "Anthropic Claude Sonnet 4.6 - previous balanced Claude model")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
+         :aliases ("claude-haiku-4-5")
          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
@@ -72,9 +74,12 @@ Optional keys:
                     (:thinking (:type \"enabled\" :budget_tokens 4096))
                     for Anthropic
   :capabilities   - list of gptel capability symbols to add to the
-                    model, e.g. (cache)"
+                    model, e.g. (cache)
+  :aliases        - list of alternative id strings that resolve to
+                    this entry, e.g. (\"gpt-5.6\") for the official
+                    OpenAI alias of gpt-5.6-sol"
   :type '(repeat (plist :options (:id :backend :preset :stream? :description
-                                      :request-params :capabilities)))
+                                      :request-params :capabilities :aliases)))
   :group 'ogent-models)
 
 (defun ogent-models-all ()
@@ -83,10 +88,21 @@ Optional keys:
       (user-error "`ogent-model-registry' does not contain any models")))
 
 (defun ogent-models-get (model-id)
-  "Return the plist describing MODEL-ID or nil if unknown."
-  (seq-find (lambda (entry)
-              (string= (plist-get entry :id) model-id))
-            ogent-model-registry))
+  "Return the plist describing MODEL-ID, or nil if unknown.
+MODEL-ID may also be one of an entry's :aliases (for example
+\"gpt-5.6\" for gpt-5.6-sol); the canonical entry is returned."
+  (or (seq-find (lambda (entry)
+                  (string= (plist-get entry :id) model-id))
+                ogent-model-registry)
+      (seq-find (lambda (entry)
+                  (member model-id (plist-get entry :aliases)))
+                ogent-model-registry)))
+
+(defun ogent-models-canonical-id (model-id)
+  "Return the canonical id for MODEL-ID, resolving aliases.
+Returns nil when MODEL-ID names no registered model."
+  (when-let* ((entry (and model-id (ogent-models-get model-id))))
+    (plist-get entry :id)))
 
 (defun ogent-models-ensure (model-id)
   "Return MODEL-ID entry or signal a user error if missing."
@@ -188,10 +204,10 @@ deeper headings can override it.")
   (cdr (assq role (ogent-models--role-alist))))
 
 (defun ogent-models-resolve-role (role)
-  "Return the model id that ROLE resolves to.
-Follows role-alias chains with a cycle guard.  Unknown roles,
-cycles, and assignments naming unregistered models all fall back
-to `ogent-default-model'."
+  "Return the canonical model id that ROLE resolves to.
+Follows role-alias chains with a cycle guard and resolves model
+aliases.  Unknown roles, cycles, and assignments naming
+unregistered models all fall back to `ogent-default-model'."
   (let ((seen nil)
         (current role))
     (while (and current (symbolp current) (not (memq current seen)))
@@ -200,15 +216,14 @@ to `ogent-default-model'."
                         (plist-get (ogent-models-default) :id)
                       (or (ogent-models-role-designator current)
                           'default))))
-    (if (and (stringp current) (ogent-models-get current))
-        current
-      (plist-get (ogent-models-default) :id))))
+    (or (and (stringp current) (ogent-models-canonical-id current))
+        (plist-get (ogent-models-default) :id))))
 
 (defun ogent-models-resolve-designator (designator)
-  "Return the model id DESIGNATOR names, or nil when unresolvable.
-DESIGNATOR is a model id string, a role symbol, a bare role name
-string, or an \"@role\" string such as \"@deep\".  nil resolves
-to the `default' role."
+  "Return the canonical model id DESIGNATOR names, or nil.
+DESIGNATOR is a model id or alias string, a role symbol, a bare
+role name string, or an \"@role\" string such as \"@deep\".  nil
+resolves to the `default' role."
   (cond
    ((null designator) (ogent-models-resolve-role 'default))
    ((symbolp designator)
@@ -219,8 +234,12 @@ to the `default' role."
     (let ((name (string-trim designator)))
       (cond
        ((string-prefix-p "@" name)
-        (ogent-models-resolve-role (intern (substring name 1))))
-       ((ogent-models-get name) name)
+        ;; An explicit @role reference must name a known role: a typo
+        ;; must not silently fall back to the default model.
+        (let ((role-symbol (intern (substring name 1))))
+          (and (memq role-symbol (ogent-models-known-roles))
+               (ogent-models-resolve-role role-symbol))))
+       ((ogent-models-canonical-id name))
        ((memq (intern name) (ogent-models-known-roles))
         (ogent-models-resolve-role (intern name)))
        (t nil))))))
@@ -252,7 +271,7 @@ DESIGNATOR nil clears the assignment so ROLE falls back to the
                   ((fboundp 'gptel--model-name) (gptel--model-name raw))
                   ((symbolp raw) (symbol-name raw))
                   (t raw))))
-      (and (stringp name) (ogent-models-get name) name))))
+      (and (stringp name) (ogent-models-canonical-id name)))))
 
 (defun ogent-models-effective (&optional role no-session)
   "Return a cons (MODEL-ID . SOURCE) for a ROLE request at point.
@@ -279,8 +298,7 @@ use this to stay reproducible."
                (cons id 'session)))
         (when-let* ((id (and (boundp 'ogent-project-model)
                              ogent-project-model
-                             (ogent-models-get ogent-project-model)
-                             ogent-project-model)))
+                             (ogent-models-canonical-id ogent-project-model))))
           (cons id 'project))
         (cons (plist-get (ogent-models-default) :id) 'default))))
 

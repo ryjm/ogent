@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `OGENT_MODEL` Org property > task role > gptel session model > project
   model > default.  Org Babel blocks accept `@role` designators in `:model`
   and honor the inherited property.
+- Official model aliases resolve everywhere via `:aliases` registry
+  metadata and `ogent-models-canonical-id`: `gpt-5.6` canonicalizes to
+  `gpt-5.6-sol` and `claude-haiku-4-5` to its dated id, across explicit
+  requests, roles, session state, project settings, and Babel.
 - Claude Fable 5 (`claude-fable-5`) is now fully supported: shipped
   Anthropic registry entries declare `media`/`tool-use`/`cache`
   capabilities so tool calling, image input, and prompt caching work
@@ -43,6 +47,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bumped minimum transient to 0.13.5 and Org to 9.8.7.
 
 ### Fixed
+- `ogent-model-unpin` is scope-aware: it deletes a direct heading pin
+  silently, asks before removing an inherited ancestor pin or the
+  file-wide keyword at its source, and works under subtree narrowing.
+- The model registry browser remembers the buffer it was opened from,
+  so refreshing or switching from inside it keeps reporting that
+  buffer's effective model (including `OGENT_MODEL` pins).
+- The picker's roles header wraps at token boundaries using the live
+  transient window width instead of hard-wrapping mid-model-id.
+- An explicit `@role` typo in a Babel `:model` header signals a user
+  error instead of silently running the default model; an invalid
+  `OGENT_MODEL` property binds nothing, so resolution falls through to
+  the next layer and the picker reports the true source.
 - Anthropic OAuth (Claude Pro/Max) requests now work with current gptel releases: the request and curl-args advice tolerate gptel's widened function arities, and the backend emits Bearer OAuth headers instead of leaking the default `x-api-key` header.
 - Magit-Section 4.5.0+ compatibility: collapsible-section visibility indicators use the new `magit-section-visibility-indicators` variable when present, falling back to the deprecated singular variable on older Magit.
 - Armory transient dispatch menus no longer rely on `transient-define-group`

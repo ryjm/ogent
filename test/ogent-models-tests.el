@@ -46,6 +46,48 @@
                       "claude-haiku-4-5-20251001"))
     (should (ogent-models-get model-id))))
 
+(ert-deftest ogent-models-official-aliases-resolve-to-canonical ()
+  "Documented provider aliases resolve to their canonical entries."
+  (should (equal (plist-get (ogent-models-get "gpt-5.6") :id) "gpt-5.6-sol"))
+  (should (equal (plist-get (ogent-models-ensure "claude-haiku-4-5") :id)
+                 "claude-haiku-4-5-20251001"))
+  (should (equal (ogent-models-canonical-id "gpt-5.6") "gpt-5.6-sol"))
+  (should (equal (ogent-models-resolve-designator "gpt-5.6") "gpt-5.6-sol"))
+  (should-not (ogent-models-canonical-id "gpt-9000")))
+
+(ert-deftest ogent-models-alias-canonicalizes-across-layers ()
+  "Role, session, and project layers all canonicalize alias ids."
+  (require 'ogent-presets)
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry '((:id "alpha" :backend gptel-openai)
+                                (:id "beta-canonical" :backend gptel-anthropic
+                                     :aliases ("beta"))))
+        (ogent-model-roles '((deep . "beta"))))
+    (should (equal (ogent-models-resolve-role 'deep) "beta-canonical"))
+    (with-temp-buffer
+      (let ((gptel-model "beta"))
+        (should (equal (ogent-models-effective)
+                       '("beta-canonical" . session))))
+      (setq-local ogent-project-model "beta")
+      (let ((gptel-model nil))
+        (should (equal (ogent-models-effective)
+                       '("beta-canonical" . project)))))))
+
+(ert-deftest ogent-models-unknown-role-reference-resolves-to-nil ()
+  "An explicit @role typo must not silently pick the default model."
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry '((:id "alpha" :backend gptel-openai)))
+        (ogent-model-roles nil))
+    (should-not (ogent-models-resolve-designator "@no-such-role"))
+    ;; An OGENT_MODEL property with a typo binds nothing; resolution
+    ;; falls through to the next layer instead of lying.
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Heading\n:PROPERTIES:\n:OGENT_MODEL: @no-such-role\n:END:\n")
+      (goto-char (point-max))
+      (let ((gptel-model nil))
+        (should (equal (ogent-models-effective) '("alpha" . default)))))))
+
 (ert-deftest ogent-models-registry-omits-stale-models ()
   "Deprecated or superseded models must not ship in the default registry."
   ;; claude-sonnet-4-20250514 retires 2026-06-15; opus-4-7 is superseded by 4-8.
