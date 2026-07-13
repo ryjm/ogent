@@ -1934,6 +1934,38 @@ Verifies the underlying behavior that restore-position must handle."
       (goto-char (point-min))
       (should-error (ogent-issues-detail-follow-link) :type 'user-error))))
 
+(ert-deftest ogent-issues-test-detail-follow-link-captures-render-context ()
+  "follow-link renders async results into the originating detail buffer.
+The process callback may run with another current buffer and
+`default-directory'; it must still update the visible detail buffer
+where RET was pressed."
+  (let ((buf (get-buffer-create "*ogent-issue: link-context*"))
+        (bd-callback nil))
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-issues-bd-get)
+                   (lambda (_id callback &optional _error-callback)
+                     (setq bd-callback callback))))
+          (with-current-buffer buf
+            (ogent-issues-detail-mode)
+            (setq default-directory "/tmp/link-origin/")
+            (let ((inhibit-read-only t))
+              (insert (propertize "linked" 'ogent-issue-id "link-2"))
+              (goto-char (point-min)))
+            (set-window-buffer (selected-window) buf)
+            (ogent-issues-detail-follow-link))
+          (should bd-callback)
+          (with-temp-buffer
+            (setq default-directory "/tmp/wrong-buffer/")
+            (funcall bd-callback
+                     (ogent-issues-test--detail-issue-plist
+                      "link-2" "Linked Detail")))
+          (with-current-buffer buf
+            (should (string-match-p (regexp-quote "Linked Detail")
+                                    (buffer-string)))
+            (should (equal default-directory "/tmp/link-origin/"))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
 ;;; Empty State Content Tests
 
 (ert-deftest ogent-issues-test-empty-state-content-no-filters ()
@@ -2411,34 +2443,59 @@ Verifies the underlying behavior that restore-position must handle."
       (should (string-match-p "task" result))
       (should (string-match-p "P2" result)))))
 
-;;; Detail View - Render with Display Action Tests
+;;; Detail View - Display Action Tests
 
-(ert-deftest ogent-issues-test-render-detail-other-window-action ()
-  "Test render-detail with other-window display action."
+(defun ogent-issues-test--detail-issue-plist (id title)
+  "Return a minimal detail issue plist with ID and TITLE."
+  (list :id id :title title :status "open"
+        :priority 1 :issue_type "task" :description "desc"
+        :created_at "2025-01-01T00:00:00Z"
+        :updated_at "2025-01-01T00:00:00Z"
+        :blocks nil :blocked_by nil :dependents nil :comments nil))
+
+(ert-deftest ogent-issues-test-render-detail-never-displays ()
+  "render-detail only mutates buffer contents; it never touches windows."
+  (let ((test-buf-name "*ogent-issue: pure-test*")
+        (window-calls nil))
+    (cl-letf (((symbol-function 'display-buffer)
+               (lambda (&rest _) (push 'display-buffer window-calls) nil))
+              ((symbol-function 'pop-to-buffer)
+               (lambda (&rest _) (push 'pop-to-buffer window-calls) nil))
+              ((symbol-function 'select-window)
+               (lambda (&rest _) (push 'select-window window-calls) nil))
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/pure-test"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "pure-test")))
+      (let ((buf (ogent-issues--render-detail
+                  (ogent-issues-test--detail-issue-plist "pure-1" "Pure Test")
+                  "/tmp/pure-test" test-buf-name)))
+        (unwind-protect
+            (progn
+              (should (bufferp buf))
+              (should (eq buf (get-buffer test-buf-name)))
+              (should-not window-calls))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+(ert-deftest ogent-issues-test-display-detail-other-window-action ()
+  "Test display-detail with other-window display action."
   (let ((ogent-issues-detail-display-action 'other-window)
         (test-buf-name "*ogent-issue: ow-test*")
         (pop-called nil))
     (cl-letf (((symbol-function 'pop-to-buffer)
                (lambda (_buf) (setq pop-called t)))
               ((symbol-function 'display-buffer) (lambda (_buf &rest _) nil))
-              ((symbol-function 'select-window) #'ignore)
-              ((symbol-function 'ogent-issues-bd-project-root)
-               (lambda (&optional _) "/tmp/ow-test"))
-              ((symbol-function 'ogent-issues-bd-project-name)
-               (lambda (&optional _) "ow-test")))
-      (ogent-issues--render-detail
-       '(:id "ow-1" :title "OW Test" :status "open"
-             :priority 1 :issue_type "task" :description "desc"
-             :created_at "2025-01-01T00:00:00Z"
-             :updated_at "2025-01-01T00:00:00Z"
-             :blocks nil :blocked_by nil :dependents nil :comments nil)
-       "/tmp/ow-test" test-buf-name)
-      (should pop-called)
-      (let ((buf (get-buffer test-buf-name)))
-        (when (buffer-live-p buf)
-          (kill-buffer buf))))))
+              ((symbol-function 'select-window) #'ignore))
+      (let ((buf (get-buffer-create test-buf-name)))
+        (unwind-protect
+            (progn
+              (ogent-issues--display-detail buf)
+              (should pop-called))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
 
-(ert-deftest ogent-issues-test-render-detail-right-action ()
+(ert-deftest ogent-issues-test-display-detail-right-action ()
   "Default right action splits side-by-side via the overriding action."
   (let ((ogent-issues-detail-display-action 'right)
         (test-buf-name "*ogent-issue: right-test*")
@@ -2449,28 +2506,20 @@ Verifies the underlying behavior that restore-position must handle."
                  (setq captured-override display-buffer-overriding-action)
                  'mock-window))
               ((symbol-function 'select-window)
-               (lambda (w &rest _) (setq selected w)))
-              ((symbol-function 'ogent-issues-bd-project-root)
-               (lambda (&optional _) "/tmp/right-test"))
-              ((symbol-function 'ogent-issues-bd-project-name)
-               (lambda (&optional _) "right-test")))
-      (ogent-issues--render-detail
-       '(:id "right-1" :title "Right Test" :status "open"
-             :priority 1 :issue_type "task" :description "desc"
-             :created_at "2025-01-01T00:00:00Z"
-             :updated_at "2025-01-01T00:00:00Z"
-             :blocks nil :blocked_by nil :dependents nil :comments nil)
-       "/tmp/right-test" test-buf-name)
-      ;; The overriding action wins over display-buffer-alist rules
-      ;; (e.g. Doom's ^\* bottom-popup catch-all).
-      (should (memq 'display-buffer-in-direction (car captured-override)))
-      (should (equal (alist-get 'direction (cdr captured-override)) 'right))
-      (should (eq selected 'mock-window))
-      (let ((buf (get-buffer test-buf-name)))
-        (when (buffer-live-p buf)
-          (kill-buffer buf))))))
+               (lambda (w &rest _) (setq selected w))))
+      (let ((buf (get-buffer-create test-buf-name)))
+        (unwind-protect
+            (progn
+              (ogent-issues--display-detail buf)
+              ;; The overriding action wins over display-buffer-alist rules
+              ;; (e.g. Doom's ^\* bottom-popup catch-all).
+              (should (memq 'display-buffer-in-direction (car captured-override)))
+              (should (equal (alist-get 'direction (cdr captured-override)) 'right))
+              (should (eq selected 'mock-window)))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
 
-(ert-deftest ogent-issues-test-render-detail-default-action-defers ()
+(ert-deftest ogent-issues-test-display-detail-default-action-defers ()
   "The `default' action defers to display-buffer without overriding."
   (let ((ogent-issues-detail-display-action 'default)
         (test-buf-name "*ogent-issue: defer-test*")
@@ -2481,23 +2530,102 @@ Verifies the underlying behavior that restore-position must handle."
                  (setq captured-override display-buffer-overriding-action)
                  'mock-window))
               ((symbol-function 'select-window)
-               (lambda (w &rest _) (setq selected w)))
+               (lambda (w &rest _) (setq selected w))))
+      (let ((buf (get-buffer-create test-buf-name)))
+        (unwind-protect
+            (progn
+              (ogent-issues--display-detail buf)
+              ;; Unchanged ambient value: no overriding action was installed.
+              (should (eq captured-override display-buffer-overriding-action))
+              (should-not selected))
+          (when (buffer-live-p buf)
+            (kill-buffer buf)))))))
+
+(ert-deftest ogent-issues-test-display-detail-reuses-visible-window ()
+  "A window already showing the detail buffer is reused, never split.
+Regression: re-display used to run display-buffer-in-direction again,
+splitting the detail window into a duplicate unreadable sliver."
+  (let ((ogent-issues-detail-display-action 'right)
+        (buf (get-buffer-create "*ogent-issue: reuse-test*"))
+        (display-called nil))
+    (unwind-protect
+        (progn
+          ;; Show the buffer in the (only) live window, as after a first visit.
+          (set-window-buffer (selected-window) buf)
+          (cl-letf (((symbol-function 'display-buffer)
+                     (lambda (&rest _) (setq display-called t) nil)))
+            (let ((win (ogent-issues--display-detail buf)))
+              (should (eq win (selected-window)))
+              (should-not display-called))))
+      (when (buffer-live-p buf)
+        (kill-buffer buf)))))
+
+(ert-deftest ogent-issues-test-show-detail-refresh-does-not-redisplay ()
+  "The auto-refresh callback re-renders contents without re-displaying.
+Regression: the callback used to call the displaying render, splitting
+a second (tiny) window onto the same issue."
+  (let ((ogent-issues-detail-auto-refresh t)
+        (display-count 0)
+        (bd-callback nil))
+    (cl-letf (((symbol-function 'display-buffer)
+               (lambda (_buf &rest _) (cl-incf display-count) nil))
+              ((symbol-function 'pop-to-buffer)
+               (lambda (&rest _) (cl-incf display-count) nil))
+              ((symbol-function 'select-window) #'ignore)
               ((symbol-function 'ogent-issues-bd-project-root)
-               (lambda (&optional _) "/tmp/defer-test"))
+               (lambda (&optional _) "/tmp/nosplit-test"))
               ((symbol-function 'ogent-issues-bd-project-name)
-               (lambda (&optional _) "defer-test")))
-      (ogent-issues--render-detail
-       '(:id "defer-1" :title "Defer Test" :status "open"
-             :priority 1 :issue_type "task" :description "desc"
-             :created_at "2025-01-01T00:00:00Z"
-             :updated_at "2025-01-01T00:00:00Z"
-             :blocks nil :blocked_by nil :dependents nil :comments nil)
-       "/tmp/defer-test" test-buf-name)
-      ;; Unchanged ambient value: no overriding action was installed.
-      (should (eq captured-override display-buffer-overriding-action))
-      (should-not selected)
-      (let ((buf (get-buffer test-buf-name)))
+               (lambda (&optional _) "nosplit-test"))
+              ((symbol-function 'ogent-issues-bd-get)
+               (lambda (_id callback &optional _error-callback)
+                 (setq bd-callback callback))))
+      (ogent-issues--show-detail
+       (ogent-issues-test--detail-issue-plist "ns-1" "No Split"))
+      (should (= display-count 1))
+      ;; Simulate the async bd response arriving later.
+      (should bd-callback)
+      ;; The callback only updates a detail buffer that is still visible;
+      ;; simulate the real first split before the async response arrives.
+      (set-window-buffer (selected-window)
+                         (get-buffer "*ogent-issue: nosplit-test*"))
+      (funcall bd-callback
+               (ogent-issues-test--detail-issue-plist "ns-1" "No Split (fresh)"))
+      ;; Contents refreshed, but no second display/window operation.
+      (should (= display-count 1))
+      (let ((buf (get-buffer "*ogent-issue: nosplit-test*")))
         (when (buffer-live-p buf)
+          (with-current-buffer buf
+            (should (string-match-p (regexp-quote "No Split (fresh)")
+                                    (buffer-string))))
+          (kill-buffer buf))))))
+
+(ert-deftest ogent-issues-test-show-detail-refresh-skips-hidden-buffer ()
+  "The auto-refresh callback does not update a hidden detail buffer.
+If the user quits the detail window before the bd response arrives, the
+callback must not silently refresh stale hidden contents."
+  (let ((ogent-issues-detail-auto-refresh t)
+        (bd-callback nil))
+    (cl-letf (((symbol-function 'display-buffer) (lambda (_buf &rest _) nil))
+              ((symbol-function 'select-window) #'ignore)
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/hidden-test"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "hidden-test"))
+              ((symbol-function 'ogent-issues-bd-get)
+               (lambda (_id callback &optional _error-callback)
+                 (setq bd-callback callback))))
+      (ogent-issues--show-detail
+       (ogent-issues-test--detail-issue-plist "hidden-1" "Hidden Original"))
+      (should bd-callback)
+      (funcall bd-callback
+               (ogent-issues-test--detail-issue-plist "hidden-1" "Hidden Fresh"))
+      (let ((buf (get-buffer "*ogent-issue: hidden-test*")))
+        (when (buffer-live-p buf)
+          (with-current-buffer buf
+            (should (string-match-p (regexp-quote "Hidden Original")
+                                    (buffer-string)))
+            (should-not (string-match-p (regexp-quote "Hidden Fresh")
+                                        (buffer-string))))
           (kill-buffer buf))))))
 
 ;;; Detail View - Header Line Format Tests

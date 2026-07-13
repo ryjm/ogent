@@ -64,43 +64,53 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
 
 (defun ogent-issues--show-detail (issue)
   "Show detailed view for ISSUE in a dedicated buffer.
-Renders immediately with available data for instant feedback.
-Optionally refreshes in background if
-`ogent-issues-detail-auto-refresh' is non-nil."
+Renders immediately with available data for instant feedback, then
+displays the buffer (reusing its window when already visible).
+Optionally refreshes contents in background if
+`ogent-issues-detail-auto-refresh' is non-nil; the background
+refresh only re-renders and never touches the window layout."
   ;; Capture project root from current buffer (the issues buffer)
   ;; so detail buffer and callbacks use the correct project
-  (let ((project-root (ogent-issues-bd-project-root))
-        (detail-buf-name (ogent-issues--detail-buffer-name)))
-    ;; Render immediately with the data we have (no waiting for bd show)
-    (ogent-issues--render-detail issue project-root detail-buf-name)
+  (let* ((project-root (ogent-issues-bd-project-root))
+         (detail-buf-name (ogent-issues--detail-buffer-name))
+         ;; Render immediately with the data we have (no waiting for bd show)
+         (buf (ogent-issues--render-detail issue project-root detail-buf-name)))
+    (ogent-issues--display-detail buf)
     ;; Background refresh to get fresh data (comments, full description, etc.)
     (when (and (boundp 'ogent-issues-detail-auto-refresh)
                ogent-issues-detail-auto-refresh)
-      (let ((id (plist-get issue :id))
-            (buf (get-buffer detail-buf-name)))
+      (let ((id (plist-get issue :id)))
         ;; Run bd from the correct project directory
         (let ((default-directory project-root))
           (ogent-issues-bd-get id
                                (lambda (fresh-issue)
                                  (when (and (buffer-live-p buf)
+                                            (get-buffer-window buf t)
                                             fresh-issue
                                             ;; Only re-render if still viewing same issue
                                             (with-current-buffer buf
                                               (equal (plist-get ogent-issues-detail--issue :id)
                                                      (plist-get fresh-issue :id))))
+                                   ;; Contents only -- re-displaying here is what
+                                   ;; used to split the detail window into an
+                                   ;; unreadable sliver showing the same issue.
                                    (ogent-issues--render-detail fresh-issue project-root detail-buf-name)))
                                nil))))))
 
 (defun ogent-issues--render-detail (issue &optional project-root buffer-name)
-  "Render ISSUE in the detail buffer.
+  "Render ISSUE into the detail buffer and return that buffer.
 PROJECT-ROOT is the beads project directory (for setting `default-directory').
 BUFFER-NAME is the detail buffer name (defaults to project-specific name).
-By default, displays in a side-by-side split to the right of the
-issues buffer, like magit's two-pane layouts.  Customize
-`ogent-issues-detail-display-action' to change this behavior."
+Only mutates buffer contents; never creates, selects, or resizes
+windows, so it is safe to call from async refresh callbacks.  When
+the buffer is already displayed, each window's point is preserved.
+Display is handled by `ogent-issues--display-detail'."
   (let* ((proj-root (or project-root (ogent-issues-bd-project-root)))
          (buf-name (or buffer-name (ogent-issues--detail-buffer-name)))
-         (buf (get-buffer-create buf-name)))
+         (buf (get-buffer-create buf-name))
+         ;; Window points survive background re-renders.
+         (window-points (mapcar (lambda (w) (cons w (window-point w)))
+                                (get-buffer-window-list buf nil t))))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -128,36 +138,55 @@ issues buffer, like magit's two-pane layouts.  Customize
                (propertize ":start " 'face 'ogent-issues-dimmed)
                (propertize "K" 'face 'ogent-issues-header-line-key)
                (propertize ":close" 'face 'ogent-issues-dimmed)))))
-    ;; Display based on customization (default to 'right if not set).
-    ;; The right/below layouts go through
-    ;; `display-buffer-overriding-action' so the user's explicit choice
-    ;; here beats generic catch-all popup rules.
-    (pcase (if (boundp 'ogent-issues-detail-display-action)
-               ogent-issues-detail-display-action
-             'right)
-      ('below
-       ;; Split below, like magit-show-commit
-       (let* ((display-buffer-overriding-action
-               '((display-buffer-below-selected)
-                 (window-height . 0.4)
-                 (preserve-size . (nil . t))))
-              (window (display-buffer buf)))
-         (when window
-           (select-window window))))
-      ('other-window
-       (pop-to-buffer buf))
-      ('default
-       (display-buffer buf))
-      (_
-       ;; Default: side-by-side to the right, reusing a right-hand
-       ;; window when one exists (magit-style two-pane layout).
-       (let* ((display-buffer-overriding-action
-               '((display-buffer-in-direction)
-                 (direction . right)
-                 (window-width . 0.5)))
-              (window (display-buffer buf)))
-         (when window
-           (select-window window)))))))
+    (pcase-dolist (`(,win . ,pt) window-points)
+      (when (window-live-p win)
+        (set-window-point win (min pt (with-current-buffer buf (point-max))))))
+    buf))
+
+(defun ogent-issues--display-detail (buf)
+  "Display detail buffer BUF according to user preference.
+Honors `ogent-issues-detail-display-action' (default `right').  The
+right/below layouts go through `display-buffer-overriding-action' so
+the user's explicit choice beats generic catch-all popup rules.  A
+window already showing BUF on the selected frame is reused instead
+of splitting again -- repeated splits are what shrank the detail
+window into a duplicate unreadable sliver."
+  (let ((action (if (boundp 'ogent-issues-detail-display-action)
+                    ogent-issues-detail-display-action
+                  'right))
+        (existing (get-buffer-window buf)))
+    (cond
+     ;; Defer entirely to the user's display-buffer configuration.
+     ((eq action 'default)
+      (display-buffer buf))
+     ;; Already visible: reuse that window, never split again.
+     ((window-live-p existing)
+      (select-window existing)
+      existing)
+     ((eq action 'below)
+      ;; Split below, like magit-show-commit
+      (let* ((display-buffer-overriding-action
+              '((display-buffer-below-selected)
+                (window-height . 0.4)
+                (preserve-size . (nil . t))))
+             (window (display-buffer buf)))
+        (when window
+          (select-window window))
+        window))
+     ((eq action 'other-window)
+      (pop-to-buffer buf)
+      (selected-window))
+     (t
+      ;; Default: side-by-side to the right, reusing a right-hand
+      ;; window when one exists (magit-style two-pane layout).
+      (let* ((display-buffer-overriding-action
+              '((display-buffer-in-direction)
+                (direction . right)
+                (window-width . 0.5)))
+             (window (display-buffer buf)))
+        (when window
+          (select-window window))
+        window)))))
 
 (defun ogent-issues--insert-detail-header (issue)
   "Insert header section for ISSUE."
@@ -452,10 +481,19 @@ issues buffer, like magit's two-pane layouts.  Customize
   "Follow the issue link at point."
   (interactive)
   (if-let ((id (get-text-property (point) 'ogent-issue-id)))
-      (ogent-issues-bd-get id
-                           #'ogent-issues--render-detail
-                           (lambda (err)
-                             (message "Could not fetch issue %s: %s" id err)))
+      ;; Capture this buffer's context now; the async callback may fire
+      ;; with a different current buffer/default-directory.
+      (let ((buf (current-buffer))
+            (project-root default-directory)
+            (buf-name (buffer-name)))
+        (ogent-issues-bd-get id
+                             (lambda (issue)
+                               (when (and (buffer-live-p buf)
+                                          (get-buffer-window buf t))
+                                 (ogent-issues--render-detail
+                                  issue project-root buf-name)))
+                             (lambda (err)
+                               (message "Could not fetch issue %s: %s" id err))))
     (user-error "No issue link at point")))
 
 (defun ogent-issues-detail-help ()
