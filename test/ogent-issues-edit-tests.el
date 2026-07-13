@@ -16,11 +16,11 @@
 
 (defconst ogent-issues-edit-tests--issue
   '(:id "test-42" :title "Original title" :status "open" :priority 1
-    :issue_type "feature" :assignee "jake" :labels ("ui" "ux")
-    :description "Original description."
-    :design "Original design."
-    :acceptance_criteria "AC one."
-    :notes "Some notes.")
+        :issue_type "feature" :assignee "jake" :labels ("ui" "ux")
+        :description "Original description."
+        :design "Original design."
+        :acceptance_criteria "AC one."
+        :notes "Some notes.")
   "Sample issue for editor tests.")
 
 (defmacro ogent-issues-edit-tests--with-buffer (issue &rest body)
@@ -258,8 +258,8 @@
         (should (functionp (plist-get captured-props :error-callback)))
         ;; Unchanged fields never travel.
         (dolist (key '(:status :priority :assignee :description
-                       :design :acceptance-criteria :notes
-                       :add-labels :remove-labels))
+                               :design :acceptance-criteria :notes
+                               :add-labels :remove-labels))
           (should-not (plist-member captured-props key)))
         ;; Buffer intact until the update is confirmed...
         (should (buffer-live-p (current-buffer)))
