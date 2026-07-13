@@ -8,6 +8,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Structured issue editor (`ogent-issues-edit`, bound to `e` in the issue
+  list, detail view, and `?` dispatch): a form-style buffer with read-only
+  chrome, freely editable title/assignee/labels/description/design/
+  acceptance-criteria/notes fields, and cycling pill controls for
+  priority (P0-P4), type, and status (RET/SPC/mouse to cycle, digits for
+  direct selection, `=` for completion).  The header line tracks unsaved
+  fields live; `C-c C-c` submits only the changed fields through a single
+  `br update`, `C-c C-r` reverts the field at point, and every teardown
+  path (`C-c C-k`, `C-x k`) confirms before discarding unsaved work.  On
+  update failure the buffer stays intact and editable.
+  `ogent-issues-bd-update` now supports title, type, assignee, design,
+  acceptance criteria, notes, and label add/remove flags.
 - GPT-5.6 model family (`gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`) and
   Claude Sonnet 5 in the model registry; `gpt-5.6-sol` is the new default.
 - `ogent-model-picker` (`C-c . @`): an oh-my-pi style model cockpit for

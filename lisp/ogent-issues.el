@@ -68,6 +68,10 @@ Captured at load time so sibling requires remain robust.")
 (autoload 'ogent-issues-create-dispatch "ogent-issues-transient" nil t)
 (autoload 'ogent-issues-filter-dispatch "ogent-issues-transient" nil t)
 
+;; Entry point defined in the ogent-issues-edit satellite (bound in the
+;; mode keymap below).
+(declare-function ogent-issues-edit "ogent-issues-edit")
+
 ;; Entry points defined in the ogent-issues-kanban satellite (bound in the
 ;; mode keymap below).
 (declare-function ogent-issues-view-kanban "ogent-issues-kanban")
@@ -501,6 +505,7 @@ The inherited `value' slot holds the issue plist.")))
     (define-key map "x" #'ogent-issues-close)
     (define-key map "r" #'ogent-issues-reopen)
     (define-key map "C" #'ogent-issues-comment)
+    (define-key map "e" #'ogent-issues-edit)
     
     ;; Help/dispatch (magit-style: ?)
     (define-key map "?" #'ogent-issues-dispatch)
@@ -1400,6 +1405,7 @@ errors in `magit-section-post-command-hook'."
 ;; Load the extracted satellite clusters so `(require 'ogent-issues)' still
 ;; pulls in the full feature (and registers the Evil integration hook).
 (require 'ogent-issues-detail)
+(require 'ogent-issues-edit)
 (require 'ogent-issues-kanban)
 (require 'ogent-issues-evil)
 

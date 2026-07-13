@@ -22,6 +22,7 @@
 (declare-function ogent-issues--status-label "ogent-issues")
 (declare-function ogent-issues--status-face "ogent-issues")
 (declare-function ogent-issues--ready-indicator "ogent-issues")
+(declare-function ogent-issues-edit "ogent-issues-edit")
 (defvar ogent-issues-use-unicode)
 (defvar ogent-issues-detail-auto-refresh)
 (defvar ogent-issues-detail-display-action)
@@ -47,6 +48,7 @@ Actual buffer name includes project: `*ogent-issue: <project>*'.")
     (define-key map "r" #'ogent-issues-detail-reopen)
     (define-key map "s" #'ogent-issues-detail-start)
     (define-key map "C" #'ogent-issues-detail-comment)
+    (define-key map "e" #'ogent-issues-edit)
     (define-key map (kbd "RET") #'ogent-issues-detail-follow-link)
     (define-key map "?" #'ogent-issues-detail-help)
     map)
@@ -134,6 +136,8 @@ Display is handled by `ogent-issues--display-detail'."
                (propertize ":quit " 'face 'ogent-issues-dimmed)
                (propertize "g" 'face 'ogent-issues-header-line-key)
                (propertize ":refresh " 'face 'ogent-issues-dimmed)
+               (propertize "e" 'face 'ogent-issues-header-line-key)
+               (propertize ":edit " 'face 'ogent-issues-dimmed)
                (propertize "s" 'face 'ogent-issues-header-line-key)
                (propertize ":start " 'face 'ogent-issues-dimmed)
                (propertize "K" 'face 'ogent-issues-header-line-key)
@@ -499,7 +503,7 @@ window into a duplicate unreadable sliver."
 (defun ogent-issues-detail-help ()
   "Show help for detail view."
   (interactive)
-  (message "q:quit g:refresh s:start K:close r:reopen C:comment RET:follow-link"))
+  (message "q:quit g:refresh e:edit s:start K:close r:reopen C:comment RET:follow-link"))
 
 (provide 'ogent-issues-detail)
 

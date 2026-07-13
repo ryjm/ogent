@@ -28,6 +28,7 @@
 (declare-function ogent-issues-reopen "ogent-issues")
 (declare-function ogent-issues-start "ogent-issues")
 (declare-function ogent-issues-comment "ogent-issues")
+(declare-function ogent-issues-edit "ogent-issues-edit")
 (declare-function ogent-issues-sync "ogent-issues")
 (declare-function ogent-issues-filter-status "ogent-issues")
 (declare-function ogent-issues-filter-type "ogent-issues")
@@ -158,6 +159,7 @@ Returns a plist with :file, :line, :function, and :formatted keys."
                  ("TAB" "Toggle section" ogent-issues-toggle-section :transient t)]
                 ["Actions"
                  ("c" "Create issue" ogent-issues-create-dispatch)
+                 ("e" "Edit issue" ogent-issues-edit)
                  ("s" "Start working" ogent-issues-start)
                  ("K" "Close issue" ogent-issues-close)
                  ("R" "Reopen issue" ogent-issues-reopen)

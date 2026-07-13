@@ -531,9 +531,24 @@ ERROR-CALLBACK is called on error with an error message."
        error-callback
        t))))
 
+(defconst ogent-issues-bd--update-string-flags
+  '((:title . "--title")
+    (:status . "--status")
+    (:type . "--type")
+    (:assignee . "--assignee")
+    (:description . "--description")
+    (:design . "--design")
+    (:acceptance-criteria . "--acceptance-criteria")
+    (:notes . "--notes"))
+  "Mapping from `ogent-issues-bd-update' string props to br update flags.")
+
 (defun ogent-issues-bd-update (id callback &rest props)
   "Update issue ID with PROPS, calling CALLBACK on success.
-PROPS is a plist with optional :status, :priority, :description.
+PROPS is a plist of fields to change: :title, :status, :type,
+:assignee, :description, :design, :acceptance-criteria and :notes
+take strings (an explicit empty string passes through, which br
+interprets as clearing the field); :priority takes a number;
+:add-labels and :remove-labels take lists of label strings.
 The last element of PROPS can be :error-callback followed by a function."
   (let ((err (ogent-issues-bd-check-requirements))
         (error-callback (plist-get props :error-callback)))
@@ -544,13 +559,18 @@ The last element of PROPS can be :error-callback followed by a function."
             (user-error "%s" err))
           nil)
       (let ((args (list "update" id)))
-        ;; Add optional properties
-        (when-let ((status (plist-get props :status)))
-          (setq args (append args (list "--status" status))))
-        (when-let ((priority (plist-get props :priority)))
-          (setq args (append args (list "--priority" (number-to-string priority)))))
-        (when-let ((description (plist-get props :description)))
-          (setq args (append args (list "--description" description))))
+        (pcase-dolist (`(,key . ,flag) ogent-issues-bd--update-string-flags)
+          (let ((value (plist-get props key)))
+            (when (stringp value)
+              (setq args (append args (list flag value))))))
+        (let ((priority (plist-get props :priority)))
+          (when (numberp priority)
+            (setq args (append args (list "--priority"
+                                          (number-to-string priority))))))
+        (dolist (label (plist-get props :add-labels))
+          (setq args (append args (list "--add-label" label))))
+        (dolist (label (plist-get props :remove-labels))
+          (setq args (append args (list "--remove-label" label))))
         (ogent-issues-bd--run-async
          args
          (lambda (_result)

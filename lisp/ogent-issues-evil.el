@@ -43,6 +43,11 @@ Called after evil is loaded."
     ;; Set initial state to normal for ogent-issues modes
     (evil-set-initial-state 'ogent-issues-mode 'normal)
     (evil-set-initial-state 'ogent-issues-detail-mode 'normal)
+    ;; The structured editor is a text-editing buffer: drop straight into
+    ;; insert state so typing works immediately.  C-c C-c / C-c C-k stay
+    ;; reachable in every state, and the pill controls bind through a
+    ;; `keymap' text property, which outranks Evil's state maps.
+    (evil-set-initial-state 'ogent-issues-edit-mode 'insert)
     
     ;; Make our keymaps override evil's state maps for non-movement keys.
     ;; j/k are intentionally NOT in the mode map so evil handles them.
