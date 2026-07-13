@@ -268,7 +268,9 @@ window into a duplicate unreadable sliver."
       (insert "\n"))))
 
 (defun ogent-issues--insert-subtask-line (subtask)
-  "Insert a single SUBTASK as a line in the detail view."
+  "Insert a single SUBTASK as a line in the detail view.
+The whole row carries the `ogent-issue-id' property so RET follows
+the subtask from anywhere on the line, not just on the ID link."
   (let* ((id (plist-get subtask :id))
          (title (plist-get subtask :title))
          (status (plist-get subtask :status))
@@ -277,7 +279,8 @@ window into a duplicate unreadable sliver."
          (closed-p (string= status "closed"))
          (status-indicator (if closed-p
                                (propertize "✓" 'face 'ogent-issues-status-closed)
-                             (propertize "○" 'face 'ogent-issues-status-open))))
+                             (propertize "○" 'face 'ogent-issues-status-open)))
+         (start (point)))
     (insert "  ")
     (insert status-indicator)
     (insert " ")
@@ -289,7 +292,12 @@ window into a duplicate unreadable sliver."
     (insert " ")
     (insert (propertize (truncate-string-to-width (or title "") 50 nil nil "…")
                         'face (if closed-p 'ogent-issues-status-closed nil)))
-    (insert "\n")))
+    (insert "\n")
+    ;; Include the newline so RET resolves at end of line too;
+    ;; rear-nonsticky keeps the id from bleeding into the next row.
+    (add-text-properties start (point)
+                         (list 'ogent-issue-id id
+                               'rear-nonsticky '(ogent-issue-id)))))
 
 (defun ogent-issues--insert-detail-dependencies (issue)
   "Insert dependencies section for ISSUE."

@@ -1651,6 +1651,30 @@
              :priority 2 :issue_type "bug"))
       (should (string-match-p "sub-2" (buffer-string))))))
 
+(ert-deftest ogent-issues-test-subtask-line-id-property-spans-row ()
+  "RET must resolve the subtask id from anywhere on its row.
+The `ogent-issue-id' property covers the whole line including the
+newline, and does not bleed into the following row."
+  (with-temp-buffer
+    (ogent-issues--insert-subtask-line
+     '(:id "sub-1" :title "First subtask" :status "open"
+           :priority 1 :issue_type "task"))
+    (ogent-issues--insert-subtask-line
+     '(:id "sub-2" :title "Second subtask" :status "open"
+           :priority 1 :issue_type "task"))
+    (goto-char (point-min))
+    ;; Leading whitespace at column 0.
+    (should (equal "sub-1" (get-text-property (point) 'ogent-issue-id)))
+    ;; On the title text.
+    (search-forward "First")
+    (should (equal "sub-1" (get-text-property (match-beginning 0) 'ogent-issue-id)))
+    ;; At end of line (point sits on the newline).
+    (end-of-line)
+    (should (equal "sub-1" (get-text-property (point) 'ogent-issue-id)))
+    ;; Second row resolves to its own id, not the first.
+    (forward-line 1)
+    (should (equal "sub-2" (get-text-property (point) 'ogent-issue-id)))))
+
 ;;; Dependencies Section - Dependents Tests
 
 (ert-deftest ogent-issues-test-insert-detail-dependencies-with-other-deps ()
