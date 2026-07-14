@@ -13,6 +13,9 @@
 (require 'ogent-armory-runner)
 (require 'ogent-armory-native)
 (require 'ogent-ledger)
+;; Load analytics up front: the runner soft-requires it at record
+;; time, and a require AFTER cl-letf installs a stub would clobber it.
+(require 'ogent-analytics)
 
 (defvar ogent-armory-native-test--requests nil
   "Captured gptel request plists, oldest first.")
