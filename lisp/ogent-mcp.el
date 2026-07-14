@@ -4,8 +4,9 @@
 ;; Implements an MCP client enabling ogent to connect to MCP servers for
 ;; extended tool capabilities.  Supports:
 ;; - Stdio transport (JSON-RPC over stdin/stdout)
-;; - Streamable HTTP transport (JSON-RPC POSTs via url.el; messages in
-;;   the POST response body are dispatched, SSE streaming out of scope)
+;; - Streamable HTTP transport (JSON-RPC POSTs with incremental SSE
+;;   streaming and an optional server GET event stream via a curl
+;;   subprocess; buffered url.el POSTs when curl is absent)
 ;; - Protocol version negotiation during initialization
 ;; - Server discovery and configuration
 ;; - Dynamic tool registration from MCP servers
@@ -109,6 +110,7 @@ servers you fully trust."
   url              ; Endpoint URL when transport is `http'
   session-id       ; Mcp-Session-Id assigned by an http server, if any
   process          ; Emacs process object (stdio transport)
+  streams          ; Live curl stream processes (http transport)
   capabilities     ; Server capabilities from initialization
   protocol-version ; Protocol version negotiated with the server
   tools            ; List of available tools
@@ -250,18 +252,28 @@ servers you fully trust."
 
 ;;; Streamable HTTP Transport
 ;;
-;; Client half of the MCP streamable HTTP transport: every JSON-RPC
-;; message is POSTed to the server's endpoint URL, and any messages in
-;; the POST response body are dispatched.  Responses may be plain JSON
-;; (object or batch array) or a fully-buffered SSE body, in which case
-;; each "data:" line is parsed.  Incremental SSE streaming and
-;; server-initiated GET streams are out of scope; only POST responses
-;; are handled.
+;; Client half of the MCP streamable HTTP transport.  When curl is
+;; available every JSON-RPC message is POSTed through a curl
+;; subprocess whose filter sniffs the response headers: a
+;; text/event-stream body is parsed incrementally frame by frame,
+;; while a JSON body is buffered and parsed once curl exits.  After
+;; initialization the optional long-lived server GET event stream is
+;; opened; a 405 there means the server offers none.  Without curl,
+;; POSTs fall back to buffered `url-retrieve' (which cannot stream).
 
 (defun ogent-mcp--http-send (conn msg)
-  "POST JSON-RPC MSG to the streamable HTTP endpoint of CONN.
-The response is handled asynchronously by
-`ogent-mcp--http-handle-response'."
+  "Send JSON-RPC MSG to the streamable HTTP endpoint of CONN.
+Stream the POST through a curl subprocess when curl is available so
+SSE responses dispatch incrementally; fall back to a fully-buffered
+`url-retrieve' POST otherwise."
+  (if (executable-find "curl")
+      (ogent-mcp--http-curl-stream conn "POST" (json-encode msg))
+    (ogent-mcp--http-send-url conn msg)))
+
+(defun ogent-mcp--http-send-url (conn msg)
+  "POST JSON-RPC MSG to the endpoint of CONN via `url-retrieve'.
+Fallback transport used when curl is absent.  The response is
+handled, fully buffered, by `ogent-mcp--http-handle-response'."
   (let* ((url-request-method "POST")
          (url-request-extra-headers
           (append '(("Content-Type" . "application/json")
@@ -297,8 +309,8 @@ nil when the header is absent."
 CONTENT-TYPE is the response Content-Type header when known.  Return
 a list of parsed message alists: a JSON object yields one message, a
 JSON batch array yields one per element, and a fully-buffered SSE
-body yields one per \"data:\" line.  Incremental SSE streaming is not
-supported."
+body yields one per \"data:\" line.  Incremental SSE parsing is done
+by `ogent-mcp--http-curl-callbacks' instead."
   (let ((body (string-trim (or body ""))))
     (cond
      ((string-empty-p body) nil)
@@ -349,6 +361,189 @@ in the response body, then kill the response buffer."
                 (ogent-mcp--dispatch-message conn msg)))))
       (when (buffer-live-p buffer)
         (kill-buffer buffer)))))
+
+(defun ogent-mcp--http-header-value (headers name)
+  "Return the value of header NAME within HEADERS, or nil when absent.
+HEADERS is the raw header block of an HTTP response as a string."
+  (let ((case-fold-search t))
+    (when (string-match
+           (concat "^" (regexp-quote name) ":[ \t]*\\([^\r\n]*\\)")
+           headers)
+      (string-trim (match-string 1 headers)))))
+
+(defun ogent-mcp--sse-take-lines (text)
+  "Split TEXT into complete SSE lines and an unterminated remainder.
+Recognize LF, CRLF, and lone CR line terminators.  Hold a trailing CR
+back in the remainder: it may be half of a CRLF split across chunks.
+Return a cons cell (LINES . REST)."
+  (let ((lines nil)
+        (start 0))
+    (while (and (string-match "\r\n\\|[\r\n]" text start)
+                (not (and (equal "\r" (match-string 0 text))
+                          (= (match-end 0) (length text)))))
+      (push (substring text start (match-beginning 0)) lines)
+      (setq start (match-end 0)))
+    (cons (nreverse lines) (substring text start))))
+
+(defun ogent-mcp--sse-dispatch-frame (conn data-lines)
+  "Dispatch the SSE frame accumulated in DATA-LINES for CONN.
+DATA-LINES is the reversed list of \"data:\" payloads of one frame;
+join them with newlines per the SSE spec and dispatch the resulting
+JSON-RPC message.  Ignore frames without data (heartbeats)."
+  (when data-lines
+    (when-let ((msg (ogent-mcp--parse-message
+                     (string-join (nreverse data-lines) "\n"))))
+      (ogent-mcp--dispatch-message conn msg))))
+
+(defun ogent-mcp--http-curl-report-failure (conn method detail)
+  "Report a failed curl request of kind METHOD for CONN.
+DETAIL is an HTTP status code or a process event description.  Keep
+a GET status of 405 silent: the server merely offers no event
+stream.  Mark CONN as errored when the failure interrupts
+initialization."
+  (if (equal method "GET")
+      (unless (eql detail 405)
+        (message "ogent-mcp: HTTP GET stream error from '%s': %s"
+                 (ogent-mcp-connection-name conn) detail))
+    (when (eq (ogent-mcp-connection-status conn) 'connecting)
+      (setf (ogent-mcp-connection-status conn) 'error)
+      (setf (ogent-mcp-connection-error conn) (format "HTTP %s" detail)))
+    (message "ogent-mcp: HTTP error from '%s': %s"
+             (ogent-mcp-connection-name conn) detail)))
+
+(defun ogent-mcp--http-curl-callbacks (conn method)
+  "Create filter and sentinel closures for a curl stream of CONN.
+METHOD is the HTTP method string of the request.  The filter parses
+the response headers produced by curl -i, records any Mcp-Session-Id,
+then either dispatches SSE frames incrementally as they complete or
+buffers a JSON body that the sentinel parses once curl exits.  Return
+a cons cell (FILTER . SENTINEL); the closures share parser state."
+  (let ((pending "")        ; raw output not yet consumed
+        (headers-done nil)  ; non-nil once the final header block is read
+        (failed nil)        ; non-nil when the response status is >= 400
+        (sse nil)           ; non-nil when the body is text/event-stream
+        (content-type nil)  ; response Content-Type header
+        (body "")           ; accumulated body in JSON mode
+        (data-lines nil))   ; data: payloads of the current SSE frame
+    (cons
+     (lambda (_process chunk)
+       (setq pending (concat pending chunk))
+       ;; Consume header blocks; interim 1xx responses are skipped.
+       (while (and (not headers-done)
+                   (string-match "\r?\n\r?\n" pending))
+         (let ((headers (substring pending 0 (match-beginning 0)))
+               (status nil))
+           (setq pending (substring pending (match-end 0)))
+           (when (string-match "\\`HTTP/[0-9.]+ +\\([0-9]+\\)" headers)
+             (setq status (string-to-number (match-string 1 headers))))
+           (unless (and status (<= 100 status 199))
+             (setq headers-done t)
+             (when-let ((session (ogent-mcp--http-header-value
+                                  headers "Mcp-Session-Id")))
+               (setf (ogent-mcp-connection-session-id conn) session))
+             (setq content-type (ogent-mcp--http-header-value
+                                 headers "Content-Type"))
+             (setq sse (and content-type
+                            (string-match-p "text/event-stream"
+                                            content-type)))
+             (when (and status (>= status 400))
+               (setq failed t)
+               (ogent-mcp--http-curl-report-failure conn method status)))))
+       (when headers-done
+         (cond
+          (failed (setq pending ""))
+          (sse
+           (let ((split (ogent-mcp--sse-take-lines pending)))
+             (setq pending (cdr split))
+             (dolist (line (car split))
+               (cond
+                ((string-empty-p line)
+                 (ogent-mcp--sse-dispatch-frame conn data-lines)
+                 (setq data-lines nil))
+                ((string-prefix-p ":" line)) ; comment / heartbeat
+                ((string-match "\\`data\\(?:: ?\\(.*\\)\\)?\\'" line)
+                 (push (or (match-string 1 line) "") data-lines))))))
+          (t
+           (setq body (concat body pending))
+           (setq pending "")))))
+     (lambda (process event)
+       (setf (ogent-mcp-connection-streams conn)
+             (delq process (ogent-mcp-connection-streams conn)))
+       (cond
+        (failed nil) ; already reported when the headers arrived
+        ((and headers-done (not sse) (string-match-p "finished" event))
+         (dolist (msg (ogent-mcp--http-body-messages body content-type))
+           (ogent-mcp--dispatch-message conn msg)))
+        ((and (not headers-done)
+              (not (string-match-p "finished\\|deleted\\|killed" event)))
+         (ogent-mcp--http-curl-report-failure conn method
+                                              (string-trim event))))))))
+
+(defun ogent-mcp--http-curl-stream (conn method &optional data)
+  "Start a streaming curl METHOD request to the endpoint of CONN.
+DATA is the request body for POST, sent on curl's stdin.  The process
+filter sniffs the response Content-Type: a text/event-stream body is
+parsed incrementally, dispatching each complete SSE frame as it
+arrives; any other body is buffered and dispatched when curl exits.
+Register the process on CONN so disconnect can kill it; return it."
+  (let* ((callbacks (ogent-mcp--http-curl-callbacks conn method))
+         (args
+          `("-sN" "--no-buffer" "-i" "-X" ,method
+            ,@(when data '("-H" "Content-Type: application/json"))
+            "-H" ,(if (equal method "GET")
+                      "Accept: text/event-stream"
+                    "Accept: application/json, text/event-stream")
+            ,@(when-let ((session (ogent-mcp-connection-session-id conn)))
+                (list "-H" (concat "Mcp-Session-Id: " session)))
+            ,@(when data '("--data-binary" "@-"))
+            ,(ogent-mcp-connection-url conn)))
+         (proc (make-process
+                :name (format "ogent-mcp-curl-%s"
+                              (ogent-mcp-connection-name conn))
+                :command (cons "curl" args)
+                :connection-type 'pipe
+                :noquery t
+                :coding 'utf-8
+                :filter (car callbacks)
+                :sentinel (cdr callbacks))))
+    (push proc (ogent-mcp-connection-streams conn))
+    (when data
+      (process-send-string proc data)
+      (process-send-eof proc))
+    proc))
+
+(defun ogent-mcp--http-open-get-stream (conn)
+  "Open the optional server event stream of CONN with a GET request.
+The MCP streamable HTTP transport lets servers push requests and
+notifications over a long-lived GET SSE stream; a 405 response means
+the server offers none and stays silent.  No-op when curl is absent,
+since `url-retrieve' cannot stream."
+  (when (executable-find "curl")
+    (ogent-mcp--http-curl-stream conn "GET")))
+
+(defun ogent-mcp--http-delete-session (conn)
+  "Send a fire-and-forget DELETE ending the HTTP session of CONN.
+Do nothing when CONN has no session id.  Ignore failures: the server
+may not support explicit session termination."
+  (when-let ((session (ogent-mcp-connection-session-id conn)))
+    (let ((url (ogent-mcp-connection-url conn)))
+      (if (executable-find "curl")
+          (make-process
+           :name (format "ogent-mcp-curl-delete-%s"
+                         (ogent-mcp-connection-name conn))
+           :command (list "curl" "-s" "-X" "DELETE"
+                          "-H" (concat "Mcp-Session-Id: " session)
+                          url)
+           :connection-type 'pipe
+           :noquery t
+           :sentinel #'ignore)
+        (let ((url-request-method "DELETE")
+              (url-request-extra-headers
+               (list (cons "Mcp-Session-Id" session))))
+          (ignore-errors
+            (url-retrieve url
+                          (lambda (&rest _) (kill-buffer (current-buffer)))
+                          nil t)))))))
 
 ;;; Connection Lifecycle
 
@@ -430,6 +625,10 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
                                               "notifications/initialized"))
                             ;; Mark as ready
                             (setf (ogent-mcp-connection-status conn) 'ready)
+                            ;; Open the optional server event stream
+                            (when (eq (ogent-mcp-connection-transport conn)
+                                      'http)
+                              (ogent-mcp--http-open-get-stream conn))
                             (funcall callback result nil))))))
 
 ;;; Tool Discovery and Registration
@@ -680,6 +879,13 @@ connection object; no request is sent until initialization."
     (let ((proc (ogent-mcp-connection-process conn)))
       (when (and proc (process-live-p proc))
         (delete-process proc)))
+    ;; End the http session, then kill any live curl streams
+    (when (eq (ogent-mcp-connection-transport conn) 'http)
+      (ogent-mcp--http-delete-session conn))
+    (dolist (stream (ogent-mcp-connection-streams conn))
+      (when (process-live-p stream)
+        (delete-process stream)))
+    (setf (ogent-mcp-connection-streams conn) nil)
     (remhash server-name ogent-mcp--connections)
     ;; Remove registered tools
     (let ((prefix (format "mcp-%s-" server-name)))

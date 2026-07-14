@@ -1417,7 +1417,7 @@
     (should-error (ogent-mcp-connect "web") :type 'user-error)))
 
 (ert-deftest ogent-mcp--http-send-posts-json-rpc ()
-  "ogent-mcp--http-send POSTs the encoded message via url-retrieve."
+  "ogent-mcp--http-send POSTs via url-retrieve when curl is absent."
   (let ((conn (make-ogent-mcp-connection
                :name "web" :transport 'http
                :url "https://example.com/mcp" :status 'ready))
@@ -1427,7 +1427,8 @@
         (captured-method nil)
         (captured-headers nil)
         (captured-data nil))
-    (cl-letf (((symbol-function 'url-retrieve)
+    (cl-letf (((symbol-function 'executable-find) (lambda (_program) nil))
+              ((symbol-function 'url-retrieve)
                (lambda (url callback &optional cbargs _silent &rest _)
                  (setq captured-url url
                        captured-callback callback
@@ -1456,13 +1457,14 @@
         (should (= 7 (alist-get 'id parsed)))))))
 
 (ert-deftest ogent-mcp--http-send-includes-session-id ()
-  "ogent-mcp--http-send sends the assigned Mcp-Session-Id header."
+  "The url-retrieve fallback sends the assigned Mcp-Session-Id header."
   (let ((conn (make-ogent-mcp-connection
                :name "web" :transport 'http
                :url "https://example.com/mcp"
                :session-id "sess-42" :status 'ready))
         (captured-headers nil))
-    (cl-letf (((symbol-function 'url-retrieve)
+    (cl-letf (((symbol-function 'executable-find) (lambda (_program) nil))
+              ((symbol-function 'url-retrieve)
                (lambda (_url _callback &optional _cbargs _silent &rest _)
                  (setq captured-headers url-request-extra-headers)
                  nil)))
@@ -1591,6 +1593,486 @@
            '(:error (error http 503)) conn)))
       (should (eq 'ready (ogent-mcp-connection-status conn)))
       (should-not (buffer-live-p buf)))))
+
+;;; Streaming HTTP (curl) Tests
+
+(ert-deftest ogent-mcp--sse-take-lines-splits-mixed-terminators ()
+  "ogent-mcp--sse-take-lines splits LF, CRLF, and lone CR lines."
+  (let ((split (ogent-mcp--sse-take-lines "a\nb\r\nc\rd")))
+    (should (equal '("a" "b" "c") (car split)))
+    (should (equal "d" (cdr split)))))
+
+(ert-deftest ogent-mcp--sse-take-lines-holds-trailing-cr ()
+  "ogent-mcp--sse-take-lines keeps a trailing CR in the remainder."
+  (let ((split (ogent-mcp--sse-take-lines "a\r")))
+    (should-not (car split))
+    (should (equal "a\r" (cdr split))))
+  ;; The held-back CR pairs with the LF of the next chunk
+  (let ((split (ogent-mcp--sse-take-lines "a\r\nb")))
+    (should (equal '("a") (car split)))
+    (should (equal "b" (cdr split)))))
+
+(ert-deftest ogent-mcp--http-send-streams-via-curl-when-available ()
+  "ogent-mcp--http-send POSTs through a streaming curl subprocess."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (captured-command nil)
+        (sent nil)
+        (eof nil)
+        (fake-proc (list 'fake-curl)))
+    (cl-letf (((symbol-function 'executable-find)
+               (lambda (_program) "/usr/bin/curl"))
+              ((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq captured-command (plist-get args :command))
+                 fake-proc))
+              ((symbol-function 'process-send-string)
+               (lambda (_proc data) (setq sent data)))
+              ((symbol-function 'process-send-eof)
+               (lambda (_proc) (setq eof t)))
+              ((symbol-function 'url-retrieve)
+               (lambda (&rest _) (error "url.el path must not run"))))
+      (ogent-mcp--http-send conn '((jsonrpc . "2.0")
+                                   (id . 7)
+                                   (method . "tools/list")))
+      (should (equal "curl" (car captured-command)))
+      (should (member "-i" captured-command))
+      (should (member "-X" captured-command))
+      (should (member "POST" captured-command))
+      (should (member "Content-Type: application/json" captured-command))
+      (should (member "Accept: application/json, text/event-stream"
+                      captured-command))
+      ;; No session header before the server assigns one
+      (should-not (cl-find "Mcp-Session-Id" captured-command
+                           :test #'string-prefix-p))
+      (should (equal "https://example.com/mcp"
+                     (car (last captured-command))))
+      ;; The body travels over curl's stdin
+      (should (member "@-" captured-command))
+      (should eof)
+      (let ((parsed (json-read-from-string sent)))
+        (should (equal "tools/list" (alist-get 'method parsed)))
+        (should (= 7 (alist-get 'id parsed))))
+      ;; The stream is registered for disconnect cleanup
+      (should (equal (list fake-proc)
+                     (ogent-mcp-connection-streams conn))))))
+
+(ert-deftest ogent-mcp--http-send-falls-back-without-curl ()
+  "ogent-mcp--http-send uses url-retrieve when curl is absent."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (retrieved nil))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_program) nil))
+              ((symbol-function 'make-process)
+               (lambda (&rest _) (error "curl path must not run")))
+              ((symbol-function 'url-retrieve)
+               (lambda (url &rest _) (setq retrieved url) nil)))
+      (ogent-mcp--http-send conn '((jsonrpc . "2.0") (method . "ping")))
+      (should (equal "https://example.com/mcp" retrieved)))))
+
+(ert-deftest ogent-mcp--http-curl-stream-sends-session-header ()
+  "ogent-mcp--http-curl-stream includes the assigned Mcp-Session-Id."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp"
+               :session-id "sess-42" :status 'ready))
+        (captured-command nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq captured-command (plist-get args :command))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (should (member "Mcp-Session-Id: sess-42" captured-command)))))
+
+(ert-deftest ogent-mcp--http-curl-stream-get-requests-event-stream ()
+  "A GET stream asks only for text/event-stream and sends no body."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (captured-command nil)
+        (sent nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq captured-command (plist-get args :command))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string)
+               (lambda (&rest _) (setq sent t))))
+      (ogent-mcp--http-curl-stream conn "GET")
+      (should (member "GET" captured-command))
+      (should (member "Accept: text/event-stream" captured-command))
+      (should-not (member "Content-Type: application/json"
+                          captured-command))
+      (should-not (member "--data-binary" captured-command))
+      (should-not sent))))
+
+(ert-deftest ogent-mcp--http-curl-filter-dispatches-sse-incrementally ()
+  "The curl filter dispatches each SSE frame as soon as it completes."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      ;; Headers arrive first; the session id is recorded from them
+      (funcall filter nil (concat "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/event-stream\r\n"
+                                  "Mcp-Session-Id: sess-9\r\n"
+                                  "\r\n"))
+      (should (equal "sess-9" (ogent-mcp-connection-session-id conn)))
+      (should-not dispatched)
+      ;; A frame split mid-line dispatches only once complete
+      (funcall filter nil "data: {\"jsonrpc\":\"2.0\",\"id\":1,\"res")
+      (should-not dispatched)
+      (funcall filter nil "ult\":{}}\n")
+      (should-not dispatched)
+      (funcall filter nil "\n")
+      (should (= 1 (length dispatched)))
+      (should (= 1 (alist-get 'id (car dispatched))))
+      ;; The stream stays open: later frames dispatch as they arrive
+      (funcall
+       filter nil
+       "data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/x\"}\n\n")
+      (should (= 2 (length dispatched)))
+      (should (equal "notifications/x"
+                     (alist-get 'method (car dispatched)))))))
+
+(ert-deftest ogent-mcp--http-curl-filter-joins-multi-data-frames ()
+  "Multiple data: lines of one SSE frame are joined with newlines."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter nil (concat "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/event-stream\r\n"
+                                  "\r\n"))
+      (funcall filter nil (concat "data: {\"jsonrpc\":\"2.0\",\n"
+                                  "data: \"id\":2,\"result\":"
+                                  "{\"ok\":true}}\n\n"))
+      (should (= 1 (length dispatched)))
+      (should (= 2 (alist-get 'id (car dispatched))))
+      (should (eq t (alist-get 'ok
+                               (alist-get 'result (car dispatched))))))))
+
+(ert-deftest ogent-mcp--http-curl-filter-ignores-comments-and-heartbeats ()
+  "Comment lines and dataless SSE frames never dispatch."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter nil (concat "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/event-stream\r\n"
+                                  "\r\n"))
+      (funcall filter nil ": keep-alive\n\n")
+      (funcall filter nil "event: ping\nid: 3\nretry: 1000\n\n")
+      (should-not dispatched)
+      ;; Data mixed with comments still dispatches
+      (funcall filter nil (concat ": hb\ndata: {\"jsonrpc\":\"2.0\","
+                                  "\"id\":4,\"result\":{}}\n\n"))
+      (should (= 1 (length dispatched)))
+      (should (= 4 (alist-get 'id (car dispatched)))))))
+
+(ert-deftest ogent-mcp--http-curl-filter-handles-crlf-frames ()
+  "CRLF-terminated SSE frames dispatch, even split inside a CRLF."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter nil (concat "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/event-stream\r\n"
+                                  "\r\n"))
+      ;; The chunk boundary falls between the CR and LF of a CRLF
+      (funcall filter nil
+               "data: {\"jsonrpc\":\"2.0\",\"id\":5,\"result\":{}}\r")
+      (should-not dispatched)
+      (funcall filter nil "\n\r\n")
+      (should (= 1 (length dispatched)))
+      (should (= 5 (alist-get 'id (car dispatched)))))))
+
+(ert-deftest ogent-mcp--http-curl-filter-skips-interim-responses ()
+  "A 1xx interim header block does not end header parsing."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter nil
+               (concat "HTTP/1.1 100 Continue\r\n\r\n"
+                       "HTTP/1.1 200 OK\r\n"
+                       "Content-Type: text/event-stream\r\n\r\n"
+                       "data: {\"jsonrpc\":\"2.0\",\"id\":6,"
+                       "\"result\":{}}\n\n"))
+      (should (= 1 (length dispatched)))
+      (should (= 6 (alist-get 'id (car dispatched)))))))
+
+(ert-deftest ogent-mcp--http-curl-json-response-dispatches-on-exit ()
+  "A JSON (non-SSE) curl response is parsed once curl finishes."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (dispatched nil)
+        (filter nil)
+        (sentinel nil)
+        (fake-proc (list 'fake-curl)))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter)
+                       sentinel (plist-get args :sentinel))
+                 fake-proc))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter fake-proc (concat "HTTP/1.1 200 OK\r\n"
+                                        "Content-Type: application/json"
+                                        "\r\n\r\n"))
+      (funcall filter fake-proc "{\"jsonrpc\":\"2.0\",\"id\":7,")
+      (funcall filter fake-proc "\"result\":{\"ok\":true}}")
+      ;; The body only parses once curl exits
+      (should-not dispatched)
+      (funcall sentinel fake-proc "finished\n")
+      (should (= 1 (length dispatched)))
+      (should (= 7 (alist-get 'id (car dispatched))))
+      ;; The finished stream is deregistered
+      (should-not (ogent-mcp-connection-streams conn)))))
+
+(ert-deftest ogent-mcp--http-curl-get-405-stays-silent ()
+  "A 405 on the GET stream means \"not offered\" and logs nothing."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (messages nil)
+        (dispatched nil)
+        (filter nil)
+        (sentinel nil)
+        (fake-proc (list 'fake-curl)))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter)
+                       sentinel (plist-get args :sentinel))
+                 fake-proc))
+              ((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (push (apply #'format fmt args) messages)))
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "GET")
+      (funcall filter fake-proc (concat "HTTP/1.1 405 Method Not Allowed"
+                                        "\r\nAllow: POST\r\n\r\n"))
+      (funcall sentinel fake-proc "finished\n")
+      (should-not messages)
+      (should-not dispatched)
+      (should (eq 'ready (ogent-mcp-connection-status conn))))))
+
+(ert-deftest ogent-mcp--http-curl-get-stream-dispatches-server-messages ()
+  "Server-initiated messages on the GET stream reach the dispatcher."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (refreshed nil)
+        (filter nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter))
+                 (list 'fake-curl)))
+              ((symbol-function 'ogent-mcp--refresh-tools)
+               (lambda (c) (setq refreshed c))))
+      (ogent-mcp--http-curl-stream conn "GET")
+      (funcall filter nil (concat "HTTP/1.1 200 OK\r\n"
+                                  "Content-Type: text/event-stream\r\n"
+                                  "\r\n"))
+      (funcall filter nil
+               (concat "data: {\"jsonrpc\":\"2.0\",\"method\":"
+                       "\"notifications/tools/list_changed\"}\n\n"))
+      (should (eq conn refreshed)))))
+
+(ert-deftest ogent-mcp--http-curl-post-error-marks-connecting-error ()
+  "An HTTP error status during initialization marks the connection."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'connecting))
+        (dispatched nil)
+        (filter nil)
+        (sentinel nil)
+        (fake-proc (list 'fake-curl)))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest args)
+                 (setq filter (plist-get args :filter)
+                       sentinel (plist-get args :sentinel))
+                 fake-proc))
+              ((symbol-function 'process-send-string) #'ignore)
+              ((symbol-function 'process-send-eof) #'ignore)
+              ((symbol-function 'message) #'ignore)
+              ((symbol-function 'ogent-mcp--dispatch-message)
+               (lambda (_conn msg) (push msg dispatched))))
+      (ogent-mcp--http-curl-stream conn "POST" "{}")
+      (funcall filter fake-proc
+               "HTTP/1.1 500 Internal Server Error\r\n\r\n")
+      (should (eq 'error (ogent-mcp-connection-status conn)))
+      (should (ogent-mcp-connection-error conn))
+      ;; The body of a failed response is never dispatched
+      (funcall filter fake-proc
+               "{\"jsonrpc\":\"2.0\",\"id\":8,\"result\":{}}")
+      (funcall sentinel fake-proc "finished\n")
+      (should-not dispatched))))
+
+(ert-deftest ogent-mcp--initialize-opens-get-stream-for-http ()
+  "Initialization on an http connection opens the server GET stream."
+  (let ((ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (ogent-mcp--request-id 0)
+        (conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'connecting))
+        (sent nil)
+        (opened nil))
+    (cl-letf (((symbol-function 'ogent-mcp--send)
+               (lambda (_conn msg) (push msg sent)))
+              ((symbol-function 'ogent-mcp--http-open-get-stream)
+               (lambda (c) (setq opened c)))
+              ((symbol-function 'message) #'ignore))
+      (ogent-mcp--initialize conn #'ignore)
+      (should-not opened)
+      ;; Deliver the server's initialize result
+      (let ((id (alist-get 'id (car (last sent)))))
+        (ogent-mcp--dispatch-message
+         conn `((id . ,id)
+                (result . ((protocolVersion . "2025-03-26")
+                           (capabilities . ()))))))
+      (should (eq conn opened))
+      (should (eq 'ready (ogent-mcp-connection-status conn))))))
+
+(ert-deftest ogent-mcp--initialize-skips-get-stream-for-stdio ()
+  "Initialization on a stdio connection opens no GET stream."
+  (let ((ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (ogent-mcp--request-id 0)
+        (conn (make-ogent-mcp-connection
+               :name "srv" :transport 'stdio :status 'connecting))
+        (sent nil)
+        (opened nil))
+    (cl-letf (((symbol-function 'ogent-mcp--send)
+               (lambda (_conn msg) (push msg sent)))
+              ((symbol-function 'ogent-mcp--http-open-get-stream)
+               (lambda (c) (setq opened c)))
+              ((symbol-function 'message) #'ignore))
+      (ogent-mcp--initialize conn #'ignore)
+      (let ((id (alist-get 'id (car (last sent)))))
+        (ogent-mcp--dispatch-message
+         conn `((id . ,id)
+                (result . ((protocolVersion . "2025-03-26")
+                           (capabilities . ()))))))
+      (should-not opened)
+      (should (eq 'ready (ogent-mcp-connection-status conn))))))
+
+(ert-deftest ogent-mcp--http-open-get-stream-noop-without-curl ()
+  "The GET stream is skipped when curl is unavailable."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready)))
+    (cl-letf (((symbol-function 'executable-find) (lambda (_program) nil))
+              ((symbol-function 'make-process)
+               (lambda (&rest _) (error "curl must not spawn"))))
+      (should-not (ogent-mcp--http-open-get-stream conn))
+      (should-not (ogent-mcp-connection-streams conn)))))
+
+(ert-deftest ogent-mcp-disconnect-ends-http-session ()
+  "Disconnect DELETEs the http session and kills live curl streams."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal))
+        (ogent-tool-registry nil)
+        (stream (list 'fake-curl))
+        (deleted nil)
+        (delete-command nil))
+    (let ((conn (make-ogent-mcp-connection
+                 :name "web" :transport 'http
+                 :url "https://example.com/mcp"
+                 :session-id "sess-42" :status 'ready)))
+      (setf (ogent-mcp-connection-streams conn) (list stream))
+      (puthash "web" conn ogent-mcp--connections)
+      (cl-letf (((symbol-function 'executable-find)
+                 (lambda (_program) "/usr/bin/curl"))
+                ((symbol-function 'make-process)
+                 (lambda (&rest args)
+                   (setq delete-command (plist-get args :command))
+                   (list 'fake-delete)))
+                ((symbol-function 'process-live-p)
+                 (lambda (proc) (eq proc stream)))
+                ((symbol-function 'delete-process)
+                 (lambda (proc) (push proc deleted)))
+                ((symbol-function 'message) #'ignore))
+        (ogent-mcp-disconnect "web"))
+      (should (member "DELETE" delete-command))
+      (should (member "Mcp-Session-Id: sess-42" delete-command))
+      (should (equal "https://example.com/mcp"
+                     (car (last delete-command))))
+      (should (equal (list stream) deleted))
+      (should-not (ogent-mcp-connection-streams conn))
+      (should-not (gethash "web" ogent-mcp--connections)))))
+
+(ert-deftest ogent-mcp-disconnect-http-without-session-skips-delete ()
+  "Disconnect sends no DELETE when the server assigned no session."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal))
+        (ogent-tool-registry nil))
+    (let ((conn (make-ogent-mcp-connection
+                 :name "web" :transport 'http
+                 :url "https://example.com/mcp" :status 'ready)))
+      (puthash "web" conn ogent-mcp--connections)
+      (cl-letf (((symbol-function 'make-process)
+                 (lambda (&rest _) (error "DELETE must not be sent")))
+                ((symbol-function 'url-retrieve)
+                 (lambda (&rest _) (error "DELETE must not be sent")))
+                ((symbol-function 'message) #'ignore))
+        (ogent-mcp-disconnect "web"))
+      (should-not (gethash "web" ogent-mcp--connections)))))
 
 (provide 'ogent-mcp-tests)
 ;;; ogent-mcp-tests.el ends here
