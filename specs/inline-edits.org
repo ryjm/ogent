@@ -2,21 +2,34 @@
 #+author: Jake Miller
 #+date: 2025-12-09
 
+Revised 2026-07-13 to match the shipped implementation: three display
+methods, diff preview/review buffers, the quick-edit / diagnostic-repair /
+AI-speed-edit request flows, and the registry-driven keybindings.
+
 * Purpose
 This spec defines how ogent applies LLM-generated code changes to source buffers.
 When users request edits from code files (not Org buffers), ogent should:
 1. Send the code context to the LLM with edit-format instructions
 2. Parse the structured edit response
-3. Display proposed changes inline using smerge conflict markers
-4. Allow accept/reject workflow via standard Emacs tooling
+3. Display proposed changes inline using the configured display method
+   (smerge conflict markers, overlays, or inline word-level diffs)
+4. Allow accept/reject workflow, per edit or in batch
 5. Log all operations to the companion Org buffer
 
 * Design Principles
-- *Leverage built-ins*: Use =smerge-mode= (ships with Emacs) as primary display
-- *Safe by default*: No auto-apply; user must explicitly accept changes
-- *Auditable*: Every edit proposal logged to companion with timestamps
-- *Reversible*: Rejected edits preserved in history for later reference
-- *Streaming-aware*: Handle partial responses during streaming
+- *Leverage built-ins*: =smerge-mode= (ships with Emacs) is the default and
+  always-available display; richer methods layer on top
+- *Configurable review*: display method is a user choice
+  (=ogent-edit-display-method=), togglable mid-session
+- *Safe by default*: no auto-apply unless =ogent-edit-auto-apply= is
+  explicitly enabled; user must accept changes
+- *Robust against drift*: apply paths re-anchor an edit's cached positions
+  before touching the buffer, so edits survive buffer changes between
+  validation and application
+- *Auditable*: every edit proposal logged to companion with timestamps
+- *Reversible*: rejected edits preserved in history; auto-applied edits
+  undoable with standard Emacs undo
+- *Streaming-aware*: handle partial responses during streaming
 
 * Edit Request Format
 
@@ -56,11 +69,11 @@ To make the requested changes, I'll modify the following:
 7. Surrounding prose/explanation is allowed and ignored by parser
 
 ** Why This Format?
-| Format | Pros | Cons |
-|--------+------+------|
-| Unified diff | Standard, line-based | Fragile with LLM, line numbers drift |
-| JSON | Structured, machine-friendly | Verbose, hard for LLM to format |
-| SEARCH/REPLACE | Simple, exact matching, Claude-native | Requires unique matches |
+| Format         | Pros                          | Cons                                  |
+|----------------+-------------------------------+---------------------------------------|
+| Unified diff   | Standard, line-based          | Fragile with LLM, line numbers drift  |
+| JSON           | Structured, machine-friendly  | Verbose, hard for LLM to format       |
+| SEARCH/REPLACE | Simple, exact matching, Claude-native | Requires unique matches       |
 
 SEARCH/REPLACE is chosen because:
 - Claude and other LLMs naturally produce this format
@@ -71,7 +84,8 @@ SEARCH/REPLACE is chosen because:
 * Prompt Template
 
 ** System Instructions
-Added to system prompt when edit mode is active:
+=ogent-edit-system-prompt= (in =lisp/ogent-edit-format.el=) is passed as the
+system prompt for every edit request:
 
 #+begin_example
 When making code changes, format each edit as a SEARCH/REPLACE block:
@@ -90,7 +104,7 @@ Rules:
 #+end_example
 
 ** Edit Request Wrapper
-When =ogent-request-edit= is called, wrap the user prompt:
+=ogent-edit-wrap-prompt= wraps the user instruction with buffer context:
 
 #+begin_example
 The user wants to modify code in `{filename}` ({major-mode}).
@@ -105,148 +119,288 @@ Current code:
 Provide your changes using SEARCH/REPLACE blocks.
 #+end_example
 
-* Parser Implementation
+* Parser and Validation
+
+Implemented in =lisp/ogent-edit-format.el= (data structure, prompts) and
+=lisp/ogent-edit-parse.el= (parsing, validation, filtering).
 
 ** Data Structure
 #+begin_src elisp
 (cl-defstruct ogent-edit
   "A single code edit extracted from LLM response."
-  id              ; unique identifier (ogent-edit-001, etc.)
-  old-text        ; exact text to search for
-  new-text        ; replacement text
-  source-buffer   ; buffer containing source code
-  source-file     ; file path (if file-backed)
-  start-pos       ; position where old-text was found (after validation)
-  end-pos         ; end position of old-text
-  status          ; pending | applied | rejected | error
-  error-message   ; why validation/application failed
-  timestamp)      ; when edit was created
+  id               ; unique identifier (ogent-edit-001, etc.)
+  old-text         ; exact text to search for
+  new-text         ; replacement text
+  source-buffer    ; buffer containing source code
+  source-file      ; file path (if file-backed)
+  start-pos        ; position where old-text was found (after validation)
+  end-pos          ; end position of old-text
+  source-marker    ; marker in source buffer for navigation
+  companion-marker ; marker in companion buffer for navigation
+  status           ; pending | applied | rejected | error
+  error-message    ; why validation/application failed
+  timestamp)       ; when edit was created
 #+end_src
 
-** Parsing Algorithm
-#+begin_src elisp
-(defun ogent-edit-parse-response (response source-buffer)
-  "Parse RESPONSE text for SEARCH/REPLACE blocks.
-Returns list of `ogent-edit' structs."
-  (let ((edits nil)
-        (counter 0))
-    (with-temp-buffer
-      (insert response)
-      (goto-char (point-min))
-      (while (re-search-forward "^<<<<<<< SEARCH\n" nil t)
-        (let* ((search-start (point))
-               (separator (save-excursion
-                           (re-search-forward "^=======\n" nil t)))
-               (replace-end (save-excursion
-                             (re-search-forward "^>>>>>>> REPLACE" nil t)))
-               (old-text (when (and separator replace-end)
-                          (buffer-substring-no-properties
-                           search-start (- separator 8))))
-               (new-text (when (and separator replace-end)
-                          (buffer-substring-no-properties
-                           separator (- replace-end 16)))))
-          (when (and old-text new-text)
-            (cl-incf counter)
-            (push (make-ogent-edit
-                   :id (format "ogent-edit-%03d" counter)
-                   :old-text old-text
-                   :new-text new-text
-                   :source-buffer source-buffer
-                   :source-file (buffer-file-name source-buffer)
-                   :status 'pending
-                   :timestamp (current-time))
-                  edits))
-          (goto-char (or replace-end (point-max))))))
-    (nreverse edits)))
-#+end_src
+** Parsing
+=ogent-edit-parse-response= scans a response string for SEARCH/REPLACE
+blocks and returns a list of =ogent-edit= structs with =pending= status.
+IDs are session-unique (=ogent-edit--generate-id=).
 
 ** Validation
-Before displaying an edit, validate that =old-text= exists uniquely in source:
+=ogent-edit-validate= (and =ogent-edit-validate-all= for lists) checks that
+=old-text= exists /uniquely/ in the source buffer:
+- 0 matches → status =error=, "SEARCH text not found"
+- 1 match → =start-pos= / =end-pos= recorded
+- 2+ matches → status =error=, ambiguous match
+
+=ogent-edit-filter-valid= and =ogent-edit-filter-errors= partition the
+results for display and error reporting.
+
+* Display Methods
+
+The display pipeline lives in =lisp/ogent-edit-display.el=. The user-facing
+selector is:
 
 #+begin_src elisp
-(defun ogent-edit-validate (edit)
-  "Validate EDIT against its source buffer.
-Sets start-pos/end-pos on success, or status='error on failure."
-  (let* ((buf (ogent-edit-source-buffer edit))
-         (old-text (ogent-edit-old-text edit))
-         (matches nil))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char (point-min))
-        (while (search-forward old-text nil t)
-          (push (cons (match-beginning 0) (match-end 0)) matches))))
-    (pcase (length matches)
-      (0 (setf (ogent-edit-status edit) 'error
-               (ogent-edit-error-message edit) "SEARCH text not found in source"))
-      (1 (setf (ogent-edit-start-pos edit) (caar matches)
-               (ogent-edit-end-pos edit) (cdar matches)))
-      (_ (setf (ogent-edit-status edit) 'error
-               (ogent-edit-error-message edit)
-               (format "SEARCH text matches %d locations (must be unique)"
-                       (length matches)))))
-    edit))
+(defcustom ogent-edit-display-method 'smerge
+  "Method for displaying proposed edits.
+Options:
+- `smerge': Traditional conflict markers (built-in, always available)
+- `overlay': gptel-rewrite style overlays with inline preview and dispatch menu
+- `inline-diff': Word-level inline highlighting (requires inline-diff.el)"
+  ...)
 #+end_src
 
-* Display with smerge-mode
+- =ogent-edit-display= / =ogent-edit-display-all= dispatch a single edit or
+  a batch to the configured method; unknown values fall back to smerge.
+- =ogent-edit-toggle-display-method= (autoloaded) cycles through
+  =ogent-edit-display-methods= (=smerge= → =overlay= → =inline-diff=),
+  skipping =inline-diff= when the optional package is not loaded
+  (=ogent-edit-inline-diff-available-p=). It is bound to ~t~ in both the
+  preview-mode and overlay keymaps so the method can be flipped mid-review.
 
-** Applying Edits as Conflicts
-Transform validated edits into smerge conflict markers:
+** Re-anchoring Before Apply
+Between validation and application the source buffer may change (streaming
+responses, concurrent edits, the user typing). Every apply path therefore
+re-anchors the edit via =ogent-edit--re-anchor= before mutating the buffer:
+- If the cached =start-pos= / =end-pos= region still holds =old-text=
+  exactly, positions are kept.
+- Otherwise the buffer is rescanned for =old-text=: a unique match
+  re-anchors the edit (with a message); zero or multiple matches set status
+  =error= and signal =user-error= *without modifying the buffer*.
 
-#+begin_src elisp
-(defun ogent-edit-apply-as-smerge (edit)
-  "Insert EDIT as smerge conflict markers in source buffer."
-  (unless (eq (ogent-edit-status edit) 'pending)
-    (user-error "Edit %s is not pending" (ogent-edit-id edit)))
-  (let ((buf (ogent-edit-source-buffer edit))
-        (start (ogent-edit-start-pos edit))
-        (end (ogent-edit-end-pos edit))
-        (old-text (ogent-edit-old-text edit))
-        (new-text (ogent-edit-new-text edit)))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char start)
-        (delete-region start end)
-        (insert "<<<<<<< original\n"
-                old-text
-                (unless (string-suffix-p "\n" old-text) "\n")
-                "=======\n"
-                new-text
-                (unless (string-suffix-p "\n" new-text) "\n")
-                ">>>>>>> ogent\n"))
-      ;; Enable smerge-mode if not already active
-      (unless (bound-and-true-p smerge-mode)
-        (smerge-mode 1))
-      ;; Move to the conflict
-      (goto-char start)
-      (smerge-next))))
-#+end_src
+This applies to the smerge path (=ogent-edit-apply-as-smerge=), the overlay
+path (=ogent-edit-apply-as-overlay=), and the inline-diff path
+(=ogent-edit-apply-as-inline-diff=), so a stale edit can never clobber
+unrelated text regardless of display method.
 
-** User Workflow
-Once edits are displayed as conflicts:
+** Method: smerge (default)
+=ogent-edit-apply-as-smerge= replaces the matched region with conflict
+markers (upper = original, lower = AI proposal):
 
-| Action | Command | Keybinding |
-|--------+---------+------------|
-| Accept AI change | =smerge-keep-other= | =C-c ^ o= |
-| Reject (keep original) | =smerge-keep-mine= | =C-c ^ m= |
-| Next conflict | =smerge-next= | =C-c ^ n= |
-| Previous conflict | =smerge-prev= | =C-c ^ p= |
-| Accept all | =smerge-keep-all-other= | N/A (custom) |
-| Reject all | =smerge-keep-all-mine= | N/A (custom) |
+#+begin_example
+<<<<<<< original
+[old text]
+=======
+[new text]
+>>>>>>> ogent
+#+end_example
 
-** Tracking Resolution
-Hook into smerge to track when user accepts/rejects:
+It enables =smerge-mode= if needed, records a source marker for
+navigation, sets status =applied=, and jumps to the conflict.
+=ogent-edit-apply-all-as-smerge= applies a batch.
 
-#+begin_src elisp
-(defun ogent-edit--smerge-resolved-hook ()
-  "Called when a smerge conflict is resolved."
-  ;; Find which edit this corresponds to and update status
-  ;; Log to companion buffer
-  )
+Resolution commands (real bindings on Emacs 29/30):
 
-(add-hook 'smerge-resolve-hook #'ogent-edit--smerge-resolved-hook)
-#+end_src
+| Action                 | Command                    | Keybinding             |
+|------------------------+----------------------------+------------------------|
+| Accept AI change       | =smerge-keep-lower=        | =C-c ^ l=              |
+| Reject (keep original) | =smerge-keep-upper=        | =C-c ^ u=              |
+| Next conflict          | =smerge-next=              | =C-c ^ n=              |
+| Previous conflict      | =smerge-prev=              | =C-c ^ p=              |
+| Accept current (ogent) | =ogent-edit-accept-current= | =a= in =ogent-edit-menu= |
+| Reject current (ogent) | =ogent-edit-reject-current= | =r= in =ogent-edit-menu= |
+| Accept all             | =ogent-edit-accept-all=    | =A= in =ogent-edit-menu= |
+| Reject all             | =ogent-edit-reject-all=    | =R= in =ogent-edit-menu= |
+
+The ogent commands resolve the conflict *and* update edit status, then run
+=ogent-edit-resolved-hook= so companion logging records the outcome.
+
+/When appropriate:/ always available, works in any Emacs, best when you
+want the familiar merge-conflict workflow or need to hand-edit the result
+before accepting.
+
+** Method: overlay (gptel-rewrite style)
+=ogent-edit-apply-as-overlay= keeps the buffer text untouched and overlays
+the region: the proposed text is shown via a =display= property
+(=ogent-edit-overlay-new-face=), with an action-hint banner and a dedicated
+keymap (=ogent-edit-overlay-map=) active while point is on the overlay:
+
+| Key       | Command                             | Action                        |
+|-----------+-------------------------------------+-------------------------------|
+| ~RET~ / mouse-1 | =ogent-edit-overlay-dispatch=  | Prompt for an action          |
+| ~a~       | =ogent-edit-overlay-accept=         | Accept (replace old with new) |
+| ~r~ / ~k~ | =ogent-edit-overlay-reject=         | Reject (drop overlay)         |
+| ~d~       | =ogent-edit-overlay-diff=           | Open unified-diff preview     |
+| ~e~       | =ogent-edit-overlay-ediff=          | Compare in Ediff              |
+| ~m~       | =ogent-edit-overlay-merge=          | Convert to smerge conflict    |
+| ~n~ / ~p~ | =ogent-edit-overlay-next= / =ogent-edit-overlay-previous= | Navigate overlays |
+| ~t~       | =ogent-edit-toggle-display-method=  | Cycle display method          |
+
+Batch operations: =ogent-edit-apply-all-as-overlay=,
+=ogent-edit-overlay-accept-all=, =ogent-edit-overlay-reject-all=.
+
+=ogent-edit-overlay-default-action= (defcustom, default nil) can
+auto-trigger =accept=, =merge=, =diff=, =ediff=, or =dispatch= as soon as
+an overlay is created; nil waits for explicit user action. Accepting an
+overlay re-anchors the edit before splicing in the replacement text, so
+the apply is safe even if the buffer moved underneath the overlay.
+
+/When appropriate:/ the least intrusive review — the buffer content is not
+rewritten until you accept, and each edit carries its own single-key
+actions. Best for interactive review of a handful of edits.
+
+** Method: inline-diff (optional package)
+=ogent-edit-apply-as-inline-diff= requires the optional =inline-diff.el=
+package (checked via =ogent-edit-inline-diff-available-p=; a clear
+=user-error= is signaled when missing). It re-anchors, replaces the old
+text with the new text, then calls =inline-diff-words-region= to paint
+word-level change highlights over the replacement. Accepting or rejecting
+goes through inline-diff's own commands; ogent installs buffer-local
+functions on =inline-diff-accept-hook= / =inline-diff-reject-hook= so all
+pending edits are marked accepted/rejected and =ogent-edit-resolved-hook=
+fires. Status stays =pending= until the user resolves.
+=ogent-edit-apply-all-as-inline-diff= applies a batch (later edits are
+appended rather than clearing earlier highlights).
+
+/When appropriate:/ the most granular view — word-level rather than
+block-level — for users who have =inline-diff.el= installed and want to
+see precisely what changed inside dense lines.
+
+* Diff Preview and Review Buffers
+
+** Single-edit Diff Preview (=*ogent-diff*=)
+=ogent-edit-preview-diff= (autoloaded) renders one edit as a unified diff
+(=ogent-edit--generate-unified-diff=) in a bottom side window
+(height =ogent-edit-preview-window-height=, default 0.3), with =diff-mode=
+highlighting plus =ogent-edit-preview-mode= for review keys:
+
+| Key         | Command                            | Action                          |
+|-------------+------------------------------------+---------------------------------|
+| ~a~ / ~RET~ | =ogent-edit-preview-accept=        | Apply edit (as smerge conflict) |
+| ~r~ / ~q~   | =ogent-edit-preview-reject=        | Reject and close preview        |
+| ~n~ / ~p~   | =diff-hunk-next= / =diff-hunk-prev= | Navigate hunks                 |
+| ~t~         | =ogent-edit-toggle-display-method= | Cycle display method            |
+
+Accepting applies the edit via =ogent-edit-apply-as-smerge= (re-anchoring
+included; a stale/ambiguous edit keeps the preview open and reports why)
+and tracks it in the source buffer's =ogent-edit--pending-edits= so
+resolution is logged like any other edit. Rejecting sets status
+=rejected=, untracks, and runs =ogent-edit-resolved-hook=. This preview is
+also reachable from an overlay via ~d~.
+
+** Multi-edit Review Buffer (=*ogent-edits*=)
+=lisp/ogent-edit-diff.el= provides a Magit-style review buffer for a whole
+batch of proposals: =ogent-edit-show-diff-buffer= (autoloaded; ~D~ in
+=ogent-edit-menu=) calls =ogent-edit-diff-show= on the pending edits.
+Features:
+- Collapsible file and hunk sections (soft dependency on =magit-section=;
+  falls back to a basic plain-text rendering when it is not installed)
+- Stage/unstage semantics for partial acceptance
+- Batch accept/reject
+
+=ogent-edit-diff-mode= keymap:
+
+| Key         | Command                            | Action                       |
+|-------------+------------------------------------+------------------------------|
+| ~n~ / ~p~   | =ogent-edit-diff-next-hunk= / =ogent-edit-diff-prev-hunk= | Navigate hunks |
+| ~M-n~ / ~M-p~ | =ogent-edit-diff-next-file= / =ogent-edit-diff-prev-file= | Navigate files |
+| ~TAB~       | =ogent-edit-diff-toggle-section=   | Collapse/expand section      |
+| ~s~ / ~u~   | =ogent-edit-diff-stage= / =ogent-edit-diff-unstage= | Stage/unstage hunk |
+| ~S~ / ~U~   | =ogent-edit-diff-stage-all= / =ogent-edit-diff-unstage-all= | Stage/unstage all |
+| ~a~         | =ogent-edit-diff-accept-at-point=  | Accept hunk at point         |
+| ~r~         | =ogent-edit-diff-reject-at-point=  | Reject hunk at point         |
+| ~A~         | =ogent-edit-diff-accept-staged=    | Accept all staged hunks      |
+| ~R~         | =ogent-edit-diff-reject-all=       | Reject everything            |
+| ~RET~       | =ogent-edit-diff-goto-source=      | Jump to source location      |
+| ~g~         | =ogent-edit-diff-refresh=          | Re-render                    |
+| ~?~         | =ogent-edit-diff-help=             | Key summary                  |
+| ~q~         | =quit-window=                      | Close                        |
+
+Customs: =ogent-edit-diff-buffer-name= (default =*ogent-edits*=),
+=ogent-edit-diff-window-height= (default 0.4). Under Evil/Doom the mode
+map is registered as an overriding map (see =ogent-evil-setup-display-mode=
+in =lisp/ogent-keys.el=) so the single-key affordances fire.
+
+* Request Flows
+
+All request commands live in =lisp/ogent-edit.el= and funnel through a
+common pipeline.
+
+** Common Pipeline
+=ogent-request-edit= (autoloaded) is the shared entry point:
+1. Requires gptel (=ogent-edit--ensure-gptel=) and a file-backed buffer.
+2. Resolves the edit target: explicit =START= / =END= bounds from callers,
+   else the active region, else the whole buffer.
+3. Wraps the instruction with =ogent-edit-wrap-prompt= and resolves the
+   edit model/backend (=ogent-models-effective-model=,
+   =ogent-gptel-resolve-backend=).
+4. Sends via =gptel-request= with =ogent-edit-system-prompt=, streaming
+   when the model supports it; request context is stashed in
+   =ogent-edit--pending-request=. Failures can offer provider login
+   (=ogent-provider-maybe-offer-login=).
+5. The callback hands the full response to =ogent-edit--process-response=:
+   parse → validate → log proposals/errors to the companion (when
+   =ogent-edit-log-to-companion=) → then either
+   - auto-apply valid edits (=ogent-edit-auto-apply=, off by default;
+     undo via standard Emacs undo), or
+   - display them with the configured method (=ogent-edit-auto-display=,
+     on by default), track them in =ogent-edit--pending-edits=, and jump
+     to the first edit.
+
+** Quick Edit
+=ogent-quick-edit= (~C-c . k~) prompts for a one-line instruction and
+picks a tight target automatically: active region → enclosing defun →
+current line (=ogent-edit--quick-target=); a prefix argument widens to the
+whole buffer. The instruction is wrapped with a scope hint
+(=ogent-edit--quick-prompt=) and dispatched through =ogent-request-edit=.
+Use it for "rename this", "add a docstring here" class changes without
+composing a full request.
+
+** Diagnostic Repair
+Two commands turn Flymake/Flycheck diagnostics into repair requests:
+- =ogent-fix-diagnostic= (~C-c . f~): takes the diagnostic at point
+  (Flymake preferred, Flycheck fallback), targets the diagnostic's span
+  widened to the enclosing defun/line (prefix = whole buffer), and builds
+  a repair prompt from the diagnostic text
+  (=ogent-edit--diagnostic-prompt=).
+- =ogent-fix-buffer-diagnostics= (~C-c . F~): collects, dedupes, and
+  severity-sorts every diagnostic in the buffer and requests one
+  whole-buffer edit fixing all of them
+  (=ogent-edit--buffer-diagnostics-prompt=); prefix prompts for extra
+  guidance.
+
+** AI Speed Edit
+=ogent-ai-speed-edit= (~C-c . v~) is the "just fix it" command: it gathers
+all buffer diagnostics, chooses the most relevant target around point
+(=ogent-edit--ai-speed-target=), and sends a prompt containing the target
+code, the diagnostics overlapping the target, and the remaining buffer
+diagnostics as context (=ogent-edit--ai-speed-prompt=), letting the model
+decide the best small edit. Prefix widens to the whole buffer.
+
+** Zen Rewrite Path (related)
+Org Zen transcripts have their own inline-edit subsystem
+(=lisp/ogent-zen-edit.el=): =ogent-zen-edit-dwim= (~C-c . C-e~) requests a
+rewrite through the Zen transcript, and =ogent-zen-apply-last-edit=
+(~C-c . C-a~) parses the SEARCH/REPLACE response and previews it with
+=inline-diff= directly. It shares the response format but not the
+=ogent-edit= display pipeline above.
 
 * Companion Buffer Logging
+
+Implemented in =lisp/ogent-edit-log.el=; enabled by
+=ogent-edit-log-to-companion= (default t).
 
 ** Log Entry Format
 Each edit operation creates an entry in the companion Org buffer:
@@ -274,158 +428,188 @@ Status: accepted
 #+end_example
 
 ** Logging Functions
-#+begin_src elisp
-(defun ogent-edit-log-proposal (edit)
-  "Log EDIT proposal to companion buffer."
-  (let* ((source-buf (ogent-edit-source-buffer edit))
-         (companion (ogent-companion--get-linked-buffer source-buf)))
-    (when companion
-      (with-current-buffer companion
-        (goto-char (point-max))
-        (insert (format "\n** Edit: %s [%s]\n"
-                        (ogent-edit-id edit)
-                        (format-time-string "%Y-%m-%d %a %H:%M")))
-        ;; Insert properties drawer
-        ;; Insert diff block
-        ;; Store marker for later updates
-        ))))
+- =ogent-edit-log-proposal= / =ogent-edit-log-all-proposals=: create the
+  Org heading with properties drawer and diff block, storing a
+  companion marker on the edit struct.
+- =ogent-edit-log-resolution=: locates the entry via
+  =ogent-edit--find-log-marker=, updates the =STATUS= property, and adds a
+  resolution timestamp.
+- =ogent-edit-log-errors=: records validation failures.
 
-(defun ogent-edit-log-resolution (edit new-status)
-  "Log that EDIT was resolved with NEW-STATUS."
-  ;; Find the edit's log entry
-  ;; Update STATUS property
-  ;; Add resolution timestamp
-  )
-#+end_src
+* Marker Synchronization and Resolution Tracking
 
-* Marker Synchronization
-
-** Edit Markers Structure
-#+begin_src elisp
-(cl-defstruct ogent-edit-marker
-  "Links positions between source and companion buffers."
-  edit-id
-  source-marker    ; marker in source buffer (at conflict start)
-  companion-marker ; marker in companion buffer (at log entry)
-  status)
-
-(defvar-local ogent-edit--markers nil
-  "List of `ogent-edit-marker' for this buffer.")
-#+end_src
+** Markers
+Rather than a separate marker struct, each =ogent-edit= carries
+=source-marker= (set when the edit is displayed) and =companion-marker=
+(set when the proposal is logged). Displayed edits are tracked in the
+buffer-local =ogent-edit--pending-edits= list.
 
 ** Navigation Commands
-#+begin_src elisp
-(defun ogent-edit-goto-source ()
-  "Jump from companion to source buffer at current edit."
-  (interactive)
-  ;; Find edit ID at point
-  ;; Look up marker
-  ;; Switch to source buffer and goto marker
-  )
+- =ogent-edit-goto-source= (~C-c . s~): from a companion log entry
+  (identified by the =OGENT_EDIT_ID= property), jump to the edit's
+  location in the source buffer.
+- =ogent-edit-goto-companion= (~C-c . C~): from a source-buffer edit at
+  point, jump to its companion log entry.
 
-(defun ogent-edit-goto-companion ()
-  "Jump from source to companion buffer log entry."
-  (interactive)
-  ;; Find which edit we're in (if any)
-  ;; Look up marker
-  ;; Switch to companion and goto marker
-  )
-#+end_src
-
-* Request Flow
-
-** Entry Point
-#+begin_src elisp
-;;;###autoload
-(defun ogent-request-edit (&optional prompt)
-  "Request code edits for current buffer or region.
-PROMPT is the edit instruction. If region is active, only that
-region is sent for context."
-  (interactive)
-  (unless (buffer-file-name)
-    (user-error "Buffer must be visiting a file for edit requests"))
-  (let* ((source-buffer (current-buffer))
-         (region-start (when (use-region-p) (region-beginning)))
-         (region-end (when (use-region-p) (region-end)))
-         (user-prompt (or prompt (read-string "Edit instruction: ")))
-         (companion (ogent-companion-get-or-create)))
-    ;; Build full prompt with edit format instructions
-    ;; Send via ogent-request with edit callback
-    ;; Callback: parse response, validate edits, display as smerge
-    ))
-#+end_src
-
-** Callback Processing
-#+begin_src elisp
-(defun ogent-edit--process-response (response source-buffer)
-  "Process LLM RESPONSE and apply edits to SOURCE-BUFFER."
-  (let ((edits (ogent-edit-parse-response response source-buffer)))
-    (dolist (edit edits)
-      ;; Validate
-      (ogent-edit-validate edit)
-      ;; Log to companion
-      (ogent-edit-log-proposal edit)
-      ;; Display in source (if valid)
-      (if (eq (ogent-edit-status edit) 'error)
-          (message "Edit %s failed: %s"
-                   (ogent-edit-id edit)
-                   (ogent-edit-error-message edit))
-        (ogent-edit-apply-as-smerge edit)))
-    ;; Return to first conflict
-    (when edits
-      (with-current-buffer source-buffer
-        (goto-char (point-min))
-        (smerge-next)))))
-#+end_src
+** Resolution Hook
+=ogent-edit-resolved-hook= runs whenever an edit is accepted or rejected —
+from smerge resolution (=ogent-edit--smerge-resolved-hook=,
+=ogent-edit-accept-current= / =ogent-edit-reject-current=), overlay
+actions, inline-diff hooks, the diff preview, or the review buffer. Each
+function receives the =ogent-edit= struct; companion logging subscribes
+here.
 
 * Transient Menu
 
-#+begin_src elisp
-(transient-define-prefix ogent-edit-menu ()
-  "Commands for managing ogent edits."
-  [:description
-   (lambda ()
-     (let ((pending (ogent-edit--count-pending)))
-       (if (> pending 0)
-           (format "Pending edits: %d" pending)
-         "No pending edits")))
-   ["Current Edit"
-    ("a" "Accept" ogent-edit-accept-current)
-    ("r" "Reject" ogent-edit-reject-current)
-    ("d" "Show diff" ogent-edit-show-diff)]
-   ["All Edits"
-    ("A" "Accept all" ogent-edit-accept-all)
-    ("R" "Reject all" ogent-edit-reject-all)]
-   ["Navigate"
-    ("n" "Next" smerge-next :transient t)
-    ("p" "Previous" smerge-prev :transient t)
-    ("g" "Goto companion" ogent-edit-goto-companion)]]
-  [["Request"
-    ("e" "Request edit" ogent-request-edit)
-    ("q" "Quit" transient-quit-one)]])
-#+end_src
+=ogent-edit-menu= (~C-c . e~) is display-method aware: its header shows
+the pending count and current method, and its resolution commands dispatch
+to the right backend (smerge commands vs overlay commands) via dispatch
+helpers (=ogent-edit--accept-current-dispatch=,
+=ogent-edit--reject-current-dispatch=, =ogent-edit--next-dispatch=,
+=ogent-edit--prev-dispatch=, =ogent-edit--accept-all-dispatch=,
+=ogent-edit--reject-all-dispatch=).
+
+| Group        | Key | Action                                               |
+|--------------+-----+------------------------------------------------------|
+| Current Edit | ~a~ | Accept (dispatches per display method)               |
+| Current Edit | ~r~ | Reject (dispatches per display method)               |
+| Current Edit | ~n~ / ~p~ | Next / previous edit (transient)               |
+| All Edits    | ~A~ / ~R~ | Accept all / reject all                        |
+| Request      | ~v~ | =ogent-ai-speed-edit=                                |
+| Request      | ~f~ | =ogent-fix-diagnostic=                               |
+| Request      | ~F~ | =ogent-fix-buffer-diagnostics=                       |
+| Request      | ~k~ | =ogent-quick-edit=                                   |
+| Request      | ~e~ | =ogent-request-edit=                                 |
+| Request      | ~D~ | =ogent-edit-show-diff-buffer= (magit-style review)   |
+| Request      | ~q~ | Quit                                                 |
+| Overlay      | ~d~ / ~E~ / ~m~ | Diff / Ediff / Merge (only in overlay mode) |
 
 * Keybindings
 
-| Key | Command | Description |
-|-----+---------+-------------|
-| =C-c . e= | =ogent-edit-menu= | Open edit transient |
-| =C-c . E= | =ogent-request-edit= | Request code edit |
-| =C-c . s= | =ogent-edit-goto-source= | Jump to source |
-| =C-c . C= | =ogent-edit-goto-companion= | Jump to companion |
+Bindings are no longer hardcoded: =lisp/ogent-keys.el= defines
+=ogent-action-registry=, and vanilla, Evil, and Doom bindings are all
+generated from it. Prefixes are customizable:
+
+| Custom                 | Default   | Applies to                          |
+|------------------------+-----------+-------------------------------------|
+| =ogent-vanilla-prefix= | =C-c .=   | Vanilla Emacs                       |
+| =ogent-evil-prefix=    | =SPC o=   | Evil normal/visual state            |
+| =ogent-doom-prefix=    | =o=       | Doom leader (i.e. =SPC o=)          |
+| =ogent-review-prefix=  | =C-c ,=   | Backend-aware review commands       |
+
+Keys below are suffixes under the prefix (e.g. ~k~ = ~C-c . k~ /
+~SPC o k~). "Visual" marks actions also bound in Evil visual state.
+This table is generated from =ogent-action-registry= and must be kept in
+sync with it.
+
+** Main Registry (=ogent-action-registry=)
+| Key   | Command                       | Description             | Visual |
+|-------+-------------------------------+-------------------------+--------|
+| ~p~   | =ogent-prompt-dispatch=       | Open prompt dispatcher  |        |
+| ~r~   | =ogent-request=               | Send request            | yes    |
+| ~a~   | =ogent-abort-request=         | Abort current request   |        |
+| ~R~   | =ogent-retry-request=         | Retry last request      |        |
+| ~@~   | =ogent-model-picker=          | Model picker            |        |
+| ~c~   | =ogent-context-preview=       | Preview context         |        |
+| ~m~   | =ogent-codemap-buffer=        | Show static codemap     |        |
+| ~M~   | =ogent-codemap-generate=      | Generate task codemap   |        |
+| ~P~   | =ogent-pin-dwim=              | Pin file/buffer/region  | yes    |
+| ~U~   | =ogent-unpin-interactive=     | Unpin item              |        |
+| ~l~   | =ogent-list-pinned=           | List pinned             |        |
+| ~e~   | =ogent-edit-menu=             | Edit menu               |        |
+| ~v~   | =ogent-ai-speed-edit=         | AI speed edit           | yes    |
+| ~f~   | =ogent-fix-diagnostic=        | Fix diagnostic          | yes    |
+| ~F~   | =ogent-fix-buffer-diagnostics= | Fix buffer diagnostics | yes    |
+| ~k~   | =ogent-quick-edit=            | Quick inline edit       | yes    |
+| ~E~   | =ogent-request-edit=          | Request edit            | yes    |
+| ~s~   | =ogent-edit-goto-source=      | Go to source            |        |
+| ~C~   | =ogent-edit-goto-companion=   | Go to companion         |        |
+| ~t~   | =ogent-debug-tools-menu=      | Tools debug menu        |        |
+| ~T~   | =ogent-tool-rerun=            | Re-run tool at point    |        |
+| ~h~   | =ogent-zen-show-tool-calls=   | Tool calls under heading |       |
+| ~n~   | =ogent-navigate=              | Navigate menu           |        |
+| ~b~   | =ogent-show-backlinks=        | Show backlinks          |        |
+| ~g~   | =ogent-show-dependency-graph= | Dependency graph        |        |
+| ~o~   | =ogent-open-block=            | Open block              |        |
+| ~i~   | =ogent-issues=                | Issue tracker           |        |
+| ~S~   | =ogent-session-save=          | Save session            |        |
+| ~L~   | =ogent-session-load=          | Load session            |        |
+| ~H~   | =ogent-session-list=          | List sessions           |        |
+| ~RET~ | =ogent-run-subtree=           | Run subtree             | yes    |
+| ~!~   | =ogent-zen-rerun=             | Re-run at point         |        |
+| ~w~   | =ogent-zen-copy-response=     | Copy Zen response       |        |
+| ~u~   | =ogent-zen-dispatch=          | Zen menu                |        |
+| ~q~   | =ogent-ask-here=              | Ask here                | yes    |
+| ~C-r~ | =ogent-zen-run-region=        | Ask region              | yes    |
+| ~C-e~ | =ogent-zen-edit-dwim=         | Rewrite here            | yes    |
+| ~C-a~ | =ogent-zen-apply-last-edit=   | Apply last edit         |        |
+| ~?~   | =ogent-ask-menu=              | Ask menu                |        |
+| ~d~   | =ogent-notes-capture=         | Capture notes           |        |
+| ~D~   | =ogent-debug-mode=            | Toggle debug mode       |        |
+| ~j~   | =ogent-armory-home=           | Armory Home             |        |
+| ~K~   | =ogent-armory-status=         | Armory graph/status     |        |
+| ~y~   | =ogent-armory-agents=         | Armory agents           |        |
+| ~Y~   | =ogent-armory-agent=          | Armory agent profile    |        |
+| ~B~   | =ogent-armory-org-chart=      | Armory org chart        |        |
+| ~;~   | =ogent-armory-data=           | Armory data browser     |        |
+| ~I~   | =ogent-armory-tasks=          | Armory tasks            |        |
+| ~O~   | =ogent-armory-conversations=  | Armory conversations    |        |
+| ~N~   | =ogent-armory-actions=        | Armory action approvals |        |
+| ~J~   | =ogent-armory-schedule=       | Armory schedule         |        |
+| ~Q~   | =ogent-armory-agenda=         | Armory agenda           |        |
+| ~:~   | =ogent-armory-git-status=     | Armory git status       |        |
+| ~/~   | =ogent-armory-command-palette= | Armory command palette |        |
+| ~,~   | =ogent-armory-settings=       | Armory settings         |        |
+| ~.~   | =ogent-armory-help=           | Armory help             |        |
+| ~'~   | =ogent-armory-onboard=        | Onboard Armory          |        |
+| ~=~   | =ogent-armory-registry-import= | Import Armory registry |        |
+| ~_~   | =ogent-armory-backup=         | Back up Armory          |        |
+| ~V~   | =ogent-armory-search=         | Armory search           |        |
+| ~W~   | =ogent-armory-apps=           | Armory apps             |        |
+| ~X~   | =ogent-armory-create-agent=   | Create Armory agent     |        |
+| ~Z~   | =ogent-armory-create-job=     | Create Armory job       |        |
+| ~]~   | =ogent-completion-next=       | Next completion         |        |
+| ~[~   | =ogent-completion-prev=       | Previous completion     |        |
+| ~z~   | =ogent-completion-accept=     | Accept completion       |        |
+| ~x~   | =ogent-completion-reject=     | Reject completion       |        |
+| ~+~   | =ogent-analytics-rate-up=     | Rate thumbs up          |        |
+| ~-~   | =ogent-analytics-rate-down=   | Rate thumbs down        |        |
+| ~A~   | =ogent-analytics-dashboard=   | Analytics dashboard     |        |
+
+** Review Registry (=ogent-review-action-registry=, prefix =C-c ,=)
+| Key | Command                  | Description          |
+|-----+--------------------------+----------------------|
+| ~n~ | =ogent-review-next=      | Next review item     |
+| ~p~ | =ogent-review-previous=  | Previous review item |
+| ~a~ | =ogent-review-accept=    | Accept current item  |
+| ~x~ | =ogent-review-reject=    | Reject current item  |
+| ~u~ | =ogent-review-useful=    | Mark useful          |
+| ~m~ | =ogent-review-defer=     | Needs review         |
+| ~s~ | =ogent-review-stale=     | Mark stale           |
+| ~d~ | =ogent-review-dashboard= | Review dashboard     |
+| ~.~ | =ogent-review-describe=  | Describe review state |
 
 * File Organization
 
 #+begin_example
 lisp/
-  ogent-edit.el          ; Main edit module
-  ogent-edit-format.el   ; Format constants, prompt templates
-  ogent-edit-parse.el    ; Parser for SEARCH/REPLACE blocks
-  ogent-edit-display.el  ; smerge integration, inline-diff adapter
+  ogent-edit.el          ; Request flows, response processing, transient menu
+  ogent-edit-format.el   ; ogent-edit struct, prompt templates, ID generation
+  ogent-edit-parse.el    ; Parser + validation for SEARCH/REPLACE blocks
+  ogent-edit-display.el  ; smerge/overlay/inline-diff display, diff preview
+  ogent-edit-diff.el     ; Magit-style multi-edit review buffer
   ogent-edit-log.el      ; Companion logging
+  ogent-zen-edit.el      ; Zen transcript rewrite path (inline-diff based)
+  ogent-keys.el          ; Action registry the keybinding tables derive from
 
 test/
-  ogent-edit-tests.el    ; Parser tests, integration tests
+  ogent-edit-tests.el
+  ogent-edit-format-tests.el
+  ogent-edit-parse-tests.el
+  ogent-edit-display-tests.el
+  ogent-edit-diff-tests.el
+  ogent-edit-log-tests.el
+  ogent-keys-tests.el
 #+end_example
 
 * Testing Strategy
@@ -444,28 +628,26 @@ test/
 - OLD text found multiple times (error)
 - Whitespace sensitivity
 
+** Display Tests
+- Each display method applies and resolves correctly
+- Re-anchoring: stale positions recovered on unique match, refused on
+  missing/ambiguous text
+- Preview and review buffers accept/reject/stage as advertised
+
 ** Integration Tests
-- Full request → parse → display flow
-- smerge accept/reject updates status
+- Full request → parse → display flow (per method)
+- Accept/reject updates status and runs =ogent-edit-resolved-hook=
 - Companion logging records all actions
 - Marker navigation works both directions
 
 * Future Enhancements
 
-** inline-diff Integration (Optional)
-When =inline-diff= package is available, offer as alternative display:
-- More granular than smerge (word-level diffs)
-- M-a/M-k accept/reject
-- Configure via =ogent-edit-display-method=
+(=inline-diff= display and auto-apply mode shipped and are documented
+above.)
 
 ** Unified Diff Support
-For complex multi-file changes, support unified diff format:
+For complex multi-file changes, support unified diff as an LLM /response/
+format (the review buffer already renders proposals diff-style):
 - Parse @@ hunk headers
 - Apply via =diff-apply-hunk=
 - Display in separate patch buffer (like Macher)
-
-** Auto-Apply Mode
-For trusted operations, optional auto-apply:
-- =ogent-edit-auto-apply= customization
-- Still logs to companion
-- Undo support via standard Emacs undo
