@@ -549,20 +549,24 @@ Untracks the edit from its source buffer and runs
 (defun ogent-edit-apply-as-overlay (edit)
   "Display EDIT as an overlay with inline preview.
 The original text is highlighted and the new text shown as a display overlay.
-User can accept, reject, diff, ediff, or merge."
+User can accept, reject, diff, ediff, or merge.
+If the buffer changed since validation, re-anchor EDIT via
+`ogent-edit--re-anchor'; a stale or ambiguous edit signals
+`user-error' and leaves the buffer untouched."
   (unless (eq (ogent-edit-status edit) 'pending)
     (user-error "Edit %s is not pending" (ogent-edit-id edit)))
   (unless (ogent-edit-start-pos edit)
     (user-error "Edit %s has not been validated" (ogent-edit-id edit)))
-  (let* ((buf (ogent-edit-source-buffer edit))
-         (start (ogent-edit-start-pos edit))
-         (end (ogent-edit-end-pos edit))
-         (new-text (ogent-edit-new-text edit)))
+  (let ((buf (ogent-edit-source-buffer edit))
+        (new-text (ogent-edit-new-text edit)))
     (unless (buffer-live-p buf)
       (user-error "Source buffer for edit %s is no longer available"
                   (ogent-edit-id edit)))
     (with-current-buffer buf
-      (let* ((ov (make-overlay start end nil t nil)))
+      (ogent-edit--re-anchor edit)
+      (let* ((start (ogent-edit-start-pos edit))
+             (end (ogent-edit-end-pos edit))
+             (ov (make-overlay start end nil t nil)))
         ;; Store edit in overlay
         (overlay-put ov 'ogent-edit edit)
         (overlay-put ov 'ogent-new-text new-text)

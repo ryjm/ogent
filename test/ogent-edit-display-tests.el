@@ -1261,6 +1261,84 @@
           (should (equal (buffer-string) mutated))))
     (ogent-edit-display-test--cleanup-buffers)))
 
+(ert-deftest ogent-edit-display-test-overlay-re-anchors-after-shift ()
+  "Test overlay apply re-anchors when text is inserted before the target."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (new-text "replacement text")
+             (edit (ogent-edit-display-test--make-edit old-text new-text))
+             (prefix ";; unrelated preamble\n"))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (goto-char (point-min))
+          (insert prefix))
+        (ogent-edit-apply-as-overlay edit)
+        (should (eq (ogent-edit-status edit) 'applied))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          ;; Struct positions were updated to the shifted location.
+          (should (= (ogent-edit-start-pos edit) (1+ (length prefix))))
+          ;; The overlay covers exactly the re-anchored old text.
+          (let ((ov (car ogent-edit--overlay-list)))
+            (should ov)
+            (should (= (overlay-start ov) (1+ (length prefix))))
+            (should (equal (buffer-substring-no-properties
+                            (overlay-start ov) (overlay-end ov))
+                           old-text)))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-refuses-stale-edit ()
+  "Test overlay apply refuses when the original text is gone."
+  (unwind-protect
+      (let* ((old-text "target text")
+             (edit (ogent-edit-display-test--make-edit old-text "new text")))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          (erase-buffer)
+          (insert "completely different content"))
+        (should-error (ogent-edit-apply-as-overlay edit) :type 'user-error)
+        (should (eq (ogent-edit-status edit) 'error))
+        (should (string-match-p "not found" (ogent-edit-error-message edit)))
+        (with-current-buffer (ogent-edit-source-buffer edit)
+          ;; Buffer untouched, no stray overlays.
+          (should (equal (buffer-string) "completely different content"))
+          (should (null ogent-edit--overlay-list))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
+(ert-deftest ogent-edit-display-test-overlay-batch-skips-unanchorable ()
+  "Test batch overlay apply skips un-anchorable edits and applies the rest."
+  (unwind-protect
+      (let* ((buf (generate-new-buffer " *ogent-test-batch*"))
+             (good (make-ogent-edit
+                    :id "good" :old-text "alpha one" :new-text "ALPHA"
+                    :source-buffer buf :source-file "test.el"
+                    :status 'pending :timestamp (current-time)))
+             (bad (make-ogent-edit
+                   :id "bad" :old-text "beta two" :new-text "BETA"
+                   :source-buffer buf :source-file "test.el"
+                   :status 'pending :timestamp (current-time))))
+        (with-current-buffer buf
+          (insert "alpha one\nbeta two\n"))
+        (ogent-edit-validate good)
+        (ogent-edit-validate bad)
+        ;; Mutate: shift the good target and remove the bad one entirely.
+        (with-current-buffer buf
+          (goto-char (point-min))
+          (insert ";; preamble\n")
+          (goto-char (point-min))
+          (search-forward "beta two")
+          (replace-match "gamma three"))
+        (let ((applied (ogent-edit-apply-all-as-overlay (list good bad))))
+          (should (equal (list good) applied)))
+        (should (eq (ogent-edit-status good) 'applied))
+        (should (eq (ogent-edit-status bad) 'error))
+        (should (string-match-p "not found" (ogent-edit-error-message bad)))
+        (with-current-buffer buf
+          ;; One overlay, sitting on the re-anchored good text.
+          (should (= 1 (length ogent-edit--overlay-list)))
+          (let ((ov (car ogent-edit--overlay-list)))
+            (should (equal (buffer-substring-no-properties
+                            (overlay-start ov) (overlay-end ov))
+                           "alpha one")))))
+    (ogent-edit-display-test--cleanup-buffers)))
+
 ;;; Preview Resolution Pipeline Tests
 
 (ert-deftest ogent-edit-display-test-preview-reject-runs-resolved-hook ()
