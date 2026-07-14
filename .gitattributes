@@ -1,3 +1,6 @@
 
-# Use bd merge for beads JSONL files
-.beads/issues.jsonl merge=beads
+# .beads/issues.jsonl deliberately has NO custom merge driver.  The
+# legacy `merge=beads` attribute invoked the retired `bd merge`, which
+# silently dropped issues on divergent merges (ogent-cmt).  Let git
+# surface conflicts instead; resolve them with the three-way
+# `br sync --merge` workflow (see bead ogent-cmt for the procedure).
