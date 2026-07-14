@@ -451,6 +451,177 @@ Armory scope instead of falling back to the global
         (with-current-buffer buf
           (setq-local org-agenda-files files))))))
 
+;;; Control-plane agenda
+
+(declare-function ogent-armory-actions-read "ogent-armory-actions"
+                  (directory conversation-id))
+(declare-function ogent-armory-actions-store "ogent-armory-actions"
+                  (directory conversation-id actions))
+
+(defcustom ogent-armory-agenda-control-plane-key "A"
+  "Dispatch key for the Armory control-plane agenda custom command."
+  :type 'string
+  :group 'ogent-armory-schedule)
+
+(defvar-local ogent-armory-agenda--root nil
+  "Armory root scoped buffer-locally to a control-plane agenda buffer.")
+
+(defun ogent-armory-agenda-control-plane-command ()
+  "Return the control-plane `org-agenda-custom-commands' entry.
+Compose three blocks over the Armory agenda scope: currently
+RUNNING runs, FAILED runs needing retry, and pending action
+proposals awaiting approval, matched through their
+`OGENT_ACTION_STATUS' property drawers."
+  (list ogent-armory-agenda-control-plane-key
+        "Armory control plane"
+        '((todo "RUNNING"
+                ((org-agenda-overriding-header "Running Armory runs")))
+          (todo "FAILED"
+                ((org-agenda-overriding-header
+                  "Failed Armory runs (r to retry)")))
+          (tags "OGENT_ACTION_STATUS=\"pending\""
+                ((org-agenda-overriding-header
+                  "Pending Armory actions (a to approve)"))))
+        nil))
+
+(defun ogent-armory-agenda--marker ()
+  "Return the source Org marker for the agenda line at point."
+  (or (org-get-at-bol 'org-marker)
+      (org-get-at-bol 'org-hd-marker)
+      (user-error "No Org agenda entry at point")))
+
+(defun ogent-armory-agenda--entry ()
+  "Return a plist describing the Armory entry behind the agenda line at point.
+Read the headline's TODO state and OGENT_* properties from the
+property drawer behind the line's Org marker."
+  (let* ((marker (ogent-armory-agenda--marker))
+         (buffer (marker-buffer marker)))
+    (unless (buffer-live-p buffer)
+      (user-error "Buffer for the agenda entry at point is gone"))
+    (with-current-buffer buffer
+      (org-with-wide-buffer
+       (goto-char marker)
+       (org-back-to-heading t)
+       (list :file (buffer-file-name)
+             :todo (org-get-todo-state)
+             :agent (ogent-armory--blank-to-nil
+                     (org-entry-get nil "OGENT_AGENT"))
+             :job-id (ogent-armory--blank-to-nil
+                      (org-entry-get nil "OGENT_JOB_ID"))
+             :conversation-id (ogent-armory--blank-to-nil
+                               (org-entry-get nil "OGENT_CONVERSATION_ID"))
+             :action-id (ogent-armory--blank-to-nil
+                         (org-entry-get nil "OGENT_ACTION_ID")))))))
+
+(defun ogent-armory-agenda--resolve-root (file)
+  "Return the Armory root for the current agenda buffer or FILE."
+  (or ogent-armory-agenda--root
+      (and file (ogent-armory-find-root (file-name-directory file)))
+      (user-error "No Armory root for the agenda entry at point")))
+
+(defun ogent-armory-agenda--dispatch-run (entry)
+  "Dispatch ENTRY's agent job to `ogent-armory-run-job'."
+  (let ((agent (plist-get entry :agent))
+        (job-id (plist-get entry :job-id)))
+    (unless (and agent job-id)
+      (user-error "No runnable Armory job at point"))
+    (ogent-armory-run-job
+     (ogent-armory-agenda--resolve-root (plist-get entry :file))
+     agent job-id)))
+
+(defun ogent-armory-agenda-run ()
+  "Run the Armory job behind the agenda headline at point.
+Resolve the agent and job id from the headline's property drawer."
+  (interactive)
+  (ogent-armory-agenda--dispatch-run (ogent-armory-agenda--entry)))
+
+(defun ogent-armory-agenda-retry ()
+  "Retry the FAILED Armory run behind the agenda headline at point.
+Signal an error unless the headline's TODO state is FAILED, then
+dispatch the same job run as `ogent-armory-agenda-run'."
+  (interactive)
+  (let ((entry (ogent-armory-agenda--entry)))
+    (unless (equal (plist-get entry :todo) "FAILED")
+      (user-error "Entry at point is not a FAILED run"))
+    (ogent-armory-agenda--dispatch-run entry)))
+
+(defun ogent-armory-agenda-approve ()
+  "Approve the pending Armory action behind the agenda headline at point.
+Resolve the action id from the headline's property drawer, derive
+the owning conversation from the actions file path, and persist the
+approved status through `ogent-armory-actions-store'."
+  (interactive)
+  (let* ((entry (ogent-armory-agenda--entry))
+         (action-id (or (plist-get entry :action-id)
+                        (user-error "No Armory action at point")))
+         (file (or (plist-get entry :file)
+                   (user-error "Armory action at point has no file")))
+         (conversation-id (file-name-nondirectory
+                           (directory-file-name (file-name-directory file))))
+         (root (ogent-armory-agenda--resolve-root file)))
+    (require 'ogent-armory-actions)
+    (ogent-armory-actions-store
+     root conversation-id
+     (mapcar (lambda (action)
+               (if (equal (plist-get action :id) action-id)
+                   (plist-put (copy-sequence action) :status "approved")
+                 action))
+             (ogent-armory-actions-read root conversation-id)))
+    (message "ogent: approved action %s" action-id)))
+
+(defvar ogent-armory-agenda-actions-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "R" #'ogent-armory-agenda-run)
+    (define-key map (kbd "C-c R") #'ogent-armory-agenda-run)
+    (define-key map "r" #'ogent-armory-agenda-retry)
+    (define-key map (kbd "C-c r") #'ogent-armory-agenda-retry)
+    (define-key map "a" #'ogent-armory-agenda-approve)
+    (define-key map (kbd "C-c a") #'ogent-armory-agenda-approve)
+    map)
+  "Keymap for `ogent-armory-agenda-actions-mode'.")
+
+(define-minor-mode ogent-armory-agenda-actions-mode
+  "Bind Armory run, retry, and approve keys in a control-plane agenda.
+`ogent-armory-agenda-control-plane' enables this mode buffer-locally
+in the agenda buffer it builds, so `org-agenda-mode-map' stays
+untouched and no global `org-agenda-mode-hook' entry or flag
+handshake is needed; this mirrors how `ogent-armory-agenda' already
+installs its file scope buffer-locally.  Refreshing the agenda still
+works through \\`g'; \\`r' is rebound to retry in this view.
+
+\\{ogent-armory-agenda-actions-mode-map}"
+  :lighter " OgentCP"
+  :keymap ogent-armory-agenda-actions-mode-map
+  :group 'ogent-armory-schedule)
+
+;;;###autoload
+(defun ogent-armory-agenda-control-plane (&optional directory)
+  "Open the composite Armory control-plane agenda for DIRECTORY.
+Compose RUNNING runs, FAILED runs needing retry, and pending
+actions awaiting approval into one Org agenda.  The custom command
+entry and the Armory file scope are let-bound around the
+`org-agenda' call, then installed buffer-locally in the resulting
+agenda buffer together with `ogent-armory-agenda-actions-mode', so
+neither `org-agenda-custom-commands' nor `org-agenda-files' is
+mutated globally and refresh commands keep the Armory scope."
+  (interactive
+   (list (or (ogent-armory-find-root)
+             (read-directory-name "Armory root: "))))
+  (let* ((root (or directory default-directory))
+         (files (ogent-armory-agenda-files root)))
+    (let ((org-agenda-files files)
+          (org-agenda-custom-commands
+           (cons (ogent-armory-agenda-control-plane-command)
+                 org-agenda-custom-commands)))
+      (org-agenda nil ogent-armory-agenda-control-plane-key))
+    (when-let ((buf (if (boundp 'org-agenda-buffer) org-agenda-buffer
+                      (get-buffer org-agenda-buffer-name))))
+      (when (buffer-live-p buf)
+        (with-current-buffer buf
+          (setq-local org-agenda-files files)
+          (setq-local ogent-armory-agenda--root root)
+          (ogent-armory-agenda-actions-mode 1))))))
+
 (defun ogent-armory-schedule--state-label (state)
   "Return a display label for schedule STATE."
   (pcase state

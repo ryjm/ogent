@@ -11,6 +11,7 @@
 (require 'ogent-armory)
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-schedule)
+(require 'ogent-armory-actions)
 (require 'org)
 (require 'seq)
 
@@ -442,6 +443,200 @@ keyword arguments, newest first."
             (should (equal (default-value 'org-agenda-files) global-files)))
         (when (buffer-live-p buffer)
           (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-schedule-control-plane-command-structure ()
+  "The control-plane custom command composes running/failed/pending blocks."
+  (let ((entry (ogent-armory-agenda-control-plane-command)))
+    (should (equal (nth 0 entry) ogent-armory-agenda-control-plane-key))
+    (should (stringp (nth 1 entry)))
+    (let ((blocks (nth 2 entry)))
+      (should (= (length blocks) 3))
+      (should (equal (mapcar #'car blocks) '(todo todo tags)))
+      (should (equal (nth 1 (nth 0 blocks)) "RUNNING"))
+      (should (equal (nth 1 (nth 1 blocks)) "FAILED"))
+      (should (equal (nth 1 (nth 2 blocks))
+                     "OGENT_ACTION_STATUS=\"pending\""))
+      (dolist (block blocks)
+        (should (assq 'org-agenda-overriding-header (nth 2 block)))))))
+
+(ert-deftest ogent-armory-schedule-control-plane-scopes-buffer-locally ()
+  "The control-plane agenda registers command and scope per invocation."
+  (ogent-armory-schedule-test-with-temp-dir root
+    (ogent-armory-scaffold root "Company" :kind "root" :create-editor nil)
+    (ogent-armory-schedule-test--make-agent root)
+    (let ((buffer (generate-new-buffer " *ogent-agenda-test*"))
+          (global-commands org-agenda-custom-commands)
+          (global-files org-agenda-files)
+          (org-agenda-buffer nil)
+          captured-files captured-commands captured-keys)
+      (unwind-protect
+          (cl-letf (((symbol-function 'org-agenda)
+                     (lambda (&optional _arg keys &rest _)
+                       (interactive)
+                       (setq captured-files org-agenda-files)
+                       (setq captured-commands org-agenda-custom-commands)
+                       (setq captured-keys keys)
+                       (setq org-agenda-buffer buffer))))
+            (ogent-armory-agenda-control-plane root)
+            (should (equal captured-keys
+                           ogent-armory-agenda-control-plane-key))
+            (should (equal captured-files (ogent-armory-agenda-files root)))
+            (should (assoc ogent-armory-agenda-control-plane-key
+                           captured-commands))
+            (should (equal (default-value 'org-agenda-custom-commands)
+                           global-commands))
+            (should (equal (default-value 'org-agenda-files) global-files))
+            (with-current-buffer buffer
+              (should (equal org-agenda-files
+                             (ogent-armory-agenda-files root)))
+              (should ogent-armory-agenda-actions-mode)
+              (should (equal ogent-armory-agenda--root root))))
+        (when (buffer-live-p buffer)
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-armory-schedule-agenda-actions-mode-bindings ()
+  "The control-plane minor mode binds run, retry, and approve keys."
+  (should (eq (lookup-key ogent-armory-agenda-actions-mode-map "R")
+              #'ogent-armory-agenda-run))
+  (should (eq (lookup-key ogent-armory-agenda-actions-mode-map "r")
+              #'ogent-armory-agenda-retry))
+  (should (eq (lookup-key ogent-armory-agenda-actions-mode-map "a")
+              #'ogent-armory-agenda-approve)))
+
+(defun ogent-armory-schedule-tests--org-fixture (content &optional file)
+  "Return an Org buffer containing CONTENT, visiting FILE when non-nil."
+  (let ((buffer (if file
+                    (progn
+                      (with-temp-file file (insert content))
+                      (find-file-noselect file))
+                  (let ((scratch (generate-new-buffer " *ogent-agenda-src*")))
+                    (with-current-buffer scratch (insert content))
+                    scratch))))
+    (with-current-buffer buffer
+      (unless (derived-mode-p 'org-mode)
+        (org-mode)))
+    buffer))
+
+(defun ogent-armory-schedule-tests--fake-agenda (source)
+  "Return a fake agenda buffer marking SOURCE's first headline."
+  (let ((marker (with-current-buffer source
+                  (save-excursion
+                    (goto-char (point-min))
+                    (re-search-forward org-outline-regexp-bol)
+                    (copy-marker (line-beginning-position)))))
+        (agenda (generate-new-buffer " *ogent-agenda-view*")))
+    (with-current-buffer agenda
+      (insert "  armory:     fixture entry\n")
+      (put-text-property (point-min) (1+ (point-min)) 'org-marker marker)
+      (goto-char (point-min)))
+    agenda))
+
+(defconst ogent-armory-schedule-tests--run-fixture
+  (concat "#+TODO: TODO RUNNING(r) | DONE(d) FAILED(f)\n"
+          "* RUNNING CTO Daily Review\n"
+          ":PROPERTIES:\n"
+          ":OGENT_CONVERSATION_ID: conv-1\n"
+          ":OGENT_AGENT: cto\n"
+          ":OGENT_JOB_ID: daily-review\n"
+          ":END:\n")
+  "Org fixture for a RUNNING conversation headline.")
+
+(ert-deftest ogent-armory-schedule-agenda-run-dispatches-job ()
+  "Agenda run resolves agent and job from the drawer and dispatches."
+  (let* ((source (ogent-armory-schedule-tests--org-fixture
+                  ogent-armory-schedule-tests--run-fixture))
+         (agenda (ogent-armory-schedule-tests--fake-agenda source))
+         dispatched)
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-armory-run-job)
+                   (lambda (directory agent job-id)
+                     (setq dispatched (list directory agent job-id)))))
+          (with-current-buffer agenda
+            (setq-local ogent-armory-agenda--root "/tmp/armory")
+            (ogent-armory-agenda-run))
+          (should (equal dispatched '("/tmp/armory" "cto" "daily-review"))))
+      (kill-buffer agenda)
+      (kill-buffer source))))
+
+(ert-deftest ogent-armory-schedule-agenda-retry-requires-failed ()
+  "Agenda retry refuses headlines whose TODO state is not FAILED."
+  (let* ((source (ogent-armory-schedule-tests--org-fixture
+                  ogent-armory-schedule-tests--run-fixture))
+         (agenda (ogent-armory-schedule-tests--fake-agenda source))
+         dispatched)
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-armory-run-job)
+                   (lambda (&rest args) (setq dispatched args))))
+          (with-current-buffer agenda
+            (setq-local ogent-armory-agenda--root "/tmp/armory")
+            (should-error (ogent-armory-agenda-retry) :type 'user-error))
+          (should-not dispatched))
+      (kill-buffer agenda)
+      (kill-buffer source))))
+
+(ert-deftest ogent-armory-schedule-agenda-retry-dispatches-failed-job ()
+  "Agenda retry dispatches the job behind a FAILED headline."
+  (let* ((source (ogent-armory-schedule-tests--org-fixture
+                  (concat "#+TODO: TODO RUNNING(r) | DONE(d) FAILED(f)\n"
+                          "* FAILED CTO Daily Review\n"
+                          ":PROPERTIES:\n"
+                          ":OGENT_CONVERSATION_ID: conv-1\n"
+                          ":OGENT_AGENT: cto\n"
+                          ":OGENT_JOB_ID: daily-review\n"
+                          ":END:\n")))
+         (agenda (ogent-armory-schedule-tests--fake-agenda source))
+         dispatched)
+    (unwind-protect
+        (cl-letf (((symbol-function 'ogent-armory-run-job)
+                   (lambda (directory agent job-id)
+                     (setq dispatched (list directory agent job-id)))))
+          (with-current-buffer agenda
+            (setq-local ogent-armory-agenda--root "/tmp/armory")
+            (ogent-armory-agenda-retry))
+          (should (equal dispatched '("/tmp/armory" "cto" "daily-review"))))
+      (kill-buffer agenda)
+      (kill-buffer source))))
+
+(ert-deftest ogent-armory-schedule-agenda-approve-persists-status ()
+  "Agenda approve resolves the action id and stores the approval."
+  (ogent-armory-schedule-test-with-temp-dir root
+    (let* ((actions-dir (expand-file-name "conversations/conv-1" root))
+           (actions-file (expand-file-name "actions.org" actions-dir)))
+      (make-directory actions-dir t)
+      (let* ((source (ogent-armory-schedule-tests--org-fixture
+                      (concat "* PENDING Launch task\n"
+                              ":PROPERTIES:\n"
+                              ":OGENT_ACTION: t\n"
+                              ":OGENT_ACTION_ID: act-1\n"
+                              ":OGENT_ACTION_STATUS: pending\n"
+                              ":END:\n")
+                      actions-file))
+             (agenda (ogent-armory-schedule-tests--fake-agenda source))
+             (actions (list (list :id "act-1" :status "pending")
+                            (list :id "act-2" :status "pending")))
+             read-args stored)
+        (unwind-protect
+            (cl-letf (((symbol-function 'ogent-armory-actions-read)
+                       (lambda (directory conversation-id)
+                         (setq read-args (list directory conversation-id))
+                         actions))
+                      ((symbol-function 'ogent-armory-actions-store)
+                       (lambda (directory conversation-id actions)
+                         (setq stored
+                               (list directory conversation-id actions)))))
+              (with-current-buffer agenda
+                (setq-local ogent-armory-agenda--root root)
+                (ogent-armory-agenda-approve))
+              (should (equal read-args (list root "conv-1")))
+              (should (equal (nth 0 stored) root))
+              (should (equal (nth 1 stored) "conv-1"))
+              (let ((updated (nth 2 stored)))
+                (should (equal (plist-get (nth 0 updated) :status)
+                               "approved"))
+                (should (equal (plist-get (nth 1 updated) :status)
+                               "pending"))))
+          (kill-buffer agenda)
+          (kill-buffer source))))))
 
 (provide 'ogent-armory-schedule-tests)
 
