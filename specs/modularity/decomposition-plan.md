@@ -261,6 +261,10 @@ requires it first; move only the `global-agents-root` defcustom with it to avoid
 `defgroup` + other customs + both autoloads + the `with-eval-after-load 'org` form in the façade).
 Recorded as a backlog bead, not part of this de-monolithization.
 
+> **Status update (2026-07-13):** the deferred option was executed as bead `ogent-xlo.7` —
+> `ogent-armory-store.el` now carries the seam exactly as specified above (413 LOC at execution
+> time; the façade had grown since this analysis). All armory suites passed unchanged.
+
 ---
 
 ## Summary

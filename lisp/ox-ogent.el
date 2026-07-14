@@ -124,9 +124,40 @@ communication channel."
     (concat "```" language "\n" code "```")))
 
 (org-export-define-derived-backend 'ogent-md 'md
+  :menu-entry '(?g "Export ogent conversation"
+                   ((?m "As Markdown buffer" ox-ogent-export-conversation-md)
+                    (?h "As HTML buffer" ox-ogent-export-conversation-html)))
   :filters-alist '((:filter-parse-tree . ox-ogent--filter-parse-tree))
   :translate-alist '((headline . ox-ogent--md-headline)
                      (src-block . ox-ogent--md-src-block)))
+
+(defun ox-ogent--export-conversation-to-buffer (backend buffer mode)
+  "Export the conversation subtree at point through BACKEND into BUFFER.
+Climb to the enclosing conversation headline first, so dispatcher
+invocations from inside a Request/Response child cover the whole
+conversation.  Enable MODE in the result when it is available, else
+`text-mode'."
+  (save-excursion
+    (ox-ogent--goto-conversation-root)
+    (org-export-to-buffer backend buffer
+      nil t nil nil nil
+      (lambda () (if (fboundp mode) (funcall mode) (text-mode))))))
+
+(defun ox-ogent-export-conversation-md (&rest _)
+  "Export the conversation subtree at point as Markdown, via the dispatcher.
+Ignore the dispatcher's scope arguments: the export always covers
+the enclosing conversation subtree."
+  (interactive)
+  (ox-ogent--export-conversation-to-buffer
+   'ogent-md ox-ogent--export-buffer-name 'markdown-mode))
+
+(defun ox-ogent-export-conversation-html (&rest _)
+  "Export the conversation subtree at point as HTML, via the dispatcher.
+Ignore the dispatcher's scope arguments: the export always covers
+the enclosing conversation subtree."
+  (interactive)
+  (ox-ogent--export-conversation-to-buffer
+   'ogent-html ox-ogent--export-buffer-name 'html-mode))
 
 ;;; HTML backend
 

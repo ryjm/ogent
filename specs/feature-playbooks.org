@@ -46,3 +46,28 @@ Always review the relevant playbook before starting a feature. Each section link
   =test/ogent-armory-runner-tests.el= for CLI runner plans and transcripts,
   =test/ogent-armory-status-tests.el= for graph status behavior, and =test/ui/=
   for richer interactive buffers.
+
+* Structured Edit Outputs
+- The gptel =:schema= path lives in =lisp/ogent-edit-parse.el= (pure schema + conversion) and =lisp/ogent-edit.el= (request wiring, =ogent-edit-use-structured-output=, backend capability probe).
+- New payload fields extend =ogent-edit-structured-schema= AND the conversion into edit structs together; keep parity with the text parser (parity tests in =test/ogent-edit-parse-tests.el=).
+- Fallback to text parsing must stay automatic; never make structured output load-bearing.
+
+* Capture Templates
+- Templates live in =ogent-capture-templates= (=lisp/ogent-notes.el=); registration only via =ogent-notes-setup-capture= (deferred, idempotent, never clobbers user keys).
+- New targets get a file defcustom defaulting under =org-directory=.
+- Tests in =test/ogent-notes-tests.el=: exactly-once registration, collision respect, target resolution. User docs: =docs/getting-started.md= Optional Features.
+
+* Conversation Export (ox-ogent)
+- Backends and filters live in =lisp/ox-ogent.el=; shared parse-tree filter strips =OGENT_*= drawers and relabels exchange headlines - extend the filter, not per-backend hacks.
+- Interactive entry points: =ogent-export-conversation= and the =C-c C-e g= dispatcher wrappers; all must climb to the conversation root.
+- Tests in =test/ox-ogent-tests.el= (string fixtures, no file writes). User docs: =docs/getting-started.md=.
+
+* Armory Search Views (org-ql)
+- The adapter lives in =lisp/ogent-armory-ql.el=: pure intent->sexp builder mirroring =ogent-armory-record-metadata= kinds, plus soft-required org-ql commands.
+- New record kinds/statuses extend BOTH the metadata classification and =ogent-armory-ql-kind-properties=; saved views go in =ogent-armory-ql-saved-views=.
+- Query-builder tests need no org-ql; command tests assert the install-hint error when it is absent. User docs: =docs/armory.org=.
+
+* Native gptel Agent Runs
+- The in-process loop lives in =lisp/ogent-armory-native.el=; the runner dispatches on adapter type =gptel_native= and everything funnels through the shared plan/finalize conversation lifecycle.
+- Tool execution MUST go through =ogent-ui--execute-tool= (ledger) with =ogent-tool-approval-check= in front, and successful rounds through =ogent-analytics-record-completion= - never bypass the audit path.
+- Tests stub =gptel-request= via =cl-letf= (=test/ogent-armory-native-tests.el=). User docs: =docs/armory.org=.

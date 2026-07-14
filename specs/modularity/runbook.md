@@ -64,8 +64,9 @@ the CI-aligned gate. Steps 2–4 are local correctness checks `make lint` does n
 5. (later, optional) zen→B (extract review then render), ui→B (relocate `handle-tool-calls`), issues→A.
 If both zen and ui are split, do the cosmetic zen↔ui `declare-function` file-hint sync afterward.
 
-`ogent-armory.el` is left alone (B11). Do not size-split it; the deferred kernel-extraction option
-(`ogent-armory-store.el`, ~318 LOC) is bead `ogent-xlo.7`, backlog only.
+`ogent-armory.el`: the deferred kernel-extraction option was executed 2026-07-13 (bead
+`ogent-xlo.7`, closed) — `ogent-armory-store.el` (413 LOC, verbatim move) sits behind the façade,
+required first. Do not size-split the remaining façade.
 
 ## Keeping modules small going forward
 

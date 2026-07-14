@@ -326,6 +326,42 @@ Review prefix (`C-c ,`) works in both vanilla Emacs and Doom/Evil:
 
 Run `M-x ogent-describe-bindings` to see all bindings in a help buffer.
 
+## Optional Features
+
+### Org-capture templates for notes and prompt ideas
+
+ogent ships capture templates so you can drop a note or a prompt idea from
+any buffer. Register them once in your init:
+
+```emacs-lisp
+(ogent-notes-setup-capture)   ; idempotent, defers until org-capture loads
+```
+
+Then `M-x org-capture` offers `o` (ogent) with `o n` — quick note into the
+Inbox of `ogent-capture-notes-file` — and `o p` — prompt idea into the
+Prompt Ideas heading of `ogent-capture-companion-file`. Both files default
+under `org-directory`; customize `ogent-capture-templates` to change keys or
+targets (your own colliding keys always win).
+
+### Exporting a conversation as a shareable document
+
+With point anywhere inside an agent conversation subtree,
+`M-x ogent-export-conversation` exports it as clean Markdown: `OGENT_*`
+property drawers are stripped, request/response headlines become `## User` /
+`## <model>` sections, and source blocks stay fenced. The result opens in a
+buffer; with a prefix argument (`C-u`) it is written as a `.md` file beside
+the Org file. Once `ox-ogent` is loaded, the regular `C-c C-e` export
+dispatcher also offers `g m` (Markdown) and `g h` (HTML); both locate the
+enclosing conversation subtree automatically, even from inside a
+request/response child.
+
+### Armory extras
+
+See [docs/armory.org](armory.org) for the control-plane agenda
+(`ogent-armory-agenda-control-plane`), org-ql saved search views
+(`ogent-armory-ql-view`, optional org-ql dependency), and the in-process
+`gptel-native` agent runner.
+
 ## Troubleshooting
 
 ### "gptel not found" or backend errors

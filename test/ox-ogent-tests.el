@@ -145,6 +145,50 @@ EXT-PLIST overrides export options.  Return the output string."
     (goto-char (point-min))
     (should-error (ogent-export-conversation) :type 'user-error)))
 
+(ert-deftest ox-ogent-dispatcher-menu-entry-registered ()
+  "The ogent-md backend exposes both conversation exports in the dispatcher."
+  (let ((menu (org-export-backend-menu (org-export-get-backend 'ogent-md))))
+    (should (equal (car menu) ?g))
+    (should (equal (mapcar #'caddr (nth 2 menu))
+                   '(ox-ogent-export-conversation-md
+                     ox-ogent-export-conversation-html)))))
+
+(ert-deftest ox-ogent-dispatcher-md-climbs-to-root ()
+  "The dispatcher Markdown wrapper exports the whole conversation from a child."
+  (with-temp-buffer
+    (insert ox-ogent-tests--fixture)
+    (org-mode)
+    (goto-char (point-min))
+    (search-forward "(defun parse")
+    (let ((org-export-show-temporary-export-buffer nil))
+      (unwind-protect
+          (progn
+            (ox-ogent-export-conversation-md)
+            (with-current-buffer ox-ogent--export-buffer-name
+              (should (string-match-p "^## User$" (buffer-string)))
+              (should (string-match-p "^## claude-fable-5$" (buffer-string)))))
+        (when (get-buffer ox-ogent--export-buffer-name)
+          (kill-buffer ox-ogent--export-buffer-name))))))
+
+(ert-deftest ox-ogent-dispatcher-html-climbs-to-root ()
+  "The dispatcher HTML wrapper exports the whole conversation from a child."
+  (with-temp-buffer
+    (insert ox-ogent-tests--fixture)
+    (org-mode)
+    (goto-char (point-min))
+    (search-forward "(defun parse")
+    (let ((org-export-show-temporary-export-buffer nil))
+      (unwind-protect
+          (progn
+            (ox-ogent-export-conversation-html)
+            (with-current-buffer ox-ogent--export-buffer-name
+              (let ((html (buffer-string)))
+                (should (string-match-p "User" html))
+                (should (string-match-p "claude-fable-5" html))
+                (should-not (string-match-p "OGENT_" html)))))
+        (when (get-buffer ox-ogent--export-buffer-name)
+          (kill-buffer ox-ogent--export-buffer-name))))))
+
 (provide 'ox-ogent-tests)
 
 ;;; ox-ogent-tests.el ends here

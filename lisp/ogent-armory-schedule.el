@@ -599,11 +599,12 @@ works through \\`g'; \\`r' is rebound to retry in this view.
   "Open the composite Armory control-plane agenda for DIRECTORY.
 Compose RUNNING runs, FAILED runs needing retry, and pending
 actions awaiting approval into one Org agenda.  The custom command
-entry and the Armory file scope are let-bound around the
-`org-agenda' call, then installed buffer-locally in the resulting
-agenda buffer together with `ogent-armory-agenda-actions-mode', so
-neither `org-agenda-custom-commands' nor `org-agenda-files' is
-mutated globally and refresh commands keep the Armory scope."
+entry is only let-bound (dynamically scoped) around the
+`org-agenda' dispatch; afterward the Armory file scope and
+`ogent-armory-agenda-actions-mode' are installed buffer-locally in
+the resulting agenda buffer.  Neither `org-agenda-custom-commands'
+nor `org-agenda-files' is mutated globally, and refresh commands
+keep the Armory scope through the buffer-local file list."
   (interactive
    (list (or (ogent-armory-find-root)
              (read-directory-name "Armory root: "))))

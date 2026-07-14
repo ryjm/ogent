@@ -438,6 +438,37 @@ Knobs:
   missed). The first tick after enabling the mode only arms the window and
   never fires.
 
+* Control-Plane Agenda
+
+=M-x ogent-armory-agenda-control-plane= opens a composite org-agenda over an
+Armory root: currently RUNNING runs, FAILED runs needing retry, and pending
+actions awaiting approval. The custom-command entry (key from
+=ogent-armory-agenda-control-plane-key=, default =A=) is scoped dynamically
+around the dispatch and the Armory file list is installed buffer-locally in
+the result, so your global agenda configuration is never touched. In the agenda
+buffer, =R= runs the job at point, =r= retries a FAILED run, and =a=
+approves the pending action at point; ids resolve from the headline's
+property drawer.
+
+* Saved Search Views (org-ql)
+
+With the optional [[https://github.com/alphapapa/org-ql][org-ql]] package
+installed, =M-x ogent-armory-ql-search= builds structured queries over the
+=OGENT_*= property drawers, and =M-x ogent-armory-ql-view= offers the saved
+views in =ogent-armory-ql-saved-views= (defaults: failed runs, running now,
+recent conversations, pending approvals). Without org-ql both commands
+explain how to install it; nothing else in ogent depends on it.
+
+* Native gptel Runner
+
+The =gptel-native= adapter runs an agent in-process through gptel instead of
+shelling out to an external CLI: a tool-use loop executes ogent registry
+tools through the normal approval flow, records ledger and analytics events,
+and finalizes through the same conversation lifecycle as CLI runs, capped by
+=ogent-armory-native-max-iterations= (default 10). Select it like any other
+adapter (agent =provider: gptel=); it needs no executable, only a configured
+gptel backend.
+
 * Importing Existing Artifacts
 
 =ogent-armory-import-artifacts= imports =.md=, =.html=, and =.txt= files from

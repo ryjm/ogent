@@ -141,8 +141,10 @@ unchanged. Plan of record + runbook: [[file:modularity/decomposition-plan.org][s
 - =ogent-zen.el= (façade) → =ogent-zen-core= (base + =ogent-zen-scope= struct) / =-tools=
   (tool-call store + inspection) / =-workspace= (=ogent-context= bridge) / =-edit= (inline-diff).
 - =ogent-issues.el= (façade + list core, in place) → =ogent-issues-detail= / =-kanban= / =-evil=.
-- =ogent-armory.el= is a *justified monolith* (one cohesive Org-file storage API, 25 requirers),
-  intentionally NOT split. Do not size-split it.
+- =ogent-armory.el= (façade) → =ogent-armory-store.el= carries the extracted kernel (C1
+  primitives, C2 path layer, C3 root+record layer; the façade requires it first, symbols
+  unchanged — bead =ogent-xlo.7=, executed 2026-07-13). The remaining façade (search,
+  graph, overview) is cohesive; do not size-split it further.
 Rules for new siblings: keep =cl-defstruct= and macros in the file consumers =require= (compile-time
 visibility); cross-module references that would cycle (e.g. zen↔ui) use =declare-function= +
 =fboundp= guards, never =require=; keep each sibling flat in =lisp/= or =lisp/ui/= (load-path).
