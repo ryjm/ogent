@@ -1527,5 +1527,159 @@ missing separator and end marker")
         (should (= error-count 2))
         (should (string= ogent-edit--streaming-response ""))))))
 
+;;; Structured Output Tests
+
+(ert-deftest ogent-edit-structured-dispatch-valid-json ()
+  "Dispatch uses the structured parser for a valid JSON payload."
+  (let ((source-buffer (get-buffer-create "*dispatch-json*")))
+    (unwind-protect
+        (let ((edits (ogent-edit--parse-response-dispatch
+                      "[{\"file\": \"a.el\", \"search\": \"old\", \"replace\": \"new\"}]"
+                      source-buffer t)))
+          (should (= (length edits) 1))
+          (should (string= (ogent-edit-old-text (car edits)) "old"))
+          (should (string= (ogent-edit-new-text (car edits)) "new")))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-structured-dispatch-falls-back-to-text ()
+  "Dispatch falls back to the text parser for a non-JSON response."
+  (let ((source-buffer (get-buffer-create "*dispatch-fallback*"))
+        (response "Some prose.
+
+<<<<<<< SEARCH
+old
+=======
+new
+>>>>>>> REPLACE"))
+    (unwind-protect
+        (let ((edits (ogent-edit--parse-response-dispatch
+                      response source-buffer t)))
+          (should (= (length edits) 1))
+          (should (string= (ogent-edit-old-text (car edits)) "old"))
+          (should (string= (ogent-edit-new-text (car edits)) "new")))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-structured-dispatch-disabled-uses-text-parser ()
+  "Dispatch ignores JSON payloads when the structured flag is nil."
+  (let ((source-buffer (get-buffer-create "*dispatch-disabled*")))
+    (unwind-protect
+        (should-not (ogent-edit--parse-response-dispatch
+                     "[{\"file\": \"a.el\", \"search\": \"old\", \"replace\": \"new\"}]"
+                     source-buffer nil))
+      (kill-buffer source-buffer))))
+
+(ert-deftest ogent-edit-structured-backend-support-probe ()
+  "Backend support probe keys on a working gptel--parse-schema."
+  ;; Supported: gptel--parse-schema translates the schema.
+  (cl-letf (((symbol-function 'gptel--parse-schema)
+             (lambda (_backend schema) schema)))
+    (should (ogent-edit--backend-schema-support-p 'fake-backend))
+    ;; No backend resolved: unsupported.
+    (should-not (ogent-edit--backend-schema-support-p nil)))
+  ;; Backend without a gptel--parse-schema method: unsupported.
+  (cl-letf (((symbol-function 'gptel--parse-schema)
+             (lambda (_backend _schema)
+               (error "No applicable method"))))
+    (should-not (ogent-edit--backend-schema-support-p 'fake-backend))))
+
+(ert-deftest ogent-edit-structured-schema-copy-is-fresh ()
+  "Schema copies are equal to but never share structure with the constant.
+Gptel preprocesses schemas destructively, so sharing would corrupt
+the constant."
+  (let ((copy (ogent-edit--structured-schema-copy)))
+    (should (equal copy ogent-edit-structured-schema))
+    (should-not (eq copy ogent-edit-structured-schema))
+    (should-not (eq (plist-get copy :items)
+                    (plist-get ogent-edit-structured-schema :items)))))
+
+(ert-deftest ogent-edit-request-passes-schema-when-supported ()
+  "Edit requests pass :schema and the structured system prompt when supported."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun foo () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (cl-letf (((symbol-function 'gptel--parse-schema)
+                       (lambda (_backend schema) schema)))
+              (let ((ogent-edit-use-structured-output t))
+                (ogent-test-with-mock-gptel
+                  (ogent-request-edit "Fix this")
+                  (let* ((captured (ogent-test-last-request))
+                         (args (plist-get captured :args)))
+                    (should (equal (plist-get args :schema)
+                                   ogent-edit-structured-schema))
+                    (should (string-match-p "JSON"
+                                            (plist-get args :system)))
+                    (should (plist-get ogent-edit--pending-request
+                                       :structured))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-request-omits-schema-when-unsupported ()
+  "Edit requests keep the text path when gptel lacks schema support."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun foo () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            ;; The stubbed test gptel has no gptel--parse-schema, so the
+            ;; structured custom alone must not switch paths.
+            (let ((ogent-edit-use-structured-output t))
+              (ogent-test-with-mock-gptel
+                (ogent-request-edit "Fix this")
+                (let* ((captured (ogent-test-last-request))
+                       (args (plist-get captured :args)))
+                  (should-not (plist-member args :schema))
+                  (should (string-match-p "SEARCH/REPLACE"
+                                          (plist-get args :system)))
+                  (should-not (plist-get ogent-edit--pending-request
+                                         :structured)))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-request-honors-structured-opt-out ()
+  "Edit requests skip the schema path when the custom is disabled."
+  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+    (unwind-protect
+        (progn
+          (with-temp-file temp-file
+            (insert "(defun foo () nil)"))
+          (with-current-buffer (find-file-noselect temp-file)
+            (emacs-lisp-mode)
+            (cl-letf (((symbol-function 'gptel--parse-schema)
+                       (lambda (_backend schema) schema)))
+              (let ((ogent-edit-use-structured-output nil))
+                (ogent-test-with-mock-gptel
+                  (ogent-request-edit "Fix this")
+                  (let* ((captured (ogent-test-last-request))
+                         (args (plist-get captured :args)))
+                    (should-not (plist-member args :schema))
+                    (should-not (plist-get ogent-edit--pending-request
+                                           :structured))))))
+            (kill-buffer)))
+      (delete-file temp-file))))
+
+(ert-deftest ogent-edit-process-response-structured-payload ()
+  "Process-response converts a structured payload into displayed edits."
+  (let ((source-buffer (get-buffer-create "*process-structured*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (insert "(defun foo () 1)\n")
+          (let ((ogent-edit--pending-request
+                 (list :source-buffer source-buffer :structured t))
+                (ogent-edit-log-to-companion nil)
+                (ogent-edit-auto-display nil)
+                (ogent-edit-auto-apply nil))
+            (let ((edits (ogent-edit--process-response
+                          "[{\"file\": \"a.el\", \"search\": \"(defun foo () 1)\", \"replace\": \"(defun foo () 2)\"}]")))
+              (should (= (length edits) 1))
+              (should (eq (ogent-edit-status (car edits)) 'pending))
+              (should (= (ogent-edit-start-pos (car edits)) 1)))))
+      (kill-buffer source-buffer))))
+
 (provide 'ogent-edit-tests)
 ;;; ogent-edit-tests.el ends here

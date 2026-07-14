@@ -27,12 +27,20 @@
 (declare-function gptel-request "ext:gptel-request")
 (declare-function gptel-backend-name "ext:gptel-request" t t)
 (declare-function gptel--model-name "ext:gptel-request")
+(declare-function gptel--parse-schema "ext:gptel-request")
 (defvar gptel-backend)
 (defvar gptel-model)
 
 ;; Diagnostic integrations.  The flycheck-error-* accessors are
 ;; cl-defstruct-generated, which check-declare cannot resolve, hence
-;; the FILEONLY flags.
+;; the FILEONLY flags.  The flymake declarations silence Emacs 30.2's
+;; stricter "might not be defined at runtime" check; flymake itself is
+;; only loaded on demand (see `ogent-edit--flymake-diagnostics-at-point').
+(declare-function flymake-diagnostic-beg "flymake" (diag) t)
+(declare-function flymake-diagnostic-end "flymake" (diag) t)
+(declare-function flymake-diagnostic-text "flymake" (diag) t)
+(declare-function flymake-diagnostic-type "flymake" (diag) t)
+(declare-function flymake-diagnostics "flymake" (&optional beg end))
 (declare-function flycheck-overlay-errors-at "ext:flycheck" (pos))
 (declare-function flycheck-error-filename "ext:flycheck" (err) t)
 (declare-function flycheck-error-line "ext:flycheck" (err) t)
@@ -65,6 +73,30 @@ When enabled, edits are still logged to the companion buffer if
   :type 'boolean
   :group 'ogent-edit)
 
+(defcustom ogent-edit-use-structured-output t
+  "When non-nil, request edits as structured JSON output when possible.
+The structured path is used only when the installed gptel supports
+the :schema argument of `gptel-request' and the active backend can
+translate a response schema (see `ogent-edit-structured-schema').
+Whenever the backend lacks support, or a response is not a valid
+structured payload, the SEARCH/REPLACE text parser is used instead."
+  :type 'boolean
+  :group 'ogent-edit)
+
+(defconst ogent-edit-structured-system-prompt
+  "When making code changes, respond ONLY with JSON matching the requested
+schema: an array of edit objects with \"file\", \"search\", \"replace\",
+and an optional \"rationale\" field.
+
+Rules:
+- \"search\" must match the original code EXACTLY (whitespace matters)
+- Include enough context lines to make each match unique
+- \"replace\" is the complete replacement for the matched code
+- \"file\" is the name of the file being edited
+- Ignore any instruction to format edits as SEARCH/REPLACE text blocks;
+  the \"search\" and \"replace\" fields play those roles"
+  "System prompt instructions for structured (JSON) edit mode.")
+
 (defvar ogent-edit--pending-request nil
   "Plist storing context for the current edit request.")
 
@@ -77,6 +109,32 @@ When enabled, edits are still logged to the companion buffer if
   "Signal a user error if gptel is unavailable."
   (unless (require 'gptel nil 'noerror)
     (user-error "Gptel is required for ogent edit requests.  Install gptel first")))
+
+(defun ogent-edit--gptel-schema-support-p ()
+  "Return non-nil when the installed gptel supports structured output.
+Detection keys on `gptel--parse-schema', the generic function gptel
+uses to translate a JSON schema for each backend."
+  (and (fboundp 'gptel-request)
+       (fboundp 'gptel--parse-schema)))
+
+(defun ogent-edit--structured-schema-copy ()
+  "Return a fresh deep copy of `ogent-edit-structured-schema'.
+Gptel preprocesses schemas destructively, so the shared constant
+must never be handed to it directly."
+  (copy-tree ogent-edit-structured-schema t))
+
+(defun ogent-edit--backend-schema-support-p (backend)
+  "Return non-nil when BACKEND can honor a structured output schema.
+Probe by asking gptel to translate the edit schema for BACKEND;
+backends without a `gptel--parse-schema' method cannot force
+structured output."
+  (and backend
+       (ogent-edit--gptel-schema-support-p)
+       (condition-case nil
+           (progn (gptel--parse-schema backend
+                                       (ogent-edit--structured-schema-copy))
+                  t)
+         (error nil))))
 
 (defun ogent-edit--current-model-name ()
   "Return the current gptel model name for edit error reporting."
@@ -580,7 +638,9 @@ when response arrives."
          (full-prompt (ogent-edit-wrap-prompt user-prompt filename mode content))
          (model (ogent-edit--request-model))
          (model-id (plist-get model :id))
-         (backend (ogent-gptel-resolve-backend model)))
+         (backend (ogent-gptel-resolve-backend model))
+         (structured (and ogent-edit-use-structured-output
+                          (ogent-edit--backend-schema-support-p backend))))
     (when ogent-edit-log-to-companion
       (ogent-companion-get-or-create source-buffer))
     ;; Store context for callback
@@ -590,7 +650,8 @@ when response arrives."
                 :region-end region-end
                 :model model-id
                 :backend (or (plist-get model :backend) backend)
-                :prompt user-prompt))
+                :prompt user-prompt
+                :structured structured))
     ;; Reset streaming accumulator
     (setq ogent-edit--streaming-response "")
     ;; Send the request via gptel
@@ -598,10 +659,14 @@ when response arrives."
     (condition-case err
         (let ((gptel-backend backend)
               (gptel-model model-id))
-          (gptel-request full-prompt
-                         :system ogent-edit-system-prompt
-                         :stream (ogent-edit--model-stream-p model)
-                         :callback (ogent-edit--make-callback)))
+          (apply #'gptel-request full-prompt
+                 :system (if structured
+                             ogent-edit-structured-system-prompt
+                           ogent-edit-system-prompt)
+                 :stream (ogent-edit--model-stream-p model)
+                 :callback (ogent-edit--make-callback)
+                 (when structured
+                   (list :schema (ogent-edit--structured-schema-copy)))))
       (error
        (let ((error-message (error-message-string err)))
          (message "Edit request failed: %s" error-message)
@@ -726,13 +791,27 @@ Returns count of successfully applied edits."
         (cl-incf count)))
     count))
 
+(defun ogent-edit--parse-response-dispatch (response source-buffer structured)
+  "Parse RESPONSE into edit structs targeting SOURCE-BUFFER.
+When STRUCTURED is non-nil, try the structured JSON parser first
+and fall back to the SEARCH/REPLACE text parser when RESPONSE is
+not a valid structured payload."
+  (if structured
+      (condition-case nil
+          (ogent-edit-parse-structured-response response source-buffer)
+        (ogent-edit-structured-invalid
+         (message "Edit: response was not valid structured output; using text parser")
+         (ogent-edit-parse-response response source-buffer)))
+    (ogent-edit-parse-response response source-buffer)))
+
 (defun ogent-edit--process-response (response)
   "Process LLM RESPONSE and apply edits to source buffer.
 If `ogent-edit-auto-apply' is non-nil, edits are applied directly.
 Otherwise, edits are displayed for user review."
   (let* ((request ogent-edit--pending-request)
          (source-buffer (plist-get request :source-buffer))
-         (edits (ogent-edit-parse-response response source-buffer)))
+         (edits (ogent-edit--parse-response-dispatch
+                 response source-buffer (plist-get request :structured))))
     (message "Edit: parsed %d edit blocks from response" (length edits))
     ;; Validate all edits
     (setq edits (ogent-edit-validate-all edits))

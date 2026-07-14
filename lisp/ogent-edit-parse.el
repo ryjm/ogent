@@ -7,6 +7,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'json)
 (require 'ogent-edit-format)
 
 ;;; Parsing
@@ -60,6 +61,117 @@ Preserves internal newlines but removes single trailing one."
   (if (and text (string-suffix-p "\n" text))
       (substring text 0 -1)
     text))
+
+;;; Structured Output (JSON schema)
+
+(define-error 'ogent-edit-structured-invalid
+  "Invalid structured edit payload")
+
+(defconst ogent-edit-structured-schema
+  '(:type "array"
+    :items (:type "object"
+            :properties
+            (:file (:type "string"
+                    :description "Name of the file the edit applies to.")
+             :search (:type "string"
+                      :description "Exact original code to find.  Must match the source verbatim, whitespace included.")
+             :replace (:type "string"
+                       :description "Full replacement for the matched code.")
+             :rationale (:type "string"
+                         :description "Optional short explanation of the change."))
+            :required ["file" "search" "replace"]))
+  "JSON schema describing a structured edit response.
+The response is an array of edit objects, each carrying the file
+name, the exact text to search for, its replacement, and an
+optional rationale.")
+
+(defun ogent-edit--json-parse (string)
+  "Parse STRING as JSON with plist objects and list arrays.
+Signal `ogent-edit-structured-invalid' when STRING is not valid JSON."
+  (condition-case nil
+      (if (fboundp 'json-parse-string)
+          (json-parse-string string
+                             :object-type 'plist
+                             :array-type 'list
+                             :null-object nil
+                             :false-object nil)
+        (let ((json-object-type 'plist)
+              (json-array-type 'list)
+              (json-false nil)
+              (json-null nil))
+          (json-read-from-string string)))
+    (error (signal 'ogent-edit-structured-invalid
+                   (list "Response is not valid JSON")))))
+
+(defun ogent-edit--structured-entries (payload)
+  "Return the list of edit entries described by PAYLOAD.
+PAYLOAD is a parsed JSON value: either a list of edit objects, or
+an object whose \"items\" key holds that list (gptel wraps
+top-level arrays this way for providers that require an object
+root).  Signal `ogent-edit-structured-invalid' when PAYLOAD has
+neither shape."
+  (cond
+   ;; Object payload: require an "items" array.
+   ((and (consp payload) (keywordp (car payload)))
+    (let ((items (plist-get payload :items)))
+      (unless (and (plist-member payload :items) (listp items))
+        (signal 'ogent-edit-structured-invalid
+                (list "Object payload lacks an \"items\" array" payload)))
+      items))
+   ;; Array payload (nil is the empty array).
+   ((listp payload) payload)
+   (t (signal 'ogent-edit-structured-invalid
+              (list "Payload is not an array of edits" payload)))))
+
+(defun ogent-edit--structured-entry-to-edit (entry source-buffer source-file)
+  "Convert structured edit ENTRY into an `ogent-edit' struct.
+ENTRY is a plist with string :search and :replace fields; :file
+and :rationale are accepted but not stored.  SOURCE-BUFFER and
+SOURCE-FILE seed the struct's origin slots.  Signal
+`ogent-edit-structured-invalid' when ENTRY is malformed."
+  (unless (and (listp entry)
+               (stringp (plist-get entry :search))
+               (stringp (plist-get entry :replace)))
+    (signal 'ogent-edit-structured-invalid
+            (list "Edit entry needs string \"search\" and \"replace\" fields"
+                  entry)))
+  (make-ogent-edit
+   :id (ogent-edit--generate-id)
+   :old-text (ogent-edit--normalize-text (plist-get entry :search))
+   :new-text (ogent-edit--normalize-text (plist-get entry :replace))
+   :source-buffer source-buffer
+   :source-file source-file
+   :status 'pending
+   :timestamp (current-time)))
+
+(defun ogent-edit-structured-to-edits (payload source-buffer)
+  "Convert parsed structured PAYLOAD into a list of `ogent-edit' structs.
+PAYLOAD is a parsed JSON value (see `ogent-edit--structured-entries').
+SOURCE-BUFFER is the buffer the edits target.  Signal
+`ogent-edit-structured-invalid' when PAYLOAD does not describe a
+list of well-formed edits."
+  (let ((entries (ogent-edit--structured-entries payload))
+        (source-file (when (and source-buffer (buffer-live-p source-buffer))
+                       (buffer-file-name source-buffer))))
+    (ogent-edit--reset-counter)
+    (mapcar (lambda (entry)
+              (ogent-edit--structured-entry-to-edit
+               entry source-buffer source-file))
+            entries)))
+
+(defun ogent-edit-parse-structured-response (response source-buffer)
+  "Parse RESPONSE as a structured JSON edit payload.
+Return a list of `ogent-edit' structs targeting SOURCE-BUFFER,
+equivalent to what `ogent-edit-parse-response' produces for the
+same edits in SEARCH/REPLACE form.  Signal
+`ogent-edit-structured-invalid' when RESPONSE is not a valid
+structured payload; callers should fall back to the text parser
+in that case."
+  (unless (stringp response)
+    (signal 'ogent-edit-structured-invalid
+            (list "Response is not a string")))
+  (ogent-edit-structured-to-edits (ogent-edit--json-parse response)
+                                  source-buffer))
 
 ;;; Validation
 
