@@ -2983,6 +2983,79 @@ callback must not silently refresh stale hidden contents."
                        :issue_type "task" :status "open" :dependency_count 0))))
       (should-not (string-match-p "→" line)))))
 
+;;; Evil Integration (ogent-issues-evil)
+
+(ert-deftest ogent-issues-evil-test-loads-without-evil ()
+  "Loading `ogent-issues-evil' succeeds and is inert without Evil."
+  (should (require 'ogent-issues-evil))
+  (should (fboundp 'ogent-issues--setup-evil))
+  ;; Without Evil the `with-eval-after-load' registration must not have
+  ;; touched the mode hooks.
+  (unless (featurep 'evil)
+    (should-not (memq 'evil-normalize-keymaps
+                      (bound-and-true-p ogent-issues-mode-hook)))
+    (should-not (memq 'evil-normalize-keymaps
+                      (bound-and-true-p ogent-issues-detail-mode-hook)))))
+
+(ert-deftest ogent-issues-evil-test-setup-delegates-to-canonical-helper ()
+  "Evil setup routes both display modes through the canonical helper.
+Assert initial states, overriding maps, hook normalization, and the
+exact buffer-local key surface: gg/G/gr/gR/gj/gk/ZZ/ZQ for the list
+buffer and gg/G/gr/ZZ/ZQ for the detail buffer."
+  (require 'ogent-issues-evil)
+  (let ((ogent-enable-evil-bindings t)
+        (ogent-issues-mode-hook nil)
+        (ogent-issues-detail-mode-hook nil)
+        states overrides local-keys)
+    (cl-letf (((symbol-function 'evil-set-initial-state)
+               (lambda (mode state) (push (cons mode state) states)))
+              ((symbol-function 'evil-make-overriding-map)
+               (lambda (keymap &optional state _copy)
+                 (push (cons keymap state) overrides)))
+              ((symbol-function 'evil-normalize-keymaps)
+               (lambda (&rest _) nil))
+              ((symbol-function 'evil-local-set-key)
+               (lambda (_state key cmd)
+                 (push (cons (key-description key) cmd) local-keys))))
+      (cl-progv '(evil-normal-state-local-map) '(nil)
+        (ogent-issues--setup-evil))
+      ;; Initial states: list and detail normal, structured editor insert.
+      (should (eq (cdr (assq 'ogent-issues-mode states)) 'normal))
+      (should (eq (cdr (assq 'ogent-issues-detail-mode states)) 'normal))
+      (should (eq (cdr (assq 'ogent-issues-edit-mode states)) 'insert))
+      ;; Both mode maps override Evil normal and motion state.
+      (should (member (cons ogent-issues-mode-map 'normal) overrides))
+      (should (member (cons ogent-issues-mode-map 'motion) overrides))
+      (should (member (cons ogent-issues-detail-mode-map 'normal) overrides))
+      (should (member (cons ogent-issues-detail-mode-map 'motion) overrides))
+      ;; The canonical helper normalizes keymaps on both mode hooks.
+      (should (memq 'evil-normalize-keymaps ogent-issues-mode-hook))
+      (should (memq 'evil-normalize-keymaps ogent-issues-detail-mode-hook))
+      ;; List buffer local keys.
+      (with-temp-buffer (run-hooks 'ogent-issues-mode-hook))
+      (dolist (expected '(("g g" . evil-goto-first-line)
+                          ("G" . evil-goto-line)
+                          ("g r" . ogent-issues-refresh)
+                          ("g R" . ogent-issues-refresh-force)
+                          ("g j" . ogent-issues-next-section)
+                          ("g k" . ogent-issues-prev-section)
+                          ("Z Z" . quit-window)
+                          ("Z Q" . quit-window)))
+        (should (member expected local-keys)))
+      ;; Detail buffer local keys: gr refreshes the detail view; no
+      ;; gR/gj/gk there.
+      (setq local-keys nil)
+      (with-temp-buffer (run-hooks 'ogent-issues-detail-mode-hook))
+      (dolist (expected '(("g g" . evil-goto-first-line)
+                          ("G" . evil-goto-line)
+                          ("g r" . ogent-issues-detail-refresh)
+                          ("Z Z" . quit-window)
+                          ("Z Q" . quit-window)))
+        (should (member expected local-keys)))
+      (should-not (assoc "g R" local-keys))
+      (should-not (assoc "g j" local-keys))
+      (should-not (assoc "g k" local-keys)))))
+
 (provide 'ogent-issues-tests)
 
 ;;; ogent-issues-tests.el ends here
