@@ -23,6 +23,7 @@
                   (directory conversation-id actions))
 (declare-function make-term "term"
                   (name program &optional startfile &rest switches))
+(declare-function ogent-armory-native-start "ogent-armory-native" (plan))
 
 (defgroup ogent-armory-runner nil
   "Run Org Armory agents through subscription-authenticated CLIs."
@@ -947,77 +948,85 @@ STDERR-BUFFER attached."
       plan buffer stderr-buffer sentinel))))
 
 (defun ogent-armory-runner-start (plan)
-  "Start PLAN and return its process."
-  (let* ((program (plist-get plan :program))
-         (stdin (plist-get plan :stdin))
-         (workspace (plist-get plan :workspace))
-         (buffer (get-buffer-create
-                  (format "*ogent-armory-agent:%s*"
-                          (plist-get (plist-get plan :agent) :slug))))
-         (stderr-buffer (generate-new-buffer " *ogent-armory-agent-stderr*"))
-         output-start
-         (started-at (float-time))
-         (started (ogent-armory-runner--iso-now))
-         proc)
-    (unless (executable-find program)
-      (user-error "Armory runner executable not found: %s" program))
-    (when ogent-armory-runner-ensure-beads-redirect
-      (ogent-issues-bd-ensure-worktree-redirect workspace))
-    (let ((conversation-file
-           (ogent-armory-runner--create-conversation plan started)))
-      (plist-put plan :conversation-file conversation-file))
-    (with-current-buffer buffer
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert (format "$ %s\n\n"
-                        (ogent-armory-runner--command-preview plan)))
-        (setq output-start (point))))
-    (let ((default-directory workspace)
-          (sentinel
-           (lambda (process event)
-             (unless (process-live-p process)
-               (setq ogent-armory-runner--processes
-                     (delq process ogent-armory-runner--processes))
-               (let* ((exit-status (process-exit-status process))
-                      (output (ogent-armory-runner--buffer-output process))
-                      (error-output
-                       (when (buffer-live-p stderr-buffer)
-                         (string-trim
-                          (with-current-buffer stderr-buffer
-                            (buffer-string)))))
-                      (conversation-file
-                       (progn
-                         (plist-put plan
-                                    :duration
-                                    (format "%.2fs"
-                                            (- (float-time) started-at)))
-                         (ogent-armory-runner--finalize-conversation
-                          plan output error-output exit-status))))
-                 (ogent-armory-runner--capture-actions
-                  plan output exit-status)
-                 (process-put process 'ogent-armory-conversation-file
-                              conversation-file)
-                 (process-put process 'ogent-armory-conversation-id
-                              (plist-get plan :conversation-id))
-                 (when (buffer-live-p stderr-buffer)
-                   (kill-buffer stderr-buffer))
-                 (message "Armory agent finished: %s (%s)"
-                          conversation-file
-                          (string-trim event)))))))
-      (setq proc (ogent-armory-runner--spawn-process
-                  plan buffer stderr-buffer sentinel)))
-    (set-process-query-on-exit-flag proc nil)
-    (process-put proc 'ogent-armory-plan plan)
-    (process-put proc 'ogent-armory-output-start output-start)
-    (process-put proc 'ogent-armory-conversation-id
-                 (plist-get plan :conversation-id))
-    (process-put proc 'ogent-armory-conversation-file
-                 (plist-get plan :conversation-file))
-    (push proc ogent-armory-runner--processes)
-    (when stdin
-      (process-send-string proc stdin)
-      (process-send-eof proc))
-    proc))
+  "Start PLAN and return its process.
+A plan on the in-process gptel adapter never spawns a subprocess: it
+is dispatched to `ogent-armory-native-start', which returns the
+native run state plist instead of a process."
+  (if (equal (plist-get (plist-get plan :adapter) :adapter-type)
+             "gptel_native")
+      (progn
+        (require 'ogent-armory-native)
+        (ogent-armory-native-start plan))
+    (let* ((program (plist-get plan :program))
+           (stdin (plist-get plan :stdin))
+           (workspace (plist-get plan :workspace))
+           (buffer (get-buffer-create
+                    (format "*ogent-armory-agent:%s*"
+                            (plist-get (plist-get plan :agent) :slug))))
+           (stderr-buffer (generate-new-buffer " *ogent-armory-agent-stderr*"))
+           output-start
+           (started-at (float-time))
+           (started (ogent-armory-runner--iso-now))
+           proc)
+      (unless (executable-find program)
+        (user-error "Armory runner executable not found: %s" program))
+      (when ogent-armory-runner-ensure-beads-redirect
+        (ogent-issues-bd-ensure-worktree-redirect workspace))
+      (let ((conversation-file
+             (ogent-armory-runner--create-conversation plan started)))
+        (plist-put plan :conversation-file conversation-file))
+      (with-current-buffer buffer
+        (let ((inhibit-read-only t))
+          (erase-buffer)
+          (insert (format "$ %s\n\n"
+                          (ogent-armory-runner--command-preview plan)))
+          (setq output-start (point))))
+      (let ((default-directory workspace)
+            (sentinel
+             (lambda (process event)
+               (unless (process-live-p process)
+                 (setq ogent-armory-runner--processes
+                       (delq process ogent-armory-runner--processes))
+                 (let* ((exit-status (process-exit-status process))
+                        (output (ogent-armory-runner--buffer-output process))
+                        (error-output
+                         (when (buffer-live-p stderr-buffer)
+                           (string-trim
+                            (with-current-buffer stderr-buffer
+                              (buffer-string)))))
+                        (conversation-file
+                         (progn
+                           (plist-put plan
+                                      :duration
+                                      (format "%.2fs"
+                                              (- (float-time) started-at)))
+                           (ogent-armory-runner--finalize-conversation
+                            plan output error-output exit-status))))
+                   (ogent-armory-runner--capture-actions
+                    plan output exit-status)
+                   (process-put process 'ogent-armory-conversation-file
+                                conversation-file)
+                   (process-put process 'ogent-armory-conversation-id
+                                (plist-get plan :conversation-id))
+                   (when (buffer-live-p stderr-buffer)
+                     (kill-buffer stderr-buffer))
+                   (message "Armory agent finished: %s (%s)"
+                            conversation-file
+                            (string-trim event)))))))
+        (setq proc (ogent-armory-runner--spawn-process
+                    plan buffer stderr-buffer sentinel)))
+      (set-process-query-on-exit-flag proc nil)
+      (process-put proc 'ogent-armory-plan plan)
+      (process-put proc 'ogent-armory-output-start output-start)
+      (process-put proc 'ogent-armory-conversation-id
+                   (plist-get plan :conversation-id))
+      (process-put proc 'ogent-armory-conversation-file
+                   (plist-get plan :conversation-file))
+      (push proc ogent-armory-runner--processes)
+      (when stdin
+        (process-send-string proc stdin)
+        (process-send-eof proc))
+      proc)))
 
 (defun ogent-armory-runner-display-process (process)
   "Display PROCESS output buffer and return PROCESS."

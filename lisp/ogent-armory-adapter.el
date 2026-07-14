@@ -235,6 +235,12 @@ neither `--cd' nor `--sandbox', so those flags are omitted there."
           :args args
           :stdin nil)))
 
+(defun ogent-armory-adapter--gptel-native-invocation (_adapter _context)
+  "Return the in-process invocation stub for the gptel-native adapter.
+The native runner drives `gptel-request' directly (see
+ogent-armory-native.el), so there is no external program to spawn."
+  (list :program nil :args nil :stdin nil))
+
 (defun ogent-armory-adapter-build-invocation (adapter context)
   "Return process invocation for ADAPTER with CONTEXT."
   (let ((builder (plist-get adapter :build-invocation)))
@@ -557,7 +563,18 @@ metadata as the fallback completion list."
               :runtime-modes (native terminal)
               :supports-session-resume nil
               :supports-detached-runs t
-              :build-invocation ogent-armory-adapter--copilot-invocation)))
+              :build-invocation ogent-armory-adapter--copilot-invocation)
+         (:id "gptel-native"
+              :provider-symbol gptel
+              :adapter-type "gptel_native"
+              :name "gptel (in-process)"
+              :aliases ("gptel" "gptel-native" "gptel_native")
+              :models nil
+              :effort-levels nil
+              :runtime-modes (native)
+              :supports-session-resume nil
+              :supports-detached-runs nil
+              :build-invocation ogent-armory-adapter--gptel-native-invocation)))
     (ogent-armory-adapter-register adapter)))
 
 (ogent-armory-adapter--builtin)
