@@ -1154,5 +1154,443 @@
       (should (ogent-tool-effects-approval-required-p (plist-get spec :effects)))
       (should (ogent-tool-spec-confirm-p spec)))))
 
+;;; Protocol Version Negotiation Tests
+
+(ert-deftest ogent-mcp-protocol-version-default-is-2025-03-26 ()
+  "Default requested protocol version is the 2025-03-26 revision."
+  (should (equal "2025-03-26" (default-value 'ogent-mcp-protocol-version))))
+
+(ert-deftest ogent-mcp--initialize-stores-negotiated-protocol-version ()
+  "ogent-mcp--initialize adopts the server's replied protocolVersion."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal)))
+    (let ((conn (make-ogent-mcp-connection :name "test" :status 'connecting)))
+      (cl-letf (((symbol-function 'message) #'ignore)
+                ((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((protocolVersion . "2024-11-05")
+                                     (capabilities . ((tools . t))))
+                                nil))))))
+        (ogent-mcp--initialize conn #'ignore)
+        (should (equal "2024-11-05"
+                       (ogent-mcp-connection-protocol-version conn)))
+        (should (eq 'ready (ogent-mcp-connection-status conn)))))))
+
+(ert-deftest ogent-mcp--initialize-defaults-version-when-server-omits ()
+  "ogent-mcp--initialize falls back to our version when reply omits it."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal)))
+    (let ((conn (make-ogent-mcp-connection :name "test" :status 'connecting)))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((capabilities . ((tools . t)))) nil))))))
+        (ogent-mcp--initialize conn #'ignore)
+        (should (equal ogent-mcp-protocol-version
+                       (ogent-mcp-connection-protocol-version conn)))))))
+
+(ert-deftest ogent-mcp--initialize-sends-configured-protocol-version ()
+  "ogent-mcp--initialize sends the customized protocol version."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (ogent-mcp-protocol-version "9999-12-31")
+        (sent-version nil))
+    (let ((conn (make-ogent-mcp-connection :name "test" :status 'connecting)))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (when (equal "initialize" (alist-get 'method msg))
+                     (setq sent-version
+                           (alist-get 'protocolVersion
+                                      (alist-get 'params msg)))))))
+        (ogent-mcp--initialize conn #'ignore)
+        (should (equal "9999-12-31" sent-version))))))
+
+;;; Prompt Discovery Tests
+
+(ert-deftest ogent-mcp--refresh-prompts-updates-connection ()
+  "ogent-mcp--refresh-prompts stores prompts from prompts/list."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (sent-method nil))
+    (let ((conn (make-ogent-mcp-connection
+                 :name "test" :status 'ready
+                 :capabilities '((prompts . t)))))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (setq sent-method (alist-get 'method msg))
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((prompts . [((name . "code_review")
+                                                  (description . "Review code"))]))
+                                nil))))))
+        (ogent-mcp--refresh-prompts conn)
+        (should (equal "prompts/list" sent-method))
+        (should (listp (ogent-mcp-connection-prompts conn)))
+        (should (= 1 (length (ogent-mcp-connection-prompts conn))))
+        (should (equal "code_review"
+                       (alist-get 'name
+                                  (car (ogent-mcp-connection-prompts conn)))))))))
+
+(ert-deftest ogent-mcp--refresh-prompts-skips-without-capability ()
+  "ogent-mcp--refresh-prompts does nothing without prompts capability."
+  (let ((send-called nil))
+    (let ((conn (make-ogent-mcp-connection
+                 :name "test" :status 'ready :capabilities nil)))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn _msg) (setq send-called t))))
+        (ogent-mcp--refresh-prompts conn)
+        (should-not send-called)))))
+
+(ert-deftest ogent-mcp--refresh-prompts-logs-error ()
+  "ogent-mcp--refresh-prompts logs error message on failure."
+  (let ((ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (message-log nil))
+    (let ((conn (make-ogent-mcp-connection
+                 :name "prompt-fail" :status 'ready
+                 :capabilities '((prompts . t)))))
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb nil '((message . "prompt error")))))))
+                ((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (setq message-log (apply #'format fmt args)))))
+        (ogent-mcp--refresh-prompts conn)
+        (should (string-match-p "Failed to list prompts" message-log))
+        (should (string-match-p "prompt-fail" message-log))))))
+
+(ert-deftest ogent-mcp--handle-notification-refreshes-prompts-on-change ()
+  "ogent-mcp--handle-notification refreshes prompts on list_changed."
+  (let ((refresh-called nil))
+    (cl-letf (((symbol-function 'ogent-mcp--refresh-prompts)
+               (lambda (conn) (setq refresh-called conn))))
+      (let ((conn (make-ogent-mcp-connection :name "test")))
+        (ogent-mcp--handle-notification
+         conn "notifications/prompts/list_changed" nil)
+        (should (eq refresh-called conn))))))
+
+(ert-deftest ogent-mcp-get-prompt-returns-messages ()
+  "ogent-mcp-get-prompt returns resolved messages from prompts/get."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal))
+        (ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (sent-method nil)
+        (sent-params nil))
+    (let ((conn (make-ogent-mcp-connection :name "srv" :status 'ready)))
+      (puthash "srv" conn ogent-mcp--connections)
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (setq sent-method (alist-get 'method msg)
+                         sent-params (alist-get 'params msg))
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((messages . [((role . "user")
+                                                   (content . ((type . "text")
+                                                               (text . "Review this"))))]))
+                                nil)))))
+                ((symbol-function 'accept-process-output) #'ignore))
+        (let ((messages (ogent-mcp-get-prompt "srv" "code_review"
+                                              '((language . "elisp")))))
+          (should (equal "prompts/get" sent-method))
+          (should (equal "code_review" (alist-get 'name sent-params)))
+          (should (equal "elisp"
+                         (alist-get 'language
+                                    (alist-get 'arguments sent-params))))
+          (should (listp messages))
+          (should (= 1 (length messages)))
+          (should (equal "user" (alist-get 'role (car messages)))))))))
+
+(ert-deftest ogent-mcp-get-prompt-omits-arguments-when-nil ()
+  "ogent-mcp-get-prompt omits the arguments param when nil."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal))
+        (ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (sent-params nil))
+    (let ((conn (make-ogent-mcp-connection :name "srv" :status 'ready)))
+      (puthash "srv" conn ogent-mcp--connections)
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (setq sent-params (alist-get 'params msg))
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb '((messages . [])) nil)))))
+                ((symbol-function 'accept-process-output) #'ignore))
+        (ogent-mcp-get-prompt "srv" "plain")
+        (should (equal "plain" (alist-get 'name sent-params)))
+        (should-not (assq 'arguments sent-params))))))
+
+(ert-deftest ogent-mcp-get-prompt-errors-when-not-connected ()
+  "ogent-mcp-get-prompt signals user-error for unknown server."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal)))
+    (should-error (ogent-mcp-get-prompt "unknown" "p") :type 'user-error)))
+
+(ert-deftest ogent-mcp-get-prompt-errors-when-not-ready ()
+  "ogent-mcp-get-prompt signals user-error when server is not ready."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal)))
+    (puthash "srv" (make-ogent-mcp-connection :name "srv" :status 'connecting)
+             ogent-mcp--connections)
+    (should-error (ogent-mcp-get-prompt "srv" "p") :type 'user-error)))
+
+(ert-deftest ogent-mcp-get-prompt-errors-on-mcp-error ()
+  "ogent-mcp-get-prompt signals error on MCP error response."
+  (let ((ogent-mcp--connections (make-hash-table :test 'equal))
+        (ogent-mcp--request-id 0)
+        (ogent-mcp--pending-requests (make-hash-table :test 'equal)))
+    (let ((conn (make-ogent-mcp-connection :name "srv" :status 'ready)))
+      (puthash "srv" conn ogent-mcp--connections)
+      (cl-letf (((symbol-function 'ogent-mcp--send)
+                 (lambda (_conn msg)
+                   (let* ((id (alist-get 'id msg))
+                          (cb (gethash id ogent-mcp--pending-requests)))
+                     (when cb
+                       (remhash id ogent-mcp--pending-requests)
+                       (funcall cb nil '((code . -32602)
+                                         (message . "Unknown prompt")))))))
+                ((symbol-function 'accept-process-output) #'ignore))
+        (should-error (ogent-mcp-get-prompt "srv" "missing"))))))
+
+(ert-deftest ogent-mcp-connect-http-refreshes-prompts ()
+  "ogent-mcp-connect refreshes prompts after initialization."
+  (let ((ogent-mcp-servers
+         '(("web" :transport http :url "https://example.com/mcp")))
+        (ogent-mcp--connections (make-hash-table :test 'equal))
+        (refreshed nil))
+    (cl-letf (((symbol-function 'ogent-mcp--initialize)
+               (lambda (_conn callback)
+                 (funcall callback '((capabilities . ((prompts . t)))) nil)))
+              ((symbol-function 'ogent-mcp--refresh-tools) #'ignore)
+              ((symbol-function 'ogent-mcp--refresh-resources) #'ignore)
+              ((symbol-function 'ogent-mcp--refresh-prompts)
+               (lambda (conn) (setq refreshed conn)))
+              ((symbol-function 'message) #'ignore))
+      (let ((conn (ogent-mcp-connect "web")))
+        (should (eq refreshed conn))))))
+
+;;; Streamable HTTP Transport Tests
+
+(ert-deftest ogent-mcp-add-http-server-stores-config ()
+  "ogent-mcp-add-http-server stores an http transport config."
+  (let ((ogent-mcp-servers nil))
+    (ogent-mcp-add-http-server "web" "https://example.com/mcp" t)
+    (let ((config (cdr (assoc "web" ogent-mcp-servers))))
+      (should (eq 'http (plist-get config :transport)))
+      (should (equal "https://example.com/mcp" (plist-get config :url)))
+      (should (eq t (plist-get config :auto-connect))))))
+
+(ert-deftest ogent-mcp-connect-http-creates-http-connection ()
+  "ogent-mcp-connect builds an http connection from :transport config."
+  (let ((ogent-mcp-servers
+         '(("web" :transport http :url "https://example.com/mcp")))
+        (ogent-mcp--connections (make-hash-table :test 'equal))
+        (initialized nil))
+    (cl-letf (((symbol-function 'ogent-mcp--initialize)
+               (lambda (conn _callback) (setq initialized conn))))
+      (let ((conn (ogent-mcp-connect "web")))
+        (should (eq 'http (ogent-mcp-connection-transport conn)))
+        (should (equal "https://example.com/mcp"
+                       (ogent-mcp-connection-url conn)))
+        (should-not (ogent-mcp-connection-process conn))
+        (should (eq conn (gethash "web" ogent-mcp--connections)))
+        (should (eq initialized conn))))))
+
+(ert-deftest ogent-mcp-connect-http-requires-url ()
+  "ogent-mcp-connect signals user-error for http config without :url."
+  (let ((ogent-mcp-servers '(("web" :transport http)))
+        (ogent-mcp--connections (make-hash-table :test 'equal)))
+    (should-error (ogent-mcp-connect "web") :type 'user-error)))
+
+(ert-deftest ogent-mcp--http-send-posts-json-rpc ()
+  "ogent-mcp--http-send POSTs the encoded message via url-retrieve."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (captured-url nil)
+        (captured-callback nil)
+        (captured-cbargs nil)
+        (captured-method nil)
+        (captured-headers nil)
+        (captured-data nil))
+    (cl-letf (((symbol-function 'url-retrieve)
+               (lambda (url callback &optional cbargs _silent &rest _)
+                 (setq captured-url url
+                       captured-callback callback
+                       captured-cbargs cbargs
+                       captured-method url-request-method
+                       captured-headers url-request-extra-headers
+                       captured-data url-request-data)
+                 nil)))
+      (ogent-mcp--http-send conn '((jsonrpc . "2.0")
+                                   (id . 7)
+                                   (method . "tools/list")))
+      (should (equal "https://example.com/mcp" captured-url))
+      (should (eq #'ogent-mcp--http-handle-response captured-callback))
+      (should (equal (list conn) captured-cbargs))
+      (should (equal "POST" captured-method))
+      (should (equal "application/json"
+                     (cdr (assoc "Content-Type" captured-headers))))
+      (should (string-match-p "application/json"
+                              (cdr (assoc "Accept" captured-headers))))
+      (should (string-match-p "text/event-stream"
+                              (cdr (assoc "Accept" captured-headers))))
+      ;; No session header before the server assigns one
+      (should-not (assoc "Mcp-Session-Id" captured-headers))
+      (let ((parsed (json-read-from-string captured-data)))
+        (should (equal "tools/list" (alist-get 'method parsed)))
+        (should (= 7 (alist-get 'id parsed)))))))
+
+(ert-deftest ogent-mcp--http-send-includes-session-id ()
+  "ogent-mcp--http-send sends the assigned Mcp-Session-Id header."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp"
+               :session-id "sess-42" :status 'ready))
+        (captured-headers nil))
+    (cl-letf (((symbol-function 'url-retrieve)
+               (lambda (_url _callback &optional _cbargs _silent &rest _)
+                 (setq captured-headers url-request-extra-headers)
+                 nil)))
+      (ogent-mcp--http-send conn '((jsonrpc . "2.0") (method . "ping")))
+      (should (equal "sess-42"
+                     (cdr (assoc "Mcp-Session-Id" captured-headers)))))))
+
+(ert-deftest ogent-mcp--send-routes-http-transport ()
+  "ogent-mcp--send dispatches to the http sender for http connections."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http
+               :url "https://example.com/mcp" :status 'ready))
+        (http-sent nil))
+    (cl-letf (((symbol-function 'ogent-mcp--http-send)
+               (lambda (_conn msg) (setq http-sent msg)))
+              ((symbol-function 'process-send-string)
+               (lambda (&rest _) (error "Stdio path must not run"))))
+      (ogent-mcp--send conn '((method . "ping")))
+      (should (equal "ping" (alist-get 'method http-sent))))))
+
+(ert-deftest ogent-mcp--http-body-messages-parses-single-object ()
+  "A plain JSON object body yields one message."
+  (let ((messages (ogent-mcp--http-body-messages
+                   "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}"
+                   "application/json")))
+    (should (= 1 (length messages)))
+    (should (= 1 (alist-get 'id (car messages))))))
+
+(ert-deftest ogent-mcp--http-body-messages-parses-batch-array ()
+  "A JSON array body yields one message per element."
+  (let ((messages (ogent-mcp--http-body-messages
+                   "[{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}},{\"jsonrpc\":\"2.0\",\"id\":2,\"result\":{}}]"
+                   "application/json")))
+    (should (= 2 (length messages)))
+    (should (= 1 (alist-get 'id (nth 0 messages))))
+    (should (= 2 (alist-get 'id (nth 1 messages))))))
+
+(ert-deftest ogent-mcp--http-body-messages-parses-sse-data-lines ()
+  "A buffered SSE body yields one message per data: line."
+  (let ((messages (ogent-mcp--http-body-messages
+                   "event: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{}}\n\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/x\"}\n"
+                   "text/event-stream")))
+    (should (= 2 (length messages)))
+    (should (= 1 (alist-get 'id (nth 0 messages))))
+    (should (equal "notifications/x" (alist-get 'method (nth 1 messages))))))
+
+(ert-deftest ogent-mcp--http-body-messages-detects-sse-heuristically ()
+  "An SSE-shaped body is parsed as SSE without a content type."
+  (let ((messages (ogent-mcp--http-body-messages
+                   "data: {\"jsonrpc\":\"2.0\",\"id\":9,\"result\":{}}\n")))
+    (should (= 1 (length messages)))
+    (should (= 9 (alist-get 'id (car messages))))))
+
+(ert-deftest ogent-mcp--http-body-messages-handles-empty-body ()
+  "An empty body (202 Accepted for notifications) yields no messages."
+  (should-not (ogent-mcp--http-body-messages "" "application/json"))
+  (should-not (ogent-mcp--http-body-messages nil))
+  (should-not (ogent-mcp--http-body-messages "  \n" "application/json")))
+
+(ert-deftest ogent-mcp--http-handle-response-dispatches-and-stores-session ()
+  "The response handler dispatches body messages and records the session id."
+  (let ((ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (callback-result nil)
+        (conn (make-ogent-mcp-connection
+               :name "web" :transport 'http :status 'ready)))
+    (puthash 5 (lambda (result _err) (setq callback-result result))
+             ogent-mcp--pending-requests)
+    (let ((buf (generate-new-buffer " *ogent-mcp-http-test*")))
+      (with-current-buffer buf
+        (insert "HTTP/1.1 200 OK\r\n"
+                "Content-Type: application/json\r\n"
+                "Mcp-Session-Id: sess-123\r\n"
+                "\r\n"
+                "{\"jsonrpc\":\"2.0\",\"id\":5,\"result\":{\"ok\":true}}")
+        (ogent-mcp--http-handle-response nil conn))
+      (should callback-result)
+      (should (eq t (alist-get 'ok callback-result)))
+      (should (equal "sess-123" (ogent-mcp-connection-session-id conn)))
+      ;; Handler cleans up the response buffer
+      (should-not (buffer-live-p buf)))))
+
+(ert-deftest ogent-mcp--http-handle-response-parses-sse-response ()
+  "The response handler dispatches messages from a buffered SSE body."
+  (let ((ogent-mcp--pending-requests (make-hash-table :test 'equal))
+        (callback-result nil)
+        (conn (make-ogent-mcp-connection
+               :name "web" :transport 'http :status 'ready)))
+    (puthash 6 (lambda (result _err) (setq callback-result result))
+             ogent-mcp--pending-requests)
+    (let ((buf (generate-new-buffer " *ogent-mcp-http-test*")))
+      (with-current-buffer buf
+        (insert "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/event-stream\r\n"
+                "\r\n"
+                "event: message\n"
+                "data: {\"jsonrpc\":\"2.0\",\"id\":6,\"result\":{\"ok\":true}}\n")
+        (ogent-mcp--http-handle-response nil conn))
+      (should callback-result)
+      (should (eq t (alist-get 'ok callback-result))))))
+
+(ert-deftest ogent-mcp--http-handle-response-error-while-connecting ()
+  "An HTTP error during connect marks the connection as errored."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http :status 'connecting))
+        (message-log nil))
+    (let ((buf (generate-new-buffer " *ogent-mcp-http-test*")))
+      (with-current-buffer buf
+        (cl-letf (((symbol-function 'message)
+                   (lambda (fmt &rest args)
+                     (setq message-log (apply #'format fmt args)))))
+          (ogent-mcp--http-handle-response
+           '(:error (error http 500)) conn)))
+      (should (eq 'error (ogent-mcp-connection-status conn)))
+      (should (ogent-mcp-connection-error conn))
+      (should (string-match-p "HTTP error" message-log))
+      (should-not (buffer-live-p buf)))))
+
+(ert-deftest ogent-mcp--http-handle-response-error-keeps-ready-status ()
+  "A transient HTTP error does not close a ready connection."
+  (let ((conn (make-ogent-mcp-connection
+               :name "web" :transport 'http :status 'ready)))
+    (let ((buf (generate-new-buffer " *ogent-mcp-http-test*")))
+      (with-current-buffer buf
+        (cl-letf (((symbol-function 'message) #'ignore))
+          (ogent-mcp--http-handle-response
+           '(:error (error http 503)) conn)))
+      (should (eq 'ready (ogent-mcp-connection-status conn)))
+      (should-not (buffer-live-p buf)))))
+
 (provide 'ogent-mcp-tests)
 ;;; ogent-mcp-tests.el ends here

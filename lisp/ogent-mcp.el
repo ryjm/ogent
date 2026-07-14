@@ -4,9 +4,13 @@
 ;; Implements an MCP client enabling ogent to connect to MCP servers for
 ;; extended tool capabilities.  Supports:
 ;; - Stdio transport (JSON-RPC over stdin/stdout)
+;; - Streamable HTTP transport (JSON-RPC POSTs via url.el; messages in
+;;   the POST response body are dispatched, SSE streaming out of scope)
+;; - Protocol version negotiation during initialization
 ;; - Server discovery and configuration
 ;; - Dynamic tool registration from MCP servers
 ;; - Resource fetching
+;; - Prompt discovery and retrieval (prompts/list, prompts/get)
 ;;
 ;; MCP Reference: https://modelcontextprotocol.io/
 ;;
@@ -20,6 +24,7 @@
 (require 'cl-lib)
 (require 'json)
 (require 'subr-x)
+(require 'url)
 
 ;; Forward declaration for ogent-tool-registry
 (defvar ogent-tool-registry)
@@ -33,22 +38,30 @@
 (defcustom ogent-mcp-servers nil
   "Alist of MCP server configurations.
 Each entry is (NAME . PLIST) where PLIST contains:
-  :command  - The executable to run (string)
-  :args     - Command arguments (list of strings)
+  :transport - Transport symbol: `stdio' (default) or `http'
+  :command  - The executable to run (string, stdio transport)
+  :args     - Command arguments (list of strings, stdio transport)
   :env      - Environment variables (alist of (VAR . VALUE))
+  :url      - Endpoint URL (string, http transport)
   :auto-connect - If non-nil, connect on ogent startup
 
 Example:
   ((\"filesystem\" :command \"npx\"
                    :args (\"-y\" \"@anthropic/mcp-server-filesystem\" \"/tmp\")
                    :auto-connect t)
-   (\"git\" :command \"uvx\" :args (\"mcp-server-git\")))"
+   (\"git\" :command \"uvx\" :args (\"mcp-server-git\"))
+   (\"remote\" :transport http :url \"https://example.com/mcp\"))"
   :type '(alist :key-type string
-                :value-type (plist :options (:command :args :env :auto-connect)))
+                :value-type (plist :options (:transport :command :args :env
+                                             :url :auto-connect)))
   :group 'ogent-mcp)
 
-(defcustom ogent-mcp-protocol-version "2024-11-05"
-  "MCP protocol version to use for client."
+(defcustom ogent-mcp-protocol-version "2025-03-26"
+  "MCP protocol version requested during initialization.
+Sent as the preferred version in the initialize request.  When the
+server replies with a different version, the replied version is
+adopted and stored on the connection (see
+`ogent-mcp-connection-protocol-version')."
   :type 'string
   :group 'ogent-mcp)
 
@@ -91,15 +104,19 @@ servers you fully trust."
 
 (cl-defstruct ogent-mcp-connection
   "State for an MCP server connection."
-  name           ; Server name (string)
-  process        ; Emacs process object
-  capabilities   ; Server capabilities from initialization
-  tools          ; List of available tools
-  resources      ; List of available resources
-  prompts        ; List of available prompts
-  status         ; 'connecting | 'ready | 'error | 'closed
-  error          ; Error message if status is 'error
-  buffer)        ; Output accumulator buffer
+  name             ; Server name (string)
+  transport        ; Transport symbol: `stdio' (default) or `http'
+  url              ; Endpoint URL when transport is `http'
+  session-id       ; Mcp-Session-Id assigned by an http server, if any
+  process          ; Emacs process object (stdio transport)
+  capabilities     ; Server capabilities from initialization
+  protocol-version ; Protocol version negotiated with the server
+  tools            ; List of available tools
+  resources        ; List of available resources
+  prompts          ; List of available prompts
+  status           ; 'connecting | 'ready | 'error | 'closed
+  error            ; Error message if status is 'error
+  buffer)          ; Output accumulator buffer
 
 ;;; JSON-RPC Protocol
 
@@ -193,22 +210,26 @@ servers you fully trust."
   "Handle a JSON-RPC message JSON-STR for connection CONN."
   (let ((msg (ogent-mcp--parse-message json-str)))
     (when msg
-      (let ((id (alist-get 'id msg))
-            (method (alist-get 'method msg))
-            (result (alist-get 'result msg))
-            (error-obj (alist-get 'error msg)))
-        (cond
-         ;; Response to a request we made
-         (id
-          (let ((callback (gethash id ogent-mcp--pending-requests)))
-            (when callback
-              (remhash id ogent-mcp--pending-requests)
-              (if error-obj
-                  (funcall callback nil error-obj)
-                (funcall callback result nil)))))
-         ;; Notification from server
-         (method
-          (ogent-mcp--handle-notification conn method (alist-get 'params msg))))))))
+      (ogent-mcp--dispatch-message conn msg))))
+
+(defun ogent-mcp--dispatch-message (conn msg)
+  "Dispatch a parsed JSON-RPC message MSG for connection CONN."
+  (let ((id (alist-get 'id msg))
+        (method (alist-get 'method msg))
+        (result (alist-get 'result msg))
+        (error-obj (alist-get 'error msg)))
+    (cond
+     ;; Response to a request we made
+     (id
+      (let ((callback (gethash id ogent-mcp--pending-requests)))
+        (when callback
+          (remhash id ogent-mcp--pending-requests)
+          (if error-obj
+              (funcall callback nil error-obj)
+            (funcall callback result nil)))))
+     ;; Notification from server
+     (method
+      (ogent-mcp--handle-notification conn method (alist-get 'params msg))))))
 
 (defun ogent-mcp--handle-notification (conn method _params)
   "Handle a notification METHOD with PARAMS from CONN."
@@ -219,18 +240,125 @@ servers you fully trust."
     ("notifications/resources/list_changed"
      ;; Server's resources changed, refresh
      (ogent-mcp--refresh-resources conn))
+    ("notifications/prompts/list_changed"
+     ;; Server's prompts changed, refresh
+     (ogent-mcp--refresh-prompts conn))
     (_
      ;; Unknown notification, log it
      (message "ogent-mcp: Unknown notification from '%s': %s"
               (ogent-mcp-connection-name conn) method))))
 
+;;; Streamable HTTP Transport
+;;
+;; Client half of the MCP streamable HTTP transport: every JSON-RPC
+;; message is POSTed to the server's endpoint URL, and any messages in
+;; the POST response body are dispatched.  Responses may be plain JSON
+;; (object or batch array) or a fully-buffered SSE body, in which case
+;; each "data:" line is parsed.  Incremental SSE streaming and
+;; server-initiated GET streams are out of scope; only POST responses
+;; are handled.
+
+(defun ogent-mcp--http-send (conn msg)
+  "POST JSON-RPC MSG to the streamable HTTP endpoint of CONN.
+The response is handled asynchronously by
+`ogent-mcp--http-handle-response'."
+  (let* ((url-request-method "POST")
+         (url-request-extra-headers
+          (append '(("Content-Type" . "application/json")
+                    ("Accept" . "application/json, text/event-stream"))
+                  (when-let ((session (ogent-mcp-connection-session-id conn)))
+                    (list (cons "Mcp-Session-Id" session)))))
+         (url-request-data
+          (encode-coding-string (json-encode msg) 'utf-8)))
+    (url-retrieve (ogent-mcp-connection-url conn)
+                  #'ogent-mcp--http-handle-response
+                  (list conn)
+                  t)))
+
+(defun ogent-mcp--http-header (name)
+  "Return the value of response header NAME in the current buffer.
+Search only the header section of an HTTP response buffer.  Return
+nil when the header is absent."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t)
+          (limit (or (bound-and-true-p url-http-end-of-headers)
+                     (save-excursion
+                       (when (re-search-forward "^\r?$" nil t)
+                         (point)))
+                     (point-max))))
+      (when (re-search-forward
+             (concat "^" (regexp-quote name) ":[ \t]*\\(.*\\)$")
+             limit t)
+        (string-trim (match-string 1))))))
+
+(defun ogent-mcp--http-body-messages (body &optional content-type)
+  "Parse BODY of a streamable HTTP response into JSON-RPC messages.
+CONTENT-TYPE is the response Content-Type header when known.  Return
+a list of parsed message alists: a JSON object yields one message, a
+JSON batch array yields one per element, and a fully-buffered SSE
+body yields one per \"data:\" line.  Incremental SSE streaming is not
+supported."
+  (let ((body (string-trim (or body ""))))
+    (cond
+     ((string-empty-p body) nil)
+     ((or (and content-type
+               (string-match-p "text/event-stream" content-type))
+          (string-match-p "\\`\\(data\\|event\\):" body))
+      (let ((messages nil))
+        (dolist (line (split-string body "\n" t "[ \t\r]+"))
+          (when (string-match "\\`data:[ \t]*\\(.+\\)\\'" line)
+            (let ((msg (ogent-mcp--parse-message (match-string 1 line))))
+              (when msg
+                (push msg messages)))))
+        (nreverse messages)))
+     (t
+      (let ((parsed (ogent-mcp--parse-message body)))
+        (cond
+         ((vectorp parsed) (append parsed nil))
+         (parsed (list parsed))))))))
+
+(defun ogent-mcp--http-handle-response (status conn)
+  "Handle a completed HTTP POST response for CONN in the current buffer.
+STATUS is the status plist supplied by `url-retrieve'.  Record any
+Mcp-Session-Id header on CONN, dispatch every JSON-RPC message found
+in the response body, then kill the response buffer."
+  (let ((buffer (current-buffer)))
+    (unwind-protect
+        (let ((err (plist-get status :error)))
+          (if err
+              (progn
+                (when (eq (ogent-mcp-connection-status conn) 'connecting)
+                  (setf (ogent-mcp-connection-status conn) 'error)
+                  (setf (ogent-mcp-connection-error conn) (format "%s" err)))
+                (message "ogent-mcp: HTTP error from '%s': %s"
+                         (ogent-mcp-connection-name conn) err))
+            (when-let ((session (ogent-mcp--http-header "Mcp-Session-Id")))
+              (setf (ogent-mcp-connection-session-id conn) session))
+            (let* ((content-type (ogent-mcp--http-header "Content-Type"))
+                   (body-start
+                    (or (bound-and-true-p url-http-end-of-headers)
+                        (save-excursion
+                          (goto-char (point-min))
+                          (when (re-search-forward "^\r?\n" nil t)
+                            (point)))
+                        (point-min)))
+                   (body (buffer-substring-no-properties
+                          body-start (point-max))))
+              (dolist (msg (ogent-mcp--http-body-messages body content-type))
+                (ogent-mcp--dispatch-message conn msg)))))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
 ;;; Connection Lifecycle
 
 (defun ogent-mcp--send (conn msg)
-  "Send MSG to MCP server CONN."
-  (let ((proc (ogent-mcp-connection-process conn)))
-    (when (and proc (process-live-p proc))
-      (process-send-string proc (ogent-mcp--encode-message msg)))))
+  "Send JSON-RPC MSG to MCP server CONN over its transport."
+  (if (eq (ogent-mcp-connection-transport conn) 'http)
+      (ogent-mcp--http-send conn msg)
+    (let ((proc (ogent-mcp-connection-process conn)))
+      (when (and proc (process-live-p proc))
+        (process-send-string proc (ogent-mcp--encode-message msg))))))
 
 (defun ogent-mcp--request (conn method params callback)
   "Send a request to CONN with METHOD and PARAMS, calling CALLBACK with result.
@@ -281,6 +409,21 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
                             ;; Store capabilities
                             (setf (ogent-mcp-connection-capabilities conn)
                                   (alist-get 'capabilities result))
+                            ;; Version negotiation: adopt the version the
+                            ;; server replied with, which may differ from
+                            ;; the one we requested.
+                            (let ((server-version
+                                   (alist-get 'protocolVersion result)))
+                              (when (and server-version
+                                         (not (equal server-version
+                                                     ogent-mcp-protocol-version)))
+                                (message "ogent-mcp: Server '%s' negotiated protocol version %s (requested %s)"
+                                         (ogent-mcp-connection-name conn)
+                                         server-version
+                                         ogent-mcp-protocol-version))
+                              (setf (ogent-mcp-connection-protocol-version conn)
+                                    (or server-version
+                                        ogent-mcp-protocol-version)))
                             ;; Send initialized notification
                             (ogent-mcp--send conn
                                              (ogent-mcp--make-notification
@@ -403,6 +546,23 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
                                     (ogent-mcp--array-to-list
                                      (alist-get 'resources result)))))))))
 
+;;; Prompt Discovery
+
+(defun ogent-mcp--refresh-prompts (conn)
+  "Refresh the prompt list from CONN.
+Only query the server when its capabilities include prompts."
+  (let ((caps (ogent-mcp-connection-capabilities conn)))
+    (when (alist-get 'prompts caps)
+      (ogent-mcp--request conn "prompts/list" nil
+                          (lambda (result error-obj)
+                            (if error-obj
+                                (message "ogent-mcp: Failed to list prompts from '%s': %s"
+                                         (ogent-mcp-connection-name conn)
+                                         (alist-get 'message error-obj))
+                              (setf (ogent-mcp-connection-prompts conn)
+                                    (ogent-mcp--array-to-list
+                                     (alist-get 'prompts result)))))))))
+
 ;;; Public API
 
 ;;;###autoload
@@ -421,6 +581,18 @@ AUTO-CONNECT if non-nil connects on ogent startup."
               (assoc-delete-all name ogent-mcp-servers))))
 
 ;;;###autoload
+(defun ogent-mcp-add-http-server (name url &optional auto-connect)
+  "Add an MCP server configuration using the streamable HTTP transport.
+NAME is the server identifier (string).
+URL is the endpoint accepting JSON-RPC POST requests.
+AUTO-CONNECT if non-nil connects on ogent startup."
+  (setq ogent-mcp-servers
+        (cons (cons name `(:transport http
+                                      :url ,url
+                                      :auto-connect ,auto-connect))
+              (assoc-delete-all name ogent-mcp-servers))))
+
+;;;###autoload
 (defun ogent-mcp-connect (server-name)
   "Connect to the MCP server named SERVER-NAME."
   (interactive
@@ -431,42 +603,71 @@ AUTO-CONNECT if non-nil connects on ogent startup."
     (unless config
       (user-error "Unknown MCP server: %s" server-name))
     ;; Close existing connection if any
-    (when-let ((existing (gethash server-name ogent-mcp--connections)))
+    (when (gethash server-name ogent-mcp--connections)
       (ogent-mcp-disconnect server-name))
-    ;; Create new connection
-    (let* ((command (plist-get config :command))
-           (args (plist-get config :args))
-           (env (plist-get config :env))
-           (conn (make-ogent-mcp-connection
-                  :name server-name
-                  :status 'connecting
-                  :buffer "")))
-      ;; Start process
-      (let* ((process-environment
-              (append (mapcar (lambda (e) (format "%s=%s" (car e) (cdr e))) env)
-                      process-environment))
-             (proc (make-process
-                    :name (format "ogent-mcp-%s" server-name)
-                    :command (cons command args)
-                    :connection-type 'pipe
-                    :noquery t
-                    :filter (ogent-mcp--make-process-filter conn)
-                    :sentinel (ogent-mcp--make-process-sentinel conn))))
-        (setf (ogent-mcp-connection-process conn) proc)
-        (puthash server-name conn ogent-mcp--connections)
-        ;; Initialize
-        (ogent-mcp--initialize conn
-                               (lambda (_result error-obj)
-                                 (if error-obj
-                                     (message "ogent-mcp: Failed to initialize '%s': %s"
-                                              server-name
-                                              (alist-get 'message error-obj))
-                                   (message "ogent-mcp: Connected to '%s'" server-name)
-                                   ;; Fetch tools
-                                   (ogent-mcp--refresh-tools conn)
-                                   ;; Fetch resources if supported
-                                   (ogent-mcp--refresh-resources conn))))
-        conn))))
+    ;; Create new connection for the configured transport
+    (let* ((transport (or (plist-get config :transport) 'stdio))
+           (conn (pcase transport
+                   ('stdio (ogent-mcp--connect-stdio server-name config))
+                   ('http (ogent-mcp--connect-http server-name config))
+                   (_ (user-error "Unknown MCP transport for '%s': %s"
+                                  server-name transport)))))
+      (puthash server-name conn ogent-mcp--connections)
+      ;; Initialize
+      (ogent-mcp--initialize conn
+                             (lambda (_result error-obj)
+                               (if error-obj
+                                   (message "ogent-mcp: Failed to initialize '%s': %s"
+                                            server-name
+                                            (alist-get 'message error-obj))
+                                 (message "ogent-mcp: Connected to '%s'" server-name)
+                                 ;; Fetch tools
+                                 (ogent-mcp--refresh-tools conn)
+                                 ;; Fetch resources if supported
+                                 (ogent-mcp--refresh-resources conn)
+                                 ;; Fetch prompts if supported
+                                 (ogent-mcp--refresh-prompts conn))))
+      conn)))
+
+(defun ogent-mcp--connect-stdio (server-name config)
+  "Create a stdio transport connection to SERVER-NAME from CONFIG.
+Start the server process described by CONFIG and return the new
+connection object."
+  (let* ((command (plist-get config :command))
+         (args (plist-get config :args))
+         (env (plist-get config :env))
+         (conn (make-ogent-mcp-connection
+                :name server-name
+                :transport 'stdio
+                :status 'connecting
+                :buffer ""))
+         (process-environment
+          (append (mapcar (lambda (e) (format "%s=%s" (car e) (cdr e))) env)
+                  process-environment)))
+    (setf (ogent-mcp-connection-process conn)
+          (make-process
+           :name (format "ogent-mcp-%s" server-name)
+           :command (cons command args)
+           :connection-type 'pipe
+           :noquery t
+           :filter (ogent-mcp--make-process-filter conn)
+           :sentinel (ogent-mcp--make-process-sentinel conn)))
+    conn))
+
+(defun ogent-mcp--connect-http (server-name config)
+  "Create a streamable HTTP transport connection to SERVER-NAME from CONFIG.
+Signal a `user-error' when CONFIG lacks a :url entry.  Return the new
+connection object; no request is sent until initialization."
+  (let ((url (plist-get config :url)))
+    (unless url
+      (user-error "MCP server '%s' uses the http transport but has no :url"
+                  server-name))
+    (make-ogent-mcp-connection
+     :name server-name
+     :transport 'http
+     :url url
+     :status 'connecting
+     :buffer "")))
 
 ;;;###autoload
 (defun ogent-mcp-disconnect (server-name)
@@ -510,6 +711,8 @@ AUTO-CONNECT if non-nil connects on ogent startup."
              (princ (format "    - %s\n" (alist-get 'name tool)))))
          (when-let ((resources (ogent-mcp-connection-resources conn)))
            (princ (format "  Resources: %d\n" (length resources))))
+         (when-let ((prompts (ogent-mcp-connection-prompts conn)))
+           (princ (format "  Prompts: %d\n" (length prompts))))
          (princ "\n"))
        ogent-mcp--connections))))
 
@@ -543,6 +746,28 @@ AUTO-CONNECT if non-nil connects on ogent startup."
             (let ((item (car contents)))
               (or (alist-get 'text item)
                   (alist-get 'blob item)))))))))
+
+;;; Prompt Retrieval
+
+;;;###autoload
+(defun ogent-mcp-get-prompt (server-name prompt-name &optional arguments)
+  "Get prompt PROMPT-NAME from SERVER-NAME and return its messages.
+ARGUMENTS is an optional alist of (NAME . VALUE) pairs used to fill
+the prompt's template arguments.  Return the list of resolved prompt
+messages from the server's prompts/get response."
+  (let ((conn (gethash server-name ogent-mcp--connections)))
+    (unless conn
+      (user-error "Not connected to MCP server: %s" server-name))
+    (unless (eq (ogent-mcp-connection-status conn) 'ready)
+      (user-error "MCP server '%s' is not ready" server-name))
+    (let* ((params `((name . ,prompt-name)
+                     ,@(when arguments
+                         `((arguments . ,arguments)))))
+           (response (ogent-mcp--request-sync conn "prompts/get" params)))
+      (if (cdr response)
+          (error "MCP prompt error: %s" (alist-get 'message (cdr response)))
+        (ogent-mcp--array-to-list
+         (alist-get 'messages (car response)))))))
 
 ;;; Setup
 
