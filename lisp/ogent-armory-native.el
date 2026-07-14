@@ -287,14 +287,14 @@ Finalize as failed instead when the next round would exceed
                                (ogent-armory-native--results-turn results))))
       (ogent-armory-native--send-guarded state))))
 
-(defun ogent-armory-native--handle-tool-calls (state calls)
-  "Execute CALLS for STATE through ogent's tool machinery, then iterate."
+(defun ogent-armory-native--handle-tool-calls (state tool-calls)
+  "Run each of TOOL-CALLS for STATE through ogent's tool machinery, then iterate."
   (let ((plan (plist-get state :plan))
         (iteration (plist-get state :iteration))
         (results nil))
     (plist-put state :round-text (plist-get state :pending-text))
     (ogent-armory-native--record-pending-text state)
-    (dolist (call calls)
+    (dolist (call tool-calls)
       (let* ((name (ogent-armory-native--tool-name call))
              (args (ogent-armory-native--tool-args call))
              (result (if name
