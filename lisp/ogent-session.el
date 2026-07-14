@@ -311,7 +311,7 @@ Shows session name, date, and models used."
                                          "\\.org$"
                                          nil))
          (sessions (mapcar #'ogent-persist--parse-file-metadata session-files))
-         (buffer-name "*Ogent Sessions*")
+         (buffer-name "*ogent-sessions*")
          (buffer (get-buffer-create buffer-name)))
     
     (with-current-buffer buffer
@@ -442,7 +442,7 @@ Adds to `ogent-persist--models' if not already present."
                          (lambda (a b)
                            (time-less-p (or (plist-get b :start-time) 0)
                                         (or (plist-get a :start-time) 0)))))
-         (buffer (get-buffer-create "*Ogent History*")))
+         (buffer (get-buffer-create "*ogent-history*")))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
         (erase-buffer)
@@ -535,7 +535,7 @@ Uses grep for fast full-text search."
 
 (defun ogent-history--display-search-results (query results)
   "Display search RESULTS for QUERY in a buffer."
-  (let ((buf (get-buffer-create "*Ogent Search*")))
+  (let ((buf (get-buffer-create "*ogent-search*")))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
         (erase-buffer)

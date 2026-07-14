@@ -584,7 +584,7 @@ See `ogent-evil-display-mode-setup'."
 (defun ogent-describe-bindings ()
   "Display all ogent keybindings in a help buffer."
   (interactive)
-  (with-help-window "*Ogent Bindings*"
+  (with-help-window "*ogent-bindings*"
     (princ "Ogent Keybindings\n")
     (princ "=================\n\n")
     (princ (format "Vanilla prefix: %s\n" ogent-vanilla-prefix))

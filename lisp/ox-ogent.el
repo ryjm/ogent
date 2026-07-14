@@ -36,7 +36,7 @@
   "Regexp matching the response headline text ogent writes.
 Group 1 captures the model id recorded on the headline.")
 
-(defconst ox-ogent--export-buffer-name "*Ogent Conversation Export*"
+(defconst ox-ogent--export-buffer-name "*ogent-conversation-export*"
   "Name of the buffer receiving interactive conversation exports.")
 
 ;;; Shared parse-tree filter

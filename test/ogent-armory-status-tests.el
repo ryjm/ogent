@@ -292,7 +292,7 @@
   "The Armory status help buffer documents node-specific workflows."
   (save-window-excursion
     (ogent-armory-status-help)
-    (with-current-buffer "*Ogent Armory Status Help*"
+    (with-current-buffer "*ogent-armory-status-help*"
       (let ((text (buffer-substring-no-properties (point-min) (point-max))))
         (should (string-match-p "Armory Status" text))
         (should (string-match-p "Rows stay quiet" text))

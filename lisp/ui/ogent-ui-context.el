@@ -32,7 +32,7 @@ Most models support ~100k tokens which is roughly 400k chars."
 
 ;;; Context Management Buffer
 
-(defconst ogent-ui-context-buffer-name "*Ogent Context Manager*"
+(defconst ogent-ui-context-buffer-name "*ogent-context-manager*"
   "Name of the context management buffer.")
 
 (defvar-local ogent-ui-context--context nil

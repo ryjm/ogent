@@ -831,7 +831,7 @@
       (unwind-protect
           (progn
             (ogent-review-dashboard)
-            (with-current-buffer "*Ogent Review*"
+            (with-current-buffer "*ogent-review*"
               (should (eq major-mode 'ogent-review-dashboard-mode))
               (should (equal ogent-review-dashboard-source-buffer source))
               (let ((text (buffer-substring-no-properties
@@ -840,8 +840,8 @@
                 (should (string-match-p "Accepted" text))
                 (should (string-match-p "response m2: needs attention" text))
                 (should (string-match-p "response m1: kept" text)))))
-        (when (get-buffer "*Ogent Review*")
-          (kill-buffer "*Ogent Review*"))))))
+        (when (get-buffer "*ogent-review*")
+          (kill-buffer "*ogent-review*"))))))
 
 (ert-deftest ogent-review-dashboard-keymap-and-mark-row ()
   "Dashboard rows expose section keys and marking updates the source Org item."
@@ -854,7 +854,7 @@
       (unwind-protect
           (progn
             (ogent-review-dashboard)
-            (with-current-buffer "*Ogent Review*"
+            (with-current-buffer "*ogent-review*"
               (should (get 'ogent-review-dashboard-dispatch 'transient--prefix))
               (dolist (binding `(("?" . ogent-review-dashboard-dispatch)
                                  ("n" . ogent-review-dashboard-next-item)
@@ -883,8 +883,8 @@
               (org-back-to-heading t)
               (should (equal (org-entry-get (point) "OGENT_DECISION")
                              "accepted"))))
-        (when (get-buffer "*Ogent Review*")
-          (kill-buffer "*Ogent Review*"))))))
+        (when (get-buffer "*ogent-review*")
+          (kill-buffer "*ogent-review*"))))))
 
 (ert-deftest ogent-zen-copy-response-copies-body-from-request ()
   "Copy response copies only the nearest Zen answer body from a request."

@@ -198,7 +198,7 @@
           
           ;; Generate list
           (ogent-session-list)
-          (setq list-buffer (get-buffer "*Ogent Sessions*"))
+          (setq list-buffer (get-buffer "*ogent-sessions*"))
           (should (buffer-live-p list-buffer))
           
           (with-current-buffer list-buffer
@@ -222,7 +222,7 @@
     (unwind-protect
         (progn
           (ogent-session-list)
-          (setq list-buffer (get-buffer "*Ogent Sessions*"))
+          (setq list-buffer (get-buffer "*ogent-sessions*"))
           (should (buffer-live-p list-buffer))
           
           (with-current-buffer list-buffer
@@ -535,7 +535,7 @@
             (insert "#+OGENT-SESSION-ID: s2\n")
             (insert "\n* Discussion\nThis is about pandas too.\n"))
           (ogent-session-search "pandas")
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -556,7 +556,7 @@
           (with-temp-file file1
             (insert "#+title: Alpha\n* Content\nSome text.\n"))
           (ogent-session-search "nonexistent-query-xyz")
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -574,7 +574,7 @@
     (unwind-protect
         (progn
           (ogent-session-search "anything")
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -596,7 +596,7 @@
             (insert "#+OGENT-SESSION-ID: literal\n")
             (insert "\n* Conversation\nFind this literal text: a[b\n"))
           (ogent-session-search "a[b")
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -619,7 +619,7 @@
            (list (list :file "/tmp/session.org"
                        :metadata '(:title "My Session")
                        :matches (list '(:line 10 :context "This is the matching line")))))
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -640,7 +640,7 @@
            (list (list :file "/tmp/notitle.org"
                        :metadata nil
                        :matches (list '(:line 5 :context "a match")))))
-          (setq result-buf (get-buffer "*Ogent Search*"))
+          (setq result-buf (get-buffer "*ogent-search*"))
           (should (buffer-live-p result-buf))
           (with-current-buffer result-buf
             (goto-char (point-min))
@@ -824,7 +824,7 @@
             (insert "#+OGENT-SESSION-ID: s2\n")
             (insert "#+OGENT-SESSION-START: 2024-06-01 10:00:00\n"))
           (ogent-history)
-          (setq hist-buf (get-buffer "*Ogent History*"))
+          (setq hist-buf (get-buffer "*ogent-history*"))
           (should (buffer-live-p hist-buf))
           (with-current-buffer hist-buf
             (goto-char (point-min))
@@ -846,7 +846,7 @@
     (unwind-protect
         (progn
           (ogent-history)
-          (setq hist-buf (get-buffer "*Ogent History*"))
+          (setq hist-buf (get-buffer "*ogent-history*"))
           (should (buffer-live-p hist-buf))
           (with-current-buffer hist-buf
             (goto-char (point-min))

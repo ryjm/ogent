@@ -496,7 +496,7 @@
               ((symbol-function 'file-exists-p)
                (lambda (_) nil)))
       (ogent-presets-show)
-      (let ((help-buf (get-buffer "*Ogent Presets*")))
+      (let ((help-buf (get-buffer "*ogent-presets*")))
         (unwind-protect
             (progn
               (should help-buf)
@@ -723,15 +723,15 @@
       (unwind-protect
           (progn
             (ogent-presets-show)
-            (let ((buf (get-buffer "*Ogent Presets*")))
+            (let ((buf (get-buffer "*ogent-presets*")))
               (should buf)
               (with-current-buffer buf
                 (should (string-match-p "Project Root" (buffer-string)))
                 (should (string-match-p "claude-3.5" (buffer-string)))
                 (should (string-match-p "ogent-code-review" (buffer-string)))
                 (should (string-match-p "README.md" (buffer-string))))))
-        (when (get-buffer "*Ogent Presets*")
-          (kill-buffer "*Ogent Presets*"))))))
+        (when (get-buffer "*ogent-presets*")
+          (kill-buffer "*ogent-presets*"))))))
 
 ;;; Mode Toggle Tests
 

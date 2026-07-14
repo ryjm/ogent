@@ -339,7 +339,7 @@ Creates or updates the .ogent.el file in the project root."
         (prompts ogent-project-prompts)
         (tools (ogent-presets-effective-tools))
         (system-prompt ogent-project-system-prompt))
-    (with-help-window "*Ogent Presets*"
+    (with-help-window "*ogent-presets*"
       (princ "Ogent Project Settings\n")
       (princ "======================\n\n")
       (princ (format "Project Root: %s\n" (or root "(none)")))

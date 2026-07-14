@@ -932,7 +932,7 @@
     (unwind-protect
         (progn
           (ogent-list-pinned)
-          (let ((help-buf (get-buffer "*Ogent Pinned Context*")))
+          (let ((help-buf (get-buffer "*ogent-pinned-context*")))
             (when help-buf
               (with-current-buffer help-buf
                 (should (string-match-p "test-buf" (buffer-string))))

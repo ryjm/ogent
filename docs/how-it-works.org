@@ -2129,7 +2129,7 @@ plain =defun=s in flash/pulse signals =no-catch= when
 :END:
 
 Role: Interactive context inspection; renders the context plist as Org
-with a visual token/char budget bar, and the =*Ogent Context Manager*=
+with a visual token/char budget bar, and the =*ogent-context-manager*=
 buffer for adding, deleting, and previewing elements.
 
 Design: A pure formatter ([[file:../lisp/ui/ogent-ui-context.el::216][ogent-ui-context-format]]) plus a stateful

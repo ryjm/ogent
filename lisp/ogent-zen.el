@@ -2350,7 +2350,7 @@ TARGET-KIND is one of nil, `run', or `response'."
   (unless (derived-mode-p 'org-mode)
     (user-error "Review dashboard requires an Org buffer"))
   (let ((source (current-buffer))
-        (buffer (get-buffer-create "*Ogent Review*")))
+        (buffer (get-buffer-create "*ogent-review*")))
     (with-current-buffer buffer
       (ogent-review-dashboard-mode)
       (setq-local ogent-review-dashboard-source-buffer source)
@@ -2367,7 +2367,7 @@ TARGET-KIND is one of nil, `run', or `response'."
                         'response
                       'run)))
              (target (plist-get info :target)))
-        (with-help-window "*Ogent Review*"
+        (with-help-window "*ogent-review*"
           (save-excursion
             (goto-char target)
             (princ (format "Target: %s\n"
@@ -2381,7 +2381,7 @@ TARGET-KIND is one of nil, `run', or `response'."
                                       '("OGENT_REVIEW" "OGENT_SELECTED_MODEL")))
               (when-let ((value (org-entry-get (point) property)))
                 (princ (format "%s: %s\n" property value)))))))
-    (with-help-window "*Ogent Review*"
+    (with-help-window "*ogent-review*"
       (princ "Completion review item.\n")
       (princ "Use C-c , a/x/n/p to accept, reject, or navigate completions.\n"))))
 

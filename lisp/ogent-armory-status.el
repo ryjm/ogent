@@ -828,7 +828,7 @@ graph even when the cached copy is still fresh."
 (defun ogent-armory-status-help ()
   "Show Armory status keybindings and node actions."
   (interactive)
-  (with-help-window "*Ogent Armory Status Help*"
+  (with-help-window "*ogent-armory-status-help*"
     (princ "Armory Status\n")
     (princ "==============\n\n")
     (princ "Rows stay quiet by default. Press ? for the action menu on the item at point.\n")

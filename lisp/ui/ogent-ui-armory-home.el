@@ -376,7 +376,7 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
 (defun ogent-armory-home-help ()
   "Show Armory Home keybindings and daily-work actions."
   (interactive)
-  (with-help-window "*Ogent Armory Home Help*"
+  (with-help-window "*ogent-armory-home-help*"
     (princ "Armory Home\n")
     (princ "============\n\n")
     (princ "Home is the cockpit for developing a project with Armory.\n\n")

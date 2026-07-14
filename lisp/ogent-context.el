@@ -210,7 +210,7 @@ ITEM-OR-INDEX can be an `ogent-pinned-item' or an index (0-based)."
   (interactive)
   (if (null ogent-pinned-context)
       (message "No pinned context items")
-    (with-help-window "*Ogent Pinned Context*"
+    (with-help-window "*ogent-pinned-context*"
       (princ "Pinned Context Items\n")
       (princ "====================\n\n")
       (let ((idx 0))

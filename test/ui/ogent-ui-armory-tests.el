@@ -539,7 +539,7 @@
   "Armory Home help and transient menu render the bare-key contract."
   (save-window-excursion
     (ogent-armory-home-help)
-    (with-current-buffer "*Ogent Armory Home Help*"
+    (with-current-buffer "*ogent-armory-home-help*"
       (let ((text (buffer-substring-no-properties (point-min) (point-max))))
         (should (string-match-p "Armory Home" text))
         (should (string-match-p "R runs or retries" text))

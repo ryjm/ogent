@@ -181,12 +181,12 @@
 (ert-deftest ogent-completions-describe-bindings-shows-review ()
   "ogent-describe-bindings includes review keybindings section."
   (ogent-describe-bindings)
-  (with-current-buffer "*Ogent Bindings*"
+  (with-current-buffer "*ogent-bindings*"
     (should (string-match-p "Review Keybindings" (buffer-string)))
     (should (string-match-p "C-c , prefix" (buffer-string)))
     (should (string-match-p "review-next" (buffer-string)))
     (should (string-match-p "review-accept" (buffer-string))))
-  (kill-buffer "*Ogent Bindings*"))
+  (kill-buffer "*ogent-bindings*"))
 
 ;;; Response End Marker Tests
 

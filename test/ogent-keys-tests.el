@@ -171,30 +171,30 @@
 (ert-deftest ogent-keys-describe-bindings-creates-buffer ()
   "ogent-describe-bindings creates help buffer."
   (ogent-describe-bindings)
-  (should (get-buffer "*Ogent Bindings*"))
-  (with-current-buffer "*Ogent Bindings*"
+  (should (get-buffer "*ogent-bindings*"))
+  (with-current-buffer "*ogent-bindings*"
     (should (string-match-p "Ogent Keybindings" (buffer-string)))
     (should (string-match-p "Vanilla prefix" (buffer-string)))
     (should (string-match-p "prompt-dispatch" (buffer-string)))
     (should (string-match-p "Run subtree" (buffer-string))))
-  (kill-buffer "*Ogent Bindings*"))
+  (kill-buffer "*ogent-bindings*"))
 
 (ert-deftest ogent-keys-describe-bindings-shows-all-actions ()
   "ogent-describe-bindings lists all actions."
   (ogent-describe-bindings)
-  (with-current-buffer "*Ogent Bindings*"
+  (with-current-buffer "*ogent-bindings*"
     (let ((content (buffer-string)))
       (dolist (entry ogent-action-registry)
         (let ((name (symbol-name (car entry))))
           (should (string-match-p name content))))))
-  (kill-buffer "*Ogent Bindings*"))
+  (kill-buffer "*ogent-bindings*"))
 
 (ert-deftest ogent-keys-describe-bindings-marks-visual ()
   "ogent-describe-bindings marks visual actions."
   (ogent-describe-bindings)
-  (with-current-buffer "*Ogent Bindings*"
+  (with-current-buffer "*ogent-bindings*"
     (should (string-match-p "\\[visual\\]" (buffer-string))))
-  (kill-buffer "*Ogent Bindings*"))
+  (kill-buffer "*ogent-bindings*"))
 
 ;;; Setup All Bindings Tests
 
@@ -410,14 +410,14 @@
   (unwind-protect
       (progn
         (ogent-describe-bindings)
-        (let ((buf (get-buffer "*Ogent Bindings*")))
+        (let ((buf (get-buffer "*ogent-bindings*")))
           (should buf)
           (with-current-buffer buf
             (should (string-match-p "Ogent Keybindings" (buffer-string)))
             (should (string-match-p "prompt-dispatch" (buffer-string)))
             (should (string-match-p "Review Keybindings" (buffer-string))))))
-    (when (get-buffer "*Ogent Bindings*")
-      (kill-buffer "*Ogent Bindings*"))))
+    (when (get-buffer "*ogent-bindings*")
+      (kill-buffer "*ogent-bindings*"))))
 
 ;;; Review Prefix Customization Tests
 
@@ -480,24 +480,24 @@
   (unwind-protect
       (progn
         (ogent-describe-bindings)
-        (with-current-buffer "*Ogent Bindings*"
+        (with-current-buffer "*ogent-bindings*"
           (should (string-match-p "Review prefix" (buffer-string)))
           (should (string-match-p "C-c ," (buffer-string)))))
-    (when (get-buffer "*Ogent Bindings*")
-      (kill-buffer "*Ogent Bindings*"))))
+    (when (get-buffer "*ogent-bindings*")
+      (kill-buffer "*ogent-bindings*"))))
 
 (ert-deftest ogent-keys-describe-bindings-shows-review-actions ()
   "ogent-describe-bindings lists all review actions."
   (unwind-protect
       (progn
         (ogent-describe-bindings)
-        (with-current-buffer "*Ogent Bindings*"
+        (with-current-buffer "*ogent-bindings*"
           (let ((content (buffer-string)))
             (dolist (entry ogent-review-action-registry)
               (let ((name (symbol-name (car entry))))
                 (should (string-match-p name content)))))))
-    (when (get-buffer "*Ogent Bindings*")
-      (kill-buffer "*Ogent Bindings*"))))
+    (when (get-buffer "*ogent-bindings*")
+      (kill-buffer "*ogent-bindings*"))))
 
 ;;; Action-Get Edge Case Tests
 
