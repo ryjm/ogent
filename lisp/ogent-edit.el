@@ -146,14 +146,54 @@ structured output."
   (when (boundp 'gptel-backend)
     gptel-backend))
 
-(defun ogent-edit--maybe-offer-provider-login (error-message)
-  "Offer provider login when ERROR-MESSAGE is an access failure."
+(defvar ogent-edit--fallback-state nil
+  "Provider fallback state for the next edit request.
+Bound around a fallback re-dispatch so `ogent-request-edit' targets
+the substitute model and records the accumulated :attempt and :tried
+counters in `ogent-edit--pending-request', letting a subsequent
+failure re-enter `ogent-provider-handle-error' with that state.")
+
+(defun ogent-edit--fallback-dispatch (request)
+  "Return a provider fallback dispatch closure for edit REQUEST.
+The closure receives (MODEL-ID CONTEXT) from
+`ogent-provider-handle-error' and re-issues the stored edit request
+against MODEL-ID from the original source buffer, threading
+CONTEXT's :attempt and :tried counters into the new request via
+`ogent-edit--fallback-state'."
+  (lambda (model-id context)
+    (let ((buffer (plist-get request :source-buffer))
+          (prompt (plist-get request :prompt)))
+      (if (not (and prompt (buffer-live-p buffer)))
+          (message
+           "ogent: dropped edit fallback dispatch; original request is gone")
+        (with-current-buffer buffer
+          (let ((ogent-edit--fallback-state
+                 (list :model-id model-id
+                       :attempt (or (plist-get context :attempt) 0)
+                       :tried (plist-get context :tried))))
+            (ogent-request-edit prompt
+                                (plist-get request :region-start)
+                                (plist-get request :region-end))))))))
+
+(defun ogent-edit--handle-provider-error (error-message)
+  "Run headless provider fallback for the failed edit request.
+ERROR-MESSAGE is the failure reported by gptel.  Build an
+`ogent-provider-handle-error' context from
+`ogent-edit--pending-request' whose :dispatch closure re-issues the
+edit request against the substitute model, so repeated failures
+escalate from retry to failover to the interactive login offer."
   (let* ((request ogent-edit--pending-request)
          (model (or (plist-get request :model)
                     (ogent-edit--current-model-name)))
          (backend (or (plist-get request :backend)
                       (ogent-edit--current-backend))))
-    (ogent-provider-maybe-offer-login model backend error-message)))
+    (ogent-provider-handle-error
+     (list :model model
+           :backend backend
+           :error error-message
+           :dispatch (ogent-edit--fallback-dispatch request)
+           :attempt (or (plist-get request :attempt) 0)
+           :tried (plist-get request :tried)))))
 
 (defun ogent-edit--request-model ()
   "Return the ogent model used for edit requests.
@@ -183,7 +223,7 @@ Resolves the `edit' model role at point, so an inherited
      ((and (listp info) (plist-get info :error))
       (let ((error-message (plist-get info :error)))
         (message "Edit request failed: %s" error-message)
-        (ogent-edit--maybe-offer-provider-login error-message))
+        (ogent-edit--handle-provider-error error-message))
       (setq ogent-edit--streaming-response ""))
      ;; Done - info contains :status "success" or similar completion markers
      ((or (and (listp info)
@@ -636,7 +676,11 @@ when response arrives."
          (filename (file-name-nondirectory (buffer-file-name)))
          (mode (symbol-name major-mode))
          (full-prompt (ogent-edit-wrap-prompt user-prompt filename mode content))
-         (model (ogent-edit--request-model))
+         (model (let ((fallback-id (plist-get ogent-edit--fallback-state
+                                              :model-id)))
+                  (if fallback-id
+                      (ogent-models-ensure fallback-id)
+                    (ogent-edit--request-model))))
          (model-id (plist-get model :id))
          (backend (ogent-gptel-resolve-backend model))
          (structured (and ogent-edit-use-structured-output
@@ -651,7 +695,9 @@ when response arrives."
                 :model model-id
                 :backend (or (plist-get model :backend) backend)
                 :prompt user-prompt
-                :structured structured))
+                :structured structured
+                :attempt (or (plist-get ogent-edit--fallback-state :attempt) 0)
+                :tried (plist-get ogent-edit--fallback-state :tried)))
     ;; Reset streaming accumulator
     (setq ogent-edit--streaming-response "")
     ;; Send the request via gptel
@@ -670,7 +716,7 @@ when response arrives."
       (error
        (let ((error-message (error-message-string err)))
          (message "Edit request failed: %s" error-message)
-         (ogent-edit--maybe-offer-provider-login error-message))))))
+         (ogent-edit--handle-provider-error error-message))))))
 
 ;;;###autoload
 (defun ogent-quick-edit (instruction &optional whole-buffer)

@@ -740,6 +740,12 @@ missing separator and end marker")
             (emacs-lisp-mode)
             (let ((gptel-model "gpt-4o-mini")
                   (gptel-backend 'gptel-openai)
+                  ;; Single-provider registry: no failover candidate, so
+                  ;; the auth failure reaches the login-offer tail.
+                  (ogent-model-registry
+                   '((:id "gpt-4o-mini" :backend gptel-openai :stream? t)))
+                  (ogent-model-roles '((edit . "gpt-4o-mini")))
+                  (ogent-default-model "gpt-4o-mini")
                   (ogent-prompt-provider-login-on-access-error t)
                   (ogent-provider--login-prompt-active nil)
                   (noninteractive nil)
@@ -799,6 +805,12 @@ missing separator and end marker")
             (emacs-lisp-mode)
             (let ((gptel-model "gpt-4o-mini")
                   (gptel-backend 'gptel-openai)
+                  ;; Single-provider registry: no failover candidate, so
+                  ;; the auth failure reaches the login-offer tail.
+                  (ogent-model-registry
+                   '((:id "gpt-4o-mini" :backend gptel-openai :stream? t)))
+                  (ogent-model-roles '((edit . "gpt-4o-mini")))
+                  (ogent-default-model "gpt-4o-mini")
                   (ogent-prompt-provider-login-on-access-error t)
                   (ogent-provider--login-prompt-active nil)
                   (noninteractive nil)
@@ -821,6 +833,109 @@ missing separator and end marker")
                 (should (eq captured-backend 'gptel-openai))))
             (kill-buffer)))
       (delete-file temp-file))))
+
+(ert-deftest ogent-edit-error-builds-fallback-context ()
+  "Edit failures hand `ogent-provider-handle-error' a full context."
+  (let ((ogent-edit--streaming-response "partial")
+        (ogent-edit--pending-request
+         '(:model "gpt-4o-mini" :backend gptel-openai
+                  :prompt "Return t" :attempt 1 :tried ("other-model")))
+        (captured nil))
+    (cl-letf (((symbol-function 'ogent-provider-handle-error)
+               (lambda (context) (setq captured context) 'retry)))
+      (funcall (ogent-edit--make-callback) nil '(:error "429 slow down")))
+    (should captured)
+    (should (equal (plist-get captured :model) "gpt-4o-mini"))
+    (should (eq (plist-get captured :backend) 'gptel-openai))
+    (should (equal (plist-get captured :error) "429 slow down"))
+    (should (functionp (plist-get captured :dispatch)))
+    (should (= (plist-get captured :attempt) 1))
+    (should (equal (plist-get captured :tried) '("other-model")))))
+
+(ert-deftest ogent-edit-fallback-dispatch-reissues-with-substitute-model ()
+  "The edit fallback dispatch re-sends the edit against the new model."
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(defun first () nil)")
+    (setq buffer-file-name "/ogent-tests/fake.el")
+    (unwind-protect
+        (let ((ogent-model-registry
+               '((:id "gpt-4o-mini" :backend gptel-openai :stream? t)
+                 (:id "claude-fable-5" :backend gptel-anthropic :stream? t)))
+              (ogent-edit--pending-request nil)
+              (ogent-edit--streaming-response "")
+              (ogent-edit-log-to-companion nil)
+              (ogent-edit-use-structured-output nil)
+              (sent-model nil)
+              (request (list :source-buffer (current-buffer)
+                             :region-start nil :region-end nil
+                             :model "gpt-4o-mini" :backend 'gptel-openai
+                             :prompt "Return t")))
+          (cl-letf (((symbol-function 'gptel-request)
+                     (lambda (_prompt &rest _args)
+                       (setq sent-model gptel-model)
+                       'mock-request))
+                    ((symbol-function 'ogent-gptel-resolve-backend)
+                     (lambda (_model) 'stub-backend)))
+            (funcall (ogent-edit--fallback-dispatch request)
+                     "claude-fable-5"
+                     '(:attempt 0 :tried ("gpt-4o-mini"))))
+          (should (equal sent-model "claude-fable-5"))
+          ;; Accumulated fallback state is threaded into the fresh
+          ;; pending request so another failure re-enters
+          ;; `ogent-provider-handle-error' with it.
+          (should (equal (plist-get ogent-edit--pending-request :model)
+                         "claude-fable-5"))
+          (should (= (plist-get ogent-edit--pending-request :attempt) 0))
+          (should (equal (plist-get ogent-edit--pending-request :tried)
+                         '("gpt-4o-mini"))))
+      (set-buffer-modified-p nil))))
+
+(ert-deftest ogent-edit-transient-error-retries-then-succeeds ()
+  "A transient edit failure retries headlessly and completes silently."
+  (with-temp-buffer
+    (emacs-lisp-mode)
+    (insert "(defun first () nil)")
+    (setq buffer-file-name "/ogent-tests/fake.el")
+    (unwind-protect
+        (let ((ogent-model-registry
+               '((:id "gpt-4o-mini" :backend gptel-openai :stream? t)))
+              (ogent-model-roles '((edit . "gpt-4o-mini")))
+              (ogent-default-model "gpt-4o-mini")
+              (ogent-edit--pending-request nil)
+              (ogent-edit--streaming-response "")
+              (ogent-edit-log-to-companion nil)
+              (ogent-edit-use-structured-output nil)
+              (ogent-provider-max-retries 2)
+              (calls 0)
+              (processed nil)
+              (login-offered nil))
+          (cl-letf (((symbol-function 'gptel-request)
+                     (lambda (_prompt &rest args)
+                       (setq calls (1+ calls))
+                       (let ((callback (plist-get args :callback)))
+                         (if (= calls 1)
+                             (funcall callback nil
+                                      '(:error "rate limit exceeded"))
+                           (funcall callback "REPLACEMENT" nil)))
+                       'mock-request))
+                    ((symbol-function 'ogent-gptel-resolve-backend)
+                     (lambda (_model) 'stub-backend))
+                    ((symbol-function 'ogent-edit--process-response)
+                     (lambda (response) (setq processed response)))
+                    ;; Run scheduled fallback dispatches immediately;
+                    ;; record any login offer instead of prompting.
+                    ((symbol-function 'run-at-time)
+                     (lambda (_secs _repeat function &rest args)
+                       (if (eq function 'ogent-provider--dispatch)
+                           (apply function args)
+                         (setq login-offered t))
+                       (timer-create))))
+            (ogent-request-edit "Return t"))
+          (should (= calls 2))
+          (should (equal processed "REPLACEMENT"))
+          (should-not login-offered))
+      (set-buffer-modified-p nil))))
 
 (ert-deftest ogent-edit-ai-speed-target-chases-ranked-diagnostic ()
   "AI speed target follows the top buffer diagnostic when point is clean."
@@ -1472,7 +1587,11 @@ missing separator and end marker")
         (processed nil))
     (cl-letf (((symbol-function 'ogent-edit--process-response)
                (lambda (response)
-                 (setq processed response))))
+                 (setq processed response)))
+              ;; The transient error schedules a fallback retry; swallow
+              ;; the timer so nothing fires after the test.
+              ((symbol-function 'run-at-time)
+               (lambda (&rest _) (timer-create))))
       (let ((callback (ogent-edit--make-callback)))
         ;; First: partial + error
         (funcall callback "stale" nil)

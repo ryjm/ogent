@@ -432,10 +432,24 @@ Cancels any pending timer first, then schedules a fresh one unless
                           #'ogent-ui--watchdog-timeout
                           (ogent-ui-request-id request)))))
 
+(defvar ogent-ui--fallback-state nil
+  "Provider fallback state to record on the next registered request.
+Bound around a fallback re-dispatch so the re-issued request stores
+the accumulated :attempt and :tried counters under the
+:provider-fallback key of its context plist, letting a subsequent
+failure re-enter `ogent-provider-handle-error' with that state.")
+
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
   (setf (ogent-ui-request-start-time request) (current-time))
   (setf (ogent-ui-request-status request) 'wait)
+  ;; A provider-fallback re-dispatch threads its accumulated retry
+  ;; state into the fresh request so the next failure re-enters
+  ;; `ogent-provider-handle-error' with :attempt/:tried intact.
+  (when ogent-ui--fallback-state
+    (setf (ogent-ui-request-context request)
+          (plist-put (copy-sequence (ogent-ui-request-context request))
+                     :provider-fallback ogent-ui--fallback-state)))
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
   (ogent-ledger-record-request-start request)
   (when (fboundp 'ogent-analytics-start-request)
@@ -609,12 +623,47 @@ heading (see `ogent-shift-response-headings')."
   "Return non-nil when ERROR-MESSAGE resembles a provider access failure."
   (ogent-provider-access-error-p error-message))
 
-(defun ogent-ui--maybe-offer-provider-login (request error-message)
-  "Schedule provider login offer for REQUEST when ERROR-MESSAGE qualifies."
+(defun ogent-ui--fallback-dispatch (request)
+  "Return a provider fallback dispatch closure for REQUEST.
+The closure receives (MODEL-ID CONTEXT) from
+`ogent-provider-handle-error' and re-issues REQUEST's original
+prompt and preset as a fresh request against MODEL-ID, threading
+CONTEXT's :attempt and :tried counters into the new request via
+`ogent-ui--fallback-state'."
+  (lambda (model-id context)
+    (let* ((source (ogent-ui-request-source-buffer request))
+           (buffer (if (buffer-live-p source)
+                       source
+                     (ogent-ui-request-buffer request)))
+           (prompt (ogent-ui-request-prompt request)))
+      (if (not (and prompt (buffer-live-p buffer)))
+          (message
+           "ogent: dropped fallback dispatch for %s; original request is gone"
+           (ogent-ui-request-id request))
+        (with-current-buffer buffer
+          (let ((ogent-ui--fallback-state
+                 (list :attempt (or (plist-get context :attempt) 0)
+                       :tried (plist-get context :tried))))
+            (ogent-request prompt (list model-id)
+                           (ogent-ui-request-preset request))))))))
+
+(defun ogent-ui--handle-provider-error (request error-message)
+  "Run headless provider fallback for failed REQUEST with ERROR-MESSAGE.
+Build an `ogent-provider-handle-error' context from REQUEST's model
+plist whose :dispatch closure re-issues the original request against
+the substitute model.  Accumulated :attempt/:tried state stored by a
+prior fallback dispatch is threaded back in, so repeated failures
+escalate from retry to failover to the interactive login offer."
   (let* ((model (ogent-ui-request-model request))
-         (model-id (plist-get model :id))
-         (backend (plist-get model :backend)))
-    (ogent-provider-maybe-offer-login model-id backend error-message)))
+         (state (plist-get (ogent-ui-request-context request)
+                           :provider-fallback)))
+    (ogent-provider-handle-error
+     (list :model (plist-get model :id)
+           :backend (plist-get model :backend)
+           :error error-message
+           :dispatch (ogent-ui--fallback-dispatch request)
+           :attempt (or (plist-get state :attempt) 0)
+           :tried (plist-get state :tried)))))
 
 (defun ogent-ui--maybe-store-zen-result-title (request)
   "Persist a derived Zen result title for REQUEST when Zen support is loaded."
@@ -662,7 +711,10 @@ Provides visual feedback via mode-line flash."
                          (format "Request failed: %s"
                                  (truncate-string-to-width
                                   message 50 nil nil "...")))
-      (ogent-ui--maybe-offer-provider-login request message))
+      ;; Aborts are deliberate; only genuine failures enter the
+      ;; headless retry/failover pipeline.
+      (unless (eq (or final-status 'error) 'aborted)
+        (ogent-ui--handle-provider-error request message)))
     (unless error-message
       (ogent-ui--update-status request (or final-status 'done))
       (ogent-ui--maybe-store-zen-result-title request)

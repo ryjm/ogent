@@ -597,7 +597,7 @@
         (puthash "req-anerr" request ogent-ui--request-table)
         (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil))
                   ((symbol-function 'ogent-ui--insert-error-block) #'ignore)
-                  ((symbol-function 'ogent-ui--maybe-offer-provider-login) #'ignore)
+                  ((symbol-function 'ogent-ui--handle-provider-error) #'ignore)
                   ((symbol-function 'ogent-analytics-record-completion)
                    (lambda (&rest _) (setq recorded t))))
           (ogent-ui--close-response request "Boom"))
@@ -2152,6 +2152,12 @@
                              (search-forward "Details Block")
                              (org-back-to-heading t)
                              (let ((ogent-ui--selected-models '("gpt-4o-mini"))
+                                   ;; Single-provider registry: no failover
+                                   ;; candidate, so the auth failure reaches
+                                   ;; the login-offer tail.
+                                   (ogent-model-registry
+                                    '((:id "gpt-4o-mini" :backend gptel-openai
+                                           :stream? t)))
                                    (ogent-ui--error-history nil)
                                    (ogent-prompt-provider-login-on-access-error t)
                                    (ogent-provider--login-prompt-active nil)
@@ -2236,6 +2242,157 @@
                                      "Invalid API key provided"
                                    (ogent-request "Test prompt" '("gpt-4o-mini")))
                                  (should-not scheduled))))))
+
+(ert-deftest ogent-ui-error-builds-fallback-context ()
+  "A failed request hands `ogent-provider-handle-error' a full context."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil)
+          (captured nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-fb-ctx" :buffer (current-buffer) :status 'type
+                      :model '(:id "gpt-4o-mini" :backend gptel-openai)
+                      :prompt "Test prompt"
+                      :context '(:provider-fallback
+                                 (:attempt 1 :tried ("other-model"))))))
+        (puthash "req-fb-ctx" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-ui--insert-error-block) #'ignore)
+                  ((symbol-function 'ogent-provider-handle-error)
+                   (lambda (context) (setq captured context) 'retry)))
+          (ogent-ui--close-response request "429 too many requests"))
+        (should captured)
+        (should (equal (plist-get captured :model) "gpt-4o-mini"))
+        (should (eq (plist-get captured :backend) 'gptel-openai))
+        (should (equal (plist-get captured :error) "429 too many requests"))
+        (should (functionp (plist-get captured :dispatch)))
+        (should (= (plist-get captured :attempt) 1))
+        (should (equal (plist-get captured :tried) '("other-model")))))))
+
+(ert-deftest ogent-ui-abort-skips-provider-fallback ()
+  "A user abort never enters the provider fallback pipeline."
+  (with-temp-buffer
+    (org-mode)
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--request-history nil)
+          (handled nil))
+      (let ((request (make-ogent-ui-request
+                      :id "req-fb-abort" :buffer (current-buffer)
+                      :status 'type
+                      :model '(:id "gpt-4o-mini" :backend gptel-openai))))
+        (puthash "req-fb-abort" request ogent-ui--request-table)
+        (cl-letf (((symbol-function 'ogent-theme-flash) (lambda (&rest _) nil))
+                  ((symbol-function 'ogent-ui--insert-error-block) #'ignore)
+                  ((symbol-function 'ogent-provider-handle-error)
+                   (lambda (_context) (setq handled t))))
+          (ogent-ui--close-response request "Request aborted by user"
+                                    'aborted))
+        (should-not handled)
+        (should (eq (ogent-ui-request-status request) 'aborted))))))
+
+(ert-deftest ogent-ui-fallback-dispatch-reissues-with-substitute-model ()
+  "The fallback dispatch re-issues the original request on the new model."
+  (with-temp-buffer
+    (org-mode)
+    (let* ((sent nil)
+           (state nil)
+           (request (make-ogent-ui-request
+                     :id "req-fb-dispatch" :buffer (current-buffer)
+                     :source-buffer (current-buffer)
+                     :model '(:id "gpt-4o-mini" :backend gptel-openai)
+                     :prompt "Test prompt" :preset 'coding)))
+      (cl-letf (((symbol-function 'ogent-request)
+                 (lambda (prompt models preset)
+                   (setq sent (list prompt models preset)
+                         state ogent-ui--fallback-state))))
+        (funcall (ogent-ui--fallback-dispatch request)
+                 "claude-fable-5"
+                 '(:attempt 0 :tried ("gpt-4o-mini"))))
+      (should (equal sent '("Test prompt" ("claude-fable-5") coding)))
+      ;; The dispatch binds accumulated retry state for the fresh request.
+      (should (equal (plist-get state :attempt) 0))
+      (should (equal (plist-get state :tried) '("gpt-4o-mini"))))))
+
+(ert-deftest ogent-ui-register-request-records-fallback-state ()
+  "Registration stashes bound fallback state into the request context."
+  (with-temp-buffer
+    (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+          (ogent-ui--fallback-state '(:attempt 2 :tried ("m1")))
+          (ogent-ui-request-timeout nil)
+          (request (make-ogent-ui-request :id "req-fb-reg"
+                                          :buffer (current-buffer)
+                                          :context '(:source test))))
+      (cl-letf (((symbol-function 'ogent-ledger-record-request-start)
+                 #'ignore))
+        (ogent-ui-register-request request))
+      (should (equal (plist-get (ogent-ui-request-context request)
+                                :provider-fallback)
+                     '(:attempt 2 :tried ("m1"))))
+      ;; Existing context keys survive the merge.
+      (should (eq (plist-get (ogent-ui-request-context request) :source)
+                  'test)))))
+
+(ert-deftest ogent-ui-transient-error-retries-then-succeeds ()
+  "A transient failure retries headlessly and the retry completes."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry
+                                    '((:id "gpt-4o-mini" :backend gptel-openai)))
+                                   (ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--request-table
+                                    (make-hash-table :test #'equal))
+                                   (ogent-ui--request-history nil)
+                                   (ogent-ui--error-history nil)
+                                   (ogent-provider-max-retries 2)
+                                   (request-count 0)
+                                   (login-offered nil))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq request-count (1+ request-count))
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (if (= request-count 1)
+                                                  (funcall callback nil '(:error "rate limit exceeded"))
+                                                (funcall callback "Recovered response" nil)
+                                                (funcall callback nil '(:done t))))
+                                            'mock-request))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil))
+                                         ;; Run scheduled fallback dispatches
+                                         ;; immediately; record login offers
+                                         ;; instead of prompting.
+                                         ((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (cond
+                                             ((eq function 'ogent-provider--dispatch)
+                                              (apply function args))
+                                             ((eq function 'ogent-provider-offer-login)
+                                              (setq login-offered t)))
+                                            (timer-create))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 2 request-count))
+                                 (should-not login-offered)
+                                 ;; No zombie rows: both the failed and the
+                                 ;; retried request left the live table.
+                                 (should (= 0 (hash-table-count
+                                               ogent-ui--request-table)))
+                                 (let ((done (seq-find
+                                              (lambda (r)
+                                                (eq (ogent-ui-request-status r)
+                                                    'done))
+                                              ogent-ui--request-history)))
+                                   (should done)
+                                   (should (equal (plist-get
+                                                   (ogent-ui-request-model done)
+                                                   :id)
+                                                  "gpt-4o-mini")))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Recovered response"
+                                                           nil t))))))))
 
 (ert-deftest ogent-ui-error-context-too-long ()
   "Test handling of context length exceeded error."
