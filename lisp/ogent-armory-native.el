@@ -201,7 +201,10 @@ conversation file, or nil when STATE already finished."
 Mirror the ogent-ui engine's request close: only successful
 completions count, `ogent-analytics-record-completion' self-guards on
 `ogent-analytics-enabled', and analytics is a side channel that must
-never break finalization."
+never break finalization.  Analytics is soft-required here so direct
+users of this module (without the ogent umbrella) still share the
+eval loop."
+  (require 'ogent-analytics nil t)
   (when (fboundp 'ogent-analytics-record-completion)
     (condition-case err
         (ogent-analytics-record-completion
