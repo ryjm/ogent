@@ -162,6 +162,73 @@
                  :kind)
                 'cli-not-found))))
 
+(ert-deftest ogent-armory-adapter-pi-and-grok-report-unsupported ()
+  "Adapters without grounded CLI flags refuse to run with a named reason."
+  (dolist (id '("pi-cli" "grok-cli"))
+    (let* ((adapter (ogent-armory-adapter-get id))
+           (err (should-error
+                 (ogent-armory-adapter-build-invocation
+                  adapter
+                  (list :root "/repo" :workspace "/repo" :prompt "Hi."))
+                 :type 'user-error)))
+      (should (plist-get adapter :unsupported-reason))
+      (should (string-match-p "cannot run" (cadr err)))
+      (should (string-match-p id (cadr err)))
+      (should (string-match-p "unverified" (cadr err))))))
+
+(ert-deftest ogent-armory-adapter-codex-resume-invocation ()
+  "Codex invocations resume a stored session via `codex exec resume'."
+  (let* ((session-id "0198aaaa-bbbb-cccc-dddd-eeeeffff0000")
+         (context (list :root "/repo"
+                        :workspace "/repo"
+                        :prompt "Continue the review."
+                        :model "gpt-5.4"
+                        :resume-session-id session-id
+                        :runtime-mode 'native))
+         (codex (ogent-armory-adapter-build-invocation
+                 (ogent-armory-adapter-get "codex-cli") context))
+         (args (plist-get codex :args)))
+    (should (member "exec" args))
+    (should (equal (nth (1+ (cl-position "exec" args :test #'equal)) args)
+                   "resume"))
+    ;; Grounded from `codex exec resume --help': the resume subcommand
+    ;; accepts neither --cd nor --sandbox.
+    (should-not (member "--cd" args))
+    (should-not (member "--sandbox" args))
+    (should (member "--skip-git-repo-check" args))
+    (should (member "--model" args))
+    ;; The session id precedes the stdin placeholder positional.
+    (should (equal (last args 2) (list session-id "-")))
+    (should (equal (plist-get codex :stdin) "Continue the review."))))
+
+(ert-deftest ogent-armory-adapter-claude-resume-invocation ()
+  "Claude invocations pass --resume with the stored session id."
+  (let* ((session-id "11111111-2222-3333-4444-555555555555")
+         (context (list :root "/repo"
+                        :workspace "/repo"
+                        :prompt "Continue."
+                        :permission-mode "plan"
+                        :resume-session-id session-id))
+         (claude (ogent-armory-adapter-build-invocation
+                  (ogent-armory-adapter-get "claude-code") context))
+         (args (plist-get claude :args)))
+    (should (member "--resume" args))
+    (should (equal (nth (1+ (cl-position "--resume" args :test #'equal)) args)
+                   session-id))
+    ;; The prompt stays the final positional argument.
+    (should (equal (car (last args)) "Continue."))))
+
+(ert-deftest ogent-armory-adapter-fresh-invocations-omit-resume-flags ()
+  "Without a stored session id no resume flags leak into fresh runs."
+  (let* ((context (list :root "/repo" :workspace "/repo" :prompt "Hi."))
+         (codex (ogent-armory-adapter-build-invocation
+                 (ogent-armory-adapter-get "codex-cli") context))
+         (claude (ogent-armory-adapter-build-invocation
+                  (ogent-armory-adapter-get "claude-code") context)))
+    (should-not (member "resume" (plist-get codex :args)))
+    (should (member "--cd" (plist-get codex :args)))
+    (should-not (member "--resume" (plist-get claude :args)))))
+
 (provide 'ogent-armory-adapter-tests)
 
 ;;; ogent-armory-adapter-tests.el ends here

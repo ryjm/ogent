@@ -695,6 +695,135 @@ Return (MAIN . WORKTREE)."
           (should (equal (plist-get (car actions) :triggering-agent)
                          "lead")))))))
 
+(ert-deftest ogent-armory-runner-parses-session-id-from-output ()
+  "Session id extraction understands common CLI key/value shapes."
+  (should (equal (ogent-armory-runner--session-id-from-output
+                  "banner\nsession id: 0198aaaa-bbbb-cccc-dddd-eeeeffff0000\n"
+                  nil)
+                 "0198aaaa-bbbb-cccc-dddd-eeeeffff0000"))
+  (should (equal (ogent-armory-runner--session-id-from-output
+                  nil "{\"session_id\":\"abc12345\"}")
+                 "abc12345"))
+  (should-not (ogent-armory-runner--session-id-from-output
+               "no ids here" "still none")))
+
+(ert-deftest ogent-armory-runner-persists-and-resumes-adapter-session ()
+  "Completed runs record the adapter session id; replans emit resume flags."
+  (ogent-armory-runner-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto"
+             :name "CTO"
+             :role "Architecture"
+             :provider "codex"
+             :workspace "/")
+     "Keep the plan direct.")
+    (let* ((session-id "0198aaaa-bbbb-cccc-dddd-eeeeffff0000")
+           (plan (ogent-armory-runner-plan dir "cto" :instruction "Review."))
+           (conversation-id (plist-get plan :conversation-id)))
+      ;; A fresh conversation threads no resume info.
+      (should-not (plist-get plan :resume-session-id))
+      (should-not (member "resume" (plist-get plan :args)))
+      (ogent-armory-runner--create-conversation
+       plan (ogent-armory-runner--iso-now))
+      (ogent-armory-runner--finalize-conversation
+       plan (format "session id: %s\nDone." session-id) "" 0)
+      (should (equal (ogent-armory-runner--stored-session-id
+                      (plist-get plan :root) conversation-id "codex-cli")
+                     session-id))
+      ;; A different adapter must not steal the stored session.
+      (should-not (ogent-armory-runner--stored-session-id
+                   (plist-get plan :root) conversation-id "claude-code"))
+      ;; Continuing the same conversation resumes the provider session.
+      (let* ((resumed (ogent-armory-runner-plan
+                       dir "cto"
+                       :instruction "Continue."
+                       :conversation-id conversation-id))
+             (args (plist-get resumed :args)))
+        (should (equal (plist-get resumed :resume-session-id) session-id))
+        (should (member "resume" args))
+        (should (member session-id args))
+        (should-not (member "--cd" args))))))
+
+(ert-deftest ogent-armory-runner-runtime-dispatch-prefers-pipe ()
+  "Native runs and batch terminal requests both dispatch to pipe."
+  (should (eq (ogent-armory-runner--runtime-dispatch
+               (list :runtime-mode 'native))
+              'pipe))
+  ;; Batch sessions cannot host term.el: the fallback is pipe and logged.
+  (let (logged)
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (push (apply #'format fmt args) logged)
+                 nil)))
+      (should (eq (ogent-armory-runner--runtime-dispatch
+                   (list :runtime-mode 'terminal
+                         :agent '(:slug "cto")))
+                  'pipe)))
+    (should (cl-some (lambda (line)
+                       (string-match-p "falling back to pipe" line))
+                     logged))))
+
+(ert-deftest ogent-armory-runner-runtime-dispatch-selects-term-when-usable ()
+  "Terminal requests dispatch to term.el when nothing blocks it."
+  (cl-letf (((symbol-function
+              'ogent-armory-runner--terminal-runtime-blocker)
+             (lambda () nil)))
+    (should (eq (ogent-armory-runner--runtime-dispatch
+                 (list :runtime-mode 'terminal))
+                'term))))
+
+(ert-deftest ogent-armory-runner-spawn-dispatches-term-vs-pipe ()
+  "Terminal-mode spawns go through make-term; everything else uses pipe."
+  (require 'term)
+  (let ((buffer (generate-new-buffer "*ogent-armory-agent:cto*"))
+        (stderr-buffer (generate-new-buffer " *ogent-armory-test-stderr*"))
+        (sentinel #'ignore)
+        term-call process-call sentinel-proc)
+    (unwind-protect
+        (cl-letf (((symbol-function
+                    'ogent-armory-runner--terminal-runtime-blocker)
+                   (lambda () nil))
+                  ((symbol-function 'make-term)
+                   (lambda (name program &optional startfile &rest switches)
+                     (setq term-call (list name program startfile switches))
+                     buffer))
+                  ((symbol-function 'get-buffer-process)
+                   (lambda (_buffer) 'fake-term-process))
+                  ((symbol-function 'set-process-sentinel)
+                   (lambda (proc _sentinel) (setq sentinel-proc proc)))
+                  ((symbol-function 'make-process)
+                   (lambda (&rest kw)
+                     (setq process-call kw)
+                     'fake-pipe-process)))
+          (let ((plan (list :runtime-mode 'terminal
+                            :program "fixture"
+                            :args '("--flag")
+                            :workspace temporary-file-directory
+                            :agent '(:slug "cto"))))
+            (should (eq (ogent-armory-runner--spawn-process
+                         plan buffer stderr-buffer sentinel)
+                        'fake-term-process))
+            (should (equal term-call
+                           (list "ogent-armory-agent:cto" "fixture" nil
+                                 '("--flag"))))
+            (should (eq sentinel-proc 'fake-term-process))
+            (should-not process-call))
+          (let ((plan (list :runtime-mode 'native
+                            :program "fixture"
+                            :args '("--flag")
+                            :workspace temporary-file-directory
+                            :agent '(:slug "cto"))))
+            (should (eq (ogent-armory-runner--spawn-process
+                         plan buffer stderr-buffer sentinel)
+                        'fake-pipe-process))
+            (should (eq (plist-get process-call :connection-type) 'pipe))
+            (should (equal (plist-get process-call :command)
+                           '("fixture" "--flag")))))
+      (kill-buffer buffer)
+      (kill-buffer stderr-buffer))))
+
 (provide 'ogent-armory-runner-tests)
 
 ;;; ogent-armory-runner-tests.el ends here

@@ -153,20 +153,30 @@
     args))
 
 (defun ogent-armory-adapter--codex-invocation (adapter context)
-  "Return Codex CLI invocation for ADAPTER and CONTEXT."
-  (let ((args (list "--ask-for-approval"
-                    (ogent-armory-adapter--symbol-value
-                     'ogent-armory-runner-codex-approval "on-request")
-                    "exec"
-                    "--cd" (plist-get context :workspace)
-                    "--sandbox"
-                    (ogent-armory-adapter--symbol-value
-                     'ogent-armory-runner-codex-sandbox "workspace-write"))))
+  "Return Codex CLI invocation for ADAPTER and CONTEXT.
+When CONTEXT carries a :resume-session-id, plan `codex exec resume'
+instead of a fresh `codex exec' run.  The resume subcommand accepts
+neither `--cd' nor `--sandbox', so those flags are omitted there."
+  (let* ((resume-id (plist-get context :resume-session-id))
+         (args (list "--ask-for-approval"
+                     (ogent-armory-adapter--symbol-value
+                      'ogent-armory-runner-codex-approval "on-request")
+                     "exec")))
+    (if resume-id
+        (setq args (append args (list "resume")))
+      (setq args (append args
+                         (list "--cd" (plist-get context :workspace)
+                               "--sandbox"
+                               (ogent-armory-adapter--symbol-value
+                                'ogent-armory-runner-codex-sandbox
+                                "workspace-write")))))
     (when (ogent-armory-adapter--symbol-value
            'ogent-armory-runner-codex-skip-git-repo-check t)
       (setq args (append args (list "--skip-git-repo-check"))))
     (setq args (ogent-armory-adapter--append-option
                 args "--model" (plist-get context :model)))
+    (when resume-id
+      (setq args (append args (list resume-id))))
     (list :program (ogent-armory-adapter-executable adapter)
           :args (append args (list "-"))
           :stdin (plist-get context :prompt))))
@@ -182,6 +192,8 @@
                 args "--model" (plist-get context :model)))
     (setq args (ogent-armory-adapter--append-option
                 args "--effort" (plist-get context :effort)))
+    (setq args (ogent-armory-adapter--append-option
+                args "--resume" (plist-get context :resume-session-id)))
     (list :program (ogent-armory-adapter-executable adapter)
           :args (append args (list (plist-get context :prompt)))
           :stdin nil)))
@@ -227,8 +239,12 @@
   "Return process invocation for ADAPTER with CONTEXT."
   (let ((builder (plist-get adapter :build-invocation)))
     (unless builder
-      (user-error "Armory adapter has no runnable invocation: %s"
-                  (plist-get adapter :id)))
+      (let ((reason (plist-get adapter :unsupported-reason)))
+        (if reason
+            (user-error "Armory adapter %s cannot run: %s"
+                        (plist-get adapter :id) reason)
+          (user-error "Armory adapter has no runnable invocation: %s"
+                      (plist-get adapter :id)))))
     (append
      (list :adapter-id (plist-get adapter :id)
            :provider (plist-get adapter :provider-symbol)
@@ -465,7 +481,10 @@ metadata as the fallback completion list."
               :models ("auto" "gemini-3-pro" "gemini-2.5-pro")
               :effort-levels nil
               :runtime-modes (native terminal)
-              :supports-session-resume t
+              ;; Resume flags not yet grounded against a real CLI
+              ;; (no local gemini --help); builder emits none, so the
+              ;; capability must not be advertised (ogent-8e0.6).
+              :supports-session-resume nil
               :supports-detached-runs t
               :build-invocation ogent-armory-adapter--gemini-invocation)
          (:id "cursor-cli"
@@ -478,7 +497,8 @@ metadata as the fallback completion list."
               :models ("auto" "gpt-5" "claude-4.5-sonnet")
               :effort-levels nil
               :runtime-modes (native terminal)
-              :supports-session-resume t
+              ;; See gemini-cli: resume flags ungrounded (ogent-8e0.6).
+              :supports-session-resume nil
               :supports-detached-runs t
               :build-invocation ogent-armory-adapter--cursor-invocation)
          (:id "opencode"
@@ -492,7 +512,8 @@ metadata as the fallback completion list."
               :model-list-function ogent-armory-adapter--opencode-models
               :effort-levels nil
               :runtime-modes (native terminal)
-              :supports-session-resume t
+              ;; See gemini-cli: resume flags ungrounded (ogent-8e0.6).
+              :supports-session-resume nil
               :supports-detached-runs t
               :build-invocation ogent-armory-adapter--opencode-invocation)
          (:id "pi-cli"
@@ -505,8 +526,11 @@ metadata as the fallback completion list."
               :models nil
               :effort-levels ("brief" "normal" "deep")
               :runtime-modes (native terminal)
-              :supports-session-resume t
-              :supports-detached-runs nil)
+              ;; Adapter cannot run at all yet; see :unsupported-reason.
+              :supports-session-resume nil
+              :supports-detached-runs nil
+              :unsupported-reason
+              "pi CLI invocation flags are unverified (no local pi --help to ground them)")
          (:id "grok-cli"
               :provider-symbol grok
               :adapter-type "grok_local"
@@ -518,7 +542,9 @@ metadata as the fallback completion list."
               :effort-levels nil
               :runtime-modes (native terminal)
               :supports-session-resume nil
-              :supports-detached-runs nil)
+              :supports-detached-runs nil
+              :unsupported-reason
+              "grok CLI invocation flags are unverified (no local grok --help to ground them)")
          (:id "copilot-cli"
               :provider-symbol copilot
               :adapter-type "copilot_local"
