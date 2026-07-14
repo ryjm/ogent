@@ -12,6 +12,8 @@
 
 The backend/networking logic lives mainly in =gptel-request.el= and backend-specific files; =gptel.el= is primarily what you’d reuse when embedding gptel into other packages.
 
+For how ogent actually sits on this stack — the shipped request path, OAuth header injection (advice on =gptel--request-data= / =gptel-curl--get-args=), and provider fallback — see [[file:../gptel-integration.org][gptel-integration]].
+
 * Core modes and entry points
 
 ** =gptel-mode= (minor mode)

@@ -1,7 +1,7 @@
 #+title: ogent gptel Integration Plan
 
 * Purpose
-Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] whenever you touch transport code. It explains how ogent will sit on top of gptel’s UI/request stack.
+Use this spec together with [[file:gptel/overview.org][gptel/overview]] whenever you touch transport code. It explains how ogent will sit on top of gptel’s UI/request stack.
 
 * Alignment with gptel Architecture
 - =gptel.el= supplies the chat UX (minor modes, presets, rendering). ogent reuses the request layer and selected UI helpers rather than reimplementing them.
@@ -10,7 +10,7 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 - Presets and @handle cookies are managed through =gptel-make-preset= / =gptel-with-preset= so ogent users can reuse existing gptel workflows.
 
 * Core Responsibilities
-- gptel: authentication, backend adapters, streaming finite-state machine, presets.
+- gptel: authentication, backend adapters, streaming finite-state machine, presets. ogent layers subscription OAuth on top of gptel's key handling; see [[*Authentication & OAuth]].
 - ogent: Org subtree curation, explicit context previews, src block lifecycle, codemap and planning features.
 - Every =ogent-request= invocation must marshal context into one or more =gptel-request= calls; no direct HTTP clients inside ogent.
 
@@ -23,30 +23,63 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 - UI code (`ogent-prompt-dispatch`) reads this registry to populate toggle buttons and surface backend metadata.
 
 * Request Flow
-1. User triggers =ogent-request= → gather subtree context via =ogent-context-build=.
-2. Build the final prompt (current subtree + attached handles + optional preset instructions).
-3. For each selected model:
-   - Bind backend defaults via =gptel-with-preset= if =:preset= exists.
-   - Call =gptel-request= with:
-     - =:prompt= → rendered prompt text.
-     - =:stream gptel-stream= when =:stream?= is true so we can accumulate chunks.
-     - =:callback= → ogent wrapper that forwards text through =ogent-response-function=.
-     - =:fsm= → optionally reuse =gptel-send--handlers= if we want stock status updates.
-   - Tag responses with `gptel` text properties so =gptel-highlight-mode= can decorate them if enabled.
-4. When a model finishes, finalize the src block header (model id, latency, backend) and run =ogent-after-request-hook=.
+The shipped path lives in =lisp/ui/ogent-ui-send.el= (prompt build + dispatch) and =lisp/ui/ogent-ui-engine.el= (conversation engine).
+1. User triggers =ogent-request= → the prompt comes from the region or minibuffer (=ogent-ui--read-prompt=), then =ogent-ui--dispatch-request= takes over.
+2. =ogent-ui--dispatch-request=:
+   - Ensures an Org companion buffer via =ogent-ui--ensure-companion-context= (non-Org sources get a popup companion; focus stays in the source window).
+   - Extracts =@preset= cookies with =ogent-ui--extract-preset-cookies= (first cookie wins over the dispatcher selection) and applies prompt templates via =ogent-ui--apply-prompt-templates=.
+   - Builds context with =ogent-context-build-with-source= (source buffer + region + companion subtree), then gates on =ogent-validate-and-prompt=.
+3. For each model id (explicit MODELS argument, dispatcher selection, or =ogent-ui--model-id-or-default=):
+   - =ogent-models-ensure= resolves the registry plist; =ogent-response-function= (default =ogent-ui-prepare-response-block=) inserts the transcript skeleton and returns an =ogent-ui-request= struct registered in =ogent-ui--request-table=.
+   - =ogent-ui--send-request= dispatches it.
+4. =ogent-ui--send-request=:
+   - =ogent-ui--ensure-gptel= loads gptel plus every backend feature in =ogent-gptel-required-features=.
+   - Resolves the backend object via =ogent-gptel-resolve-backend=, pushes the registry model onto the live backend with =ogent-gptel-ensure-model-on-backend= (gptel otherwise silently rewrites unknown model ids to the backend fallback), and syncs model metadata via =ogent-models-apply-gptel-props=.
+   - When =ogent-multi-turn-history= is non-nil, prior Request/Response pairs from the transcript are replayed as leading conversation turns (=ogent-ui--conversation-history=, compacted to =ogent-multi-turn-token-budget= by =ogent-ui--compact-history=).
+   - Let-binds =gptel-backend=, =gptel-model=, =gptel-cache= (from =ogent-gptel-cache=), and =gptel-tools= / =gptel-use-tools= (from =ogent-tools-enabled-list=), wraps the send in =gptel-with-preset= when a preset applies, and calls =gptel-request= with =:buffer= (the transcript buffer), =:stream= (the model's =:stream?=), and =:callback= (built by =ogent-ui--make-callback=).
+   - When =ogent-org-format-responses= is enabled and the target is Org, =ogent-org-format-directive= is passed as =:system= — unless Anthropic OAuth bearer auth is active (=ogent-anthropic-oauth-using-bearer-p=), which locks the system message, so the directive is prepended to the user prompt instead.
 
 * Error Handling
-- Wrap each =gptel-request= in =condition-case=; capture `gptel-error` and general network failures.
-- On failure, insert a =#+begin_quote ogent-error= block containing the message plus the serialized context excerpt.
-- Emit structured events to =ogent-after-request-hook= so callers can log or retry.
+- =ogent-ui--send-request= wraps dispatch in =condition-case=; any signal closes the request via =ogent-ui--close-response= with the error string. Callback-reported errors (=:error= in the gptel INFO plist) take the same path.
+- =ogent-ui--close-response= inserts a =#+begin_quote ogent-error= block (=ogent-ui--insert-error-block=), flips the request status to =error=, and flashes the mode line.
+- Errors are also recorded in =ogent-ui--error-history= and surfaced in the =*ogent-errors*= buffer (=ogent-errors-buffer-name=; commands =ogent-show-errors= / =ogent-clear-errors=).
+- Access-style failures additionally trigger the interactive login offer — see [[*Provider Fallback]].
+- =ogent-after-request-hook= runs with the request context on every close (success or failure) so callers can log or retry.
 
 * Async & Streaming
-- Maintain a request table keyed by (buffer-id . model-id) so streaming callbacks append to the correct block.
-- Use =gptel-post-stream-hook= to detect completion and close src blocks.
-- For multi-model fan-out, start all requests concurrently and annotate each block header with `[model | backend | status]` using timestamps from =gptel--update-status= when available.
+- Live requests are =ogent-ui-request= structs in =ogent-ui--request-table=, keyed by a generated request id (=ogent-request-N=), not by (buffer . model); multi-model fan-out registers one request per model and dispatches them concurrently.
+- =ogent-ui--make-callback= closes over the request id: each gptel callback looks the request up, appends string chunks at the request marker (=ogent-ui--append-response=, which shifts Org headings under the Response heading and auto-scrolls per =ogent-auto-scroll=), and drives status transitions (wait → type → tool → done / error) through =ogent-ui--update-status=, which rewrites the block header with =:status= and =:latency=.
+- Tool payloads: =(tool-call . CALLS)= and =(tool-result . RESULTS)= conses are intermediate — the callback renders tool blocks and updates status but never closes the request on them, because gptel still owes the follow-up model call.
+- Completion: gptel signals end-of-stream by passing a non-string TEXT to the callback. =ogent-ui--gptel-post-response-handler= on =gptel-post-response-functions= is a fallback completion detector (the code no longer uses =gptel-post-stream-hook=).
+- A per-request inactivity watchdog (=ogent-ui-request-timeout=, re-armed on every callback via =ogent-ui--start-watchdog=) closes genuinely stalled requests.
+- Lifecycle commands: =ogent-abort-request= (best-effort =gptel-abort= on the request buffer), =ogent-pause-request= / =ogent-resume-request=, and =ogent-retry-request= over =ogent-ui--request-history= (capped by =ogent-ui-request-history-max=).
+
+* Authentication & OAuth
+gptel's stock =:key= / auth-source flow still works unchanged; these modules add subscription OAuth on top without patching gptel.
+
+** Anthropic OAuth (=lisp/ogent-anthropic-oauth.el=)
+- Two modes: =max= (OAuth bearer tokens with auto-refresh, for Claude Pro/Max subscriptions) and =console= (one OAuth round-trip mints a static API key via =ogent-anthropic-oauth--create-api-key=).
+- Login flow (=ogent-anthropic-login=): OAuth 2.0 authorization-code with PKCE (RFC 7636). =ogent-anthropic-oauth--generate-pkce= produces a verifier and S256 challenge; =ogent-anthropic-oauth--authorization-url= builds the authorize URL (claude.ai for max, console.anthropic.com for console), which is copied to the clipboard and opened via =browse-url=; the user pastes the redirect code back and =ogent-anthropic-oauth--exchange-code= trades it for tokens at the token endpoint.
+- Storage: the token plist is printed to =tokens.el= under =ogent-anthropic-oauth-tokens-dir= (default =ogent/anthropic-oauth/= inside =user-emacs-directory=) with file mode =600=; =ogent-anthropic-oauth--find-existing-token-file= probes Doom/XDG/legacy locations so tokens survive config migrations, and tokens are restored lazily on first use and on gptel load.
+- Reuse/refresh: =ogent-anthropic-oauth--ensure-valid-token= returns the current access token, and in max mode auto-refreshes an expired token with the stored refresh token (=ogent-anthropic-oauth--refresh-token=); on refresh failure it clears tokens and asks the user to re-run =ogent-anthropic-login=.
+- gptel wiring: =ogent-anthropic-oauth-enable= (installed automatically after gptel loads) advises =gptel--request-data= and =gptel-curl--get-args=. When the current backend is Anthropic and bearer auth is live (=ogent-anthropic-oauth-using-bearer-p=), the backend's header slot is pointed at the dynamic =ogent-anthropic-oauth--backend-header=, headers become =Authorization: Bearer= plus the required =anthropic-beta= features (=ogent-anthropic-oauth-get-headers=), and the system message is pinned to the exact Claude Code prefix (=ogent-anthropic-oauth--system-prefix=) — extra instructions must travel in the user prompt (see Request Flow). Non-OAuth requests through the same backend fall back to standard =x-api-key= headers.
+- Commands: =ogent-anthropic-login= / =ogent-anthropic-logout= / =ogent-anthropic-status=, with =ogent-claude-code-login= / =-logout= / =-status= compatibility aliases; =ogent-anthropic-oauth-debug= logs header/advice decisions.
+- Known exception to the "no direct HTTP clients" rule: the OAuth token endpoints are called synchronously through url.el (=ogent-anthropic-oauth--url-retrieve-sync=); model traffic still goes exclusively through gptel.
+
+** OpenAI / Codex OAuth (=lisp/ogent-codex-oauth.el=)
+- Delegates the login flow to the Codex CLI (=ogent-codex-oauth-codex-executable=) instead of reimplementing it: =ogent-codex-login= runs =codex login= in a =*ogent Codex login*= process buffer; =ogent-codex-login-device= (or a prefix argument) uses =codex login --device-auth=, the device-authorization flow for headless/SSH sessions.
+- Credentials: reads Codex's own cache at =$CODEX_HOME/auth.json= or =~/.codex/auth.json= (override with =ogent-codex-oauth-auth-file=). =ogent-codex-oauth-get-api-key= returns the cached =OPENAI_API_KEY=; =ogent-codex-oauth-authenticated-p= and =ogent-codex-oauth-mode= report state. Token values are never echoed in messages and nothing is copied out of the Codex cache.
+- =ogent-codex-status= and =ogent-codex-logout= shell out to the same CLI (=codex login status= / =codex logout=).
+
+* Provider Fallback
+Shared access-error handling for the chat and edit request paths lives in =lisp/ogent-provider-fallback.el=.
+- Detection: =ogent-provider-access-error-p= downcases the error string and matches it against =ogent-provider-access-error-patterns= plus the always-recognized =ogent-provider--built-in-access-error-patterns= (invalid API key, unauthorized/forbidden, model not found/unavailable, quota/billing/credit exhaustion).
+- Offer: =ogent-provider-maybe-offer-login= — gated on =ogent-prompt-provider-login-on-access-error= and an interactive session — schedules =ogent-provider-offer-login= on a zero-delay timer so the prompt never runs inside the gptel callback. The =y-or-n-p= prompt (=ogent-provider-login-prompt=, model name + truncated error) offers =ogent-onboard-login-different-provider=, seeded with the failed backend; =ogent-provider--login-prompt-active= keeps concurrent fan-out failures from stacking prompts.
+- Call sites: the chat path via =ogent-ui--maybe-offer-provider-login= inside =ogent-ui--close-response=; the edit path via =ogent-edit--maybe-offer-provider-login=.
+- Automatic failover/retry (re-dispatching the request to another provider without asking) is NOT part of this baseline; it is tracked in bead =ogent-wfv.7=.
 
 * Presets & @handles
-- Encourage users to reference gptel presets via @preset tokens; before dispatch, run =gptel--transform-apply-preset= on the prompt so gptel’s inline preset logic applies consistently.
+- Users reference gptel presets via @preset tokens in the prompt; ogent extracts them itself with =ogent-ui--extract-preset-cookies= (names validated against =ogent-presets-available=) and applies the winner through =gptel-with-preset= at dispatch. gptel's own inline =gptel--transform-apply-preset= is not run on ogent prompts.
 - For project-level defaults, ship ogent-flavored presets (e.g. `ogent-code-review`) registered via =gptel-make-preset= and expose them in the dispatcher.
 
 * Testing Strategy
@@ -55,13 +88,13 @@ Use this spec together with [[file:specs/gptel/overview.org][gptel/overview]] wh
 - Add regression tests ensuring preset application and error quoting behave as specified.
 
 * Current Status
-- Registry + dispatcher plumbing is live (see =lisp/ogent-models.el= and =ogent-ui-refresh-dispatch=).
+- Registry + dispatcher plumbing is live (see =lisp/ogent-models.el= and the =ogent-prompt-dispatch= transient).
 - Requests stream inside placeholder Org blocks and convert failures into `#+begin_quote ogent-error` annotations.
 - Tests stub =gptel-request= to assert argument shapes and streaming behavior (`test/ui/ogent-ui-tests.el`).
 - Backend feature loading is centralized via =ogent-gptel-required-features=; keep it aligned with the registry so `ogent-ui--ensure-gptel` can pull the proper backend structs before dispatch.
 
 * Completed Work
-1. **Preset UX**: Preset selection in dispatcher via =ogent-ui--build-preset-suffixes=, @preset cookie extraction in =ogent-ui--extract-preset-cookies=, and =ogent-preset-registry= for defining ogent-specific presets.
+1. **Preset UX**: Preset selection in the dispatcher via the =ogent--infix-preset= infix (=ogent--read-preset=), @preset cookie extraction in =ogent-ui--extract-preset-cookies=, and =ogent-preset-registry= for defining ogent-specific presets.
 2. **FSM + status UI**: Request status tracking (wait/type/done/error) via =ogent-ui-request-status=, timing info (=start-time=, =end-time=), and block header updates showing =:status= and =:latency= attributes.
 3. **Cancellation / retries**: =ogent-abort-request= and =ogent-retry-request= commands with request history tracking in =ogent-ui--request-history=. Keybindings: =C-c . a= (abort), =C-c . R= (retry).
 4. **Tool + reasoning blocks**: =ogent-ui--insert-tool-block= and =ogent-ui--insert-reasoning-block= functions, =gptel-highlight-mode= integration via =ogent-ui--setup-highlight-mode=, and =ogent-enable-highlight-mode= customization.

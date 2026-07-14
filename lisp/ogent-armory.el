@@ -1389,6 +1389,8 @@ When AGENT-SLUG is non-nil, only return sessions for that agent."
                         (org-entry-get nil "OGENT_ARCHIVED"))
              :issue-id (ogent-armory--blank-to-nil
                         (org-entry-get nil "OGENT_ISSUE_ID"))
+             :issue-parent (ogent-armory--blank-to-nil
+                            (org-entry-get nil "OGENT_ISSUE_PARENT"))
              :assigned-worker (ogent-armory--blank-to-nil
                                (org-entry-get nil "OGENT_ASSIGNED_WORKER")))))
       (error (list :kind 'org :heading nil :tags nil)))))
@@ -1585,6 +1587,42 @@ An app artifact is a directory containing an index.html file."
           (push (append (list :path file) metadata) links))))
     (nreverse links)))
 
+(defun ogent-armory--conversation-records (root)
+  "Return canonical conversation index records under ROOT.
+Each record is a plist with `:id', `:title', `:agent', `:job-id',
+`:status', `:archived', `:parent-task', and `:path' read from the
+conversation store below .agents/.conversations/."
+  (let (records)
+    (dolist (file (ogent-armory--conversation-org-files root))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (ogent-armory--org-mode)
+        (condition-case nil
+            (let ((title (ogent-armory--first-heading-title))
+                  (id (or (ogent-armory--blank-to-nil
+                           (org-entry-get nil "OGENT_CONVERSATION_ID"))
+                          (file-name-nondirectory
+                           (directory-file-name
+                            (file-name-directory file))))))
+              (push (list :id id
+                          :title (or (ogent-armory--blank-to-nil
+                                      (org-entry-get nil "OGENT_TITLE"))
+                                     title)
+                          :agent (ogent-armory--blank-to-nil
+                                  (org-entry-get nil "OGENT_AGENT"))
+                          :job-id (ogent-armory--blank-to-nil
+                                   (org-entry-get nil "OGENT_JOB_ID"))
+                          :status (ogent-armory--blank-to-nil
+                                   (org-entry-get nil "OGENT_STATUS"))
+                          :archived (ogent-armory--truth-value
+                                     (org-entry-get nil "OGENT_ARCHIVED"))
+                          :parent-task (ogent-armory--blank-to-nil
+                                        (org-entry-get nil "OGENT_PARENT_TASK"))
+                          :path file)
+                    records))
+          (error nil))))
+    (seq-sort-by (lambda (record) (plist-get record :id)) #'string< records)))
+
 (defun ogent-armory-build-graph (directory &optional force)
   "Return a typed graph projection for the Org armory under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
@@ -1667,6 +1705,28 @@ With FORCE non-nil, force nested session listing rebuilds."
                          'failed-from
                        'produced))
                     edges))))))
+    (dolist (conversation (ogent-armory--conversation-records root))
+      (let* ((conversation-id (plist-get conversation :id))
+             (node-id (format "conversation:%s" conversation-id))
+             (agent (plist-get conversation :agent))
+             (parent-task (plist-get conversation :parent-task)))
+        (push (ogent-armory--graph-node
+               node-id
+               'conversation
+               (or (plist-get conversation :title) conversation-id)
+               (plist-get conversation :path)
+               conversation)
+              nodes)
+        (if agent
+            (push (ogent-armory--graph-edge
+                   (format "agent:%s" agent) node-id 'owns)
+                  edges)
+          (push (ogent-armory--graph-edge armory-id node-id 'contains)
+                edges))
+        (when parent-task
+          (push (ogent-armory--graph-edge
+                 (format "conversation:%s" parent-task) node-id 'parent)
+                edges))))
     (dolist (app (ogent-armory-list-apps root))
       (let* ((label (plist-get app :label))
              (node-id (format "app:%s" label)))
@@ -1698,6 +1758,10 @@ With FORCE non-nil, force nested session listing rebuilds."
               nodes)
         (push (ogent-armory--graph-edge armory-id node-id 'linked-issue)
               edges)
+        (when-let ((parent (plist-get issue :issue-parent)))
+          (push (ogent-armory--graph-edge
+                 (format "issue:%s" parent) node-id 'parent)
+                edges))
         (when worker
           (push (ogent-armory--graph-edge node-id
                                           (format "agent:%s" worker)

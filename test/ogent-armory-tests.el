@@ -300,6 +300,141 @@
                                (eq (plist-get edge :kind) 'owns)))
                         edges)))))
 
+(ert-deftest ogent-armory-build-graph-projects-conversation-nodes ()
+  "The armory graph projects canonical conversation records as nodes."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-armory-conversation-create
+     dir '(:id "conv-parent" :agent "cto" :title "Parent Run"))
+    (ogent-armory-conversation-create
+     dir '(:id "conv-orphan" :title "Orphan Run"))
+    (let* ((graph (ogent-armory-build-graph dir))
+           (nodes (plist-get graph :nodes))
+           (edges (plist-get graph :edges))
+           (node (seq-find (lambda (node)
+                             (equal (plist-get node :id)
+                                    "conversation:conv-parent"))
+                           nodes)))
+      (should node)
+      (should (eq (plist-get node :kind) 'conversation))
+      (should (equal (plist-get node :label) "Parent Run"))
+      (should (string-suffix-p
+               "/.agents/.conversations/conv-parent/index.org"
+               (plist-get node :path)))
+      (should (equal (plist-get (plist-get node :data) :agent) "cto"))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "agent:cto")
+                               (equal (plist-get edge :to)
+                                      "conversation:conv-parent")
+                               (eq (plist-get edge :kind) 'owns)))
+                        edges))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "armory:.")
+                               (equal (plist-get edge :to)
+                                      "conversation:conv-orphan")
+                               (eq (plist-get edge :kind) 'contains)))
+                        edges)))))
+
+(ert-deftest ogent-armory-build-graph-links-conversation-parent-tasks ()
+  "Conversations with a parent task gain parent edges between task nodes."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-armory-conversation-create
+     dir '(:id "conv-parent" :agent "cto" :title "Parent Run"))
+    (ogent-armory-conversation-create
+     dir '(:id "conv-child" :agent "cto" :title "Child Run"
+           :parent-task "conv-parent"))
+    (let ((edges (plist-get (ogent-armory-build-graph dir) :edges)))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from)
+                                      "conversation:conv-parent")
+                               (equal (plist-get edge :to)
+                                      "conversation:conv-child")
+                               (eq (plist-get edge :kind) 'parent)))
+                        edges)))))
+
+(ert-deftest ogent-armory-build-graph-links-issue-parents ()
+  "Issue link records with a parent issue gain parent edges."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory--write-file
+     (expand-file-name "epic.org" dir)
+     (concat "#+title: Epic\n\n* Epic\n"
+             (ogent-armory--format-properties
+              '(("OGENT_ISSUE_ID" . "ogent-100")))
+             "\n"))
+    (ogent-armory--write-file
+     (expand-file-name "child.org" dir)
+     (concat "#+title: Child\n\n* Child\n"
+             (ogent-armory--format-properties
+              '(("OGENT_ISSUE_ID" . "ogent-101")
+                ("OGENT_ISSUE_PARENT" . "ogent-100")))
+             "\n"))
+    (let* ((graph (ogent-armory-build-graph dir))
+           (nodes (plist-get graph :nodes))
+           (edges (plist-get graph :edges)))
+      (dolist (id '("issue:ogent-100" "issue:ogent-101"))
+        (should (seq-find (lambda (node)
+                            (equal (plist-get node :id) id))
+                          nodes)))
+      (should (seq-find (lambda (edge)
+                          (and (equal (plist-get edge :from) "issue:ogent-100")
+                               (equal (plist-get edge :to) "issue:ogent-101")
+                               (eq (plist-get edge :kind) 'parent)))
+                        edges)))))
+
+(ert-deftest ogent-armory-build-graph-legacy-fixture-keeps-old-kinds ()
+  "Fixtures without conversations or parents produce only the old kinds."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent
+     dir
+     '(:slug "cto" :name "CTO" :role "Architecture")
+     "Maintain architecture.")
+    (ogent-armory-write-job
+     dir "cto"
+     '(:id "weekly-review" :name "Weekly Review" :enabled t)
+     "Review notes.")
+    (let ((session-dir (ogent-armory-sessions-directory dir "cto"))
+          (app-file (expand-file-name "apps/dashboard/index.html" dir)))
+      (make-directory session-dir t)
+      (make-directory (file-name-directory app-file) t)
+      (ogent-armory--write-file app-file "<!doctype html>")
+      (ogent-armory--write-file
+       (expand-file-name "failed.org" session-dir)
+       (concat "#+title: Failed\n\n* FAILED Failed\n"
+               (ogent-armory--format-properties
+                '(("OGENT_SESSION" . t)
+                  ("OGENT_AGENT" . "cto")
+                  ("OGENT_JOB_ID" . "weekly-review")
+                  ("OGENT_APP_PATHS" . "apps/dashboard")))
+               "\n"))
+      (ogent-armory--write-file
+       (expand-file-name "issue-link.org" dir)
+       (concat "#+title: Issue Link\n\n* Issue Link\n"
+               (ogent-armory--format-properties
+                '(("OGENT_ISSUE_ID" . "ogent-123")
+                  ("OGENT_ASSIGNED_WORKER" . "cto")))
+               "\n")))
+    (let* ((graph (ogent-armory-build-graph dir))
+           (nodes (plist-get graph :nodes))
+           (edges (plist-get graph :edges)))
+      (dolist (node nodes)
+        (should (memq (plist-get node :kind)
+                      '(armory agent job session app issue))))
+      (dolist (edge edges)
+        (should (memq (plist-get edge :kind)
+                      '(contains owns scheduled-by produced archived-from
+                                 failed-from linked-issue assigned-worker)))))))
+
 (ert-deftest ogent-armory-job-metadata-and-archive-preserve-org-body ()
   "Job metadata edits update the property drawer without rewriting body text."
   (ogent-armory-test-with-temp-dir dir
