@@ -633,5 +633,65 @@ but doesn't test actual insertion behavior (that's in UI tests)."
         (should (equal (ogent-companion--get-companion-identifier buf) "*test-id*"))
       (kill-buffer buf))))
 
+;;; Persistence Activation Tests (ogent-cnw.8)
+
+(ert-deftest ogent-companion-load-installs-no-hook ()
+  "Loading ogent-companion must not touch `hack-local-variables-hook'.
+Start from a known-clean hook state, re-load the module, and assert
+the load itself left the restore hook uninstalled."
+  (ogent-companion-disable-persistence)
+  (load "ogent-companion" nil t)
+  (should-not (memq #'ogent-companion--restore-link
+                    (default-value 'hack-local-variables-hook))))
+
+(ert-deftest ogent-companion-enable-persistence-idempotent ()
+  "Enabling persistence twice installs the restore hook exactly once."
+  (unwind-protect
+      (with-temp-buffer                 ; no file: catch-up must not run
+        (ogent-companion-enable-persistence)
+        (ogent-companion-enable-persistence)
+        (should (= 1 (seq-count
+                      (lambda (fn) (eq fn #'ogent-companion--restore-link))
+                      (default-value 'hack-local-variables-hook)))))
+    (ogent-companion-disable-persistence)))
+
+(ert-deftest ogent-companion-disable-persistence-removes-hook ()
+  "Disabling persistence removes the restore hook; second call is a no-op."
+  (ogent-companion-enable-persistence)
+  (ogent-companion-disable-persistence)
+  (ogent-companion-disable-persistence)
+  (should-not (memq #'ogent-companion--restore-link
+                    (default-value 'hack-local-variables-hook))))
+
+(ert-deftest ogent-companion-enable-persistence-restores-current-buffer ()
+  "First enable restores the activating file buffer's persisted link.
+`hack-local-variables-hook' has already run for that buffer, so the
+catch-up call inside `ogent-companion-enable-persistence' is what
+links it.  The buffer only pretends to visit a file (bound
+`buffer-file-name'), and the registry writer is stubbed, so no
+filesystem is touched."
+  (let ((companion-buf (get-buffer-create "*ogent:test-enable-restore*"))
+        (registry-writes 0))
+    (unwind-protect
+        ;; The fake file name makes --link-buffers persist the link;
+        ;; stub the registry writer so nothing touches disk.
+        (cl-letf (((symbol-function 'ogent-companion--write-link-registry)
+                   (lambda (_registry) (setq registry-writes (1+ registry-writes)))))
+          (with-temp-buffer
+            (setq buffer-file-name "/nonexistent/ogent-enable-restore.txt")
+            (setq-local ogent-companion-persist-links t)
+            (setq-local ogent-companion-file (buffer-name companion-buf))
+            (setq-local ogent-companion--linked-buffer nil)
+            (ogent-companion-enable-persistence)
+            (should (eq ogent-companion--linked-buffer companion-buf))
+            ;; Linking succeeded before/independent of registry I/O; the
+            ;; stub only absorbed the persistence side effect.
+            (should (<= registry-writes 1))
+            ;; Detach the fake file name so temp-buffer teardown never
+            ;; consults the (nonexistent) file.
+            (setq buffer-file-name nil)))
+      (ogent-companion-disable-persistence)
+      (kill-buffer companion-buf))))
+
 (provide 'ogent-companion-tests)
 ;;; ogent-companion-tests.el ends here

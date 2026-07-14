@@ -8,16 +8,25 @@
 
 ;; Persist the source directory so sibling files (ogent-issues-bd,
 ;; ogent-issues-graph, etc.) can always be found, even if load-path
-;; is modified after initial load (e.g., by package manager rebuilds)
+;; is modified after initial load (e.g., by package manager rebuilds).
+;; Capturing the value here is pure; entry points re-add it on demand
+;; via `ogent-issues--ensure-sibling-loadpath' so that requiring this
+;; file never mutates global state.
 (defvar ogent-issues--source-directory
   (when-let ((file (or load-file-name buffer-file-name)))
     (file-name-directory file))
   "Directory containing ogent-issues and sibling .el files.
 Captured at load time so sibling requires remain robust.")
 
-(when (and ogent-issues--source-directory
-           (not (member ogent-issues--source-directory load-path)))
-  (add-to-list 'load-path ogent-issues--source-directory))
+(defun ogent-issues--ensure-sibling-loadpath ()
+  "Ensure the ogent-issues source directory is on `load-path'.
+Satellite features load on demand (`ogent-issues-transient' via
+autoload, `ogent-issues-graph' from the kanban view), so entry points
+call this to restore the directory if a package-manager rebuild has
+rewritten `load-path' since this file was loaded."
+  (when (and ogent-issues--source-directory
+             (not (member ogent-issues--source-directory load-path)))
+    (add-to-list 'load-path ogent-issues--source-directory)))
 
 (require 'cl-lib)
 (require 'seq)
@@ -673,6 +682,10 @@ Like `magit-status', this always shows issues for the project containing
 the current buffer's file.  By default, takes over the current window.
 Customize `ogent-issues-display-buffer-action' to change display behavior."
   (interactive)
+  ;; Deferred satellites (transient dispatch autoloads, graph view) are
+  ;; loaded later from the source directory; re-arm the guard in case
+  ;; `load-path' was rewritten after this file loaded.
+  (ogent-issues--ensure-sibling-loadpath)
   (let ((current-project (ogent-issues-bd-project-root)))
     ;; Error if not in a beads project
     (unless current-project

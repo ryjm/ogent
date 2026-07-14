@@ -5,6 +5,20 @@
 ;; When user presses C-c . d after receiving a completion, the last response
 ;; is shunted to a Notes child subtree under the current heading, preserving
 ;; useful completions as persistent knowledge.
+;;
+;; Loading this file has no side effects.  Activation is explicit:
+;;
+;;   (ogent-notes-enable-tracking)   ; record gptel responses so
+;;                                   ; `ogent-notes-capture' has something
+;;                                   ; to file; undo with
+;;                                   ; `ogent-notes-disable-tracking'
+;;   (ogent-notes-setup-capture)     ; register `ogent-capture-templates'
+;;                                   ; with `org-capture'
+;;
+;; Enabling `ogent-mode' (or `ogent-global-mode') calls
+;; `ogent-notes-enable-tracking' as part of its activation, so users of
+;; the umbrella `ogent' feature keep the historical behavior without
+;; any require-time side effect.
 
 ;;; Code:
 
@@ -43,6 +57,7 @@ This is a plist with keys:
   :model - The model that generated it (if available)")
 
 (defvar gptel-model)
+(defvar gptel-post-response-hook)
 
 (defun ogent-notes-track-response (text &optional model)
   "Track TEXT as the last response, optionally with MODEL info."
@@ -70,18 +85,23 @@ Captures the response text between BEG and END."
 
 ;;; Hook Setup
 
+;;;###autoload
 (defun ogent-notes-enable-tracking ()
-  "Enable automatic response tracking via gptel hook."
-  (when (boundp 'gptel-post-response-hook)
-    (add-hook 'gptel-post-response-hook #'ogent-notes--gptel-post-response-hook)))
+  "Enable automatic response tracking via `gptel-post-response-hook'.
+Install `ogent-notes--gptel-post-response-hook' so gptel responses are
+recorded for `ogent-notes-capture'.  Idempotent: repeated calls install
+the hook only once.  Safe to call before gptel loads."
+  (interactive)
+  (add-hook 'gptel-post-response-hook #'ogent-notes--gptel-post-response-hook))
 
+;;;###autoload
 (defun ogent-notes-disable-tracking ()
-  "Disable automatic response tracking."
-  (when (boundp 'gptel-post-response-hook)
-    (remove-hook 'gptel-post-response-hook #'ogent-notes--gptel-post-response-hook)))
-
-;; Enable tracking by default when loaded
-(ogent-notes-enable-tracking)
+  "Disable automatic response tracking.
+Remove `ogent-notes--gptel-post-response-hook' from
+`gptel-post-response-hook'.  Idempotent: calling this when tracking is
+already disabled is a no-op."
+  (interactive)
+  (remove-hook 'gptel-post-response-hook #'ogent-notes--gptel-post-response-hook))
 
 ;;; Org Subtree Manipulation
 
@@ -177,6 +197,58 @@ Appends the response with a timestamp."
     ;; Clear the response after capture
     (ogent-notes-clear-last-response)
     (message "Captured response to %s" ogent-notes-heading-name)))
+
+;;; Org Capture Templates
+
+(defcustom ogent-capture-notes-file
+  (expand-file-name "ogent-notes.org" org-directory)
+  "Org file receiving quick notes captured via `ogent-capture-templates'."
+  :type 'file
+  :group 'ogent-notes)
+
+(defcustom ogent-capture-companion-file
+  (expand-file-name "ogent-companion.org" org-directory)
+  "Org file receiving prompt ideas captured via `ogent-capture-templates'."
+  :type 'file
+  :group 'ogent-notes)
+
+(defcustom ogent-capture-templates
+  '(("o" "Ogent")
+    ("on" "Ogent quick note" entry
+     (file+headline ogent-capture-notes-file "Inbox")
+     "* %U %?\n%i")
+    ("op" "Ogent prompt idea" entry
+     (file+headline ogent-capture-companion-file "Prompt Ideas")
+     "* %? :prompt:\n%U\n%i"))
+  "Org capture templates registered by `ogent-notes-setup-capture'.
+Each entry uses the `org-capture-templates' format.  File targets may
+name a variable (see `ogent-capture-notes-file' and
+`ogent-capture-companion-file'); `org-capture' resolves it at capture
+time.  Entries whose key already exists in `org-capture-templates' are
+never overwritten."
+  :type '(repeat sexp)
+  :group 'ogent-notes)
+
+(defvar org-capture-templates)
+
+(defun ogent-notes--register-capture-templates ()
+  "Merge `ogent-capture-templates' into `org-capture-templates'.
+Append entries in order, skipping any whose key is already registered,
+so repeated calls never duplicate templates and user-defined entries
+always win."
+  (dolist (template ogent-capture-templates)
+    (unless (assoc (car template) org-capture-templates)
+      (setq org-capture-templates
+            (append org-capture-templates (list template))))))
+
+;;;###autoload
+(defun ogent-notes-setup-capture ()
+  "Register `ogent-capture-templates' with `org-capture'.
+Defer registration until `org-capture' loads, so calling this from an
+init file never forces the load.  Idempotent: repeated calls register
+each template at most once."
+  (with-eval-after-load 'org-capture
+    (ogent-notes--register-capture-templates)))
 
 (provide 'ogent-notes)
 

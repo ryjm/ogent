@@ -7,8 +7,20 @@
 
 (require 'ert)
 (require 'ogent-test-helper)
+
+;; Snapshot `load-path' around the facade load: requiring `ogent-issues'
+;; must not mutate global state (the sibling-directory guard now runs
+;; from entry points instead of at require time).
+(defconst ogent-issues-test--load-path-before-require
+  (copy-sequence load-path)
+  "Value of `load-path' captured before requiring the facade.")
+
 (require 'ogent-issues-bd)
 (require 'ogent-issues)
+
+(defconst ogent-issues-test--load-path-after-require
+  (copy-sequence load-path)
+  "Value of `load-path' captured after requiring the facade.")
 
 ;;; Test Fixtures
 
@@ -3055,6 +3067,48 @@ buffer and gg/G/gr/ZZ/ZQ for the detail buffer."
       (should-not (assoc "g R" local-keys))
       (should-not (assoc "g j" local-keys))
       (should-not (assoc "g k" local-keys)))))
+
+;;; Require Purity / Sibling Load-Path Tests
+
+(ert-deftest ogent-issues-require-does-not-mutate-load-path ()
+  "Requiring the ogent-issues facade leaves `load-path' untouched."
+  (should (equal ogent-issues-test--load-path-before-require
+                 ogent-issues-test--load-path-after-require)))
+
+(ert-deftest ogent-issues-ensure-sibling-loadpath-restores-directory ()
+  "The entry-point guard re-adds the source directory when dropped."
+  (should ogent-issues--source-directory)
+  (let ((load-path (remove ogent-issues--source-directory load-path)))
+    (should-not (member ogent-issues--source-directory load-path))
+    (ogent-issues--ensure-sibling-loadpath)
+    (should (member ogent-issues--source-directory load-path))))
+
+(ert-deftest ogent-issues-ensure-sibling-loadpath-does-not-duplicate ()
+  "The guard adds nothing when the directory is already present."
+  (let ((load-path (cons ogent-issues--source-directory load-path)))
+    (let ((before (length load-path)))
+      (ogent-issues--ensure-sibling-loadpath)
+      (should (= before (length load-path))))))
+
+(ert-deftest ogent-issues-entry-point-ensures-sibling-loadpath ()
+  "`ogent-issues' re-arms the sibling load-path guard."
+  (let (called buf-name)
+    (cl-letf (((symbol-function 'ogent-issues--ensure-sibling-loadpath)
+               (lambda () (setq called t)))
+              ((symbol-function 'ogent-issues-bd-project-root)
+               (lambda (&optional _) "/tmp/ogent-test-project/"))
+              ((symbol-function 'ogent-issues-bd-project-name)
+               (lambda (&optional _) "loadpath-test"))
+              ((symbol-function 'ogent-issues-refresh) #'ignore)
+              ((symbol-function 'switch-to-buffer) #'ignore)
+              ((symbol-function 'switch-to-buffer-other-window) #'ignore))
+      (unwind-protect
+          (progn
+            (setq buf-name (ogent-issues--buffer-name))
+            (ogent-issues)
+            (should called))
+        (when (and buf-name (get-buffer buf-name))
+          (kill-buffer buf-name))))))
 
 (provide 'ogent-issues-tests)
 

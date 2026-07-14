@@ -38,6 +38,8 @@
 (declare-function ogent-debug-mode "ogent-debug")
 (declare-function ogent-tool-rerun "ogent-ui-toolcalls")
 (declare-function ogent-notes-capture "ogent-notes")
+(declare-function ogent-notes-enable-tracking "ogent-notes")
+(declare-function ogent-companion-enable-persistence "ogent-companion")
 (declare-function ogent-session-save "ogent-session")
 (declare-function ogent-session-load "ogent-session")
 (declare-function ogent-session-list "ogent-session")
@@ -201,6 +203,17 @@ to maintain conversation history."
   :keymap ogent-mode-map
   (if ogent-mode
       (progn
+        ;; Response tracking for `ogent-notes-capture' is a global,
+        ;; idempotent hook.  Requiring ogent-notes no longer installs it
+        ;; (loading files must be side-effect free), so the activation
+        ;; entry point does.  Not removed on per-buffer disable: other
+        ;; buffers may still be in `ogent-mode'.
+        (when (fboundp 'ogent-notes-enable-tracking)
+          (ogent-notes-enable-tracking))
+        ;; Companion link restoration follows the same pattern
+        ;; (global, idempotent, installed on activation not require).
+        (when (fboundp 'ogent-companion-enable-persistence)
+          (ogent-companion-enable-persistence))
         (when (derived-mode-p 'org-mode)
           ;; Use save-window-excursion to prevent buffer/window switching
           ;; side effects from gptel-highlight-mode or other mode hooks.

@@ -10,6 +10,9 @@
 (require 'org)
 
 (defvar ogent-mode-map)  ; Defined in ogent-core
+(defvar gptel-post-response-hook)
+(defvar org-capture-templates)
+(declare-function org-capture-expand-file "org-capture" (file))
 
 ;;; Response Tracking Tests
 
@@ -179,6 +182,86 @@
   (require 'ogent-core)
   (should (eq (lookup-key ogent-mode-map (kbd "C-c . d"))
               #'ogent-notes-capture)))
+
+;;; Require Purity Tests
+
+(ert-deftest ogent-notes-require-does-not-install-gptel-hook ()
+  "Requiring ogent-notes installs no gptel response hook."
+  (should (featurep 'ogent-notes))
+  (should-not (and (boundp 'gptel-post-response-hook)
+                   (memq #'ogent-notes--gptel-post-response-hook
+                         gptel-post-response-hook))))
+
+(ert-deftest ogent-notes-enable-tracking-installs-hook-idempotently ()
+  "Enabling tracking installs the gptel hook exactly once."
+  (let ((gptel-post-response-hook nil))
+    (ogent-notes-enable-tracking)
+    (ogent-notes-enable-tracking)
+    (should (equal gptel-post-response-hook
+                   (list #'ogent-notes--gptel-post-response-hook)))))
+
+(ert-deftest ogent-notes-disable-tracking-removes-hook-idempotently ()
+  "Disabling tracking removes the gptel hook and tolerates repeats."
+  (let ((gptel-post-response-hook nil))
+    (ogent-notes-enable-tracking)
+    (ogent-notes-disable-tracking)
+    (should-not (memq #'ogent-notes--gptel-post-response-hook
+                      gptel-post-response-hook))
+    ;; A second disable is a quiet no-op.
+    (ogent-notes-disable-tracking)
+    (should-not (memq #'ogent-notes--gptel-post-response-hook
+                      gptel-post-response-hook))))
+
+;;; Org Capture Template Tests
+
+(ert-deftest ogent-notes-require-does-not-register-capture-templates ()
+  "Templates reach `org-capture-templates' only via explicit setup."
+  (require 'org-capture)
+  (dolist (template ogent-capture-templates)
+    (should-not (assoc (car template) org-capture-templates))))
+
+(ert-deftest ogent-notes-setup-capture-registers-once-across-calls ()
+  "Two setup calls register each template exactly once."
+  (require 'org-capture)
+  (let ((org-capture-templates nil))
+    (ogent-notes-setup-capture)
+    (ogent-notes-setup-capture)
+    (should (= (length org-capture-templates)
+               (length ogent-capture-templates)))
+    (dolist (template ogent-capture-templates)
+      (should (= 1 (cl-count (car template) org-capture-templates
+                             :key #'car :test #'equal))))))
+
+(ert-deftest ogent-notes-setup-capture-preserves-user-templates ()
+  "Setup appends after user templates and never clobbers a taken key."
+  (require 'org-capture)
+  (let ((org-capture-templates
+         '(("x" "User" entry (file "/tmp/x.org") "* %?")
+           ("on" "User note" entry (file "/tmp/y.org") "* %?"))))
+    (ogent-notes-setup-capture)
+    ;; The user's "on" entry wins; ours is skipped, not merged over it.
+    (should (equal (assoc "on" org-capture-templates)
+                   '("on" "User note" entry (file "/tmp/y.org") "* %?")))
+    ;; Remaining ogent entries are appended after user entries.
+    (should (assoc "op" org-capture-templates))
+    (should (equal (caar org-capture-templates) "x"))))
+
+(ert-deftest ogent-notes-capture-template-targets-resolve ()
+  "Registered templates target resolvable files and non-empty headlines."
+  (require 'org-capture)
+  (let ((org-capture-templates nil))
+    (ogent-notes-setup-capture)
+    (dolist (key '("on" "op"))
+      (let* ((template (assoc key org-capture-templates))
+             (target (nth 3 template)))
+        (should template)
+        (should (eq (car target) 'file+headline))
+        (let ((file (org-capture-expand-file (nth 1 target)))
+              (headline (nth 2 target)))
+          (should (stringp file))
+          (should (> (length file) 0))
+          (should (stringp headline))
+          (should (> (length headline) 0)))))))
 
 (provide 'ogent-notes-tests)
 

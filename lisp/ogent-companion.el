@@ -248,12 +248,33 @@ Handles both file-backed and temp companion buffers."
             (org-mode)))
         (ogent-companion--link-buffers (current-buffer) companion)))))
 
-(defun ogent-companion--setup-persistence ()
-  "Set up hooks for companion buffer persistence."
-  (add-hook 'hack-local-variables-hook #'ogent-companion--restore-link))
+;;;###autoload
+(defun ogent-companion-enable-persistence ()
+  "Enable restoring companion links when files are opened.
+Install `ogent-companion--restore-link' on
+`hack-local-variables-hook', then run it once for the current
+buffer when it visits a file: `hack-local-variables-hook' has
+already fired for it, so without this catch-up the buffer that
+first enables `ogent-mode' would never restore its persisted link.
+Other pre-existing buffers restore when their local variables are
+processed again (revert or reopen).  Idempotent; called from the
+`ogent-mode' activation path rather than at load time so requiring
+this file never mutates global state."
+  (interactive)
+  (add-hook 'hack-local-variables-hook #'ogent-companion--restore-link)
+  (when (buffer-file-name)
+    (condition-case err
+        (ogent-companion--restore-link)
+      (error (message "ogent-companion: link restore failed for %s: %s"
+                      (buffer-name)
+                      (error-message-string err))))))
 
-;; Set up persistence hooks when this module loads
-(ogent-companion--setup-persistence)
+(defun ogent-companion-disable-persistence ()
+  "Stop restoring companion links when files are opened.
+Remove `ogent-companion--restore-link' from
+`hack-local-variables-hook'.  Idempotent."
+  (interactive)
+  (remove-hook 'hack-local-variables-hook #'ogent-companion--restore-link))
 
 ;;; Display Functions
 
