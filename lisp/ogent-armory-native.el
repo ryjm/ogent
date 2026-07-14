@@ -20,10 +20,14 @@
 (require 'ogent-models)
 (require 'ogent-tool-approval)
 (require 'ogent-armory-runner)
+(require 'ogent-ui-toolcalls)
 
 (declare-function gptel-request "ext:gptel-request")
 (declare-function gptel-backend-p "ext:gptel-request" t t)
 (declare-function gptel-tool-name "ext:gptel-request" t t)
+
+;; Analytics (optional; loaded lazily), mirroring the ogent-ui engine.
+(declare-function ogent-analytics-record-completion "ogent-analytics")
 
 (defvar gptel-backend)
 (defvar gptel-model)
@@ -86,20 +90,6 @@ a gptel pending-call list whose head is a tool object or name."
           (plist-get call :arguments))
     (cadr call)))
 
-(defun ogent-armory-native--tool-arg-values (spec args)
-  "Return positional values for SPEC's :args extracted from ARGS.
-Each spec argument name is tried as hyphenated and underscored
-keyword and symbol keys, matching ogent's tool argument convention."
-  (mapcar
-   (lambda (arg-spec)
-     (let* ((name (plist-get arg-spec :name))
-            (hyphen (replace-regexp-in-string "_" "-" name)))
-       (or (plist-get args (intern (concat ":" hyphen)))
-           (plist-get args (intern (concat ":" name)))
-           (plist-get args (intern hyphen))
-           (plist-get args (intern name)))))
-   (plist-get spec :args)))
-
 (defun ogent-armory-native--approval (name args)
   "Return `approved' or `denied' for tool NAME with ARGS.
 Defer to `ogent-tool-approval-check'; a quit or error raised by an
@@ -110,15 +100,16 @@ never execute a tool the policy would not auto-approve."
     ((quit error) 'denied)))
 
 (defun ogent-armory-native--execute-tool (plan name args)
-  "Execute tool NAME with ARGS for PLAN and return a result string.
-Look the tool up in `ogent-tool-registry' via `ogent-tool-spec-get'
-and run its :function inside the plan workspace.  Approval is decided
-by `ogent-tool-approval-check' before execution."
+  "Execute tool NAME with ARGS for PLAN and return the result.
+Delegate to the canonical executor `ogent-ui--execute-tool', which
+records tool start/finish to the proof ledger and the debug tool-call
+history, inside the plan workspace.  Approval is decided by
+`ogent-tool-approval-check' before execution; the executor does not
+re-check it."
   (let* ((tool-symbol (ogent-tool--name-symbol name))
-         (spec (and tool-symbol (ogent-tool-spec-get tool-symbol)))
-         (func (plist-get spec :function)))
+         (spec (and tool-symbol (ogent-tool-spec-get tool-symbol))))
     (cond
-     ((not (functionp func))
+     ((not (functionp (plist-get spec :function)))
       (format "Unknown tool: %s" name))
      ((eq (ogent-armory-native--approval name args) 'denied)
       (format "Tool %s denied by approval policy" name))
@@ -126,12 +117,7 @@ by `ogent-tool-approval-check' before execution."
       (let* ((workspace (plist-get plan :workspace))
              (default-directory (or workspace default-directory))
              (ogent-tools-project-root workspace))
-        (condition-case err
-            (let ((result (apply func (ogent-armory-native--tool-arg-values
-                                       spec args))))
-              (if (stringp result) result (format "%S" result)))
-          (error
-           (format "Tool error: %s" (error-message-string err)))))))))
+        (ogent-ui--execute-tool name args))))))
 
 ;;; Transcript and fabricated output
 
@@ -210,10 +196,28 @@ conversation file, or nil when STATE already finished."
         (message "Armory agent finished: %s (native gptel)" file)
         file))))
 
+(defun ogent-armory-native--record-completion (state response)
+  "Record RESPONSE for STATE in the analytics eval loop.
+Mirror the ogent-ui engine's request close: only successful
+completions count, `ogent-analytics-record-completion' self-guards on
+`ogent-analytics-enabled', and analytics is a side channel that must
+never break finalization."
+  (when (fboundp 'ogent-analytics-record-completion)
+    (condition-case err
+        (ogent-analytics-record-completion
+         (or (plist-get (plist-get state :model) :id) "unknown")
+         (or (plist-get (plist-get state :plan) :prompt) "")
+         (or response ""))
+      (error
+       (message "ogent-analytics: failed to record completion: %s"
+                (error-message-string err))))))
+
 (defun ogent-armory-native--complete (state)
   "Finalize STATE successfully with its pending model text."
-  (ogent-armory-native--record-pending-text state)
-  (ogent-armory-native--finalize state 0 nil))
+  (let ((text (or (plist-get state :pending-text) "")))
+    (ogent-armory-native--record-pending-text state)
+    (ogent-armory-native--record-completion state text)
+    (ogent-armory-native--finalize state 0 nil)))
 
 (defun ogent-armory-native--fail (state error-text)
   "Finalize STATE as failed with ERROR-TEXT."

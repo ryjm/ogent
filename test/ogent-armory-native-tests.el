@@ -12,6 +12,7 @@
 (require 'ogent-armory-adapter)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-native)
+(require 'ogent-ledger)
 
 (defvar ogent-armory-native-test--requests nil
   "Captured gptel request plists, oldest first.")
@@ -334,6 +335,98 @@ returning such a list.  Captures land in
       (should (equal (plist-get (car ogent-armory-native-test--requests)
                                 :model)
                      "native-default-model")))))
+
+;;; Ledger and analytics
+
+(defun ogent-armory-native-test--failing-tool (_text)
+  "Signal an error like a broken tool implementation."
+  (error "tool blew up"))
+
+(ert-deftest ogent-armory-native-ledger-records-tool-events ()
+  "Executed tools record ledger start and finish events with effects."
+  (ogent-armory-native-test--with-echo-registry
+    (ogent-armory-native-test--with-stubs
+        (list (list (cons (ogent-armory-native-test--tool-call
+                           "echo" '(:text "hi"))
+                          nil))
+              '(("Done." . nil)))
+      (let ((ogent-ledger-enabled t)
+            (events nil))
+        (cl-letf (((symbol-function 'ogent-ledger-record)
+                   (lambda (type data)
+                     (push (cons type data) events)
+                     data)))
+          (ogent-armory-native-start (ogent-armory-native-test--plan))
+          (should (equal ogent-armory-native-test--tool-log '("hi")))
+          (let ((start (assq 'tool-start events))
+                (finish (assq 'tool-finish events)))
+            (should start)
+            (should (equal (plist-get (cdr start) :name) "echo"))
+            (should (plist-get (cdr start) :effects))
+            (should finish)
+            (should (equal (plist-get (cdr finish) :name) "echo"))
+            (should (plist-get (cdr finish) :result-hash))
+            (should (numberp (plist-get (cdr finish) :duration)))
+            (should-not (plist-get (cdr finish) :error))))))))
+
+(ert-deftest ogent-armory-native-ledger-records-tool-error-finish ()
+  "A failing tool records an error finish and feeds the error back."
+  (ogent-armory-native-test--with-stubs
+      (list (list (cons (ogent-armory-native-test--tool-call
+                         "boom" '(:text "hi"))
+                        nil))
+            '(("Understood." . nil)))
+    (let ((ogent-tool-registry
+           '((:name boom
+                    :function ogent-armory-native-test--failing-tool
+                    :description "Failing test tool."
+                    :args ((:name "text" :type "string"
+                                  :description "Ignored")))))
+          (ogent-tool-allow-list nil)
+          (ogent-tool-require-approval t)
+          (ogent-tool--denied-tools nil)
+          (ogent-ledger-enabled t)
+          (events nil))
+      (cl-letf (((symbol-function 'ogent-ledger-record)
+                 (lambda (type data)
+                   (push (cons type data) events)
+                   data)))
+        (ogent-armory-native-start (ogent-armory-native-test--plan))
+        (let ((finish (assq 'tool-finish events)))
+          (should finish)
+          (should (string-match-p "tool blew up"
+                                  (plist-get (cdr finish) :error)))
+          (should-not (plist-get (cdr finish) :result-hash))
+          (should (numberp (plist-get (cdr finish) :duration))))
+        (should (string-match-p
+                 "Tool error: tool blew up"
+                 (nth 2 (plist-get
+                         (nth 1 ogent-armory-native-test--requests)
+                         :prompt))))))))
+
+(ert-deftest ogent-armory-native-analytics-records-final-completion ()
+  "A successful run records the final round in the analytics eval loop."
+  (let ((recorded nil))
+    (cl-letf (((symbol-function 'ogent-analytics-record-completion)
+               (lambda (model prompt response &optional template)
+                 (push (list model prompt response template) recorded))))
+      ;; Success: model, prompt, and response are recorded once.
+      (let ((ogent-model-registry (cons '(:id "native-test-model"
+                                              :backend nil)
+                                        ogent-model-registry)))
+        (ogent-armory-native-test--with-stubs '((("Final answer." . nil)))
+          (ogent-armory-native-start
+           (ogent-armory-native-test--plan :model "native-test-model"))
+          (should (equal recorded
+                         '(("native-test-model" "Do the task."
+                            "Final answer." nil))))))
+      ;; Failure: analytics never records, mirroring the engine's
+      ;; success-only close path.
+      (setq recorded nil)
+      (ogent-armory-native-test--with-stubs
+          '(((nil . (:status "boom"))))
+        (ogent-armory-native-start (ogent-armory-native-test--plan))
+        (should-not recorded)))))
 
 ;;; Runner dispatch
 
