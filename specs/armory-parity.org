@@ -12,6 +12,11 @@ native Emacs workflows backed by Org files. Org remains the durable record,
 Emacs remains the operating surface, and local CLI agents remain first-class
 runtimes.
 
+Audit note (2026-07-13): this spec was reconciled against the shipped
+codebase. Promises that shipped are now described as shipped, with their
+real entry points; promises deliberately not built are struck and listed
+under "Deliberately Not Built".
+
 * Sources Reviewed
 
 ** Live Armory App
@@ -248,10 +253,8 @@ The main parity gaps are architectural, not cosmetic:
   or error taxonomy.
 - Ogent has no skill catalog, skill mention, per-agent skill selection, or
   runtime skill mount.
-- Ogent has no attachment staging or Org attachment contract for prompts.
 - Ogent has no Armory-scoped nested armory visibility model.
 - Ogent has no onboarding wizard, registry import, or team template flow.
-- Ogent has no native command palette across Armory records.
 - Ogent has no schedule calendar view.
 - Ogent has no git dirty popover, commit, pull, log, diff, or restore UI.
 - Ogent has no terminal tab manager or PTY bridge.
@@ -284,11 +287,13 @@ Armory's shell combines:
 Emacs target:
 
 - Keep =ogent-armory-home= as the main landing surface.
-- Add =ogent-armory-sidebar= as an optional persistent side window or
-  consult-driven navigation source.
-- Add =ogent-armory-command= as a single Transient/Completing-read command
-  palette across pages, agents, tasks, jobs, conversations, apps, settings, and
-  git operations.
+- Shipped: =ogent-armory-command-palette= (=lisp/ogent-armory-palette.el=)
+  is a single =completing-read= palette across pages, agents, jobs,
+  conversations, apps, and Armory commands including the tasks board, git
+  status, settings, schedule, and org agenda.
+- Struck: a persistent =ogent-armory-sidebar= side window was deliberately
+  not built; the palette and the existing list buffers cover navigation (see
+  "Deliberately Not Built").
 - Keep drawer parity through commands and buffers, not a forced three-pane UI.
 
 ** Data and Page Editing
@@ -312,9 +317,13 @@ Emacs target:
   =ogent-armory-page-export=.
 - Add per-page metadata commands for =OGENT_TITLE=, =OGENT_KIND=,
   =OGENT_ARMORY=, =OGENT_DIR=, =OGENT_TAGS=, and optional display fields.
-- Use Org links for wiki links and internal links. Investigate whether org-roam
-  would be a better fit as well.
-- Use =org-attach= for page attachments.
+- Use Org links for wiki links and internal links. Shipped: org-roam is an
+  optional resolution backend — when org-roam is loaded, @handle references
+  resolve against the org-roam database by node title and alias
+  (=ogent-context--resolve-via-roam= in =lisp/ogent-context.el=).
+- Struck: =org-attach= for page attachments was deliberately not built;
+  attachments live in the conversation store instead (see "Deliberately Not
+  Built").
 - Use existing Emacs major modes for source, CSV, image, PDF, and media where
   available.
 - Use =browse-url=, =eww=, or =xwidget-webkit= for websites and generated apps.
@@ -346,7 +355,11 @@ Emacs target:
   default model completion, default runtime, initial team, and Doom keybinding
   guidance.
 - Use =org-capture= templates for first-run data capture.
-- Mentions should be powered by org-roam.
+- Shipped: mention handles resolve through the org-roam database when
+  org-roam is available (=ogent-context--resolve-via-roam=,
+  =lisp/ogent-context.el=), and sessions link to roam notes via
+  =ogent-history-link-roam= and =ogent-session-create-roam-note=
+  (=lisp/ogent-session.el=, gated by =ogent-session-roam-integration=).
 
 ** Armories and Nested Scope
 
@@ -741,14 +754,20 @@ Emacs target additions:
 - Back the picker with =completion-at-point= in Org buffers and
   =completing-read= in minibuffer surfaces.
 - Add mention chips as read-only text buttons in composer buffers.
-- Add attachment capture through =org-attach= and Dired marking.
-- Add per-run attachment staging under:
+- Shipped: attachment capture via =ogent-armory-compose-add-attachment=
+  (=C-c C-a= in composer buffers) and the Attachments prompt in
+  =ogent-armory-compose-run=. An =org-attach=/Dired capture path was
+  deliberately not built (see "Deliberately Not Built").
+- Shipped: per-run attachment staging
+  (=ogent-armory-conversation-stage-attachments=) under:
 
   #+begin_example
   .agents/.conversations/_pending/<uuid>/attachments/
   #+end_example
 
-- Move attachments to the real conversation directory at run creation.
+- Shipped: staged attachments move into the conversation's =attachments/=
+  directory at run creation
+  (=ogent-armory-conversation-finalize-attachments=).
 - Add skill catalog origins:
   =armory-scoped=, =armory-root=, =linked-repo=, =system=, and
   =legacy-home=.
@@ -860,25 +879,29 @@ Ogent has:
 - Emacs ecosystem search primitives: =consult-ripgrep=, =occur=, =imenu=,
   =org-ql= when present, and completion metadata.
 
-Emacs target:
+Shipped (=lisp/ogent-armory-palette.el=, tested by
+=test/ogent-armory-palette-tests.el=):
 
-- Add =ogent-armory-command-palette= as a single completion prompt:
-  - Pages
+- =ogent-armory-command-palette= is a single completion prompt over:
+  - Pages and files (=ogent-armory-data= records)
   - Agents
   - Jobs
   - Conversations
-  - Tasks
   - Apps
-  - Settings
+  - Armory commands, including the tasks board, git status, settings,
+    schedule, onboarding, registry import, backup, and org agenda
   - Record-kind and path annotations
-  - Git actions
-  - Provider actions
-- Add =ogent-armory-search-index= as a rebuildable cache under
-  =.armory-state/search.el= or =.armory-state/search.org=.
-- Keep cache optional. Direct grep must remain correct.
-- Add =embark= actions when available.
-- Add ranking by exact path, title, recent activity, kind, and visible armory
-  scope.
+- =ogent-armory-search-index-build= / =ogent-armory-search-index-read=
+  persist a rebuildable cache at =.armory-state/search.el=
+  (=ogent-armory-search-index-file=).
+- The cache is optional: =ogent-armory-ranked-search= rebuilds on demand via
+  its =:rebuild= argument.
+- =ogent-armory-ranked-search= ranks by exact title, title prefix, title
+  substring, path substring, then body text
+  (=ogent-armory-palette--score=).
+
+Optional future work, not a parity requirement: =embark= actions on palette
+results and provider-action records.
 
 ** Settings and System
 
@@ -944,7 +967,7 @@ Ogent target:
 |------+---------------+-------------+---------------|
 | Root storage | Markdown data root with =.agents= | Org root with =index.org= and =.agents= | Keep Org root, add nested armory manifests |
 | Page editor | Tiptap WYSIWYG plus Markdown | Org buffers | Use Org as editor, add page management and export |
-| File tree | React sidebar, drawers, move/reorder | Home/status/list buffers | Add optional side window and command palette |
+| File tree | React sidebar, drawers, move/reorder | Home/status/list buffers, command palette | Palette shipped (=ogent-armory-command-palette=); side window struck |
 | Armory scope | Own, child depth, all | Single root | Add visibility mode to readers and UI |
 | Agents list | Cards, departments, active count | Tabulated list | Add departments, scope, status, identity fields |
 | Agent detail | Identity, composer, inbox, convos, work, schedule, details, skills, persona | Similar sections, fewer fields | Extend schema, add skills, runtime picker, actions |
@@ -960,12 +983,12 @@ Ogent target:
 | Runtime picker | provider, adapter, model, effort, terminal/native | provider/model fields | Shared runtime picker |
 | Provider verify | install/auth/model guidance | basic auth helper | Verify commands and error taxonomy |
 | Skills | Catalog, origins, mentions, mounts | absent | Add skill storage, mention, mount, import |
-| Attachments | staging and conversation attachments | absent | Use org-attach and staging dirs |
+| Attachments | staging and conversation attachments | staging + per-conversation =attachments/= | Shipped staging dirs; =org-attach= struck |
 | Agent actions | launch/schedule proposals and approval | absent | Parse, validate, approve, dispatch |
 | Calendar | Day/week/month with missed runs | absent | Add schedule buffer and agenda integration |
 | Git | dirty, commit, pull, log, diff, restore | external Magit/VC | Add Armory git commands using Magit/VC |
 | Terminal | Web terminal tabs and PTY | subprocess output buffers | Add comint/vterm terminal mode |
-| Search | Flexsearch palette | regexp search | Add command palette and optional index |
+| Search | Flexsearch palette | palette + ranked index | Shipped (=lisp/ogent-armory-palette.el=) |
 | Settings | Full settings app | customization only | Add Armory settings buffer |
 | Onboarding | setup wizard and registry | docs/scaffold | Add onboarding and registry import |
 | Help | guided help and demos | docs | Add help buffer and demo fixtures |
@@ -981,8 +1004,6 @@ Org gives Armory features a stronger base:
 - Agenda collects scheduled jobs, TODOs, and timestamped work across files.
 - Properties act as a lightweight database inside normal text files.
 - Org links cover files, headings, URLs, emails, and custom protocols.
-- Org attachments give each conversation, page, or task a filesystem-backed
-  attachment directory.
 - Org export can cover HTML, Markdown, LaTeX/PDF, and publish flows.
 
 ** Emacs Interaction Model
@@ -1133,8 +1154,6 @@ ARTIFACT: path/to/file.org
 Required buffers for parity:
 
 - =*ogent-armory-home*=
-- =*ogent-armory-sidebar*=
-- =*ogent-armory-command*=
 - =*ogent-armory-agents*=
 - =*ogent-armory-agent:<slug>*=
 - =*ogent-armory-jobs*=
@@ -1151,6 +1170,10 @@ Required buffers for parity:
 - =*ogent-armory-search*=
 - =*ogent-armory-help*=
 
+There is no =*ogent-armory-sidebar*= buffer (deliberately not built) and no
+=*ogent-armory-command*= buffer: the command palette shipped as the
+minibuffer command =ogent-armory-command-palette=.
+
 Every buffer should support:
 
 - =g= refresh
@@ -1165,18 +1188,22 @@ Every buffer should support:
 
 ** Phase 0: Fixtures and Compatibility Baseline
 
-Deliverables:
+Superseded (audit 2026-07-13): the suite did not adopt the fixture layout or
+test-file naming this phase mandated. The layout that actually shipped:
 
-- Add Armory fixture data under =test/data/armory-parity/=.
-- Include representative agents, jobs, conversations, turns, events,
-  attachments, skills, nested armories, and scheduled runs.
-- Add failing tests that document current gaps.
-- Add migration design tests for legacy session transcripts.
-
-Tests:
-
-- =test/ogent-armory-tests.el= reads current records and fixtures.
-- No runtime provider calls.
+- Test files live at =test/<module>-tests.el=, mirroring =lisp/= module
+  names, with =test/ui/= mirroring =lisp/ui/= (for example
+  =test/ogent-armory-conversations-tests.el= covers
+  =lisp/ogent-armory-conversations.el=).
+- Static fixtures live directly under =test/data/=; there is no
+  =test/data/armory-parity/= tree.
+- Armory suites scaffold real Org armory roots in temporary directories at
+  runtime (per-suite =make-temp-file= helper macros) instead of committed
+  fixture trees, and delete them on teardown.
+- Tests are green by construction; gaps are tracked as beads, not as
+  committed failing tests.
+- No runtime provider calls; adapter process behavior uses fixture CLIs and
+  stubs.
 
 ** Phase 1: Canonical Org Conversation Store
 
@@ -1242,7 +1269,8 @@ Deliverables:
 
 - Add shared composer command.
 - Add completion for page, agent, job, skill, and conversation mentions.
-- Add attachment staging with =org-attach= integration.
+- Attachment staging (shipped without =org-attach=; see "Deliberately Not
+  Built").
 - Add skill catalog reader and skill detail buffer.
 - Add per-agent skill selection and per-run skill mentions.
 - Add adapter skill mount hook.
@@ -1300,7 +1328,7 @@ Deliverables:
 
 - Add data tree browser.
 - Add page create/move/rename/delete/export commands.
-- Add command palette and ranked search.
+- Command palette and ranked search (shipped: =lisp/ogent-armory-palette.el=).
 - Add git status, commit, pull, log, diff, restore.
 - Improve app listing and opening.
 - Add viewer dispatch for images, PDF, CSV, source, media, and HTML.
@@ -1347,16 +1375,26 @@ middle layer. Armory parity should follow that preference:
 - Test provider verification with fixture executables on PATH.
 - Add regression tests for any live-app behavior we intentionally diverge from.
 
-Suggested new test files:
+Actual armory test files (audit 2026-07-13):
 
+- =test/ogent-armory-tests.el=
+- =test/ogent-armory-runner-tests.el=
+- =test/ogent-armory-status-tests.el=
 - =test/ogent-armory-conversations-tests.el=
 - =test/ogent-armory-adapter-tests.el=
 - =test/ogent-armory-compose-tests.el=
 - =test/ogent-armory-actions-tests.el=
 - =test/ogent-armory-schedule-tests.el=
-- =test/ogent-armory-skills-tests.el=
 - =test/ogent-armory-git-tests.el=
-- =test/ui/ogent-ui-armory-parity-tests.el=
+- =test/ogent-armory-palette-tests.el=
+- =test/ogent-armory-data-tests.el=
+- =test/ogent-armory-settings-tests.el=
+- =test/ogent-armory-evil-tests.el=
+- =test/ogent-armory-cache-tests.el=
+- =test/ui/ogent-ui-armory-tests.el= (parity coverage lives here; a separate
+  =...-parity-tests.el= was never split out)
+
+=lisp/ogent-armory-skills.el= has no dedicated suite yet.
 
 * Acceptance Criteria
 
@@ -1389,6 +1427,23 @@ Ogent reaches Armory parity when:
   automation basics.
 - All durable state is Org or derived from Org.
 - Legacy per-agent session transcripts remain readable.
+
+* Deliberately Not Built
+
+Audit 2026-07-13. These promised surfaces were struck from this spec rather
+than committed to:
+
+- =ogent-armory-sidebar= persistent side-window file tree: the command
+  palette, =ogent-armory-home=, and the existing tabulated/section buffers
+  cover navigation without imposing a fixed window layout.
+- =org-attach= integration for pages and prompts: the conversation store
+  already gives every conversation an =attachments/= directory with staging
+  and finalize steps, so an ID-keyed org-attach tree would introduce a
+  second attachment convention.
+
+Where these areas overlap with org-native machinery (agenda cockpits,
+org-ql views, capture flows), that work is tracked in the org-trifecta epic
+=ogent-9w7=.
 
 * Open Decisions
 
