@@ -54,7 +54,7 @@ Example:
    (\"remote\" :transport http :url \"https://example.com/mcp\"))"
   :type '(alist :key-type string
                 :value-type (plist :options (:transport :command :args :env
-                                             :url :auto-connect)))
+                                                        :url :auto-connect)))
   :group 'ogent-mcp)
 
 (defcustom ogent-mcp-protocol-version "2025-03-26"

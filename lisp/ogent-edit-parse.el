@@ -65,21 +65,21 @@ Preserves internal newlines but removes single trailing one."
 ;;; Structured Output (JSON schema)
 
 (define-error 'ogent-edit-structured-invalid
-  "Invalid structured edit payload")
+              "Invalid structured edit payload")
 
 (defconst ogent-edit-structured-schema
   '(:type "array"
-    :items (:type "object"
-            :properties
-            (:file (:type "string"
-                    :description "Name of the file the edit applies to.")
-             :search (:type "string"
-                      :description "Exact original code to find.  Must match the source verbatim, whitespace included.")
-             :replace (:type "string"
-                       :description "Full replacement for the matched code.")
-             :rationale (:type "string"
-                         :description "Optional short explanation of the change."))
-            :required ["file" "search" "replace"]))
+          :items (:type "object"
+                        :properties
+                        (:file (:type "string"
+                                      :description "Name of the file the edit applies to.")
+                               :search (:type "string"
+                                              :description "Exact original code to find.  Must match the source verbatim, whitespace included.")
+                               :replace (:type "string"
+                                               :description "Full replacement for the matched code.")
+                               :rationale (:type "string"
+                                                 :description "Optional short explanation of the change."))
+                        :required ["file" "search" "replace"]))
   "JSON schema describing a structured edit response.
 The response is an array of edit objects, each carrying the file
 name, the exact text to search for, its replacement, and an

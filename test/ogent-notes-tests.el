@@ -185,9 +185,13 @@
 
 ;;; Require Purity Tests
 
-(ert-deftest ogent-notes-require-does-not-install-gptel-hook ()
-  "Requiring ogent-notes installs no gptel response hook."
-  (should (featurep 'ogent-notes))
+(ert-deftest ogent-notes-load-does-not-install-gptel-hook ()
+  "Loading ogent-notes installs no gptel response hook.
+Earlier suites may legitimately enable tracking through the
+`ogent-mode' activation path, so establish a clean hook state and
+exercise a real load rather than asserting on shared global state."
+  (ogent-notes-disable-tracking)
+  (load "ogent-notes" nil t)
   (should-not (and (boundp 'gptel-post-response-hook)
                    (memq #'ogent-notes--gptel-post-response-hook
                          gptel-post-response-hook))))

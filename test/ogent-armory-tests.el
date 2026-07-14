@@ -351,7 +351,7 @@
      dir '(:id "conv-parent" :agent "cto" :title "Parent Run"))
     (ogent-armory-conversation-create
      dir '(:id "conv-child" :agent "cto" :title "Child Run"
-           :parent-task "conv-parent"))
+               :parent-task "conv-parent"))
     (let ((edges (plist-get (ogent-armory-build-graph dir) :edges)))
       (should (seq-find (lambda (edge)
                           (and (equal (plist-get edge :from)
