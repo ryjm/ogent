@@ -442,6 +442,66 @@ MODEL-ID is accepted for future use but not currently verified."
       (setq gptel-backend backend)))
   (message "Set %s as default model" model-id))
 
+;;; Optional features
+
+(defconst ogent-onboard--features-buffer-name "*ogent optional features*"
+  "Name of the buffer listing optional ogent features.")
+
+(defun ogent-onboard--org-ql-hint ()
+  "Return the one-line setup hint for saved Armory org-ql views.
+Reflect whether the optional org-ql package is installed."
+  (if (locate-library "org-ql")
+      "org-ql is installed; open saved Armory views with M-x ogent-armory-ql-view."
+    "Install the optional org-ql package (M-x package-install RET org-ql RET), then open views with M-x ogent-armory-ql-view."))
+
+(defun ogent-onboard--optional-features ()
+  "Return the optional feature list as (NAME . HINT) pairs.
+Each HINT is a one-line setup instruction for a feature that ships
+with ogent but needs explicit opt-in or an extra package."
+  (list
+   (cons "Org capture templates"
+         "Run M-x ogent-notes-setup-capture (or call it from your init) to register ogent's org-capture templates; repeated calls are harmless.")
+   (cons "Saved Armory org-ql views"
+         (ogent-onboard--org-ql-hint))
+   (cons "Conversation export"
+         "M-x ogent-export-conversation exports the conversation subtree at point as shareable Markdown; a prefix argument writes a .md file instead.")
+   (cons "Native gptel adapter"
+         "Set an Armory agent's adapter to gptel-native to run it in-process through gptel, with no external CLI.")))
+
+(defun ogent-onboard--render-optional-features (&optional name)
+  "Render the optional feature summary and return its buffer.
+NAME overrides `ogent-onboard--features-buffer-name'.  Rendering
+erases any previous content first, so repeated calls are idempotent."
+  (let ((buffer (get-buffer-create
+                 (or name ogent-onboard--features-buffer-name))))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert "Optional ogent features\n")
+        (insert "=======================\n\n")
+        (dolist (feature (ogent-onboard--optional-features))
+          (insert (format "* %s\n  %s\n\n" (car feature) (cdr feature))))
+        (goto-char (point-min)))
+      (special-mode))
+    buffer))
+
+(defun ogent-onboard--optional-features-step ()
+  "Offer a summary of optional ogent features at the end of onboarding.
+Skippable: answering no (or quitting the prompt) does nothing.
+Never blocks the wizard: errors in this step are demoted to a
+message.  Return the summary buffer when shown, nil otherwise."
+  (condition-case err
+      (when (y-or-n-p
+             "Show optional ogent features (capture, org-ql, export, native gptel)? ")
+        (let ((buffer (ogent-onboard--render-optional-features)))
+          (display-buffer buffer)
+          buffer))
+    (quit nil)
+    (error
+     (message "ogent onboarding: optional feature summary failed: %s"
+              (error-message-string err))
+     nil)))
+
 ;;; Main command
 
 (defun ogent-onboard--run-provider-setup (provider)
@@ -475,6 +535,8 @@ MODEL-ID is accepted for future use but not currently verified."
             ;; Refresh dispatcher
             (when (fboundp 'ogent-ui-refresh-dispatch)
               (ogent-ui-refresh-dispatch))
+            ;; Optional features (skippable; never blocks the wizard)
+            (ogent-onboard--optional-features-step)
             (message "Setup complete! You can now use ogent with %s."
                      (plist-get provider :name)))
         (message "Setup incomplete - please check your authentication and try again")))))
@@ -486,7 +548,9 @@ Guides you through:
 1. Selecting a provider (Anthropic, OpenAI, etc.)
 2. Configuring authentication (OAuth or API key)
 3. Choosing a default model
-4. Verifying the connection works"
+4. Verifying the connection works
+5. Discovering optional features (capture templates, org-ql views,
+   conversation export, native gptel adapter)"
   (interactive)
   (ogent-onboard--run-provider-setup (ogent-onboard--select-provider)))
 

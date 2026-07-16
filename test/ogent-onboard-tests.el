@@ -755,5 +755,92 @@
     (ogent-onboard--set-default-model nil)
     (should (null ogent-default-model))))
 
+;;; Optional Features Step Tests
+
+(ert-deftest ogent-onboard-optional-features-lists-all ()
+  "Test the optional feature list covers every shipped opt-in feature."
+  (let ((features (ogent-onboard--optional-features)))
+    (should (equal '("Org capture templates" "Saved Armory org-ql views"
+                     "Conversation export" "Native gptel adapter")
+                   (mapcar #'car features)))
+    (dolist (feature features)
+      (should (stringp (cdr feature)))
+      (should-not (string-match-p "\n" (cdr feature))))))
+
+(ert-deftest ogent-onboard-org-ql-hint-reflects-availability ()
+  "Test the org-ql hint mentions install only when the package is missing."
+  (cl-letf (((symbol-function 'locate-library)
+             (lambda (&rest _) "/tmp/org-ql.el")))
+    (should (string-match-p "ogent-armory-ql-view" (ogent-onboard--org-ql-hint)))
+    (should-not (string-match-p "package-install" (ogent-onboard--org-ql-hint))))
+  (cl-letf (((symbol-function 'locate-library) (lambda (&rest _) nil)))
+    (should (string-match-p "package-install RET org-ql"
+                            (ogent-onboard--org-ql-hint)))))
+
+(ert-deftest ogent-onboard-optional-features-step-renders ()
+  "Test accepting the prompt renders and displays the feature summary."
+  (let ((displayed nil))
+    (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) t))
+              ((symbol-function 'display-buffer)
+               (lambda (buffer &rest _) (setq displayed buffer) nil)))
+      (unwind-protect
+          (let ((buffer (ogent-onboard--optional-features-step)))
+            (should (buffer-live-p buffer))
+            (should (eq buffer displayed))
+            (with-current-buffer buffer
+              (let ((text (buffer-string)))
+                (should (string-match-p "Org capture templates" text))
+                (should (string-match-p "ogent-notes-setup-capture" text))
+                (should (string-match-p "org-ql" text))
+                (should (string-match-p "ogent-export-conversation" text))
+                (should (string-match-p "gptel-native" text)))))
+        (when-let ((buffer (get-buffer ogent-onboard--features-buffer-name)))
+          (kill-buffer buffer))))))
+
+(ert-deftest ogent-onboard-optional-features-render-idempotent ()
+  "Test re-rendering the summary reuses one buffer with identical content."
+  (unwind-protect
+      (let* ((first (ogent-onboard--render-optional-features))
+             (text (with-current-buffer first (buffer-string)))
+             (second (ogent-onboard--render-optional-features)))
+        (should (eq first second))
+        (should (equal text (with-current-buffer second (buffer-string)))))
+    (when-let ((buffer (get-buffer ogent-onboard--features-buffer-name)))
+      (kill-buffer buffer))))
+
+(ert-deftest ogent-onboard-optional-features-step-skip ()
+  "Test declining the prompt shows nothing and creates no buffer."
+  (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil))
+            ((symbol-function 'display-buffer)
+             (lambda (&rest _) (error "Display-buffer must not run on skip"))))
+    (should-not (ogent-onboard--optional-features-step))
+    (should-not (get-buffer ogent-onboard--features-buffer-name))))
+
+(ert-deftest ogent-onboard-optional-features-step-never-blocks ()
+  "Test quits and errors in the step are swallowed, returning nil."
+  (cl-letf (((symbol-function 'y-or-n-p)
+             (lambda (_) (signal 'quit nil))))
+    (should-not (ogent-onboard--optional-features-step)))
+  (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) (error "Boom"))))
+    (should-not (ogent-onboard--optional-features-step))))
+
+(ert-deftest ogent-onboard-run-provider-setup-offers-optional-features ()
+  "Test the wizard success path invokes the optional features step."
+  (let ((step-called nil))
+    (cl-letf (((symbol-function 'ogent-onboard--configure-api-key)
+               (lambda (_) "key"))
+              ((symbol-function 'ogent-onboard--select-model)
+               (lambda (_) '(:id "m1")))
+              ((symbol-function 'ogent-onboard--verify-connection)
+               (lambda (&rest _) t))
+              ((symbol-function 'ogent-onboard--add-to-registry)
+               (lambda (&rest _) nil))
+              ((symbol-function 'y-or-n-p) (lambda (_) nil))
+              ((symbol-function 'ogent-onboard--optional-features-step)
+               (lambda () (setq step-called t))))
+      (ogent-onboard--run-provider-setup
+       '(:id test :name "Test" :auth-type api-key))
+      (should step-called))))
+
 (provide 'ogent-onboard-tests)
 ;;; ogent-onboard-tests.el ends here
