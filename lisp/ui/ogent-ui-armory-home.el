@@ -34,6 +34,7 @@
 (declare-function ogent-armory-org-chart "ogent-ui-armory-org-chart")
 (declare-function ogent-armory-search "ogent-ui-armory-search")
 (declare-function ogent-armory-tasks "ogent-ui-armory-tasks")
+(declare-function ogent-armory-ql-available-p "ogent-armory-ql")
 
 (defvar ogent-armory-home-mode-map
   (let ((map (make-sparse-keymap)))
@@ -409,6 +410,22 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
          (concat "  " (propertize (abbreviate-file-name root) 'face 'shadow))
        ""))))
 
+(defun ogent-armory-home--ql-view-available-p ()
+  "Return non-nil when the optional org-ql package backs saved QL views."
+  (and (require 'ogent-armory-ql nil t)
+       (fboundp 'ogent-armory-ql-available-p)
+       (ogent-armory-ql-available-p)))
+
+(defun ogent-armory-home--ql-view-description ()
+  "Return the dispatch label for the saved Armory QL views row.
+Dim the label and append an install hint when org-ql is missing so
+users still discover the feature."
+  (if (ogent-armory-home--ql-view-available-p)
+      "Saved views"
+    (concat (propertize "Saved views" 'face 'transient-inapt-suffix)
+            " "
+            (propertize "(install org-ql)" 'face 'shadow))))
+
 (ogent-armory-ui--define-prefix ogent-armory-home-dispatch ()
   "Dispatch menu for Armory Home."
   [:description ogent-armory-home--transient-header
@@ -428,6 +445,8 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
                  ("g" "Refresh" ogent-armory-home-refresh :transient t)]]
   ["Ops"
    ("Q" "Agenda" ogent-armory-agenda)
+   ("C" "Control plane" ogent-armory-agenda-control-plane)
+   ("V" ogent-armory-ql-view :description ogent-armory-home--ql-view-description)
    ("N" "Action approvals" ogent-armory-actions)
    ("'" "Onboard" ogent-armory-onboard)
    ("=" "Registry import" ogent-armory-registry-import)

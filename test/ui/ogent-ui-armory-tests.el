@@ -12,6 +12,8 @@
 (require 'ogent-armory)
 (require 'ogent-armory-status)
 (require 'ogent-ui-armory)
+(require 'ogent-armory-schedule)
+(require 'ogent-armory-ql)
 
 (declare-function evil-normalize-keymaps "ext:evil-core")
 (declare-function magit-current-section "ext:magit-section" t t)
@@ -1687,6 +1689,53 @@
                         ogent-armory-search-mode-hook
                         ogent-armory-apps-mode-hook))
       (should (memq #'evil-normalize-keymaps hook)))))
+
+(defun ogent-ui-armory-test--transient-suffixes (prefix)
+  "Return the plists of all suffixes in PREFIX's transient layout."
+  (let (suffixes)
+    (cl-labels ((walk (node)
+                  (cond
+                   ((vectorp node)
+                    (mapc #'walk (append node nil)))
+                   ((and (consp node)
+                         (symbolp (car node))
+                         (plist-member (cdr node) :command))
+                    (push (cdr node) suffixes))
+                   ((listp node)
+                    (mapc #'walk node)))))
+      (walk (get prefix 'transient--layout)))
+    (nreverse suffixes)))
+
+(ert-deftest ogent-ui-armory-home-dispatch-includes-agenda-cockpit-rows ()
+  "The Home dispatch wires the control-plane and saved QL view commands."
+  (let ((commands (mapcar (lambda (suffix) (plist-get suffix :command))
+                          (ogent-ui-armory-test--transient-suffixes
+                           'ogent-armory-home-dispatch))))
+    (should (memq 'ogent-armory-agenda-control-plane commands))
+    (should (memq 'ogent-armory-ql-view commands))
+    (should (memq 'ogent-armory-agenda commands))))
+
+(ert-deftest ogent-ui-armory-home-dispatch-ql-row-visible-without-org-ql ()
+  "The saved-views row stays visible with an install hint sans org-ql."
+  (let ((suffix (cl-find 'ogent-armory-ql-view
+                         (ogent-ui-armory-test--transient-suffixes
+                          'ogent-armory-home-dispatch)
+                         :key (lambda (plist) (plist-get plist :command)))))
+    (should suffix)
+    ;; The row must never be hidden behind :if; discoverability relies on
+    ;; the description function dimming it instead.
+    (should-not (plist-get suffix :if))
+    (should (eq (plist-get suffix :description)
+                'ogent-armory-home--ql-view-description))
+    (cl-letf (((symbol-function 'ogent-armory-home--ql-view-available-p)
+               (lambda () nil)))
+      (let ((label (ogent-armory-home--ql-view-description)))
+        (should (string-match-p "Saved views" label))
+        (should (string-match-p "install org-ql" label))))
+    (cl-letf (((symbol-function 'ogent-armory-home--ql-view-available-p)
+               (lambda () t)))
+      (should (equal (ogent-armory-home--ql-view-description)
+                     "Saved views")))))
 
 (provide 'ogent-ui-armory-tests)
 
