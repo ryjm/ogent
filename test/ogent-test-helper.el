@@ -58,22 +58,220 @@ instead of reading a keystroke."
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
 
-;; Keep companion-link persistence tests writable even when the project source
-;; tree is read-only (for example, Nix checkouts where `user-emacs-directory'
-;; defaults under /nix/store/.../source).  `defcustom' preserves an existing
-;; binding, so set this before any test requires `ogent-companion'.  Individual
-;; persistence tests may still dynamically bind their own registry file.
+;;; Store guard: persistence off by default under ert
+;;
+;; Suites must never write real user stores.  Modules may load at any
+;; point during a suite and `defcustom' defaults evaluate at module load
+;; time, so the helper cannot rely on load order: it forcibly
+;; `setq-default's every persistence flag and store path below
+;; (`defcustom' preserves an existing default binding), and re-asserts
+;; them before every test via `ert-run-test' advice (ert has no public
+;; per-test setup hook) so a module loaded mid-suite cannot restore its
+;; default.  Tests may still dynamically let-bind any of these.
+;;
+;; AUDIT 2026-07-16 (ogent-aq8.1) - every defcustom/defvar under lisp/
+;; whose default resolves under `user-emacs-directory', `org-directory',
+;; HOME, or the project root:
+;;
+;; Guarded flags (forced off; persistence is opt-in via the fixture):
+;; - [x] ogent-analytics-enabled        (ogent-analytics.el, default t)
+;; - [x] ogent-ledger-enabled           (ogent-ledger.el, default nil)
+;; - [x] ogent-companion-persist-links  (ogent-companion.el, default t)
+;; Guarded paths (redirected under `ogent-test-store-root'):
+;; - [x] ogent-analytics-db-name        (ogent-analytics.el; relative name
+;;       resolved against the project root at use time - an absolute
+;;       value short-circuits that resolution)
+;; - [x] ogent-ledger-file              (ogent-ledger.el; ditto)
+;; - [x] ogent-companion-link-registry-file (ogent-companion.el;
+;;       user-emacs-directory)
+;; - [x] ogent-capture-notes-file       (ogent-notes.el; org-directory)
+;; - [x] ogent-capture-companion-file   (ogent-notes.el; org-directory)
+;; - [x] ogent-session-directory        (ogent-session.el;
+;;       user-emacs-directory)
+;; - [x] ogent-anthropic-oauth-tokens-dir (ogent-anthropic-oauth.el;
+;;       user-emacs-directory)
+;; - [x] ogent-anthropic-oauth--token-file (ogent-anthropic-oauth.el;
+;;       defvar cache - pinned so the module never probes and then
+;;       writes Jake's real token files found via
+;;       `ogent-anthropic-oauth--known-token-paths')
+;; - [x] ogent-codex-oauth-auth-file    (ogent-codex-oauth.el; nil falls
+;;       back to ~/.codex/auth.json at use time - pinned so tests never
+;;       read real credentials)
+;; - [x] ogent-codemap-cache-directory  (ogent-codemap-task.el;
+;;       user-emacs-directory)
+;; - [x] ogent-prompts-snippet-dir      (ogent-prompts-yasnippet.el;
+;;       user-emacs-directory)
+;; - [x] ogent-issues-agenda-file       (ogent-issues-bd.el; nil derives
+;;       a write target under user-emacs-directory at use time)
+;; Audited, deliberately NOT guarded:
+;; - [x] ogent-anthropic-oauth--known-token-paths (read-only probe list
+;;       of HOME paths; harmless once --token-file is pinned)
+;; - [x] ogent-presets-file-name        (read-only project config .ogent.el)
+;; - [x] ogent-project-prompts-file     (nil; read-only when user-set)
+;; - [x] ogent-source-directory         (nil; dev-reload helper, read-only)
+;; - [x] ogent-tools-project-root       (nil; path-resolution base only)
+;; - [x] ogent-armory-runner-ensure-beads-redirect (writes only into a
+;;       run's explicitly provisioned workspace, which suites always
+;;       point at temp dirs; ogent-armory-runner-tests relies on the
+;;       default)
+;; - [x] ogent-armory-global-agents-root / ogent-armory-backup-directory-name
+;;       / ogent-armory-scheduler-roots (resolve under a caller-supplied
+;;       Armory directory, never under the four bases)
+;; - [x] ogent-armory-skill-include-user-roots (read-only skill
+;;       discovery; suites bind it explicitly both ways)
+;; - [x] ogent-codemap-source-directories / ogent-zen-workspace-brief-directories
+;;       (read-only relative scan lists)
+;; - [x] transient-history-file (third-party; scratch file below)
+;;
+;; Subprocess note: sqlite mutations bypass `write-region' entirely (the
+;; native sqlite API), and spawned processes inherit the environment.
+;; The tripwire bead (ogent-aq8.2) guards sqlite open/execute at those
+;; chokepoints; `ogent-test-with-real-store' exports OGENT_TEST_STORE_ROOT
+;; into `process-environment' so future subprocess-based store code can
+;; honor it.
+
+(defvar ogent-analytics-enabled)
+(defvar ogent-ledger-enabled)
+(defvar ogent-companion-persist-links)
+(defvar ogent-analytics-db-name)
+(defvar ogent-ledger-file)
 (defvar ogent-companion-link-registry-file)
+(defvar ogent-capture-notes-file)
+(defvar ogent-capture-companion-file)
+(defvar ogent-session-directory)
+(defvar ogent-anthropic-oauth-tokens-dir)
+(defvar ogent-anthropic-oauth--token-file)
+(defvar ogent-codex-oauth-auth-file)
+(defvar ogent-codemap-cache-directory)
+(defvar ogent-prompts-snippet-dir)
+(defvar ogent-issues-agenda-file)
 
-(defconst ogent-test-companion-link-registry-file
-  (make-temp-file "ogent-companion-links" nil ".el")
-  "Scratch companion link registry file used by batch tests.")
+(defconst ogent-test-store-root
+  (make-temp-name (expand-file-name "ogent-test-store-" temporary-file-directory))
+  "Per-session root for redirected test stores.
+The helper never creates this directory; only the opt-in
+`ogent-test-with-real-store' fixture provisions under it, so its mere
+existence indicates a test wrote to a store without the fixture.")
 
-(with-temp-file ogent-test-companion-link-registry-file
-  (insert "nil\n"))
+(defvar ogent-test--store-provision-log nil
+  "Directories provisioned by `ogent-test-with-real-store', newest first.
+Provisioned stores are retained (never deleted); this log records where
+to look.")
 
-(setq ogent-companion-link-registry-file
-      ogent-test-companion-link-registry-file)
+(defconst ogent-test-store-guard-flags
+  '(ogent-analytics-enabled
+    ogent-ledger-enabled
+    ogent-companion-persist-links)
+  "Persistence flags forced off by `ogent-test-store-guard-assert'.")
+
+(defconst ogent-test-store-guard-paths
+  (list 'ogent-analytics-db-name "analytics.sqlite"
+        'ogent-ledger-file "ledger.org"
+        'ogent-companion-link-registry-file "companion-links.el"
+        'ogent-capture-notes-file "capture-notes.org"
+        'ogent-capture-companion-file "capture-companion.org"
+        'ogent-session-directory "sessions/"
+        'ogent-anthropic-oauth-tokens-dir "anthropic-oauth/"
+        'ogent-anthropic-oauth--token-file "anthropic-oauth/tokens.el"
+        'ogent-codex-oauth-auth-file "codex-auth.json"
+        'ogent-codemap-cache-directory "codemap-cache"
+        'ogent-prompts-snippet-dir "prompt-snippets"
+        'ogent-issues-agenda-file "beads-agenda.org")
+  "Plist of store path variables and their targets under the store root.")
+
+(defun ogent-test-store-guard-assert ()
+  "Force every guarded persistence flag off and path under the store root.
+See `ogent-test-store-guard-flags' and `ogent-test-store-guard-paths'."
+  (dolist (flag ogent-test-store-guard-flags)
+    (set-default flag nil))
+  (let ((spec ogent-test-store-guard-paths))
+    (while spec
+      (set-default (pop spec)
+                   (expand-file-name (pop spec) ogent-test-store-root)))))
+
+(ogent-test-store-guard-assert)
+
+(defun ogent-test--store-guard-reassert (&rest _)
+  "Re-assert the store guard; installed as before-advice on `ert-run-test'."
+  (ogent-test-store-guard-assert))
+
+(advice-add 'ert-run-test :before #'ogent-test--store-guard-reassert)
+
+;; Opt-in fixture.  FIXTURE FILE POLICY: fixtures never delete files,
+;; not even ones they create.  KIND `analytics' uses in-memory sqlite
+;; (zero filesystem footprint); file-backed kinds provision retained
+;; directories under `ogent-test-store-root' with the path logged.
+;; Cleanup on exit resets Lisp state only (connections closed, variables
+;; and functions restored), never the filesystem.
+
+(declare-function ogent-analytics--init-schema "ogent-analytics")
+(declare-function ogent-analytics--get-db "ogent-analytics")
+
+(defun ogent-test--provision-store-directory (kind)
+  "Create and return a fresh KIND-named directory under the store root.
+The directory is retained per the fixture file policy; its path is
+logged and recorded in `ogent-test--store-provision-log'."
+  (let ((dir (make-temp-name
+              (expand-file-name (format "%s-" kind) ogent-test-store-root))))
+    (make-directory dir t)
+    (push dir ogent-test--store-provision-log)
+    (message "ogent-test: provisioned %s store at %s (retained)" kind dir)
+    (file-name-as-directory dir)))
+
+(defun ogent-test--call-with-real-store (kind thunk)
+  "Call THUNK with an ephemeral KIND store enabled.
+Runtime worker for `ogent-test-with-real-store', which see."
+  (let ((process-environment
+         (cons (concat "OGENT_TEST_STORE_ROOT=" ogent-test-store-root)
+               process-environment)))
+    (pcase kind
+      ('analytics
+       (require 'ogent-analytics)
+       (let ((db (sqlite-open nil)))
+         (ogent-analytics--init-schema db)
+         (unwind-protect
+             (let ((ogent-analytics-enabled t)
+                   (real-get-db (symbol-function 'ogent-analytics--get-db)))
+               (unwind-protect
+                   (progn
+                     (fset 'ogent-analytics--get-db
+                           (lambda () (and ogent-analytics-enabled db)))
+                     (funcall thunk))
+                 (fset 'ogent-analytics--get-db real-get-db)))
+           (sqlite-close db))))
+      ('ledger
+       (require 'ogent-ledger)
+       (let* ((dir (ogent-test--provision-store-directory kind))
+              (ogent-ledger-enabled t)
+              (ogent-ledger-file (expand-file-name "ledger.org" dir)))
+         (funcall thunk)))
+      ('companion
+       (require 'ogent-companion)
+       (let* ((dir (ogent-test--provision-store-directory kind))
+              (ogent-companion-persist-links t)
+              (ogent-companion-link-registry-file
+               (expand-file-name "companion-links.el" dir)))
+         (funcall thunk)))
+      ('capture
+       (require 'ogent-notes)
+       (let* ((dir (ogent-test--provision-store-directory kind))
+              (ogent-capture-notes-file
+               (expand-file-name "capture-notes.org" dir))
+              (ogent-capture-companion-file
+               (expand-file-name "capture-companion.org" dir)))
+         (funcall thunk)))
+      (_ (error "ogent-test-with-real-store: unknown store kind %S" kind)))))
+
+(defmacro ogent-test-with-real-store (kind &rest body)
+  "Run BODY with an ephemeral KIND store provisioned and enabled.
+KIND evaluates to one of the symbols `analytics', `ledger', `companion',
+or `capture'.  KIND `analytics' backs `ogent-analytics--get-db' with an
+in-memory sqlite connection; file-backed kinds provision a retained
+directory under `ogent-test-store-root'.  OGENT_TEST_STORE_ROOT is
+exported into `process-environment' around BODY.  Nesting is allowed;
+on exit only Lisp state is reset, files are never deleted."
+  (declare (indent 1) (debug (form body)))
+  `(ogent-test--call-with-real-store ,kind (lambda () ,@body)))
 
 (defvar transient-history-file)
 (defvar transient-save-history)

@@ -109,21 +109,25 @@
         (delete-file file)))))
 
 (ert-deftest ogent-companion-saves-link-to-file-local ()
-  "Companion link is saved to buffer-local variable."
-  (let ((file-buffer (find-file-noselect (make-temp-file "ogent-test" nil ".txt"))))
-    (unwind-protect
-        (with-current-buffer file-buffer
-          (fundamental-mode)
-          (let ((companion (ogent-companion-get-or-create)))
-            ;; Link should be saved automatically
-            (should (local-variable-p 'ogent-companion-file))
-            (should ogent-companion-file)
-            (should (or (string-prefix-p "*ogent:" ogent-companion-file)
-			(file-name-absolute-p ogent-companion-file)))
+  "Companion link is saved to buffer-local variable.
+Fake file-backed buffer (bound `buffer-file-name'); registry writes
+stubbed - no filesystem footprint."
+  (let ((ogent-companion-persist-links t))  ; helper guard defaults it off
+    (with-temp-buffer
+      (cl-letf (((symbol-function 'ogent-companion--write-link-registry)
+                 #'ignore))
+        (setq buffer-file-name "/nonexistent/ogent-test-saves-link.txt")
+        (fundamental-mode)
+        (let ((companion (ogent-companion-get-or-create)))
+          (unwind-protect
+              (progn
+                ;; Link should be saved automatically
+                (should (local-variable-p 'ogent-companion-file))
+                (should ogent-companion-file)
+                (should (or (string-prefix-p "*ogent:" ogent-companion-file)
+                            (file-name-absolute-p ogent-companion-file))))
             (kill-buffer companion)))
-      (let ((file (buffer-file-name file-buffer)))
-        (kill-buffer file-buffer)
-        (delete-file file)))))
+        (setq buffer-file-name nil)))))
 
 (ert-deftest ogent-companion-identifier-for-temp-buffer ()
   "Get companion identifier returns buffer name for temp buffers."
@@ -173,7 +177,8 @@
 
 (ert-deftest ogent-companion-restore-link-creates-companion ()
   "Restoring a link creates the companion buffer if it doesn't exist."
-  (let ((text-buffer (get-buffer-create "*test-restore*")))
+  (let ((ogent-companion-persist-links t)  ; helper guard defaults it off
+        (text-buffer (get-buffer-create "*test-restore*")))
     (unwind-protect
         (with-current-buffer text-buffer
           (fundamental-mode)
@@ -480,21 +485,23 @@ but doesn't test actual insertion behavior (that's in UI tests)."
 ;;; Save Link Tests
 
 (ert-deftest ogent-companion-save-link-file-backed ()
-  "Test save-link saves identifier for file-backed buffer."
-  (let ((temp-file (make-temp-file "ogent-save-link" nil ".el")))
-    (unwind-protect
-        (let ((src-buf (find-file-noselect temp-file)))
-          (with-current-buffer src-buf
-            (fundamental-mode)
-            (let ((companion (ogent-companion-get-or-create)))
-              (unwind-protect
-                  (progn
-                    ;; companion-file should be set
-                    (should (local-variable-p 'ogent-companion-file))
-                    (should ogent-companion-file))
-                (kill-buffer companion))))
-          (kill-buffer src-buf))
-      (delete-file temp-file))))
+  "Test save-link saves identifier for file-backed buffer.
+Fake file-backed buffer (bound `buffer-file-name'); registry writes
+stubbed - no filesystem footprint."
+  (let ((ogent-companion-persist-links t))  ; helper guard defaults it off
+    (with-temp-buffer
+      (cl-letf (((symbol-function 'ogent-companion--write-link-registry)
+                 #'ignore))
+        (setq buffer-file-name "/nonexistent/ogent-save-link.el")
+        (fundamental-mode)
+        (let ((companion (ogent-companion-get-or-create)))
+          (unwind-protect
+              (progn
+                ;; companion-file should be set
+                (should (local-variable-p 'ogent-companion-file))
+                (should ogent-companion-file))
+            (kill-buffer companion)))
+        (setq buffer-file-name nil)))))
 
 (ert-deftest ogent-companion-save-link-writes-registry ()
   "File-backed companion links are written to the registry."
