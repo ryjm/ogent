@@ -1800,5 +1800,23 @@ the constant."
               (should (= (ogent-edit-start-pos (car edits)) 1)))))
       (kill-buffer source-buffer))))
 
+;;; Structured Output Toggle Tests (bead ogent-jk5.1)
+
+(ert-deftest ogent-edit-toggle-structured-output-flips-custom ()
+  "Toggling structured output flips the defcustom in both directions."
+  (let ((ogent-edit-use-structured-output t))
+    (ogent-edit-toggle-structured-output)
+    (should-not ogent-edit-use-structured-output)
+    (ogent-edit-toggle-structured-output)
+    (should ogent-edit-use-structured-output)))
+
+(ert-deftest ogent-edit-menu-has-structured-output-toggle ()
+  "The edit transient exposes the structured-output toggle on \"s\"."
+  (require 'transient)
+  (let ((suffix (transient-get-suffix 'ogent-edit-menu "s")))
+    (should suffix)
+    (should (eq (plist-get (cdr suffix) :command)
+                'ogent-edit-toggle-structured-output))))
+
 (provide 'ogent-edit-tests)
 ;;; ogent-edit-tests.el ends here

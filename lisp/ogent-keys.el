@@ -75,6 +75,8 @@
 (declare-function ogent-armory-create-agent "ogent-ui-armory-agent")
 (declare-function ogent-armory-create-job "ogent-ui-armory-jobs")
 
+(declare-function ogent-onboard "ogent-onboard")
+
 (defgroup ogent-keys nil
   "Keybinding configuration for ogent."
   :group 'ogent)
@@ -120,6 +122,16 @@ Set to nil to disable automatic evil binding setup."
   :group 'ogent-keys)
 
 ;;; Action Registry
+
+;; Commands wired by bead ogent-jk5.1 whose modules stay lazy (project
+;; convention: optional features load on demand, never eagerly from the
+;; umbrella).  Autoload them beside the registry so the rows resolve to
+;; interactive commands (`commandp' is non-nil for autoload objects)
+;; without forcing their modules to load.
+(autoload 'ogent-armory-ql-search "ogent-armory-ql" nil t)
+(autoload 'ogent-armory-ql-view "ogent-armory-ql" nil t)
+(autoload 'ogent-armory-agenda-control-plane "ogent-armory-schedule" nil t)
+(autoload 'ogent-export-conversation "ox-ogent" nil t)
 
 (defconst ogent-action-registry
   '(;; Core actions
@@ -225,6 +237,8 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Capture notes")
     (debug-mode       :key "D" :command ogent-debug-mode
                       :desc "Toggle debug mode")
+    (onboard          :key "C-o" :command ogent-onboard
+                      :desc "Provider setup wizard (C-o: onboard)")
     (armory-home     :key "j" :command ogent-armory-home
                      :desc "Armory Home")
     (armory-status   :key "K" :command ogent-armory-status
@@ -275,6 +289,15 @@ Set to nil to disable automatic evil binding setup."
     (armory-create-job
      :key "Z" :command ogent-armory-create-job
      :desc "Create Armory job")
+    (armory-ql-search
+     :key "C-s" :command ogent-armory-ql-search
+     :desc "Armory QL search (C-s: search)")
+    (armory-ql-view
+     :key "C-v" :command ogent-armory-ql-view
+     :desc "Armory QL saved view (C-v: view)")
+    (armory-agenda-control-plane
+     :key "C-p" :command ogent-armory-agenda-control-plane
+     :desc "Armory control plane (C-p: plane)")
     ;; Completion review
     (completion-next   :key "]" :command ogent-completion-next
                        :desc "Next completion")
@@ -290,7 +313,20 @@ Set to nil to disable automatic evil binding setup."
     (analytics-rate-down :key "-" :command ogent-analytics-rate-down
                          :desc "Rate thumbs down")
     (analytics-dashboard :key "A" :command ogent-analytics-dashboard
-                         :desc "Analytics dashboard"))
+                         :desc "Analytics dashboard")
+    ;; Export
+    ;;
+    ;; RESERVED chords -- key coherence for sibling epics is decided here
+    ;; once (bead ogent-jk5.1).  Later beads bind these commands to their
+    ;; reserved chords verbatim and drop the chord from the guard list in
+    ;; `ogent-keys-reserved-chords-stay-free' (ogent-keys-tests.el):
+    ;;   "C-f"  ogent-fanout                            fan out a request
+    ;;   "C-k"  ogent-fanout-abort                      kill running fan-out
+    ;;   "C-d"  ogent-fanout-compare                    diff fan-out results
+    ;;   "*"    rating command (bead ogent-z0k.1)       star-rate response
+    ;;   "C-w"  ogent-export-conversation-to-kill-ring  copy export (like M-w)
+    (export-conversation :key "C-x" :command ogent-export-conversation
+                         :desc "Export conversation (C-x: eXport)"))
   "Registry of ogent actions with keys and commands.
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")

@@ -958,6 +958,17 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
         (ogent-edit-diff-show edits)
       (user-error "No pending edits"))))
 
+;;;###autoload
+(defun ogent-edit-toggle-structured-output ()
+  "Toggle `ogent-edit-use-structured-output' for this session.
+The structured path still requires a gptel with :schema support and
+a capable backend; this only flips the user preference."
+  (interactive)
+  (setq ogent-edit-use-structured-output
+        (not ogent-edit-use-structured-output))
+  (message "Structured edit output %s"
+           (if ogent-edit-use-structured-output "enabled" "disabled")))
+
 ;;;###autoload (autoload 'ogent-edit-menu "ogent-edit" nil t)
 (transient-define-prefix ogent-edit-menu ()
   "Commands for managing ogent edits."
@@ -985,7 +996,13 @@ Provides stage/unstage semantics, collapsible sections, and batch operations."
    ["Overlay Actions" :if (lambda () (eq ogent-edit-display-method 'overlay))
     ("d" "Diff" ogent-edit-overlay-diff)
     ("E" "Ediff" ogent-edit-overlay-ediff)
-    ("m" "Merge (smerge)" ogent-edit-overlay-merge)]])
+    ("m" "Merge (smerge)" ogent-edit-overlay-merge)]
+   ["Options"
+    ("s" ogent-edit-toggle-structured-output
+     :description (lambda ()
+                    (format "Structured output [%s]"
+                            (if ogent-edit-use-structured-output "on" "off")))
+     :transient t)]])
 
 (provide 'ogent-edit)
 

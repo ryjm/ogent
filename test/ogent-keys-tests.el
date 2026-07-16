@@ -311,6 +311,36 @@
         (push (plist-get (cdr entry) :key) keys)))
     (should (= (length keys) (length (delete-dups (copy-sequence keys)))))))
 
+;;; Unwired-Command Registry Tests (bead ogent-jk5.1)
+
+(ert-deftest ogent-keys-jk5-unwired-commands-present ()
+  "Registry rows exist for the previously unwired interactive commands.
+Each row binds the agreed chord and carries a non-empty description."
+  (dolist (spec '((armory-ql-search ogent-armory-ql-search "C-s")
+                  (armory-ql-view ogent-armory-ql-view "C-v")
+                  (armory-agenda-control-plane
+                   ogent-armory-agenda-control-plane "C-p")
+                  (export-conversation ogent-export-conversation "C-x")
+                  (onboard ogent-onboard "C-o")))
+    (let* ((entry (assq (nth 0 spec) ogent-action-registry))
+           (props (cdr entry)))
+      (should entry)
+      (should (eq (plist-get props :command) (nth 1 spec)))
+      (should (equal (plist-get props :key) (nth 2 spec)))
+      (should (stringp (plist-get props :desc)))
+      (should (> (length (plist-get props :desc)) 0)))))
+
+(ert-deftest ogent-keys-reserved-chords-stay-free ()
+  "Chords reserved for sibling epics are not bound by live registry rows.
+The reservation comment at the end of `ogent-action-registry' names the
+owning command for each chord; when one of those commands lands, bind
+it to its reserved chord and delete that chord from this list."
+  (let ((reserved '("C-f" "C-k" "C-d" "*" "C-w"))
+        (live (mapcar (lambda (entry) (plist-get (cdr entry) :key))
+                      ogent-action-registry)))
+    (dolist (chord reserved)
+      (should-not (member chord live)))))
+
 ;;; Review Bindings Tests
 
 (ert-deftest ogent-keys-review-bindings-setup ()
