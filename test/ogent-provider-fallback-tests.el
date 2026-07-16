@@ -239,4 +239,93 @@ first.  No real timer is ever created."
         (should (null timers))
         (should (= (length logged) 1))))))
 
+;;; Per-model tuning properties
+
+(ert-deftest ogent-provider-retry-delay-uses-model-base-delay ()
+  "A registry :retry-base-delay overrides the global base delay."
+  (let ((ogent-model-registry '((:id "alpha-1" :backend prov-a
+                                     :retry-base-delay 0.5)
+                                (:id "beta-1" :backend prov-b)))
+        (ogent-provider-retry-base-delay 1.0))
+    (should (= (ogent-provider-retry-delay 0 "alpha-1") 0.5))
+    (should (= (ogent-provider-retry-delay 1 "alpha-1") 1.0))
+    ;; Models without the property keep the global default.
+    (should (= (ogent-provider-retry-delay 0 "beta-1") 1.0))
+    (should (= (ogent-provider-retry-delay 0 "no-such-model") 1.0))))
+
+(ert-deftest ogent-provider-handle-error-uses-model-max-retries ()
+  "A registry :max-retries overrides the global retry budget."
+  (let ((ogent-model-registry '((:id "alpha-1" :backend prov-a
+                                     :max-retries 4)
+                                (:id "beta-1" :backend prov-b)))
+        (ogent-provider-max-retries 2))
+    ;; Attempt 3 exceeds the global budget but not the model's.
+    (ogent-provider-fallback-tests--with-timers timers
+      (should (eq (ogent-provider-handle-error
+                   (list :model "alpha-1"
+                         :backend 'prov-a
+                         :error "rate limit exceeded, retry soon"
+                         :attempt 3
+                         :dispatch #'ignore))
+                  'retry)))
+    ;; A zero :max-retries skips straight to failover even though the
+    ;; global budget would still allow a retry.
+    (setq ogent-model-registry '((:id "alpha-1" :backend prov-a
+                                      :max-retries 0)
+                                 (:id "beta-1" :backend prov-b)))
+    (ogent-provider-fallback-tests--with-timers timers
+      (should (eq (ogent-provider-handle-error
+                   (list :model "alpha-1"
+                         :backend 'prov-a
+                         :error "rate limit exceeded, retry soon"
+                         :attempt 0
+                         :dispatch #'ignore))
+                  'failover)))))
+
+(ert-deftest ogent-provider-schedule-retry-uses-model-base-delay ()
+  "A scheduled retry backs off with the model's :retry-base-delay."
+  (let ((ogent-model-registry '((:id "alpha-1" :backend prov-a
+                                     :retry-base-delay 0.25)))
+        (ogent-provider-max-retries 2)
+        (ogent-provider-retry-base-delay 1.0))
+    (ogent-provider-fallback-tests--with-timers timers
+      (should (eq (ogent-provider-handle-error
+                   (list :model "alpha-1"
+                         :backend 'prov-a
+                         :error "503 Service Unavailable"
+                         :dispatch #'ignore))
+                  'retry))
+      (pcase-let ((`(,delay ,_fn ,_args) (car timers)))
+        (should (= delay 0.25))))))
+
+(ert-deftest ogent-provider-tuning-absent-properties-keep-globals ()
+  "Registry entries without tuning properties behave exactly as before."
+  (let ((ogent-model-registry ogent-provider-fallback-tests--registry)
+        (ogent-provider-max-retries 2)
+        (ogent-provider-retry-base-delay 1.0))
+    ;; Delay math matches the historical global-only formula.
+    (should (= (ogent-provider-retry-delay 0 "alpha-1") 1.0))
+    (should (= (ogent-provider-retry-delay 2 "alpha-1") 4.0))
+    (should (= (ogent-provider-model-max-retries "alpha-1") 2))
+    (should (= (ogent-provider-model-max-retries nil) 2))
+    ;; The retry budget cuts over to failover at the global boundary.
+    (ogent-provider-fallback-tests--with-timers timers
+      (should (eq (ogent-provider-handle-error
+                   (list :model "alpha-1"
+                         :backend 'prov-a
+                         :error "429 Too Many Requests"
+                         :attempt 1
+                         :dispatch #'ignore))
+                  'retry))
+      (pcase-let ((`(,delay ,_fn ,_args) (car timers)))
+        (should (= delay 2.0))))
+    (ogent-provider-fallback-tests--with-timers timers
+      (should (eq (ogent-provider-handle-error
+                   (list :model "alpha-1"
+                         :backend 'prov-a
+                         :error "429 Too Many Requests"
+                         :attempt 2
+                         :dispatch #'ignore))
+                  'failover)))))
+
 ;;; ogent-provider-fallback-tests.el ends here

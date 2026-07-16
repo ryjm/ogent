@@ -81,13 +81,16 @@ to a different provider."
   "Maximum number of automatic retries for a transient model error.
 Retries target the model that failed; once they are exhausted, ogent
 fails over to a model from a different provider when one is
-registered."
+registered.  A :max-retries property on a model's
+`ogent-model-registry' entry overrides this default for that model."
   :type 'natnum
   :group 'ogent-provider-fallback)
 
 (defcustom ogent-provider-retry-base-delay 1.0
   "Base delay in seconds before the first automatic retry.
-Each subsequent retry doubles the previous delay."
+Each subsequent retry doubles the previous delay.  A
+:retry-base-delay property on a model's `ogent-model-registry' entry
+overrides this default for that model."
   :type 'number
   :group 'ogent-provider-fallback)
 
@@ -192,11 +195,31 @@ BACKEND identifies the provider that failed, when available."
 
 ;;; Headless retry and failover
 
-(defun ogent-provider-retry-delay (attempt)
+(defun ogent-provider--model-property (model-id property default)
+  "Return MODEL-ID's registry PROPERTY, or DEFAULT when it is absent.
+Registry properties are per-model overrides; DEFAULT carries the
+documented global behavior for models that do not set PROPERTY."
+  (let ((entry (and (stringp model-id) (ogent-models-get model-id))))
+    (if (plist-member entry property)
+        (plist-get entry property)
+      default)))
+
+(defun ogent-provider-model-max-retries (model-id)
+  "Return the maximum automatic transient retries allowed for MODEL-ID.
+A :max-retries property on MODEL-ID's `ogent-model-registry' entry
+overrides `ogent-provider-max-retries'."
+  (ogent-provider--model-property
+   model-id :max-retries ogent-provider-max-retries))
+
+(defun ogent-provider-retry-delay (attempt &optional model-id)
   "Return the backoff delay in seconds before scheduling a retry.
 ATTEMPT counts the retries already performed, starting at zero, so
-the delay doubles with each successive retry."
-  (* ogent-provider-retry-base-delay (expt 2 attempt)))
+the delay doubles with each successive retry.  When MODEL-ID names an
+`ogent-model-registry' entry with a :retry-base-delay property, that
+base delay replaces `ogent-provider-retry-base-delay'."
+  (* (ogent-provider--model-property
+      model-id :retry-base-delay ogent-provider-retry-base-delay)
+     (expt 2 attempt)))
 
 (defun ogent-provider--context-put (context &rest props)
   "Return a copy of the CONTEXT plist with PROPS merged in."
@@ -215,7 +238,7 @@ CONTEXT."
   "Schedule a backoff retry of MODEL-ID for CONTEXT.
 ATTEMPT is the number of retries already performed against
 MODEL-ID."
-  (run-at-time (ogent-provider-retry-delay attempt) nil
+  (run-at-time (ogent-provider-retry-delay attempt model-id) nil
                #'ogent-provider--dispatch model-id
                (ogent-provider--context-put context :attempt (1+ attempt))))
 
@@ -298,7 +321,7 @@ of `retry', `failover', `login-offer', or `give-up'."
          (class (ogent-provider-classify-error error-message)))
     (cond
      ((and (eq class 'transient) dispatch model-id
-           (< attempt ogent-provider-max-retries))
+           (< attempt (ogent-provider-model-max-retries model-id)))
       (ogent-provider--schedule-retry model-id context attempt)
       'retry)
      ((and (memq class '(transient auth)) dispatch)

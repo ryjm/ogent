@@ -77,9 +77,19 @@ Optional keys:
                     model, e.g. (cache)
   :aliases        - list of alternative id strings that resolve to
                     this entry, e.g. (\"gpt-5.6\") for the official
-                    OpenAI alias of gpt-5.6-sol"
+                    OpenAI alias of gpt-5.6-sol
+  :request-timeout - seconds of inactivity before the request watchdog
+                    force-closes an in-flight request for this model,
+                    overriding `ogent-ui-request-timeout'
+  :max-retries    - maximum automatic retries for transient errors on
+                    this model, overriding `ogent-provider-max-retries'
+  :retry-base-delay - base backoff delay in seconds before the first
+                    automatic retry of this model, overriding
+                    `ogent-provider-retry-base-delay'"
   :type '(repeat (plist :options (:id :backend :preset :stream? :description
-                                      :request-params :capabilities :aliases)))
+                                      :request-params :capabilities :aliases
+                                      :request-timeout :max-retries
+                                      :retry-base-delay)))
   :group 'ogent-models)
 
 (defun ogent-models-all ()

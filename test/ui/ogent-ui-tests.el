@@ -2394,6 +2394,122 @@
                                    (should (search-forward "Recovered response"
                                                            nil t))))))))
 
+(ert-deftest ogent-ui-retry-updates-block-header-in-place ()
+  "A scheduled retry rewrites the failed block's header in place.
+The header shows the retry ordinal, budget, and backoff delay, and the
+successful retry's own block clears to the normal done status format."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry
+                                    '((:id "gpt-4o-mini" :backend gptel-openai)))
+                                   (ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--request-table
+                                    (make-hash-table :test #'equal))
+                                   (ogent-ui--request-history nil)
+                                   (ogent-ui--error-history nil)
+                                   (ogent-provider-max-retries 2)
+                                   (ogent-provider-retry-base-delay 1.0)
+                                   (request-count 0))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq request-count (1+ request-count))
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (if (= request-count 1)
+                                                  (funcall callback nil '(:error "rate limit exceeded"))
+                                                (funcall callback "Recovered response" nil)
+                                                (funcall callback nil '(:done t))))
+                                            'mock-request))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil))
+                                         ((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (when (eq function 'ogent-provider--dispatch)
+                                              (apply function args))
+                                            (timer-create))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 2 request-count))
+                                 ;; The failed request's own header carries the
+                                 ;; retry ordinal, budget, and backoff delay.
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward
+                                            ":status retrying (1/2) in 1s"
+                                            nil t)))
+                                 ;; The successful retry's block shows the
+                                 ;; normal done status format, untouched by the
+                                 ;; threaded recovery state.
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (re-search-forward
+                                            (concat "^#\\+begin_src text"
+                                                    " :model gpt-4o-mini"
+                                                    " :backend gptel-openai"
+                                                    " :status done"
+                                                    " :latency [0-9.]+s$")
+                                            nil t))))))))
+
+(ert-deftest ogent-ui-failover-marks-old-block-terminal ()
+  "Failover leaves the old block terminally naming the substitute model.
+The re-dispatch creates its normal new request block for the substitute
+with no cross-links back to the failed one."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Details Block")
+                             (org-back-to-heading t)
+                             (let ((ogent-model-registry
+                                    '((:id "gpt-4o-mini" :backend gptel-openai)
+                                      (:id "claude-fable-5" :backend gptel-anthropic)))
+                                   (ogent-ui--selected-models '("gpt-4o-mini"))
+                                   (ogent-ui--request-table
+                                    (make-hash-table :test #'equal))
+                                   (ogent-ui--request-history nil)
+                                   (ogent-ui--error-history nil)
+                                   (request-count 0))
+                               (cl-letf (((symbol-function 'gptel-request)
+                                          (lambda (_prompt &rest args)
+                                            (setq request-count (1+ request-count))
+                                            (when-let ((callback (plist-get args :callback)))
+                                              (if (= request-count 1)
+                                                  (funcall callback nil '(:error "Invalid API key provided"))
+                                                (funcall callback "Failover response" nil)
+                                                (funcall callback nil '(:done t))))
+                                            'mock-request))
+                                         ((symbol-function 'ogent-theme-flash)
+                                          (lambda (&rest _) nil))
+                                         ((symbol-function 'run-at-time)
+                                          (lambda (_secs _repeat function &rest args)
+                                            (when (eq function 'ogent-provider--dispatch)
+                                              (apply function args))
+                                            (timer-create))))
+                                 (ogent-request "Test prompt" '("gpt-4o-mini"))
+                                 (should (= 2 request-count))
+                                 ;; The failed block's terminal status names
+                                 ;; the substitute model.
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward
+                                            ":status failed over -> claude-fable-5"
+                                            nil t)))
+                                 ;; The substitute's request block is a normal
+                                 ;; new block that completes on its own.
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (re-search-forward
+                                            (concat "^#\\+begin_src text"
+                                                    " :model claude-fable-5"
+                                                    " :backend gptel-anthropic"
+                                                    " :status done"
+                                                    " :latency [0-9.]+s$")
+                                            nil t)))
+                                 (save-excursion
+                                   (goto-char (point-min))
+                                   (should (search-forward "Failover response"
+                                                           nil t))))))))
+
 (ert-deftest ogent-ui-error-context-too-long ()
   "Test handling of context length exceeded error."
   (ogent-test-with-fixture "data/fixture.org"
@@ -3178,6 +3294,72 @@ status, so the timeout path must abort and close it."
               (ogent-ui--update-status request status)
               (should-not (ogent-ui-request-watchdog request)))
           (ogent-ui--cancel-watchdog request))))))
+
+(ert-deftest ogent-ui-watchdog-uses-model-request-timeout ()
+  "The watchdog arms with a model's :request-timeout override.
+Models without the property keep the global `ogent-ui-request-timeout'."
+  (let ((armed nil))
+    (cl-letf (((symbol-function 'run-with-timer)
+               (lambda (secs &rest _) (push secs armed) 'stub-timer)))
+      ;; The registry property replaces the global timeout.
+      (let ((ogent-ui-request-timeout 180)
+            (request (make-ogent-ui-request
+                      :id "wd-model" :status 'wait
+                      :model '(:id "slow-local" :backend gptel-openai
+                                   :request-timeout 42))))
+        (ogent-ui--start-watchdog request)
+        (should (equal armed '(42))))
+      ;; Absent the property, the global default still applies.
+      (let ((ogent-ui-request-timeout 180)
+            (request (make-ogent-ui-request
+                      :id "wd-global" :status 'wait
+                      :model '(:id "api-fast" :backend gptel-openai))))
+        (ogent-ui--start-watchdog request)
+        (should (equal (car armed) 180)))
+      ;; A model override arms the watchdog even when the global is
+      ;; disabled; a disabled global without an override stays off.
+      (let ((ogent-ui-request-timeout nil))
+        (let ((request (make-ogent-ui-request
+                        :id "wd-override" :status 'wait
+                        :model '(:id "slow-local" :backend gptel-openai
+                                     :request-timeout 42))))
+          (ogent-ui--start-watchdog request)
+          (should (equal (car armed) 42)))
+        (let ((before (length armed))
+              (request (make-ogent-ui-request
+                        :id "wd-off" :status 'wait
+                        :model '(:id "api-fast" :backend gptel-openai))))
+          (ogent-ui--start-watchdog request)
+          (should (= (length armed) before))
+          (should-not (ogent-ui-request-watchdog request)))))))
+
+(ert-deftest ogent-ui-watchdog-timeout-reports-effective-timeout ()
+  "The stall message names the request's effective timeout.
+A model :request-timeout shows up in the message; models without the
+property report the global default."
+  (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+        (ogent-ui-request-timeout 180)
+        (close-msg nil))
+    (cl-letf (((symbol-function 'ogent-ui--close-response)
+               (lambda (_req &optional msg _status) (setq close-msg msg)))
+              ((symbol-function 'gptel-abort) #'ignore))
+      (let ((request (make-ogent-ui-request
+                      :id "wd-msg-model" :buffer (current-buffer)
+                      :status 'wait
+                      :model '(:id "slow-local" :backend gptel-openai
+                                   :request-timeout 42))))
+        (puthash "wd-msg-model" request ogent-ui--request-table)
+        (ogent-ui--watchdog-timeout "wd-msg-model")
+        (should (equal close-msg
+                       "Request timed out after 42s of inactivity")))
+      (let ((request (make-ogent-ui-request
+                      :id "wd-msg-global" :buffer (current-buffer)
+                      :status 'wait
+                      :model '(:id "api-fast" :backend gptel-openai))))
+        (puthash "wd-msg-global" request ogent-ui--request-table)
+        (ogent-ui--watchdog-timeout "wd-msg-global")
+        (should (equal close-msg
+                       "Request timed out after 180s of inactivity"))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

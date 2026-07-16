@@ -385,9 +385,21 @@ The watchdog is re-armed on every streamed chunk, tool event, and status
 change, so only a genuine stall trips it.  When it fires the request is
 aborted and its transcript is marked as timed out, so a dropped or hung
 backend never leaves a subtree stuck in a running state.  Set to nil (or
-a non-positive number) to disable the watchdog entirely."
+a non-positive number) to disable the watchdog entirely.  A
+:request-timeout property on a model's `ogent-model-registry' entry
+overrides this default for that model's requests."
   :type '(choice (const :tag "Disabled" nil) (number :tag "Seconds"))
   :group 'ogent-mode)
+
+(defun ogent-ui--request-timeout (request)
+  "Return the effective inactivity timeout in seconds for REQUEST.
+A :request-timeout property on REQUEST's model plist overrides
+`ogent-ui-request-timeout'; models without the property keep the
+global default."
+  (let ((model (ogent-ui-request-model request)))
+    (if (plist-member model :request-timeout)
+        (plist-get model :request-timeout)
+      ogent-ui-request-timeout)))
 
 (defun ogent-ui--cancel-watchdog (request)
   "Cancel REQUEST's inactivity watchdog timer, if any."
@@ -414,7 +426,7 @@ its transcript leaves the running state."
             (ogent-ui--close-response
              request
              (format "Request timed out after %ss of inactivity"
-                     ogent-ui-request-timeout)
+                     (ogent-ui--request-timeout request))
              'error)
           ;; The buffer is gone; just drop the orphaned request.
           (remhash request-id ogent-ui--request-table))))))
@@ -422,15 +434,17 @@ its transcript leaves the running state."
 (defun ogent-ui--start-watchdog (request)
   "Arm (or re-arm) REQUEST's inactivity watchdog.
 Cancels any pending timer first, then schedules a fresh one unless
-`ogent-ui-request-timeout' is disabled or REQUEST is already closed."
+REQUEST's effective timeout (see `ogent-ui--request-timeout') is
+disabled or REQUEST is already closed."
   (ogent-ui--cancel-watchdog request)
-  (when (and (numberp ogent-ui-request-timeout)
-             (> ogent-ui-request-timeout 0)
-             (not (ogent-ui-request-closed request)))
-    (setf (ogent-ui-request-watchdog request)
-          (run-with-timer ogent-ui-request-timeout nil
-                          #'ogent-ui--watchdog-timeout
-                          (ogent-ui-request-id request)))))
+  (let ((timeout (ogent-ui--request-timeout request)))
+    (when (and (numberp timeout)
+               (> timeout 0)
+               (not (ogent-ui-request-closed request)))
+      (setf (ogent-ui-request-watchdog request)
+            (run-with-timer timeout nil
+                            #'ogent-ui--watchdog-timeout
+                            (ogent-ui-request-id request))))))
 
 (defvar ogent-ui--fallback-state nil
   "Provider fallback state to record on the next registered request.
@@ -577,7 +591,10 @@ heading (see `ogent-shift-response-headings')."
     (format "%.1fs" (float-time (time-subtract end start)))))
 
 (defun ogent-ui--update-block-header (request)
-  "Update the src block header with current status and timing for REQUEST."
+  "Update the src block header with current status and timing for REQUEST.
+A :fallback-status string in REQUEST's context (see
+`ogent-ui--set-fallback-status') replaces the status keyword so
+provider recovery state stays visible in the transcript."
   (let ((block-start (ogent-ui-request-block-start request))
         (model (ogent-ui-request-model request))
         (status (ogent-ui-request-status request)))
@@ -589,15 +606,18 @@ heading (see `ogent-shift-response-headings')."
             (let* ((model-id (plist-get model :id))
                    (backend (plist-get model :backend))
                    (latency (ogent-ui--format-latency request))
-                   (status-str (pcase status
-                                 ('wait "waiting")
-                                 ('tool "tool")
-                                 ('type "typing")
-                                 ('done "done")
-                                 ('error "error")
-                                 ('paused "paused")
-                                 ('aborted "aborted")
-                                 (_ nil)))
+                   (status-str (or (plist-get
+                                    (ogent-ui-request-context request)
+                                    :fallback-status)
+                                   (pcase status
+                                     ('wait "waiting")
+                                     ('tool "tool")
+                                     ('type "typing")
+                                     ('done "done")
+                                     ('error "error")
+                                     ('paused "paused")
+                                     ('aborted "aborted")
+                                     (_ nil))))
                    (new-header (concat "#+begin_src text :model " model-id
                                        (when backend
                                          (format " :backend %s"
@@ -647,23 +667,55 @@ CONTEXT's :attempt and :tried counters into the new request via
             (ogent-request prompt (list model-id)
                            (ogent-ui-request-preset request))))))))
 
+(defun ogent-ui--set-fallback-status (request status-text)
+  "Show STATUS-TEXT as the header status of REQUEST's block.
+Record STATUS-TEXT under the :fallback-status key of REQUEST's
+context and re-render the src block header, replacing the normal
+status keyword with the provider recovery state."
+  (setf (ogent-ui-request-context request)
+        (plist-put (copy-sequence (ogent-ui-request-context request))
+                   :fallback-status status-text))
+  (ogent-ui--update-block-header request))
+
 (defun ogent-ui--handle-provider-error (request error-message)
   "Run headless provider fallback for failed REQUEST with ERROR-MESSAGE.
 Build an `ogent-provider-handle-error' context from REQUEST's model
 plist whose :dispatch closure re-issues the original request against
 the substitute model.  Accumulated :attempt/:tried state stored by a
 prior fallback dispatch is threaded back in, so repeated failures
-escalate from retry to failover to the interactive login offer."
+escalate from retry to failover to the interactive login offer.
+Surface the recovery state in REQUEST's block header: a scheduled
+retry rewrites the same header in place as \\='retrying (n/max) in
+<delay>s\\=', and a failover marks the block terminally as \\='failed
+over -> <model-id>\\=' while the re-dispatch creates its own new
+request block.  Return the fallback action taken."
   (let* ((model (ogent-ui-request-model request))
+         (model-id (plist-get model :id))
          (state (plist-get (ogent-ui-request-context request)
-                           :provider-fallback)))
-    (ogent-provider-handle-error
-     (list :model (plist-get model :id)
-           :backend (plist-get model :backend)
-           :error error-message
-           :dispatch (ogent-ui--fallback-dispatch request)
-           :attempt (or (plist-get state :attempt) 0)
-           :tried (plist-get state :tried)))))
+                           :provider-fallback))
+         (attempt (or (plist-get state :attempt) 0))
+         (context (list :model model-id
+                        :backend (plist-get model :backend)
+                        :error error-message
+                        :dispatch (ogent-ui--fallback-dispatch request)
+                        :attempt attempt
+                        :tried (plist-get state :tried)))
+         (action (ogent-provider-handle-error context)))
+    (pcase action
+      ('retry
+       (ogent-ui--set-fallback-status
+        request
+        (format "retrying (%d/%d) in %gs"
+                (1+ attempt)
+                (ogent-provider-model-max-retries model-id)
+                (ogent-provider-retry-delay attempt model-id))))
+      ('failover
+       (when-let* ((candidate (ogent-provider-failover-candidate context))
+                   (candidate-id (plist-get candidate :id)))
+         (ogent-ui--set-fallback-status
+          request
+          (format "failed over -> %s" candidate-id)))))
+    action))
 
 (defun ogent-ui--maybe-store-zen-result-title (request)
   "Persist a derived Zen result title for REQUEST when Zen support is loaded."
