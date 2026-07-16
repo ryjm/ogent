@@ -666,12 +666,39 @@ Sort in-progress work first, then ascending priority, then id."
                   (string< (or (plist-get a :id) "")
                            (or (plist-get b :id) "")))))))))
 
+(defun ogent-issues-bd--issue-parent (issue)
+  "Return the parent bead id recorded in the ISSUE plist, or nil.
+br emits parent-child dependencies in two JSON shapes: the JSONL
+export nests (:issue_id CHILD :depends_on_id PARENT :type
+\"parent-child\") entries under :dependencies, while `br show
+--json' nests (:id PARENT :dependency_type \"parent-child\")
+entries and adds a top-level :parent string.  `br list --json'
+carries only :dependency_count, so issues from plain list calls
+yield nil.  Prefer the explicit :parent field, then the first
+parent-child dependency entry."
+  (let ((parent (plist-get issue :parent)))
+    (if (and (stringp parent) (not (string-blank-p parent)))
+        parent
+      (seq-some
+       (lambda (dep)
+         (and (listp dep)
+              (equal (or (plist-get dep :dependency_type)
+                         (plist-get dep :type))
+                     "parent-child")
+              (let ((id (or (plist-get dep :depends_on_id)
+                            (plist-get dep :id))))
+                (and (stringp id)
+                     (not (string-blank-p id))
+                     id))))
+       (plist-get issue :dependencies)))))
+
 (defun ogent-issues-bd--org-projection (issues root)
   "Return the Org-mode projection of br ISSUES for project ROOT.
 Include only open, in_progress, and blocked issues as TODO headlines
 with OGENT_ISSUE_ID/OGENT_ISSUE_TYPE/OGENT_BLOCKED_BY property
-drawers; indent description bodies two spaces so stray structure
-markers stay inert."
+drawers, plus OGENT_ISSUE_PARENT for issues carrying a parent-child
+dependency (see `ogent-issues-bd--issue-parent'); indent description
+bodies two spaces so stray structure markers stay inert."
   (with-temp-buffer
     (insert (format "#+title: br beads: %s\n" root))
     (insert "#+filetags: :ogent_beads:\n")
@@ -696,6 +723,8 @@ markers stay inert."
         (when blocked-by
           (insert (format ":OGENT_BLOCKED_BY: %s\n"
                           (mapconcat #'identity blocked-by " "))))
+        (when-let ((parent (ogent-issues-bd--issue-parent issue)))
+          (insert (format ":OGENT_ISSUE_PARENT: %s\n" parent)))
         (insert ":END:\n")
         (when (and description
                    (string-match-p "[^ \t\n\r]" description))

@@ -14,6 +14,9 @@
 (defvar org-agenda-buffer)
 (defvar org-agenda-files)
 
+;; Loaded on demand by the projection round-trip test.
+(declare-function ogent-armory-record-metadata "ogent-armory-store" (file))
+
 ;;; Test Fixtures
 
 (defconst ogent-issues-bd-test--sample-issue
@@ -1223,6 +1226,81 @@ NO-MAIN-BEADS skips creating the main `.beads' directory."
     (should (string-match-p "^  Fix the thing\\.$" content))
     (should (string-match-p "^  \\* not a headline$" content))
     (should-not (string-match-p "^\\* not a headline$" content))))
+
+;;; Issue Parent Extraction
+
+(defconst ogent-issues-bd-test--parented-issues
+  '((:id "pj-child" :title "Child work" :status "open" :priority 1
+         :issue_type "task" :parent "pj-parent"
+         :dependencies ((:issue_id "pj-child" :depends_on_id "pj-parent"
+                                   :type "parent-child"))))
+  "Single child issue carrying a parent-child dependency.")
+
+(ert-deftest ogent-issues-bd-issue-parent-prefers-parent-field ()
+  "A top-level :parent string wins over dependency entries."
+  (should (equal (ogent-issues-bd--issue-parent
+                  '(:id "c" :parent "p"
+                        :dependencies ((:id "other"
+                                            :dependency_type "parent-child"))))
+                 "p")))
+
+(ert-deftest ogent-issues-bd-issue-parent-show-shape ()
+  "A `br show --json' dependency entry yields the parent via :id."
+  (should (equal (ogent-issues-bd--issue-parent
+                  '(:id "c" :dependencies
+                        ((:id "blocker" :dependency_type "blocks")
+                         (:id "p" :dependency_type "parent-child"))))
+                 "p")))
+
+(ert-deftest ogent-issues-bd-issue-parent-jsonl-shape ()
+  "A JSONL export dependency entry yields the parent via :depends_on_id."
+  (should (equal (ogent-issues-bd--issue-parent
+                  '(:id "c" :dependencies
+                        ((:issue_id "c" :depends_on_id "p"
+                                    :type "parent-child"))))
+                 "p")))
+
+(ert-deftest ogent-issues-bd-issue-parent-nil-cases ()
+  "Parentless issues and non-parent-child dependencies yield nil."
+  (should-not (ogent-issues-bd--issue-parent '(:id "c")))
+  (should-not (ogent-issues-bd--issue-parent '(:id "c" :parent "")))
+  (should-not (ogent-issues-bd--issue-parent
+               '(:id "c" :dependencies
+                     ((:issue_id "c" :depends_on_id "b" :type "blocks"))))))
+
+(ert-deftest ogent-issues-bd-org-projection-emits-issue-parent ()
+  "A child issue's headline carries OGENT_ISSUE_PARENT."
+  (let ((content (ogent-issues-bd--org-projection
+                  ogent-issues-bd-test--parented-issues "/tmp/proj")))
+    (should (string-match-p "^:OGENT_ISSUE_PARENT: pj-parent$" content))))
+
+(ert-deftest ogent-issues-bd-org-projection-omits-issue-parent-when-absent ()
+  "Parentless issues emit no OGENT_ISSUE_PARENT property."
+  (let ((content (ogent-issues-bd--org-projection
+                  ogent-issues-bd-test--projection-issues "/tmp/proj")))
+    (should-not (string-match-p "OGENT_ISSUE_PARENT" content))))
+
+(ert-deftest ogent-issues-bd-org-projection-record-metadata-issue-parent ()
+  "Projection output round-trips through the armory record reader.
+Feeding the generated Org text to `ogent-armory-record-metadata'
+yields an issue-link record whose :issue-parent matches the bead's
+parent id, closing the OGENT_ISSUE_PARENT writer gap left by the
+armory graph work."
+  (require 'ogent-armory-store)
+  (let ((content (ogent-issues-bd--org-projection
+                  ogent-issues-bd-test--parented-issues "/tmp/proj"))
+        (real-insert (symbol-function 'insert-file-contents)))
+    ;; Serve the projection text for the sentinel path only; org-mode
+    ;; setup may lazy-load libraries through the real function.
+    (cl-letf (((symbol-function 'insert-file-contents)
+               (lambda (file &rest args)
+                 (if (equal file "in-memory.org")
+                     (progn (insert content) nil)
+                   (apply real-insert file args)))))
+      (let ((meta (ogent-armory-record-metadata "in-memory.org")))
+        (should (eq (plist-get meta :kind) 'issue-link))
+        (should (equal (plist-get meta :issue-id) "pj-child"))
+        (should (equal (plist-get meta :issue-parent) "pj-parent"))))))
 
 (ert-deftest ogent-issues-agenda-writes-file-and-scopes-agenda ()
   "Command writes the projection file and scopes org-agenda to it."
