@@ -421,8 +421,14 @@ MODELS is nil, the set falls back through
 `ogent-fanout-default-models' and the role picker's distinct models
 (see `ogent-fanout--resolve-model-set').  Aliases canonicalize;
 duplicate and empty sets are refused.  PRESET and TEMPLATES are
-forwarded to the send path as in `ogent-request'.  Return the
-fan-out group id."
+forwarded to the send path as in `ogent-request'.
+
+Whatever the dispatch outcome -- validation canceled, the user quit,
+or a member signaled mid-loop -- the group is settled via
+`ogent-ui-fanout-settle-group', so undispatched members close as
+failed and a group that never dispatched leaves no state behind and
+never runs `ogent-fanout-group-done-hook'.  Return the fan-out
+group id."
   (interactive
    (list nil (when current-prefix-arg (ogent-fanout--read-models))))
   (let ((source-buffer (current-buffer))
@@ -432,11 +438,15 @@ fan-out group id."
         (member-ids (ogent-fanout--resolve-model-set models))
         (group (ogent-fanout--group-id)))
     (ogent-ui-fanout-begin-group group member-ids)
-    (ogent-ui--dispatch-request
-     source-buffer region-start region-end raw-prompt member-ids
-     preset templates nil
-     (lambda (context)
-       (plist-put (copy-sequence context) :fanout-group group)))
+    (unwind-protect
+        (ogent-ui--dispatch-request
+         source-buffer region-start region-end raw-prompt member-ids
+         preset templates nil
+         (lambda (context)
+           (plist-put (copy-sequence context) :fanout-group group)))
+      ;; Any non-dispatch outcome (validation nil, quit, mid-loop
+      ;; signal) must not leak group state: settle the stragglers.
+      (ogent-ui-fanout-settle-group group))
     group))
 
 (defun ogent-fanout--group-at-point ()

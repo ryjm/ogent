@@ -523,8 +523,11 @@ the group finishes (see `ogent-ui--fanout-maybe-finish').")
 Called with two arguments, GROUP-ID and RESULTS, once every member
 has reached a terminal state (done, failed, and aborted all count).
 RESULTS is a list of (MODEL-ID STATUS . RESPONSE-MARKER) entries in
-dispatch order.  Hook errors are demoted to messages so a user hook
-can never wedge group bookkeeping."
+dispatch order; RESPONSE-MARKER is nil for a member that never
+dispatched (see `ogent-ui-fanout-settle-group').  The hook never
+runs for a group in which no member dispatched at all.  Hook errors
+are demoted to messages so a user hook can never wedge group
+bookkeeping."
   :type 'hook
   :group 'ogent-mode)
 
@@ -532,10 +535,32 @@ can never wedge group bookkeeping."
   "Register fan-out GROUP with expected members MODEL-IDS.
 Must be called before the members dispatch so
 `ogent-fanout-group-done-hook' cannot fire until every expected
-member reaches a terminal state."
+member reaches a terminal state.  The caller owes a matching
+`ogent-ui-fanout-settle-group' after the dispatch attempt, whatever
+its outcome, so an aborted dispatch cannot leak the entry."
   (puthash group
            (mapcar (lambda (id) (cons id (cons 'streaming nil))) model-ids)
            ogent-ui--fanout-groups))
+
+(defun ogent-ui-fanout-settle-group (group)
+  "Settle GROUP's members after its dispatch attempt.
+Members without a response marker (see `ogent-ui--fanout-attach')
+never bound to a live request: the dispatch was canceled or died
+before reaching them.  When no member dispatched, drop GROUP so
+`ogent-fanout-group-done-hook' never fires for it.  Otherwise mark
+each undispatched member terminal `failed' and finish the group when
+that settles its last outstanding member.  A no-op for fully
+dispatched or already finished groups."
+  (when-let ((members (gethash group ogent-ui--fanout-groups)))
+    (if (seq-every-p (lambda (entry) (null (cddr entry))) members)
+        (remhash group ogent-ui--fanout-groups)
+      (let (settled)
+        (dolist (entry members)
+          (unless (cddr entry)
+            (setcar (cdr entry) 'failed)
+            (setq settled t)))
+        (when settled
+          (ogent-ui--fanout-maybe-finish-group group))))))
 
 (defun ogent-ui--fanout-member-entry (request)
   "Return REQUEST's member entry in its fan-out group, or nil."
@@ -581,17 +606,15 @@ order."
   (mapconcat (lambda (entry) (format "%s=%s" (car entry) (cadr entry)))
              members ","))
 
-(defun ogent-ui--fanout-maybe-finish (request)
-  "Fire `ogent-fanout-group-done-hook' when REQUEST completed its group.
-When every member of REQUEST's fan-out group has reached a terminal
-chip status, drop the group from `ogent-ui--fanout-groups' and run
-the hook with the group id and the member RESULTS.  The group entry
-is removed before the hook runs, so the hook fires exactly once per
-group and a throwing hook (demoted to a message) can never block the
+(defun ogent-ui--fanout-maybe-finish-group (group)
+  "Fire `ogent-fanout-group-done-hook' when GROUP is finished.
+When every member of GROUP has reached a terminal chip status, drop
+the group from `ogent-ui--fanout-groups' and run the hook with the
+group id and the member RESULTS.  The group entry is removed before
+the hook runs, so the hook fires exactly once per group and a
+throwing hook (demoted to a message) can never block the
 bookkeeping."
-  (when-let* ((group (plist-get (ogent-ui-request-context request)
-                                :fanout-group))
-              (members (gethash group ogent-ui--fanout-groups)))
+  (when-let ((members (gethash group ogent-ui--fanout-groups)))
     (when (seq-every-p (lambda (entry)
                          (memq (cadr entry) '(done failed aborted)))
                        members)
@@ -605,6 +628,13 @@ bookkeeping."
           (error
            (message "ogent-fanout-group-done-hook error: %s"
                     (error-message-string err))))))))
+
+(defun ogent-ui--fanout-maybe-finish (request)
+  "Finish REQUEST's fan-out group when it was the last member out.
+See `ogent-ui--fanout-maybe-finish-group'."
+  (when-let ((group (plist-get (ogent-ui-request-context request)
+                               :fanout-group)))
+    (ogent-ui--fanout-maybe-finish-group group)))
 
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."

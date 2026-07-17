@@ -620,6 +620,161 @@ BODY is the trimmed text between the headline and the next heading."
                     ":status done :members test-model-1=done,test-model-2=done"
                     (ogent-ui-send-tests--request-header)))))))))
 
+;;; Group settlement on aborted dispatch (pje.3 follow-up)
+
+(defconst ogent-ui-send-tests--three-model-registry
+  '((:id "test-model-1" :backend gptel-openai)
+    (:id "test-model-2" :backend gptel-anthropic)
+    (:id "test-model-3" :backend gptel-openai))
+  "Three-provider registry for mid-loop dispatch failure tests.")
+
+(ert-deftest ogent-fanout-quit-at-confirmation-leaves-no-group ()
+  "A quit at the send confirmation drops the group entry entirely."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (fired 0)
+           (quitted nil))
+       (let ((ogent-fanout-group-done-hook
+              (list (lambda (_group _results) (setq fired (1+ fired))))))
+         (cl-letf (((symbol-function 'ogent-validate-and-prompt)
+                    (lambda (_context) (signal 'quit nil)))
+                   ((symbol-function 'gptel-request)
+                    (lambda (&rest _) (error "Must not dispatch"))))
+           (condition-case nil
+               (ogent-fanout "Fanout prompt"
+                             '("test-model-1" "test-model-2"))
+             (quit (setq quitted t)))
+           (should quitted)
+           ;; No member dispatched: no group state, no hook, no rows.
+           (should (= 0 (hash-table-count ogent-ui--fanout-groups)))
+           (should (= 0 (hash-table-count ogent-ui--request-table)))
+           (should (= 0 fired))))))))
+
+(ert-deftest ogent-fanout-validation-cancel-leaves-no-group ()
+  "Context validation returning nil leaves no group entry and no hook."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (fired 0))
+       (let ((ogent-fanout-group-done-hook
+              (list (lambda (_group _results) (setq fired (1+ fired))))))
+         (cl-letf (((symbol-function 'ogent-validate-and-prompt)
+                    (lambda (_context) nil))
+                   ((symbol-function 'gptel-request)
+                    (lambda (&rest _) (error "Must not dispatch"))))
+           ;; Returns normally: the dispatch was canceled, not signaled.
+           (should (stringp (ogent-fanout "Fanout prompt"
+                                          '("test-model-1" "test-model-2"))))
+           (should (= 0 (hash-table-count ogent-ui--fanout-groups)))
+           (should (= 0 (hash-table-count ogent-ui--request-table)))
+           (should (= 0 fired))))))))
+
+(ert-deftest ogent-fanout-mid-loop-signal-settles-undispatched-members ()
+  "A mid-loop signal fails the undispatched members, sparing the live one."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--three-model-registry)
+           (real-ensure (symbol-function 'ogent-models-ensure))
+           (calls nil)
+           (callbacks nil)
+           (group nil)
+           (erred nil))
+       (let ((ogent-fanout-group-done-hook
+              (list (lambda (group-id results)
+                      (push (cons group-id results) calls)))))
+         (cl-letf (((symbol-function 'ogent-models-ensure)
+                    (lambda (model-id)
+                      (if (equal model-id "test-model-2")
+                          (user-error "Registry lookup exploded")
+                        (funcall real-ensure model-id))))
+                   ((symbol-function 'gptel-request)
+                    (lambda (_prompt &rest args)
+                      (push (plist-get args :callback) callbacks)
+                      'mock-request)))
+           (condition-case nil
+               (ogent-fanout "Fanout prompt"
+                             '("test-model-1" "test-model-2" "test-model-3"))
+             (error (setq erred t)))
+           (should erred)
+           ;; Member 1 dispatched and lives on; members 2-3 settled as
+           ;; failed, so the group entry survives with member 1 pending.
+           (should (= 1 (length callbacks)))
+           (should (= 1 (length (ogent-ui-active-requests))))
+           (should (= 1 (hash-table-count ogent-ui--fanout-groups)))
+           (should-not calls)
+           (setq group (car (hash-table-keys ogent-ui--fanout-groups)))
+           ;; Member 1 completes: the group finishes, the hook reports
+           ;; the settled members failed with no response marker, and
+           ;; both tables drain.
+           (funcall (car callbacks) "alpha" nil)
+           (funcall (car callbacks) nil '(:done t))
+           (should (= 1 (length calls)))
+           (let ((results (cdr (car calls))))
+             (should (equal (car (car calls)) group))
+             (should (equal (mapcar (lambda (r) (cons (car r) (cadr r)))
+                                    results)
+                            '(("test-model-1" . done)
+                              ("test-model-2" . failed)
+                              ("test-model-3" . failed))))
+             (should (markerp (cddr (nth 0 results))))
+             (should-not (cddr (nth 1 results)))
+             (should-not (cddr (nth 2 results))))
+           (should (= 0 (hash-table-count ogent-ui--request-table)))
+           (should (= 0 (hash-table-count ogent-ui--fanout-groups)))))))))
+
+(ert-deftest ogent-fanout-mid-loop-signal-after-synchronous-member-finishes ()
+  "Settling the stragglers finishes a group whose live member already closed."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--three-model-registry)
+           (real-ensure (symbol-function 'ogent-models-ensure))
+           (calls nil)
+           (erred nil))
+       (let ((ogent-fanout-group-done-hook
+              (list (lambda (group-id results)
+                      (push (cons group-id results) calls)))))
+         (cl-letf (((symbol-function 'ogent-models-ensure)
+                    (lambda (model-id)
+                      (if (equal model-id "test-model-2")
+                          (user-error "Registry lookup exploded")
+                        (funcall real-ensure model-id)))))
+           ;; The mock completes member 1 synchronously, so the group's
+           ;; last outstanding state is settled by the unwind path.
+           (ogent-test-with-mock-gptel
+             (condition-case nil
+                 (ogent-fanout "Fanout prompt"
+                               '("test-model-1" "test-model-2"
+                                 "test-model-3"))
+               (error (setq erred t)))
+             (should erred)
+             (should (= 1 (length calls)))
+             (should (equal (mapcar (lambda (r) (cons (car r) (cadr r)))
+                                    (cdr (car calls)))
+                            '(("test-model-1" . done)
+                              ("test-model-2" . failed)
+                              ("test-model-3" . failed))))
+             (should (= 0 (hash-table-count ogent-ui--request-table)))
+             (should (= 0 (hash-table-count ogent-ui--fanout-groups))))))))))
+
 (provide 'ogent-ui-send-tests)
 
 ;;; ogent-ui-send-tests.el ends here
