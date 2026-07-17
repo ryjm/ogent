@@ -56,6 +56,13 @@ jobs:
                         (load-file file))
                       (ert-run-tests-batch-and-exit))'
 
+      # Store-integrity hash audit (ogent-aq8.4): hash every real-store
+      # path, re-run the suite bracketed by the hashes, and fail on any
+      # drift.  Belt to the test-helper tripwire's suspenders - catches
+      # write channels the in-Lisp chokepoints miss.
+      - name: Store integrity
+        run: make test-isolation
+
   lint:
     runs-on: ubuntu-latest
     steps:

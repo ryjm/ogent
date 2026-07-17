@@ -55,7 +55,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile
+.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile test-isolation
 
 # Default: run all lints and tests
 all:
@@ -68,6 +68,12 @@ lint:
 # Run all tests
 test:
 	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) test
+
+# Store-integrity hash audit (ogent-aq8.4): hash every real-store path,
+# run the full ert suite, re-hash, and fail on any drift.  Belt to the
+# test-helper tripwire's suspenders.
+test-isolation:
+	@EMACS="$(EMACS)" ./test/store-integrity.sh
 
 # Byte-compile source files (via makem.sh)
 compile:
@@ -126,6 +132,7 @@ help:
 	@echo "  make all          - Run all lints and tests"
 	@echo "  make lint         - Run all linters (checkdoc, compile, package-lint)"
 	@echo "  make test         - Run all tests"
+	@echo "  make test-isolation - Verify the suite never writes real user stores"
 	@echo "  make compile      - Byte-compile source files"
 	@echo "  make bench        - Run performance benchmarks"
 	@echo "  make batch        - Run Emacs in batch mode with project loaded"
