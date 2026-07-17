@@ -192,6 +192,8 @@ When FILES is nil, all dirty paths are staged."
     (define-key map (kbd "C-c g") #'ogent-armory-git-refresh)
     (define-key map "c" #'ogent-armory-git-commit-from-status)
     (define-key map (kbd "C-c c") #'ogent-armory-git-commit-from-status)
+    (define-key map "F" #'ogent-armory-git-pull-from-status)
+    (define-key map (kbd "C-c f") #'ogent-armory-git-pull-from-status)
     (define-key map "d" #'ogent-armory-git-diff-at-point)
     (define-key map (kbd "C-c d") #'ogent-armory-git-diff-at-point)
     (define-key map "l" #'ogent-armory-git-log-at-point)
@@ -282,6 +284,14 @@ When FILES is nil, all dirty paths are staged."
   (ogent-armory-git-commit
    ogent-armory-git--root
    (read-string "Commit message: "))
+  (ogent-armory-git-refresh))
+
+(defun ogent-armory-git-pull-from-status ()
+  "Pull the repository behind the current Armory git status buffer.
+Fast-forward only, via `ogent-armory-git-pull'; refreshes the status
+listing afterwards."
+  (interactive)
+  (ogent-armory-git-pull ogent-armory-git--root)
   (ogent-armory-git-refresh))
 
 (defun ogent-armory-git--evil-local-keys ()

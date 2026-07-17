@@ -786,6 +786,22 @@
     (when-let ((buffer (get-buffer ogent-onboard--features-buffer-name)))
       (kill-buffer buffer))))
 
+(ert-deftest ogent-onboard-optional-features-add-provider-button ()
+  "Test the summary's add-provider button invokes the post-setup command."
+  (unwind-protect
+      (with-current-buffer (ogent-onboard--render-optional-features)
+        (goto-char (point-min))
+        (search-forward "[Add another provider]")
+        (let ((button (button-at (match-beginning 0)))
+              (called nil))
+          (should button)
+          (cl-letf (((symbol-function 'ogent-onboard-add-provider)
+                     (lambda () (interactive) (setq called t))))
+            (button-activate button))
+          (should called)))
+    (when-let ((buffer (get-buffer ogent-onboard--features-buffer-name)))
+      (kill-buffer buffer))))
+
 (ert-deftest ogent-onboard-optional-features-step-skip ()
   "Test declining the prompt shows nothing and creates no buffer."
   (cl-letf (((symbol-function 'y-or-n-p) (lambda (_) nil))

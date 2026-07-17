@@ -352,6 +352,8 @@ The :visual flag indicates the action should also be bound in visual state.")
                       :desc "Needs review")
     (review-stale     :key "s" :command ogent-review-stale
                       :desc "Mark stale")
+    (review-keep      :key "k" :command ogent-fanout-keep
+                      :desc "Keep fan-out response (k: keep)")
     (review-dashboard :key "d" :command ogent-review-dashboard
                       :desc "Review dashboard")
     (review-describe  :key "." :command ogent-review-describe

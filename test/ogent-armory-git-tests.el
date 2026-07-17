@@ -102,6 +102,26 @@
       (should (equal (ogent-armory-git-pull "/tmp/armory") "ok"))
       (should (equal captured '("/tmp/armory" "pull" "--ff-only"))))))
 
+(ert-deftest ogent-armory-git-status-keymap-binds-pull ()
+  "The git status keymap reaches the pull wrapper on `F' and `C-c f'."
+  (should (eq (lookup-key ogent-armory-git-mode-map "F")
+              #'ogent-armory-git-pull-from-status))
+  (should (eq (lookup-key ogent-armory-git-mode-map (kbd "C-c f"))
+              #'ogent-armory-git-pull-from-status)))
+
+(ert-deftest ogent-armory-git-pull-from-status-pulls-root-and-refreshes ()
+  "The status-buffer pull wrapper pulls the buffer's root, then refreshes."
+  (let (pulled refreshed)
+    (cl-letf (((symbol-function 'ogent-armory-git-pull)
+               (lambda (directory) (setq pulled directory)))
+              ((symbol-function 'ogent-armory-git-refresh)
+               (lambda (&rest _) (setq refreshed t))))
+      (with-temp-buffer
+        (setq-local ogent-armory-git--root "/tmp/armory")
+        (ogent-armory-git-pull-from-status)))
+    (should (equal pulled "/tmp/armory"))
+    (should refreshed)))
+
 (provide 'ogent-armory-git-tests)
 
 ;;; ogent-armory-git-tests.el ends here

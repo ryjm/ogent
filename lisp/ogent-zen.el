@@ -1876,6 +1876,9 @@ TARGET-KIND is one of nil, `run', or `response'."
    ("u" "Useful" ogent-zen--review-menu-mark-useful)
    ("m" "Needs review" ogent-zen--review-menu-mark-needs-review)
    ("s" "Stale" ogent-zen--review-menu-mark-stale)
+   ("S" "Superseded" ogent-zen-mark-superseded)
+   ("f" "Failed" ogent-zen-mark-failed)
+   ("r" "Set state" ogent-zen-set-review)
    ("c" "Clear" ogent-zen--review-menu-clear)
    ("d" "Dashboard" ogent-review-dashboard)
    ("." "Describe" ogent-review-describe)]

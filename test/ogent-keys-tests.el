@@ -655,7 +655,7 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
     (ogent-armory-git-commit
      . "Backend for the git-status buffer's commit-from-status command; git status is registry `:'")
     (ogent-armory-git-pull
-     . "UNWIRED (jk5.4 audit): named in specs/armory-parity.org but no chord, transient row, or buffer key reaches it")
+     . "Backend for the git-status buffer's pull-from-status command (`F'/`C-c f'); git status is registry `:'")
     ;; ogent-armory-runner.el
     (ogent-armory-run-agent
      . "Backend run entry invoked from status/agent/agents/conversations dispatch rows")
@@ -770,7 +770,7 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
     (ogent-onboard-login-different-provider
      . "Invoked by the provider-fallback flow (ogent-provider-fallback.el)")
     (ogent-onboard-add-provider
-     . "UNWIRED (jk5.4 audit): post-setup provider add; nothing references it - not the wizard, a chord, or any doc")
+     . "Actionable [Add another provider] button in the onboard wizard's optional-features summary (`ogent-onboard--render-optional-features'); wizard is registry `C-o'")
     (ogent-recompile
      . "Dev utility, documented M-x (docs/getting-started.md, docs/doom-emacs.md)")
     (ogent-reload
@@ -803,18 +803,12 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
      . "Minor-mode toggle; enabled by `ogent-mode' when Zen is active")
     (global-ogent-zen-mode
      . "Globalized minor-mode toggle")
-    (ogent-zen-set-review
-     . "UNWIRED (jk5.4 audit): interactive review-state setter with zero references; the review menu uses internal --review-menu-mark commands instead")
     (ogent-zen-review-menu
      . "Transient prefix itself; bound to `u' on Zen heading overlays (`ogent-zen--heading-overlay-map')")
     (ogent-zen-accept-response
      . "Backend invoked by `ogent-review-accept' / `ogent-completion-accept' (registry `z', review `a')")
     (ogent-zen-reject-response
      . "Backend invoked by the completion/review reject path")
-    (ogent-zen-mark-superseded
-     . "UNWIRED (jk5.4 audit): review state absent from zen-dispatch, review menu, and dashboard dispatch rows")
-    (ogent-zen-mark-failed
-     . "UNWIRED (jk5.4 audit): review state absent from zen-dispatch, review menu, and dashboard dispatch rows")
     (ogent-review-dashboard-dispatch
      . "Transient prefix itself; bound to `?' in the review dashboard keymap")
     (ogent-zen-edit-region
@@ -826,21 +820,15 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
     ;; lisp/ui/ogent-ui-armory*.el
     (ogent-armory-home-dispatch
      . "Transient prefix itself; bound to `?' in the Armory Home buffer keymap")
-    (ogent-armory-clone-agent
-     . "UNWIRED (jk5.4 audit): spec'd in specs/armory-org-os.org but no dispatch row or chord reaches it")
-    (ogent-armory-archive-agent
-     . "UNWIRED (jk5.4 audit): spec'd in specs/armory-org-os.org but no dispatch row or chord reaches it")
     (ogent-armory-conversation
      . "Backend detail view opened from the conversations list, home, and status surfaces")
     (ogent-armory-open-app
-     . "UNWIRED (jk5.4 audit): zero references; the apps dispatch row uses `ogent-armory-apps-open' instead")
+     . "RETIRE CANDIDATE (9cm triage): superseded by `ogent-armory-apps-open' (apps dispatch row); deletion awaits user approval")
     ;; lisp/ui/ogent-ui-*.el
     (ogent-backlinks-at-point
-     . "UNWIRED (jk5.4 audit): zero references; possibly subsumed by `ogent-show-backlinks' (registry `b')")
+     . "RETIRE CANDIDATE (9cm triage): superseded by `ogent-show-backlinks' (registry `b'); deletion awaits user approval")
     (ogent-context-manage
      . "Documented M-x context manager (docs/how-it-works.org)")
-    (ogent-fanout-keep
-     . "UNWIRED (jk5.4 audit): fan-out winner-keeper; C-f/C-k/C-d are wired but keep has no chord or compare-buffer key")
     (ogent-status-mode
      . "Minor-mode toggle; enabled programmatically by status surfaces")
     (ogent-show-errors

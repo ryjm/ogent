@@ -34,7 +34,9 @@
   [["Item"
     ("RET" "Open agent profile" ogent-armory-agents-open-agent)
     ("v" "Visit agent Org file" ogent-armory-agents-visit)
-    ("R" "Run with instruction" ogent-armory-agents-run)]
+    ("R" "Run with instruction" ogent-armory-agents-run)
+    ("c" "Clone agent" ogent-armory-clone-agent)
+    ("a" "Archive agent" ogent-armory-archive-agent)]
    ["View"
     ("g" "Refresh" ogent-armory-agents-refresh :transient t)]]
   ["Help"

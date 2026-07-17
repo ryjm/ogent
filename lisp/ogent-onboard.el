@@ -481,6 +481,16 @@ erases any previous content first, so repeated calls are idempotent."
         (insert "=======================\n\n")
         (dolist (feature (ogent-onboard--optional-features))
           (insert (format "* %s\n  %s\n\n" (car feature) (cdr feature))))
+        (insert "* Additional providers\n  ")
+        (insert-text-button
+         "[Add another provider]"
+         'action (lambda (_button)
+                   (call-interactively #'ogent-onboard-add-provider))
+         'follow-link t
+         'help-echo "Configure another provider (ogent-onboard-add-provider)")
+        (insert "\n  Press RET on the button above (or run M-x"
+                " ogent-onboard-add-provider) to configure another"
+                " provider any time.\n\n")
         (goto-char (point-min)))
       (special-mode))
     buffer))

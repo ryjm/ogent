@@ -1714,6 +1714,18 @@
     (should (memq 'ogent-armory-ql-view commands))
     (should (memq 'ogent-armory-agenda commands))))
 
+(ert-deftest ogent-ui-armory-agents-dispatch-includes-lifecycle-rows ()
+  "The agents dispatch wires clone and archive lifecycle rows (ogent-9cm)."
+  (let ((suffixes (ogent-ui-armory-test--transient-suffixes
+                   'ogent-armory-agents-dispatch)))
+    (dolist (expected '(("c" . ogent-armory-clone-agent)
+                        ("a" . ogent-armory-archive-agent)))
+      (let ((suffix (cl-find (cdr expected) suffixes
+                             :key (lambda (plist)
+                                    (plist-get plist :command)))))
+        (should suffix)
+        (should (equal (car expected) (plist-get suffix :key)))))))
+
 (ert-deftest ogent-ui-armory-home-dispatch-ql-row-visible-without-org-ql ()
   "The saved-views row stays visible with an install hint sans org-ql."
   (let ((suffix (cl-find 'ogent-armory-ql-view
