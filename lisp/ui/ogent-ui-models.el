@@ -7,7 +7,10 @@
 ;; inherited `OGENT_MODEL' property, and browse the registry as an Org
 ;; table.  The transient header always shows the effective model at
 ;; point and which layer decided it (Org property, session, project,
-;; role, or default).
+;; role, or default).  When the per-project analytics DB has recorded
+;; completions, the picker surfaces evidence per model - completion
+;; count, median latency, mean star rating, and mean cost - in the
+;; header, the completion annotations, and the browser table.
 
 ;;; Code:
 
@@ -18,6 +21,7 @@
 (require 'org-table)
 (require 'ogent-models)
 (require 'ogent-gptel)
+(require 'ogent-analytics)
 (require 'ogent-ui-theme)
 
 ;; gptel session state manipulated by the switch commands.
@@ -73,10 +77,110 @@
        (propertize resolved
                    'face (if designator 'ogent-theme-info 'ogent-theme-muted))))))
 
+;;; Evidence from analytics
+
+(defun ogent-ui-models--evidence-group-stats (db raw-ids)
+  "Aggregate completion evidence in DB over the model strings RAW-IDS.
+RAW-IDS lists every completions.model value that canonicalizes to
+one registry model, so rows recorded under an alias and under the
+canonical id aggregate together.  Returns a plist with :count,
+:median-latency-ms, :mean-rating (over 1-5 star rated rows only;
+thumb ratings use a different scale), and :mean-cost-usd (over
+priced rows only).  Every component except :count may be nil when
+the underlying rows carry no such data."
+  (let* ((holes (mapconcat (lambda (_) "?") raw-ids ", "))
+         (row (car (sqlite-select
+                    db
+                    (format "
+SELECT COUNT(*),
+       (SELECT AVG(ms)
+        FROM (SELECT completion_latency_ms AS ms,
+                     ROW_NUMBER() OVER (ORDER BY completion_latency_ms) AS rn,
+                     COUNT(*) OVER () AS cnt
+              FROM completions
+              WHERE model IN (%s)
+                AND completion_latency_ms IS NOT NULL)
+        WHERE rn IN ((cnt + 1) / 2, (cnt + 2) / 2)),
+       AVG(CASE WHEN outcome = 'rated' THEN rating END),
+       AVG(cost_usd)
+FROM completions
+WHERE model IN (%s)" holes holes)
+                    (append raw-ids raw-ids)))))
+    (list :count (nth 0 row)
+          :median-latency-ms (nth 1 row)
+          :mean-rating (nth 2 row)
+          :mean-cost-usd (nth 3 row))))
+
+(defun ogent-ui-models--evidence-stats ()
+  "Return per-model completion evidence from the project analytics DB.
+The result is an alist mapping canonical registry model ids (in
+registry order) to the stat plists of
+`ogent-ui-models--evidence-group-stats'.  Rows recorded under a
+registry alias fold into their canonical id; rows naming no
+registered model are ignored.  Returns nil when analytics is
+unavailable or no registered model has recorded completions, so
+callers drop the evidence entirely rather than rendering zeros."
+  (when-let* ((db (ogent-analytics--get-db)))
+    (let ((groups nil))
+      (dolist (row (sqlite-select db "SELECT DISTINCT model FROM completions"))
+        (when-let* ((canonical (ogent-models-canonical-id (car row))))
+          (let ((cell (assoc canonical groups)))
+            (if cell
+                (setcdr cell (cons (car row) (cdr cell)))
+              (push (list canonical (car row)) groups)))))
+      (let ((stats nil))
+        (dolist (id (ogent-models-ids))
+          (when-let* ((raw-ids (cdr (assoc id groups))))
+            (push (cons id (ogent-ui-models--evidence-group-stats db raw-ids))
+                  stats)))
+        (nreverse stats)))))
+
+(defun ogent-ui-models--evidence-latency (ms)
+  "Format the median latency MS compactly, like \"840ms\" or \"1.2s\"."
+  (if (< ms 1000)
+      (format "%dms" (round ms))
+    (format "%.1fs" (/ ms 1000.0))))
+
+(defun ogent-ui-models--evidence-segments (stats)
+  "Return display segments for the evidence plist STATS.
+Segments cover completion count, median latency, mean star rating,
+and mean cost; components missing from the recorded rows produce no
+segment (never a zero)."
+  (delq nil
+        (list (format "%d×" (plist-get stats :count))
+              (when-let* ((ms (plist-get stats :median-latency-ms)))
+                (concat "~" (ogent-ui-models--evidence-latency ms)))
+              (when-let* ((rating (plist-get stats :mean-rating)))
+                (format "★%.1f" rating))
+              (when-let* ((cost (plist-get stats :mean-cost-usd)))
+                (format "$%.4f" cost)))))
+
+(defun ogent-ui-models--evidence-string (stats)
+  "Format the evidence plist STATS as one compact display string."
+  (mapconcat #'identity (ogent-ui-models--evidence-segments stats) " "))
+
+(defun ogent-ui-models--evidence-cells (stats)
+  "Return the browser table's four evidence cells for plist STATS.
+STATS nil (a model with no recorded completions) yields empty cells,
+as do components missing from the recorded rows."
+  (list (if stats (format "%d" (plist-get stats :count)) "")
+        (if-let* ((ms (and stats (plist-get stats :median-latency-ms))))
+            (ogent-ui-models--evidence-latency ms)
+          "")
+        (if-let* ((rating (and stats (plist-get stats :mean-rating))))
+            (format "%.1f" rating)
+          "")
+        (if-let* ((cost (and stats (plist-get stats :mean-cost-usd))))
+            (format "$%.4f" cost)
+          "")))
+
 ;;; Designator completion (annotated + grouped)
 
-(defun ogent-ui-models--annotate (candidate pad)
-  "Return the completion annotation for CANDIDATE, padded to width PAD."
+(defun ogent-ui-models--annotate (candidate pad &optional stats)
+  "Return the completion annotation for CANDIDATE, padded to width PAD.
+STATS, when non-nil, is the evidence alist of
+`ogent-ui-models--evidence-stats'; a model candidate with recorded
+completions gets its evidence appended after the description."
   (let ((padding (make-string (max 1 (- pad (length candidate))) ?\s)))
     (if (string-prefix-p "@" candidate)
         (concat padding
@@ -87,6 +191,11 @@
       (let* ((model (ogent-models-get candidate))
              (desc (or (plist-get model :description) ""))
              (roles (ogent-ui-models--roles-resolving-to candidate))
+             (evidence
+              (when-let* ((entry (cdr (assoc candidate stats))))
+                (propertize
+                 (concat "  " (ogent-ui-models--evidence-string entry))
+                 'face 'ogent-theme-info)))
              (markers
               (concat
                (when (equal candidate ogent-default-model)
@@ -95,7 +204,8 @@
                  (propertize (format "  [%s]"
                                      (mapconcat #'symbol-name roles ","))
                              'face 'ogent-theme-highlight)))))
-        (concat padding (propertize desc 'face 'ogent-theme-muted) markers)))))
+        (concat padding (propertize desc 'face 'ogent-theme-muted)
+                evidence markers)))))
 
 (defun ogent-ui-models--group (candidate transform)
   "Return the completion group title for CANDIDATE.
@@ -111,9 +221,11 @@ When TRANSFORM is non-nil return CANDIDATE itself, per the
 (defun ogent-ui-models-read (prompt &optional include-roles)
   "Read a model designator with PROMPT and rich completion UI.
 Candidates are registry model ids grouped by provider, each
-annotated with its description, role back-references, and a
-default marker.  When INCLUDE-ROLES is non-nil, \"@role\"
-designators are offered too.  Returns the selected string."
+annotated with its description, role back-references, a default
+marker, and - when the project analytics DB has recorded
+completions - its per-model evidence.  When INCLUDE-ROLES is
+non-nil, \"@role\" designators are offered too.  Returns the
+selected string."
   (let* ((ids (ogent-models-ids))
          (candidates (if include-roles
                          (append ids
@@ -122,13 +234,14 @@ designators are offered too.  Returns the selected string."
                                          (ogent-models-known-roles)))
                        ids))
          (pad (+ 2 (apply #'max (mapcar #'length candidates))))
+         (stats (ogent-ui-models--evidence-stats))
          (table
           (lambda (string pred action)
             (if (eq action 'metadata)
                 `(metadata
                   (category . ogent-model)
                   (annotation-function
-                   . ,(lambda (cand) (ogent-ui-models--annotate cand pad)))
+                   . ,(lambda (cand) (ogent-ui-models--annotate cand pad stats)))
                   (group-function . ,#'ogent-ui-models--group)
                   (display-sort-function . ,#'identity))
               (complete-with-action action candidates string pred)))))
@@ -389,28 +502,50 @@ Saves `ogent-default-model' and `ogent-model-roles' with Custom."
          (current-buffer))
      ,@body))
 
-(defun ogent-ui-models--roles-lines (width)
-  "Return the header's role summary as lines at most WIDTH wide.
-Roles never break mid-token: when the next role summary would
-overflow WIDTH display columns, it starts a continuation line
-aligned under the first role."
-  (let* ((label (propertize "roles  " 'face 'transient-heading))
-         (indent (make-string (string-width label) ?\s))
+(defun ogent-ui-models--wrap-chunks (label chunks width)
+  "Return LABEL followed by CHUNKS as lines at most WIDTH wide.
+Chunks never break mid-token: when the next chunk would overflow
+WIDTH display columns, it starts a continuation line aligned under
+the first chunk (indented by LABEL's display width)."
+  (let* ((indent (make-string (string-width label) ?\s))
          (lines nil)
          (current label)
          (first t))
-    (dolist (role (ogent-models-known-roles))
-      (let ((chunk (ogent-ui-models--format-role role)))
-        (cond
-         (first
-          (setq current (concat current chunk)
-                first nil))
-         ((> (+ (string-width current) 3 (string-width chunk)) width)
-          (push current lines)
-          (setq current (concat indent chunk)))
-         (t
-          (setq current (concat current "   " chunk))))))
+    (dolist (chunk chunks)
+      (cond
+       (first
+        (setq current (concat current chunk)
+              first nil))
+       ((> (+ (string-width current) 3 (string-width chunk)) width)
+        (push current lines)
+        (setq current (concat indent chunk)))
+       (t
+        (setq current (concat current "   " chunk)))))
     (nreverse (cons current lines))))
+
+(defun ogent-ui-models--roles-lines (width)
+  "Return the header's role summary as lines at most WIDTH wide.
+Roles never break mid-token; see `ogent-ui-models--wrap-chunks'."
+  (ogent-ui-models--wrap-chunks
+   (propertize "roles  " 'face 'transient-heading)
+   (mapcar #'ogent-ui-models--format-role (ogent-models-known-roles))
+   width))
+
+(defun ogent-ui-models--evidence-lines (stats width)
+  "Return the header's evidence for STATS as lines at most WIDTH wide.
+STATS is the alist of `ogent-ui-models--evidence-stats'.  Each
+chunk names a model and its evidence string; chunks wrap at token
+boundaries like the roles summary."
+  (ogent-ui-models--wrap-chunks
+   (propertize "stats  " 'face 'transient-heading)
+   (mapcar (lambda (entry)
+             (concat
+              (propertize (car entry) 'face 'ogent-theme-secondary)
+              " "
+              (propertize (ogent-ui-models--evidence-string (cdr entry))
+                          'face 'ogent-theme-muted)))
+           stats)
+   width))
 
 (defvar transient--window)
 
@@ -425,14 +560,17 @@ falls back to the frame width."
     (frame-width)))
 
 (defun ogent-ui-models--status-description ()
-  "Format the picker header: effective model, source, and roles."
+  "Format the picker header: effective model, source, roles, and evidence.
+Evidence lines appear only when the project analytics DB has
+recorded completions for registered models."
   (ogent-ui-models--in-invocation-buffer
     (let* ((effective (ogent-models-effective))
            (id (car effective))
            (model (ogent-models-get id))
            (desc (or (plist-get model :description) ""))
            (source (ogent-ui-models--source-label (cdr effective)))
-           (width (max 40 (- (ogent-ui-models--display-width) 4))))
+           (width (max 40 (- (ogent-ui-models--display-width) 4)))
+           (stats (ogent-ui-models--evidence-stats)))
       (concat
        (propertize id 'face 'ogent-theme-primary)
        "  "
@@ -443,7 +581,13 @@ falls back to the frame width."
        (propertize desc 'face 'ogent-theme-muted)
        "\n "
        (mapconcat #'identity (ogent-ui-models--roles-lines width) "\n ")
-       "\n"))))
+       "\n"
+       (when stats
+         (concat " "
+                 (mapconcat #'identity
+                            (ogent-ui-models--evidence-lines stats width)
+                            "\n ")
+                 "\n"))))))
 
 (defun ogent-ui-models--org-buffer-p ()
   "Return non-nil when the picker was invoked from an Org buffer."
@@ -532,28 +676,38 @@ quit."
 (defun ogent-ui-models--browser-insert (effective)
   "Insert the registry browser contents into the current buffer.
 EFFECTIVE is the (MODEL-ID . SOURCE) cons resolved in the buffer
-the browser was opened from."
+the browser was opened from.  When the project analytics DB has
+recorded completions for registered models, the Models table
+carries N, Median, Rating, and Cost evidence columns; without any
+such rows the columns are absent entirely."
   (let ((effective-id (car effective)))
     (insert "#+title: ogent models\n\n")
     (insert (format "Effective model: =%s= (via %s)\n\n"
                     effective-id
                     (ogent-ui-models--source-label (cdr effective))))
     (insert "* Models\n\n")
-    (let ((table-start (point)))
-      (insert "|  | Model | Provider | Stream | Roles | Description |\n")
+    (let ((table-start (point))
+          (stats (ogent-ui-models--evidence-stats)))
+      (insert "|  | Model | Provider | Stream | Roles |"
+              (if stats " N | Median | Rating | Cost |" "")
+              " Description |\n")
       (insert "|-\n")
       (dolist (model (ogent-models-all))
         (let* ((id (plist-get model :id))
-               (roles (ogent-ui-models--roles-resolving-to id)))
-          (insert (format "| %s | %s | %s | %s | %s | %s |\n"
-                          (if (equal id effective-id) ">" "")
-                          id
-                          (ogent-ui-models--provider-name model)
-                          (if (plist-get model :stream?) "yes" "no")
-                          (if roles
-                              (mapconcat #'symbol-name roles ", ")
-                            "")
-                          (or (plist-get model :description) "")))))
+               (roles (ogent-ui-models--roles-resolving-to id))
+               (cells
+                (append
+                 (list (if (equal id effective-id) ">" "")
+                       id
+                       (ogent-ui-models--provider-name model)
+                       (if (plist-get model :stream?) "yes" "no")
+                       (if roles
+                           (mapconcat #'symbol-name roles ", ")
+                         ""))
+                 (when stats
+                   (ogent-ui-models--evidence-cells (cdr (assoc id stats))))
+                 (list (or (plist-get model :description) "")))))
+          (insert "| " (mapconcat #'identity cells " | ") " |\n")))
       (goto-char table-start)
       (org-table-align)
       (goto-char (point-max)))

@@ -8,12 +8,14 @@
 ;; - Org subtree and file-level model pinning
 ;; - Role assignment commands
 ;; - The Org-table registry browser
+;; - Per-model evidence from the analytics DB (stats, columns, header)
 
 ;;; Code:
 
 (require 'ogent-test-helper)
 (require 'ogent-ui-models)
 (require 'ogent-presets)
+(require 'ogent-analytics)
 (require 'cl-lib)
 (require 'org)
 
@@ -374,6 +376,223 @@ source, so only it may be removed."
           (ogent-models-browse)
           (should (string-match-p "Effective model: =alpha= (via default)"
                                   (buffer-string))))))
+    (when (get-buffer ogent-ui-models--browser-buffer-name)
+      (kill-buffer ogent-ui-models--browser-buffer-name))))
+
+;;; Analytics evidence
+
+(defun ogent-ui-models-tests--insert-completion (model &rest kwargs)
+  "Insert a completions row for MODEL into the fixture analytics DB.
+KWARGS may carry :latency, :rating, :outcome, and :cost column
+values; omitted columns record the recorder's defaults (rating 0,
+outcome \"pending\", latency and cost NULL)."
+  (sqlite-execute
+   (ogent-analytics--get-db)
+   "INSERT INTO completions (model, completion_latency_ms, rating, outcome, cost_usd)
+    VALUES (?, ?, ?, ?, ?)"
+   (list model
+         (plist-get kwargs :latency)
+         (or (plist-get kwargs :rating) 0)
+         (or (plist-get kwargs :outcome) "pending")
+         (plist-get kwargs :cost))))
+
+(ert-deftest ogent-ui-models-evidence-stats-aggregates-fixture-rows ()
+  "The fixture DB yields exact count, median, mean rating, and mean cost."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-ui-models-tests--with-registry
+    (ogent-test-with-real-store 'analytics
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 800 :rating 4 :outcome "rated" :cost 0.002)
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 900 :rating 5 :outcome "rated" :cost 0.0042)
+      ;; Thumb rating on the legacy -1..1 scale: outside the star mean.
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 3000 :rating 1 :outcome "accepted")
+      ;; Unrated, unpriced, no latency recorded.
+      (ogent-ui-models-tests--insert-completion "alpha")
+      (let* ((stats (ogent-ui-models--evidence-stats))
+             (entry (cdr (assoc "alpha" stats))))
+        (should (= (length stats) 1))
+        (should (= (plist-get entry :count) 4))
+        (should (= (plist-get entry :median-latency-ms) 900))
+        (should (= (plist-get entry :mean-rating) 4.5))
+        (should (< (abs (- (plist-get entry :mean-cost-usd) 0.0031))
+                   1e-9))))))
+
+(ert-deftest ogent-ui-models-evidence-stats-median-averages-middle-pair ()
+  "An even latency count medians the two middle values, ignoring NULLs."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-ui-models-tests--with-registry
+    (ogent-test-with-real-store 'analytics
+      (dolist (ms '(100 200 1000 5000))
+        (ogent-ui-models-tests--insert-completion "alpha" :latency ms))
+      (ogent-ui-models-tests--insert-completion "alpha")
+      (let ((entry (cdr (assoc "alpha" (ogent-ui-models--evidence-stats)))))
+        (should (= (plist-get entry :count) 5))
+        (should (= (plist-get entry :median-latency-ms) 600))
+        ;; No star ratings and nothing priced: components stay nil.
+        (should-not (plist-get entry :mean-rating))
+        (should-not (plist-get entry :mean-cost-usd))))))
+
+(ert-deftest ogent-ui-models-evidence-stats-nil-without-rows-or-db ()
+  "A missing DB, an empty DB, and unregistered-only rows all yield nil."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-ui-models-tests--with-registry
+    (let ((ogent-analytics-enabled nil))
+      (should-not (ogent-ui-models--evidence-stats)))
+    (ogent-test-with-real-store 'analytics
+      (should-not (ogent-ui-models--evidence-stats))
+      (ogent-ui-models-tests--insert-completion "ghost-model" :latency 100)
+      (should-not (ogent-ui-models--evidence-stats)))))
+
+(ert-deftest ogent-ui-models-evidence-stats-folds-aliases-into-canonical ()
+  "Alias-recorded rows merge into the canonical registry id's stats."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry
+         '((:id "alpha" :backend gptel-openai :stream? t
+                :aliases ("alpha-classic")
+                :description "Alpha flagship")))
+        (ogent-model-roles nil))
+    (ogent-test-with-real-store 'analytics
+      (ogent-ui-models-tests--insert-completion
+       "alpha-classic" :latency 800 :rating 4 :outcome "rated" :cost 0.002)
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 900 :rating 5 :outcome "rated" :cost 0.0042)
+      (let* ((stats (ogent-ui-models--evidence-stats))
+             (entry (cdr (assoc "alpha" stats))))
+        (should (= (length stats) 1))
+        (should-not (assoc "alpha-classic" stats))
+        (should (= (plist-get entry :count) 2))
+        (should (= (plist-get entry :median-latency-ms) 850))
+        (should (= (plist-get entry :mean-rating) 4.5))
+        (should (< (abs (- (plist-get entry :mean-cost-usd) 0.0031))
+                   1e-9))))))
+
+(ert-deftest ogent-ui-models-annotate-appends-evidence ()
+  "Candidates with recorded stats carry evidence; others are untouched."
+  (ogent-ui-models-tests--with-registry
+    (let ((stats '(("alpha" . (:count 12 :median-latency-ms 850.0
+                                      :mean-rating 4.5
+                                      :mean-cost-usd 0.0031)))))
+      (should (string-match-p "12× ~850ms ★4\\.5 \\$0\\.0031"
+                              (ogent-ui-models--annotate "alpha" 10 stats)))
+      (should (string-match-p "Alpha flagship"
+                              (ogent-ui-models--annotate "alpha" 10 stats)))
+      (should-not (string-match-p "×"
+                                  (ogent-ui-models--annotate "beta" 10 stats)))
+      ;; Two-argument callers (no stats snapshot) still work.
+      (should (string-match-p "Beta deep model"
+                              (ogent-ui-models--annotate "beta" 10))))))
+
+(ert-deftest ogent-ui-models-read-annotates-rows-with-alias-stats ()
+  "The read UI maps alias-recorded stats onto canonical candidate rows."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (let ((ogent-default-model "alpha")
+        (ogent-model-registry
+         '((:id "alpha" :backend gptel-openai :stream? t
+                :aliases ("alpha-classic")
+                :description "Alpha flagship")))
+        (ogent-model-roles nil))
+    (ogent-test-with-real-store 'analytics
+      (ogent-ui-models-tests--insert-completion
+       "alpha-classic" :latency 800 :rating 4 :outcome "rated" :cost 0.002)
+      (let (annotate)
+        (cl-letf (((symbol-function 'completing-read)
+                   (lambda (_prompt table &rest _)
+                     (let ((metadata (funcall table nil nil 'metadata)))
+                       (setq annotate
+                             (cdr (assq 'annotation-function
+                                        (cdr metadata)))))
+                     "alpha")))
+          (ogent-ui-models-read "Model: "))
+        (should annotate)
+        (should (string-match-p "1× ~800ms ★4\\.0 \\$0\\.0020"
+                                (funcall annotate "alpha")))))))
+
+(ert-deftest ogent-ui-models-evidence-lines-wrap-at-chunk-boundaries ()
+  "Evidence chunks wrap to continuation lines, never breaking mid-token."
+  (let ((stats '(("alpha" . (:count 12 :median-latency-ms 850.0
+                                    :mean-rating 4.5 :mean-cost-usd 0.0031))
+                 ("beta" . (:count 3 :median-latency-ms 1200.0
+                                   :mean-rating nil :mean-cost-usd nil)))))
+    (should (= (length (ogent-ui-models--evidence-lines stats 120)) 1))
+    (let ((lines (ogent-ui-models--evidence-lines stats 40)))
+      (should (= (length lines) 2))
+      (should (string-prefix-p "stats  " (car lines)))
+      ;; The continuation line aligns under the first chunk.
+      (should (equal (cadr lines)
+                     (concat (make-string 7 ?\s) "beta 3× ~1.2s"))))))
+
+(ert-deftest ogent-ui-models-status-shows-evidence-when-recorded ()
+  "The picker header gains a stats line from recorded completions."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-ui-models-tests--with-registry
+    (ogent-test-with-real-store 'analytics
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 800 :rating 4 :outcome "rated" :cost 0.002)
+      (with-temp-buffer
+        (let ((gptel-model nil)
+              (transient--original-buffer (current-buffer)))
+          (let ((status (ogent-ui-models--status-description)))
+            (should (string-match-p "stats" status))
+            (should (string-match-p "alpha 1× ~800ms ★4\\.0 \\$0\\.0020"
+                                    status))))))))
+
+(ert-deftest ogent-ui-models-status-omits-evidence-without-rows ()
+  "Without recorded completions the header carries no stats line."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (let ((gptel-model nil)
+            (ogent-analytics-enabled nil)
+            (transient--original-buffer (current-buffer)))
+        (should-not (string-match-p
+                     "stats" (ogent-ui-models--status-description)))))))
+
+(ert-deftest ogent-ui-models-browser-shows-evidence-columns ()
+  "Recorded completions add exact evidence columns to the Models table."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-ui-models-tests--with-registry
+    (ogent-test-with-real-store 'analytics
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 800 :rating 4 :outcome "rated" :cost 0.002)
+      (ogent-ui-models-tests--insert-completion
+       "alpha" :latency 900 :rating 5 :outcome "rated" :cost 0.0042)
+      (with-temp-buffer
+        (let ((gptel-model nil))
+          (save-window-excursion
+            (ogent-models-browse)
+            (with-current-buffer ogent-ui-models--browser-buffer-name
+              (let ((text (buffer-string)))
+                (should (string-match-p
+                         "| *N *| *Median *| *Rating *| *Cost *|" text))
+                (should (string-match-p
+                         "| *alpha *|.*| *2 *| *850ms *| *4\\.5 *| *\\$0\\.0031 *|"
+                         text))
+                ;; Models without recorded completions keep empty cells.
+                (let ((beta (seq-find
+                             (lambda (line)
+                               (string-match-p "| *beta " line))
+                             (split-string text "\n"))))
+                  (should beta)
+                  (should-not (string-match-p "[0-9]" beta))))))))))
+  (when (get-buffer ogent-ui-models--browser-buffer-name)
+    (kill-buffer ogent-ui-models--browser-buffer-name)))
+
+(ert-deftest ogent-ui-models-browser-omits-evidence-columns-without-db ()
+  "With no analytics DB the evidence columns are absent, never zeros."
+  (ogent-ui-models-tests--with-registry
+    (with-temp-buffer
+      (let ((gptel-model nil)
+            (ogent-analytics-enabled nil))
+        (save-window-excursion
+          (ogent-models-browse)
+          (with-current-buffer ogent-ui-models--browser-buffer-name
+            (let ((text (buffer-string)))
+              (should (string-match-p "Description" text))
+              (should-not (string-match-p "Median" text))
+              (should-not (string-match-p "Rating" text))
+              (should-not (string-match-p "Cost" text)))))))
     (when (get-buffer ogent-ui-models--browser-buffer-name)
       (kill-buffer ogent-ui-models--browser-buffer-name))))
 
