@@ -132,6 +132,7 @@ Set to nil to disable automatic evil binding setup."
 (autoload 'ogent-armory-ql-view "ogent-armory-ql" nil t)
 (autoload 'ogent-armory-agenda-control-plane "ogent-armory-schedule" nil t)
 (autoload 'ogent-export-conversation "ox-ogent" nil t)
+(autoload 'ogent-export-conversation-to-kill-ring "ox-ogent" nil t)
 
 (defconst ogent-action-registry
   '(;; Core actions
@@ -324,9 +325,11 @@ Set to nil to disable automatic evil binding setup."
     ;;   "C-k"  ogent-fanout-abort                      kill running fan-out
     ;;   "C-d"  ogent-fanout-compare                    diff fan-out results
     ;;   "*"    rating command (bead ogent-z0k.1)       star-rate response
-    ;;   "C-w"  ogent-export-conversation-to-kill-ring  copy export (like M-w)
     (export-conversation :key "C-x" :command ogent-export-conversation
-                         :desc "Export conversation (C-x: eXport)"))
+                         :desc "Export conversation (C-x: eXport)")
+    (export-conversation-to-kill-ring
+     :key "C-w" :command ogent-export-conversation-to-kill-ring
+     :desc "Copy conversation export (C-w: like M-w)"))
   "Registry of ogent actions with keys and commands.
 Each entry is (NAME :key KEY :command CMD :desc DESC [:visual t]).
 The :visual flag indicates the action should also be bound in visual state.")

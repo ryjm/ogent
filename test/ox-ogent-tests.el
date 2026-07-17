@@ -11,6 +11,7 @@
 
 (require 'ogent-test-helper)
 (require 'ox-ogent)
+(require 'cl-lib)
 
 (defconst ox-ogent-tests--fixture
   "* Parser deep dive
@@ -188,6 +189,86 @@ EXT-PLIST overrides export options.  Return the output string."
                 (should-not (string-match-p "OGENT_" html)))))
         (when (get-buffer ox-ogent--export-buffer-name)
           (kill-buffer ox-ogent--export-buffer-name))))))
+
+;;; Kill-ring export
+
+(ert-deftest ox-ogent-kill-ring-export-matches-buffer-export ()
+  "Kill-ring export pushes exactly the buffer-export Markdown.
+The table of contents is disabled for the comparison: its anchor
+ids are freshly randomized on every export."
+  (with-temp-buffer
+    (insert ox-ogent-tests--fixture)
+    (org-mode)
+    (goto-char (point-min))
+    (let ((kill-ring nil)
+          (kill-ring-yank-pointer nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil)
+          (org-export-with-toc nil)
+          (org-export-show-temporary-export-buffer nil))
+      (unwind-protect
+          (progn
+            (ogent-export-conversation)
+            (cl-letf (((symbol-function 'message) #'ignore))
+              (ogent-export-conversation-to-kill-ring))
+            (should (equal (current-kill 0)
+                           (with-current-buffer ox-ogent--export-buffer-name
+                             (buffer-string)))))
+        (when (get-buffer ox-ogent--export-buffer-name)
+          (kill-buffer ox-ogent--export-buffer-name))))))
+
+(ert-deftest ox-ogent-kill-ring-export-message-format ()
+  "Kill-ring export messages the copied size in the documented shape."
+  (with-temp-buffer
+    (insert ox-ogent-tests--fixture)
+    (org-mode)
+    (goto-char (point-min))
+    (let ((kill-ring nil)
+          (kill-ring-yank-pointer nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil)
+          (last-msg nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (setq last-msg (apply #'format fmt args)))))
+        (ogent-export-conversation-to-kill-ring))
+      (should (string-match-p
+               "\\`Copied \\([0-9]+\\|[0-9]+\\.[0-9]k\\) chars as Markdown\\'"
+               last-msg))
+      (should (equal last-msg
+                     (format "Copied %s chars as Markdown"
+                             (ox-ogent--format-char-count
+                              (length (current-kill 0)))))))))
+
+(ert-deftest ox-ogent-kill-ring-export-climbs-to-root ()
+  "Kill-ring export from inside a Response child copies the whole conversation."
+  (with-temp-buffer
+    (insert ox-ogent-tests--fixture)
+    (org-mode)
+    (goto-char (point-min))
+    (search-forward "(defun parse")
+    (let ((kill-ring nil)
+          (kill-ring-yank-pointer nil)
+          (interprogram-cut-function nil)
+          (interprogram-paste-function nil))
+      (cl-letf (((symbol-function 'message) #'ignore))
+        (ogent-export-conversation-to-kill-ring))
+      (let ((md (current-kill 0)))
+        (should (string-match-p "^## User$" md))
+        (should (string-match-p "^## claude-fable-5$" md))))))
+
+(ert-deftest ox-ogent-kill-ring-export-requires-org-mode ()
+  "Kill-ring export outside `org-mode' signals a `user-error'."
+  (with-temp-buffer
+    (text-mode)
+    (should-error (ogent-export-conversation-to-kill-ring)
+                  :type 'user-error)))
+
+(ert-deftest ox-ogent-format-char-count-shapes ()
+  "Char counts render verbatim below 1000, else with a k suffix."
+  (should (equal "342" (ox-ogent--format-char-count 342)))
+  (should (equal "2.1k" (ox-ogent--format-char-count 2100)))
+  (should (equal "1.0k" (ox-ogent--format-char-count 1000))))
 
 (provide 'ox-ogent-tests)
 

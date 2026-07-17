@@ -335,7 +335,7 @@ Each row binds the agreed chord and carries a non-empty description."
 The reservation comment at the end of `ogent-action-registry' names the
 owning command for each chord; when one of those commands lands, bind
 it to its reserved chord and delete that chord from this list."
-  (let ((reserved '("C-f" "C-k" "C-d" "*" "C-w"))
+  (let ((reserved '("C-f" "C-k" "C-d" "*"))
         (live (mapcar (lambda (entry) (plist-get (cdr entry) :key))
                       ogent-action-registry)))
     (dolist (chord reserved)

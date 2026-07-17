@@ -211,6 +211,32 @@ sharing its base name with a .md extension."
       (org-export-to-buffer 'ogent-md ox-ogent--export-buffer-name
         nil t nil nil nil (lambda () (text-mode))))))
 
+(defun ox-ogent--format-char-count (n)
+  "Format the character count N for the copy confirmation message.
+Counts below 1000 render verbatim; larger counts render with one
+decimal and a k suffix, e.g. 2100 renders as \"2.1k\"."
+  (if (< n 1000)
+      (number-to-string n)
+    (format "%.1fk" (/ n 1000.0))))
+
+;;;###autoload
+(defun ogent-export-conversation-to-kill-ring ()
+  "Export the conversation subtree at point as Markdown to the kill ring.
+Locate the enclosing conversation headline exactly like
+`ogent-export-conversation', export the subtree through the
+`ogent-md' backend, and push the result onto the kill ring (and,
+through `interprogram-cut-function', the system clipboard) for
+pasting outside Emacs.  Message the size of the copied text."
+  (interactive)
+  (unless (derived-mode-p 'org-mode)
+    (user-error "Not in an Org buffer"))
+  (let ((md (save-excursion
+              (ox-ogent--goto-conversation-root)
+              (org-export-as 'ogent-md t))))
+    (kill-new md)
+    (message "Copied %s chars as Markdown"
+             (ox-ogent--format-char-count (length md)))))
+
 (provide 'ox-ogent)
 
 ;;; ox-ogent.el ends here
