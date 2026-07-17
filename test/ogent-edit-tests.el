@@ -8,6 +8,7 @@
 (require 'ogent-edit)
 (require 'flymake)
 (require 'smerge-mode)
+(declare-function ogent-analytics--get-db "ogent-analytics")
 
 (defvar flycheck-current-errors)
 (defvar gptel-backend)

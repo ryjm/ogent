@@ -443,7 +443,7 @@ Interactively, a prefix argument (\\[universal-argument]) prompts for
 the member set with completion over the registry; otherwise, and when
 MODELS is nil, the set falls back through
 `ogent-fanout-default-models' and the role picker's distinct models
-(see `ogent-fanout--resolve-model-set').  Aliases canonicalize;
+\(see `ogent-fanout--resolve-model-set').  Aliases canonicalize;
 duplicate and empty sets are refused.  PRESET and TEMPLATES are
 forwarded to the send path as in `ogent-request'.
 
@@ -620,7 +620,7 @@ comparisons never accumulate buffers."
          (ogent-fanout--compare-buffer b members))))))
 
 (defun ogent-fanout--compare-cleanup (buffers)
-  "Return a closure that kills whichever of BUFFERS are still live."
+  "Return a closure closing whichever of BUFFERS remain live."
   (lambda ()
     (dolist (buffer buffers)
       (when (buffer-live-p buffer)

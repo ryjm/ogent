@@ -980,7 +980,7 @@ and mis-read the body as suffix specs), `cdr' when absent."
                 (cond
                  ((and (consp form)
                        (memq (car form) '(transient-define-prefix
-                                          ogent-armory-ui--define-prefix)))
+                                           ogent-armory-ui--define-prefix)))
                   (push (nth 1 form) prefixes)
                   (let* ((rest (nthcdr 2 form))
                          (body (if (stringp (cadr rest))

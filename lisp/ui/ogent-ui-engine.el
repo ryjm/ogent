@@ -791,7 +791,7 @@ A :fallback-status string in REQUEST's context (see
 `ogent-ui--set-fallback-status') replaces the status keyword so
 provider recovery state stays visible in the transcript.  A fan-out
 member whose group has several members renders one chip per member
-(see `ogent-ui--fanout-chips') after the aggregate group status; a
+\(see `ogent-ui--fanout-chips') after the aggregate group status; a
 single-member group keeps the plain request header shape."
   (let ((block-start (ogent-ui-request-block-start request))
         (model (ogent-ui-request-model request))

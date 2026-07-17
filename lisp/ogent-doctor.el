@@ -24,13 +24,13 @@
 (declare-function ogent-codex-oauth-mode "ogent-codex-oauth")
 (declare-function ogent-codex-oauth-get-api-key "ogent-codex-oauth")
 (declare-function ogent-anthropic-oauth--find-existing-token-file "ogent-anthropic-oauth")
-(declare-function gptel-backend-key "ext:gptel" (backend))
+(declare-function gptel-backend-key "ext:gptel" (backend) t)
 (declare-function ogent-analytics--db-path "ogent-analytics")
 (declare-function ogent-armory-adapter-list "ogent-armory-adapter")
 (declare-function ogent-armory-adapter-executable "ogent-armory-adapter" (adapter))
 (declare-function ogent-mcp-connect "ogent-mcp" (server-name))
 (declare-function ogent-mcp-disconnect "ogent-mcp" (server-name))
-(declare-function ogent-mcp-connection-status "ogent-mcp" (connection))
+(declare-function ogent-mcp-connection-status "ogent-mcp" (connection) t)
 
 (defvar transient-version)
 (defvar gptel-backend)
@@ -562,8 +562,8 @@ Return (STATUS . DETAIL)."
 
 ;;; Runner
 
-(defun ogent-doctor--run-checks (checks)
-  "Run every probe in CHECKS and return a list of result plists.
+(defun ogent-doctor--run-checks (check-list)
+  "Run every probe in CHECK-LIST and return a list of result plists.
 Each check's :fn is called with no arguments and must return a cons
 \(STATUS . DETAIL).  Crashes are contained: a check that signals
 reports as a failing result carrying the error text, and a check
@@ -590,7 +590,7 @@ neither aborts the remaining checks.  Each result plist carries :id,
              :status status
              :detail detail
              :remediation (plist-get check :remediation))))
-   checks))
+   check-list))
 
 (defun ogent-doctor-run (&optional include-opt-in)
   "Run every registered doctor probe and return result plists.
