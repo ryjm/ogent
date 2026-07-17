@@ -60,13 +60,24 @@ Used to estimate token counts from text length."
 
 (defcustom ogent-analytics-model-pricing
   ;; Starter table for the shipped `ogent-model-registry' entries.
-  ;; Prices are USD per million tokens as published 2026-07; revisit
-  ;; when providers reprice.  The bare "claude-haiku-4-5" entry shows
-  ;; the prefix rule covering dated variants like
-  ;; claude-haiku-4-5-20251001 without listing each one.
-  '(("gpt-5.6-sol"       . (:input-per-mtok 1.25 :output-per-mtok 10.00))
-    ("gpt-5.6-terra"     . (:input-per-mtok 0.25 :output-per-mtok 2.00))
-    ("gpt-5.6-luna"      . (:input-per-mtok 0.05 :output-per-mtok 0.40))
+  ;; Prices are USD per million tokens; revisit when providers
+  ;; reprice.  The bare "claude-haiku-4-5" entry shows the prefix rule
+  ;; covering dated variants like claude-haiku-4-5-20251001 without
+  ;; listing each one.
+  ;;
+  ;; gpt-5.6 family verified 2026-07-17 against the official model
+  ;; pages (developers.openai.com/api/docs/models/gpt-5.6-{sol,terra,
+  ;; luna}): sol $5/$30, terra $2.50/$15, luna $1/$6; cached-input
+  ;; rates $0.50/$0.25/$0.10.  CAVEATS the flat schema cannot express:
+  ;; prompts >272K input tokens bill at 2x input / 1.5x output for the
+  ;; FULL request (computed costs UNDERSTATE long-context usage), and
+  ;; cache reads bill at the cheaper cached rate and cache writes at
+  ;; 1.25x the uncached input rate, neither of which we track
+  ;; (computed costs OVERSTATE cache-read-heavy usage and UNDERSTATE
+  ;; cache-write-heavy usage).  Estimates only.
+  '(("gpt-5.6-sol"       . (:input-per-mtok 5.00 :output-per-mtok 30.00))
+    ("gpt-5.6-terra"     . (:input-per-mtok 2.50 :output-per-mtok 15.00))
+    ("gpt-5.6-luna"      . (:input-per-mtok 1.00 :output-per-mtok 6.00))
     ("gpt-5.5-pro"       . (:input-per-mtok 15.00 :output-per-mtok 120.00))
     ("gpt-5.5"           . (:input-per-mtok 1.25 :output-per-mtok 10.00))
     ("gpt-5.4-mini"      . (:input-per-mtok 0.25 :output-per-mtok 2.00))

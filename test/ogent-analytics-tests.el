@@ -822,6 +822,20 @@ TABLE seen is the base completions table."
   (should (ogent-analytics--model-pricing "claude-haiku-4-5-20251001"))
   (should (ogent-analytics--model-pricing "gpt-5.6-sol")))
 
+(ert-deftest ogent-analytics-test-gpt56-pricing-matches-official ()
+  "Pin the officially verified gpt-5.6 family rates.
+Verified 2026-07-17 against the official model pages at
+developers.openai.com/api/docs/models/gpt-5.6-{sol,terra,luna}.
+When OpenAI reprices, re-verify against those pages and update BOTH
+the starter table and this pin - never from aggregator sites."
+  (dolist (expected '(("gpt-5.6-sol" 5.00 30.00)
+                      ("gpt-5.6-terra" 2.50 15.00)
+                      ("gpt-5.6-luna" 1.00 6.00)))
+    (let ((pricing (ogent-analytics--model-pricing (car expected))))
+      (should pricing)
+      (should (= (plist-get pricing :input-per-mtok) (nth 1 expected)))
+      (should (= (plist-get pricing :output-per-mtok) (nth 2 expected))))))
+
 (ert-deftest ogent-analytics-test-pricing-unknown-model-nil ()
   "Unknown or non-string models have no pricing and a nil cost."
   (should-not (ogent-analytics--model-pricing "mystery-model-9000"))
