@@ -31,6 +31,12 @@
 (defvar gptel-backend)
 (defvar gptel-model)
 
+;; Analytics (optional; soft-required at response time, mirroring the
+;; ogent-ui engine and ogent-armory-native).
+(declare-function ogent-analytics-record-completion "ogent-analytics")
+;; Struct accessor (fileonly: cl-defstruct-generated)
+(declare-function ogent-analytics-completion-id "ogent-analytics" t t)
+
 ;; Diagnostic integrations.  The flycheck-error-* accessors are
 ;; cl-defstruct-generated, which check-declare cannot resolve, hence
 ;; the FILEONLY flags.  The flymake declarations silence Emacs 30.2's
@@ -850,6 +856,28 @@ not a valid structured payload."
          (ogent-edit-parse-response response source-buffer)))
     (ogent-edit-parse-response response source-buffer)))
 
+(defun ogent-edit--record-analytics-completion (request response)
+  "Record RESPONSE for edit REQUEST in analytics; return the row id or nil.
+Analytics is a side channel: it is soft-required here,
+`ogent-analytics-record-completion' self-guards on
+`ogent-analytics-enabled', and a recording failure must never break
+response processing.  The returned completions row id is what links
+the pending request and its parsed edit structs back to the recorded
+row (bead ogent-z0k.2)."
+  (require 'ogent-analytics nil t)
+  (when (fboundp 'ogent-analytics-record-completion)
+    (condition-case err
+        (when-let ((completion (ogent-analytics-record-completion
+                                (or (plist-get request :model) "unknown")
+                                (or (plist-get request :prompt) "")
+                                (or response "")
+                                "edit")))
+          (ogent-analytics-completion-id completion))
+      (error
+       (message "ogent-analytics: failed to record edit completion: %s"
+                (error-message-string err))
+       nil))))
+
 (defun ogent-edit--process-response (response)
   "Process LLM RESPONSE and apply edits to source buffer.
 If `ogent-edit-auto-apply' is non-nil, edits are applied directly.
@@ -858,6 +886,20 @@ Otherwise, edits are displayed for user review."
          (source-buffer (plist-get request :source-buffer))
          (edits (ogent-edit--parse-response-dispatch
                  response source-buffer (plist-get request :structured))))
+    ;; Record the completion for analytics, then thread its row id
+    ;; through the pending-request plist (the same channel that already
+    ;; carries :attempt/:tried through fallback work) and onto every
+    ;; parsed edit struct.  Quick edits and diagnostic repairs run from
+    ;; ordinary code buffers with no org block, so the OGENT_COMPLETION_ID
+    ;; drawer plumbing cannot apply; the struct is the linkage channel
+    ;; that `ogent-edit-resolved-hook' consumers read (bead ogent-z0k.2).
+    ;; One request = one completion: multi-edit responses all share it.
+    (when-let ((completion-id
+                (ogent-edit--record-analytics-completion request response)))
+      (setq ogent-edit--pending-request
+            (plist-put request :completion-id completion-id))
+      (dolist (edit edits)
+        (setf (ogent-edit-completion-id edit) completion-id)))
     (message "Edit: parsed %d edit blocks from response" (length edits))
     ;; Validate all edits
     (setq edits (ogent-edit-validate-all edits))

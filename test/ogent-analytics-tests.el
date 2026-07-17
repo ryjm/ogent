@@ -15,6 +15,12 @@
 
 ;; Load analytics module
 (require 'ogent-analytics)
+;; The ogent-edit struct carries the completion id linking an edit
+;; resolution back to its completions row (bead ogent-z0k.2).
+(require 'ogent-edit-format)
+;; The resolved-hook variable lives in ogent-edit-display, which this
+;; suite does not load; declare it special so let-binding works.
+(defvar ogent-edit-resolved-hook)
 
 ;;; Token Estimation Tests
 
@@ -975,6 +981,296 @@ Point is left on the Response headline.  The caller kills the buffer."
   (with-temp-buffer
     (fundamental-mode)
     (should-not (ogent-analytics--completion-id-at-point))))
+
+;;; Auto-Outcome Tests (bead ogent-z0k.2)
+
+(ert-deftest ogent-analytics-test-edit-resolved-hook-registered ()
+  "Loading analytics registers the auto-outcome handler on the hook."
+  (should (memq #'ogent-analytics--edit-resolved ogent-edit-resolved-hook)))
+
+(ert-deftest ogent-analytics-test-edit-accept-sets-outcome ()
+  "Accepting a linked edit sets outcome accepted; rating is untouched."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion)))
+      (ogent-analytics--edit-resolved
+       (make-ogent-edit :id "e" :completion-id id :status 'accepted))
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT outcome, rating FROM completions WHERE id = ?"
+                      (list id))
+                     '(("accepted" 0)))))))
+
+(ert-deftest ogent-analytics-test-edit-reject-sets-outcome ()
+  "Rejecting a linked edit sets outcome rejected on the row."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion)))
+      (ogent-analytics--edit-resolved
+       (make-ogent-edit :id "e" :completion-id id :status 'rejected))
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT outcome FROM completions WHERE id = ?"
+                      (list id))
+                     '(("rejected")))))))
+
+(ert-deftest ogent-analytics-test-explicit-rating-survives-auto-outcome ()
+  "An explicit rating always wins over a later auto-outcome."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion)))
+      (ogent-analytics-rate-completion id 4)
+      (ogent-analytics--edit-resolved
+       (make-ogent-edit :id "e" :completion-id id :status 'accepted))
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT outcome, rating FROM completions WHERE id = ?"
+                      (list id))
+                     '(("rated" 4)))))))
+
+(ert-deftest ogent-analytics-test-unlinked-edit-silently-skipped ()
+  "An edit without a completion id records nothing and stays silent."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion))
+           (messages nil))
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args)
+                   (push (apply #'format fmt args) messages))))
+        (ogent-analytics--edit-resolved
+         (make-ogent-edit :id "e" :status 'accepted)))
+      (should-not messages)
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT outcome FROM completions WHERE id = ?"
+                      (list id))
+                     '(("pending")))))))
+
+(ert-deftest ogent-analytics-test-ambiguous-resolution-skipped ()
+  "A plain smerge \\='resolved status is ambiguous and records nothing."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion)))
+      (ogent-analytics--edit-resolved
+       (make-ogent-edit :id "e" :completion-id id :status 'resolved))
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT outcome FROM completions WHERE id = ?"
+                      (list id))
+                     '(("pending")))))))
+
+(ert-deftest ogent-analytics-test-rate-completion-programmatic ()
+  "The programmatic rating core updates the row without prompting."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion)))
+      (ogent-analytics-rate-completion id 5)
+      (should (equal (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT rating, outcome FROM completions WHERE id = ?"
+                      (list id))
+                     '((5 "rated"))))
+      (should (= (ogent-analytics-completion-rating completion) 5))
+      (should (eq (ogent-analytics-completion-outcome completion) 'rated)))))
+
+;;; Dashboard Cost/Rating Tests (bead ogent-z0k.4)
+
+(defun ogent-analytics-tests--insert-dashboard-fixture ()
+  "Insert the golden dashboard fixture rows into the fixture database.
+Four rows across two models and two days; the literal aggregate
+values asserted by the ogent-z0k.4 tests derive from these."
+  (let ((db (ogent-analytics--get-db)))
+    (dolist (row '(("2026-07-01 10:00:00" "model-a" "rated" 5 100 200 300 0.01)
+                   ("2026-07-01 11:00:00" "model-a" "rated" 4 100 200 300 0.03)
+                   ("2026-07-02 09:00:00" "model-b" "pending" 0 50 50 100 nil)
+                   ("2026-07-02 12:00:00" "model-a" "rejected" 0 100 100 200 0.02)))
+      (sqlite-execute db "
+        INSERT INTO completions (timestamp, model, outcome, rating,
+                                 prompt_tokens, response_tokens,
+                                 total_tokens, cost_usd)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)" row))))
+
+(ert-deftest ogent-analytics-test-dashboard-cost-and-rating-golden ()
+  "Dashboard cost/rating sections render golden aggregate values."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (ogent-analytics-tests--insert-dashboard-fixture)
+    (with-temp-buffer
+      (ogent-analytics--insert-dashboard)
+      (let ((content (buffer-string)))
+        ;; Cost by model: model-a 0.01+0.03+0.02, model-b unpriced NULL.
+        (should (string-match-p "## Cost by Model" content))
+        (should (string-match-p
+                 (regexp-quote "| model-a | 3 | $0.0600 | $0.0200 |") content))
+        (should (string-match-p
+                 (regexp-quote "| model-b | 1 | - | - |") content))
+        ;; Cost by day, newest first.
+        (should (string-match-p "## Cost by Day" content))
+        (should (string-match-p
+                 (regexp-quote "| 2026-07-02 | 2 | $0.0200 | $0.0200 |") content))
+        (should (string-match-p
+                 (regexp-quote "| 2026-07-01 | 2 | $0.0400 | $0.0200 |") content))
+        ;; Rating distribution: model-a one 4 and one 5, average 4.5.
+        (should (string-match-p "## Ratings by Model" content))
+        (should (string-match-p
+                 (regexp-quote "| model-a | 0 | 0 | 0 | 1 | 1 | 4.5 |") content))
+        (should (string-match-p
+                 (regexp-quote "| model-b | 0 | 0 | 0 | 0 | 0 | - |") content))
+        ;; Unrated nudge names the * rating key.
+        (should (string-match-p
+                 (regexp-quote
+                  "Unrated completions: 2 (press * on a response headline to rate)")
+                 content))))))
+
+(ert-deftest ogent-analytics-test-dashboard-empty-db-renders ()
+  "An empty database renders the new sections without error."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (with-temp-buffer
+      (ogent-analytics--insert-dashboard)
+      (let ((content (buffer-string)))
+        (should (string-match-p "No cost data available" content))
+        (should (string-match-p "No rating data available" content))
+        (should (string-match-p
+                 (regexp-quote
+                  "Unrated completions: 0 (press * on a response headline to rate)")
+                 content))))))
+
+(ert-deftest ogent-analytics-test-dashboard-keeps-existing-keys ()
+  "The g/e/o dashboard keys keep their bindings alongside the new views."
+  (should (eq (lookup-key ogent-analytics-dashboard-mode-map (kbd "g"))
+              #'ogent-analytics-dashboard-refresh))
+  (should (eq (lookup-key ogent-analytics-dashboard-mode-map (kbd "e"))
+              #'ogent-analytics-export-csv))
+  (should (eq (lookup-key ogent-analytics-dashboard-mode-map (kbd "o"))
+              #'ogent-analytics-export-org)))
+
+(ert-deftest ogent-analytics-test-export-csv-new-columns ()
+  "CSV export carries the cost_usd and fanout_group columns."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (ogent-analytics-tests--insert-dashboard-fixture)
+    ;; Retained temp file: the OS owns its lifecycle.
+    (let ((file (make-temp-file "ogent-analytics-csv-test-")))
+      (ogent-analytics-export-csv file)
+      (let ((content (with-temp-buffer
+                       (insert-file-contents file)
+                       (buffer-string))))
+        (should (string-prefix-p
+                 (concat "timestamp,model,outcome,rating,prompt_tokens,"
+                         "response_tokens,total_tokens,ttft_ms,latency_ms,"
+                         "template,cost_usd,fanout_group\n")
+                 content))
+        (should (string-match-p "0\\.01" content))
+        (should (string-match-p "0\\.03" content))))))
+
+(ert-deftest ogent-analytics-test-export-org-new-columns ()
+  "Org export model/daily tables carry cost and rating columns."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (ogent-analytics-tests--insert-dashboard-fixture)
+    ;; Retained temp file: the OS owns its lifecycle.
+    (let ((file (make-temp-file "ogent-analytics-org-test-")))
+      (ogent-analytics-export-org file)
+      (let ((content (with-temp-buffer
+                       (insert-file-contents file)
+                       (buffer-string))))
+        (should (string-match-p
+                 (regexp-quote "| Total Cost | Avg Rating |") content))
+        (should (string-match-p (regexp-quote "$0.0600") content))
+        (should (string-match-p (regexp-quote "| 4.5 |") content))
+        (should (string-match-p
+                 (regexp-quote "| Avg Latency | Cost |") content))
+        (should (string-match-p (regexp-quote "$0.0400") content))))))
+
+;;; Eval-Loop E2E (bead ogent-z0k.5)
+
+(ert-deftest ogent-analytics-test-eval-loop-e2e ()
+  "End-to-end eval loop: record, drawer id, rate, then edit accept.
+
+Living documentation of the eval loop's state machine.  The test
+emits one log line per transition; the STABLE format (keep it -- it
+is greppable documentation) is
+
+  completion <ID>: recorded
+  completion <ID>: rated <N>
+  completion <ID>: outcome <accepted|rejected> (rating wins)
+
+and the full chain, asserted literally below, joins the transitions
+with \" -> \":
+
+  completion 1: recorded -> rated 4 -> outcome accepted (rating wins)
+
+\"(rating wins)\" documents the precedence rule: the auto-outcome
+arrived after an explicit rating, so the row keeps outcome
+\\='rated and the rating value."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let ((ogent-analytics-model-pricing
+           '(("e2e-model" . (:input-per-mtok 2.0 :output-per-mtok 10.0))))
+          (ogent-analytics-chars-per-token 4.0)
+          (transitions nil))
+      ;; 1. Record a completion via a stubbed request: 400 prompt chars
+      ;; -> 100 tokens, 800 response chars -> 200 tokens, so the
+      ;; record-time cost is 100*$2/M + 200*$10/M = $0.0022.
+      (let* ((completion (ogent-analytics-record-completion
+                          "e2e-model"
+                          (make-string 400 ?p) (make-string 800 ?r)))
+             (id (ogent-analytics-completion-id completion))
+             (db (ogent-analytics--get-db)))
+        (push "recorded" transitions)
+        (message "completion %d: recorded" id)
+        (should (equal (sqlite-select
+                        db "SELECT outcome, rating FROM completions WHERE id = ?"
+                        (list id))
+                       '(("pending" 0))))
+        ;; 2. The request drawer carries the completion id; rate it 4
+        ;; from the Response headline (the * registry chord).
+        (let ((buffer (ogent-analytics-tests--make-rated-buffer id)))
+          (unwind-protect
+              (with-current-buffer buffer
+                (cl-letf (((symbol-function 'read-char-choice)
+                           (lambda (_prompt _chars) ?4)))
+                  (ogent-analytics-rate-response)))
+            (kill-buffer buffer)))
+        (push "rated 4" transitions)
+        (message "completion %d: rated 4" id)
+        (should (equal (sqlite-select
+                        db "SELECT outcome, rating FROM completions WHERE id = ?"
+                        (list id))
+                       '(("rated" 4))))
+        ;; 3. Accept an edit linked to the completion.  The struct
+        ;; carries the id exactly as `ogent-edit--process-response'
+        ;; stamps it; the resolved hook drives the auto-outcome.
+        (let ((edit (make-ogent-edit :id "ogent-edit-e2e"
+                                     :completion-id id
+                                     :status 'accepted))
+              (ogent-edit-resolved-hook
+               (list #'ogent-analytics--edit-resolved)))
+          (run-hook-with-args 'ogent-edit-resolved-hook edit))
+        (push "outcome accepted (rating wins)" transitions)
+        (message "completion %d: outcome accepted (rating wins)" id)
+        ;; 4. Final row state: the explicit rating wins the outcome,
+        ;; the rating survives, and the record-time cost is untouched.
+        (let ((row (car (sqlite-select
+                         db
+                         "SELECT outcome, rating, cost_usd FROM completions WHERE id = ?"
+                         (list id)))))
+          (should (equal (nth 0 row) "rated"))
+          (should (equal (nth 1 row) 4))
+          (should (< (abs (- (nth 2 row) 0.0022)) 1e-9)))
+        ;; 5. The whole transition chain, oldest first, in the stable
+        ;; log format.  Fresh in-memory fixture => the row id is 1.
+        (should (equal (format "completion %d: %s" id
+                               (mapconcat #'identity
+                                          (nreverse transitions) " -> "))
+                       "completion 1: recorded -> rated 4 -> outcome accepted (rating wins)"))))))
 
 (provide 'ogent-analytics-tests)
 

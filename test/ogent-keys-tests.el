@@ -330,16 +330,14 @@ Each row binds the agreed chord and carries a non-empty description."
       (should (stringp (plist-get props :desc)))
       (should (> (length (plist-get props :desc)) 0)))))
 
-(ert-deftest ogent-keys-reserved-chords-stay-free ()
-  "Chords reserved for sibling epics are not bound by live registry rows.
-The reservation comment at the end of `ogent-action-registry' names the
-owning command for each chord; when one of those commands lands, bind
-it to its reserved chord and delete that chord from this list."
-  (let ((reserved '("C-d"))
-        (live (mapcar (lambda (entry) (plist-get (cdr entry) :key))
-                      ogent-action-registry)))
-    (dolist (chord reserved)
-      (should-not (member chord live)))))
+(ert-deftest ogent-keys-action-get-fanout-compare ()
+  "The last reserved chord C-d is bound to compare mode (ogent-pje.4).
+This row consumed the final reservation from the ogent-jk5.1 comment,
+so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
+  (should (string= (ogent-action-get 'fanout-compare :key) "C-d"))
+  (should (eq (ogent-action-get 'fanout-compare :command)
+              'ogent-fanout-compare))
+  (should (string-match-p "C-d" (ogent-action-get 'fanout-compare :desc))))
 
 (ert-deftest ogent-keys-action-get-analytics-rate ()
   "The reserved * chord is bound to the 1-5 rating command (ogent-z0k.1)."

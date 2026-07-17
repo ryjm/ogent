@@ -517,5 +517,203 @@ number of members aborted."
                (if (= 1 (length members)) "" "s"))
       (length members))))
 
+;;; Compare mode: pairwise diff and keep-this-one (bead ogent-pje.4)
+
+;; Analytics rating pipeline (soft dependency, fboundp-guarded).
+(declare-function ogent-analytics-rate-completion "ogent-analytics")
+
+(defun ogent-fanout--group-heading-marker (group)
+  "Return a marker on GROUP's Request heading, or nil.
+The heading is the Org entry whose property drawer records GROUP as
+its OGENT_FANOUT_GROUP."
+  (org-with-wide-buffer
+   (goto-char (point-min))
+   (when (search-forward (format ":OGENT_FANOUT_GROUP: %s" group) nil t)
+     (org-back-to-heading t)
+     (copy-marker (point)))))
+
+(defun ogent-fanout--members (group)
+  "Return GROUP's member responses as (MODEL-ID MARKER . BODY) entries.
+Scans GROUP's Request subtree for the per-member \"Response (MODEL)\"
+headlines, in dispatch order.  MARKER sits on the member's headline
+and survives sibling edits; BODY is the member's rendered plain-text
+response: the trimmed text between the headline's meta data and the
+next heading.  Return nil when GROUP has no subtree in the current
+buffer."
+  (when-let ((start (ogent-fanout--group-heading-marker group)))
+    (org-with-wide-buffer
+     (goto-char start)
+     (let ((bound (save-excursion (org-end-of-subtree t t) (point)))
+           (members nil))
+       (while (re-search-forward "^\\*+ Response (\\([^)]+\\))" bound t)
+         (let* ((model (match-string-no-properties 1))
+                (headline (copy-marker (line-beginning-position)))
+                (body-start (save-excursion
+                              (org-end-of-meta-data t)
+                              (point)))
+                (body-end (save-excursion
+                            (if (re-search-forward org-outline-regexp-bol
+                                                   bound t)
+                                (match-beginning 0)
+                              bound))))
+           (push (cons model
+                       (cons headline
+                             (string-trim (buffer-substring-no-properties
+                                           body-start body-end))))
+                 members)))
+       (nreverse members)))))
+
+(defun ogent-fanout--compare-buffer (model members)
+  "Return a fresh plain-text buffer holding MODEL's body from MEMBERS.
+MEMBERS is the `ogent-fanout--members' list.  Signal a `user-error'
+when MODEL has no response in MEMBERS."
+  (let ((entry (assoc model members)))
+    (unless entry
+      (user-error "No fan-out response for model %s" model))
+    (let ((buffer (generate-new-buffer
+                   (format "*ogent fanout diff: %s*" model))))
+      (with-current-buffer buffer
+        (insert (cddr entry))
+        (text-mode))
+      buffer)))
+
+;;;###autoload
+(defun ogent-fanout-compare (&optional group model-a model-b)
+  "Pairwise ediff two member responses of the fan-out GROUP at point.
+GROUP defaults to the group at point (see
+`ogent-fanout--group-at-point').  A two-member group implies the
+pair; a larger group reads MODEL-A and MODEL-B with completion over
+the member model ids.  Refuse a group that still has members in
+flight: a partial body would diff as a regression that is not one.
+Each rendered body is copied verbatim into a fresh plain-text buffer
+and the pair goes to `ediff-buffers'; the transcript itself is never
+touched, so comparing stays read-only.  The variant buffers are
+ephemeral: quitting the ediff session reaps exactly them (via a
+buffer-local `ediff-after-quit-hook-internal' on the control buffer),
+and a failing ediff setup reaps them immediately, so repeated
+comparisons never accumulate buffers."
+  (interactive)
+  (let ((group (or group (ogent-fanout--group-at-point))))
+    (unless group
+      (user-error "No fan-out group at point"))
+    (when (seq-some (lambda (request)
+                      (equal (plist-get (ogent-ui-request-context request)
+                                        :fanout-group)
+                             group))
+                    (ogent-ui-active-requests))
+      (user-error "Fan-out group still has members in flight"))
+    (let ((members (ogent-fanout--members group)))
+      (when (< (length members) 2)
+        (user-error "Fan-out group needs two responses to compare"))
+      (let* ((ids (mapcar #'car members))
+             (a (or model-a
+                    (if (null (cddr members))
+                        (car ids)
+                      (completing-read "Compare model: " ids nil t))))
+             (b (or model-b
+                    (if (null (cddr members))
+                        (cadr ids)
+                      (completing-read (format "Compare %s with: " a)
+                                       (remove a ids) nil t)))))
+        (ogent-fanout--compare-ediff
+         (ogent-fanout--compare-buffer a members)
+         (ogent-fanout--compare-buffer b members))))))
+
+(defun ogent-fanout--compare-cleanup (buffers)
+  "Return a closure that kills whichever of BUFFERS are still live."
+  (lambda ()
+    (dolist (buffer buffers)
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(defun ogent-fanout--compare-ediff (buffer-a buffer-b)
+  "Hand variant BUFFER-A and BUFFER-B to `ediff-buffers' with cleanup.
+A startup hook runs in the ediff control buffer and registers a
+buffer-local `ediff-after-quit-hook-internal' there that kills
+exactly the two generated variants when the session quits.  When
+ediff setup signals instead, kill them here and re-signal, so a
+failed session cannot leak either buffer."
+  (let ((cleanup (ogent-fanout--compare-cleanup
+                  (list buffer-a buffer-b))))
+    (condition-case err
+        (ediff-buffers
+         buffer-a buffer-b
+         (list (lambda ()
+                 (add-hook 'ediff-after-quit-hook-internal cleanup
+                           nil t))))
+      (error
+       (funcall cleanup)
+       (signal (car err) (cdr err))))))
+
+(defun ogent-fanout--member-at-point ()
+  "Return the model id of the fan-out member Response headline at point.
+Point may sit anywhere inside the member's subtree.  Return nil when
+no enclosing headline is a member Response headline."
+  (when (derived-mode-p 'org-mode)
+    (save-excursion
+      (when (ignore-errors (org-back-to-heading t) t)
+        (catch 'model
+          (while t
+            (let ((heading (buffer-substring-no-properties
+                            (line-beginning-position)
+                            (line-end-position))))
+              (if (string-match "^\\*+ Response (\\([^)]+\\))" heading)
+                  (throw 'model (match-string 1 heading))
+                (unless (org-up-heading-safe)
+                  (throw 'model nil))))))))))
+
+(defun ogent-fanout--archived-p (pom)
+  "Return non-nil when the heading at POM carries the ARCHIVE tag."
+  (org-with-point-at pom
+    (member org-archive-tag (org-get-tags nil t))))
+
+(defun ogent-fanout--set-archived (pom archived)
+  "Give the heading at POM the org ARCHIVE tag iff ARCHIVED is non-nil.
+Toggles via `org-toggle-archive-tag' only when the current state
+differs, so the operation is idempotent and fully reversible."
+  (org-with-point-at pom
+    (when (xor archived (ogent-fanout--archived-p (point)))
+      (org-toggle-archive-tag))))
+
+;;;###autoload
+(defun ogent-fanout-keep (&optional model)
+  "Keep the fan-out member response at point; archive-tag its siblings.
+MODEL overrides the member Response headline at point.  Every losing
+sibling headline gets the org ARCHIVE tag via
+`org-toggle-archive-tag' -- org-native and reversible: the subtree
+folds by default and no text moves anywhere -- while the winner's tag
+is removed, so re-running the command on another member swaps the
+marking.  The winner itself gets no marking.  When the analytics
+rating pipeline is loaded (`ogent-analytics-rate-completion') and the
+winner's headline carries an OGENT_COMPLETION_ID property, the
+winner's completion row is rated 5; losers stay unrated -- an
+unpicked response is not evidence of badness.  Return the winner's
+model id."
+  (interactive)
+  (let ((model (or model (ogent-fanout--member-at-point)))
+        (group (ogent-fanout--group-at-point)))
+    (unless (and model group)
+      (user-error "Point is not on a fan-out member response"))
+    (let ((members (ogent-fanout--members group)))
+      (unless (assoc model members)
+        (user-error "No fan-out response for model %s" model))
+      (let ((losers 0)
+            (winner nil))
+        (dolist (entry members)
+          (if (equal (car entry) model)
+              (progn
+                (setq winner (cadr entry))
+                (ogent-fanout--set-archived (cadr entry) nil))
+            (ogent-fanout--set-archived (cadr entry) t)
+            (setq losers (1+ losers))))
+        (when (fboundp 'ogent-analytics-rate-completion)
+          (when-let* ((prop (org-entry-get winner "OGENT_COMPLETION_ID"))
+                      (id (string-to-number prop)))
+            (when (> id 0)
+              (ogent-analytics-rate-completion id 5))))
+        (message "Kept %s; archived %d sibling%s"
+                 model losers (if (= losers 1) "" "s"))
+        model))))
+
 (provide 'ogent-ui-send)
 ;;; ogent-ui-send.el ends here

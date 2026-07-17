@@ -973,24 +973,15 @@ member simply fails.  Return the fallback action taken."
              (ogent-ui-request-context request)
              (marker-position marker))))))))
 
-(defun ogent-ui--analytics-accepts-fanout-p ()
-  "Return non-nil when the completion recorder accepts fan-out group args.
-`ogent-analytics-record-completion' historically takes four
-positional arguments; only pass the extra `:fanout-group' pair when
-the installed definition (or a test stub) can actually receive it."
-  (when (fboundp 'ogent-analytics-record-completion)
-    (ignore-errors
-      (let ((max (cdr (func-arity
-                       (indirect-function
-                        'ogent-analytics-record-completion)))))
-        (or (eq max 'many) (and (integerp max) (>= max 6)))))))
-
 (defun ogent-ui--analytics-completion-args (request)
   "Return the `ogent-analytics-record-completion' arguments for REQUEST.
 The list carries the member model id, prompt, streamed response body,
-and preset.  When REQUEST belongs to a fan-out group and the recorder
-accepts extra arguments, append \\=`:fanout-group GROUP\\=' so the
-group's analytics rows stay comparable."
+and preset.  When REQUEST belongs to a fan-out group it ends with a
+\\=`:fanout-group GROUP\\=' keyword pair, which the recorder accepts
+as part of its keyword tail (see
+`ogent-analytics-record-completion'), so the group's analytics rows
+stay comparable.  A plain request keeps the four historical
+positional arguments."
   (let* ((model (ogent-ui-request-model request))
          (preset (ogent-ui-request-preset request))
          (group (plist-get (ogent-ui-request-context request) :fanout-group))
@@ -998,7 +989,7 @@ group's analytics rows stay comparable."
                      (or (ogent-ui-request-prompt request) "")
                      (or (ogent-ui--response-body-text request) "")
                      (and preset (format "%s" preset)))))
-    (if (and group (ogent-ui--analytics-accepts-fanout-p))
+    (if group
         (append args (list :fanout-group group))
       args)))
 

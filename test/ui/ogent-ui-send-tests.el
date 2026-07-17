@@ -11,6 +11,12 @@
 ;; completion prompt.  And the group lifecycle (bead ogent-pje.3):
 ;; per-member header chips, group abort, watchdog isolation, and
 ;; `ogent-fanout-group-done-hook'.
+;; Plus compare mode (bead ogent-pje.4): pairwise ediff of member
+;; bodies, `ogent-fanout-keep' ARCHIVE marking, and the fboundp-guarded
+;; rating interplay.  And the persisted-tagging proof (bead
+;; ogent-pje.5): the transcript's OGENT_FANOUT_GROUP drawer property
+;; and the DB fanout_group column stay a working join key through the
+;; real recorder.
 
 ;;; Code:
 
@@ -779,10 +785,12 @@ BODY is the trimmed text between the headline and the next heading."
 
 (ert-deftest ogent-fanout-persists-group-rows-through-real-recorder ()
   "A stubbed-gptel fan-out lands N tagged rows via the real recorder.
-End-to-end: `ogent-fanout' dispatches through the mock gptel, request
-close runs the real `ogent-analytics-record-completion' into an
-in-memory database, every member row carries the shared group id, and
-a plain request's row keeps a NULL fanout_group."
+End-to-end (beads ogent-z0k.3 + ogent-pje.5): `ogent-fanout'
+dispatches through the mock gptel, request close runs the real
+`ogent-analytics-record-completion' into an in-memory database, every
+member row carries the shared group id, a plain request's row keeps a
+NULL fanout_group, and the group id matches the transcript's
+OGENT_FANOUT_GROUP drawer property, so the buffer<->DB join key holds."
   (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
   (ogent-test-with-fixture
    "data/fixture.org"
@@ -807,7 +815,18 @@ a plain request's row keeps a NULL fanout_group."
                          "SELECT model, fanout_group FROM completions ORDER BY id")
                         (list (list "test-model-1" group)
                               (list "test-model-2" group)
-                              (list "test-model-1" nil)))))))))
+                              (list "test-model-1" nil))))
+         ;; Buffer<->DB join key (bead ogent-pje.5): the group id in
+         ;; the drawer is byte-for-byte the fanout_group the member
+         ;; rows carry, so either side can find the other.
+         (goto-char (point-min))
+         (re-search-forward "^\\*+ Request: Fanout prompt")
+         (let ((drawer (org-entry-get (point) "OGENT_FANOUT_GROUP")))
+           (should (equal drawer group))
+           (should (equal (sqlite-select
+                           (ogent-analytics--get-db)
+                           "SELECT DISTINCT fanout_group FROM completions WHERE fanout_group IS NOT NULL")
+                          (list (list drawer))))))))))
 
 (ert-deftest ogent-request-stamps-completion-id-into-drawer ()
   "A plain request's block drawer gains OGENT_COMPLETION_ID at record time."
@@ -867,6 +886,291 @@ the member Response headlines to stay distinct and rateable."
              (beginning-of-line)
              (should (= (ogent-analytics--completion-id-at-point)
                         (car row))))))))))
+
+;;; Compare mode: pairwise ediff and keep-this-one (bead ogent-pje.4)
+
+(defun ogent-ui-send-tests--goto-response (model)
+  "Move point to the beginning of MODEL's Response headline."
+  (goto-char (point-min))
+  (re-search-forward (format "^\\*+ Response (%s)" (regexp-quote model)))
+  (beginning-of-line))
+
+(defun ogent-ui-send-tests--archived-p (model)
+  "Return non-nil when MODEL's Response headline carries the ARCHIVE tag."
+  (save-excursion
+    (ogent-ui-send-tests--goto-response model)
+    (member org-archive-tag (org-get-tags nil t))))
+
+(ert-deftest ogent-fanout-compare-ediffs-member-bodies ()
+  "Compare hands the two rendered member bodies to `ediff-buffers'.
+A two-member group implies the pair; each body lands verbatim in a
+fresh plain-text buffer named for its model, and the transcript
+itself is untouched."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--registry)
+           (callbacks nil)
+           (compared nil))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    (push (plist-get args :callback) callbacks)
+                    'mock-request))
+                 ((symbol-function 'ediff-buffers)
+                  (lambda (buffer-a buffer-b &rest _)
+                    (setq compared (list buffer-a buffer-b)))))
+         (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2"))
+         ;; `push' reverses: nth 1 is the first-dispatched member.
+         (funcall (nth 1 callbacks) "alpha body" nil)
+         (funcall (nth 0 callbacks) "beta body" nil)
+         (funcall (nth 1 callbacks) nil '(:done t))
+         (funcall (nth 0 callbacks) nil '(:done t))
+         (unwind-protect
+             (let ((before (buffer-string)))
+               (ogent-ui-send-tests--goto-response "test-model-2")
+               (ogent-fanout-compare)
+               (should (equal (buffer-string) before))
+               (should (= 2 (length compared)))
+               (should (string-match-p "test-model-1"
+                                       (buffer-name (nth 0 compared))))
+               (should (string-match-p "test-model-2"
+                                       (buffer-name (nth 1 compared))))
+               (should (equal (with-current-buffer (nth 0 compared)
+                                (buffer-string))
+                              "alpha body"))
+               (should (equal (with-current-buffer (nth 1 compared)
+                                (buffer-string))
+                              "beta body")))
+           (dolist (buffer compared)
+             (when (buffer-live-p buffer)
+               (kill-buffer buffer)))))))))
+
+(ert-deftest ogent-fanout-compare-reads-pair-on-larger-groups ()
+  "A three-member group reads the compare pair with completion.
+The second prompt's collection excludes the first pick, so the pair
+can never degenerate into diffing a member against itself."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--three-model-registry)
+           (collections nil)
+           (compared nil))
+       (ogent-test-with-mock-gptel
+         (ogent-fanout "Fanout prompt"
+                       '("test-model-1" "test-model-2" "test-model-3")))
+       (cl-letf (((symbol-function 'completing-read)
+                  (lambda (_prompt collection &rest _)
+                    (push (copy-sequence collection) collections)
+                    (if (member "test-model-3" collection)
+                        "test-model-3"
+                      "test-model-1")))
+                 ((symbol-function 'ediff-buffers)
+                  (lambda (buffer-a buffer-b &rest _)
+                    (setq compared (list buffer-a buffer-b)))))
+         (unwind-protect
+             (progn
+               (ogent-ui-send-tests--goto-response "test-model-1")
+               (ogent-fanout-compare)
+               (should (= 2 (length collections)))
+               ;; First prompt offers every member; the second drops
+               ;; the first pick.
+               (should (equal (nth 1 collections)
+                              '("test-model-1" "test-model-2"
+                                "test-model-3")))
+               (should (equal (nth 0 collections)
+                              '("test-model-1" "test-model-2")))
+               (should (string-match-p "test-model-3"
+                                       (buffer-name (nth 0 compared))))
+               (should (string-match-p "test-model-1"
+                                       (buffer-name (nth 1 compared)))))
+           (dolist (buffer compared)
+             (when (buffer-live-p buffer)
+               (kill-buffer buffer)))))))))
+
+(ert-deftest ogent-fanout-compare-refuses-streaming-group ()
+  "Compare refuses a group that still has members in flight.
+A partial body would diff as a regression that is not one."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--registry)
+           (callbacks nil))
+       (cl-letf (((symbol-function 'gptel-request)
+                  (lambda (_prompt &rest args)
+                    (push (plist-get args :callback) callbacks)
+                    'mock-request))
+                 ((symbol-function 'ediff-buffers)
+                  (lambda (&rest _)
+                    (error "ediff-buffers must not run on a live group"))))
+         (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2"))
+         (funcall (nth 1 callbacks) "alpha" nil)
+         (funcall (nth 1 callbacks) nil '(:done t))
+         ;; The second member is still streaming.
+         (ogent-ui-send-tests--goto-response "test-model-1")
+         (should-error (ogent-fanout-compare) :type 'user-error)
+         ;; Finish the group so no live request leaks into the suite.
+         (funcall (nth 0 callbacks) "beta" nil)
+         (funcall (nth 0 callbacks) nil '(:done t))
+         (should-not (ogent-ui-active-requests)))))))
+
+(ert-deftest ogent-fanout-compare-cleans-up-variants-on-quit ()
+  "Quitting ediff reaps the generated variant buffers, never the source.
+Compare registers a buffer-local `ediff-after-quit-hook-internal' on
+the ediff control buffer that kills exactly the two variants, so a
+second compare after cleanup gets fresh buffers and repeated
+comparisons never accumulate."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--registry)
+           (transcript (current-buffer))
+           (runs nil))
+       (cl-letf (((symbol-function 'ediff-buffers)
+                  (lambda (buffer-a buffer-b &optional startup-hooks _job)
+                    ;; Emulate ediff setup: run the startup hooks in a
+                    ;; fresh control buffer, as `ediff-setup' would.
+                    (let ((control (generate-new-buffer
+                                    " *ediff-control-stub*")))
+                      (with-current-buffer control
+                        (mapc #'funcall startup-hooks))
+                      (push (list buffer-a buffer-b control) runs)))))
+         (ogent-test-with-mock-gptel
+           (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+         (dotimes (_ 2)
+           (ogent-ui-send-tests--goto-response "test-model-1")
+           (ogent-fanout-compare)
+           (pcase-let ((`(,buffer-a ,buffer-b ,control) (car runs)))
+             (should (buffer-live-p buffer-a))
+             (should (buffer-live-p buffer-b))
+             ;; Quit the session: the buffer-local hook on the control
+             ;; buffer kills exactly the two variants.
+             (with-current-buffer control
+               (run-hooks 'ediff-after-quit-hook-internal))
+             (kill-buffer control)
+             (should-not (buffer-live-p buffer-a))
+             (should-not (buffer-live-p buffer-b))
+             (should (buffer-live-p transcript))))
+         ;; Two full compare/quit cycles ran; nothing accumulated.
+         (should (= 2 (length runs)))
+         (should-not (seq-filter
+                      (lambda (buffer)
+                        (string-prefix-p "*ogent fanout diff:"
+                                         (buffer-name buffer)))
+                      (buffer-list))))))))
+
+(ert-deftest ogent-fanout-keep-archives-losers-only ()
+  "Keep tags every losing sibling ARCHIVE and leaves the winner alone.
+The marking is the org-native reversible archive tag; nothing moves
+and nothing is deleted, and the shared Request heading stays clean."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--registry))
+       (ogent-test-with-mock-gptel
+         (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+       (ogent-ui-send-tests--goto-response "test-model-1")
+       (should (equal (ogent-fanout-keep) "test-model-1"))
+       (should-not (ogent-ui-send-tests--archived-p "test-model-1"))
+       (should (ogent-ui-send-tests--archived-p "test-model-2"))
+       ;; No response text moved or vanished; the loser's headline
+       ;; merely gained a tag (which unanchors the section helper).
+       (should (= 2 (ogent-ui-send-tests--count-matches
+                     "^\\*+ Response (")))
+       (should (= 2 (ogent-ui-send-tests--count-matches
+                     "^Mock response$")))
+       (save-excursion
+         (goto-char (point-min))
+         (re-search-forward "^\\*+ Request: Fanout prompt")
+         (should-not (member org-archive-tag (org-get-tags nil t))))))))
+
+(ert-deftest ogent-fanout-keep-rerun-swaps-marking ()
+  "Re-running keep on another member swaps the ARCHIVE marking.
+The gesture is fully reversible: the new winner loses its tag and the
+old winner gains one."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry ogent-ui-send-tests--registry))
+       (ogent-test-with-mock-gptel
+         (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+       (ogent-ui-send-tests--goto-response "test-model-1")
+       (ogent-fanout-keep)
+       (ogent-ui-send-tests--goto-response "test-model-2")
+       (should (equal (ogent-fanout-keep) "test-model-2"))
+       (should (ogent-ui-send-tests--archived-p "test-model-1"))
+       (should-not (ogent-ui-send-tests--archived-p "test-model-2"))))))
+
+(ert-deftest ogent-fanout-keep-rates-winner-five ()
+  "Keep records rating 5 for the winner's completion row, losers none.
+The winner's OGENT_COMPLETION_ID (stamped by the real recorder)
+resolves to its analytics row; exactly one rating call happens -- an
+unpicked response is not evidence of badness."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (ogent-analytics--pending-completion nil)
+           (ogent-analytics--request-start-time nil)
+           (ogent-analytics--first-token-time nil)
+           (rated nil))
+       (ogent-test-with-real-store 'analytics
+         (ogent-test-with-mock-gptel
+           (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+         (let ((winner-id
+                (caar (sqlite-select
+                       (ogent-analytics--get-db)
+                       "SELECT id FROM completions WHERE model = 'test-model-2'"))))
+           (should winner-id)
+           (cl-letf (((symbol-function 'ogent-analytics-rate-completion)
+                      (lambda (id rating) (push (list id rating) rated))))
+             (ogent-ui-send-tests--goto-response "test-model-2")
+             (ogent-fanout-keep))
+           (should (equal rated (list (list winner-id 5))))))))))
+
+(ert-deftest ogent-fanout-keep-skips-rating-without-pipeline ()
+  "Without the rating pipeline, keep still archives and never errors.
+The soft integration is fboundp-guarded: even with a completion id
+stamped on the winner, an absent `ogent-analytics-rate-completion'
+means no rating call and no void-function error."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (ogent-analytics--pending-completion nil)
+           (ogent-analytics--request-start-time nil)
+           (ogent-analytics--first-token-time nil))
+       (ogent-test-with-real-store 'analytics
+         (ogent-test-with-mock-gptel
+           (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+         ;; Unbind the pipeline entry point for the keep gesture.
+         (cl-letf (((symbol-function 'ogent-analytics-rate-completion) nil))
+           (ogent-ui-send-tests--goto-response "test-model-2")
+           (should (equal (ogent-fanout-keep) "test-model-2")))
+         (should (ogent-ui-send-tests--archived-p "test-model-1"))
+         (should-not (ogent-ui-send-tests--archived-p "test-model-2"))
+         ;; The loser's row is untouched: no rating ever landed.
+         (should (equal (sqlite-select
+                         (ogent-analytics--get-db)
+                         "SELECT rating FROM completions ORDER BY id")
+                        ;; The recorder's initial rating survives on
+                        ;; both rows: no 5 landed anywhere.
+                        '((0) (0)))))))))
 
 ;;; Token budget echo at dispatch (bead ogent-3im)
 

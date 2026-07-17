@@ -1886,5 +1886,74 @@ the constant."
     (should (eq (plist-get (cdr suffix) :command)
                 'ogent-edit-toggle-structured-output))))
 
+;;; Analytics Completion Stamping Tests (bead ogent-z0k.2)
+
+(ert-deftest ogent-edit-process-response-stamps-completion-id ()
+  "Every edit parsed from one response shares the recorded completion id.
+One request records one completion; the row id lands both in the
+pending-request plist (like :attempt/:tried) and on each parsed edit
+struct, which is the linkage `ogent-edit-resolved-hook' consumers
+read -- quick edits have no org drawer to stamp."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let ((source-buffer (get-buffer-create "*test-stamp-completion*")))
+      (unwind-protect
+          (with-current-buffer source-buffer
+            (erase-buffer)
+            (insert "(defun one () 1)\n(defun two () 2)\n")
+            (let ((ogent-edit--pending-request
+                   (list :source-buffer source-buffer
+                         :prompt "bump both" :model "stamp-model"))
+                  (ogent-edit-log-to-companion nil)
+                  (ogent-edit-auto-display nil)
+                  (ogent-edit-auto-apply nil))
+              (let* ((edits (ogent-edit--process-response
+                             (concat "<<<<<<< SEARCH\n(defun one () 1)\n"
+                                     "=======\n(defun one () 10)\n"
+                                     ">>>>>>> REPLACE\n\n"
+                                     "<<<<<<< SEARCH\n(defun two () 2)\n"
+                                     "=======\n(defun two () 20)\n"
+                                     ">>>>>>> REPLACE")))
+                     (stamped (plist-get ogent-edit--pending-request
+                                         :completion-id)))
+                (should (= (length edits) 2))
+                (should (integerp stamped))
+                ;; Multi-edit responses map every edit to the SAME id.
+                (dolist (edit edits)
+                  (should (eql (ogent-edit-completion-id edit) stamped)))
+                ;; One request = one completion row, tagged as an edit.
+                (should (equal (sqlite-select
+                                (ogent-analytics--get-db)
+                                "SELECT COUNT(*) FROM completions")
+                               '((1))))
+                (should (equal (sqlite-select
+                                (ogent-analytics--get-db)
+                                "SELECT model, prompt_template FROM completions WHERE id = ?"
+                                (list stamped))
+                               '(("stamp-model" "edit")))))))
+        (kill-buffer source-buffer)))))
+
+(ert-deftest ogent-edit-process-response-disabled-analytics-no-stamp ()
+  "With analytics disabled nothing is recorded and no id is stamped.
+The store guard forces `ogent-analytics-enabled' off under ert, so a
+plain `ogent-edit--process-response' call is the disabled path."
+  (let ((source-buffer (get-buffer-create "*test-stamp-disabled*")))
+    (unwind-protect
+        (with-current-buffer source-buffer
+          (erase-buffer)
+          (insert "(defun foo () 1)\n")
+          (let ((ogent-edit--pending-request
+                 (list :source-buffer source-buffer :prompt "p" :model "m"))
+                (ogent-edit-log-to-companion nil)
+                (ogent-edit-auto-display nil)
+                (ogent-edit-auto-apply nil))
+            (let ((edits (ogent-edit--process-response
+                          "<<<<<<< SEARCH\n(defun foo () 1)\n=======\n(defun foo () 2)\n>>>>>>> REPLACE")))
+              (should (= (length edits) 1))
+              (should-not (ogent-edit-completion-id (car edits)))
+              (should-not (plist-get ogent-edit--pending-request
+                                     :completion-id)))))
+      (kill-buffer source-buffer))))
+
 (provide 'ogent-edit-tests)
 ;;; ogent-edit-tests.el ends here

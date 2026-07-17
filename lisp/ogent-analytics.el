@@ -358,10 +358,9 @@ never 0, because 0 lies while NULL renders as \"-\"."
 KWARGS is a trailing keyword plist; the only recognized key is
 `:fanout-group', a string tagging the row as one member of a fan-out
 run (every member records the same group id, plain requests record
-none).  The group travels as a keyword tail rather than a fifth
-positional so the recorder's `func-arity' maximum is `many', which is
-how `ogent-ui--analytics-completion-args' detects that the extra pair
-can be passed.  Cost is computed here, at record time, from the token
+none; the group travels as a keyword tail rather than a fifth
+positional, so the recorder's `func-arity' maximum stays `many' for
+callers that sniff it).  Cost is computed here, at record time, from the token
 estimates and `ogent-analytics-model-pricing'.  Return the saved
 completion struct, or nil when `ogent-analytics-enabled' is nil."
   (when ogent-analytics-enabled
@@ -495,14 +494,40 @@ Return nil outside Org buffers or when no id is recorded."
       (let ((id (string-to-number prop)))
         (and (> id 0) id)))))
 
+(defun ogent-analytics-rate-completion (id rating)
+  "Set completion row ID's RATING and mark its outcome \\='rated.
+Programmatic core of `ogent-analytics-rate-response', callable without
+prompting (the fan-out keep command auto-rates the kept winner this
+way).  RATING is an integer star rating, normally 1-5.  Updates the
+database row and keeps the in-memory pending struct coherent when it
+covers ID.  Re-rating updates the same row, never duplicates it.
+Signal `user-error' when the analytics database is unavailable."
+  (let ((db (ogent-analytics--get-db)))
+    (unless db
+      (user-error "Analytics database unavailable"))
+    (sqlite-execute
+     db "UPDATE completions SET rating = ?, outcome = 'rated' WHERE id = ?"
+     (list rating id))
+    ;; Keep the in-memory pending struct coherent when it covers the
+    ;; row just rated.
+    (when (and ogent-analytics--pending-completion
+               (eql (ogent-analytics-completion-id
+                     ogent-analytics--pending-completion)
+                    id))
+      (setf (ogent-analytics-completion-rating
+             ogent-analytics--pending-completion)
+            rating)
+      (setf (ogent-analytics-completion-outcome
+             ogent-analytics--pending-completion)
+            'rated))))
+
 ;;;###autoload
 (defun ogent-analytics-rate-response ()
   "Rate the response at point 1-5 against its recorded completion row.
 Reads the completion row id via
 `ogent-analytics--completion-id-at-point', prompts for a single digit
 with `read-char-choice' (two keystrokes total after the registry
-chord), then updates the row's rating and sets its outcome to
-\"rated\".  Re-rating updates the same row, never duplicates it."
+chord), then delegates to `ogent-analytics-rate-completion'."
   (interactive)
   (let ((id (ogent-analytics--completion-id-at-point)))
     (unless id
@@ -510,26 +535,46 @@ chord), then updates the row's rating and sets its outcome to
        "No completion id on this response (likely cause: analytics was disabled when it was requested)"))
     (let ((rating (- (read-char-choice "Rate response (1-5): "
                                        '(?1 ?2 ?3 ?4 ?5))
-                     ?0))
-          (db (ogent-analytics--get-db)))
-      (unless db
-        (user-error "Analytics database unavailable"))
-      (sqlite-execute db
-                      "UPDATE completions SET rating = ?, outcome = 'rated' WHERE id = ?"
-                      (list rating id))
-      ;; Keep the in-memory pending struct coherent when it covers the
-      ;; row just rated.
-      (when (and ogent-analytics--pending-completion
-                 (eql (ogent-analytics-completion-id
-                       ogent-analytics--pending-completion)
-                      id))
-        (setf (ogent-analytics-completion-rating
-               ogent-analytics--pending-completion)
-              rating)
-        (setf (ogent-analytics-completion-outcome
-               ogent-analytics--pending-completion)
-              'rated))
+                     ?0)))
+      (ogent-analytics-rate-completion id rating)
       (message "Rated completion %d: %d/5" id rating))))
+
+;;; Auto-Outcome from Edit Resolution (bead ogent-z0k.2)
+
+;; Struct accessors (fileonly: cl-defstruct-generated)
+(declare-function ogent-edit-completion-id "ogent-edit-format" t t)
+(declare-function ogent-edit-status "ogent-edit-format" t t)
+
+(defun ogent-analytics--edit-resolved (edit)
+  "Set the linked completion's outcome from EDIT's resolution.
+Runs from `ogent-edit-resolved-hook' with the resolved `ogent-edit'
+struct.  The completions row id rides the struct itself, stamped by
+`ogent-edit--process-response' at record time: quick edits and
+diagnostic repairs run from ordinary code buffers, so there is no org
+drawer to read an OGENT_COMPLETION_ID property from.  Edits without a
+completion id (analytics disabled at request time, or structs built
+outside the request flow) are silently skipped -- no error spam.
+
+Precedence rule: an explicit user rating ALWAYS wins.  A row whose
+outcome is already \\='rated keeps it (the SQL WHERE guard below), and
+this function never touches the rating column -- auto-outcomes only
+fill in the accepted/rejected disposition of otherwise-unrated rows.
+A smerge resolution reported as plain \\='resolved is ambiguous --
+either side may have been kept -- and records nothing."
+  (when-let* ((id (ogent-edit-completion-id edit))
+              (outcome (pcase (ogent-edit-status edit)
+                         ((or 'accepted 'applied) "accepted")
+                         ('rejected "rejected")))
+              (db (ogent-analytics--get-db)))
+    (sqlite-execute
+     db
+     "UPDATE completions SET outcome = ? WHERE id = ? AND outcome IS NOT 'rated'"
+     (list outcome id))))
+
+;; Load-time registration, mirroring `ogent-edit--log-resolved': the
+;; hook variable lives in ogent-edit-display, but `add-hook' seeds a
+;; not-yet-loaded defvar and the later `defvar' keeps the value.
+(add-hook 'ogent-edit-resolved-hook #'ogent-analytics--edit-resolved)
 
 ;;; Dashboard
 
@@ -562,6 +607,10 @@ chord), then updates the row's rating and sets its outcome to
    ((null ms) "-")
    ((< ms 1000) (format "%dms" ms))
    (t (format "%.1fs" (/ ms 1000.0)))))
+
+(defun ogent-analytics--format-cost (usd)
+  "Format USD cost for display; a non-number (unpriced NULL) renders as -."
+  (if (numberp usd) (format "$%.4f" usd) "-"))
 
 ;;;###autoload
 (defun ogent-analytics-dashboard ()
@@ -636,6 +685,80 @@ chord), then updates the row's rating and sets its outcome to
                             (ogent-analytics--format-number (nth 7 row))
                             (ogent-analytics--format-number (nth 8 row)))))
           (insert "\n")))
+      ;; Cost views (bead ogent-z0k.4)
+      (insert "## Cost by Model\n\n")
+      (let ((rows (sqlite-select db "
+        SELECT model, COUNT(*) as completions,
+               SUM(cost_usd) as total_cost,
+               AVG(cost_usd) as avg_cost
+        FROM completions
+        GROUP BY model
+        ORDER BY total_cost DESC")))
+        (if (null rows)
+            (insert "No cost data available.\n\n")
+          (insert "| Model | Completions | Total Cost | Avg Cost |\n")
+          (insert "|-------|-------------|------------|----------|\n")
+          (dolist (row rows)
+            (insert (format "| %s | %s | %s | %s |\n"
+                            (or (nth 0 row) "unknown")
+                            (ogent-analytics--format-number (nth 1 row))
+                            (ogent-analytics--format-cost (nth 2 row))
+                            (ogent-analytics--format-cost (nth 3 row)))))
+          (insert "\n")))
+      (insert "## Cost by Day\n\n")
+      (let ((rows (sqlite-select db "
+        SELECT date(timestamp) as date, COUNT(*) as completions,
+               SUM(cost_usd) as total_cost,
+               AVG(cost_usd) as avg_cost
+        FROM completions
+        GROUP BY date(timestamp)
+        ORDER BY date DESC
+        LIMIT 30")))
+        (if (null rows)
+            (insert "No cost data available.\n\n")
+          (insert "| Date | Completions | Total Cost | Avg Cost |\n")
+          (insert "|------|-------------|------------|----------|\n")
+          (dolist (row rows)
+            (insert (format "| %s | %s | %s | %s |\n"
+                            (or (nth 0 row) "-")
+                            (ogent-analytics--format-number (nth 1 row))
+                            (ogent-analytics--format-cost (nth 2 row))
+                            (ogent-analytics--format-cost (nth 3 row)))))
+          (insert "\n")))
+      ;; Rating distribution + unrated nudge (bead ogent-z0k.4).
+      ;; Legacy thumb ratings (-1/0/1) predate the 1-5 scale; a legacy
+      ;; thumbs-up counts in the 1 bucket, a thumbs-down in none.
+      (insert "## Ratings by Model\n\n")
+      (let ((rows (sqlite-select db "
+        SELECT model,
+               SUM(CASE WHEN rating = 1 THEN 1 ELSE 0 END) as r1,
+               SUM(CASE WHEN rating = 2 THEN 1 ELSE 0 END) as r2,
+               SUM(CASE WHEN rating = 3 THEN 1 ELSE 0 END) as r3,
+               SUM(CASE WHEN rating = 4 THEN 1 ELSE 0 END) as r4,
+               SUM(CASE WHEN rating = 5 THEN 1 ELSE 0 END) as r5,
+               ROUND(AVG(CASE WHEN rating BETWEEN 1 AND 5 THEN rating END), 2) as avg_rating
+        FROM completions
+        GROUP BY model
+        ORDER BY model")))
+        (if (null rows)
+            (insert "No rating data available.\n\n")
+          (insert "| Model | 1 | 2 | 3 | 4 | 5 | Avg Rating |\n")
+          (insert "|-------|---|---|---|---|---|------------|\n")
+          (dolist (row rows)
+            (insert (format "| %s | %s | %s | %s | %s | %s | %s |\n"
+                            (or (nth 0 row) "unknown")
+                            (ogent-analytics--format-number (nth 1 row))
+                            (ogent-analytics--format-number (nth 2 row))
+                            (ogent-analytics--format-number (nth 3 row))
+                            (ogent-analytics--format-number (nth 4 row))
+                            (ogent-analytics--format-number (nth 5 row))
+                            (ogent-analytics--format-number (nth 6 row)))))
+          (insert "\n")))
+      (let ((unrated (caar (sqlite-select db "
+        SELECT COUNT(*) FROM completions
+        WHERE rating IS NULL OR rating = 0"))))
+        (insert (format "Unrated completions: %s (press * on a response headline to rate)\n\n"
+                        (or unrated 0))))
       ;; Recent activity
       (insert "## Recent Activity (Last 7 Days)\n\n")
       (let ((daily (sqlite-select db "SELECT * FROM daily_stats LIMIT 7")))
@@ -703,12 +826,13 @@ chord), then updates the row's rating and sets its outcome to
     (let ((rows (sqlite-select db "
       SELECT timestamp, model, outcome, rating, prompt_tokens,
              response_tokens, total_tokens, time_to_first_token_ms,
-             completion_latency_ms, prompt_template
+             completion_latency_ms, prompt_template, cost_usd,
+             fanout_group
       FROM completions
       ORDER BY timestamp")))
       (with-temp-file file
         (insert "timestamp,model,outcome,rating,prompt_tokens,response_tokens,")
-        (insert "total_tokens,ttft_ms,latency_ms,template\n")
+        (insert "total_tokens,ttft_ms,latency_ms,template,cost_usd,fanout_group\n")
         (dolist (row rows)
           (insert (mapconcat
                    (lambda (val)
@@ -735,35 +859,47 @@ chord), then updates the row's rating and sets its outcome to
     (with-temp-file file
       (insert "#+TITLE: Ogent Analytics Export\n")
       (insert (format "#+DATE: %s\n\n" (format-time-string "%Y-%m-%d")))
-      ;; Model stats table
+      ;; Model stats table (+ cost/rating columns, bead ogent-z0k.4)
       (insert "* Model Statistics\n\n")
-      (insert "| Model | Total | Accepted | Rejected | Accept% | Avg Tokens | Thumbs Up | Thumbs Down |\n")
-      (insert "|-------|-------|----------|----------|---------|------------|-----------|-------------|\n")
-      (let ((models (sqlite-select db "SELECT * FROM model_stats ORDER BY total_completions DESC")))
+      (insert "| Model | Total | Accepted | Rejected | Accept% | Avg Tokens | Thumbs Up | Thumbs Down | Total Cost | Avg Rating |\n")
+      (insert "|-------|-------|----------|----------|---------|------------|-----------|-------------|------------|------------|\n")
+      (let ((cost-rating (sqlite-select db "
+        SELECT model, SUM(cost_usd),
+               ROUND(AVG(CASE WHEN rating BETWEEN 1 AND 5 THEN rating END), 2)
+        FROM completions GROUP BY model"))
+            (models (sqlite-select db "SELECT * FROM model_stats ORDER BY total_completions DESC")))
         (dolist (row models)
-          (insert (format "| %s | %s | %s | %s | %s | %s | %s | %s |\n"
-                          (or (nth 0 row) "unknown")
-                          (ogent-analytics--format-number (nth 1 row))
-                          (ogent-analytics--format-number (nth 2 row))
-                          (ogent-analytics--format-number (nth 3 row))
-                          (ogent-analytics--format-number (nth 4 row))
-                          (ogent-analytics--format-number (nth 5 row))
-                          (ogent-analytics--format-number (nth 7 row))
-                          (ogent-analytics--format-number (nth 8 row))))))
+          (let ((extra (assoc (nth 0 row) cost-rating)))
+            (insert (format "| %s | %s | %s | %s | %s | %s | %s | %s | %s | %s |\n"
+                            (or (nth 0 row) "unknown")
+                            (ogent-analytics--format-number (nth 1 row))
+                            (ogent-analytics--format-number (nth 2 row))
+                            (ogent-analytics--format-number (nth 3 row))
+                            (ogent-analytics--format-number (nth 4 row))
+                            (ogent-analytics--format-number (nth 5 row))
+                            (ogent-analytics--format-number (nth 7 row))
+                            (ogent-analytics--format-number (nth 8 row))
+                            (ogent-analytics--format-cost (nth 1 extra))
+                            (ogent-analytics--format-number (nth 2 extra)))))))
       (insert "\n")
-      ;; Daily stats table
+      ;; Daily stats table (+ cost column, bead ogent-z0k.4)
       (insert "* Daily Statistics\n\n")
-      (insert "| Date | Completions | Accepted | Rejected | Tokens | Avg Latency |\n")
-      (insert "|------|-------------|----------|----------|--------|-------------|\n")
-      (let ((daily (sqlite-select db "SELECT * FROM daily_stats LIMIT 30")))
+      (insert "| Date | Completions | Accepted | Rejected | Tokens | Avg Latency | Cost |\n")
+      (insert "|------|-------------|----------|----------|--------|-------------|------|\n")
+      (let ((cost-by-day (sqlite-select db "
+        SELECT date(timestamp), SUM(cost_usd)
+        FROM completions GROUP BY date(timestamp)"))
+            (daily (sqlite-select db "SELECT * FROM daily_stats LIMIT 30")))
         (dolist (row daily)
-          (insert (format "| %s | %s | %s | %s | %s | %s |\n"
+          (insert (format "| %s | %s | %s | %s | %s | %s | %s |\n"
                           (or (nth 0 row) "-")
                           (ogent-analytics--format-number (nth 1 row))
                           (ogent-analytics--format-number (nth 2 row))
                           (ogent-analytics--format-number (nth 3 row))
                           (ogent-analytics--format-number (nth 4 row))
-                          (ogent-analytics--format-latency (nth 5 row)))))))
+                          (ogent-analytics--format-latency (nth 5 row))
+                          (ogent-analytics--format-cost
+                           (nth 1 (assoc (nth 0 row) cost-by-day))))))))
     (message "Exported analytics to %s" file)))
 
 ;;; Hooks Integration

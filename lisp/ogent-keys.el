@@ -154,6 +154,8 @@ Set to nil to disable automatic evil binding setup."
                       :visual t)
     (fanout-abort     :key "C-k" :command ogent-fanout-abort
                       :desc "Abort fan-out group (C-k: kill)")
+    (fanout-compare   :key "C-d" :command ogent-fanout-compare
+                      :desc "Compare fan-out responses (C-d: diff)")
     ;; Context
     (context-preview  :key "c" :command ogent-context-preview
                       :desc "Preview context")
@@ -325,12 +327,6 @@ Set to nil to disable automatic evil binding setup."
     (analytics-dashboard :key "A" :command ogent-analytics-dashboard
                          :desc "Analytics dashboard")
     ;; Export
-    ;;
-    ;; RESERVED chords -- key coherence for sibling epics is decided here
-    ;; once (bead ogent-jk5.1).  Later beads bind these commands to their
-    ;; reserved chords verbatim and drop the chord from the guard list in
-    ;; `ogent-keys-reserved-chords-stay-free' (ogent-keys-tests.el):
-    ;;   "C-d"  ogent-fanout-compare                    diff fan-out results
     (export-conversation :key "C-x" :command ogent-export-conversation
                          :desc "Export conversation (C-x: eXport)")
     (export-conversation-to-kill-ring

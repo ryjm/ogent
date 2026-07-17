@@ -38,7 +38,10 @@
 ;;; Data Structures
 
 (cl-defstruct ogent-edit
-  "A single code edit extracted from LLM response."
+  "A single code edit extracted from LLM response.
+The completion-id slot links the edit back to its analytics
+completions row; every edit parsed from one response shares the same
+id, stamped by `ogent-edit--process-response' (bead ogent-z0k.2)."
   id              ; unique identifier (ogent-edit-001, etc.)
   old-text        ; exact text to search for
   new-text        ; replacement text
@@ -50,7 +53,8 @@
   companion-marker ; marker in companion buffer for navigation
   status          ; pending | applied | rejected | error
   error-message   ; why validation/application failed
-  timestamp)      ; when edit was created
+  timestamp       ; when edit was created
+  completion-id)  ; analytics completions row id (see struct docstring)
 
 ;;; Edit ID Generation
 
