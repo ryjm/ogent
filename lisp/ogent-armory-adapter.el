@@ -444,6 +444,212 @@ metadata as the fallback completion list."
                ""))
     status))
 
+;; Capability grounding (ogent-h3y).  Invocation builders may only emit
+;; CLI flags that appear verbatim in a checked-in help snapshot under
+;; `ogent-armory-adapter-ground-directory' (ogent-8e0.7's honesty
+;; rule).  `ogent-armory-adapter-ground' diffs a live --help against
+;; the newest snapshot and reports drift; the adapter test suite
+;; asserts that every builder-emitted flag appears in the snapshot.
+
+(defconst ogent-armory-adapter-ground--default-directory
+  (expand-file-name
+   "../test/data/cli-help/"
+   (file-name-directory
+    (or load-file-name buffer-file-name default-directory)))
+  "Snapshot directory resolved relative to this library at load time.")
+
+(defcustom ogent-armory-adapter-ground-directory nil
+  "Directory of checked-in CLI help snapshots, or nil for the default.
+Snapshots are named <adapter-id>-<version>.txt and collected verbatim
+from the provider CLIs (see `ogent-armory-adapter-ground').  When nil,
+resolve test/data/cli-help/ relative to this library."
+  :type '(choice (const :tag "Relative to library" nil) directory)
+  :group 'ogent-armory-adapter)
+
+(defun ogent-armory-adapter-ground--directory ()
+  "Return the snapshot directory for CLI help grounding."
+  (or ogent-armory-adapter-ground-directory
+      ogent-armory-adapter-ground--default-directory))
+
+(defun ogent-armory-adapter-ground--call-string (program args)
+  "Return combined output of PROGRAM run with ARGS, or nil if not found."
+  (when-let ((path (and program (executable-find program))))
+    (with-temp-buffer
+      (apply #'call-process path nil t nil args)
+      (buffer-string))))
+
+(defun ogent-armory-adapter-ground--parse-version (text)
+  "Return the first dotted version number in TEXT, or nil."
+  (when (and text (string-match "\\([0-9]+\\(?:\\.[0-9]+\\)+\\)" text))
+    (match-string 1 text)))
+
+(defun ogent-armory-adapter-ground--live-version (adapter)
+  "Return ADAPTER's live CLI version string, or nil."
+  (ogent-armory-adapter-ground--parse-version
+   (ogent-armory-adapter-ground--call-string
+    (ogent-armory-adapter-executable adapter) '("--version"))))
+
+(defun ogent-armory-adapter-ground--help-commands (adapter)
+  "Return the argument vectors whose help output grounds ADAPTER."
+  (or (plist-get adapter :ground-help-commands) '(("--help"))))
+
+(defun ogent-armory-adapter-ground--live-help (adapter)
+  "Collect ADAPTER's live CLI help in snapshot format, or nil.
+Each grounding surface (the adapter's :ground-help-commands) is
+emitted verbatim below a \"$ <command>\" provenance header."
+  (let ((program (ogent-armory-adapter-executable adapter))
+        (name (plist-get adapter :default-executable)))
+    (when (and program (executable-find program))
+      (mapconcat
+       (lambda (args)
+         (concat "$ " (string-join (cons (or name program) args) " ") "\n"
+                 (or (ogent-armory-adapter-ground--call-string program args)
+                     "")))
+       (ogent-armory-adapter-ground--help-commands adapter)
+       "\n"))))
+
+(defun ogent-armory-adapter-ground--match-snapshots (adapter-id file-names)
+  "Return (VERSION . NAME) pairs for ADAPTER-ID snapshots in FILE-NAMES.
+Pairs are sorted newest version first; NAME is kept as given."
+  (let ((regexp (concat "\\`" (regexp-quote adapter-id)
+                        "-\\([0-9][^/]*\\)\\.txt\\'")))
+    (sort (delq nil
+                (mapcar (lambda (name)
+                          (when (string-match regexp name)
+                            (cons (match-string 1 name) name)))
+                        file-names))
+          (lambda (a b)
+            (condition-case nil
+                (version< (car b) (car a))
+              (error (string< (car b) (car a))))))))
+
+(defun ogent-armory-adapter-ground--pick (pairs version)
+  "Return the PAIRS entry matching VERSION exactly, else the newest."
+  (or (and version (assoc version pairs))
+      (car pairs)))
+
+(defun ogent-armory-adapter-ground-snapshot (adapter-id &optional version)
+  "Return the checked-in help snapshot plist for ADAPTER-ID, or nil.
+Prefer the snapshot matching VERSION exactly, falling back to the
+newest one.  The plist carries :file, :version, and :text.  When no
+snapshot exists, emit a named warning and return nil: missing
+grounding data downgrades to a skip, never a failure (ogent-8e0.7)."
+  (let* ((dir (ogent-armory-adapter-ground--directory))
+         (pair (ogent-armory-adapter-ground--pick
+                (and (file-directory-p dir)
+                     (ogent-armory-adapter-ground--match-snapshots
+                      adapter-id (directory-files dir)))
+                version)))
+    (if (not pair)
+        (prog1 nil
+          (display-warning
+           'ogent-armory-adapter-ground
+           (format "No CLI help snapshot for %s under %s; grounding skipped"
+                   adapter-id dir)))
+      (let ((file (expand-file-name (cdr pair) dir)))
+        (list :file file
+              :version (car pair)
+              :text (with-temp-buffer
+                      (insert-file-contents file)
+                      (buffer-string)))))))
+
+(defun ogent-armory-adapter-ground--lines (text)
+  "Return the trimmed, deduplicated, nonblank lines of TEXT."
+  (seq-uniq (split-string (or text "") "\n" t "[[:space:]\r]+") #'string=))
+
+(defun ogent-armory-adapter-ground--diff-lines (snapshot live)
+  "Diff SNAPSHOT against LIVE help text line-wise.
+Lines are compared whitespace-trimmed as sets; the returned plist's
+:added lists lines only in LIVE, :removed lines only in SNAPSHOT."
+  (let ((old (ogent-armory-adapter-ground--lines snapshot))
+        (new (ogent-armory-adapter-ground--lines live)))
+    (list :added (seq-remove (lambda (line) (member line old)) new)
+          :removed (seq-remove (lambda (line) (member line new)) old))))
+
+(defun ogent-armory-adapter-ground--save-snapshot (adapter version text)
+  "Write TEXT as ADAPTER's VERSION help snapshot; return the file path."
+  (let* ((dir (ogent-armory-adapter-ground--directory))
+         (file (expand-file-name (format "%s-%s.txt"
+                                         (plist-get adapter :id)
+                                         (or version "unversioned"))
+                                 dir)))
+    (make-directory dir t)
+    (write-region text nil file)
+    file))
+
+(defun ogent-armory-adapter-ground--show-report (report)
+  "Render drift REPORT in the *ogent-armory-ground* buffer."
+  (let ((buffer (get-buffer-create "*ogent-armory-ground*"))
+        (added (plist-get report :added))
+        (removed (plist-get report :removed)))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (insert (format "Adapter:  %s\n" (plist-get report :adapter-id))
+                (format "Live:     %s\n" (or (plist-get report :live-version)
+                                             "unknown version"))
+                (format "Snapshot: %s (%s)\n\n"
+                        (plist-get report :snapshot-file)
+                        (plist-get report :snapshot-version)))
+        (if (not (or added removed))
+            (insert "No drift: live help matches the snapshot.\n")
+          (insert (format "Drift: %d line(s) added, %d removed\n\n"
+                          (length added) (length removed)))
+          (dolist (line added)
+            (insert "+ " line "\n"))
+          (dolist (line removed)
+            (insert "- " line "\n"))))
+      (goto-char (point-min))
+      (special-mode))
+    (pop-to-buffer buffer)))
+
+;;;###autoload
+(defun ogent-armory-adapter-ground (adapter-id &optional save)
+  "Diff ADAPTER-ID's live CLI help against its checked-in snapshot.
+Run the adapter's grounding help commands, compare the output
+line-wise with the newest snapshot in
+`ogent-armory-adapter-ground-directory' (preferring one matching the
+live version), and return a report plist whose :added lines appear
+only in the live help and whose :removed lines appear only in the
+snapshot.  Interactively, show the report in a buffer.  With prefix
+argument SAVE, first write the live help as a fresh
+<adapter>-<version>.txt snapshot.  A missing snapshot produces a named
+warning and a nil return, never an error."
+  (interactive
+   (list (completing-read
+          "Ground adapter CLI help: "
+          (mapcar (lambda (adapter) (plist-get adapter :id))
+                  (seq-filter (lambda (adapter)
+                                (plist-get adapter :default-executable))
+                              (ogent-armory-adapter-list)))
+          nil t)
+         current-prefix-arg))
+  (let* ((adapter (ogent-armory-adapter-require adapter-id))
+         (live-help (ogent-armory-adapter-ground--live-help adapter))
+         (live-version (and live-help
+                            (ogent-armory-adapter-ground--live-version
+                             adapter))))
+    (unless live-help
+      (user-error "Armory adapter %s: executable %s not found on PATH"
+                  (plist-get adapter :id)
+                  (or (ogent-armory-adapter-executable adapter) "nil")))
+    (when save
+      (message "ogent: saved CLI help snapshot %s"
+               (ogent-armory-adapter-ground--save-snapshot
+                adapter live-version live-help)))
+    (when-let ((snapshot (ogent-armory-adapter-ground-snapshot
+                          (plist-get adapter :id) live-version)))
+      (let ((report (append (list :adapter-id (plist-get adapter :id)
+                                  :live-version live-version
+                                  :snapshot-file (plist-get snapshot :file)
+                                  :snapshot-version
+                                  (plist-get snapshot :version))
+                            (ogent-armory-adapter-ground--diff-lines
+                             (plist-get snapshot :text) live-help))))
+        (when (called-interactively-p 'any)
+          (ogent-armory-adapter-ground--show-report report))
+        report))))
+
 (defun ogent-armory-adapter--builtin ()
   "Register built-in Armory adapters."
   (setq ogent-armory-adapter--registry (make-hash-table :test 'equal))
@@ -462,6 +668,11 @@ metadata as the fallback completion list."
               :runtime-modes (native terminal)
               :supports-session-resume t
               :supports-detached-runs t
+              ;; Grounding surfaces for the builder's emitted flags:
+              ;; --ask-for-approval is top-level, the rest live on the
+              ;; exec / exec resume subcommands.
+              :ground-help-commands (("--help") ("exec" "--help")
+                                     ("exec" "resume" "--help"))
               :build-invocation ogent-armory-adapter--codex-invocation)
          (:id "claude-code"
               :provider-symbol claude
@@ -476,6 +687,7 @@ metadata as the fallback completion list."
               :runtime-modes (native terminal)
               :supports-session-resume t
               :supports-detached-runs t
+              :ground-help-commands (("--help"))
               :build-invocation ogent-armory-adapter--claude-invocation)
          (:id "gemini-cli"
               :provider-symbol gemini

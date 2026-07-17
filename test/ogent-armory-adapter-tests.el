@@ -229,6 +229,154 @@
     (should (member "--cd" (plist-get codex :args)))
     (should-not (member "--resume" (plist-get claude :args)))))
 
+;; CLI help grounding (ogent-h3y).  Builder flags must appear verbatim
+;; in the checked-in snapshots under test/data/cli-help/; a missing
+;; snapshot downgrades to a named-warning skip, never a failure.
+
+(defvar ogent-armory-runner-codex-approval)
+(defvar ogent-armory-runner-codex-sandbox)
+(defvar ogent-armory-runner-codex-skip-git-repo-check)
+
+(defun ogent-armory-adapter-tests--snapshot-or-skip (adapter-id)
+  "Return snapshot text for ADAPTER-ID, skipping the test when absent."
+  (let ((snapshot (ogent-armory-adapter-ground-snapshot adapter-id)))
+    (unless snapshot
+      (ert-skip (format "No CLI help snapshot for %s" adapter-id)))
+    (plist-get snapshot :text)))
+
+(defun ogent-armory-adapter-tests--grounded-p (token text)
+  "Return non-nil when TOKEN appears as a standalone word in TEXT."
+  (string-match-p
+   (concat "\\(?:\\`\\|[^-A-Za-z0-9]\\)" (regexp-quote token)
+           "\\(?:\\'\\|[^-A-Za-z0-9]\\)")
+   text))
+
+(defun ogent-armory-adapter-tests--invocation-flags (invocation)
+  "Return the option tokens INVOCATION passes on its command line."
+  (seq-filter (lambda (arg)
+                (and (stringp arg)
+                     (string-match-p "\\`--?[A-Za-z]" arg)))
+              (plist-get invocation :args)))
+
+(ert-deftest ogent-armory-adapter-ground-parses-cli-versions ()
+  "Version extraction handles the codex and claude --version shapes."
+  (should (equal (ogent-armory-adapter-ground--parse-version
+                  "codex-cli 0.142.0\n")
+                 "0.142.0"))
+  (should (equal (ogent-armory-adapter-ground--parse-version
+                  "2.1.199 (Claude Code)\n")
+                 "2.1.199"))
+  (should-not (ogent-armory-adapter-ground--parse-version "no version here"))
+  (should-not (ogent-armory-adapter-ground--parse-version nil)))
+
+(ert-deftest ogent-armory-adapter-ground-picks-versioned-snapshots ()
+  "Snapshot lookup filters by adapter, sorts by version, prefers exact."
+  (let* ((names '("codex-cli-0.9.0.txt" "claude-code-2.1.199.txt"
+                  "codex-cli-0.142.0.txt" "README.md" "codex-cli-notes.txt"))
+         (pairs (ogent-armory-adapter-ground--match-snapshots
+                 "codex-cli" names)))
+    ;; Version order, not string order: 0.142.0 is newer than 0.9.0.
+    (should (equal pairs '(("0.142.0" . "codex-cli-0.142.0.txt")
+                           ("0.9.0" . "codex-cli-0.9.0.txt"))))
+    (should (equal (ogent-armory-adapter-ground--pick pairs "0.9.0")
+                   '("0.9.0" . "codex-cli-0.9.0.txt")))
+    ;; Unknown or missing live version falls back to the newest snapshot.
+    (should (equal (car (ogent-armory-adapter-ground--pick pairs "9.9.9"))
+                   "0.142.0"))
+    (should (equal (car (ogent-armory-adapter-ground--pick pairs nil))
+                   "0.142.0"))))
+
+(ert-deftest ogent-armory-adapter-ground-detects-drift-on-doctored-snapshot ()
+  "Doctoring a snapshot surfaces as removed/added lines in the drift report."
+  (let* ((snapshot (ogent-armory-adapter-tests--snapshot-or-skip "codex-cli"))
+         (doctored (concat snapshot "      --vanished-flag <X>\n")))
+    ;; Line-set diff both ways: snapshot-only lines are :removed,
+    ;; live-only lines are :added.
+    (let ((drift (ogent-armory-adapter-ground--diff-lines doctored snapshot)))
+      (should (equal (plist-get drift :removed) '("--vanished-flag <X>")))
+      (should-not (plist-get drift :added)))
+    (let ((drift (ogent-armory-adapter-ground--diff-lines snapshot doctored)))
+      (should (equal (plist-get drift :added) '("--vanished-flag <X>")))
+      (should-not (plist-get drift :removed)))
+    ;; And through the command, with the live CLI side stubbed out.
+    (cl-letf (((symbol-function 'ogent-armory-adapter-ground--live-help)
+               (lambda (_adapter) snapshot))
+              ((symbol-function 'ogent-armory-adapter-ground--live-version)
+               (lambda (_adapter) "0.0.0"))
+              ((symbol-function 'ogent-armory-adapter-ground-snapshot)
+               (lambda (_id &optional _version)
+                 (list :file "doctored.txt" :version "0.0.0"
+                       :text doctored))))
+      (let ((report (ogent-armory-adapter-ground "codex-cli")))
+        (should (equal (plist-get report :adapter-id) "codex-cli"))
+        (should (equal (plist-get report :snapshot-version) "0.0.0"))
+        (should-not (plist-get report :added))
+        (should (equal (plist-get report :removed)
+                       '("--vanished-flag <X>")))))))
+
+(ert-deftest ogent-armory-adapter-ground-codex-flags-in-snapshot ()
+  "Every flag the codex builder emits appears verbatim in its snapshot."
+  (let* ((text (ogent-armory-adapter-tests--snapshot-or-skip "codex-cli"))
+         (ogent-armory-runner-codex-approval "on-request")
+         (ogent-armory-runner-codex-sandbox "workspace-write")
+         (ogent-armory-runner-codex-skip-git-repo-check t)
+         (adapter (ogent-armory-adapter-get "codex-cli"))
+         (fresh (ogent-armory-adapter-build-invocation
+                 adapter (list :root "/repo" :workspace "/repo"
+                               :prompt "Hi." :model "gpt-5.5")))
+         (resume (ogent-armory-adapter-build-invocation
+                  adapter (list :root "/repo" :workspace "/repo"
+                                :prompt "More."
+                                :resume-session-id "0198-fake"))))
+    (dolist (token (append
+                    (ogent-armory-adapter-tests--invocation-flags fresh)
+                    (ogent-armory-adapter-tests--invocation-flags resume)
+                    ;; Subcommands and builder-baked option values are
+                    ;; grounded too.
+                    '("exec" "resume" "on-request" "workspace-write")))
+      (should (ogent-armory-adapter-tests--grounded-p token text)))))
+
+(ert-deftest ogent-armory-adapter-ground-claude-flags-in-snapshot ()
+  "Every flag the claude builder emits appears verbatim in its snapshot."
+  (let* ((text (ogent-armory-adapter-tests--snapshot-or-skip "claude-code"))
+         (adapter (ogent-armory-adapter-get "claude-code"))
+         (fresh (ogent-armory-adapter-build-invocation
+                 adapter (list :root "/repo" :workspace "/repo"
+                               :prompt "Hi." :model "fable"
+                               :effort "high")))
+         (resume (ogent-armory-adapter-build-invocation
+                  adapter (list :root "/repo" :workspace "/repo"
+                                :prompt "More."
+                                :resume-session-id
+                                "11111111-2222-3333-4444-555555555555"))))
+    (dolist (token (append
+                    (ogent-armory-adapter-tests--invocation-flags fresh)
+                    (ogent-armory-adapter-tests--invocation-flags resume)
+                    ;; The builder's fallback --permission-mode value is
+                    ;; a documented choice.
+                    '("default")))
+      (should (ogent-armory-adapter-tests--grounded-p token text)))))
+
+(ert-deftest ogent-armory-adapter-ground-missing-snapshot-warns-and-skips ()
+  "A missing snapshot yields a named warning and a skip, never a failure."
+  (let (warnings)
+    (cl-letf (((symbol-function 'display-warning)
+               (lambda (type message &rest _)
+                 (push (cons type message) warnings))))
+      (should-not
+       (ogent-armory-adapter-ground-snapshot "ogent-test-ungrounded"))
+      (should (eq (caar warnings) 'ogent-armory-adapter-ground))
+      (should (string-match-p "ogent-test-ungrounded" (cdar warnings)))
+      ;; The suite helper converts the nil into an ert skip, so an
+      ;; ungrounded adapter can never fail the suite.
+      (should (eq 'skipped
+                  (condition-case nil
+                      (progn
+                        (ogent-armory-adapter-tests--snapshot-or-skip
+                         "ogent-test-ungrounded")
+                        'returned)
+                    (ert-test-skipped 'skipped)))))))
+
 (provide 'ogent-armory-adapter-tests)
 
 ;;; ogent-armory-adapter-tests.el ends here
