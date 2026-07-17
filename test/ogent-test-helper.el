@@ -44,6 +44,17 @@ instead of reading a keystroke."
 ;; load-prefer-newer alone is insufficient: it still picks a newer .elc
 ;; over .el, but the .elc may contain stale inlined forms.
 (setq load-suffixes (remove ".elc" load-suffixes))
+;;
+;; BOUNDARY: the exclusion above cannot protect THIS file's own load -
+;; a bare `(require 'ogent-test-helper)' under default `load-prefer-newer'
+;; (nil) picks a stale test/ogent-test-helper.elc over an edited .el,
+;; resurrecting old helper definitions (observed 2026-07-17: void-function
+;; on a newly added helper).  Safe entry points, all of which force the
+;; source or fresh bytecode: CI and the store-integrity script load
+;; "test/ogent-test-helper.el" by explicit .el path; makem's run_emacs
+;; sets `load-prefer-newer' t.  CONVENTION for ad-hoc batch runs: load
+;; the helper by explicit .el path first (-l test/ogent-test-helper.el),
+;; and regenerate this file's .elc whenever you edit it.
 
 (defconst ogent-test-root
   (file-name-directory (or load-file-name buffer-file-name))
