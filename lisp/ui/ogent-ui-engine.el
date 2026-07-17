@@ -309,6 +309,10 @@ Returns a plist containing a streaming marker and block-start marker."
             (format ":OGENT_PROMPT: %s\n"
                     (ogent-ui--encode-prompt-property
                      (substring-no-properties prompt))))
+    ;; Tag fan-out members with their group id so later tooling can
+    ;; find every sibling response of the same fan-out run.
+    (when-let ((group (plist-get context :fanout-group)))
+      (insert (format ":OGENT_FANOUT_GROUP: %s\n" group)))
     (when (plist-get context :zen-run)
       (let ((selection (plist-get context :zen-selection))
             (scope-kind (plist-get context :zen-scope-kind))
@@ -375,6 +379,51 @@ Returns a plist containing a streaming marker and block-start marker."
         (ogent-ui--maybe-refresh-zen))
       (list :marker marker
             :block-start block-start
+            :response-pos response-heading-pos
+            :request-heading-pos request-heading-pos
+            :response-heading-level response-level))))
+
+(defun ogent-ui--request-block (request)
+  "Return REQUEST's request block plist for fan-out member reuse.
+The plist mirrors the block-level entries of what
+`ogent-ui--create-response-block' returns and can be passed as the
+BLOCK argument of `ogent-ui-prepare-response-block' so another
+fan-out member attaches its Response sibling headline to REQUEST's
+existing Request block.  Return nil when REQUEST lacks the needed
+block positions."
+  (let ((block-start (ogent-ui-request-block-start request))
+        (heading-pos (ogent-ui-request-request-heading-pos request))
+        (response-level (ogent-ui-request-response-heading-level request)))
+    (when (and block-start heading-pos response-level)
+      (list :block-start block-start
+            :request-heading-pos heading-pos
+            :response-heading-level response-level))))
+
+(defun ogent-ui--append-response-headline (block model)
+  "Append a Response sibling headline for MODEL to an existing BLOCK.
+BLOCK is a request block plist (see `ogent-ui--request-block').  The
+headline is inserted at the end of the Request subtree, after every
+Response sibling already present, so fan-out members stream side by
+side under one shared Request block.  Return a plist shaped like
+`ogent-ui--create-response-block' with the new member's own streaming
+marker and Response heading position."
+  (let* ((request-heading-pos (plist-get block :request-heading-pos))
+         (response-level (plist-get block :response-heading-level))
+         (response-stars (ogent-ui--stars response-level))
+         (model-id (plist-get model :id))
+         response-heading-pos)
+    (goto-char request-heading-pos)
+    (org-end-of-subtree t t)
+    (unless (bolp) (insert "\n"))
+    (setq response-heading-pos (copy-marker (point)))
+    (insert (format "%s Response (%s)\n" response-stars model-id))
+    (let ((marker (copy-marker (point))))
+      ;; Keep the next sibling headline on its own line even when the
+      ;; final streamed chunk has no trailing newline.
+      (insert "\n")
+      (ogent-ui--maybe-refresh-zen)
+      (list :marker marker
+            :block-start (plist-get block :block-start)
             :response-pos response-heading-pos
             :request-heading-pos request-heading-pos
             :response-heading-level response-level))))
@@ -481,11 +530,17 @@ failure re-enter `ogent-provider-handle-error' with that state.")
   (ogent-ui--start-watchdog request)
   request)
 
-(defun ogent-ui-prepare-response-block (prompt context model)
+(defun ogent-ui-prepare-response-block (prompt context model &optional block)
   "Default `ogent-response-function' implementation.
 Creates an `ogent-ui-request' struct and registers it for streaming.
-PROMPT, CONTEXT, and MODEL are forwarded to `ogent-ui--create-response-block'."
-  (let* ((block (ogent-ui--create-response-block prompt context model))
+PROMPT, CONTEXT, and MODEL are forwarded to
+`ogent-ui--create-response-block'.  With BLOCK, an existing request
+block plist (see `ogent-ui--request-block'), reuse that Request block
+and only append a Response sibling headline for MODEL, so fan-out
+members share a single Request block."
+  (let* ((block (if block
+                    (ogent-ui--append-response-headline block model)
+                  (ogent-ui--create-response-block prompt context model)))
          (request (make-ogent-ui-request
                    :id (ogent-ui--next-request-id)
                    :model model
@@ -602,10 +657,22 @@ provider recovery state stays visible in the transcript."
       (with-current-buffer (ogent-ui-request-buffer request)
         (save-excursion
           (goto-char block-start)
-          (when (looking-at "^#\\+begin_src text :model \\([^ \n]+\\).*$")
+          (when (looking-at
+                 "^\\(#\\+begin_src text :model [^ \n]+\\(?: :backend [^ \n]+\\)?\\).*$")
             (let* ((model-id (plist-get model :id))
                    (backend (plist-get model :backend))
                    (latency (ogent-ui--format-latency request))
+                   ;; Fan-out members share one Request block: keep the
+                   ;; header's recorded model/backend (the first member)
+                   ;; instead of rewriting them to the updating member.
+                   (prefix (if (plist-get (ogent-ui-request-context request)
+                                          :fanout-group)
+                               (match-string 1)
+                             (concat "#+begin_src text :model " model-id
+                                     (when backend
+                                       (format " :backend %s"
+                                               (ogent-ui--backend-label
+                                                backend))))))
                    (status-str (or (plist-get
                                     (ogent-ui-request-context request)
                                     :fallback-status)
@@ -618,10 +685,7 @@ provider recovery state stays visible in the transcript."
                                      ('paused "paused")
                                      ('aborted "aborted")
                                      (_ nil))))
-                   (new-header (concat "#+begin_src text :model " model-id
-                                       (when backend
-                                         (format " :backend %s"
-                                                 (ogent-ui--backend-label backend)))
+                   (new-header (concat prefix
                                        (when status-str
                                          (format " :status %s" status-str))
                                        (when latency
@@ -688,16 +752,23 @@ Surface the recovery state in REQUEST's block header: a scheduled
 retry rewrites the same header in place as \\='retrying (n/max) in
 <delay>s\\=', and a failover marks the block terminally as \\='failed
 over -> <model-id>\\=' while the re-dispatch creates its own new
-request block.  Return the fallback action taken."
+request block.  A fan-out member (a REQUEST whose context carries
+:fanout-group) never retries or fails over: re-dispatching could
+duplicate a model already in the group, so the context gets no
+:dispatch closure, the error is still classified and logged, and the
+member simply fails.  Return the fallback action taken."
   (let* ((model (ogent-ui-request-model request))
          (model-id (plist-get model :id))
+         (fanout-member (plist-get (ogent-ui-request-context request)
+                                   :fanout-group))
          (state (plist-get (ogent-ui-request-context request)
                            :provider-fallback))
          (attempt (or (plist-get state :attempt) 0))
          (context (list :model model-id
                         :backend (plist-get model :backend)
                         :error error-message
-                        :dispatch (ogent-ui--fallback-dispatch request)
+                        :dispatch (unless fanout-member
+                                    (ogent-ui--fallback-dispatch request))
                         :attempt attempt
                         :tried (plist-get state :tried)))
          (action (ogent-provider-handle-error context)))
@@ -745,6 +816,35 @@ request block.  Return the fallback action taken."
              (ogent-ui-request-context request)
              (marker-position marker))))))))
 
+(defun ogent-ui--analytics-accepts-fanout-p ()
+  "Return non-nil when the completion recorder accepts fan-out group args.
+`ogent-analytics-record-completion' historically takes four
+positional arguments; only pass the extra `:fanout-group' pair when
+the installed definition (or a test stub) can actually receive it."
+  (when (fboundp 'ogent-analytics-record-completion)
+    (ignore-errors
+      (let ((max (cdr (func-arity
+                       (indirect-function
+                        'ogent-analytics-record-completion)))))
+        (or (eq max 'many) (and (integerp max) (>= max 6)))))))
+
+(defun ogent-ui--analytics-completion-args (request)
+  "Return the `ogent-analytics-record-completion' arguments for REQUEST.
+The list carries the member model id, prompt, streamed response body,
+and preset.  When REQUEST belongs to a fan-out group and the recorder
+accepts extra arguments, append \\=`:fanout-group GROUP\\=' so the
+group's analytics rows stay comparable."
+  (let* ((model (ogent-ui-request-model request))
+         (preset (ogent-ui-request-preset request))
+         (group (plist-get (ogent-ui-request-context request) :fanout-group))
+         (args (list (or (plist-get model :id) "unknown")
+                     (or (ogent-ui-request-prompt request) "")
+                     (or (ogent-ui--response-body-text request) "")
+                     (and preset (format "%s" preset)))))
+    (if (and group (ogent-ui--analytics-accepts-fanout-p))
+        (append args (list :fanout-group group))
+      args)))
+
 (defun ogent-ui--close-response (request &optional error-message final-status)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
 FINAL-STATUS overrides the default terminal status.
@@ -781,13 +881,8 @@ Provides visual feedback via mode-line flash."
       ;; Analytics is a side channel: never let it break request close.
       (when (fboundp 'ogent-analytics-record-completion)
         (condition-case err
-            (let ((model (ogent-ui-request-model request)))
-              (ogent-analytics-record-completion
-               (or (plist-get model :id) "unknown")
-               (or (ogent-ui-request-prompt request) "")
-               (or (ogent-ui--response-body-text request) "")
-               (let ((preset (ogent-ui-request-preset request)))
-                 (and preset (format "%s" preset)))))
+            (apply #'ogent-analytics-record-completion
+                   (ogent-ui--analytics-completion-args request))
           (error
            (message "ogent-analytics: failed to record completion: %s"
                     (error-message-string err))))))

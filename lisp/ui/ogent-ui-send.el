@@ -15,6 +15,7 @@
 (require 'ogent-gptel)
 (require 'ogent-companion)
 (require 'ogent-prompts)
+(require 'org-id)
 
 ;; gptel dynamic variables let-bound while dispatching a request.
 (defvar gptel-backend)
@@ -274,15 +275,25 @@ heading, and CONTEXT-TRANSFORM, when non-nil, post-processes the context."
              ;; Use provided models or fall back to a registered/default ogent model.
              (model-ids (or models
                             (list (ogent-ui--model-id-or-default))))
+             fanout-block
              last-request)
         (if (ogent-validate-and-prompt context)
             (progn
               (dolist (model-id model-ids)
                 (let* ((model (ogent-models-ensure model-id))
-                       (request (funcall ogent-response-function
-                                         final-prompt context model)))
+                       ;; Fan-out members after the first reuse the
+                       ;; group's Request block, adding only their own
+                       ;; Response sibling headline.
+                       (request (if fanout-block
+                                    (ogent-ui-prepare-response-block
+                                     final-prompt context model fanout-block)
+                                  (funcall ogent-response-function
+                                           final-prompt context model))))
                   (unless (ogent-ui-request-p request)
                     (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
+                  (when (and (plist-get context :fanout-group)
+                             (null fanout-block))
+                    (setq fanout-block (ogent-ui--request-block request)))
                   (setf (ogent-ui-request-preset request) effective-preset)
                   (setf (ogent-ui-request-source-buffer request) source-buffer)
                   (ogent-ui--send-request request)
@@ -314,6 +325,60 @@ The source buffer content is captured for context."
         (raw-prompt (or prompt (ogent-ui--read-prompt))))
     (ogent-ui--dispatch-request source-buffer region-start region-end
                                 raw-prompt models preset templates)))
+
+(defcustom ogent-fanout-models nil
+  "Model ids `ogent-fanout' dispatches to when no set is given.
+A list of `ogent-model-registry' id strings.  nil falls back to the
+dispatcher's live fan-out selection and finally to the distinct
+models the role picker resolves (see `ogent-fanout--model-set')."
+  :type '(repeat (string :tag "Model id"))
+  :group 'ogent-mode)
+
+(defun ogent-fanout--model-set (&optional models)
+  "Return the fan-out member model ids as a list.
+MODELS, when non-nil, wins.  Otherwise fall back through the
+dispatcher's live selection (`ogent-ui--selected-models'), then
+`ogent-fanout-models', and finally the distinct models that the
+role picker resolves via `ogent-models-resolve-role'."
+  (or models
+      ogent-ui--selected-models
+      ogent-fanout-models
+      (delete-dups
+       (mapcar #'ogent-models-resolve-role (ogent-models-known-roles)))))
+
+(defun ogent-fanout--group-id ()
+  "Return a fresh fan-out group id."
+  (org-id-uuid))
+
+;;;###autoload
+(defun ogent-fanout (&optional prompt models preset templates)
+  "Send PROMPT to several MODELS at once, side by side.
+Build the prompt and companion context exactly once, then issue one
+request per member of MODELS through the normal send path.  Every
+member's context plist carries the same :fanout-group id, the
+transcript gets a single Request block, and each member streams under
+its own Response sibling headline beneath that block.  Member
+failures never retry or fail over to another provider (that could
+duplicate a model already in the group); the failed member simply
+closes with its error.
+
+When PROMPT is nil, read it from the region or minibuffer.  When
+MODELS is nil, resolve the member set via `ogent-fanout--model-set'.
+PRESET and TEMPLATES are forwarded to the send path as in
+`ogent-request'.  Return the fan-out group id."
+  (interactive)
+  (let ((source-buffer (current-buffer))
+        (region-start (when (use-region-p) (region-beginning)))
+        (region-end (when (use-region-p) (region-end)))
+        (raw-prompt (or prompt (ogent-ui--read-prompt)))
+        (member-ids (ogent-fanout--model-set models))
+        (group (ogent-fanout--group-id)))
+    (ogent-ui--dispatch-request
+     source-buffer region-start region-end raw-prompt member-ids
+     preset templates nil
+     (lambda (context)
+       (plist-put (copy-sequence context) :fanout-group group)))
+    group))
 
 (provide 'ogent-ui-send)
 ;;; ogent-ui-send.el ends here
