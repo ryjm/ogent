@@ -5,10 +5,12 @@
 ;; Cheap render caching for Armory buffers.  Every cached value is
 ;; keyed by (ROOT . KIND) and guarded by a filesystem stamp: the
 ;; sorted list of (relative-path . mtime) pairs for every `.org' file
-;; plus every `apps/*/index.html' under ROOT.  A cache hit requires an
-;; `equal' stamp, so content edits (mtime), additions, and removals
-;; (path list) all invalidate naturally - including writes performed
-;; by subprocess agents outside Emacs.
+;; plus every `apps/*/index.html' under ROOT, plus the modification
+;; time and size of the governing `.beads/issues.jsonl' br export
+;; (graph builds ingest it for issue parent edges).  A cache hit
+;; requires an `equal' stamp, so content edits (mtime), additions,
+;; and removals (path list) all invalidate naturally - including
+;; writes performed by subprocess agents outside Emacs.
 ;;
 ;; `ogent-armory-cache-invalidate' exists as an optimization for
 ;; in-Emacs mutations; correctness never depends on explicit
@@ -23,12 +25,28 @@
 (defvar ogent-armory-cache--table (make-hash-table :test 'equal)
   "Cache table mapping (ROOT . KIND) to (STAMP . VALUE).")
 
+(defun ogent-armory-cache-issues-jsonl (root)
+  "Return the br issue export file governing ROOT, or nil.
+The export is the nearest `.beads/issues.jsonl' at or above ROOT,
+walking upward so an armory nested inside a repository sees the
+repository's export.  Graph builds ingest the file for issue
+parent edges, so `ogent-armory-cache-stamp' covers it."
+  (when (stringp root)
+    (when-let ((base (locate-dominating-file
+                      (file-name-as-directory (expand-file-name root))
+                      (lambda (dir)
+                        (file-regular-p
+                         (expand-file-name ".beads/issues.jsonl" dir))))))
+      (expand-file-name ".beads/issues.jsonl" base))))
+
 (defun ogent-armory-cache-stamp (root)
   "Return a freshness stamp for the Armory under ROOT.
 The stamp is a sorted list of (RELATIVE-PATH . MTIME) conses covering
 every `.org' file and every `apps/*/index.html' under ROOT, skipping
-`.git'.  Return nil when ROOT is missing or unreadable; callers must
-bypass the cache then."
+`.git', plus a (RELATIVE-PATH MTIME SIZE) entry for the governing
+`.beads/issues.jsonl' export when one exists (see
+`ogent-armory-cache-issues-jsonl').  Return nil when ROOT is missing
+or unreadable; callers must bypass the cache then."
   (when (and (stringp root) (file-directory-p root))
     (condition-case nil
         (let* ((root (file-name-as-directory root))
@@ -48,6 +66,12 @@ bypass the cache then."
                             (file-attribute-modification-time
                              (file-attributes file)))
                       stamp))))
+          (when-let ((jsonl (ogent-armory-cache-issues-jsonl root))
+                     (attributes (file-attributes jsonl)))
+            (push (list (file-relative-name jsonl root)
+                        (file-attribute-modification-time attributes)
+                        (file-attribute-size attributes))
+                  stamp))
           (sort stamp (lambda (a b) (string< (car a) (car b)))))
       (file-error nil))))
 

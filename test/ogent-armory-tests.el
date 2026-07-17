@@ -24,6 +24,67 @@
     (insert-file-contents file)
     (buffer-string)))
 
+(defconst ogent-armory-test--issues-jsonl-epic
+  (concat
+   "{\"id\":\"ogent-100\",\"title\":\"Epic\",\"status\":\"open\","
+   "\"priority\":1,\"issue_type\":\"epic\","
+   "\"created_at\":\"2026-07-01T00:00:00Z\",\"created_by\":\"jake\","
+   "\"updated_at\":\"2026-07-01T00:00:00Z\",\"source_repo\":\"ogent\","
+   "\"compaction_level\":0,\"original_size\":0}")
+  "A parent bead line shaped exactly like a br `.beads/issues.jsonl' export.")
+
+(defconst ogent-armory-test--issues-jsonl-child
+  (concat
+   "{\"id\":\"ogent-101\",\"title\":\"Child\",\"status\":\"open\","
+   "\"priority\":2,\"issue_type\":\"task\","
+   "\"created_at\":\"2026-07-01T00:00:01Z\",\"created_by\":\"jake\","
+   "\"updated_at\":\"2026-07-01T00:00:01Z\","
+   "\"dependencies\":[{\"issue_id\":\"ogent-101\","
+   "\"depends_on_id\":\"ogent-100\",\"type\":\"parent-child\","
+   "\"created_at\":\"2026-07-01T00:00:02Z\",\"created_by\":\"jake\","
+   "\"metadata\":\"{}\",\"thread_id\":\"\"}],"
+   "\"source_repo\":\"ogent\",\"compaction_level\":0,\"original_size\":0}")
+  "A child bead line carrying a parent-child dependency, br-export shaped.")
+
+(defconst ogent-armory-test--issues-jsonl-pinned
+  (concat
+   "{\"id\":\"ogent-102\",\"title\":\"Pinned\",\"status\":\"open\","
+   "\"priority\":2,\"issue_type\":\"task\","
+   "\"created_at\":\"2026-07-01T00:00:03Z\",\"created_by\":\"jake\","
+   "\"updated_at\":\"2026-07-01T00:00:03Z\","
+   "\"dependencies\":[{\"issue_id\":\"ogent-102\","
+   "\"depends_on_id\":\"ogent-999\",\"type\":\"parent-child\","
+   "\"created_at\":\"2026-07-01T00:00:04Z\",\"created_by\":\"jake\","
+   "\"metadata\":\"{}\",\"thread_id\":\"\"}],"
+   "\"source_repo\":\"ogent\",\"compaction_level\":0,\"original_size\":0}")
+  "A bead line whose export parent conflicts with an Org property.")
+
+(defun ogent-armory-test--write-issues-jsonl (dir &rest lines)
+  "Write LINES as DIR's `.beads/issues.jsonl' and return the file.
+Uses `write-region' directly to mimic an external `br' flush, which
+never runs the in-Emacs armory cache invalidation."
+  (let ((file (expand-file-name ".beads/issues.jsonl" dir)))
+    (make-directory (file-name-directory file) t)
+    (write-region (concat (string-join lines "\n") "\n")
+                  nil file nil 'silent)
+    file))
+
+(defun ogent-armory-test--write-issue-link (dir file-name properties)
+  "Write an issue-link Org record FILE-NAME with PROPERTIES under DIR."
+  (ogent-armory--write-file
+   (expand-file-name file-name dir)
+   (concat "#+title: Issue\n\n* Issue\n"
+           (ogent-armory--format-properties properties)
+           "\n")))
+
+(defun ogent-armory-test--parent-edge-p (graph from to)
+  "Return non-nil when GRAPH carries a parent edge FROM -> TO."
+  (seq-find (lambda (edge)
+              (and (equal (plist-get edge :from) from)
+                   (equal (plist-get edge :to) to)
+                   (eq (plist-get edge :kind) 'parent)))
+            (plist-get graph :edges)))
+
 (ert-deftest ogent-armory-scaffold-creates-org-layout ()
   "Scaffolding creates the armory layout using Org files."
   (ogent-armory-test-with-temp-dir dir
@@ -396,6 +457,83 @@
                                (equal (plist-get edge :to) "issue:ogent-101")
                                (eq (plist-get edge :kind) 'parent)))
                         edges)))))
+
+(ert-deftest ogent-armory-build-graph-ingests-br-export-parents ()
+  "Parent edges arrive end-to-end from the project's br JSONL export.
+Issue-link records carry only OGENT_ISSUE_ID; the parent id resolves
+at build time from `.beads/issues.jsonl'.  A record's own
+OGENT_ISSUE_PARENT property still wins over the export."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-test--write-issues-jsonl
+     dir
+     ogent-armory-test--issues-jsonl-epic
+     ogent-armory-test--issues-jsonl-child
+     ogent-armory-test--issues-jsonl-pinned)
+    (ogent-armory-test--write-issue-link
+     dir "epic.org" '(("OGENT_ISSUE_ID" . "ogent-100")))
+    (ogent-armory-test--write-issue-link
+     dir "child.org" '(("OGENT_ISSUE_ID" . "ogent-101")))
+    (ogent-armory-test--write-issue-link
+     dir "pinned.org" '(("OGENT_ISSUE_ID" . "ogent-102")
+                        ("OGENT_ISSUE_PARENT" . "ogent-100")))
+    (let ((graph (ogent-armory-build-graph dir)))
+      (should (ogent-armory-test--parent-edge-p
+               graph "issue:ogent-100" "issue:ogent-101"))
+      (should (ogent-armory-test--parent-edge-p
+               graph "issue:ogent-100" "issue:ogent-102"))
+      (should-not (ogent-armory-test--parent-edge-p
+                   graph "issue:ogent-999" "issue:ogent-102")))))
+
+(ert-deftest ogent-armory-build-graph-degrades-without-usable-issues-jsonl ()
+  "Missing and malformed br exports never break the graph build.
+With no export, issue-link records without parent properties yield
+no parent edges; a later export containing garbage lines still
+contributes the edges its well-formed line describes."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-test--write-issue-link
+     dir "epic.org" '(("OGENT_ISSUE_ID" . "ogent-100")))
+    (ogent-armory-test--write-issue-link
+     dir "child.org" '(("OGENT_ISSUE_ID" . "ogent-101")))
+    (should-not (ogent-armory-test--parent-edge-p
+                 (ogent-armory-build-graph dir)
+                 "issue:ogent-100" "issue:ogent-101"))
+    (ogent-armory-test--write-issues-jsonl
+     dir
+     "{\"id\":\"ogent-0aa\",\"title\":\"truncated"
+     "not json at all"
+     ogent-armory-test--issues-jsonl-child
+     "[]")
+    (should (ogent-armory-test--parent-edge-p
+             (ogent-armory-build-graph dir)
+             "issue:ogent-100" "issue:ogent-101"))))
+
+(ert-deftest ogent-armory-build-graph-tracks-issues-jsonl-rewrites ()
+  "An external br flush refreshes the cached graph without FORCE.
+The freshness stamp covers `.beads/issues.jsonl' mtime and size, so
+a rewrite dropping the parent-child dependency invalidates the
+cached graph even though no Org file changed and no in-Emacs
+invalidation ran."
+  (ogent-armory-test-with-temp-dir dir
+    (ogent-armory-scaffold dir "Company" :kind "root" :create-editor nil)
+    (ogent-armory-test--write-issue-link
+     dir "epic.org" '(("OGENT_ISSUE_ID" . "ogent-100")))
+    (ogent-armory-test--write-issue-link
+     dir "child.org" '(("OGENT_ISSUE_ID" . "ogent-101")))
+    (ogent-armory-test--write-issues-jsonl
+     dir
+     ogent-armory-test--issues-jsonl-epic
+     ogent-armory-test--issues-jsonl-child)
+    (should (ogent-armory-test--parent-edge-p
+             (ogent-armory-build-graph dir)
+             "issue:ogent-100" "issue:ogent-101"))
+    (ogent-armory-test--write-issues-jsonl
+     dir
+     ogent-armory-test--issues-jsonl-epic)
+    (should-not (ogent-armory-test--parent-edge-p
+                 (ogent-armory-build-graph dir)
+                 "issue:ogent-100" "issue:ogent-101"))))
 
 (ert-deftest ogent-armory-build-graph-legacy-fixture-keeps-old-kinds ()
   "Fixtures without conversations or parents produce only the old kinds."

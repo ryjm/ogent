@@ -1165,6 +1165,48 @@ An app artifact is a directory containing an index.html file."
         (plist-put edge :data data)
       edge)))
 
+(defun ogent-armory--issues-jsonl-parents (root)
+  "Return a child-to-parent issue id alist from the br export above ROOT.
+Read the nearest `.beads/issues.jsonl' (see
+`ogent-armory-cache-issues-jsonl') and collect one (CHILD-ID
+. PARENT-ID) entry per parent-child dependency, matching the export
+shape that nests (:issue_id CHILD :depends_on_id PARENT :type
+\"parent-child\") records under each issue's dependencies.  Return
+nil when no export governs ROOT; skip malformed lines and read
+failures silently so graph builds never fail on br state.  Only the
+JSONL export and `br show --json' carry dependency records; `br
+list --json' emits just a dependency count and cannot supply
+parents (see `ogent-issues-bd--issue-parent')."
+  (when-let ((file (ogent-armory-cache-issues-jsonl root)))
+    (condition-case nil
+        (let ((lines (split-string
+                      (with-temp-buffer
+                        (insert-file-contents file)
+                        (buffer-string))
+                      "\n" t "[ \t\r]*"))
+              parents)
+          (dolist (line lines)
+            (condition-case nil
+                (let ((issue (json-parse-string
+                              line
+                              :object-type 'plist
+                              :array-type 'list
+                              :null-object nil
+                              :false-object nil)))
+                  (dolist (dep (plist-get issue :dependencies))
+                    (when (and (listp dep)
+                               (equal (plist-get dep :type) "parent-child"))
+                      (let ((child (plist-get dep :issue_id))
+                            (parent (plist-get dep :depends_on_id)))
+                        (when (and (stringp child)
+                                   (stringp parent)
+                                   (not (string-empty-p child))
+                                   (not (string-empty-p parent)))
+                          (push (cons child parent) parents))))))
+              (error nil)))
+          (nreverse parents))
+      (error nil))))
+
 (defun ogent-armory--issue-links (root)
   "Return Org records under ROOT with issue link metadata."
   (let (links)
@@ -1214,7 +1256,10 @@ conversation store below .agents/.conversations/."
   "Return a typed graph projection for the Org armory under DIRECTORY.
 The returned plist has `:nodes' and `:edges' collections suitable for
 status buffers, future incremental indexes, and automation planners.
-With FORCE non-nil, bypass the stamp cache and rebuild."
+Issue-link records gain parent edges from their OGENT_ISSUE_PARENT
+property, falling back to the project's `.beads/issues.jsonl' br
+export (see `ogent-armory--issues-jsonl-parents').  With FORCE
+non-nil, bypass the stamp cache and rebuild."
   (let* ((candidate (ogent-armory--directory directory))
          (root (file-truename
                 (ogent-armory--directory
@@ -1332,28 +1377,30 @@ With FORCE non-nil, force nested session listing rebuilds."
                                       session-id)))
             (push (ogent-armory--graph-edge session-node node-id 'produced)
                   edges)))))
-    (dolist (issue (ogent-armory--issue-links root))
-      (let* ((issue-id (plist-get issue :issue-id))
-             (node-id (format "issue:%s" issue-id))
-             (worker (plist-get issue :assigned-worker)))
-        (push (ogent-armory--graph-node
-               node-id
-               'issue
-               issue-id
-               (plist-get issue :path)
-               issue)
-              nodes)
-        (push (ogent-armory--graph-edge armory-id node-id 'linked-issue)
-              edges)
-        (when-let ((parent (plist-get issue :issue-parent)))
-          (push (ogent-armory--graph-edge
-                 (format "issue:%s" parent) node-id 'parent)
-                edges))
-        (when worker
-          (push (ogent-armory--graph-edge node-id
-                                          (format "agent:%s" worker)
-                                          'assigned-worker)
-                edges))))
+    (let ((jsonl-parents (ogent-armory--issues-jsonl-parents root)))
+      (dolist (issue (ogent-armory--issue-links root))
+        (let* ((issue-id (plist-get issue :issue-id))
+               (node-id (format "issue:%s" issue-id))
+               (worker (plist-get issue :assigned-worker)))
+          (push (ogent-armory--graph-node
+                 node-id
+                 'issue
+                 issue-id
+                 (plist-get issue :path)
+                 issue)
+                nodes)
+          (push (ogent-armory--graph-edge armory-id node-id 'linked-issue)
+                edges)
+          (when-let ((parent (or (plist-get issue :issue-parent)
+                                 (cdr (assoc issue-id jsonl-parents)))))
+            (push (ogent-armory--graph-edge
+                   (format "issue:%s" parent) node-id 'parent)
+                  edges))
+          (when worker
+            (push (ogent-armory--graph-edge node-id
+                                            (format "agent:%s" worker)
+                                            'assigned-worker)
+                  edges)))))
     (list :root (directory-file-name root)
           :nodes (nreverse nodes)
           :edges (nreverse edges))))
