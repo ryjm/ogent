@@ -121,11 +121,12 @@ then the heading title."
           (when title
             (ogent-context--slug title))))))
 
-;;;###autoload
 (defun ogent-backlinks-at-point ()
-  "Get backlinks for the handle of the current heading.
-Returns the same format as `ogent-backlinks-for-handle'."
-  (interactive)
+  "Return backlinks for the handle of the current heading.
+Return the same format as `ogent-backlinks-for-handle'.  This is a
+data-returning helper for programmatic use; the user-facing command
+is `ogent-show-backlinks' (registry `b') - 9cm triage removed the
+autoload cookie and interactive form accordingly."
   (ogent-context--ensure-org)
   (if-let ((handle (ogent-backlinks--handle-at-point)))
       (ogent-backlinks-for-handle handle)

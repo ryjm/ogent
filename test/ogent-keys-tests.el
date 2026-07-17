@@ -823,10 +823,7 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
     (ogent-armory-conversation
      . "Backend detail view opened from the conversations list, home, and status surfaces")
     (ogent-armory-open-app
-     . "RETIRE CANDIDATE (9cm triage): superseded by `ogent-armory-apps-open' (apps dispatch row); deletion awaits user approval")
-    ;; lisp/ui/ogent-ui-*.el
-    (ogent-backlinks-at-point
-     . "RETIRE CANDIDATE (9cm triage): superseded by `ogent-show-backlinks' (registry `b'); deletion awaits user approval")
+     . "Intentional M-x-only Armory root picker (prompts for DIRECTORY); NOT superseded - `ogent-armory-apps-open' opens the item at point, a different operation (9cm triage)")
     (ogent-context-manage
      . "Documented M-x context manager (docs/how-it-works.org)")
     (ogent-status-mode
