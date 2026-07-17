@@ -326,25 +326,77 @@ The source buffer content is captured for context."
     (ogent-ui--dispatch-request source-buffer region-start region-end
                                 raw-prompt models preset templates)))
 
-(defcustom ogent-fanout-models nil
+(defcustom ogent-fanout-default-models nil
   "Model ids `ogent-fanout' dispatches to when no set is given.
-A list of `ogent-model-registry' id strings.  nil falls back to the
-dispatcher's live fan-out selection and finally to the distinct
-models the role picker resolves (see `ogent-fanout--model-set')."
+A list of `ogent-model-registry' id strings (aliases are resolved).
+nil falls back to the dispatcher's live fan-out selection and finally
+to the distinct models the role picker resolves (see
+`ogent-fanout--model-set')."
   :type '(repeat (string :tag "Model id"))
   :group 'ogent-mode)
+
+(defun ogent-fanout--role-model-set ()
+  "Return the distinct model ids the role picker resolves.
+One id per known role, duplicates removed.  Returns nil instead of
+signaling when `ogent-model-registry' is empty, so callers can report
+the empty set with fan-out specific guidance."
+  (when ogent-model-registry
+    (delete-dups
+     (delq nil
+           (mapcar #'ogent-models-resolve-role
+                   (ogent-models-known-roles))))))
 
 (defun ogent-fanout--model-set (&optional models)
   "Return the fan-out member model ids as a list.
 MODELS, when non-nil, wins.  Otherwise fall back through the
 dispatcher's live selection (`ogent-ui--selected-models'), then
-`ogent-fanout-models', and finally the distinct models that the
-role picker resolves via `ogent-models-resolve-role'."
+`ogent-fanout-default-models', and finally the distinct models that
+the role picker resolves via `ogent-models-resolve-role'."
   (or models
       ogent-ui--selected-models
-      ogent-fanout-models
-      (delete-dups
-       (mapcar #'ogent-models-resolve-role (ogent-models-known-roles)))))
+      ogent-fanout-default-models
+      (ogent-fanout--role-model-set)))
+
+(defun ogent-fanout--canonicalize-models (models)
+  "Return MODELS as canonical `ogent-model-registry' ids.
+Every member is resolved through `ogent-models-resolve-designator',
+so aliases and @role designators canonicalize to registry ids.
+Signal a `user-error' for members naming no registered model, and for
+duplicate members (two designators resolving to the same model)."
+  (let (canonical)
+    (dolist (model models)
+      (let ((id (ogent-models-resolve-designator model)))
+        (unless id
+          (user-error "Unknown fan-out model: %s" model))
+        (when (member id canonical)
+          (user-error
+           "Duplicate fan-out model: %s (each member must be a distinct model)"
+           id))
+        (push id canonical)))
+    (nreverse canonical)))
+
+(defun ogent-fanout--resolve-model-set (&optional models)
+  "Return the canonical fan-out member set, validating it.
+Resolve the raw set via `ogent-fanout--model-set' (MODELS wins over
+the dispatcher selection, `ogent-fanout-default-models', and the role
+fallback), then canonicalize it via
+`ogent-fanout--canonicalize-models'.  Signal a `user-error' naming
+the three selection sources when the set comes up empty."
+  (let ((raw (ogent-fanout--model-set models)))
+    (unless raw
+      (user-error
+       (concat "No fan-out models: invoke `ogent-fanout' with C-u to pick a"
+               " set, customize `ogent-fanout-default-models', or assign"
+               " models to roles in `ogent-model-roles'")))
+    (ogent-fanout--canonicalize-models raw)))
+
+(defun ogent-fanout--read-models ()
+  "Read a fan-out model set with completion over registry ids.
+Uses `completing-read-multiple' over `ogent-model-registry' ids;
+aliases and @role designators typed freely are accepted and later
+canonicalized by `ogent-fanout--canonicalize-models'.  Returns nil
+for empty input so the caller falls back to the configured sources."
+  (completing-read-multiple "Fan-out models: " (ogent-models-ids)))
 
 (defun ogent-fanout--group-id ()
   "Return a fresh fan-out group id."
@@ -362,23 +414,74 @@ failures never retry or fail over to another provider (that could
 duplicate a model already in the group); the failed member simply
 closes with its error.
 
-When PROMPT is nil, read it from the region or minibuffer.  When
-MODELS is nil, resolve the member set via `ogent-fanout--model-set'.
-PRESET and TEMPLATES are forwarded to the send path as in
-`ogent-request'.  Return the fan-out group id."
-  (interactive)
+When PROMPT is nil, read it from the region or minibuffer.
+Interactively, a prefix argument (\\[universal-argument]) prompts for
+the member set with completion over the registry; otherwise, and when
+MODELS is nil, the set falls back through
+`ogent-fanout-default-models' and the role picker's distinct models
+(see `ogent-fanout--resolve-model-set').  Aliases canonicalize;
+duplicate and empty sets are refused.  PRESET and TEMPLATES are
+forwarded to the send path as in `ogent-request'.  Return the
+fan-out group id."
+  (interactive
+   (list nil (when current-prefix-arg (ogent-fanout--read-models))))
   (let ((source-buffer (current-buffer))
         (region-start (when (use-region-p) (region-beginning)))
         (region-end (when (use-region-p) (region-end)))
         (raw-prompt (or prompt (ogent-ui--read-prompt)))
-        (member-ids (ogent-fanout--model-set models))
+        (member-ids (ogent-fanout--resolve-model-set models))
         (group (ogent-fanout--group-id)))
+    (ogent-ui-fanout-begin-group group member-ids)
     (ogent-ui--dispatch-request
      source-buffer region-start region-end raw-prompt member-ids
      preset templates nil
      (lambda (context)
        (plist-put (copy-sequence context) :fanout-group group)))
     group))
+
+(defun ogent-fanout--group-at-point ()
+  "Return the fan-out group id at point, or nil.
+Prefer the inherited OGENT_FANOUT_GROUP property of the Org entry at
+point.  When point is not inside a fan-out subtree, fall back to the
+only live fan-out group in the current buffer, when exactly one
+exists."
+  (or (and (derived-mode-p 'org-mode)
+           (ignore-errors (org-entry-get nil "OGENT_FANOUT_GROUP" t)))
+      (let (groups)
+        (dolist (request (ogent-ui-active-requests))
+          (when-let ((group (and (eq (ogent-ui-request-buffer request)
+                                     (current-buffer))
+                                 (plist-get (ogent-ui-request-context request)
+                                            :fanout-group))))
+            (unless (member group groups)
+              (push group groups))))
+        (and groups (null (cdr groups)) (car groups)))))
+
+;;;###autoload
+(defun ogent-fanout-abort (&optional group)
+  "Abort every in-flight member of the fan-out GROUP at point.
+GROUP defaults to the group at point (see
+`ogent-fanout--group-at-point').  Members that already finished keep
+their responses -- partial completion is a feature -- while each
+in-flight member goes through the normal abort path, so its watchdog
+is cancelled and its Response section is marked aborted.  Return the
+number of members aborted."
+  (interactive)
+  (let ((group (or group (ogent-fanout--group-at-point))))
+    (unless group
+      (user-error "No fan-out group at point"))
+    (let ((members (seq-filter
+                    (lambda (request)
+                      (equal (plist-get (ogent-ui-request-context request)
+                                        :fanout-group)
+                             group))
+                    (ogent-ui-active-requests))))
+      (dolist (request members)
+        (ogent-ui--abort-request request))
+      (message "Aborted %d fan-out member%s"
+               (length members)
+               (if (= 1 (length members)) "" "s"))
+      (length members))))
 
 (provide 'ogent-ui-send)
 ;;; ogent-ui-send.el ends here

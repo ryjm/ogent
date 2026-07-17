@@ -147,6 +147,12 @@ Set to nil to disable automatic evil binding setup."
                       :desc "Retry last request")
     (model-picker     :key "@" :command ogent-model-picker
                       :desc "Model picker")
+    ;; Fan-out
+    (fanout           :key "C-f" :command ogent-fanout
+                      :desc "Fan out to models (C-f: fan out)"
+                      :visual t)
+    (fanout-abort     :key "C-k" :command ogent-fanout-abort
+                      :desc "Abort fan-out group (C-k: kill)")
     ;; Context
     (context-preview  :key "c" :command ogent-context-preview
                       :desc "Preview context")
@@ -321,8 +327,6 @@ Set to nil to disable automatic evil binding setup."
     ;; once (bead ogent-jk5.1).  Later beads bind these commands to their
     ;; reserved chords verbatim and drop the chord from the guard list in
     ;; `ogent-keys-reserved-chords-stay-free' (ogent-keys-tests.el):
-    ;;   "C-f"  ogent-fanout                            fan out a request
-    ;;   "C-k"  ogent-fanout-abort                      kill running fan-out
     ;;   "C-d"  ogent-fanout-compare                    diff fan-out results
     ;;   "*"    rating command (bead ogent-z0k.1)       star-rate response
     (export-conversation :key "C-x" :command ogent-export-conversation

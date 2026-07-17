@@ -502,6 +502,110 @@ the accumulated :attempt and :tried counters under the
 :provider-fallback key of its context plist, letting a subsequent
 failure re-enter `ogent-provider-handle-error' with that state.")
 
+;;; Fan-out group lifecycle
+;;
+;; `ogent-fanout' (ogent-ui-send.el) registers the full expected member
+;; set up front via `ogent-ui-fanout-begin-group', so a member that
+;; finishes synchronously during dispatch can never make a half-built
+;; group look complete.  Member entries double as the RESULTS elements
+;; handed to `ogent-fanout-group-done-hook'.
+
+(defvar ogent-ui--fanout-groups (make-hash-table :test #'equal)
+  "Live fan-out group state keyed by group id.
+Each value is a list of member entries (MODEL-ID STATUS . MARKER):
+STATUS is a chip symbol (`streaming', `done', `failed', `aborted')
+and MARKER is the member's response marker once it registers.  The
+entry is created by `ogent-ui-fanout-begin-group' and removed when
+the group finishes (see `ogent-ui--fanout-maybe-finish').")
+
+(defcustom ogent-fanout-group-done-hook nil
+  "Hook run when the last member of a fan-out group finishes.
+Called with two arguments, GROUP-ID and RESULTS, once every member
+has reached a terminal state (done, failed, and aborted all count).
+RESULTS is a list of (MODEL-ID STATUS . RESPONSE-MARKER) entries in
+dispatch order.  Hook errors are demoted to messages so a user hook
+can never wedge group bookkeeping."
+  :type 'hook
+  :group 'ogent-mode)
+
+(defun ogent-ui-fanout-begin-group (group model-ids)
+  "Register fan-out GROUP with expected members MODEL-IDS.
+Must be called before the members dispatch so
+`ogent-fanout-group-done-hook' cannot fire until every expected
+member reaches a terminal state."
+  (puthash group
+           (mapcar (lambda (id) (cons id (cons 'streaming nil))) model-ids)
+           ogent-ui--fanout-groups))
+
+(defun ogent-ui--fanout-member-entry (request)
+  "Return REQUEST's member entry in its fan-out group, or nil."
+  (when-let* ((group (plist-get (ogent-ui-request-context request)
+                                :fanout-group))
+              (members (gethash group ogent-ui--fanout-groups)))
+    (assoc (plist-get (ogent-ui-request-model request) :id) members)))
+
+(defun ogent-ui--fanout-attach (request)
+  "Bind REQUEST's response marker into its fan-out member entry."
+  (when-let ((entry (ogent-ui--fanout-member-entry request)))
+    (setcdr (cdr entry) (ogent-ui-request-marker request))))
+
+(defun ogent-ui--fanout-chip-status (status)
+  "Return the fan-out chip symbol for request STATUS."
+  (pcase status
+    ('done 'done)
+    ('error 'failed)
+    ('aborted 'aborted)
+    (_ 'streaming)))
+
+(defun ogent-ui--fanout-note-status (request status)
+  "Record STATUS on REQUEST's fan-out member entry, when it has one."
+  (when-let ((entry (ogent-ui--fanout-member-entry request)))
+    (setcar (cdr entry) (ogent-ui--fanout-chip-status status))))
+
+(defun ogent-ui--fanout-group-status (members)
+  "Return the aggregate status symbol for fan-out MEMBERS.
+`streaming' while any member is live; then `error' if any member
+failed, `aborted' if any was aborted, and `done' otherwise."
+  (let ((statuses (mapcar #'cadr members)))
+    (cond
+     ((seq-some (lambda (s) (not (memq s '(done failed aborted)))) statuses)
+      'streaming)
+     ((memq 'failed statuses) 'error)
+     ((memq 'aborted statuses) 'aborted)
+     (t 'done))))
+
+(defun ogent-ui--fanout-chips (members)
+  "Return the per-member chip string for fan-out MEMBERS.
+One MODEL-ID=STATUS chip per member, comma separated, in dispatch
+order."
+  (mapconcat (lambda (entry) (format "%s=%s" (car entry) (cadr entry)))
+             members ","))
+
+(defun ogent-ui--fanout-maybe-finish (request)
+  "Fire `ogent-fanout-group-done-hook' when REQUEST completed its group.
+When every member of REQUEST's fan-out group has reached a terminal
+chip status, drop the group from `ogent-ui--fanout-groups' and run
+the hook with the group id and the member RESULTS.  The group entry
+is removed before the hook runs, so the hook fires exactly once per
+group and a throwing hook (demoted to a message) can never block the
+bookkeeping."
+  (when-let* ((group (plist-get (ogent-ui-request-context request)
+                                :fanout-group))
+              (members (gethash group ogent-ui--fanout-groups)))
+    (when (seq-every-p (lambda (entry)
+                         (memq (cadr entry) '(done failed aborted)))
+                       members)
+      (remhash group ogent-ui--fanout-groups)
+      (let ((results (mapcar (lambda (entry)
+                               (cons (car entry)
+                                     (cons (cadr entry) (cddr entry))))
+                             members)))
+        (condition-case err
+            (run-hook-with-args 'ogent-fanout-group-done-hook group results)
+          (error
+           (message "ogent-fanout-group-done-hook error: %s"
+                    (error-message-string err))))))))
+
 (defun ogent-ui-register-request (request)
   "Register REQUEST in the active request table."
   (setf (ogent-ui-request-start-time request) (current-time))
@@ -514,6 +618,8 @@ failure re-enter `ogent-provider-handle-error' with that state.")
           (plist-put (copy-sequence (ogent-ui-request-context request))
                      :provider-fallback ogent-ui--fallback-state)))
   (puthash (ogent-ui-request-id request) request ogent-ui--request-table)
+  ;; A fan-out member binds its response marker into its group entry.
+  (ogent-ui--fanout-attach request)
   (ogent-ledger-record-request-start request)
   (when (fboundp 'ogent-analytics-start-request)
     (ogent-analytics-start-request))
@@ -626,6 +732,7 @@ heading (see `ogent-shift-response-headings')."
 (defun ogent-ui--update-status (request new-status)
   "Update REQUEST status to NEW-STATUS and refresh block metadata."
   (setf (ogent-ui-request-status request) new-status)
+  (ogent-ui--fanout-note-status request new-status)
   (when (memq new-status '(done error aborted))
     (setf (ogent-ui-request-end-time request) (current-time)))
   (when (memq new-status '(done error aborted paused))
@@ -649,7 +756,10 @@ heading (see `ogent-shift-response-headings')."
   "Update the src block header with current status and timing for REQUEST.
 A :fallback-status string in REQUEST's context (see
 `ogent-ui--set-fallback-status') replaces the status keyword so
-provider recovery state stays visible in the transcript."
+provider recovery state stays visible in the transcript.  A fan-out
+member whose group has several members renders one chip per member
+(see `ogent-ui--fanout-chips') after the aggregate group status; a
+single-member group keeps the plain request header shape."
   (let ((block-start (ogent-ui-request-block-start request))
         (model (ogent-ui-request-model request))
         (status (ogent-ui-request-status request)))
@@ -662,11 +772,17 @@ provider recovery state stays visible in the transcript."
             (let* ((model-id (plist-get model :id))
                    (backend (plist-get model :backend))
                    (latency (ogent-ui--format-latency request))
+                   (group (plist-get (ogent-ui-request-context request)
+                                     :fanout-group))
+                   (members (and group
+                                 (gethash group ogent-ui--fanout-groups)))
+                   ;; Chips only disambiguate; per-member latency lives
+                   ;; in the chips story, not the shared header.
+                   (multi (and members (cdr members)))
                    ;; Fan-out members share one Request block: keep the
                    ;; header's recorded model/backend (the first member)
                    ;; instead of rewriting them to the updating member.
-                   (prefix (if (plist-get (ogent-ui-request-context request)
-                                          :fanout-group)
+                   (prefix (if group
                                (match-string 1)
                              (concat "#+begin_src text :model " model-id
                                      (when backend
@@ -676,20 +792,28 @@ provider recovery state stays visible in the transcript."
                    (status-str (or (plist-get
                                     (ogent-ui-request-context request)
                                     :fallback-status)
-                                   (pcase status
-                                     ('wait "waiting")
-                                     ('tool "tool")
-                                     ('type "typing")
-                                     ('done "done")
-                                     ('error "error")
-                                     ('paused "paused")
-                                     ('aborted "aborted")
-                                     (_ nil))))
+                                   (if multi
+                                       (symbol-name
+                                        (ogent-ui--fanout-group-status
+                                         members))
+                                     (pcase status
+                                       ('wait "waiting")
+                                       ('tool "tool")
+                                       ('type "typing")
+                                       ('done "done")
+                                       ('error "error")
+                                       ('paused "paused")
+                                       ('aborted "aborted")
+                                       (_ nil)))))
                    (new-header (concat prefix
                                        (when status-str
                                          (format " :status %s" status-str))
-                                       (when latency
-                                         (format " :latency %s" latency)))))
+                                       (when (and latency (not multi))
+                                         (format " :latency %s" latency))
+                                       (when multi
+                                         (format " :members %s"
+                                                 (ogent-ui--fanout-chips
+                                                  members))))))
               (replace-match new-header t t))))))))
 
 (defun ogent-ui--fold-prompt-block (request)
@@ -923,7 +1047,10 @@ Provides visual feedback via mode-line flash."
     (when (fboundp 'ogent-status-clear-request)
       (run-with-timer 2.0 nil #'ogent-status-clear-request request))
     (run-hook-with-args 'ogent-after-request-hook
-                        (ogent-ui-request-context request))))
+                        (ogent-ui-request-context request))
+    ;; Fan-out group bookkeeping runs last: when this member is the
+    ;; group's final terminal transition, fire the group-done hook.
+    (ogent-ui--fanout-maybe-finish request)))
 
 (defun ogent-ui--gptel-tool-result-entry (entry)
   "Normalize one gptel tool-result ENTRY to (:name NAME :args ARGS :result RESULT)."
