@@ -1689,54 +1689,49 @@
                         ogent-armory-apps-mode-hook))
       (should (memq #'evil-normalize-keymaps hook)))))
 
-(defun ogent-ui-armory-test--transient-suffixes (prefix)
-  "Return the plists of all suffixes in PREFIX's transient layout."
-  (let (suffixes)
-    (cl-labels ((walk (node)
-                  (cond
-                   ((vectorp node)
-                    (mapc #'walk (append node nil)))
-                   ((and (consp node)
-                         (symbolp (car node))
-                         (plist-member (cdr node) :command))
-                    (push (cdr node) suffixes))
-                   ((listp node)
-                    (mapc #'walk node)))))
-      (walk (get prefix 'transient--layout)))
-    (nreverse suffixes)))
-
 (ert-deftest ogent-ui-armory-home-dispatch-includes-agenda-cockpit-rows ()
-  "The Home dispatch wires the control-plane and saved QL view commands."
-  (let ((commands (mapcar (lambda (suffix) (plist-get suffix :command))
-                          (ogent-ui-armory-test--transient-suffixes
-                           'ogent-armory-home-dispatch))))
-    (should (memq 'ogent-armory-agenda-control-plane commands))
-    (should (memq 'ogent-armory-ql-view commands))
-    (should (memq 'ogent-armory-agenda commands))))
+  "The Home dispatch wires the control-plane and saved QL view commands.
+Bindings come from the source form (version-independent); runtime
+registration is checked shape-agnostically."
+  (let ((rows (ogent-test-transient-source-rows
+               'ogent-armory-home-dispatch
+               "lisp/ui/ogent-ui-armory-home.el")))
+    (dolist (expected '(("C" . ogent-armory-agenda-control-plane)
+                        ("V" . ogent-armory-ql-view)))
+      (when (fboundp 'transient-get-suffix)
+        (should (transient-get-suffix 'ogent-armory-home-dispatch
+                                      (car expected))))
+      (let ((row (assoc (car expected) rows)))
+        (should row)
+        (should (eq (cadr row) (cdr expected)))))
+    (should (rassq 'ogent-armory-agenda
+                   (mapcar (lambda (row) (cons (car row) (cadr row)))
+                           rows)))))
 
 (ert-deftest ogent-ui-armory-agents-dispatch-includes-lifecycle-rows ()
   "The agents dispatch wires clone and archive lifecycle rows (ogent-9cm)."
-  (let ((suffixes (ogent-ui-armory-test--transient-suffixes
-                   'ogent-armory-agents-dispatch)))
+  (let ((rows (ogent-test-transient-source-rows
+               'ogent-armory-agents-dispatch
+               "lisp/ui/ogent-ui-armory-agents.el")))
     (dolist (expected '(("c" . ogent-armory-clone-agent)
                         ("a" . ogent-armory-archive-agent)))
-      (let ((suffix (cl-find (cdr expected) suffixes
-                             :key (lambda (plist)
-                                    (plist-get plist :command)))))
-        (should suffix)
-        (should (equal (car expected) (plist-get suffix :key)))))))
+      (when (fboundp 'transient-get-suffix)
+        (should (transient-get-suffix 'ogent-armory-agents-dispatch
+                                      (car expected))))
+      (let ((row (assoc (car expected) rows)))
+        (should row)
+        (should (eq (cadr row) (cdr expected)))))))
 
 (ert-deftest ogent-ui-armory-home-dispatch-ql-row-visible-without-org-ql ()
   "The saved-views row stays visible with an install hint sans org-ql."
-  (let ((suffix (cl-find 'ogent-armory-ql-view
-                         (ogent-ui-armory-test--transient-suffixes
-                          'ogent-armory-home-dispatch)
-                         :key (lambda (plist) (plist-get plist :command)))))
-    (should suffix)
+  (let ((row (ogent-test-transient-row
+              'ogent-armory-home-dispatch
+              "lisp/ui/ogent-ui-armory-home.el" "V")))
+    (should row)
     ;; The row must never be hidden behind :if; discoverability relies on
     ;; the description function dimming it instead.
-    (should-not (plist-get suffix :if))
-    (should (eq (plist-get suffix :description)
+    (should-not (plist-get (cddr row) :if))
+    (should (eq (plist-get (cddr row) :description)
                 'ogent-armory-home--ql-view-description))
     (cl-letf (((symbol-function 'ogent-armory-home--ql-view-available-p)
                (lambda () nil)))

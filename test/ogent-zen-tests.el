@@ -1667,27 +1667,18 @@ superseded (the reported regression)."
       (kill-buffer buf))))
 
 (ert-deftest ogent-zen-review-menu-wires-state-setter-rows ()
-  "The review menu wires superseded, failed, and set-state rows (ogent-9cm)."
-  (let (suffixes)
-    (cl-labels ((walk (node)
-                  (cond
-                   ((vectorp node)
-                    (mapc #'walk (append node nil)))
-                   ((and (consp node)
-                         (symbolp (car node))
-                         (plist-member (cdr node) :command))
-                    (push (cdr node) suffixes))
-                   ((listp node)
-                    (mapc #'walk node)))))
-      (walk (get 'ogent-zen-review-menu 'transient--layout)))
-    (dolist (expected '(("S" . ogent-zen-mark-superseded)
-                        ("f" . ogent-zen-mark-failed)
-                        ("r" . ogent-zen-set-review)))
-      (let ((suffix (cl-find (cdr expected) suffixes
-                             :key (lambda (plist)
-                                    (plist-get plist :command)))))
-        (should suffix)
-        (should (equal (car expected) (plist-get suffix :key)))))))
+  "The review menu wires superseded, failed, and set-state rows (ogent-9cm).
+Key->command bindings come from the source form (version-independent);
+runtime registration is checked shape-agnostically per key."
+  (dolist (expected '(("S" . ogent-zen-mark-superseded)
+                      ("f" . ogent-zen-mark-failed)
+                      ("r" . ogent-zen-set-review)))
+    (when (fboundp 'transient-get-suffix)
+      (should (transient-get-suffix 'ogent-zen-review-menu (car expected))))
+    (let ((row (ogent-test-transient-row
+                'ogent-zen-review-menu "lisp/ogent-zen.el" (car expected))))
+      (should row)
+      (should (eq (cadr row) (cdr expected))))))
 
 (provide 'ogent-zen-tests)
 ;;; ogent-zen-tests.el ends here

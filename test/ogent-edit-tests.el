@@ -1880,12 +1880,17 @@ the constant."
     (should ogent-edit-use-structured-output)))
 
 (ert-deftest ogent-edit-menu-has-structured-output-toggle ()
-  "The edit transient exposes the structured-output toggle on \"s\"."
+  "The edit transient exposes the structured-output toggle on \"s\".
+Runtime registration is checked shape-agnostically; the key->command
+binding is asserted from the source form, independent of the
+installed transient's private layout representation."
   (require 'transient)
-  (let ((suffix (transient-get-suffix 'ogent-edit-menu "s")))
-    (should suffix)
-    (should (eq (plist-get (cdr suffix) :command)
-                'ogent-edit-toggle-structured-output))))
+  (when (fboundp 'transient-get-suffix)
+    (should (transient-get-suffix 'ogent-edit-menu "s")))
+  (let ((row (ogent-test-transient-row
+              'ogent-edit-menu "lisp/ogent-edit.el" "s")))
+    (should row)
+    (should (eq (cadr row) 'ogent-edit-toggle-structured-output))))
 
 ;;; Analytics Completion Stamping Tests (bead ogent-z0k.2)
 

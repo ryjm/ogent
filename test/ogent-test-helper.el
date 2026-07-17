@@ -58,6 +58,86 @@ instead of reading a keystroke."
 (add-to-list 'load-path ogent-test-root)
 (add-to-list 'load-path (expand-file-name "ui" ogent-test-root))
 
+;;; Transient source-row parsing (version independent)
+;;
+;; Tests asserting menu wiring must not walk transient's PRIVATE
+;; layout representation: its shape differs across the transient
+;; versions in CI (built-in) and local (bundled) Emacsen.  Instead,
+;; pair (a) a shape-agnostic runtime registration check -
+;; (transient-get-suffix PREFIX KEY) non-nil - with (b) the source
+;; parse below for the KEY -> COMMAND binding and row keywords.
+
+(defun ogent-test--transient-row (row)
+  "Parse one suffix ROW list into (KEY COMMAND . KEYWORD-PLIST).
+Return nil when ROW carries no key or command.  Strings after the
+key are descriptions; keywords consume their value; the first bare
+symbol outside a keyword pair is the command."
+  (let ((items row) key command plist)
+    (when (stringp (car items))
+      (setq key (pop items)))
+    (while items
+      (let ((x (pop items)))
+        (cond
+         ((keywordp x) (setq plist (plist-put plist x (pop items))))
+         ((stringp x))
+         ((symbolp x) (unless command (setq command x))))))
+    (when (and key command)
+      (cons key (cons command plist)))))
+
+(defun ogent-test--transient-vector-rows (vector)
+  "Collect parsed suffix rows from group VECTOR, recursing into subgroups."
+  (let (rows)
+    (dolist (element (append vector nil))
+      (cond
+       ((vectorp element)
+        (setq rows (nconc rows (ogent-test--transient-vector-rows element))))
+       ((consp element)
+        (let ((row (ogent-test--transient-row element)))
+          (when row (push row rows))))))
+    (nreverse rows)))
+
+(defun ogent-test-transient-source-rows (prefix file)
+  "Return PREFIX's suffix rows (KEY COMMAND . PLIST) parsed from FILE.
+FILE is relative to `ogent-project-root'.  The prefix body begins
+after NAME + ARGLIST + optional docstring (cddr from the arglist
+position when a docstring is present).  Works for
+`transient-define-prefix' and `ogent-armory-ui--define-prefix'
+forms alike; signals when PREFIX is not found in FILE."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name file ogent-project-root))
+    (goto-char (point-min))
+    (let (rows found)
+      (condition-case nil
+          (while t
+            (let ((form (read (current-buffer))))
+              (when (and (consp form)
+                         (memq (car form) '(transient-define-prefix
+                                             ogent-armory-ui--define-prefix))
+                         (eq (nth 1 form) prefix))
+                (setq found t)
+                (let* ((rest (nthcdr 2 form))
+                       (body (if (stringp (cadr rest))
+                                 (cddr rest)
+                               (cdr rest))))
+                  (while body
+                    (let ((element (pop body)))
+                      (cond
+                       ((keywordp element) (pop body))
+                       ((vectorp element)
+                        (setq rows
+                              (nconc rows
+                                     (ogent-test--transient-vector-rows
+                                      element)))))))))))
+        (end-of-file nil))
+      (unless found
+        (error "Prefix %s not found in %s" prefix file))
+      rows)))
+
+(defun ogent-test-transient-row (prefix file key)
+  "Return PREFIX's parsed row for KEY from FILE, or nil.
+See `ogent-test-transient-source-rows'."
+  (assoc key (ogent-test-transient-source-rows prefix file)))
+
 ;;; Store guard: persistence off by default under ert
 ;;
 ;; Suites must never write real user stores.  Modules may load at any
