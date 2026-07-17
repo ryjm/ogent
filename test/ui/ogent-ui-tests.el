@@ -871,12 +871,11 @@
 (defmacro ogent-ui-tests--with-ledger (file &rest body)
   "Run BODY with a fresh enabled ledger written to FILE."
   (declare (indent 1))
-  `(let* ((dir (make-temp-file "ogent-ui-ledger-" t))
+  `(let* ((dir (ogent-test--provision-store-directory 'ui-ledger))
           (,file (expand-file-name "ledger.org" dir))
           (ogent-ledger-enabled t)
           (ogent-ledger-file ,file))
-     (unwind-protect (progn ,@body)
-       (delete-directory dir t))))
+     ,@body))
 
 (defun ogent-ui-tests--ledger-text (file)
   "Return the ledger FILE contents as a string."
@@ -924,13 +923,11 @@
                      :function (lambda (a) a)
                      :description "Quiet"
                      :args '((:name "a" :type "string")))))
-        (dir (make-temp-file "ogent-ui-ledger-off-" t)))
-    (unwind-protect
-        (let ((ogent-ledger-enabled nil)
-              (ogent-ledger-file (expand-file-name "ledger.org" dir)))
-          (ogent-ui--execute-tool 'quiet-tool '(:a "y"))
-          (should-not (file-exists-p ogent-ledger-file)))
-      (delete-directory dir t))))
+        (dir (ogent-test--provision-store-directory 'ui-ledger)))
+    (let ((ogent-ledger-enabled nil)
+          (ogent-ledger-file (expand-file-name "ledger.org" dir)))
+      (ogent-ui--execute-tool 'quiet-tool '(:a "y"))
+      (should-not (file-exists-p ogent-ledger-file)))))
 
 (ert-deftest ogent-tool-format-preview ()
   "Tool preview formatting is human-readable."
@@ -1148,41 +1145,37 @@
 
 (ert-deftest ogent-ui-generate-diff-write ()
   "Test diff generation for write-file operations."
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Write initial content
-          (with-temp-file test-file
-            (insert "line 1\nline 2\nline 3\n"))
-          ;; Generate diff for new content
-          (let ((diff (ogent-ui--generate-diff test-file "line 1\nline 2 modified\nline 3\n")))
-            (should (stringp diff))
-            (should (string-match-p "-line 2" diff))
-            (should (string-match-p "\\+line 2 modified" diff))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "diff-write.txt" dir)))
+    ;; Write initial content
+    (with-temp-file test-file
+      (insert "line 1\nline 2\nline 3\n"))
+    ;; Generate diff for new content
+    (let ((diff (ogent-ui--generate-diff test-file "line 1\nline 2 modified\nline 3\n")))
+      (should (stringp diff))
+      (should (string-match-p "-line 2" diff))
+      (should (string-match-p "\\+line 2 modified" diff)))))
 
 (ert-deftest ogent-ui-generate-diff-edit ()
   "Test diff generation for edit-file operations."
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Write initial content
-          (with-temp-file test-file
-            (insert "function foo() {\n  return 42;\n}\n"))
-          ;; Generate diff for string replacement
-          (let ((diff (ogent-ui--generate-diff test-file nil
-                                               "return 42;"
-                                               "return 100;")))
-            (should (stringp diff))
-            (should (string-match-p "-.*return 42" diff))
-            (should (string-match-p "\\+.*return 100" diff))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "diff-edit.txt" dir)))
+    ;; Write initial content
+    (with-temp-file test-file
+      (insert "function foo() {\n  return 42;\n}\n"))
+    ;; Generate diff for string replacement
+    (let ((diff (ogent-ui--generate-diff test-file nil
+                                         "return 42;"
+                                         "return 100;")))
+      (should (stringp diff))
+      (should (string-match-p "-.*return 42" diff))
+      (should (string-match-p "\\+.*return 100" diff)))))
 
 (ert-deftest ogent-ui-generate-diff-new-file ()
   "Test diff generation for new file creation."
-  (let ((test-file (make-temp-file "ogent-test" nil nil)))
-    ;; Delete the file to simulate new file creation
-    (delete-file test-file)
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         ;; A never-created path simulates new file creation.
+         (test-file (expand-file-name "diff-new-file.txt" dir)))
     ;; Generate diff for new content
     (let ((diff (ogent-ui--generate-diff test-file "new file content\n")))
       (should (stringp diff))
@@ -1219,30 +1212,28 @@
 
 (ert-deftest ogent-ui-show-diff-for-tool ()
   "Test showing diff preview for edit tools."
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Write initial content
-          (with-temp-file test-file
-            (insert "original content\n"))
-          ;; Show diff in an org buffer
-          (with-temp-buffer
-            (org-mode)
-            (let ((diff-id (ogent-ui--show-diff-for-tool
-                            "write-file"
-                            (list :file_path test-file
-                                  :content "new content\n"))))
-              (should diff-id)
-              (should (string-match-p "^ogent-diff-" diff-id))
-              ;; Check diff info was stored
-              (let ((info (gethash diff-id ogent-ui--pending-diffs)))
-                (should info)
-                (should (eq (plist-get info :status) 'pending))
-                (should (equal (plist-get info :file-path) test-file)))
-              ;; Check block was inserted
-              (goto-char (point-min))
-              (should (search-forward "#+begin_diff" nil t)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "show-diff.txt" dir)))
+    ;; Write initial content
+    (with-temp-file test-file
+      (insert "original content\n"))
+    ;; Show diff in an org buffer
+    (with-temp-buffer
+      (org-mode)
+      (let ((diff-id (ogent-ui--show-diff-for-tool
+                      "write-file"
+                      (list :file_path test-file
+                            :content "new content\n"))))
+        (should diff-id)
+        (should (string-match-p "^ogent-diff-" diff-id))
+        ;; Check diff info was stored
+        (let ((info (gethash diff-id ogent-ui--pending-diffs)))
+          (should info)
+          (should (eq (plist-get info :status) 'pending))
+          (should (equal (plist-get info :file-path) test-file)))
+        ;; Check block was inserted
+        (goto-char (point-min))
+        (should (search-forward "#+begin_diff" nil t))))))
 
 (ert-deftest ogent-ui-show-diff-for-tool-inline-diff ()
   "Inline diff preview path is selected when configured."
@@ -1270,7 +1261,8 @@
 
 (ert-deftest ogent-ui-tool-edits-for-inline-diff-edit-file-replace-all ()
   "Inline diff edit builder expands replace-all edits."
-  (let ((test-file (make-temp-file "ogent-inline-edit-")))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "inline-edit.txt" dir)))
     (unwind-protect
         (progn
           (with-temp-file test-file
@@ -1295,94 +1287,87 @@
                     (should (string= (buffer-substring-no-properties start end)
                                      "foo"))))))))
       (when-let ((buf (get-file-buffer test-file)))
-        (kill-buffer buf))
-      (delete-file test-file))))
+        (kill-buffer buf)))))
 
 (ert-deftest ogent-ui-diff-accept ()
   "Test accepting a diff."
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Write initial content
-          (with-temp-file test-file
-            (insert "old content\n"))
-          ;; Create and accept a diff
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "diff-accept.txt" dir)))
+    ;; Write initial content
+    (with-temp-file test-file
+      (insert "old content\n"))
+    ;; Create and accept a diff
+    (with-temp-buffer
+      (org-mode)
+      ;; Set up tool registry with write-file tool
+      (let ((ogent-tool-registry
+             '((:name write-file
+                      :function ogent-tool--write-file
+                      :description "Write file"
+                      :args ((:name "file_path" :type "string")
+                             (:name "content" :type "string"))))))
+        (let ((diff-id (ogent-ui--show-diff-for-tool
+                        "write-file"
+                        (list :file_path test-file
+                              :content "new content\n"))))
+          ;; Move point into the diff block
+          (goto-char (point-min))
+          (search-forward "#+begin_diff")
+          ;; Accept the diff
+          (ogent-diff-accept)
+          ;; Check status updated
+          (let ((info (gethash diff-id ogent-ui--pending-diffs)))
+            (should (eq (plist-get info :status) 'applied)))
+          ;; Check file was updated
           (with-temp-buffer
-            (org-mode)
-            ;; Set up tool registry with write-file tool
-            (let ((ogent-tool-registry
-                   '((:name write-file
-                            :function ogent-tool--write-file
-                            :description "Write file"
-                            :args ((:name "file_path" :type "string")
-                                   (:name "content" :type "string"))))))
-              (let ((diff-id (ogent-ui--show-diff-for-tool
-                              "write-file"
-                              (list :file_path test-file
-                                    :content "new content\n"))))
-                ;; Move point into the diff block
-                (goto-char (point-min))
-                (search-forward "#+begin_diff")
-                ;; Accept the diff
-                (ogent-diff-accept)
-                ;; Check status updated
-                (let ((info (gethash diff-id ogent-ui--pending-diffs)))
-                  (should (eq (plist-get info :status) 'applied)))
-                ;; Check file was updated
-                (with-temp-buffer
-                  (insert-file-contents test-file)
-                  (should (string= (buffer-string) "new content\n")))))))
-      (delete-file test-file))))
+            (insert-file-contents test-file)
+            (should (string= (buffer-string) "new content\n"))))))))
 
 (ert-deftest ogent-ui-diff-reject ()
   "Test rejecting a diff."
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Write initial content
-          (with-temp-file test-file
-            (insert "original content\n"))
-          ;; Create and reject a diff
-          (with-temp-buffer
-            (org-mode)
-            (let ((diff-id (ogent-ui--show-diff-for-tool
-                            "write-file"
-                            (list :file_path test-file
-                                  :content "modified content\n"))))
-              ;; Move point into the diff block
-              (goto-char (point-min))
-              (search-forward "#+begin_diff")
-              ;; Reject the diff
-              (ogent-diff-reject)
-              ;; Check status updated
-              (let ((info (gethash diff-id ogent-ui--pending-diffs)))
-                (should (eq (plist-get info :status) 'rejected)))
-              ;; Check file was NOT modified
-              (with-temp-buffer
-                (insert-file-contents test-file)
-                (should (string= (buffer-string) "original content\n"))))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "diff-reject.txt" dir)))
+    ;; Write initial content
+    (with-temp-file test-file
+      (insert "original content\n"))
+    ;; Create and reject a diff
+    (with-temp-buffer
+      (org-mode)
+      (let ((diff-id (ogent-ui--show-diff-for-tool
+                      "write-file"
+                      (list :file_path test-file
+                            :content "modified content\n"))))
+        ;; Move point into the diff block
+        (goto-char (point-min))
+        (search-forward "#+begin_diff")
+        ;; Reject the diff
+        (ogent-diff-reject)
+        ;; Check status updated
+        (let ((info (gethash diff-id ogent-ui--pending-diffs)))
+          (should (eq (plist-get info :status) 'rejected)))
+        ;; Check file was NOT modified
+        (with-temp-buffer
+          (insert-file-contents test-file)
+          (should (string= (buffer-string) "original content\n")))))))
 
 (ert-deftest ogent-ui-pending-diffs ()
   "Test listing pending diffs."
   (clrhash ogent-ui--pending-diffs)
-  (let ((test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "content\n"))
-          (with-temp-buffer
-            (org-mode)
-            ;; Create two diffs
-            (ogent-ui--show-diff-for-tool
-             "write-file"
-             (list :file_path test-file :content "a\n"))
-            (ogent-ui--show-diff-for-tool
-             "write-file"
-             (list :file_path test-file :content "b\n"))
-            ;; Both should be pending
-            (should (= 2 (length (ogent-ui-pending-diffs))))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'ui))
+         (test-file (expand-file-name "pending-diffs.txt" dir)))
+    (with-temp-file test-file
+      (insert "content\n"))
+    (with-temp-buffer
+      (org-mode)
+      ;; Create two diffs
+      (ogent-ui--show-diff-for-tool
+       "write-file"
+       (list :file_path test-file :content "a\n"))
+      (ogent-ui--show-diff-for-tool
+       "write-file"
+       (list :file_path test-file :content "b\n"))
+      ;; Both should be pending
+      (should (= 2 (length (ogent-ui-pending-diffs)))))))
 
 ;;; Context Diff Tests
 

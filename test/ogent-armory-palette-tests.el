@@ -17,11 +17,8 @@
 (defmacro ogent-armory-palette-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-palette-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (ogent-test--provision-store-directory 'armory-palette)))
+     ,@body))
 
 (ert-deftest ogent-armory-palette-ranks-exact-titles-and-paths ()
   "Ranked search prefers exact titles, then paths and text matches."

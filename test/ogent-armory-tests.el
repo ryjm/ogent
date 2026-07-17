@@ -12,13 +12,11 @@
 (require 'org)
 
 (defmacro ogent-armory-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary directory while running BODY."
+  "Bind VAR to a retained temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'armory))))
+     ,@body))
 
 (defun ogent-armory-test--slurp (file)
   "Return FILE contents as a string."
@@ -179,10 +177,18 @@
     (let ((agent (ogent-armory-resolve-agent dir "cto")))
       (should (equal (plist-get agent :name) "Local CTO"))
       (should (eq (plist-get agent :scope) 'armory)))
-    (delete-directory (ogent-armory-agent-directory dir "cto") t)
-    (let ((agent (ogent-armory-resolve-agent dir "cto")))
-      (should (equal (plist-get agent :name) "Global CTO"))
-      (should (eq (plist-get agent :scope) 'global)))))
+    ;; Fallback: a sibling root seeded with only the global persona
+    ;; resolves globally, without deleting the local persona above.
+    (ogent-armory-test-with-temp-dir global-only
+      (ogent-armory-scaffold
+       global-only "Company" :kind "root" :create-editor nil)
+      (ogent-armory-write-global-agent
+       global-only
+       '(:slug "cto" :name "Global CTO" :department "Executive")
+       "Global guidance.")
+      (let ((agent (ogent-armory-resolve-agent global-only "cto")))
+        (should (equal (plist-get agent :name) "Global CTO"))
+        (should (eq (plist-get agent :scope) 'global))))))
 
 (ert-deftest ogent-armory-agent-resolution-uses-visible-unique-armories ()
   "Agent resolution can fall through to slug-unique visible child armories."

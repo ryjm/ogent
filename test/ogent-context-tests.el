@@ -694,41 +694,35 @@
 
 (ert-deftest ogent-pinned-item-content-file ()
   "File pinned items return file contents."
-  (let ((tmp (make-temp-file "ogent-pin-test")))
-    (unwind-protect
-        (progn
-          (write-region "file content" nil tmp)
-          (let ((item (make-ogent-pinned-item :type 'file :path tmp
-                                              :label "test" :pinned-at (current-time))))
-            (should (string= (ogent-pinned-item-content item) "file content"))))
-      (delete-file tmp))))
+  (let* ((dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "pin-test.txt" dir)))
+    (write-region "file content" nil tmp)
+    (let ((item (make-ogent-pinned-item :type 'file :path tmp
+                                        :label "test" :pinned-at (current-time))))
+      (should (string= (ogent-pinned-item-content item) "file content")))))
 
 (ert-deftest ogent-pinned-item-content-file-truncates ()
   "File pinned items cap large file content."
-  (let ((tmp (make-temp-file "ogent-pin-truncate"))
-        (ogent-context-max-item-chars 5))
-    (unwind-protect
-        (progn
-          (write-region "0123456789" nil tmp)
-          (let* ((item (make-ogent-pinned-item :type 'file :path tmp
-                                               :label "test" :pinned-at (current-time)))
-                 (content (ogent-pinned-item-content item)))
-            (should (string-prefix-p "01234" content))
-            (should (string-match-p "truncated file" content))))
-      (delete-file tmp))))
+  (let* ((dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "pin-truncate.txt" dir))
+         (ogent-context-max-item-chars 5))
+    (write-region "0123456789" nil tmp)
+    (let* ((item (make-ogent-pinned-item :type 'file :path tmp
+                                         :label "test" :pinned-at (current-time)))
+           (content (ogent-pinned-item-content item)))
+      (should (string-prefix-p "01234" content))
+      (should (string-match-p "truncated file" content)))))
 
 (ert-deftest ogent-pinned-item-content-file-omits-binary ()
   "File pinned items omit binary content."
-  (let ((tmp (make-temp-file "ogent-pin-binary")))
-    (unwind-protect
-        (progn
-          (write-region "abc\0def" nil tmp nil 'silent)
-          (let* ((item (make-ogent-pinned-item :type 'file :path tmp
-                                               :label "test" :pinned-at (current-time)))
-                 (content (ogent-pinned-item-content item)))
-            (should (string-match-p "binary file omitted" content))
-            (should-not (string-match-p "abc" content))))
-      (delete-file tmp))))
+  (let* ((dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "pin-binary.bin" dir)))
+    (write-region "abc\0def" nil tmp nil 'silent)
+    (let* ((item (make-ogent-pinned-item :type 'file :path tmp
+                                         :label "test" :pinned-at (current-time)))
+           (content (ogent-pinned-item-content item)))
+      (should (string-match-p "binary file omitted" content))
+      (should-not (string-match-p "abc" content)))))
 
 (ert-deftest ogent-pinned-item-content-buffer ()
   "Buffer pinned items return buffer contents."
@@ -783,41 +777,39 @@
 
 (ert-deftest ogent-pinned-items-valid-file-exists ()
   "Valid items include files that exist."
-  (let* ((tmp (make-temp-file "ogent-valid-test"))
+  (let* ((dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "valid-test.txt" dir))
          (ogent-pinned-context
           (list (make-ogent-pinned-item :type 'file :path tmp
                                         :label "exists" :pinned-at (current-time))
                 (make-ogent-pinned-item :type 'file :path "/no/such/file.txt"
                                         :label "missing" :pinned-at (current-time)))))
-    (unwind-protect
-        (let ((valid (ogent-pinned-items-valid)))
-          (should (= (length valid) 1))
-          (should (string= (ogent-pinned-item-label (car valid)) "exists")))
-      (delete-file tmp))))
+    (make-empty-file tmp)
+    (let ((valid (ogent-pinned-items-valid)))
+      (should (= (length valid) 1))
+      (should (string= (ogent-pinned-item-label (car valid)) "exists")))))
 
 ;;; Pin file / buffer / region tests
 
 (ert-deftest ogent-pin-file-adds-to-context ()
   "Pinning a file adds it to the pinned context list."
-  (let ((ogent-pinned-context nil)
-        (tmp (make-temp-file "ogent-pin-file-test")))
-    (unwind-protect
-        (progn
-          (ogent-pin-file tmp)
-          (should (= (length ogent-pinned-context) 1))
-          (should (eq (ogent-pinned-item-type (car ogent-pinned-context)) 'file)))
-      (delete-file tmp))))
+  (let* ((ogent-pinned-context nil)
+         (dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "pin-file-test.txt" dir)))
+    (make-empty-file tmp)
+    (ogent-pin-file tmp)
+    (should (= (length ogent-pinned-context) 1))
+    (should (eq (ogent-pinned-item-type (car ogent-pinned-context)) 'file))))
 
 (ert-deftest ogent-pin-file-no-duplicate ()
   "Pinning the same file twice does not duplicate."
-  (let ((ogent-pinned-context nil)
-        (tmp (make-temp-file "ogent-pin-dup-test")))
-    (unwind-protect
-        (progn
-          (ogent-pin-file tmp)
-          (ogent-pin-file tmp)
-          (should (= (length ogent-pinned-context) 1)))
-      (delete-file tmp))))
+  (let* ((ogent-pinned-context nil)
+         (dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "pin-dup-test.txt" dir)))
+    (make-empty-file tmp)
+    (ogent-pin-file tmp)
+    (ogent-pin-file tmp)
+    (should (= (length ogent-pinned-context) 1))))
 
 (ert-deftest ogent-pin-buffer-adds-to-context ()
   "Pinning a buffer adds it to the pinned context list."
@@ -943,17 +935,17 @@
 
 (ert-deftest ogent-pin-dwim-pins-file ()
   "DWIM pins file when buffer visits a file."
-  (let ((ogent-pinned-context nil)
-        (tmp (make-temp-file "ogent-dwim-test")))
-    (unwind-protect
-        (let ((buf (find-file-noselect tmp)))
-          (unwind-protect
-              (with-current-buffer buf
-                (ogent-pin-dwim)
-                (should (= (length ogent-pinned-context) 1))
-                (should (eq (ogent-pinned-item-type (car ogent-pinned-context)) 'file)))
-            (kill-buffer buf)))
-      (delete-file tmp))))
+  (let* ((ogent-pinned-context nil)
+         (dir (ogent-test--provision-store-directory 'context))
+         (tmp (expand-file-name "dwim-test.txt" dir)))
+    (make-empty-file tmp)
+    (let ((buf (find-file-noselect tmp)))
+      (unwind-protect
+          (with-current-buffer buf
+            (ogent-pin-dwim)
+            (should (= (length ogent-pinned-context) 1))
+            (should (eq (ogent-pinned-item-type (car ogent-pinned-context)) 'file)))
+        (kill-buffer buf)))))
 
 (ert-deftest ogent-pin-dwim-pins-buffer ()
   "DWIM pins buffer when no file is associated."

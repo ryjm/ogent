@@ -16,13 +16,11 @@
 (require 'seq)
 
 (defmacro ogent-armory-schedule-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary directory while running BODY."
+  "Bind VAR to a retained temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-schedule-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'armory-schedule))))
+     ,@body))
 
 (defun ogent-armory-schedule-test--time (year month day hour minute)
   "Return local time for YEAR, MONTH, DAY, HOUR, and MINUTE."

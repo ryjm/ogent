@@ -17,11 +17,8 @@
   "Bind VAR to a temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
   `(let ((,var (file-truename
-                (make-temp-file "ogent-armory-actions-" t))))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+                (ogent-test--provision-store-directory 'armory-actions))))
+     ,@body))
 
 (defun ogent-armory-actions-test--seed (root)
   "Create agents and a parent conversation under ROOT."

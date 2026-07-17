@@ -374,7 +374,7 @@
 
 (ert-deftest ogent-onboard-save-api-key-writes-correctly ()
   "Test save-api-key writes correct authinfo content."
-  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'onboard))
          (authinfo (expand-file-name ".authinfo" temp-dir))
          (orig-home (getenv "HOME")))
     (unwind-protect
@@ -390,15 +390,11 @@
             (should (string-match-p "login apikey" content))
             (should (string-match-p "password sk-99999" content))))
       ;; Restore HOME
-      (setenv "HOME" orig-home)
-      (when (file-exists-p authinfo)
-        (delete-file authinfo))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+      (setenv "HOME" orig-home))))
 
 (ert-deftest ogent-onboard-save-api-key-appends-to-existing ()
   "Test save-api-key appends to existing authinfo file."
-  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'onboard))
          (authinfo (expand-file-name ".authinfo" temp-dir))
          (orig-home (getenv "HOME")))
     (unwind-protect
@@ -415,25 +411,17 @@
             (should (string-match-p "machine existing.host" content))
             (should (string-match-p "machine api.new.com" content))
             (should (string-match-p "password sk-new" content))))
-      (setenv "HOME" orig-home)
-      (when (file-exists-p authinfo)
-        (delete-file authinfo))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+      (setenv "HOME" orig-home))))
 
 (ert-deftest ogent-onboard-save-api-key-returns-t ()
   "Test save-api-key returns t on success."
-  (let* ((temp-dir (make-temp-file "ogent-test-home" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'onboard))
          (orig-home (getenv "HOME")))
     (unwind-protect
         (progn
           (setenv "HOME" temp-dir)
           (should (eq t (ogent-onboard--save-api-key "host" "key"))))
-      (setenv "HOME" orig-home)
-      (let ((f (expand-file-name ".authinfo" temp-dir)))
-        (when (file-exists-p f) (delete-file f)))
-      (when (file-directory-p temp-dir)
-        (delete-directory temp-dir)))))
+      (setenv "HOME" orig-home))))
 
 ;;; Configure API Key Flow Tests
 
@@ -628,17 +616,14 @@
 
 (ert-deftest ogent-onboard-find-source-root-custom ()
   "Test find-source-root uses ogent-source-directory when set."
-  (let* ((root (make-temp-file "ogent-root-" t))
+  (let* ((root (ogent-test--provision-store-directory 'onboard))
          (lisp-dir (expand-file-name "lisp" root))
          (ogent-source-directory root))
-    (unwind-protect
-        (progn
-          (make-directory lisp-dir)
-          (with-temp-file (expand-file-name "ogent.el" lisp-dir)
-            (insert ";;; ogent.el\n"))
-          (should (equal (file-name-as-directory (file-truename root))
-                         (ogent-onboard--find-source-root))))
-      (delete-directory root t))))
+    (make-directory lisp-dir)
+    (with-temp-file (expand-file-name "ogent.el" lisp-dir)
+      (insert ";;; ogent.el\n"))
+    (should (equal (file-name-as-directory (file-truename root))
+                   (ogent-onboard--find-source-root)))))
 
 (ert-deftest ogent-onboard-find-source-root-keeps-invalid-custom-path ()
   "Invalid custom source roots remain authoritative for reload errors."
@@ -647,34 +632,27 @@
 
 (ert-deftest ogent-onboard-source-root-accepts-lisp-dir ()
   "Source root detection accepts an ogent lisp directory."
-  (let* ((root (make-temp-file "ogent-root-" t))
+  (let* ((root (ogent-test--provision-store-directory 'onboard))
          (lisp-dir (expand-file-name "lisp" root)))
-    (unwind-protect
-        (progn
-          (make-directory lisp-dir)
-          (with-temp-file (expand-file-name "ogent.el" lisp-dir)
-            (insert ";;; ogent.el\n"))
-          (should (equal (file-name-as-directory (file-truename root))
-                         (ogent-onboard--source-root-from-path lisp-dir))))
-      (delete-directory root t))))
+    (make-directory lisp-dir)
+    (with-temp-file (expand-file-name "ogent.el" lisp-dir)
+      (insert ";;; ogent.el\n"))
+    (should (equal (file-name-as-directory (file-truename root))
+                   (ogent-onboard--source-root-from-path lisp-dir)))))
 
 (ert-deftest ogent-onboard-source-root-follows-symlinked-package-file ()
   "Source root detection follows straight-style symlinked package files."
-  (let* ((root (make-temp-file "ogent-root-" t))
-         (build (make-temp-file "ogent-build-" t))
+  (let* ((root (ogent-test--provision-store-directory 'onboard))
+         (build (ogent-test--provision-store-directory 'onboard))
          (lisp-dir (expand-file-name "lisp" root))
          (source-file (expand-file-name "ogent.el" lisp-dir))
          (linked-file (expand-file-name "ogent.el" build)))
-    (unwind-protect
-        (progn
-          (make-directory lisp-dir)
-          (with-temp-file source-file
-            (insert ";;; ogent.el\n"))
-          (make-symbolic-link source-file linked-file)
-          (should (equal (file-name-as-directory (file-truename root))
-                         (ogent-onboard--source-root-from-path linked-file))))
-      (delete-directory root t)
-      (delete-directory build t))))
+    (make-directory lisp-dir)
+    (with-temp-file source-file
+      (insert ";;; ogent.el\n"))
+    (make-symbolic-link source-file linked-file)
+    (should (equal (file-name-as-directory (file-truename root))
+                   (ogent-onboard--source-root-from-path linked-file)))))
 
 (ert-deftest ogent-onboard-find-source-root-nil-falls-back ()
   "Test find-source-root falls back when ogent-source-directory is nil."

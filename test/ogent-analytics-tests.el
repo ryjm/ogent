@@ -379,32 +379,46 @@
 
 (ert-deftest ogent-analytics-test-get-db-returns-cached ()
   "Test get-db returns cached connection when valid."
+  ;; Zero-FS: every collaborator is stubbed and the fake DB path is
+  ;; never created; it lives under `temporary-file-directory' so the
+  ;; store tripwire classifies it as sanctioned.
   (let ((ogent-analytics-enabled t)
         (ogent-analytics--db-cache (make-hash-table :test 'equal))
-        (fake-db (make-symbol "cached-db")))
+        (fake-db (make-symbol "cached-db"))
+        (fake-path (expand-file-name "ogent-analytics-fake/path.db"
+                                     temporary-file-directory)))
     (cl-letf (((symbol-function 'sqlite-available-p) (lambda () t))
-              ((symbol-function 'ogent-analytics--db-path) (lambda () "/test/path.db"))
+              ((symbol-function 'ogent-analytics--db-path)
+               (lambda () fake-path))
               ((symbol-function 'ogent-analytics--db-valid-p)
                (lambda (db) (eq db fake-db))))
-      (puthash "/test/path.db" fake-db ogent-analytics--db-cache)
+      (puthash fake-path fake-db ogent-analytics--db-cache)
       (should (eq (ogent-analytics--get-db) fake-db)))))
 
 (ert-deftest ogent-analytics-test-get-db-opens-new ()
   "Test get-db opens new connection when cache miss."
+  ;; Zero-FS: every collaborator is stubbed and the fake DB path is
+  ;; never created; it lives under `temporary-file-directory' so the
+  ;; store tripwire classifies it as sanctioned.
   (let ((ogent-analytics-enabled t)
         (ogent-analytics--db-cache (make-hash-table :test 'equal))
         (fake-db (make-symbol "new-db"))
-        (schema-called nil))
+        (schema-called nil)
+        (fake-path (expand-file-name "ogent-analytics-fake/new.db"
+                                     temporary-file-directory)))
     (cl-letf (((symbol-function 'sqlite-available-p) (lambda () t))
-              ((symbol-function 'ogent-analytics--db-path) (lambda () "/test/new.db"))
-              ((symbol-function 'ogent-analytics--db-valid-p) (lambda (_db) nil))
+              ((symbol-function 'ogent-analytics--db-path)
+               (lambda () fake-path))
+              ((symbol-function 'ogent-analytics--db-valid-p)
+               (lambda (_db) nil))
               ((symbol-function 'sqlite-open) (lambda (_path) fake-db))
               ((symbol-function 'ogent-analytics--init-schema)
                (lambda (_db) (setq schema-called t))))
       (let ((result (ogent-analytics--get-db)))
         (should (eq result fake-db))
         (should schema-called)
-        (should (eq (gethash "/test/new.db" ogent-analytics--db-cache) fake-db))))))
+        (should (eq (gethash fake-path ogent-analytics--db-cache)
+                    fake-db))))))
 
 ;;; Init Schema Tests
 

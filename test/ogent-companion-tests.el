@@ -94,19 +94,19 @@
       (kill-buffer text-buffer))))
 
 (ert-deftest ogent-companion-naming-uses-file-name ()
-  "Companion buffer name uses file name when available."
-  (let ((file-buffer (find-file-noselect (make-temp-file "ogent-test" nil ".txt"))))
-    (unwind-protect
-        (with-current-buffer file-buffer
-          (fundamental-mode)
-          (let* ((filename (file-name-nondirectory (buffer-file-name)))
-                 (expected-name (format "*ogent:%s*" filename))
-                 (companion (ogent-companion-get-or-create)))
-            (should (string= (buffer-name companion) expected-name))
-            (kill-buffer companion)))
-      (let ((file (buffer-file-name file-buffer)))
-        (kill-buffer file-buffer)
-        (delete-file file)))))
+  "Companion buffer name uses file name when available.
+Fake file-backed buffer (bound `buffer-file-name'); no filesystem
+footprint."
+  (with-temp-buffer
+    (setq buffer-file-name "/nonexistent/ogent-naming-test.txt")
+    (fundamental-mode)
+    (let* ((filename (file-name-nondirectory (buffer-file-name)))
+           (expected-name (format "*ogent:%s*" filename))
+           (companion (ogent-companion-get-or-create)))
+      (unwind-protect
+          (should (string= (buffer-name companion) expected-name))
+        (kill-buffer companion)))
+    (setq buffer-file-name nil)))
 
 (ert-deftest ogent-companion-saves-link-to-file-local ()
   "Companion link is saved to buffer-local variable.
@@ -139,14 +139,16 @@ stubbed - no filesystem footprint."
 
 (ert-deftest ogent-companion-identifier-for-file-buffer ()
   "Get companion identifier returns file path for file buffers."
-  (let ((file-buffer (find-file-noselect (make-temp-file "ogent-test" nil ".txt"))))
+  (let* ((dir (ogent-test--provision-store-directory 'companion))
+         (test-file (expand-file-name "identifier.txt" dir))
+         file-buffer)
+    (make-empty-file test-file)
+    (setq file-buffer (find-file-noselect test-file))
     (unwind-protect
         (let ((identifier (ogent-companion--get-companion-identifier file-buffer)))
           (should (file-name-absolute-p identifier))
           (should (file-exists-p identifier)))
-      (let ((file (buffer-file-name file-buffer)))
-        (kill-buffer file-buffer)
-        (delete-file file)))))
+      (kill-buffer file-buffer))))
 
 (ert-deftest ogent-companion-find-from-buffer-name ()
   "Find or create companion from buffer name identifier."
@@ -161,19 +163,15 @@ stubbed - no filesystem footprint."
 
 (ert-deftest ogent-companion-find-from-file-path ()
   "Find or create companion from file path identifier."
-  (let* ((temp-file (make-temp-file "ogent-test" nil ".org"))
-         (identifier temp-file))
-    (unwind-protect
-        (progn
-          ;; Create the file first
-          (with-temp-file temp-file
-            (insert "#+title: Test\n"))
-          (let ((companion (ogent-companion--find-or-create-from-identifier identifier)))
-            (should (buffer-live-p companion))
-            (should (string= (buffer-file-name companion) temp-file))
-            (kill-buffer companion)))
-      (when (file-exists-p temp-file)
-        (delete-file temp-file)))))
+  (let* ((dir (ogent-test--provision-store-directory 'companion))
+         (identifier (expand-file-name "find-from-path.org" dir)))
+    ;; Create the file first
+    (with-temp-file identifier
+      (insert "#+title: Test\n"))
+    (let ((companion (ogent-companion--find-or-create-from-identifier identifier)))
+      (should (buffer-live-p companion))
+      (should (string= (buffer-file-name companion) identifier))
+      (kill-buffer companion))))
 
 (ert-deftest ogent-companion-restore-link-creates-companion ()
   "Restoring a link creates the companion buffer if it doesn't exist."
@@ -194,19 +192,19 @@ stubbed - no filesystem footprint."
       (kill-buffer text-buffer))))
 
 (ert-deftest ogent-companion-persistence-disabled ()
-  "Persistence can be disabled via customization."
-  (let ((ogent-companion-persist-links nil)
-        (file-buffer (find-file-noselect (make-temp-file "ogent-test" nil ".txt"))))
-    (unwind-protect
-        (with-current-buffer file-buffer
-          (fundamental-mode)
-          (let ((companion (ogent-companion-get-or-create)))
+  "Persistence can be disabled via customization.
+Fake file-backed buffer (bound `buffer-file-name'); no filesystem
+footprint."
+  (let ((ogent-companion-persist-links nil))
+    (with-temp-buffer
+      (setq buffer-file-name "/nonexistent/ogent-persistence-disabled.txt")
+      (fundamental-mode)
+      (let ((companion (ogent-companion-get-or-create)))
+        (unwind-protect
             ;; Link should NOT be saved when persistence is disabled
             (should-not ogent-companion-file)
-            (kill-buffer companion)))
-      (let ((file (buffer-file-name file-buffer)))
-        (kill-buffer file-buffer)
-        (delete-file file)))))
+          (kill-buffer companion)))
+      (setq buffer-file-name nil))))
 
 (ert-deftest ogent-companion-rebind-changes-link ()
   "Rebinding companion changes the linked buffer."
@@ -505,81 +503,72 @@ stubbed - no filesystem footprint."
 
 (ert-deftest ogent-companion-save-link-writes-registry ()
   "File-backed companion links are written to the registry."
-  (let ((temp-file (make-temp-file "ogent-save-registry" nil ".el"))
-        (registry-file (make-temp-file "ogent-link-registry" nil ".el")))
-    (unwind-protect
-        (let ((ogent-companion-link-registry-file registry-file)
-              (ogent-companion-persist-links t)
-              src-buf companion)
-          (setq src-buf (find-file-noselect temp-file))
-          (with-current-buffer src-buf
-            (fundamental-mode)
-            (setq companion (ogent-companion-get-or-create))
-            (let ((registry (ogent-companion--read-link-registry)))
-              (should (equal (cdr (assoc temp-file registry))
-                             (buffer-name companion)))))
-          (kill-buffer companion)
-          (kill-buffer src-buf))
-      (when (file-exists-p temp-file)
-        (delete-file temp-file))
-      (when (file-exists-p registry-file)
-        (delete-file registry-file)))))
+  (let* ((dir (ogent-test--provision-store-directory 'companion))
+         (temp-file (expand-file-name "save-registry.el" dir))
+         (registry-file (expand-file-name "link-registry.el" dir)))
+    (make-empty-file temp-file)
+    (let ((ogent-companion-link-registry-file registry-file)
+          (ogent-companion-persist-links t)
+          src-buf companion)
+      (setq src-buf (find-file-noselect temp-file))
+      (with-current-buffer src-buf
+        (fundamental-mode)
+        (setq companion (ogent-companion-get-or-create))
+        (let ((registry (ogent-companion--read-link-registry)))
+          (should (equal (cdr (assoc temp-file registry))
+                         (buffer-name companion)))))
+      (kill-buffer companion)
+      (kill-buffer src-buf))))
 
 (ert-deftest ogent-companion-restore-link-from-registry ()
   "A reopened source buffer restores its companion from the registry."
-  (let ((temp-file (make-temp-file "ogent-restore-registry" nil ".el"))
-        (registry-file (make-temp-file "ogent-link-registry" nil ".el"))
-        companion-name)
-    (unwind-protect
-        (let ((ogent-companion-link-registry-file registry-file)
-              (ogent-companion-persist-links t)
-              src-buf companion reopened restored)
-          (setq src-buf (find-file-noselect temp-file))
-          (with-current-buffer src-buf
-            (fundamental-mode)
-            (setq companion (ogent-companion-get-or-create))
-            (setq companion-name (buffer-name companion)))
-          (kill-buffer src-buf)
-          (kill-buffer companion)
-          (setq reopened (find-file-noselect temp-file))
-          (with-current-buffer reopened
-            (fundamental-mode)
-            (setq-local ogent-companion--linked-buffer nil)
-            (setq-local ogent-companion-file nil)
-            (ogent-companion--restore-link)
-            (setq restored ogent-companion--linked-buffer)
-            (should (buffer-live-p restored))
-            (should (equal (buffer-name restored) companion-name))
-            (with-current-buffer restored
-              (should (derived-mode-p 'org-mode))))
-          (kill-buffer restored)
-          (kill-buffer reopened))
-      (when (file-exists-p temp-file)
-        (delete-file temp-file))
-      (when (file-exists-p registry-file)
-        (delete-file registry-file)))))
+  (let* ((dir (ogent-test--provision-store-directory 'companion))
+         (temp-file (expand-file-name "restore-registry.el" dir))
+         (registry-file (expand-file-name "link-registry.el" dir))
+         companion-name)
+    (make-empty-file temp-file)
+    (let ((ogent-companion-link-registry-file registry-file)
+          (ogent-companion-persist-links t)
+          src-buf companion reopened restored)
+      (setq src-buf (find-file-noselect temp-file))
+      (with-current-buffer src-buf
+        (fundamental-mode)
+        (setq companion (ogent-companion-get-or-create))
+        (setq companion-name (buffer-name companion)))
+      (kill-buffer src-buf)
+      (kill-buffer companion)
+      (setq reopened (find-file-noselect temp-file))
+      (with-current-buffer reopened
+        (fundamental-mode)
+        (setq-local ogent-companion--linked-buffer nil)
+        (setq-local ogent-companion-file nil)
+        (ogent-companion--restore-link)
+        (setq restored ogent-companion--linked-buffer)
+        (should (buffer-live-p restored))
+        (should (equal (buffer-name restored) companion-name))
+        (with-current-buffer restored
+          (should (derived-mode-p 'org-mode))))
+      (kill-buffer restored)
+      (kill-buffer reopened))))
 
 (ert-deftest ogent-companion-unlink-removes-registry-entry ()
   "Unlinking clears the persisted companion mapping."
-  (let ((temp-file (make-temp-file "ogent-unlink-registry" nil ".el"))
-        (registry-file (make-temp-file "ogent-link-registry" nil ".el")))
-    (unwind-protect
-        (let ((ogent-companion-link-registry-file registry-file)
-              (ogent-companion-persist-links t)
-              src-buf companion)
-          (setq src-buf (find-file-noselect temp-file))
-          (with-current-buffer src-buf
-            (fundamental-mode)
-            (setq companion (ogent-companion-get-or-create))
-            (should (assoc temp-file (ogent-companion--read-link-registry)))
-            (ogent-companion-unlink)
-            (should-not (assoc temp-file (ogent-companion--read-link-registry))))
-          (kill-buffer companion)
-          (kill-buffer src-buf))
-      (when (file-exists-p temp-file)
-        (delete-file temp-file))
-      (when (file-exists-p registry-file)
-        (delete-file registry-file)))))
+  (let* ((dir (ogent-test--provision-store-directory 'companion))
+         (temp-file (expand-file-name "unlink-registry.el" dir))
+         (registry-file (expand-file-name "link-registry.el" dir)))
+    (make-empty-file temp-file)
+    (let ((ogent-companion-link-registry-file registry-file)
+          (ogent-companion-persist-links t)
+          src-buf companion)
+      (setq src-buf (find-file-noselect temp-file))
+      (with-current-buffer src-buf
+        (fundamental-mode)
+        (setq companion (ogent-companion-get-or-create))
+        (should (assoc temp-file (ogent-companion--read-link-registry)))
+        (ogent-companion-unlink)
+        (should-not (assoc temp-file (ogent-companion--read-link-registry))))
+      (kill-buffer companion)
+      (kill-buffer src-buf))))
 
 ;;; Restore Link Tests
 
@@ -625,13 +614,14 @@ stubbed - no filesystem footprint."
 ;;; Get Companion Identifier Tests
 
 (ert-deftest ogent-companion-get-identifier-for-file-backed ()
-  "Test get-companion-identifier returns file path for file buffers."
-  (let ((temp-file (make-temp-file "ogent-id-test")))
-    (unwind-protect
-        (let ((buf (find-file-noselect temp-file)))
-          (should (equal (ogent-companion--get-companion-identifier buf) temp-file))
-          (kill-buffer buf))
-      (delete-file temp-file))))
+  "Test get-companion-identifier returns file path for file buffers.
+Fake file-backed buffer (bound `buffer-file-name'); no filesystem
+footprint."
+  (with-temp-buffer
+    (setq buffer-file-name "/nonexistent/ogent-id-test")
+    (should (equal (ogent-companion--get-companion-identifier (current-buffer))
+                   "/nonexistent/ogent-id-test"))
+    (setq buffer-file-name nil)))
 
 (ert-deftest ogent-companion-get-identifier-for-temp-buffer ()
   "Test get-companion-identifier returns buffer name for temp buffers."

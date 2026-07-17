@@ -157,21 +157,19 @@ old content
 
 (ert-deftest ogent-edit-parse/source-file-captured ()
   "Parser captures source file from source buffer."
-  (let ((temp-file (make-temp-file "parse-test" nil ".el")))
+  (with-temp-buffer
+    (setq buffer-file-name "/nonexistent/ogent-parse-source.el")
     (unwind-protect
-        (let* ((source-buffer (find-file-noselect temp-file))
-               (response "<<<<<<< SEARCH
+        (let* ((response "<<<<<<< SEARCH
 old
 =======
 new
 >>>>>>> REPLACE")
-               (edits (ogent-edit-parse-response response source-buffer)))
-          (unwind-protect
-              (progn
-                (should (= (length edits) 1))
-                (should (string= (ogent-edit-source-file (car edits)) temp-file)))
-            (kill-buffer source-buffer)))
-      (delete-file temp-file))))
+               (edits (ogent-edit-parse-response response (current-buffer))))
+          (should (= (length edits) 1))
+          (should (string= (ogent-edit-source-file (car edits))
+                           "/nonexistent/ogent-parse-source.el")))
+      (setq buffer-file-name nil))))
 
 (ert-deftest ogent-edit-parse/nil-source-file-for-temp-buffer ()
   "Parser sets nil source-file for non-file buffers."
@@ -590,17 +588,17 @@ it in an object with an \"items\" field."
 
 (ert-deftest ogent-edit-parse/structured-source-file-captured ()
   "Structured parser captures source file from a file-backed buffer."
-  (let ((temp-file (make-temp-file "structured-test" nil ".el")))
+  (with-temp-buffer
+    (setq buffer-file-name "/nonexistent/ogent-parse-structured.el")
     (unwind-protect
-        (let* ((source-buffer (find-file-noselect temp-file))
-               (response "[{\"file\": \"a.el\", \"search\": \"old\", \"replace\": \"new\"}]")
-               (edits (ogent-edit-parse-structured-response response source-buffer)))
-          (unwind-protect
-              (progn
-                (should (= (length edits) 1))
-                (should (string= (ogent-edit-source-file (car edits)) temp-file)))
-            (kill-buffer source-buffer)))
-      (delete-file temp-file))))
+        (let* ((response
+                "[{\"file\": \"a.el\", \"search\": \"old\", \"replace\": \"new\"}]")
+               (edits (ogent-edit-parse-structured-response
+                       response (current-buffer))))
+          (should (= (length edits) 1))
+          (should (string= (ogent-edit-source-file (car edits))
+                           "/nonexistent/ogent-parse-structured.el")))
+      (setq buffer-file-name nil))))
 
 (ert-deftest ogent-edit-parse/structured-empty-array ()
   "Empty structured payload yields an empty edit list, not an error."

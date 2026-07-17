@@ -7,6 +7,7 @@
 
 (require 'ert)
 (require 'seq)
+(require 'ogent-test-helper)
 (require 'ogent-models)
 (require 'ogent-tool-effects)
 (require 'ogent-tools)
@@ -33,33 +34,26 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-project-root-prefers-custom ()
   "Project root uses ogent-tools-project-root when set."
-  (let ((root (make-temp-file "ogent-root-" t)))
-    (unwind-protect
-        (let ((ogent-tools-project-root root))
-          (should (equal (file-name-as-directory root)
-                         (file-name-as-directory (ogent-tools--project-root)))))
-      (delete-directory root t))))
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-tools-project-root root))
+    (should (equal (file-name-as-directory root)
+                   (file-name-as-directory (ogent-tools--project-root))))))
 
 (ert-deftest ogent-tools-resolve-path-relative ()
   "Relative paths resolve against default-directory."
-  (let ((root (make-temp-file "ogent-root-" t)))
-    (unwind-protect
-        (let ((default-directory (file-name-as-directory root)))
-          (should (equal (expand-file-name "file.txt" root)
-                         (ogent-tools--resolve-path "file.txt"))))
-      (delete-directory root t))))
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (default-directory root))
+    (should (equal (expand-file-name "file.txt" root)
+                   (ogent-tools--resolve-path "file.txt")))))
 
 (ert-deftest ogent-tools-resolve-path-relative-prefers-project-root ()
   "Relative paths use the configured project root."
-  (let ((root (make-temp-file "ogent-root-" t))
-        (other (make-temp-file "ogent-other-" t)))
-    (unwind-protect
-        (let ((ogent-tools-project-root root)
-              (default-directory (file-name-as-directory other)))
-          (should (equal (expand-file-name "file.txt" root)
-                         (ogent-tools--resolve-path "file.txt"))))
-      (delete-directory root t)
-      (delete-directory other t))))
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (other (ogent-test--provision-store-directory 'tools))
+         (ogent-tools-project-root root)
+         (default-directory other))
+    (should (equal (expand-file-name "file.txt" root)
+                   (ogent-tools--resolve-path "file.txt")))))
 
 (ert-deftest ogent-tools-truncate-output ()
   "Output truncation appends a notice when exceeding max."
@@ -71,30 +65,26 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-read-file-basic ()
   "Read file returns content with line numbers."
-  (let ((test-file (make-temp-file "ogent-test-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "line one\nline two\nline three\n"))
-          (let ((result (ogent-tool--read-file test-file)))
-            (should (string-match-p "1\t.*line one" result))
-            (should (string-match-p "2\t.*line two" result))
-            (should (string-match-p "3\t.*line three" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "data.txt" dir)))
+    (with-temp-file test-file
+      (insert "line one\nline two\nline three\n"))
+    (let ((result (ogent-tool--read-file test-file)))
+      (should (string-match-p "1\t.*line one" result))
+      (should (string-match-p "2\t.*line two" result))
+      (should (string-match-p "3\t.*line three" result)))))
 
 (ert-deftest ogent-tools-read-file-offset-limit ()
   "Read file respects offset and limit."
-  (let ((test-file (make-temp-file "ogent-test-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "a\nb\nc\nd\ne\n"))
-          (let ((result (ogent-tool--read-file test-file 2 2)))
-            (should (string-match-p "2\t.*b" result))
-            (should (string-match-p "3\t.*c" result))
-            (should-not (string-match-p "1\t.*a" result))
-            (should-not (string-match-p "4\t.*d" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "data.txt" dir)))
+    (with-temp-file test-file
+      (insert "a\nb\nc\nd\ne\n"))
+    (let ((result (ogent-tool--read-file test-file 2 2)))
+      (should (string-match-p "2\t.*b" result))
+      (should (string-match-p "3\t.*c" result))
+      (should-not (string-match-p "1\t.*a" result))
+      (should-not (string-match-p "4\t.*d" result)))))
 
 (ert-deftest ogent-tools-read-file-not-found ()
   "Read file errors on missing file."
@@ -102,28 +92,23 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-read-file-binary-detected ()
   "Binary files are rejected by read-file."
-  (let ((test-file (make-temp-file "ogent-binary-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "hello\0world"))
-          (let ((err (should-error (ogent-tool--read-file test-file))))
-            (should (string-match-p "Binary file detected" (cadr err)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "binary.bin" dir)))
+    (with-temp-file test-file
+      (insert "hello\0world"))
+    (let ((err (should-error (ogent-tool--read-file test-file))))
+      (should (string-match-p "Binary file detected" (cadr err))))))
 
 (ert-deftest ogent-tools-glob-basic ()
   "Glob finds matching files."
-  (let ((temp-dir (make-temp-file "ogent-glob-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "test1.el" temp-dir) (insert ""))
-          (with-temp-file (expand-file-name "test2.el" temp-dir) (insert ""))
-          (with-temp-file (expand-file-name "test.txt" temp-dir) (insert ""))
-          (let ((result (ogent-tool--glob "*.el" temp-dir)))
-            (should (string-match-p "test1\\.el" result))
-            (should (string-match-p "test2\\.el" result))
-            (should-not (string-match-p "test\\.txt" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "test1.el" temp-dir) (insert ""))
+    (with-temp-file (expand-file-name "test2.el" temp-dir) (insert ""))
+    (with-temp-file (expand-file-name "test.txt" temp-dir) (insert ""))
+    (let ((result (ogent-tool--glob "*.el" temp-dir)))
+      (should (string-match-p "test1\\.el" result))
+      (should (string-match-p "test2\\.el" result))
+      (should-not (string-match-p "test\\.txt" result)))))
 
 (ert-deftest ogent-tools-bash-basic ()
   "Bash executes simple commands."
@@ -138,39 +123,33 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-write-file-basic ()
   "Write file creates and writes content."
-  (let ((test-file (make-temp-file "ogent-write-")))
-    (unwind-protect
-        (progn
-          (ogent-tool--write-file test-file "test content")
-          (should (equal "test content"
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "written.txt" dir)))
+    (ogent-tool--write-file test-file "test content")
+    (should (equal "test content"
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 (ert-deftest ogent-tools-edit-file-basic ()
   "Edit file replaces string."
-  (let ((test-file (make-temp-file "ogent-edit-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "hello world"))
-          (ogent-tool--edit-file test-file "world" "emacs")
-          (should (equal "hello emacs"
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "hello world"))
+    (ogent-tool--edit-file test-file "world" "emacs")
+    (should (equal "hello emacs"
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 (ert-deftest ogent-tools-edit-file-not-found ()
   "Edit file errors when string not found."
-  (let ((test-file (make-temp-file "ogent-edit-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "hello world"))
-          (should-error (ogent-tool--edit-file test-file "foo" "bar")))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "hello world"))
+    (should-error (ogent-tool--edit-file test-file "foo" "bar"))))
 
 (ert-deftest ogent-tools-registry-install ()
   "Default tools can be installed to registry."
@@ -269,67 +248,58 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-read-file-empty-file ()
   "Read file handles empty file without error."
-  (let ((test-file (make-temp-file "ogent-test-empty-")))
-    (unwind-protect
-        (let ((result (ogent-tool--read-file test-file)))
-          ;; Empty file should return something (possibly just line 1 with empty content)
-          (should (stringp result)))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "empty.txt" dir)))
+    (make-empty-file test-file)
+    (let ((result (ogent-tool--read-file test-file)))
+      ;; Empty file should return something (possibly just line 1 with empty content)
+      (should (stringp result)))))
 
 (ert-deftest ogent-tools-read-file-long-lines-truncated ()
   "Read file truncates lines longer than 2000 chars."
-  (let ((test-file (make-temp-file "ogent-test-long-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert (make-string 3000 ?x)))
-          (let ((result (ogent-tool--read-file test-file)))
-            ;; Should contain truncation indicator
-            (should (string-match-p "\\.\\.\\." result))
-            ;; Should not contain the full 3000-char line
-            (should (< (length result) 3100))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "long.txt" dir)))
+    (with-temp-file test-file
+      (insert (make-string 3000 ?x)))
+    (let ((result (ogent-tool--read-file test-file)))
+      ;; Should contain truncation indicator
+      (should (string-match-p "\\.\\.\\." result))
+      ;; Should not contain the full 3000-char line
+      (should (< (length result) 3100)))))
 
 (ert-deftest ogent-tools-read-file-offset-past-end ()
   "Read file with offset past file end returns empty."
-  (let ((test-file (make-temp-file "ogent-test-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "line 1\nline 2\n"))
-          (let ((result (ogent-tool--read-file test-file 100 10)))
-            (should (equal "" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "short.txt" dir)))
+    (with-temp-file test-file
+      (insert "line 1\nline 2\n"))
+    (let ((result (ogent-tool--read-file test-file 100 10)))
+      (should (equal "" result)))))
 
 ;;; Additional glob tests
 
 (ert-deftest ogent-tools-glob-no-matches ()
   "Glob returns informative message for no matches."
-  (let ((temp-dir (make-temp-file "ogent-glob-" t)))
-    (unwind-protect
-        (let ((result (ogent-tool--glob "*.nonexistent" temp-dir)))
-          (should (string-match-p "No files found" result)))
-      (delete-directory temp-dir t))))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'tools))
+         (result (ogent-tool--glob "*.nonexistent" temp-dir)))
+    (should (string-match-p "No files found" result))))
 
 (ert-deftest ogent-tools-glob-sorted-by-mtime ()
   "Glob results are sorted by modification time, newest first."
-  (let ((temp-dir (make-temp-file "ogent-glob-sort-" t)))
-    (unwind-protect
-        (progn
-          ;; Create files with different mtimes
-          (with-temp-file (expand-file-name "old.el" temp-dir)
-            (insert "old"))
-          (sleep-for 0.1)
-          (with-temp-file (expand-file-name "new.el" temp-dir)
-            (insert "new"))
-          (let ((result (ogent-tool--glob "*.el" temp-dir)))
-            ;; new.el should come before old.el
-            (let ((new-pos (string-match "new\\.el" result))
-                  (old-pos (string-match "old\\.el" result)))
-              (should new-pos)
-              (should old-pos)
-              (should (< new-pos old-pos)))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    ;; Create files with different mtimes
+    (with-temp-file (expand-file-name "old.el" temp-dir)
+      (insert "old"))
+    (sleep-for 0.1)
+    (with-temp-file (expand-file-name "new.el" temp-dir)
+      (insert "new"))
+    (let ((result (ogent-tool--glob "*.el" temp-dir)))
+      ;; new.el should come before old.el
+      (let ((new-pos (string-match "new\\.el" result))
+            (old-pos (string-match "old\\.el" result)))
+        (should new-pos)
+        (should old-pos)
+        (should (< new-pos old-pos))))))
 
 ;;; Streaming lifecycle tests
 
@@ -532,34 +502,29 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-write-file-creates-parent-dirs ()
   "Write file creates parent directories if needed."
-  (let* ((temp-dir (make-temp-file "ogent-write-dir-" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'tools))
          (nested-file (expand-file-name "sub/dir/file.txt" temp-dir)))
-    (unwind-protect
-        (progn
-          (ogent-tool--write-file nested-file "nested content")
-          (should (file-exists-p nested-file))
-          (should (equal "nested content"
-                         (with-temp-buffer
-                           (insert-file-contents nested-file)
-                           (buffer-string)))))
-      (delete-directory temp-dir t))))
+    (ogent-tool--write-file nested-file "nested content")
+    (should (file-exists-p nested-file))
+    (should (equal "nested content"
+                   (with-temp-buffer
+                     (insert-file-contents nested-file)
+                     (buffer-string))))))
 
 ;;; Edit file tests
 
 (ert-deftest ogent-tools-edit-file-replace-all ()
   "Edit file with replace-all replaces all occurrences."
-  (let ((test-file (make-temp-file "ogent-edit-all-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "foo bar foo baz foo"))
-          (let ((result (ogent-tool--edit-file test-file "foo" "qux" t)))
-            (should (string-match-p "3 occurrence" result))
-            (should (equal "qux bar qux baz qux"
-                           (with-temp-buffer
-                             (insert-file-contents test-file)
-                             (buffer-string))))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "foo bar foo baz foo"))
+    (let ((result (ogent-tool--edit-file test-file "foo" "qux" t)))
+      (should (string-match-p "3 occurrence" result))
+      (should (equal "qux bar qux baz qux"
+                     (with-temp-buffer
+                       (insert-file-contents test-file)
+                       (buffer-string)))))))
 
 ;;; Default registry tests
 
@@ -700,36 +665,31 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-grep-returns-match-count ()
   "Grep sync returns match count in output."
-  (let ((temp-dir (make-temp-file "ogent-grep-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "hello.txt" temp-dir)
-            (insert "hello world\ngoodbye world\nhello again\n"))
-          (let ((ogent-tools-show-progress nil)
-                (ogent-tools-stream-callback nil)
-                (ogent-tools--progress-timer nil)
-                (ogent-tools--progress-state nil)
-                (result (ogent-tool--grep "hello" temp-dir)))
-            (should (string-match-p "hello" result))
-            (should (string-match-p "matches" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "hello.txt" temp-dir)
+      (insert "hello world\ngoodbye world\nhello again\n"))
+    (let ((ogent-tools-show-progress nil)
+          (ogent-tools-stream-callback nil)
+          (ogent-tools--progress-timer nil)
+          (ogent-tools--progress-state nil)
+          (result (ogent-tool--grep "hello" temp-dir)))
+      (should (string-match-p "hello" result))
+      (should (string-match-p "matches" result)))))
 
 
 (ert-deftest ogent-tools-grep-accepts-file-path ()
   "Grep searches a single file without treating it as `default-directory'."
-  (let ((test-file (make-temp-file "ogent-grep-file-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "headline overlay\nother text\n"))
-          (let ((ogent-tools-show-progress nil)
-                (ogent-tools-stream-callback nil)
-                (ogent-tools--progress-timer nil)
-                (ogent-tools--progress-state nil)
-                (result (ogent-tool--grep "headline" test-file)))
-            (should (string-match-p "headline overlay" result))
-            (should-not ogent-tools--progress-timer)))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "grep-target.txt" dir)))
+    (with-temp-file test-file
+      (insert "headline overlay\nother text\n"))
+    (let ((ogent-tools-show-progress nil)
+          (ogent-tools-stream-callback nil)
+          (ogent-tools--progress-timer nil)
+          (ogent-tools--progress-state nil)
+          (result (ogent-tool--grep "headline" test-file)))
+      (should (string-match-p "headline overlay" result))
+      (should-not ogent-tools--progress-timer))))
 
 (ert-deftest ogent-tools-grep-rejects-empty-pattern ()
   "Grep rejects empty patterns before starting progress."
@@ -741,56 +701,47 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-grep-no-match ()
   "Grep sync returns no-matches message for unmatched pattern."
-  (let ((temp-dir (make-temp-file "ogent-grep-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "data.txt" temp-dir)
-            (insert "some content\n"))
-          (let ((ogent-tools-show-progress nil)
-                (ogent-tools-stream-callback nil)
-                (ogent-tools--progress-timer nil)
-                (ogent-tools--progress-state nil)
-                (result (ogent-tool--grep "zzznomatch" temp-dir)))
-            (should (string-match-p "No matches found" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "data.txt" temp-dir)
+      (insert "some content\n"))
+    (let ((ogent-tools-show-progress nil)
+          (ogent-tools-stream-callback nil)
+          (ogent-tools--progress-timer nil)
+          (ogent-tools--progress-state nil)
+          (result (ogent-tool--grep "zzznomatch" temp-dir)))
+      (should (string-match-p "No matches found" result)))))
 
 (ert-deftest ogent-tools-grep-with-glob-filter ()
   "Grep sync filters by glob when provided."
-  (let ((temp-dir (make-temp-file "ogent-grep-glob-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "file.el" temp-dir)
-            (insert "target-pattern\n"))
-          (with-temp-file (expand-file-name "file.txt" temp-dir)
-            (insert "target-pattern\n"))
-          (let ((ogent-tools-show-progress nil)
-                (ogent-tools-stream-callback nil)
-                (ogent-tools--progress-timer nil)
-                (ogent-tools--progress-state nil)
-                (result (ogent-tool--grep "target-pattern" temp-dir "*.el")))
-            ;; Should find at least from .el file
-            (should (string-match-p "target-pattern" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "file.el" temp-dir)
+      (insert "target-pattern\n"))
+    (with-temp-file (expand-file-name "file.txt" temp-dir)
+      (insert "target-pattern\n"))
+    (let ((ogent-tools-show-progress nil)
+          (ogent-tools-stream-callback nil)
+          (ogent-tools--progress-timer nil)
+          (ogent-tools--progress-state nil)
+          (result (ogent-tool--grep "target-pattern" temp-dir "*.el")))
+      ;; Should find at least from .el file
+      (should (string-match-p "target-pattern" result)))))
 
 (ert-deftest ogent-tools-grep-streams-start-and-done ()
   "Grep sync calls stream start and done with proper events."
-  (let ((temp-dir (make-temp-file "ogent-grep-stream-" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools))
         (events nil))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "test.txt" temp-dir)
-            (insert "foo bar\n"))
-          (let* ((ogent-tools-show-progress nil)
-                 (ogent-tools--progress-timer nil)
-                 (ogent-tools--progress-state nil)
-                 (ogent-tools-stream-callback
-                  (lambda (tool type _data)
-                    (push (list tool type) events))))
-            (ogent-tool--grep "foo" temp-dir)
-            ;; Should have start and done events
-            (should (cl-find '(grep start) events :test #'equal))
-            (should (cl-find '(grep done) events :test #'equal))))
-      (delete-directory temp-dir t))))
+    (with-temp-file (expand-file-name "test.txt" temp-dir)
+      (insert "foo bar\n"))
+    (let* ((ogent-tools-show-progress nil)
+           (ogent-tools--progress-timer nil)
+           (ogent-tools--progress-state nil)
+           (ogent-tools-stream-callback
+            (lambda (tool type _data)
+              (push (list tool type) events))))
+      (ogent-tool--grep "foo" temp-dir)
+      ;; Should have start and done events
+      (should (cl-find '(grep start) events :test #'equal))
+      (should (cl-find '(grep done) events :test #'equal)))))
 
 ;;; Bash stderr and edge case tests
 
@@ -829,18 +780,16 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-bash-working-directory ()
   "Bash respects working directory."
-  (let ((temp-dir (make-temp-file "ogent-bash-wd-" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools))
         (ogent-tools-show-progress nil)
         (ogent-tools-stream-callback nil)
         (ogent-tools--progress-timer nil)
         (ogent-tools--progress-state nil))
-    (unwind-protect
-        (let ((result (ogent-tool--bash "pwd" temp-dir)))
-          ;; On macOS /var -> /private/var, so compare basename
-          (let ((dir-base (file-name-nondirectory
-                           (directory-file-name temp-dir))))
-            (should (string-match-p (regexp-quote dir-base) result))))
-      (delete-directory temp-dir t))))
+    (let ((result (ogent-tool--bash "pwd" temp-dir)))
+      ;; On macOS /var -> /private/var, so compare basename
+      (let ((dir-base (file-name-nondirectory
+                       (directory-file-name temp-dir))))
+        (should (string-match-p (regexp-quote dir-base) result))))))
 
 (ert-deftest ogent-tools-bash-multiline-output ()
   "Bash captures multi-line output correctly."
@@ -857,136 +806,119 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-edit-file-single-replacement-returns-count ()
   "Edit file single replacement reports exactly 1 occurrence."
-  (let ((test-file (make-temp-file "ogent-edit-count-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "alpha beta alpha"))
-          ;; Single replacement (default)
-          (let ((result (ogent-tool--edit-file test-file "alpha" "gamma")))
-            (should (string-match-p "1 occurrence" result))
-            ;; Only first occurrence should be replaced
-            (should (equal "gamma beta alpha"
-                           (with-temp-buffer
-                             (insert-file-contents test-file)
-                             (buffer-string))))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "alpha beta alpha"))
+    ;; Single replacement (default)
+    (let ((result (ogent-tool--edit-file test-file "alpha" "gamma")))
+      (should (string-match-p "1 occurrence" result))
+      ;; Only first occurrence should be replaced
+      (should (equal "gamma beta alpha"
+                     (with-temp-buffer
+                       (insert-file-contents test-file)
+                       (buffer-string)))))))
 
 (ert-deftest ogent-tools-edit-file-replace-all-counts-correctly ()
   "Edit file replace-all correctly counts multiple occurrences."
-  (let ((test-file (make-temp-file "ogent-edit-count-all-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "xx yy xx zz xx"))
-          (let ((result (ogent-tool--edit-file test-file "xx" "aa" t)))
-            (should (string-match-p "3 occurrence" result))
-            (should (equal "aa yy aa zz aa"
-                           (with-temp-buffer
-                             (insert-file-contents test-file)
-                             (buffer-string))))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "xx yy xx zz xx"))
+    (let ((result (ogent-tool--edit-file test-file "xx" "aa" t)))
+      (should (string-match-p "3 occurrence" result))
+      (should (equal "aa yy aa zz aa"
+                     (with-temp-buffer
+                       (insert-file-contents test-file)
+                       (buffer-string)))))))
 
 (ert-deftest ogent-tools-edit-file-multiline-string ()
   "Edit file handles multiline old and new strings."
-  (let ((test-file (make-temp-file "ogent-edit-multi-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "first\nsecond\nthird\n"))
-          (ogent-tool--edit-file test-file "second\nthird" "2nd\n3rd")
-          (should (equal "first\n2nd\n3rd\n"
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "first\nsecond\nthird\n"))
+    (ogent-tool--edit-file test-file "second\nthird" "2nd\n3rd")
+    (should (equal "first\n2nd\n3rd\n"
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 (ert-deftest ogent-tools-edit-file-error-message-contains-path ()
   "Edit file error includes the file path."
-  (let ((test-file (make-temp-file "ogent-edit-err-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "known content"))
-          (let ((err (should-error
-                      (ogent-tool--edit-file test-file "nonexistent" "replacement"))))
-            (should (string-match-p "not found" (cadr err)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "known content"))
+    (let ((err (should-error
+                (ogent-tool--edit-file test-file "nonexistent" "replacement"))))
+      (should (string-match-p "not found" (cadr err))))))
 
 ;;; Write file tests
 
 (ert-deftest ogent-tools-write-file-return-value ()
   "Write file returns a message with char count and path."
-  (let ((test-file (make-temp-file "ogent-write-rv-")))
-    (unwind-protect
-        (let ((result (ogent-tool--write-file test-file "hello world")))
-          (should (string-match-p "11 characters" result))
-          (should (string-match-p (regexp-quote test-file) result)))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "written.txt" dir))
+         (result (ogent-tool--write-file test-file "hello world")))
+    (should (string-match-p "11 characters" result))
+    (should (string-match-p (regexp-quote test-file) result))))
 
 (ert-deftest ogent-tools-write-file-overwrites-existing ()
   "Write file overwrites existing file content."
-  (let ((test-file (make-temp-file "ogent-write-over-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "original content"))
-          (ogent-tool--write-file test-file "new content")
-          (should (equal "new content"
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "written.txt" dir)))
+    (with-temp-file test-file
+      (insert "original content"))
+    (ogent-tool--write-file test-file "new content")
+    (should (equal "new content"
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 (ert-deftest ogent-tools-write-file-empty-content ()
   "Write file handles empty string content."
-  (let ((test-file (make-temp-file "ogent-write-empty-")))
-    (unwind-protect
-        (progn
-          (ogent-tool--write-file test-file "")
-          (should (equal ""
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "written.txt" dir)))
+    (ogent-tool--write-file test-file "")
+    (should (equal ""
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 ;;; Read file additional edge cases
 
 (ert-deftest ogent-tools-read-file-not-readable ()
   "Read file errors on unreadable file."
   ;; Mock file-readable-p to return nil
-  (let ((test-file (make-temp-file "ogent-read-perm-")))
-    (unwind-protect
-        (cl-letf (((symbol-function 'file-readable-p)
-                   (lambda (_path) nil)))
-          (let ((err (should-error (ogent-tool--read-file test-file))))
-            (should (string-match-p "not readable" (cadr err)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "unreadable.txt" dir)))
+    (make-empty-file test-file)
+    (cl-letf (((symbol-function 'file-readable-p)
+               (lambda (_path) nil)))
+      (let ((err (should-error (ogent-tool--read-file test-file))))
+        (should (string-match-p "not readable" (cadr err)))))))
 
 (ert-deftest ogent-tools-read-file-line-numbering ()
   "Read file produces correct 6-digit padded line numbers."
-  (let ((test-file (make-temp-file "ogent-read-ln-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "alpha\nbeta\ngamma\n"))
-          (let ((result (ogent-tool--read-file test-file)))
-            ;; Should have "     1\t" format (6 chars + tab)
-            (should (string-match-p "^     1\t" result))
-            (should (string-match-p "     2\t" result))
-            (should (string-match-p "     3\t" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "lines.txt" dir)))
+    (with-temp-file test-file
+      (insert "alpha\nbeta\ngamma\n"))
+    (let ((result (ogent-tool--read-file test-file)))
+      ;; Should have "     1\t" format (6 chars + tab)
+      (should (string-match-p "^     1\t" result))
+      (should (string-match-p "     2\t" result))
+      (should (string-match-p "     3\t" result)))))
 
 (ert-deftest ogent-tools-read-file-limit-zero ()
   "Read file with limit 0 returns empty string."
-  (let ((test-file (make-temp-file "ogent-read-lim0-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "line1\nline2\n"))
-          (let ((result (ogent-tool--read-file test-file 1 0)))
-            (should (equal "" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "lines.txt" dir)))
+    (with-temp-file test-file
+      (insert "line1\nline2\n"))
+    (let ((result (ogent-tool--read-file test-file 1 0)))
+      (should (equal "" result)))))
 
 ;;; Registry structure tests
 
@@ -1077,14 +1009,15 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-grep-async-accepts-file-path ()
   "Async grep searches a single file without hanging on `default-directory'."
-  (let ((test-file (make-temp-file "ogent-grep-async-file-"))
-        (events nil)
-        (ogent-tools-show-progress nil)
-        (ogent-tools-stream-callback nil)
-        (ogent-tools--active-processes nil)
-        (ogent-tools--progress-state nil)
-        (ogent-tools--progress-timer nil)
-        proc)
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "grep-target.txt" dir))
+         (events nil)
+         (ogent-tools-show-progress nil)
+         (ogent-tools-stream-callback nil)
+         (ogent-tools--active-processes nil)
+         (ogent-tools--progress-state nil)
+         (ogent-tools--progress-timer nil)
+         proc)
     (unwind-protect
         (progn
           (with-temp-file test-file
@@ -1108,13 +1041,11 @@ pending sentinels, which would starve the loop."
           (should-not ogent-tools--active-processes))
       (when (and proc (process-live-p proc))
         (kill-process proc))
-      (when (file-exists-p test-file)
-        (delete-file test-file))
       (ogent-tools-cancel-all))))
 
 (ert-deftest ogent-tools-grep-async-registers-for-cancellation ()
   "Async grep participates in the shared cancellation registry."
-  (let* ((temp-dir (make-temp-file "ogent-grep-async-cancel-" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'tools))
          (fifo (expand-file-name "blocking.pipe" temp-dir))
          (mkfifo (or (executable-find "mkfifo") "/usr/bin/mkfifo"))
          (events nil)
@@ -1144,8 +1075,6 @@ pending sentinels, which would starve the loop."
           (should-not ogent-tools--active-processes))
       (when (and proc (process-live-p proc))
         (kill-process proc))
-      (when (file-exists-p temp-dir)
-        (delete-directory temp-dir t))
       (ogent-tools-cancel-all))))
 
 ;;; Cancel-all with live processes
@@ -1221,94 +1150,78 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-test-read-file-default-offset-and-limit ()
   "Read file uses default offset 1 and limit from customization."
-  (let ((test-file (make-temp-file "ogent-test-defaults-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (dotimes (i 5) (insert (format "line-%d\n" i))))
-          (let ((ogent-tools-max-file-lines 3))
-            (let ((result (ogent-tool--read-file test-file)))
-              ;; Should only have 3 lines due to limit
-              (should (string-match-p "line-0" result))
-              (should (string-match-p "line-2" result))
-              (should-not (string-match-p "line-3" result)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "lines.txt" dir)))
+    (with-temp-file test-file
+      (dotimes (i 5) (insert (format "line-%d\n" i))))
+    (let ((ogent-tools-max-file-lines 3))
+      (let ((result (ogent-tool--read-file test-file)))
+        ;; Should only have 3 lines due to limit
+        (should (string-match-p "line-0" result))
+        (should (string-match-p "line-2" result))
+        (should-not (string-match-p "line-3" result))))))
 
 (ert-deftest ogent-tools-test-read-file-single-line ()
   "Read file handles a single-line file without trailing newline."
-  (let ((test-file (make-temp-file "ogent-test-single-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "single line content"))
-          (let ((result (ogent-tool--read-file test-file)))
-            (should (string-match-p "1\t.*single line content" result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "single.txt" dir)))
+    (with-temp-file test-file
+      (insert "single line content"))
+    (let ((result (ogent-tool--read-file test-file)))
+      (should (string-match-p "1\t.*single line content" result)))))
 
 ;;; --- Glob Edge Cases ---
 
 (ert-deftest ogent-tools-test-glob-uses-project-root-default ()
   "Glob defaults to project root when no path provided."
-  (let ((temp-dir (make-temp-file "ogent-glob-default-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "marker.el" temp-dir) (insert ""))
-          (let ((ogent-tools-project-root temp-dir))
-            (let ((result (ogent-tool--glob "*.el")))
-              (should (string-match-p "marker\\.el" result)))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "marker.el" temp-dir) (insert ""))
+    (let ((ogent-tools-project-root temp-dir))
+      (let ((result (ogent-tool--glob "*.el")))
+        (should (string-match-p "marker\\.el" result))))))
 
 (ert-deftest ogent-tools-test-glob-absolute-path ()
   "Glob resolves absolute path argument."
-  (let ((temp-dir (make-temp-file "ogent-glob-abs-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "found.txt" temp-dir) (insert ""))
-          (let ((result (ogent-tool--glob "*.txt" temp-dir)))
-            (should (string-match-p "found\\.txt" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "found.txt" temp-dir) (insert ""))
+    (let ((result (ogent-tool--glob "*.txt" temp-dir)))
+      (should (string-match-p "found\\.txt" result)))))
 
 ;;; --- Edit File Edge Cases ---
 
 (ert-deftest ogent-tools-test-edit-file-preserves-other-content ()
   "Edit file does not alter content outside the replaced string."
-  (let ((test-file (make-temp-file "ogent-edit-preserve-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "before TARGET after\n"))
-          (ogent-tool--edit-file test-file "TARGET" "REPLACED")
-          (should (equal "before REPLACED after\n"
-                         (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "before TARGET after\n"))
+    (ogent-tool--edit-file test-file "TARGET" "REPLACED")
+    (should (equal "before REPLACED after\n"
+                   (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))))
 
 (ert-deftest ogent-tools-test-edit-file-returns-path ()
   "Edit file return value includes the file path."
-  (let ((test-file (make-temp-file "ogent-edit-path-")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "hello"))
-          (let ((result (ogent-tool--edit-file test-file "hello" "world")))
-            (should (string-match-p (regexp-quote test-file) result))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "edit.txt" dir)))
+    (with-temp-file test-file
+      (insert "hello"))
+    (let ((result (ogent-tool--edit-file test-file "hello" "world")))
+      (should (string-match-p (regexp-quote test-file) result)))))
 
 ;;; --- Write File Edge Cases ---
 
 (ert-deftest ogent-tools-test-write-file-unicode-content ()
   "Write file handles unicode content correctly."
-  (let ((test-file (make-temp-file "ogent-write-unicode-")))
-    (unwind-protect
-        (progn
-          (ogent-tool--write-file test-file "Hello\u00e9\u00e8\u00ea World\u2603")
-          (let ((content (with-temp-buffer
-                           (insert-file-contents test-file)
-                           (buffer-string))))
-            (should (string-match-p "\u00e9" content))
-            (should (string-match-p "\u2603" content))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'tools))
+         (test-file (expand-file-name "unicode.txt" dir)))
+    (ogent-tool--write-file test-file "Hello\u00e9\u00e8\u00ea World\u2603")
+    (let ((content (with-temp-buffer
+                     (insert-file-contents test-file)
+                     (buffer-string))))
+      (should (string-match-p "\u00e9" content))
+      (should (string-match-p "\u2603" content)))))
 
 ;;; --- Bash Streaming Tests ---
 
@@ -1339,18 +1252,16 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-test-bash-default-working-directory ()
   "Bash uses project root as default working directory."
-  (let ((temp-dir (make-temp-file "ogent-bash-defwd-" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools))
         (ogent-tools-show-progress nil)
         (ogent-tools-stream-callback nil)
         (ogent-tools--progress-timer nil)
         (ogent-tools--progress-state nil))
-    (unwind-protect
-        (let ((ogent-tools-project-root temp-dir))
-          (let ((result (ogent-tool--bash "pwd")))
-            (let ((dir-base (file-name-nondirectory
-                             (directory-file-name temp-dir))))
-              (should (string-match-p (regexp-quote dir-base) result)))))
-      (delete-directory temp-dir t))))
+    (let ((ogent-tools-project-root temp-dir))
+      (let ((result (ogent-tool--bash "pwd")))
+        (let ((dir-base (file-name-nondirectory
+                         (directory-file-name temp-dir))))
+          (should (string-match-p (regexp-quote dir-base) result)))))))
 
 ;;; --- Stream Output Without State ---
 
@@ -1475,18 +1386,15 @@ pending sentinels, which would starve the loop."
 
 (ert-deftest ogent-tools-test-grep-with-context ()
   "Grep passes context lines parameter."
-  (let ((temp-dir (make-temp-file "ogent-grep-ctx-" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "ctx.txt" temp-dir)
-            (insert "line1\nTARGET\nline3\n"))
-          (let ((ogent-tools-show-progress nil)
-                (ogent-tools-stream-callback nil)
-                (ogent-tools--progress-timer nil)
-                (ogent-tools--progress-state nil)
-                (result (ogent-tool--grep "TARGET" temp-dir nil 1)))
-            (should (string-match-p "TARGET" result))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
+    (with-temp-file (expand-file-name "ctx.txt" temp-dir)
+      (insert "line1\nTARGET\nline3\n"))
+    (let ((ogent-tools-show-progress nil)
+          (ogent-tools-stream-callback nil)
+          (ogent-tools--progress-timer nil)
+          (ogent-tools--progress-state nil)
+          (result (ogent-tool--grep "TARGET" temp-dir nil 1)))
+      (should (string-match-p "TARGET" result)))))
 
 ;;; --- Bash Combined stdout/stderr ---
 

@@ -121,6 +121,10 @@ instead of reading a keystroke."
 ;;       discovery; suites bind it explicitly both ways)
 ;; - [x] ogent-codemap-source-directories / ogent-zen-workspace-brief-directories
 ;;       (read-only relative scan lists)
+;; - [x] ogent-armory-adapter-ground-directory (nil; resolves checked-in
+;;       CLI-help snapshots under the project tree at use time - tests
+;;       only read; the sole writer is the interactive C-u save path,
+;;       never invoked by tests)
 ;; - [x] transient-history-file (third-party; scratch file below)
 ;;
 ;; Subprocess note: sqlite mutations bypass `write-region' entirely (the
@@ -316,6 +320,27 @@ subprocess ban would break legitimate fixture spawns); the in-Lisp
 chokepoints use the stricter `ogent-test--tripwire-sanctioned-p'
 inside-out check instead.")
 
+(defconst ogent-test--tripwire-store-basenames
+  (let ((names (list ".ogent-analytics.db" "ledger.org"))
+        (spec ogent-test-store-guard-paths))
+    ;; Module defaults above (the real on-disk names a subprocess like
+    ;; the sqlite3 CLI would touch at a project root), plus every
+    ;; file-backed guard target.  Directory targets (no dot in the
+    ;; basename) are skipped: names like "sessions" are too generic to
+    ;; ban in arbitrary subprocess arguments.
+    (while spec
+      (pop spec)
+      (let ((base (file-name-nondirectory
+                   (directory-file-name (pop spec)))))
+        (when (string-match-p "\\." base)
+          (push base names))))
+    (delete-dups names))
+  "Basenames of guarded store files, banned in subprocess arguments.
+A path-like :command argument whose basename matches trips the wire
+wherever it points, unless the expanded path is sanctioned; this
+catches relative store paths (e.g. \".ogent-analytics.db\" spawned at
+a project root) that the absolute prefix check misses.")
+
 (defun ogent-test--tripwire-sanctioned-p (path)
   "Return non-nil when PATH is under a sanctioned test root.
 Sanctioned roots are `temporary-file-directory' (which contains
@@ -377,19 +402,45 @@ single point every capture target file passes through."
     (ogent-test--tripwire-violation 'org-capture-expand-file file))
   file)
 
+(defun ogent-test--tripwire-check-process-arg (fn arg)
+  "Fail when subprocess argument ARG for FN references a store path.
+Three tiers: an embedded absolute real-store prefix trips anywhere in
+ARG; a path-like ARG (containing a slash, or naming a guarded store
+basename) is expanded against `default-directory' and trips when the
+result lands under a real-store prefix; and an unsanctioned expansion
+whose basename is in `ogent-test--tripwire-store-basenames' trips
+regardless of directory, catching relative store paths spawned at a
+project root.  Everything else stays sanctioned, so unrelated
+subprocess arguments are never banned."
+  (when (stringp arg)
+    (dolist (prefix ogent-test--tripwire-real-store-prefixes)
+      (when (string-search prefix arg)
+        (ogent-test--tripwire-violation fn arg)))
+    (let ((base (file-name-nondirectory arg)))
+      (when (or (string-search "/" arg)
+                (member base ogent-test--tripwire-store-basenames))
+        (let ((expanded (expand-file-name arg)))
+          (unless (ogent-test--tripwire-sanctioned-p expanded)
+            (dolist (prefix ogent-test--tripwire-real-store-prefixes)
+              (when (string-prefix-p prefix expanded)
+                (ogent-test--tripwire-violation fn arg)))
+            (when (member (file-name-nondirectory expanded)
+                          ogent-test--tripwire-store-basenames)
+              (ogent-test--tripwire-violation fn arg))))))))
+
 (defun ogent-test--tripwire-check-process (fn command)
   "Fail when FN would spawn COMMAND referencing a real store path.
 COMMAND is the program-and-arguments list; `default-directory' is
-checked as the spawn directory.  Only the prefixes in
-`ogent-test--tripwire-real-store-prefixes' trip, so ordinary
-subprocess fixtures under temp roots stay unaffected."
+checked as the spawn directory and each argument goes through
+`ogent-test--tripwire-check-process-arg'.  The check is deliberately
+narrow -- real-store prefixes and guarded store basenames only -- so
+ordinary subprocess fixtures under temp roots stay unaffected."
   (dolist (prefix ogent-test--tripwire-real-store-prefixes)
     (when (and default-directory
                (string-prefix-p prefix (expand-file-name default-directory)))
-      (ogent-test--tripwire-violation fn default-directory))
-    (dolist (arg command)
-      (when (and (stringp arg) (string-search prefix arg))
-        (ogent-test--tripwire-violation fn arg)))))
+      (ogent-test--tripwire-violation fn default-directory)))
+  (dolist (arg command)
+    (ogent-test--tripwire-check-process-arg fn arg)))
 
 (defun ogent-test--tripwire-check-make-process (&rest args)
   "Check `make-process' ARGS against the real store prefixes."

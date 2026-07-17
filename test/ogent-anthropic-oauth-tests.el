@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ogent-test-helper)
 (require 'ogent-anthropic-oauth)
 (defvar gptel--system-message)
 (defvar gptel-backend)
@@ -115,59 +116,52 @@
 
 (ert-deftest ogent-oauth-test-save-and-restore-tokens ()
   "Test token save and restore cycle."
-  (let* ((ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-test-" t))
+  (let* ((ogent-anthropic-oauth-tokens-dir
+          (ogent-test--provision-store-directory 'anthropic-oauth))
          (ogent-anthropic-oauth--token-file nil)  ; Reset to recalculate
          (test-tokens '(:mode max
                               :type auth/oauth
                               :api-key "test-access-token"
                               :refresh-token "test-refresh-token"
                               :expires-at 9999999999)))
-    (unwind-protect
-        (progn
-          ;; Save tokens
-          (ogent-anthropic-oauth--save-tokens test-tokens)
-          ;; Clear memory state
-          (setq ogent-anthropic-oauth--tokens nil)
-          ;; Restore and verify
-          (let ((restored (ogent-anthropic-oauth--restore-tokens)))
-            (should restored)
-            (should (eq (plist-get restored :mode) 'max))
-            (should (eq (plist-get restored :type) 'auth/oauth))
-            (should (string= (plist-get restored :api-key) "test-access-token"))
-            (should (string= (plist-get restored :refresh-token) "test-refresh-token"))))
-      ;; Cleanup
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+    ;; Save tokens
+    (ogent-anthropic-oauth--save-tokens test-tokens)
+    ;; Clear memory state
+    (setq ogent-anthropic-oauth--tokens nil)
+    ;; Restore and verify
+    (let ((restored (ogent-anthropic-oauth--restore-tokens)))
+      (should restored)
+      (should (eq (plist-get restored :mode) 'max))
+      (should (eq (plist-get restored :type) 'auth/oauth))
+      (should (string= (plist-get restored :api-key) "test-access-token"))
+      (should (string= (plist-get restored :refresh-token) "test-refresh-token")))))
 
 (ert-deftest ogent-oauth-test-clear-tokens ()
   "Test token clearing."
-  (let* ((ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-test-" t))
+  (let* ((ogent-anthropic-oauth-tokens-dir
+          (ogent-test--provision-store-directory 'anthropic-oauth))
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--tokens '(:mode max :api-key "test")))
-    (unwind-protect
-        (progn
-          ;; Save something first
-          (ogent-anthropic-oauth--save-tokens ogent-anthropic-oauth--tokens)
-          ;; Clear
-          (ogent-anthropic-oauth--clear-tokens)
-          ;; Verify cleared
-          (should-not ogent-anthropic-oauth--tokens)
-          (should-not ogent-anthropic-oauth--mode)
-          (should-not (file-exists-p (ogent-anthropic-oauth--token-file))))
-      ;; Cleanup
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+    ;; Save something first
+    (ogent-anthropic-oauth--save-tokens ogent-anthropic-oauth--tokens)
+    ;; Clear
+    (ogent-anthropic-oauth--clear-tokens)
+    ;; Verify cleared
+    (should-not ogent-anthropic-oauth--tokens)
+    (should-not ogent-anthropic-oauth--mode)
+    (should-not (file-exists-p (ogent-anthropic-oauth--token-file)))))
 
 ;;; Public API Tests
 
 (ert-deftest ogent-oauth-test-authenticated-p-no-tokens ()
   "Test authenticated-p returns nil when no tokens."
   (let ((ogent-anthropic-oauth--tokens nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-test-" t))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth))
         (ogent-anthropic-oauth--token-file nil)
         ;; Override known paths to prevent finding real tokens
         (ogent-anthropic-oauth--known-token-paths nil))
-    (unwind-protect
-        (should-not (ogent-anthropic-oauth-authenticated-p))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+    (should-not (ogent-anthropic-oauth-authenticated-p))))
 
 (ert-deftest ogent-oauth-test-authenticated-p-with-tokens ()
   "Test authenticated-p returns token when authenticated."
@@ -235,47 +229,39 @@
 
 (ert-deftest ogent-oauth-test-find-existing-token-file-found ()
   "Test finding an existing token file in a temp directory."
-  (let* ((tmp-dir (make-temp-file "ogent-token-test-" t))
+  (let* ((tmp-dir (ogent-test--provision-store-directory 'anthropic-oauth))
          (token-file (expand-file-name "tokens.el" tmp-dir))
          (ogent-anthropic-oauth-tokens-dir tmp-dir)
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--known-token-paths nil))
-    (unwind-protect
-        (progn
-          ;; Create the token file
-          (with-temp-file token-file
-            (insert "(:mode max :api-key \"test\")"))
-          (let ((found (ogent-anthropic-oauth--find-existing-token-file)))
-            (should found)
-            (should (string= found token-file))))
-      (delete-directory tmp-dir t))))
+    ;; Create the token file
+    (with-temp-file token-file
+      (insert "(:mode max :api-key \"test\")"))
+    (let ((found (ogent-anthropic-oauth--find-existing-token-file)))
+      (should found)
+      (should (string= found token-file)))))
 
 (ert-deftest ogent-oauth-test-find-existing-token-file-not-found ()
   "Test that nil is returned when no token file exists."
-  (let* ((tmp-dir (make-temp-file "ogent-token-test-" t))
-         (ogent-anthropic-oauth-tokens-dir tmp-dir)
+  (let* ((ogent-anthropic-oauth-tokens-dir
+          (ogent-test--provision-store-directory 'anthropic-oauth))
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--known-token-paths nil))
-    (unwind-protect
-        (should-not (ogent-anthropic-oauth--find-existing-token-file))
-      (delete-directory tmp-dir t))))
+    (should-not (ogent-anthropic-oauth--find-existing-token-file))))
 
 (ert-deftest ogent-oauth-test-find-existing-token-file-known-paths ()
   "Test finding token file from known paths list."
-  (let* ((tmp-dir (make-temp-file "ogent-known-" t))
+  (let* ((tmp-dir (ogent-test--provision-store-directory 'anthropic-oauth))
          (known-file (expand-file-name "tokens.el" tmp-dir))
          ;; Point tokens-dir to a non-existent location
          (ogent-anthropic-oauth-tokens-dir (expand-file-name "nonexist/" tmp-dir))
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--known-token-paths (list known-file)))
-    (unwind-protect
-        (progn
-          (with-temp-file known-file
-            (insert "(:mode max)"))
-          (let ((found (ogent-anthropic-oauth--find-existing-token-file)))
-            (should found)
-            (should (string= found known-file))))
-      (delete-directory tmp-dir t))))
+    (with-temp-file known-file
+      (insert "(:mode max)"))
+    (let ((found (ogent-anthropic-oauth--find-existing-token-file)))
+      (should found)
+      (should (string= found known-file)))))
 
 ;;; Exchange Code Tests (Mocked)
 
@@ -396,10 +382,9 @@
   (let ((ogent-anthropic-oauth--tokens nil)
         (ogent-anthropic-oauth--token-file nil)
         (ogent-anthropic-oauth--known-token-paths nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-notoken-" t)))
-    (unwind-protect
-        (should-not (ogent-anthropic-oauth--ensure-valid-token))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth)))
+    (should-not (ogent-anthropic-oauth--ensure-valid-token))))
 
 ;;; Ensure Tokens Loaded Tests
 
@@ -420,14 +405,13 @@
         (ogent-anthropic-oauth--mode nil)
         (ogent-anthropic-oauth--token-file nil)
         (ogent-anthropic-oauth--known-token-paths nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-load-" t)))
-    (unwind-protect
-        (cl-letf (((symbol-function 'ogent-anthropic-oauth--restore-tokens)
-                   (lambda () '(:mode console :type auth/token :api-key "restored"))))
-          (ogent-anthropic-oauth--ensure-tokens-loaded)
-          (should ogent-anthropic-oauth--tokens)
-          (should (eq ogent-anthropic-oauth--mode 'console)))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth)))
+    (cl-letf (((symbol-function 'ogent-anthropic-oauth--restore-tokens)
+               (lambda () '(:mode console :type auth/token :api-key "restored"))))
+      (ogent-anthropic-oauth--ensure-tokens-loaded)
+      (should ogent-anthropic-oauth--tokens)
+      (should (eq ogent-anthropic-oauth--mode 'console)))))
 
 ;;; Get OAuth Headers for gptel Tests
 
@@ -453,16 +437,15 @@
   (let ((ogent-anthropic-oauth--tokens nil)
         (ogent-anthropic-oauth--token-file nil)
         (ogent-anthropic-oauth--known-token-paths nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-advice-" t))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth))
         (gptel-backend nil)
         (orig-called nil))
-    (unwind-protect
-        (let ((orig-fn (lambda (backend prompts)
-                         (setq orig-called t)
-                         (list backend prompts))))
-          (ogent-anthropic-oauth--request-data-advice orig-fn 'test-backend '("prompt"))
-          (should orig-called))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+    (let ((orig-fn (lambda (backend prompts)
+                     (setq orig-called t)
+                     (list backend prompts))))
+      (ogent-anthropic-oauth--request-data-advice orig-fn 'test-backend '("prompt"))
+      (should orig-called))))
 
 (ert-deftest ogent-oauth-test-request-data-advice-overrides-system ()
   "Test request-data-advice overrides system message when using OAuth."
@@ -576,15 +559,14 @@
   (let ((ogent-anthropic-oauth--tokens nil)
         (ogent-anthropic-oauth--token-file nil)
         (ogent-anthropic-oauth--known-token-paths nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-stat-" t))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth))
         (last-msg nil))
-    (unwind-protect
-        (cl-letf (((symbol-function 'message)
-                   (lambda (fmt &rest args)
-                     (setq last-msg (apply #'format fmt args)))))
-          (ogent-anthropic-status)
-          (should (string-match-p "Not logged in" last-msg)))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+    (cl-letf (((symbol-function 'message)
+               (lambda (fmt &rest args)
+                 (setq last-msg (apply #'format fmt args)))))
+      (ogent-anthropic-status)
+      (should (string-match-p "Not logged in" last-msg)))))
 
 (ert-deftest ogent-oauth-test-status-with-console-tokens ()
   "Test status display for console mode."
@@ -821,22 +803,18 @@
 
 (ert-deftest ogent-oauth-test-logout-confirmed ()
   "Test logout clears tokens when user confirms."
-  (let* ((tmp-dir (make-temp-file "ogent-logout-" t))
-         (ogent-anthropic-oauth-tokens-dir tmp-dir)
+  (let* ((ogent-anthropic-oauth-tokens-dir
+          (ogent-test--provision-store-directory 'anthropic-oauth))
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--tokens '(:mode max :api-key "test"))
          (ogent-anthropic-oauth--mode 'max)
          (ogent-anthropic-oauth--known-token-paths nil))
-    (unwind-protect
-        (progn
-          ;; Save tokens to disk
-          (ogent-anthropic-oauth--save-tokens ogent-anthropic-oauth--tokens)
-          (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
-            (ogent-anthropic-logout)
-            (should-not ogent-anthropic-oauth--tokens)
-            (should-not ogent-anthropic-oauth--mode)))
-      (when (file-directory-p tmp-dir)
-        (delete-directory tmp-dir t)))))
+    ;; Save tokens to disk
+    (ogent-anthropic-oauth--save-tokens ogent-anthropic-oauth--tokens)
+    (cl-letf (((symbol-function 'yes-or-no-p) (lambda (_prompt) t)))
+      (ogent-anthropic-logout)
+      (should-not ogent-anthropic-oauth--tokens)
+      (should-not ogent-anthropic-oauth--mode))))
 
 (ert-deftest ogent-oauth-test-logout-cancelled ()
   "Test logout does not clear tokens when user declines."
@@ -854,15 +832,14 @@
         (ogent-anthropic-oauth--mode nil)
         (ogent-anthropic-oauth--token-file "/nonexistent/path/tokens.el")
         (ogent-anthropic-oauth--known-token-paths nil)
-        (ogent-anthropic-oauth-tokens-dir (make-temp-file "ogent-reset-" t)))
-    (unwind-protect
-        (cl-letf (((symbol-function 'ogent-anthropic-oauth--restore-tokens)
-                   (lambda () nil)))
-          (ogent-anthropic-oauth--ensure-tokens-loaded)
-          ;; token-file should have been reset since the old path didn't exist
-          (should-not (equal ogent-anthropic-oauth--token-file
-                             "/nonexistent/path/tokens.el")))
-      (delete-directory ogent-anthropic-oauth-tokens-dir t))))
+        (ogent-anthropic-oauth-tokens-dir
+         (ogent-test--provision-store-directory 'anthropic-oauth)))
+    (cl-letf (((symbol-function 'ogent-anthropic-oauth--restore-tokens)
+               (lambda () nil)))
+      (ogent-anthropic-oauth--ensure-tokens-loaded)
+      ;; token-file should have been reset since the old path didn't exist
+      (should-not (equal ogent-anthropic-oauth--token-file
+                         "/nonexistent/path/tokens.el")))))
 
 (ert-deftest ogent-oauth-test-exchange-code-no-hash ()
   "Test exchange-code handles code without # separator."
@@ -926,22 +903,18 @@
 
 (ert-deftest ogent-oauth-test-save-tokens-creates-directory ()
   "Test save-tokens creates the directory if it doesn't exist."
-  (let* ((tmp-dir (make-temp-file "ogent-save-" t))
+  (let* ((tmp-dir (ogent-test--provision-store-directory 'anthropic-oauth))
          (sub-dir (expand-file-name "subdir" tmp-dir))
          (ogent-anthropic-oauth-tokens-dir sub-dir)
          (ogent-anthropic-oauth--token-file nil)
          (ogent-anthropic-oauth--known-token-paths nil))
-    (unwind-protect
-        (progn
-          (should-not (file-directory-p sub-dir))
-          (ogent-anthropic-oauth--save-tokens '(:mode max :api-key "test"))
-          ;; Directory should have been created
-          (should (file-directory-p sub-dir))
-          ;; Token file should exist
-          (let ((token-file (expand-file-name "tokens.el" sub-dir)))
-            (should (file-exists-p token-file))))
-      (when (file-directory-p tmp-dir)
-        (delete-directory tmp-dir t)))))
+    (should-not (file-directory-p sub-dir))
+    (ogent-anthropic-oauth--save-tokens '(:mode max :api-key "test"))
+    ;; Directory should have been created
+    (should (file-directory-p sub-dir))
+    ;; Token file should exist
+    (let ((token-file (expand-file-name "tokens.el" sub-dir)))
+      (should (file-exists-p token-file)))))
 
 (provide 'ogent-anthropic-oauth-tests)
 

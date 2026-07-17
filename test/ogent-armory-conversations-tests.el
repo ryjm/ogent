@@ -14,11 +14,8 @@
 (defmacro ogent-armory-conversations-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-conversations-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (ogent-test--provision-store-directory 'armory-conversations)))
+     ,@body))
 
 (ert-deftest ogent-armory-conversation-round-trips-index ()
   "Conversation metadata is durable in an Org index file."

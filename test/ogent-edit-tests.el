@@ -556,12 +556,12 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-request-sends-to-gptel ()
   "ogent-request-edit sends request via gptel with proper prompt and system."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-send")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-send.el")
             (emacs-lisp-mode)
             (ogent-test-with-mock-gptel
               (ogent-request-edit "Fix this")
@@ -574,18 +574,22 @@ missing separator and end marker")
                 (should (string-match-p "SEARCH/REPLACE" system))
                 (should (plist-get args :stream))
                 (should (plist-get args :callback))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 
 (ert-deftest ogent-edit-request-creates-companion-before-response ()
   "Edit requests create the companion link before async proposals are logged."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-companion")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-companion.el")
             (emacs-lisp-mode)
             (let ((source-buffer (current-buffer))
                   (ogent-edit-log-to-companion t))
@@ -597,17 +601,21 @@ missing separator and end marker")
                   (should (buffer-live-p companion))
                   (with-current-buffer companion
                     (should (derived-mode-p 'org-mode))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-request-uses-explicit-bounds ()
   "ogent-request-edit can send a focused buffer slice."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-bounds")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first () nil)\n\n(defun second () t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first () nil)\n\n(defun second () t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-bounds.el")
             (emacs-lisp-mode)
             (let ((start (point-min))
                   (end (save-excursion
@@ -625,17 +633,21 @@ missing separator and end marker")
                              start))
                   (should (= (plist-get ogent-edit--pending-request :region-end)
                              end)))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-request-uses-ogent-default-model ()
   "Edit requests bind gptel to the ogent default model."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-model")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-model.el")
             (emacs-lisp-mode)
             (let ((ogent-default-model "fresh-model")
                   (ogent-model-registry
@@ -656,8 +668,12 @@ missing separator and end marker")
                 (should (equal (plist-get captured :model) "fresh-model"))
                 (should (eq (plist-get captured :backend) 'fresh-backend))
                 (should (eq (plist-get captured :stream) t))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-quick-target-prefers-region ()
   "Quick edit targets the active region first."
@@ -709,12 +725,12 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-quick-edit-sends-focused-target ()
   "ogent-quick-edit sends only the selected quick edit target."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-quick")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  nil)\n\n(defun second ()\n  t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  nil)\n\n(defun second ()\n  t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-quick.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "nil")
@@ -726,17 +742,21 @@ missing separator and end marker")
                 (should (string-match-p "Return t" prompt))
                 (should (string-match-p "defun first" prompt))
                 (should-not (string-match-p "defun second" prompt))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-quick-edit-access-error-offers-provider-login ()
   "Quick edit access failures offer a different provider login."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-quick-access")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-quick-access.el")
             (emacs-lisp-mode)
             (let ((gptel-model "gpt-4o-mini")
                   (gptel-backend 'gptel-openai)
@@ -773,8 +793,12 @@ missing separator and end marker")
                 (ogent-quick-edit "Return t")
                 (should (eq captured-backend 'gptel-openai))
                 (should (string-match-p "credits" captured-prompt))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-callback-non-access-error-skips-provider-login ()
   "Quick edit transient failures do not offer provider login."
@@ -796,12 +820,12 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-request-signal-access-error-offers-provider-login ()
   "Synchronous edit request access failures offer provider login."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-signal-access")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-signal-access.el")
             (emacs-lisp-mode)
             (let ((gptel-model "gpt-4o-mini")
                   (gptel-backend 'gptel-openai)
@@ -831,8 +855,12 @@ missing separator and end marker")
                            (setq captured-backend backend))))
                 (ogent-request-edit "Return t")
                 (should (eq captured-backend 'gptel-openai))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-error-builds-fallback-context ()
   "Edit failures hand `ogent-provider-handle-error' a full context."
@@ -967,12 +995,12 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-ai-speed-edit-sends-editor-state ()
   "ogent-ai-speed-edit sends an AI decision prompt with diagnostic signals."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-speed-state")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-speed-state.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "missing")
@@ -997,17 +1025,21 @@ missing separator and end marker")
                     (should (string-match-p "Void variable missing" prompt))
                     (should (string-match-p "defun first" prompt))
                     (should-not (string-match-p "defun second" prompt))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-ai-speed-edit-uses-buffer-diagnostic-target ()
   "ogent-ai-speed-edit can target the top diagnostic away from point."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-speed-target")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  t)\n\n(defun second ()\n  missing)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  t)\n\n(defun second ()\n  missing)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-speed-target.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "first")
@@ -1032,17 +1064,21 @@ missing separator and end marker")
                     (should (string-match-p "Void variable missing" prompt))
                     (should (string-match-p "defun second" prompt))
                     (should-not (string-match-p "defun first" prompt))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-ai-speed-edit-allows-clean-local-edit ()
   "ogent-ai-speed-edit still works when no diagnostics are present."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-speed-clean")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  (identity t))\n\n(defun second ()\n  t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  (identity t))\n\n(defun second ()\n  t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-speed-clean.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "identity")
@@ -1060,8 +1096,12 @@ missing separator and end marker")
                                             prompt))
                     (should (string-match-p "defun first" prompt))
                     (should-not (string-match-p "defun second" prompt))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-diagnostics-at-point-normalizes-flymake ()
   "Flymake diagnostics are normalized into promptable plists."
@@ -1081,12 +1121,12 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-fix-diagnostic-sends-flymake-context ()
   "ogent-fix-diagnostic sends a focused repair prompt for Flymake."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-fix-flymake")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-fix-flymake.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "missing")
@@ -1107,20 +1147,24 @@ missing separator and end marker")
                     (should (string-match-p "Void variable missing" prompt))
                     (should (string-match-p "defun first" prompt))
                     (should-not (string-match-p "defun second" prompt))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-fix-diagnostic-uses-flycheck-fallback ()
   "ogent-fix-diagnostic uses Flycheck errors when Flymake has none."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el"))
+  (let ((source (generate-new-buffer "ogent-edit-fix-flycheck"))
         (error '(:line 2 :column 3 :level error
                        :message "Reference to free variable missing"
                        :id "free-var")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  t)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-fix-flycheck.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "missing")
@@ -1129,7 +1173,7 @@ missing separator and end marker")
                       ((symbol-function 'flycheck-overlay-errors-at)
                        (lambda (_pos) (list error)))
                       ((symbol-function 'flycheck-error-filename)
-                       (lambda (_err) temp-file))
+                       (lambda (_err) (buffer-file-name)))
                       ((symbol-function 'flycheck-error-line)
                        (lambda (err) (plist-get err :line)))
                       ((symbol-function 'flycheck-error-column)
@@ -1149,8 +1193,12 @@ missing separator and end marker")
                   (should (string-match-p "free-var" prompt))
                   (should (string-match-p "Reference to free variable missing"
                                           prompt)))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-fix-diagnostic-errors-without-diagnostic ()
   "ogent-fix-diagnostic reports when no diagnostic is available."
@@ -1163,13 +1211,13 @@ missing separator and end marker")
 
 (ert-deftest ogent-edit-buffer-diagnostics-dedupes-sources ()
   "Buffer diagnostics collapse equivalent Flymake and Flycheck entries."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el"))
+  (let ((source (generate-new-buffer "ogent-edit-dedupe"))
         (flycheck-current-errors nil))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun sample ()\n  missing)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun sample ()\n  missing)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-dedupe.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "missing")
@@ -1181,7 +1229,7 @@ missing separator and end marker")
                    (flycheck-error
                     (list :line 2 :column 3 :level 'error
                           :message "Void variable missing"
-                          :file temp-file)))
+                          :file (buffer-file-name))))
               (setq flycheck-current-errors (list flycheck-error))
               (cl-letf (((symbol-function 'flymake-diagnostics)
                          (lambda (&rest _args) (list flymake-diagnostic)))
@@ -1198,17 +1246,21 @@ missing separator and end marker")
                         ((symbol-function 'flycheck-error-id)
                          (lambda (_err) nil)))
                 (should (= 1 (length (ogent-edit--diagnostics-in-buffer))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-fix-buffer-diagnostics-sends-ranked-list ()
   "ogent-fix-buffer-diagnostics sends a full-buffer repair prompt."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-ranked")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  other)\n"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun first ()\n  missing)\n\n(defun second ()\n  other)\n")
+            (setq buffer-file-name "/nonexistent/ogent-edit-ranked.el")
             (emacs-lisp-mode)
             (goto-char (point-min))
             (search-forward "missing")
@@ -1243,8 +1295,12 @@ missing separator and end marker")
                                               prompt))
                       (should (string-match-p "defun first" prompt))
                       (should (string-match-p "defun second" prompt)))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-fix-buffer-diagnostics-errors-without-diagnostics ()
   "ogent-fix-buffer-diagnostics reports when the buffer has no diagnostics."
@@ -1713,12 +1769,12 @@ the constant."
 
 (ert-deftest ogent-edit-request-passes-schema-when-supported ()
   "Edit requests pass :schema and the structured system prompt when supported."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-schema-on")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-schema-on.el")
             (emacs-lisp-mode)
             (cl-letf (((symbol-function 'gptel--parse-schema)
                        (lambda (_backend schema) schema)))
@@ -1733,17 +1789,21 @@ the constant."
                                             (plist-get args :system)))
                     (should (plist-get ogent-edit--pending-request
                                        :structured))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-request-omits-schema-when-unsupported ()
   "Edit requests keep the text path when gptel lacks schema support."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-schema-off")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-schema-off.el")
             (emacs-lisp-mode)
             ;; The stubbed test gptel has no gptel--parse-schema, so the
             ;; structured custom alone must not switch paths.
@@ -1757,17 +1817,21 @@ the constant."
                                           (plist-get args :system)))
                   (should-not (plist-get ogent-edit--pending-request
                                          :structured)))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-request-honors-structured-opt-out ()
   "Edit requests skip the schema path when the custom is disabled."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
+  (let ((source (generate-new-buffer "ogent-edit-schema-optout")))
     (unwind-protect
         (progn
-          (with-temp-file temp-file
-            (insert "(defun foo () nil)"))
-          (with-current-buffer (find-file-noselect temp-file)
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-schema-optout.el")
             (emacs-lisp-mode)
             (cl-letf (((symbol-function 'gptel--parse-schema)
                        (lambda (_backend schema) schema)))
@@ -1779,8 +1843,12 @@ the constant."
                     (should-not (plist-member args :schema))
                     (should-not (plist-get ogent-edit--pending-request
                                            :structured))))))
+            (setq buffer-file-name nil)
             (kill-buffer)))
-      (delete-file temp-file))))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
 
 (ert-deftest ogent-edit-process-response-structured-payload ()
   "Process-response converts a structured payload into displayed edits."

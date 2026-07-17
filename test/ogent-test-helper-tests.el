@@ -235,6 +235,14 @@ chokepoint cannot materialize a file there."
     (make-process :name "ogent-tripwire-probe" :noquery t
                   :command (list "true"))))
 
+(ert-deftest ogent-test-tripwire-probe-relative-store-arg ()
+  "A relative store basename in a :command arg trips at a project root."
+  :expected-result :failed
+  (skip-unless noninteractive)
+  (let ((default-directory (file-name-as-directory ogent-project-root)))
+    (make-process :name "ogent-tripwire-probe" :noquery t
+                  :command (list "sqlite3" ".ogent-analytics.db"))))
+
 ;;;; Message tests: the failure text pinpoints test, path, and chokepoint.
 
 (defun ogent-test-helper-tests--violation-message (thunk fn)
@@ -288,6 +296,20 @@ Fail the current test when THUNK signals no such violation."
    (lambda () (start-process "p" nil "true"
                              (ogent-test-helper-tests--real-path "x")))
    'start-process))
+
+(ert-deftest ogent-test-tripwire-message-relative-store-arg ()
+  "Relative store basenames trip deterministically, wherever spawned.
+Covers both basename sources: the hardcoded module default
+\(.ogent-analytics.db) and a guard-target basename (ledger.org)."
+  (skip-unless noninteractive)
+  (let ((default-directory (file-name-as-directory ogent-project-root)))
+    (ogent-test-helper-tests--violation-message
+     (lambda () (make-process :name "p" :noquery t
+                              :command (list "true" ".ogent-analytics.db")))
+     'make-process)
+    (ogent-test-helper-tests--violation-message
+     (lambda () (start-process "p" nil "true" ".ogent/ledger.org"))
+     'start-process)))
 
 (ert-deftest ogent-test-tripwire-message-analytics-chokepoint ()
   "The analytics chokepoint fires even when `sqlite-open' is stubbed."
@@ -344,6 +366,15 @@ Fail the current test when THUNK signals no such violation."
                            (list "true"
                                  (expand-file-name
                                   "ok" temporary-file-directory)))))))
+
+(ert-deftest ogent-test-tripwire-silent-relative-project-arg ()
+  "Unrelated relative arguments at a project root stay sanctioned."
+  (skip-unless noninteractive)
+  (let ((default-directory (file-name-as-directory ogent-project-root)))
+    (should (processp
+             (make-process :name "ogent-tripwire-ok" :noquery t
+                           :command (list "true" "README.org"
+                                          "lisp/ogent.el"))))))
 
 (ert-deftest ogent-test-tripwire-allowlist-sanctions-registered-root ()
   "A registered allowlist root is sanctioned; unregistered kin are not."

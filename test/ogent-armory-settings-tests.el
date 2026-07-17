@@ -12,13 +12,11 @@
 (require 'ogent-armory-settings)
 
 (defmacro ogent-armory-settings-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary Armory directory while running BODY."
+  "Bind VAR to a retained temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-settings-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'armory-settings))))
+     ,@body))
 
 (defun ogent-armory-settings-test--slurp (file)
   "Return FILE contents."

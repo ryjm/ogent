@@ -20,13 +20,12 @@
 (declare-function magit-section-hidden-body "ext:magit-section")
 
 (defmacro ogent-ui-armory-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary Armory directory while running BODY."
+  "Bind VAR to a provisioned Armory directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (file-truename (make-temp-file "ogent-ui-armory-" t))))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (file-truename (directory-file-name
+                               (ogent-test--provision-store-directory
+                                'ui-armory)))))
+     ,@body))
 
 (defun ogent-ui-armory-test--write-session
     (root agent-slug name status exit-status &optional job-id finished trace)

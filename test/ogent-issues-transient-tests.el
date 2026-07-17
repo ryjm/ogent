@@ -127,20 +127,21 @@
     (should-not (ogent-issues--capture-context))))
 
 (ert-deftest ogent-issues-transient-test-capture-context-with-file ()
-  "Test that context capture works with a file buffer."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (with-current-buffer (find-file-noselect temp-file)
-          (insert "(defun test-func ()\n  \"Test.\")\n")
-          (goto-char (point-min))
-          (forward-line 1)
-          (let ((context (ogent-issues--capture-context)))
-            (should context)
-            (should (plist-get context :file))
-            (should (= (plist-get context :line) 2))
-            (should (plist-get context :formatted))
-            (should (string-match-p ":2" (plist-get context :formatted)))))
-      (delete-file temp-file))))
+  "Test that context capture works with a file buffer.
+Fake file-backed buffer (bound `buffer-file-name'); no filesystem
+footprint."
+  (with-temp-buffer
+    (setq buffer-file-name "/nonexistent/ogent-issues-transient-capture-context.el")
+    (insert "(defun test-func ()\n  \"Test.\")\n")
+    (goto-char (point-min))
+    (forward-line 1)
+    (let ((context (ogent-issues--capture-context)))
+      (should context)
+      (should (plist-get context :file))
+      (should (= (plist-get context :line) 2))
+      (should (plist-get context :formatted))
+      (should (string-match-p ":2" (plist-get context :formatted))))
+    (setq buffer-file-name nil)))
 
 (ert-deftest ogent-issues-transient-test-format-context-nil ()
   "Test that format context handles nil gracefully."
@@ -160,24 +161,25 @@
       (should (string-match-p "my-func" formatted)))))
 
 (ert-deftest ogent-issues-transient-test-create-full-sets-context ()
-  "Test that create-full sets the context local variable."
+  "Test that create-full sets the context local variable.
+Fake file-backed buffer (bound `buffer-file-name'); no filesystem
+footprint."
   ;; Mock transient-args to avoid transient dependency in test
   (cl-letf (((symbol-function 'transient-args) (lambda (_) nil))
             ((symbol-function 'transient-arg-value) (lambda (_ _) nil)))
     (with-temp-buffer
-      (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-        (unwind-protect
-            (progn
-              (find-file temp-file)
-              (insert "test content")
-              (ogent-issues-create-full)
-              (with-current-buffer "*ogent-issue-create*"
-                ;; Context should be set
-                (should (boundp 'ogent-issues-create--context))
-                ;; Buffer should contain context section
-                (should (string-match-p "Context" (buffer-string)))
-                (kill-buffer)))
-          (delete-file temp-file))))))
+      (setq buffer-file-name "/nonexistent/ogent-issues-transient-create-full.el")
+      (insert "test content")
+      (let ((source (current-buffer)))
+        (ogent-issues-create-full)
+        (with-current-buffer "*ogent-issue-create*"
+          ;; Context should be set
+          (should (boundp 'ogent-issues-create--context))
+          ;; Buffer should contain context section
+          (should (string-match-p "Context" (buffer-string)))
+          (kill-buffer))
+        (with-current-buffer source
+          (setq buffer-file-name nil))))))
 
 ;;; Stats Refresh Tests
 

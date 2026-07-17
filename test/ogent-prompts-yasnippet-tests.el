@@ -47,38 +47,32 @@
 
 (ert-deftest ogent-prompts-install-snippets-creates-files ()
   "Installing snippets creates snippet files."
-  (let* ((temp-dir (make-temp-file "ogent-snippets" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'yasnippet))
          (ogent-prompts-snippet-dir temp-dir)
          (ogent-prompt-registry (make-hash-table :test 'equal)))
-    (unwind-protect
-        (progn
-          (ogent-prompt-register "test-one" :title "Test One" :content "One")
-          (ogent-prompt-register "test-two" :title "Test Two" :content "Two")
-          (ogent-prompts-install-snippets)
-          ;; Check that snippet files were created
-          (should (file-exists-p (expand-file-name "test-one" temp-dir)))
-          (should (file-exists-p (expand-file-name "test-two" temp-dir))))
-      (delete-directory temp-dir t))))
+    (ogent-prompt-register "test-one" :title "Test One" :content "One")
+    (ogent-prompt-register "test-two" :title "Test Two" :content "Two")
+    (ogent-prompts-install-snippets)
+    ;; Check that snippet files were created
+    (should (file-exists-p (expand-file-name "test-one" temp-dir)))
+    (should (file-exists-p (expand-file-name "test-two" temp-dir)))))
 
 (ert-deftest ogent-prompts-install-snippets-content-correct ()
   "Installed snippet files have correct content."
-  (let* ((temp-dir (make-temp-file "ogent-snippets" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'yasnippet))
          (ogent-prompts-snippet-dir temp-dir)
          (ogent-prompt-registry (make-hash-table :test 'equal)))
-    (unwind-protect
-        (progn
-          (ogent-prompt-register "my-prompt"
-                                 :title "My Prompt"
-                                 :content "Do something useful.")
-          (ogent-prompts-install-snippets)
-          (let ((content (with-temp-buffer
-                           (insert-file-contents
-                            (expand-file-name "my-prompt" temp-dir))
-                           (buffer-string))))
-            (should (string-match-p "# name: My Prompt" content))
-            (should (string-match-p "# key: @my-prompt" content))
-            (should (string-match-p "Do something useful" content))))
-      (delete-directory temp-dir t))))
+    (ogent-prompt-register "my-prompt"
+                           :title "My Prompt"
+                           :content "Do something useful.")
+    (ogent-prompts-install-snippets)
+    (let ((content (with-temp-buffer
+                     (insert-file-contents
+                      (expand-file-name "my-prompt" temp-dir))
+                     (buffer-string))))
+      (should (string-match-p "# name: My Prompt" content))
+      (should (string-match-p "# key: @my-prompt" content))
+      (should (string-match-p "Do something useful" content)))))
 
 ;;; Mode Integration Tests
 
@@ -90,14 +84,12 @@
 (ert-deftest ogent-prompts-yasnippet-mode-adds-to-path ()
   "Enabling mode adds snippet dir to yas-snippet-dirs."
   (skip-unless (featurep 'yasnippet))
-  (let* ((temp-dir (make-temp-file "ogent-snippets" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'yasnippet))
          (ogent-prompts-snippet-dir temp-dir)
          (yas-snippet-dirs nil))
-    (unwind-protect
-        (with-temp-buffer
-          (ogent-prompts-yasnippet-mode 1)
-          (should (member temp-dir yas-snippet-dirs)))
-      (delete-directory temp-dir t))))
+    (with-temp-buffer
+      (ogent-prompts-yasnippet-mode 1)
+      (should (member temp-dir yas-snippet-dirs)))))
 
 ;;; Completion Tests
 

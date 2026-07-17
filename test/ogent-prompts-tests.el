@@ -177,23 +177,21 @@
 
 (ert-deftest ogent-prompt-project-file-loading ()
   "Project prompts can be loaded from a file."
-  (let ((ogent-prompt-registry (make-hash-table :test 'equal))
-        (temp-file (make-temp-file "ogent-prompts" nil ".org")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "* Project Prompts\n")
-            (insert ":PROPERTIES:\n:OGENT_ID: project-prompts\n:END:\n\n")
-            (insert "** Custom Review\n")
-            (insert ":PROPERTIES:\n:OGENT_ID: custom-review\n:END:\n")
-            (insert "Review with project-specific rules.\n"))
-          ;; Load prompts from the file
-          (ogent-prompt-load-from-file temp-file)
-          ;; Should have loaded the prompt
-          (let ((prompt (ogent-prompt-get "custom-review")))
-            (should prompt)
-            (should (string-match-p "project-specific" (ogent-prompt-content prompt)))))
-      (delete-file temp-file))))
+  (let* ((ogent-prompt-registry (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'prompts))
+         (temp-file (expand-file-name "project-prompts.org" dir)))
+    (with-temp-file temp-file
+      (insert "* Project Prompts\n")
+      (insert ":PROPERTIES:\n:OGENT_ID: project-prompts\n:END:\n\n")
+      (insert "** Custom Review\n")
+      (insert ":PROPERTIES:\n:OGENT_ID: custom-review\n:END:\n")
+      (insert "Review with project-specific rules.\n"))
+    ;; Load prompts from the file
+    (ogent-prompt-load-from-file temp-file)
+    ;; Should have loaded the prompt
+    (let ((prompt (ogent-prompt-get "custom-review")))
+      (should prompt)
+      (should (string-match-p "project-specific" (ogent-prompt-content prompt))))))
 
 (ert-deftest ogent-prompt-overrides-apply ()
   "Project overrides modify existing prompts."

@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ogent-test-helper)
 (require 'ogent-codex-oauth)
 
 (ert-deftest ogent-codex-oauth-test-auth-file-uses-codex-home ()
@@ -17,31 +18,25 @@
 
 (ert-deftest ogent-codex-oauth-test-read-auth-file ()
   "Auth cache JSON is read as a plist."
-  (let* ((dir (make-temp-file "ogent-codex-auth-" t))
+  (let* ((dir (ogent-test--provision-store-directory 'codex-oauth))
          (file (expand-file-name "auth.json" dir))
          (ogent-codex-oauth-auth-file file))
-    (unwind-protect
-        (progn
-          (with-temp-file file
-            (insert "{\"auth_mode\":\"chatgpt\",\"OPENAI_API_KEY\":\"sk-test\",\"tokens\":{\"access_token\":\"tok\"}}"))
-          (let ((auth (ogent-codex-oauth--read-auth-file)))
-            (should (equal (plist-get auth :auth_mode) "chatgpt"))
-            (should (equal (plist-get auth :OPENAI_API_KEY) "sk-test"))))
-      (delete-directory dir t))))
+    (with-temp-file file
+      (insert "{\"auth_mode\":\"chatgpt\",\"OPENAI_API_KEY\":\"sk-test\",\"tokens\":{\"access_token\":\"tok\"}}"))
+    (let ((auth (ogent-codex-oauth--read-auth-file)))
+      (should (equal (plist-get auth :auth_mode) "chatgpt"))
+      (should (equal (plist-get auth :OPENAI_API_KEY) "sk-test")))))
 
 (ert-deftest ogent-codex-oauth-test-api-key-from-auth-file ()
   "API key helper returns the cached Codex API key."
-  (let* ((dir (make-temp-file "ogent-codex-auth-" t))
+  (let* ((dir (ogent-test--provision-store-directory 'codex-oauth))
          (file (expand-file-name "auth.json" dir))
          (ogent-codex-oauth-auth-file file))
-    (unwind-protect
-        (progn
-          (with-temp-file file
-            (insert "{\"auth_mode\":\"chatgpt\",\"OPENAI_API_KEY\":\"sk-oauth\"}"))
-          (should (equal (ogent-codex-oauth-get-api-key) "sk-oauth"))
-          (should (ogent-codex-oauth-authenticated-p))
-          (should (equal (ogent-codex-oauth-mode) "chatgpt")))
-      (delete-directory dir t))))
+    (with-temp-file file
+      (insert "{\"auth_mode\":\"chatgpt\",\"OPENAI_API_KEY\":\"sk-oauth\"}"))
+    (should (equal (ogent-codex-oauth-get-api-key) "sk-oauth"))
+    (should (ogent-codex-oauth-authenticated-p))
+    (should (equal (ogent-codex-oauth-mode) "chatgpt"))))
 
 (ert-deftest ogent-codex-oauth-test-no-auth-file ()
   "Missing auth cache returns nil instead of signaling."

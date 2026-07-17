@@ -15,12 +15,10 @@
 (defmacro ogent-armory-compose-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (file-truename (make-temp-file "ogent-armory-compose-" t))))
-     (unwind-protect
-         (let ((ogent-armory-skill-include-user-roots nil))
-           ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (file-truename
+                (ogent-test--provision-store-directory 'armory-compose)))
+         (ogent-armory-skill-include-user-roots nil))
+     ,@body))
 
 (defun ogent-armory-compose-test--seed (root)
   "Create a Armory fixture in ROOT."
@@ -138,7 +136,7 @@
 (ert-deftest ogent-armory-compose-skill-read-stops-after-first-match ()
   "Skill reads return armory-local matches without walking later roots."
   (let* ((codex-home (file-truename
-                      (make-temp-file "ogent-armory-codex-home-" t)))
+                      (ogent-test--provision-store-directory 'armory-compose)))
          (blocked-root (expand-file-name "skills/blocked" codex-home)))
     (unwind-protect
         (ogent-armory-compose-test-with-temp-dir root
@@ -155,9 +153,7 @@
                                       (plist-get skill :body))))))
       (when (file-directory-p blocked-root)
         (ignore-errors
-          (set-file-modes blocked-root #o700)))
-      (when (file-directory-p codex-home)
-        (delete-directory codex-home t)))))
+          (set-file-modes blocked-root #o700))))))
 
 (ert-deftest ogent-armory-compose-prompt-includes-context ()
   "Prompt builder includes mention, attachment, and skill context."

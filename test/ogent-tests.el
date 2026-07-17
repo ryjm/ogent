@@ -84,10 +84,11 @@
 (ert-deftest ogent-org-capture-contexts-compat-recovers-goto-target ()
   "Org capture target navigation recovers from a missing contexts variable."
   (require 'org-capture)
-  (let ((test-file (make-temp-file "ogent-capture-target" nil ".org"))
-        (was-bound (boundp 'org-capture-templates-contexts))
-        (old-value (and (boundp 'org-capture-templates-contexts)
-                        org-capture-templates-contexts)))
+  (let* ((dir (ogent-test--provision-store-directory 'ogent))
+         (test-file (expand-file-name "capture-target.org" dir))
+         (was-bound (boundp 'org-capture-templates-contexts))
+         (old-value (and (boundp 'org-capture-templates-contexts)
+                         org-capture-templates-contexts)))
     (unwind-protect
         (let ((org-capture-templates
                (list (list "x" "Compat test" 'entry
@@ -102,8 +103,6 @@
           (should (null org-capture-templates-contexts)))
       (when (get-file-buffer test-file)
         (kill-buffer (get-file-buffer test-file)))
-      (when (file-exists-p test-file)
-        (delete-file test-file))
       (if was-bound
           (setq org-capture-templates-contexts old-value)
         (makunbound 'org-capture-templates-contexts)))))

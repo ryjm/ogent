@@ -367,16 +367,13 @@ OUTPUT should be a plist or list that will be JSON-encoded."
   "Execute BODY with a temporary beads project structure.
 Binds `project-root` to the temp project path and `sub-dir` to a nested path."
   (declare (indent 0))
-  `(let* ((project-root (make-temp-file "ogent-test-" t))
+  `(let* ((project-root (directory-file-name
+                         (ogent-test--provision-store-directory 'issues-bd)))
           (beads-dir (expand-file-name ".beads" project-root))
           (sub-dir (expand-file-name "src/deep/nested" project-root)))
-     (unwind-protect
-         (progn
-           (make-directory beads-dir)
-           (make-directory sub-dir t)
-           ,@body)
-       ;; Cleanup
-       (delete-directory project-root t))))
+     (make-directory beads-dir)
+     (make-directory sub-dir t)
+     ,@body))
 
 (ert-deftest ogent-issues-bd-test-integration-initialized-p-from-root ()
   "Integration test: initialized-p returns t when in project root."
@@ -1044,13 +1041,11 @@ Binds `project-root` to the temp project path and `sub-dir` to a nested path."
 ;;; Git Worktree Redirect Tests
 
 (defmacro ogent-issues-bd-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary directory while running BODY."
+  "Bind VAR to a retained temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-issues-bd-wt-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'issues-bd))))
+     ,@body))
 
 (defun ogent-issues-bd-test--worktree-layout (base &optional gitdir-line
                                                    no-main-beads)

@@ -16,13 +16,11 @@
 (declare-function magit-section-hidden-body "ext:magit-section")
 
 (defmacro ogent-armory-status-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary directory while running BODY."
+  "Bind VAR to a retained temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-status-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'armory-status))))
+     ,@body))
 
 (ert-deftest ogent-armory-status-renders-armory-graph-and-bridges ()
   "The Armory status buffer renders graph records and operational bridges."

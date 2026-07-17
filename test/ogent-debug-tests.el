@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'ert)
+(require 'ogent-test-helper)
 (require 'ogent-tools)
 (require 'ogent-models)
 (require 'ogent-ui)
@@ -430,29 +431,27 @@
 
 (ert-deftest ogent-debug-test-export-json-format ()
   "Test JSON export produces valid JSON with version, count, and exported fields."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-" nil ".json")))
-    (unwind-protect
-        (progn
-          ;; Add a tool call
-          (ogent-debug-log-tool-call
-           '(:id "export-1" :name test-export :args (:key "val"))
-           "result-data"
-           0.456)
-          (ogent-debug-export-tool-history-json export-file)
-          ;; Read and parse the JSON
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let* ((json-object-type 'plist)
-                   (json-array-type 'list)
-                   (json-key-type 'keyword)
-                   (data (json-read-from-string (buffer-string))))
-              (should (eq (plist-get data :version) 1))
-              (should (plist-get data :exported))
-              (should (eq (plist-get data :count) 1))
-              ;; :calls is present in the output
-              (should (plist-get data :calls)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-format.json" export-dir)))
+    ;; Add a tool call
+    (ogent-debug-log-tool-call
+     '(:id "export-1" :name test-export :args (:key "val"))
+     "result-data"
+     0.456)
+    (ogent-debug-export-tool-history-json export-file)
+    ;; Read and parse the JSON
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let* ((json-object-type 'plist)
+             (json-array-type 'list)
+             (json-key-type 'keyword)
+             (data (json-read-from-string (buffer-string))))
+        (should (eq (plist-get data :version) 1))
+        (should (plist-get data :exported))
+        (should (eq (plist-get data :count) 1))
+        ;; :calls is present in the output
+        (should (plist-get data :calls))))))
 
 (ert-deftest ogent-debug-test-export-json-empty-history ()
   "Test JSON export signals error on empty history."
@@ -462,51 +461,47 @@
 
 (ert-deftest ogent-debug-test-export-json-multiple-entries ()
   "Test JSON export with multiple tool history entries."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-" nil ".json")))
-    (unwind-protect
-        (progn
-          (dotimes (i 3)
-            (ogent-debug-log-tool-call
-             (list :id (format "multi-%d" i) :name 'multi-tool :args nil)
-             (format "result-%d" i)
-             (* i 0.1)))
-          (ogent-debug-export-tool-history-json export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let* ((json-object-type 'plist)
-                   (json-array-type 'list)
-                   (json-key-type 'keyword)
-                   (data (json-read-from-string (buffer-string))))
-              (should (eq (plist-get data :count) 3)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-multi.json" export-dir)))
+    (dotimes (i 3)
+      (ogent-debug-log-tool-call
+       (list :id (format "multi-%d" i) :name 'multi-tool :args nil)
+       (format "result-%d" i)
+       (* i 0.1)))
+    (ogent-debug-export-tool-history-json export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let* ((json-object-type 'plist)
+             (json-array-type 'list)
+             (json-key-type 'keyword)
+             (data (json-read-from-string (buffer-string))))
+        (should (eq (plist-get data :count) 3))))))
 
 ;;; Export Text Tests
 
 (ert-deftest ogent-debug-test-export-text-format ()
   "Test text export contains correct content."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-" nil ".txt")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           '(:id "text-1" :name text-export-tool :args (:file "/tmp/x"))
-           "text result"
-           0.789)
-          (ogent-debug-export-tool-history-text export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let ((content (buffer-string)))
-              ;; Should have header
-              (should (string-match-p "# Ogent Tool Call History" content))
-              (should (string-match-p "# Exported:" content))
-              (should (string-match-p "# Entries: 1" content))
-              ;; Should have entry
-              (should (string-match-p "text-export-tool" content))
-              (should (string-match-p "SUCCESS" content))
-              (should (string-match-p "0\\.789s" content))
-              (should (string-match-p "ID: text-1" content)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-text.txt" export-dir)))
+    (ogent-debug-log-tool-call
+     '(:id "text-1" :name text-export-tool :args (:file "/tmp/x"))
+     "text result"
+     0.789)
+    (ogent-debug-export-tool-history-text export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let ((content (buffer-string)))
+        ;; Should have header
+        (should (string-match-p "# Ogent Tool Call History" content))
+        (should (string-match-p "# Exported:" content))
+        (should (string-match-p "# Entries: 1" content))
+        ;; Should have entry
+        (should (string-match-p "text-export-tool" content))
+        (should (string-match-p "SUCCESS" content))
+        (should (string-match-p "0\\.789s" content))
+        (should (string-match-p "ID: text-1" content))))))
 
 (ert-deftest ogent-debug-test-export-text-empty-history ()
   "Test text export signals error on empty history."
@@ -516,69 +511,63 @@
 
 (ert-deftest ogent-debug-test-export-text-error-entry ()
   "Test text export correctly formats failed tool calls."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-" nil ".txt")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           (list :id "fail-text" :name 'fail-tool :args nil
-                 :error "disk full")
-           nil
-           0.01)
-          (ogent-debug-export-tool-history-text export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let ((content (buffer-string)))
-              (should (string-match-p "FAILED" content))
-              (should (string-match-p "disk full" content)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-error.txt" export-dir)))
+    (ogent-debug-log-tool-call
+     (list :id "fail-text" :name 'fail-tool :args nil
+           :error "disk full")
+     nil
+     0.01)
+    (ogent-debug-export-tool-history-text export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let ((content (buffer-string)))
+        (should (string-match-p "FAILED" content))
+        (should (string-match-p "disk full" content))))))
 
 ;;; Import Tool History Tests
 
 (ert-deftest ogent-debug-test-import-tool-history ()
   "Test importing tool history from JSON file."
-  (let ((ogent-debug-tool-history nil)
-        (ogent-debug-tool-history-max 100)
-        (import-file (make-temp-file "ogent-import-" nil ".json")))
-    (unwind-protect
-        (progn
-          ;; Write a valid JSON file with proper array-of-objects syntax
-          (with-temp-file import-file
-            (insert "{\"version\":1,\"exported\":\"2025-01-01\",\"count\":2,\"calls\":[")
-            (insert "{\"id\":\"imp-1\",\"name\":\"imported-tool\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.1,\"timestamp\":\"2025-01-01\"},")
-            (insert "{\"id\":\"imp-2\",\"name\":\"imported-tool-2\",\"args\":null,\"result\":null,\"error\":\"fail\",\"duration\":0.2,\"timestamp\":\"2025-01-01\"}")
-            (insert "]}"))
-          (ogent-debug-import-tool-history import-file)
-          ;; Should have 2 entries
-          (should (= (length ogent-debug-tool-history) 2))
-          ;; Check names are interned symbols
-          (should (symbolp (plist-get (car ogent-debug-tool-history) :name)))
-          ;; Most recent push is last in file = imp-2
-          (should (equal (plist-get (car ogent-debug-tool-history) :id) "imp-2")))
-      (delete-file import-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (ogent-debug-tool-history-max 100)
+         (import-dir (ogent-test--provision-store-directory 'debug))
+         (import-file (expand-file-name "import-history.json" import-dir)))
+    ;; Write a valid JSON file with proper array-of-objects syntax
+    (with-temp-file import-file
+      (insert "{\"version\":1,\"exported\":\"2025-01-01\",\"count\":2,\"calls\":[")
+      (insert "{\"id\":\"imp-1\",\"name\":\"imported-tool\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.1,\"timestamp\":\"2025-01-01\"},")
+      (insert "{\"id\":\"imp-2\",\"name\":\"imported-tool-2\",\"args\":null,\"result\":null,\"error\":\"fail\",\"duration\":0.2,\"timestamp\":\"2025-01-01\"}")
+      (insert "]}"))
+    (ogent-debug-import-tool-history import-file)
+    ;; Should have 2 entries
+    (should (= (length ogent-debug-tool-history) 2))
+    ;; Check names are interned symbols
+    (should (symbolp (plist-get (car ogent-debug-tool-history) :name)))
+    ;; Most recent push is last in file = imp-2
+    (should (equal (plist-get (car ogent-debug-tool-history) :id) "imp-2"))))
 
 (ert-deftest ogent-debug-test-import-merges-with-existing ()
   "Test that import merges with existing history."
-  (let ((ogent-debug-tool-history nil)
-        (ogent-debug-tool-history-max 100)
-        (import-file (make-temp-file "ogent-import-" nil ".json")))
-    (unwind-protect
-        (progn
-          ;; Add an existing entry
-          (ogent-debug-log-tool-call
-           '(:id "existing-1" :name existing-tool :args nil)
-           "result"
-           0.1)
-          (should (= (length ogent-debug-tool-history) 1))
-          ;; Import one more with proper JSON array syntax
-          (with-temp-file import-file
-            (insert "{\"version\":1,\"count\":1,\"calls\":[")
-            (insert "{\"id\":\"imported-1\",\"name\":\"new-tool\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.5,\"timestamp\":\"2025-01-01\"}")
-            (insert "]}"))
-          (ogent-debug-import-tool-history import-file)
-          ;; Should have 2 total
-          (should (= (length ogent-debug-tool-history) 2)))
-      (delete-file import-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (ogent-debug-tool-history-max 100)
+         (import-dir (ogent-test--provision-store-directory 'debug))
+         (import-file (expand-file-name "import-merge.json" import-dir)))
+    ;; Add an existing entry
+    (ogent-debug-log-tool-call
+     '(:id "existing-1" :name existing-tool :args nil)
+     "result"
+     0.1)
+    (should (= (length ogent-debug-tool-history) 1))
+    ;; Import one more with proper JSON array syntax
+    (with-temp-file import-file
+      (insert "{\"version\":1,\"count\":1,\"calls\":[")
+      (insert "{\"id\":\"imported-1\",\"name\":\"new-tool\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.5,\"timestamp\":\"2025-01-01\"}")
+      (insert "]}"))
+    (ogent-debug-import-tool-history import-file)
+    ;; Should have 2 total
+    (should (= (length ogent-debug-tool-history) 2))))
 
 ;;; Replay Tool Tests
 
@@ -771,22 +760,20 @@
 
 (ert-deftest ogent-debug-test-import-respects-max-limit ()
   "Test that import respects the history max limit."
-  (let ((ogent-debug-tool-history nil)
-        (ogent-debug-tool-history-max 2)
-        (import-file (make-temp-file "ogent-import-limit-" nil ".json")))
-    (unwind-protect
-        (progn
-          ;; Import 3 entries but max is 2
-          (with-temp-file import-file
-            (insert "{\"version\":1,\"count\":3,\"calls\":[")
-            (insert "{\"id\":\"lim-1\",\"name\":\"t1\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.1,\"timestamp\":\"2025-01-01\"},")
-            (insert "{\"id\":\"lim-2\",\"name\":\"t2\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.2,\"timestamp\":\"2025-01-02\"},")
-            (insert "{\"id\":\"lim-3\",\"name\":\"t3\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.3,\"timestamp\":\"2025-01-03\"}")
-            (insert "]}"))
-          (ogent-debug-import-tool-history import-file)
-          ;; Should be trimmed to max
-          (should (= (length ogent-debug-tool-history) 2)))
-      (delete-file import-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (ogent-debug-tool-history-max 2)
+         (import-dir (ogent-test--provision-store-directory 'debug))
+         (import-file (expand-file-name "import-limit.json" import-dir)))
+    ;; Import 3 entries but max is 2
+    (with-temp-file import-file
+      (insert "{\"version\":1,\"count\":3,\"calls\":[")
+      (insert "{\"id\":\"lim-1\",\"name\":\"t1\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.1,\"timestamp\":\"2025-01-01\"},")
+      (insert "{\"id\":\"lim-2\",\"name\":\"t2\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.2,\"timestamp\":\"2025-01-02\"},")
+      (insert "{\"id\":\"lim-3\",\"name\":\"t3\",\"args\":null,\"result\":\"ok\",\"error\":null,\"duration\":0.3,\"timestamp\":\"2025-01-03\"}")
+      (insert "]}"))
+    (ogent-debug-import-tool-history import-file)
+    ;; Should be trimmed to max
+    (should (= (length ogent-debug-tool-history) 2))))
 
 ;;; Debug Clear Tests
 
@@ -1105,47 +1092,43 @@
 
 (ert-deftest ogent-debug-test-export-json-truncates-result ()
   "Test JSON export truncates results longer than 1000 chars."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-trunc-" nil ".json")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           '(:id "trunc-1" :name long-result :args nil)
-           (make-string 2000 ?z)
-           0.5)
-          (ogent-debug-export-tool-history-json export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let* ((json-object-type 'plist)
-                   (json-array-type 'list)
-                   (json-key-type 'keyword)
-                   (data (json-read-from-string (buffer-string)))
-                   (calls (plist-get data :calls))
-                   (result (plist-get (car calls) :result)))
-              ;; Result should be truncated to 1000 chars
-              (should (<= (length result) 1000)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-trunc.json" export-dir)))
+    (ogent-debug-log-tool-call
+     '(:id "trunc-1" :name long-result :args nil)
+     (make-string 2000 ?z)
+     0.5)
+    (ogent-debug-export-tool-history-json export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let* ((json-object-type 'plist)
+             (json-array-type 'list)
+             (json-key-type 'keyword)
+             (data (json-read-from-string (buffer-string)))
+             (calls (plist-get data :calls))
+             (result (plist-get (car calls) :result)))
+        ;; Result should be truncated to 1000 chars
+        (should (<= (length result) 1000))))))
 
 ;;; Export Text With Long Args/Result
 
 (ert-deftest ogent-debug-test-export-text-truncates-long-args ()
   "Test text export truncates long argument strings."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-long-" nil ".txt")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           (list :id "long-txt" :name 'verbose
-                 :args (list :data (make-string 1000 ?q)))
-           "short result"
-           0.1)
-          (ogent-debug-export-tool-history-text export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let ((content (buffer-string)))
-              ;; Should contain truncation
-              (should (string-match-p "\\.\\.\\." content)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-long-args.txt" export-dir)))
+    (ogent-debug-log-tool-call
+     (list :id "long-txt" :name 'verbose
+           :args (list :data (make-string 1000 ?q)))
+     "short result"
+     0.1)
+    (ogent-debug-export-tool-history-text export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let ((content (buffer-string)))
+        ;; Should contain truncation
+        (should (string-match-p "\\.\\.\\." content))))))
 
 ;;; ================================================================
 ;;; NEW COVERAGE TESTS - Phase 2 (targeting 80%+ coverage)
@@ -1348,40 +1331,36 @@
 
 (ert-deftest ogent-debug-test-export-text-truncates-long-result ()
   "Test text export truncates long result strings."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-long-res-" nil ".txt")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           '(:id "long-r" :name tool :args nil)
-           (make-string 1000 ?r)
-           0.1)
-          (ogent-debug-export-tool-history-text export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (should (string-match-p "\\.\\.\\." (buffer-string)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-long-result.txt" export-dir)))
+    (ogent-debug-log-tool-call
+     '(:id "long-r" :name tool :args nil)
+     (make-string 1000 ?r)
+     0.1)
+    (ogent-debug-export-tool-history-text export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (should (string-match-p "\\.\\.\\." (buffer-string))))))
 
 ;;; --- Export Text With Nil Args ---
 
 (ert-deftest ogent-debug-test-export-text-nil-args ()
   "Test text export handles entry with nil args."
-  (let ((ogent-debug-tool-history nil)
-        (export-file (make-temp-file "ogent-export-nilargs-" nil ".txt")))
-    (unwind-protect
-        (progn
-          (ogent-debug-log-tool-call
-           '(:id "nil-a" :name tool :args nil)
-           "ok"
-           0.1)
-          (ogent-debug-export-tool-history-text export-file)
-          (with-temp-buffer
-            (insert-file-contents export-file)
-            (let ((content (buffer-string)))
-              ;; Should not have Args: section
-              (should (string-match-p "SUCCESS" content))
-              (should-not (string-match-p "Args:" content)))))
-      (delete-file export-file))))
+  (let* ((ogent-debug-tool-history nil)
+         (export-dir (ogent-test--provision-store-directory 'debug))
+         (export-file (expand-file-name "export-nil-args.txt" export-dir)))
+    (ogent-debug-log-tool-call
+     '(:id "nil-a" :name tool :args nil)
+     "ok"
+     0.1)
+    (ogent-debug-export-tool-history-text export-file)
+    (with-temp-buffer
+      (insert-file-contents export-file)
+      (let ((content (buffer-string)))
+        ;; Should not have Args: section
+        (should (string-match-p "SUCCESS" content))
+        (should-not (string-match-p "Args:" content))))))
 
 ;;; --- Post Response with Elapsed Calculation ---
 

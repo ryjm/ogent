@@ -6,15 +6,11 @@
 
 (ert-deftest ogent-persist-ensures-directory ()
   "Session directory is created if it doesn't exist."
-  (let ((ogent-session-directory (make-temp-file "ogent-test-sessions-" t)))
-    (unwind-protect
-        (progn
-          (delete-directory ogent-session-directory)
-          (should-not (file-exists-p ogent-session-directory))
-          (ogent-persist--ensure-directory)
-          (should (file-directory-p ogent-session-directory)))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+  (let ((ogent-session-directory
+         (expand-file-name "absent" (ogent-test--provision-store-directory 'session))))
+    (should-not (file-exists-p ogent-session-directory))
+    (ogent-persist--ensure-directory)
+    (should (file-directory-p ogent-session-directory))))
 
 (ert-deftest ogent-persist-generates-unique-ids ()
   "Session IDs are unique and properly formatted."
@@ -73,7 +69,7 @@
 
 (ert-deftest ogent-persist-saves-and-loads ()
   "Session can be saved and loaded with metadata preserved."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-sessions-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (test-buffer (get-buffer-create "*test-save-load*"))
          saved-file
          loaded-buffer)
@@ -110,9 +106,7 @@
       (when (buffer-live-p test-buffer)
         (kill-buffer test-buffer))
       (when (buffer-live-p loaded-buffer)
-        (kill-buffer loaded-buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer loaded-buffer)))))
 
 (ert-deftest ogent-persist-tracks-models ()
   "Model tracking adds unique models to session list."
@@ -177,7 +171,7 @@
 
 (ert-deftest ogent-persist-list-shows-sessions ()
   "Session list displays available sessions."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-sessions-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (file1 (expand-file-name "session1.org" ogent-session-directory))
          (file2 (expand-file-name "session2.org" ogent-session-directory))
          list-buffer)
@@ -211,13 +205,11 @@
       
       ;; Cleanup
       (when (buffer-live-p list-buffer)
-        (kill-buffer list-buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer list-buffer)))))
 
 (ert-deftest ogent-persist-list-handles-empty-directory ()
   "Session list handles empty directory gracefully."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-empty-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          list-buffer)
     (unwind-protect
         (progn
@@ -230,33 +222,25 @@
             (should (search-forward "No saved sessions found" nil t))))
       
       (when (buffer-live-p list-buffer)
-        (kill-buffer list-buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer list-buffer)))))
 
 (ert-deftest ogent-persist-parses-file-metadata ()
   "File metadata parsing extracts session info from saved files."
-  (let* ((temp-dir (make-temp-file "ogent-test-parse-" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'session))
          (file (expand-file-name "test.org" temp-dir)))
-    (unwind-protect
-        (progn
-          (with-temp-file file
-            (insert "#+title: File Test\n")
-            (insert "#+OGENT-SESSION-ID: file-001\n")
-            (insert "#+OGENT-SESSION-MODELS: gpt-4, claude-3\n"))
-          
-          (let ((metadata (ogent-persist--parse-file-metadata file)))
-            (should (equal (plist-get metadata :file) file))
-            (should (equal (plist-get metadata :id) "file-001"))
-            (should (equal (plist-get metadata :title) "File Test"))
-            (should (equal (plist-get metadata :models) '("gpt-4" "claude-3")))))
-      
-      (when (file-exists-p temp-dir)
-        (delete-directory temp-dir t)))))
+    (with-temp-file file
+      (insert "#+title: File Test\n")
+      (insert "#+OGENT-SESSION-ID: file-001\n")
+      (insert "#+OGENT-SESSION-MODELS: gpt-4, claude-3\n"))
+    (let ((metadata (ogent-persist--parse-file-metadata file)))
+      (should (equal (plist-get metadata :file) file))
+      (should (equal (plist-get metadata :id) "file-001"))
+      (should (equal (plist-get metadata :title) "File Test"))
+      (should (equal (plist-get metadata :models) '("gpt-4" "claude-3"))))))
 
 (ert-deftest ogent-persist-resave-preserves-metadata ()
   "Re-saving a session preserves its original ID."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-resave-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (buffer (get-buffer-create "*test-resave*"))
          file2)
     (unwind-protect
@@ -285,9 +269,7 @@
                 (kill-buffer reloaded)))))
       
       (when (buffer-live-p buffer)
-        (kill-buffer buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer buffer)))))
 
 ;;; Detect Project Tests
 
@@ -316,40 +298,32 @@
 
 (ert-deftest ogent-persist-parse-file-metadata-complete ()
   "Test parsing metadata from a file with all keywords."
-  (let* ((temp-dir (make-temp-file "ogent-test-pfm-" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'session))
          (file (expand-file-name "complete.org" temp-dir)))
-    (unwind-protect
-        (progn
-          (with-temp-file file
-            (insert "#+title: Complete Session\n")
-            (insert "#+OGENT-SESSION-ID: pfm-001\n")
-            (insert "#+OGENT-SESSION-START: 2024-06-01 12:00:00\n")
-            (insert "#+OGENT-SESSION-MODELS: gpt-4, claude-3\n")
-            (insert "#+OGENT-SESSION-PROJECT: /home/user/project/\n")
-            (insert "#+OGENT-SESSION-ROAM: roam-abc-123\n")
-            (insert "\n* Content here\n"))
-          (let ((metadata (ogent-persist--parse-file-metadata file)))
-            (should (equal (plist-get metadata :file) file))
-            (should (equal (plist-get metadata :id) "pfm-001"))
-            (should (equal (plist-get metadata :title) "Complete Session"))
-            (should (equal (plist-get metadata :models) '("gpt-4" "claude-3")))))
-      (when (file-exists-p temp-dir)
-        (delete-directory temp-dir t)))))
+    (with-temp-file file
+      (insert "#+title: Complete Session\n")
+      (insert "#+OGENT-SESSION-ID: pfm-001\n")
+      (insert "#+OGENT-SESSION-START: 2024-06-01 12:00:00\n")
+      (insert "#+OGENT-SESSION-MODELS: gpt-4, claude-3\n")
+      (insert "#+OGENT-SESSION-PROJECT: /home/user/project/\n")
+      (insert "#+OGENT-SESSION-ROAM: roam-abc-123\n")
+      (insert "\n* Content here\n"))
+    (let ((metadata (ogent-persist--parse-file-metadata file)))
+      (should (equal (plist-get metadata :file) file))
+      (should (equal (plist-get metadata :id) "pfm-001"))
+      (should (equal (plist-get metadata :title) "Complete Session"))
+      (should (equal (plist-get metadata :models) '("gpt-4" "claude-3"))))))
 
 (ert-deftest ogent-persist-parse-file-metadata-no-keywords ()
   "Test parsing metadata from a file with no ogent keywords."
-  (let* ((temp-dir (make-temp-file "ogent-test-pfm2-" t))
+  (let* ((temp-dir (ogent-test--provision-store-directory 'session))
          (file (expand-file-name "plain.org" temp-dir)))
-    (unwind-protect
-        (progn
-          (with-temp-file file
-            (insert "* Just a plain org file\nSome text.\n"))
-          (let ((metadata (ogent-persist--parse-file-metadata file)))
-            (should (equal (plist-get metadata :file) file))
-            ;; With no session ID, fallback gives title from filename
-            (should (equal (plist-get metadata :title) "plain"))))
-      (when (file-exists-p temp-dir)
-        (delete-directory temp-dir t)))))
+    (with-temp-file file
+      (insert "* Just a plain org file\nSome text.\n"))
+    (let ((metadata (ogent-persist--parse-file-metadata file)))
+      (should (equal (plist-get metadata :file) file))
+      ;; With no session ID, fallback gives title from filename
+      (should (equal (plist-get metadata :title) "plain")))))
 
 ;;; Maybe Auto Save Tests
 
@@ -520,7 +494,7 @@
 
 (ert-deftest ogent-session-search-finds-matching-content ()
   "Test ogent-session-search finds matching content in session files."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-search-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (file1 (expand-file-name "s1.org" ogent-session-directory))
          (file2 (expand-file-name "s2.org" ogent-session-directory))
          result-buf)
@@ -542,13 +516,11 @@
             (should (search-forward "Search: pandas" nil t))
             (should (search-forward "2 session(s) matched" nil t))))
       (when (buffer-live-p result-buf)
-        (kill-buffer result-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer result-buf)))))
 
 (ert-deftest ogent-session-search-no-results ()
   "Test ogent-session-search displays no results message."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-search-empty-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (file1 (expand-file-name "s1.org" ogent-session-directory))
          result-buf)
     (unwind-protect
@@ -563,13 +535,11 @@
             (should (search-forward "0 session(s) matched" nil t))
             (should (search-forward "No matches found" nil t))))
       (when (buffer-live-p result-buf)
-        (kill-buffer result-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer result-buf)))))
 
 (ert-deftest ogent-session-search-empty-directory ()
   "Test ogent-session-search with no session files."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-search-none-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          result-buf)
     (unwind-protect
         (progn
@@ -580,13 +550,11 @@
             (goto-char (point-min))
             (should (search-forward "0 session(s) matched" nil t))))
       (when (buffer-live-p result-buf)
-        (kill-buffer result-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer result-buf)))))
 
 (ert-deftest ogent-session-search-treats-query-literally ()
   "Session search accepts strings that are invalid regexps."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-search-literal-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (file1 (expand-file-name "s1.org" ogent-session-directory))
          result-buf)
     (unwind-protect
@@ -603,9 +571,7 @@
             (should (search-forward "1 session(s) matched" nil t))
             (should (search-forward "a[b" nil t))))
       (when (buffer-live-p result-buf)
-        (kill-buffer result-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer result-buf)))))
 
 ;;; Display Search Results Tests
 
@@ -809,7 +775,7 @@
 
 (ert-deftest ogent-history-displays-sessions-sorted ()
   "History browser displays sessions in reverse chronological order."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-hist-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (file1 (expand-file-name "s1.org" ogent-session-directory))
          (file2 (expand-file-name "s2.org" ogent-session-directory))
          hist-buf)
@@ -835,13 +801,11 @@
               (should earlier-pos)
               (should (< later-pos earlier-pos)))))
       (when (buffer-live-p hist-buf)
-        (kill-buffer hist-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer hist-buf)))))
 
 (ert-deftest ogent-history-empty-directory ()
   "History browser handles empty directory."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-hist-empty-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          hist-buf)
     (unwind-protect
         (progn
@@ -852,9 +816,7 @@
             (goto-char (point-min))
             (should (search-forward "No saved sessions found" nil t))))
       (when (buffer-live-p hist-buf)
-        (kill-buffer hist-buf))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer hist-buf)))))
 
 ;;; Session Create Roam Note Tests
 
@@ -875,7 +837,7 @@
 
 (ert-deftest ogent-persist-save-strips-old-metadata ()
   "Saving a session strips old metadata keywords before writing fresh ones."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-strip-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (buffer (get-buffer-create "*test-strip-meta*"))
          saved-file)
     (unwind-protect
@@ -902,13 +864,11 @@
       (when (buffer-live-p buffer)
         (with-current-buffer buffer
           (setq-local ogent-persist--id nil))
-        (kill-buffer buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer buffer)))))
 
 (ert-deftest ogent-persist-save-preserves-body-org-keywords ()
   "Saving a session preserves Org keywords inside transcript content."
-  (let* ((ogent-session-directory (make-temp-file "ogent-test-body-keywords-" t))
+  (let* ((ogent-session-directory (ogent-test--provision-store-directory 'session))
          (buffer (get-buffer-create "*test-body-keywords*"))
          saved-file)
     (unwind-protect
@@ -934,9 +894,7 @@
       (when (buffer-live-p buffer)
         (with-current-buffer buffer
           (setq-local ogent-persist--id nil))
-        (kill-buffer buffer))
-      (when (file-exists-p ogent-session-directory)
-        (delete-directory ogent-session-directory t)))))
+        (kill-buffer buffer)))))
 
 (ert-deftest ogent-persist-parse-metadata-ignores-body-keywords ()
   "Metadata parsing only reads the initial Org preamble."

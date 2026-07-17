@@ -14,13 +14,11 @@
 (require 'ogent-armory-settings)
 
 (defmacro ogent-armory-runner-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary directory while running BODY."
+  "Bind VAR to a retained temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-runner-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (directory-file-name
+                (ogent-test--provision-store-directory 'armory-runner))))
+     ,@body))
 
 (defun ogent-armory-runner-test--make-executable (dir content)
   "Create an executable file in DIR with CONTENT."

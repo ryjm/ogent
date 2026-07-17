@@ -23,20 +23,18 @@
 
 (ert-deftest ogent-codemap-definitions-regex ()
   "Definition regex captures ogent-* symbols only."
-  (let ((test-file (make-temp-file "ogent-defs-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(defun ogent-alpha () nil)\n")
-            (insert "(defmacro ogent-beta () nil)\n")
-            (insert "(defcustom ogent-gamma nil \"Doc\")\n")
-            (insert "(defvar ogent-delta 1)\n")
-            (insert "(defconst ogent-epsilon 2)\n")
-            (insert "(defun not-ogent () nil)\n")
-            (insert "(defun ogent-alpha () t)\n"))
-          (should (equal (ogent-codemap--definitions test-file)
-                         '("ogent-alpha" "ogent-beta" "ogent-gamma" "ogent-delta"))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "ogent-defs.el" dir)))
+    (with-temp-file test-file
+      (insert "(defun ogent-alpha () nil)\n")
+      (insert "(defmacro ogent-beta () nil)\n")
+      (insert "(defcustom ogent-gamma nil \"Doc\")\n")
+      (insert "(defvar ogent-delta 1)\n")
+      (insert "(defconst ogent-epsilon 2)\n")
+      (insert "(defun not-ogent () nil)\n")
+      (insert "(defun ogent-alpha () t)\n"))
+    (should (equal (ogent-codemap--definitions test-file)
+                   '("ogent-alpha" "ogent-beta" "ogent-gamma" "ogent-delta")))))
 
 (ert-deftest ogent-codemap-buffer-renders-org ()
   "Rendering produces an Org buffer with expected headings."
@@ -51,18 +49,14 @@
 
 (ert-deftest ogent-codemap-heading-includes-mtime ()
   "File headings include modification time metadata."
-  (let* ((root (ogent-codemap--project-root))
-         (test-file (expand-file-name "test/data/ogent-codemap-mtime.el" root)))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(defun ogent-codemap-mtime-test () nil)\n"))
-          (with-temp-buffer
-            (ogent-codemap--insert-file (current-buffer) test-file)
-            (goto-char (point-min))
-            (should (re-search-forward "mtime:" nil t))))
-      (when (file-exists-p test-file)
-        (delete-file test-file)))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "ogent-codemap-mtime.el" dir)))
+    (with-temp-file test-file
+      (insert "(defun ogent-codemap-mtime-test () nil)\n"))
+    (with-temp-buffer
+      (ogent-codemap--insert-file (current-buffer) test-file)
+      (goto-char (point-min))
+      (should (re-search-forward "mtime:" nil t)))))
 
 (ert-deftest ogent-codemap-detects-file-types ()
   "File type detection works for all supported types."
@@ -84,16 +78,14 @@
 
 (ert-deftest ogent-codemap-test-definitions-regex ()
   "Test regex captures ert-deftest names and removes duplicates."
-  (let ((test-file (make-temp-file "ogent-tests-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(ert-deftest ogent-alpha-test () nil)\n")
-            (insert "(ert-deftest other-test () nil)\n")
-            (insert "(ert-deftest ogent-alpha-test () nil)\n"))
-          (should (equal (ogent-codemap--test-definitions test-file)
-                         '("ogent-alpha-test" "other-test"))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "ogent-sample-tests.el" dir)))
+    (with-temp-file test-file
+      (insert "(ert-deftest ogent-alpha-test () nil)\n")
+      (insert "(ert-deftest other-test () nil)\n")
+      (insert "(ert-deftest ogent-alpha-test () nil)\n"))
+    (should (equal (ogent-codemap--test-definitions test-file)
+                   '("ogent-alpha-test" "other-test")))))
 
 (ert-deftest ogent-codemap-extracts-org-headings ()
   "Org headings are extracted from .org files."
@@ -109,31 +101,27 @@
 
 (ert-deftest ogent-codemap-org-heading-levels ()
   "Org heading regex captures levels 1-3 only."
-  (let ((org-file (make-temp-file "ogent-heading-" nil ".org")))
-    (unwind-protect
-        (progn
-          (with-temp-file org-file
-            (insert "* One\n** Two\n*** Three\n**** Four\n"))
-          (let ((headings (ogent-codemap--org-headings org-file)))
-            (should (member '(1 . "One") headings))
-            (should (member '(2 . "Two") headings))
-            (should (member '(3 . "Three") headings))
-            (should-not (cl-find "Four" headings :key #'cdr :test #'string=))))
-      (delete-file org-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (org-file (expand-file-name "headings.org" dir)))
+    (with-temp-file org-file
+      (insert "* One\n** Two\n*** Three\n**** Four\n"))
+    (let ((headings (ogent-codemap--org-headings org-file)))
+      (should (member '(1 . "One") headings))
+      (should (member '(2 . "Two") headings))
+      (should (member '(3 . "Three") headings))
+      (should-not (cl-find "Four" headings :key #'cdr :test #'string=)))))
 
 (ert-deftest ogent-codemap-md-heading-levels ()
   "Markdown heading regex captures levels 1-3 only."
-  (let ((md-file (make-temp-file "ogent-md-" nil ".md")))
-    (unwind-protect
-        (progn
-          (with-temp-file md-file
-            (insert "# One\n## Two\n### Three\n#### Four\n"))
-          (let ((headings (ogent-codemap--md-headings md-file)))
-            (should (member '(1 . "One") headings))
-            (should (member '(2 . "Two") headings))
-            (should (member '(3 . "Three") headings))
-            (should-not (cl-find "Four" headings :key #'cdr :test #'string=))))
-      (delete-file md-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (md-file (expand-file-name "headings.md" dir)))
+    (with-temp-file md-file
+      (insert "# One\n## Two\n### Three\n#### Four\n"))
+    (let ((headings (ogent-codemap--md-headings md-file)))
+      (should (member '(1 . "One") headings))
+      (should (member '(2 . "Two") headings))
+      (should (member '(3 . "Three") headings))
+      (should-not (cl-find "Four" headings :key #'cdr :test #'string=)))))
 
 (ert-deftest ogent-codemap-scans-all-directories ()
   "Source files include test, specs, and docs directories."
@@ -173,47 +161,44 @@
 
 (ert-deftest ogent-codemap-cache-stores-mtime ()
   "File cache stores modification times."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-cache-test")))
-    (unwind-protect
-        (progn
-          (ogent-codemap--cache-file test-file '("def1" "def2"))
-          (let ((entry (gethash test-file ogent-codemap--file-cache)))
-            (should entry)
-            (should (plist-get entry :mtime))
-            (should (equal (plist-get entry :data) '("def1" "def2")))))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "cache-sample.el" dir)))
+    (make-empty-file test-file)
+    (ogent-codemap--cache-file test-file '("def1" "def2"))
+    (let ((entry (gethash test-file ogent-codemap--file-cache)))
+      (should entry)
+      (should (plist-get entry :mtime))
+      (should (equal (plist-get entry :data) '("def1" "def2"))))))
 
 (ert-deftest ogent-codemap-cache-detects-stale ()
   "Cache correctly identifies stale entries."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Cache with old mtime
-          (puthash test-file
-                   (list :mtime (time-subtract (current-time) (seconds-to-time 10))
-                         :data '("old-def"))
-                   ogent-codemap--file-cache)
-          ;; Touch file to update mtime
-          (write-region "new content" nil test-file)
-          (should (ogent-codemap--cache-stale-p test-file)))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "stale-sample.el" dir)))
+    (make-empty-file test-file)
+    ;; Cache with old mtime
+    (puthash test-file
+             (list :mtime (time-subtract (current-time) (seconds-to-time 10))
+                   :data '("old-def"))
+             ogent-codemap--file-cache)
+    ;; Touch file to update mtime
+    (write-region "new content" nil test-file)
+    (should (ogent-codemap--cache-stale-p test-file))))
 
 (ert-deftest ogent-codemap-cache-fresh-not-stale ()
   "Fresh cache entries are not marked stale."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-test")))
-    (unwind-protect
-        (progn
-          ;; Cache with current mtime
-          (puthash test-file
-                   (list :mtime (file-attribute-modification-time
-                                 (file-attributes test-file))
-                         :data '("def"))
-                   ogent-codemap--file-cache)
-          (should-not (ogent-codemap--cache-stale-p test-file)))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "fresh-sample.el" dir)))
+    (make-empty-file test-file)
+    ;; Cache with current mtime
+    (puthash test-file
+             (list :mtime (file-attribute-modification-time
+                           (file-attributes test-file))
+                   :data '("def"))
+             ogent-codemap--file-cache)
+    (should-not (ogent-codemap--cache-stale-p test-file))))
 
 ;;; Incremental Refresh Tests
 
@@ -463,26 +448,25 @@
 
 (ert-deftest ogent-codemap-cache-stale-missing-entry ()
   "Missing cache entry is considered stale."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-stale-test")))
-    (unwind-protect
-        (should (ogent-codemap--cache-stale-p test-file))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "missing-entry.el" dir)))
+    (make-empty-file test-file)
+    (should (ogent-codemap--cache-stale-p test-file))))
 
 (ert-deftest ogent-codemap-cache-stale-after-modification ()
   "Cache becomes stale after file modification."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-mod-test")))
-    (unwind-protect
-        (progn
-          ;; Cache with current mtime
-          (ogent-codemap--cache-file test-file '("def1"))
-          (should-not (ogent-codemap--cache-stale-p test-file))
-          ;; Modify the file
-          (sleep-for 0.1)
-          (write-region "changed" nil test-file)
-          (should (ogent-codemap--cache-stale-p test-file)))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "mod-sample.el" dir)))
+    (make-empty-file test-file)
+    ;; Cache with current mtime
+    (ogent-codemap--cache-file test-file '("def1"))
+    (should-not (ogent-codemap--cache-stale-p test-file))
+    ;; Modify the file
+    (sleep-for 0.1)
+    (write-region "changed" nil test-file)
+    (should (ogent-codemap--cache-stale-p test-file))))
 
 ;;; Task hash tests
 
@@ -606,13 +590,13 @@
 
 (ert-deftest ogent-codemap-get-file-mtime-existing ()
   "Mtime is returned for existing files."
-  (let ((test-file (make-temp-file "ogent-mtime-test")))
-    (unwind-protect
-        (let ((mtime (ogent-codemap--get-file-mtime test-file)))
-          (should mtime)
-          ;; mtime should be a time value (list of integers)
-          (should (listp mtime)))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "mtime-sample.el" dir)))
+    (make-empty-file test-file)
+    (let ((mtime (ogent-codemap--get-file-mtime test-file)))
+      (should mtime)
+      ;; mtime should be a time value (list of integers)
+      (should (listp mtime)))))
 
 (ert-deftest ogent-codemap-get-file-mtime-nonexistent ()
   "Mtime is nil for non-existent files."
@@ -634,42 +618,36 @@
 
 (ert-deftest ogent-codemap-insert-file-elisp ()
   "Inserting an elisp file produces Org headings."
-  (let ((test-file (make-temp-file "ogent-insert-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(defun ogent-test-fn () nil)\n"))
-          (with-temp-buffer
-            (ogent-codemap--insert-file (current-buffer) test-file)
-            (should (string-match-p "\\*\\*" (buffer-string)))
-            (should (string-match-p "ogent-test-fn" (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "insert-sample.el" dir)))
+    (with-temp-file test-file
+      (insert "(defun ogent-test-fn () nil)\n"))
+    (with-temp-buffer
+      (ogent-codemap--insert-file (current-buffer) test-file)
+      (should (string-match-p "\\*\\*" (buffer-string)))
+      (should (string-match-p "ogent-test-fn" (buffer-string))))))
 
 (ert-deftest ogent-codemap-insert-file-org ()
   "Inserting an org file produces nested headings."
-  (let ((test-file (make-temp-file "ogent-insert-" nil ".org")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "* Top Level\n** Sub Level\n"))
-          (with-temp-buffer
-            (ogent-codemap--insert-file (current-buffer) test-file)
-            (should (string-match-p "Top Level" (buffer-string)))
-            (should (string-match-p "Sub Level" (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "insert-sample.org" dir)))
+    (with-temp-file test-file
+      (insert "* Top Level\n** Sub Level\n"))
+    (with-temp-buffer
+      (ogent-codemap--insert-file (current-buffer) test-file)
+      (should (string-match-p "Top Level" (buffer-string)))
+      (should (string-match-p "Sub Level" (buffer-string))))))
 
 (ert-deftest ogent-codemap-insert-file-markdown ()
   "Inserting a markdown file produces headings."
-  (let ((test-file (make-temp-file "ogent-insert-" nil ".md")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "# Title\n## Section\n"))
-          (with-temp-buffer
-            (ogent-codemap--insert-file (current-buffer) test-file)
-            (should (string-match-p "Title" (buffer-string)))
-            (should (string-match-p "Section" (buffer-string)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "insert-sample.md" dir)))
+    (with-temp-file test-file
+      (insert "# Title\n## Section\n"))
+    (with-temp-buffer
+      (ogent-codemap--insert-file (current-buffer) test-file)
+      (should (string-match-p "Title" (buffer-string)))
+      (should (string-match-p "Section" (buffer-string))))))
 
 ;;; Parse sections tests
 
@@ -745,30 +723,26 @@
 
 (ert-deftest ogent-codemap-file-summary-elisp ()
   "File summary for elisp includes function names."
-  (let ((test-file (make-temp-file "ogent-summary-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(defun ogent-summary-fn () nil)\n"))
-          (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
-            (let ((summary (ogent-codemap--file-summary test-file)))
-              (should (stringp summary))
-              (should (string-match-p "elisp" summary))
-              (should (string-match-p "ogent-summary-fn" summary)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "summary-sample.el" dir)))
+    (with-temp-file test-file
+      (insert "(defun ogent-summary-fn () nil)\n"))
+    (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
+      (let ((summary (ogent-codemap--file-summary test-file)))
+        (should (stringp summary))
+        (should (string-match-p "elisp" summary))
+        (should (string-match-p "ogent-summary-fn" summary))))))
 
 (ert-deftest ogent-codemap-file-summary-test ()
   "File summary for test file includes test count."
-  (let ((test-file (make-temp-file "ogent-summary-" nil "-tests.el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(ert-deftest test-a () nil)\n(ert-deftest test-b () nil)\n"))
-          (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
-            (let ((summary (ogent-codemap--file-summary test-file)))
-              (should (string-match-p "test" summary))
-              (should (string-match-p "2 tests" summary)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "ogent-summary-tests.el" dir)))
+    (with-temp-file test-file
+      (insert "(ert-deftest test-a () nil)\n(ert-deftest test-b () nil)\n"))
+    (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
+      (let ((summary (ogent-codemap--file-summary test-file)))
+        (should (string-match-p "test" summary))
+        (should (string-match-p "2 tests" summary))))))
 
 ;;; Codemap changes tests
 
@@ -821,12 +795,12 @@
 
 (ert-deftest ogent-codemap-format-mtime-existing ()
   "Format mtime returns a date string for existing files."
-  (let ((test-file (make-temp-file "ogent-fmt-mtime")))
-    (unwind-protect
-        (let ((mtime-str (ogent-codemap--format-mtime test-file)))
-          (should (stringp mtime-str))
-          (should (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" mtime-str)))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "fmt-mtime-sample.el" dir)))
+    (make-empty-file test-file)
+    (let ((mtime-str (ogent-codemap--format-mtime test-file)))
+      (should (stringp mtime-str))
+      (should (string-match-p "^[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}" mtime-str)))))
 
 (ert-deftest ogent-codemap-format-mtime-nonexistent ()
   "Format mtime returns nil for non-existent files."
@@ -974,37 +948,31 @@
 
 (ert-deftest ogent-codemap-file-summary-org ()
   "File summary for org file shows org doc type."
-  (let ((test-file (make-temp-file "ogent-summary-" nil ".org")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "* Heading\n"))
-          (let ((summary (ogent-codemap--file-summary test-file)))
-            (should (string-match-p "org doc" summary))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "summary-sample.org" dir)))
+    (with-temp-file test-file
+      (insert "* Heading\n"))
+    (let ((summary (ogent-codemap--file-summary test-file)))
+      (should (string-match-p "org doc" summary)))))
 
 (ert-deftest ogent-codemap-file-summary-markdown ()
   "File summary for markdown file shows markdown doc type."
-  (let ((test-file (make-temp-file "ogent-summary-" nil ".md")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "# Heading\n"))
-          (let ((summary (ogent-codemap--file-summary test-file)))
-            (should (string-match-p "markdown doc" summary))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "summary-sample.md" dir)))
+    (with-temp-file test-file
+      (insert "# Heading\n"))
+    (let ((summary (ogent-codemap--file-summary test-file)))
+      (should (string-match-p "markdown doc" summary)))))
 
 (ert-deftest ogent-codemap-file-summary-elisp-no-defs ()
   "File summary for elisp with no ogent defs shows 'no ogent- functions'."
-  (let ((test-file (make-temp-file "ogent-no-defs-" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file test-file
-            (insert "(defun other-fn () nil)\n"))
-          (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
-            (let ((summary (ogent-codemap--file-summary test-file)))
-              (should (string-match-p "no ogent- functions" summary)))))
-      (delete-file test-file))))
+  (let* ((dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "no-defs-sample.el" dir)))
+    (with-temp-file test-file
+      (insert "(defun other-fn () nil)\n"))
+    (let ((ogent-codemap--file-cache (make-hash-table :test 'equal)))
+      (let ((summary (ogent-codemap--file-summary test-file)))
+        (should (string-match-p "no ogent- functions" summary))))))
 
 (ert-deftest ogent-codemap-all-file-summaries-returns-string ()
   "All file summaries returns non-empty string."
@@ -1015,14 +983,13 @@
 
 (ert-deftest ogent-codemap-get-cached-returns-data ()
   "Get cached returns data for fresh cache entries."
-  (let ((ogent-codemap--file-cache (make-hash-table :test 'equal))
-        (test-file (make-temp-file "ogent-get-cached")))
-    (unwind-protect
-        (progn
-          (ogent-codemap--cache-file test-file '("def1" "def2"))
-          (let ((data (ogent-codemap--get-cached test-file)))
-            (should (equal data '("def1" "def2")))))
-      (delete-file test-file))))
+  (let* ((ogent-codemap--file-cache (make-hash-table :test 'equal))
+         (dir (ogent-test--provision-store-directory 'codemap))
+         (test-file (expand-file-name "cached-sample.el" dir)))
+    (make-empty-file test-file)
+    (ogent-codemap--cache-file test-file '("def1" "def2"))
+    (let ((data (ogent-codemap--get-cached test-file)))
+      (should (equal data '("def1" "def2"))))))
 
 (ert-deftest ogent-codemap-get-cached-returns-nil-stale ()
   "Get cached returns nil for stale entries."

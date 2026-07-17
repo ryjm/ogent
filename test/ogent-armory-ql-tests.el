@@ -13,14 +13,12 @@
 (require 'ogent-armory-ql)
 
 (defmacro ogent-armory-ql-test-with-temp-dir (var &rest body)
-  "Bind VAR to a temporary Armory directory while running BODY."
+  "Bind VAR to a retained temporary Armory directory while running BODY."
   (declare (indent 1) (debug t))
   `(let ((,var (file-truename
-                (make-temp-file "ogent-armory-ql-" t))))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+                (directory-file-name
+                 (ogent-test--provision-store-directory 'armory-ql)))))
+     ,@body))
 
 ;;; Pure query builder
 

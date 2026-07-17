@@ -42,68 +42,58 @@
 
 (ert-deftest ogent-presets--safe-read-returns-alist-from-valid-file ()
   "Safe read should parse valid .ogent.el file."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((ogent-project-model . \"claude-3.5\")\n")
-            (insert " (ogent-project-preset . ogent-code-review))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (listp result))
-            (should (equal (cdr (assq 'ogent-project-model result)) "claude-3.5"))
-            (should (equal (cdr (assq 'ogent-project-preset result)) 'ogent-code-review))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((ogent-project-model . \"claude-3.5\")\n")
+      (insert " (ogent-project-preset . ogent-code-review))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (listp result))
+      (should (equal (cdr (assq 'ogent-project-model result)) "claude-3.5"))
+      (should (equal (cdr (assq 'ogent-project-preset result)) 'ogent-code-review)))))
 
 (ert-deftest ogent-presets--safe-read-rejects-disallowed-variables ()
   "Safe read should reject files with disallowed variables."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((evil-variable . \"bad-value\"))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((evil-variable . \"bad-value\"))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-handles-read-error ()
   "Safe read should handle malformed lisp gracefully."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "(((malformed"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "(((malformed"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-handles-empty-file ()
   "Safe read should handle empty file gracefully."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert ""))
-          ;; Empty file causes read error (end of file during parsing)
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert ""))
+    ;; Empty file causes read error (end of file during parsing)
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-allows-all-valid-variables ()
   "Safe read should allow all variables in allowed list."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((ogent-project-model . \"model\")\n")
-            (insert " (ogent-project-preset . preset)\n")
-            (insert " (ogent-project-context-files . (\"a.md\" \"b.md\"))\n")
-            (insert " (ogent-project-codemap-roots . (\"src\"))\n")
-            (insert " (ogent-project-prompts . ((\"id\" . \"content\")))\n")
-            (insert " (ogent-project-tools . (tool1 tool2))\n")
-            (insert " (ogent-project-system-prompt . \"prompt\"))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (= 7 (length result)))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((ogent-project-model . \"model\")\n")
+      (insert " (ogent-project-preset . preset)\n")
+      (insert " (ogent-project-context-files . (\"a.md\" \"b.md\"))\n")
+      (insert " (ogent-project-codemap-roots . (\"src\"))\n")
+      (insert " (ogent-project-prompts . ((\"id\" . \"content\")))\n")
+      (insert " (ogent-project-tools . (tool1 tool2))\n")
+      (insert " (ogent-project-system-prompt . \"prompt\"))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (= 7 (length result))))))
 
 ;;; Apply Settings Tests
 
@@ -234,122 +224,106 @@
 
 (ert-deftest ogent-presets-include-context-reads-configured-files ()
   "Include context should read and format configured files."
-  (let ((temp-dir (make-temp-file "ogent-project" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'presets))
         (readme-content "# Test Project\n\nThis is a test."))
-    (unwind-protect
-        (progn
-          ;; Create a test file
-          (with-temp-file (expand-file-name "README.md" temp-dir)
-            (insert readme-content))
-          (with-temp-buffer
-            (let ((default-directory temp-dir))
-              (setq-local ogent-project-context-files '("README.md"))
-              ;; Mock project root
-              (cl-letf (((symbol-function 'ogent-presets-project-root)
-                         (lambda () temp-dir)))
-                (let ((result (ogent-presets-include-context)))
-                  (should (stringp result))
-                  (should (string-match-p "README.md" result))
-                  (should (string-match-p "Test Project" result)))))))
-      (delete-directory temp-dir t))))
+    ;; Create a test file
+    (with-temp-file (expand-file-name "README.md" temp-dir)
+      (insert readme-content))
+    (with-temp-buffer
+      (let ((default-directory temp-dir))
+        (setq-local ogent-project-context-files '("README.md"))
+        ;; Mock project root
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda () temp-dir)))
+          (let ((result (ogent-presets-include-context)))
+            (should (stringp result))
+            (should (string-match-p "README.md" result))
+            (should (string-match-p "Test Project" result))))))))
 
 (ert-deftest ogent-presets-include-context-handles-missing-files ()
   "Include context should skip unreadable files."
-  (let ((temp-dir (make-temp-file "ogent-project" t)))
-    (unwind-protect
-        (with-temp-buffer
-          (let ((default-directory temp-dir))
-            (setq-local ogent-project-context-files '("NONEXISTENT.md"))
-            (cl-letf (((symbol-function 'ogent-presets-project-root)
-                       (lambda () temp-dir)))
-              ;; Should return nil since no files were readable
-              (should (null (ogent-presets-include-context))))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'presets)))
+    (with-temp-buffer
+      (let ((default-directory temp-dir))
+        (setq-local ogent-project-context-files '("NONEXISTENT.md"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda () temp-dir)))
+          ;; Should return nil since no files were readable
+          (should (null (ogent-presets-include-context))))))))
 
 (ert-deftest ogent-presets-include-context-formats-multiple-files ()
   "Include context should format multiple files with separators."
-  (let ((temp-dir (make-temp-file "ogent-project" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "FILE1.md" temp-dir)
-            (insert "Content 1"))
-          (with-temp-file (expand-file-name "FILE2.md" temp-dir)
-            (insert "Content 2"))
-          (with-temp-buffer
-            (let ((default-directory temp-dir))
-              (setq-local ogent-project-context-files '("FILE1.md" "FILE2.md"))
-              (cl-letf (((symbol-function 'ogent-presets-project-root)
-                         (lambda () temp-dir)))
-                (let ((result (ogent-presets-include-context)))
-                  (should (string-match-p "--- FILE1.md ---" result))
-                  (should (string-match-p "--- FILE2.md ---" result))
-                  (should (string-match-p "Content 1" result))
-                  (should (string-match-p "Content 2" result)))))))
-      (delete-directory temp-dir t))))
+  (let ((temp-dir (ogent-test--provision-store-directory 'presets)))
+    (with-temp-file (expand-file-name "FILE1.md" temp-dir)
+      (insert "Content 1"))
+    (with-temp-file (expand-file-name "FILE2.md" temp-dir)
+      (insert "Content 2"))
+    (with-temp-buffer
+      (let ((default-directory temp-dir))
+        (setq-local ogent-project-context-files '("FILE1.md" "FILE2.md"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda () temp-dir)))
+          (let ((result (ogent-presets-include-context)))
+            (should (string-match-p "--- FILE1.md ---" result))
+            (should (string-match-p "--- FILE2.md ---" result))
+            (should (string-match-p "Content 1" result))
+            (should (string-match-p "Content 2" result))))))))
 
 ;;; Load and Reload Tests
 
 (ert-deftest ogent-presets-load-tracks-loaded-projects ()
   "Load should track projects in loaded-projects hash."
   (let ((ogent-presets--loaded-projects (make-hash-table :test 'equal))
-        (temp-dir (make-temp-file "ogent-project" t)))
-    (unwind-protect
-        (progn
-          ;; Create a valid .ogent.el file
-          (with-temp-file (expand-file-name ".ogent.el" temp-dir)
-            (insert "((ogent-project-model . \"test\"))"))
-          (with-temp-buffer
-            (let ((default-directory temp-dir)
-                  (ogent-presets-file-name ".ogent.el"))
-              (cl-letf (((symbol-function 'ogent-presets-project-root)
-                         (lambda (&optional _) temp-dir)))
-                (ogent-presets-load)
-                (should (gethash temp-dir ogent-presets--loaded-projects))))))
-      (delete-directory temp-dir t))))
+        (temp-dir (ogent-test--provision-store-directory 'presets)))
+    ;; Create a valid .ogent.el file
+    (with-temp-file (expand-file-name ".ogent.el" temp-dir)
+      (insert "((ogent-project-model . \"test\"))"))
+    (with-temp-buffer
+      (let ((default-directory temp-dir)
+            (ogent-presets-file-name ".ogent.el"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda (&optional _) temp-dir)))
+          (ogent-presets-load)
+          (should (gethash temp-dir ogent-presets--loaded-projects)))))))
 
 (ert-deftest ogent-presets-load-skips-already-loaded ()
   "Load should skip already loaded projects unless forced."
   (let ((ogent-presets--loaded-projects (make-hash-table :test 'equal))
         (load-count 0)
-        (temp-dir (make-temp-file "ogent-project" t)))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name ".ogent.el" temp-dir)
-            (insert "((ogent-project-model . \"test\"))"))
-          (with-temp-buffer
-            (let ((default-directory temp-dir)
-                  (ogent-presets-file-name ".ogent.el"))
-              (cl-letf (((symbol-function 'ogent-presets-project-root)
-                         (lambda (&optional _) temp-dir))
-                        ((symbol-function 'ogent-presets--safe-read)
-                         (lambda (_)
-                           (cl-incf load-count)
-                           '((ogent-project-model . "test")))))
-                ;; First load
-                (ogent-presets-load)
-                (should (= 1 load-count))
-                ;; Second load (should skip)
-                (ogent-presets-load)
-                (should (= 1 load-count))
-                ;; Force reload
-                (ogent-presets-load t)
-                (should (= 2 load-count))))))
-      (delete-directory temp-dir t))))
+        (temp-dir (ogent-test--provision-store-directory 'presets)))
+    (with-temp-file (expand-file-name ".ogent.el" temp-dir)
+      (insert "((ogent-project-model . \"test\"))"))
+    (with-temp-buffer
+      (let ((default-directory temp-dir)
+            (ogent-presets-file-name ".ogent.el"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda (&optional _) temp-dir))
+                  ((symbol-function 'ogent-presets--safe-read)
+                   (lambda (_)
+                     (cl-incf load-count)
+                     '((ogent-project-model . "test")))))
+          ;; First load
+          (ogent-presets-load)
+          (should (= 1 load-count))
+          ;; Second load (should skip)
+          (ogent-presets-load)
+          (should (= 1 load-count))
+          ;; Force reload
+          (ogent-presets-load t)
+          (should (= 2 load-count)))))))
 
 (ert-deftest ogent-presets-load-handles-missing-preset-file ()
   "Load should handle missing .ogent.el gracefully."
   (let ((ogent-presets--loaded-projects (make-hash-table :test 'equal))
-        (temp-dir (make-temp-file "ogent-project" t)))
-    (unwind-protect
-        (with-temp-buffer
-          (let ((default-directory temp-dir)
-                (ogent-presets-file-name ".ogent.el"))
-            (cl-letf (((symbol-function 'ogent-presets-project-root)
-                       (lambda (&optional _) temp-dir)))
-              ;; Should not error when file doesn't exist
-              (ogent-presets-load)
-              (should (= 0 (hash-table-count ogent-presets--loaded-projects))))))
-      (delete-directory temp-dir t))))
+        (temp-dir (ogent-test--provision-store-directory 'presets)))
+    (with-temp-buffer
+      (let ((default-directory temp-dir)
+            (ogent-presets-file-name ".ogent.el"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda (&optional _) temp-dir)))
+          ;; Should not error when file doesn't exist
+          (ogent-presets-load)
+          (should (= 0 (hash-table-count ogent-presets--loaded-projects))))))))
 
 ;;; Buffer Switch Hook Tests
 
@@ -437,23 +411,20 @@
 
 (ert-deftest ogent-presets--auto-pin-files-pins-when-configured ()
   "Auto pin should pin files when auto-pin-docs is enabled."
-  (let ((temp-dir (make-temp-file "ogent-project" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'presets))
         (pinned-files nil))
-    (unwind-protect
-        (progn
-          (with-temp-file (expand-file-name "README.md" temp-dir)
-            (insert "test"))
-          (with-temp-buffer
-            (let ((ogent-presets-auto-pin-docs t)
-                  (default-directory temp-dir))
-              (setq-local ogent-project-context-files '("README.md"))
-              (cl-letf (((symbol-function 'ogent-presets-project-root)
-                         (lambda () temp-dir))
-                        ((symbol-function 'ogent-pin-file)
-                         (lambda (path) (push path pinned-files))))
-                (ogent-presets--auto-pin-files)
-                (should (= 1 (length pinned-files)))))))
-      (delete-directory temp-dir t))))
+    (with-temp-file (expand-file-name "README.md" temp-dir)
+      (insert "test"))
+    (with-temp-buffer
+      (let ((ogent-presets-auto-pin-docs t)
+            (default-directory temp-dir))
+        (setq-local ogent-project-context-files '("README.md"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda () temp-dir))
+                  ((symbol-function 'ogent-pin-file)
+                   (lambda (path) (push path pinned-files))))
+          (ogent-presets--auto-pin-files)
+          (should (= 1 (length pinned-files))))))))
 
 (ert-deftest ogent-presets--auto-pin-files-skips-when-disabled ()
   "Auto pin should skip when auto-pin-docs is disabled."
@@ -468,20 +439,18 @@
 
 (ert-deftest ogent-presets--auto-pin-files-skips-unreadable ()
   "Auto pin should skip files that aren't readable."
-  (let ((temp-dir (make-temp-file "ogent-project" t))
+  (let ((temp-dir (ogent-test--provision-store-directory 'presets))
         (pinned-files nil))
-    (unwind-protect
-        (with-temp-buffer
-          (let ((ogent-presets-auto-pin-docs t)
-                (default-directory temp-dir))
-            (setq-local ogent-project-context-files '("NONEXISTENT.md"))
-            (cl-letf (((symbol-function 'ogent-presets-project-root)
-                       (lambda () temp-dir))
-                      ((symbol-function 'ogent-pin-file)
-                       (lambda (path) (push path pinned-files))))
-              (ogent-presets--auto-pin-files)
-              (should (= 0 (length pinned-files))))))
-      (delete-directory temp-dir t))))
+    (with-temp-buffer
+      (let ((ogent-presets-auto-pin-docs t)
+            (default-directory temp-dir))
+        (setq-local ogent-project-context-files '("NONEXISTENT.md"))
+        (cl-letf (((symbol-function 'ogent-presets-project-root)
+                   (lambda () temp-dir))
+                  ((symbol-function 'ogent-pin-file)
+                   (lambda (path) (push path pinned-files))))
+          (ogent-presets--auto-pin-files)
+          (should (= 0 (length pinned-files))))))))
 
 ;;; Show Settings Tests
 
@@ -529,68 +498,60 @@
 
 (ert-deftest ogent-presets--safe-read-rejects-non-list-form ()
   "Safe read should reject a file whose top-level form is not a list."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "\"just-a-string\""))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "\"just-a-string\""))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-rejects-non-cons-entries ()
   "Safe read should reject a list containing non-cons entries."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "(ogent-project-model \"not-a-cons\")"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "(ogent-project-model \"not-a-cons\")"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-rejects-mixed-valid-invalid ()
   "Safe read should reject file with mix of allowed and disallowed vars."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((ogent-project-model . \"valid\")\n")
-            (insert " (evil-variable . \"bad\"))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (null result))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((ogent-project-model . \"valid\")\n")
+      (insert " (evil-variable . \"bad\"))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (null result)))))
 
 (ert-deftest ogent-presets--safe-read-handles-nonexistent-file ()
   "Safe read should return nil for a file that does not exist."
-  (let ((result (ogent-presets--safe-read "/tmp/ogent-nonexistent-file-xyz.el")))
+  (let ((result (ogent-presets--safe-read
+                 (expand-file-name "never-created.el"
+                                   (ogent-test--provision-store-directory 'presets)))))
     (should (null result))))
 
 (ert-deftest ogent-presets--safe-read-accepts-single-entry ()
   "Safe read should accept a file with a single valid entry."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((ogent-project-system-prompt . \"Be helpful.\"))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (listp result))
-            (should (= 1 (length result)))
-            (should (equal "Be helpful."
-                           (cdr (assq 'ogent-project-system-prompt result))))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((ogent-project-system-prompt . \"Be helpful.\"))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (listp result))
+      (should (= 1 (length result)))
+      (should (equal "Be helpful."
+                     (cdr (assq 'ogent-project-system-prompt result)))))))
 
 (ert-deftest ogent-presets--safe-read-accepts-nil-values ()
   "Safe read should accept allowed variables with nil values."
-  (let ((temp-file (make-temp-file "ogent-test" nil ".el")))
-    (unwind-protect
-        (progn
-          (with-temp-file temp-file
-            (insert "((ogent-project-model . nil))"))
-          (let ((result (ogent-presets--safe-read temp-file)))
-            (should (listp result))
-            (should (= 1 (length result)))))
-      (delete-file temp-file))))
+  (let ((temp-file (expand-file-name ".ogent.el"
+                                     (ogent-test--provision-store-directory 'presets))))
+    (with-temp-file temp-file
+      (insert "((ogent-project-model . nil))"))
+    (let ((result (ogent-presets--safe-read temp-file)))
+      (should (listp result))
+      (should (= 1 (length result))))))
 
 ;;; Effective Getter Edge Case Tests
 

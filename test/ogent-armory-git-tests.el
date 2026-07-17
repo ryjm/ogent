@@ -14,11 +14,8 @@
 (defmacro ogent-armory-git-test-with-temp-dir (var &rest body)
   "Bind VAR to a temporary directory while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-git-" t)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+  `(let ((,var (ogent-test--provision-store-directory 'armory-git)))
+     ,@body))
 
 (defun ogent-armory-git-test--git (root &rest args)
   "Run git in ROOT with ARGS."

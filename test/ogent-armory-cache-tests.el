@@ -11,12 +11,9 @@
 (defmacro ogent-armory-cache-test-with-temp-root (var &rest body)
   "Bind VAR to a temporary Armory root while running BODY."
   (declare (indent 1) (debug t))
-  `(let ((,var (make-temp-file "ogent-armory-cache-" t))
+  `(let ((,var (ogent-test--provision-store-directory 'armory-cache))
          (ogent-armory-cache--table (make-hash-table :test 'equal)))
-     (unwind-protect
-         (progn ,@body)
-       (when (file-directory-p ,var)
-         (delete-directory ,var t)))))
+     ,@body))
 
 (defun ogent-armory-cache-test--time (seconds)
   "Return a deterministic file timestamp SECONDS after the Unix epoch."
@@ -95,39 +92,33 @@
 
 (ert-deftest ogent-armory-cache-invalidate-clears-only-the-requested-root ()
   "Invalidating one root leaves other roots' entries fresh."
-  (let ((root-a (make-temp-file "ogent-armory-cache-a-" t))
-        (root-b (make-temp-file "ogent-armory-cache-b-" t))
+  (let ((root-a (ogent-test--provision-store-directory 'armory-cache))
+        (root-b (ogent-test--provision-store-directory 'armory-cache))
         (ogent-armory-cache--table (make-hash-table :test 'equal)))
-    (unwind-protect
-        (progn
-          (ogent-armory-cache-test--write-file
-           root-a "index.org" "#+title: A\n"
-           (ogent-armory-cache-test--time 1700000000))
-          (ogent-armory-cache-test--write-file
-           root-b "index.org" "#+title: B\n"
-           (ogent-armory-cache-test--time 1700000000))
-          (let ((calls-a 0)
-                (calls-b 0))
-            (let* ((builder-a (lambda ()
-                                (setq calls-a (1+ calls-a))
-                                (list :root 'a :build calls-a)))
-                   (builder-b (lambda ()
-                                (setq calls-b (1+ calls-b))
-                                (list :root 'b :build calls-b)))
-                   (a1 (ogent-armory-cache-get root-a 'graph builder-a))
-                   (b1 (ogent-armory-cache-get root-b 'graph builder-b)))
-              (ogent-armory-cache-invalidate root-a)
-              (let ((a2 (ogent-armory-cache-get root-a 'graph builder-a))
-                    (b2 (ogent-armory-cache-get root-b 'graph builder-b)))
-                (should (= calls-a 2))
-                (should (= calls-b 1))
-                (should (equal a1 '(:root a :build 1)))
-                (should (equal a2 '(:root a :build 2)))
-                (should (eq b2 b1))))))
-      (when (file-directory-p root-a)
-        (delete-directory root-a t))
-      (when (file-directory-p root-b)
-        (delete-directory root-b t)))))
+    (ogent-armory-cache-test--write-file
+     root-a "index.org" "#+title: A\n"
+     (ogent-armory-cache-test--time 1700000000))
+    (ogent-armory-cache-test--write-file
+     root-b "index.org" "#+title: B\n"
+     (ogent-armory-cache-test--time 1700000000))
+    (let ((calls-a 0)
+          (calls-b 0))
+      (let* ((builder-a (lambda ()
+                          (setq calls-a (1+ calls-a))
+                          (list :root 'a :build calls-a)))
+             (builder-b (lambda ()
+                          (setq calls-b (1+ calls-b))
+                          (list :root 'b :build calls-b)))
+             (a1 (ogent-armory-cache-get root-a 'graph builder-a))
+             (b1 (ogent-armory-cache-get root-b 'graph builder-b)))
+        (ogent-armory-cache-invalidate root-a)
+        (let ((a2 (ogent-armory-cache-get root-a 'graph builder-a))
+              (b2 (ogent-armory-cache-get root-b 'graph builder-b)))
+          (should (= calls-a 2))
+          (should (= calls-b 1))
+          (should (equal a1 '(:root a :build 1)))
+          (should (equal a2 '(:root a :build 2)))
+          (should (eq b2 b1)))))))
 
 (ert-deftest ogent-armory-cache-missing-root-bypasses-cache ()
   "A missing ROOT has no stamp, so every lookup calls BUILDER."
