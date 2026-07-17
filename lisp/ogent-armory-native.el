@@ -20,6 +20,7 @@
 (require 'ogent-models)
 (require 'ogent-tool-approval)
 (require 'ogent-armory-runner)
+(require 'ogent-armory-conversations)
 (require 'ogent-ui-toolcalls)
 
 (declare-function gptel-request "ext:gptel-request")
@@ -151,6 +152,58 @@ model's final text last so end-anchored contract footers parse."
              (reverse (plist-get state :transcript))
              "\n\n"))
 
+;;; Live round streaming
+
+(defun ogent-armory-native--stream-buffer (state)
+  "Return a live buffer already visiting STATE's conversation file.
+Return nil when no buffer visits it; native runs never open one."
+  (let* ((plan (plist-get state :plan))
+         (file (plist-get plan :conversation-file))
+         (buffer (and file (get-file-buffer file))))
+    (and buffer (buffer-live-p buffer) buffer)))
+
+(defun ogent-armory-native--stream-marker (state buffer)
+  "Return STATE's streaming insertion marker inside BUFFER.
+Create the marker at BUFFER's current end (the running turn's
+position) on first use; the insertion type keeps it after each
+inserted chunk so rounds append in order."
+  (let ((marker (plist-get state :stream-marker)))
+    (unless (and (markerp marker)
+                 (eq (marker-buffer marker) buffer))
+      (setq marker (make-marker))
+      (set-marker-insertion-type marker t)
+      (set-marker marker (with-current-buffer buffer (point-max)) buffer)
+      (plist-put state :stream-marker marker))
+    marker))
+
+(defun ogent-armory-native--stream-text (state text)
+  "Echo round TEXT live into a buffer visiting STATE's conversation file.
+Insert at STATE's stream marker only when such a buffer already
+exists; the conversation file itself is never written here, so the
+canonical finalize write stays the only file mutation.  Insertion is
+read-only-safe, takes no file lock, and leaves the buffer's modified
+flag and undo list untouched, keeping a later revert against the
+finalized file clean."
+  (when (and text (not (string-empty-p text)))
+    (when-let ((buffer (ogent-armory-native--stream-buffer state)))
+      (let ((marker (ogent-armory-native--stream-marker state buffer)))
+        (with-current-buffer buffer
+          (save-excursion
+            (goto-char marker)
+            (let ((inhibit-read-only t)
+                  (create-lockfiles nil)
+                  (buffer-undo-list t)
+                  (modified (buffer-modified-p)))
+              (insert text)
+              (restore-buffer-modified-p modified))))))))
+
+(defun ogent-armory-native--stream-release (state)
+  "Detach STATE's streaming marker, if any."
+  (let ((marker (plist-get state :stream-marker)))
+    (when (markerp marker)
+      (set-marker marker nil))
+    (plist-put state :stream-marker nil)))
+
 ;;; Fabricated conversation turns
 
 (defun ogent-armory-native--assistant-turn (text results)
@@ -175,7 +228,64 @@ RESULTS is a list of (NAME . RESULT) conses."
    "\n\nContinue the task with these results.  When no more tools are"
    " needed, reply with your final answer."))
 
+;;; Native session resume
+
+(defun ogent-armory-native--resume-messages (plan)
+  "Return the stored conversation of PLAN as a gptel message list.
+Native resume reloads the turns already persisted in the canonical
+conversation Org store: turn bodies come back oldest first, matching
+the user/assistant alternation `gptel-request' expects, and the new
+prompt is appended by the caller.  Return nil for a fresh
+conversation.  A resumed conversation is a new run over old context:
+the iteration budget starts fresh, while stored turn numbering
+continues through the usual append-turn path."
+  (let ((root (plist-get plan :root))
+        (conversation-id (plist-get plan :conversation-id)))
+    (when (and root conversation-id
+               (file-exists-p (ogent-armory-conversation-file
+                               root conversation-id)))
+      (mapcar (lambda (turn) (or (plist-get turn :content) ""))
+              (ogent-armory-conversation-read-turns root conversation-id)))))
+
 ;;; Lifecycle
+
+(defun ogent-armory-native--finalize-write (plan output error-text exit-status)
+  "Run the runner finalize for PLAN, tolerating a visiting buffer.
+The canonical finalize path rewrites the conversation file several
+times; when live streaming echoed rounds into a buffer visiting it,
+that buffer's stale modtime would raise Emacs's supersession prompt
+mid-write.  The run owns the file, so the prompt is suppressed for
+the conversation file alone.  OUTPUT, ERROR-TEXT, and EXIT-STATUS
+pass through unchanged; return the finalized conversation file."
+  ;; `ask-user-about-supersession-threat' lives in userlock.el, which
+  ;; has no feature and autoloads on first use; force the load now so
+  ;; the shadowing below is not clobbered by a mid-write autoload.
+  (unless (fboundp 'userlock--check-content-unchanged)
+    (load "userlock" nil t))
+  (let ((conversation-file
+         (when-let ((file (plist-get plan :conversation-file)))
+           (expand-file-name file)))
+        (ask (symbol-function 'ask-user-about-supersession-threat)))
+    (cl-letf (((symbol-function 'ask-user-about-supersession-threat)
+               (lambda (filename)
+                 (unless (and conversation-file
+                              (equal (expand-file-name filename)
+                                     conversation-file))
+                   (funcall ask filename)))))
+      (ogent-armory-runner--finalize-conversation
+       plan output error-text exit-status))))
+
+(defun ogent-armory-native--finalize-refresh (file)
+  "Revert an unmodified buffer visiting FILE onto the finalized content.
+Streaming never marks the visiting buffer modified, so after the
+canonical write the buffer swaps its transient round echoes for the
+authoritative conversation record.  A buffer the user edited is left
+alone."
+  (when-let ((buffer (and file (get-file-buffer file))))
+    (when (buffer-live-p buffer)
+      (with-current-buffer buffer
+        (unless (buffer-modified-p)
+          (revert-buffer :ignore-auto :noconfirm :preserve-modes))))))
 
 (defun ogent-armory-native--finalize (state exit-status error-text)
   "Finalize STATE's conversation with EXIT-STATUS and ERROR-TEXT.
@@ -184,14 +294,16 @@ conversation index behave exactly like a CLI-backed run.  Return the
 conversation file, or nil when STATE already finished."
   (unless (plist-get state :finished)
     (plist-put state :finished t)
+    (ogent-armory-native--stream-release state)
     (let* ((plan (plist-get state :plan))
            (output (ogent-armory-native--output state)))
       (plist-put plan :duration
                  (format "%.2fs"
                          (- (float-time) (plist-get state :started-at))))
-      (let ((file (ogent-armory-runner--finalize-conversation
+      (let ((file (ogent-armory-native--finalize-write
                    plan output error-text exit-status)))
         (ogent-armory-runner--capture-actions plan output exit-status)
+        (ogent-armory-native--finalize-refresh file)
         (plist-put state :conversation-file file)
         (message "Armory agent finished: %s (native gptel)" file)
         file))))
@@ -343,6 +455,7 @@ callbacks are ignored."
        ;; Model text.  Final unless this round still has tool use in
        ;; flight (mirrors the ogent-ui engine's :tool-use check).
        ((stringp response)
+        (ogent-armory-native--stream-text state response)
         (plist-put state :pending-text
                    (concat (or (plist-get state :pending-text) "")
                            response))
@@ -373,11 +486,14 @@ finalizes the conversation through the runner's sentinel path, so
 callers never block on the model."
   (let ((state (list :plan plan
                      :model (ogent-armory-native--model plan)
-                     :messages (list (plist-get plan :prompt))
+                     :messages (append
+                                (ogent-armory-native--resume-messages plan)
+                                (list (plist-get plan :prompt)))
                      :iteration 1
                      :transcript nil
                      :pending-text nil
                      :round-text nil
+                     :stream-marker nil
                      :handle nil
                      :finished nil
                      :conversation-file nil

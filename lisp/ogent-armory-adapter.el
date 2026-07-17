@@ -572,7 +572,12 @@ metadata as the fallback completion list."
               :models nil
               :effort-levels nil
               :runtime-modes (native)
-              :supports-session-resume nil
+              ;; Native resume reloads the stored conversation turns
+              ;; into the gptel message list (ogent-armory-native.el,
+              ;; `ogent-armory-native--resume-messages'); flipped in
+              ;; the same change as that implementation (ogent-8e0.6
+              ;; capability-honesty rule).
+              :supports-session-resume t
               :supports-detached-runs nil
               :build-invocation ogent-armory-adapter--gptel-native-invocation)))
     (ogent-armory-adapter-register adapter)))

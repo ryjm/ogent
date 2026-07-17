@@ -10,6 +10,7 @@
 (require 'cl-lib)
 (require 'ogent-test-helper)
 (require 'ogent-armory-adapter)
+(require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-native)
 (require 'ogent-ledger)
@@ -132,7 +133,9 @@ returning such a list.  Captures land in
     (should adapter)
     (should (equal (plist-get adapter :adapter-type) "gptel_native"))
     (should (equal (plist-get adapter :runtime-modes) '(native)))
-    (should-not (plist-get adapter :supports-session-resume))
+    ;; Resume is honestly supported: native resume reloads stored turns
+    ;; (see ogent-armory-native-resume-capability-matches-behavior).
+    (should (plist-get adapter :supports-session-resume))
     (should-not (plist-get adapter :unsupported-reason))
     (should-not (ogent-armory-adapter-executable adapter))
     (should (eq (ogent-armory-adapter-get "gptel") adapter))
@@ -450,6 +453,171 @@ returning such a list.  Captures land in
         (should (equal (plist-get ogent-armory-native-test--finalized
                                   :output)
                        "Dispatched."))))))
+
+;;; Live round streaming and native resume
+
+(defmacro ogent-armory-native-test-with-temp-dir (var &rest body)
+  "Bind VAR to a temporary Armory directory while running BODY."
+  (declare (indent 1) (debug t))
+  `(let ((,var (make-temp-file "ogent-armory-native-" t)))
+     ,@body))
+
+(defun ogent-armory-native-test--file-bytes (file)
+  "Return FILE's contents as raw bytes."
+  (with-temp-buffer
+    (set-buffer-multibyte nil)
+    (insert-file-contents-literally file)
+    (buffer-string)))
+
+(defun ogent-armory-native-test--conversation-tree (root conversation-id)
+  "Return sorted (RELATIVE-NAME . BYTES) pairs for CONVERSATION-ID under ROOT."
+  (let ((dir (ogent-armory-conversation-directory root conversation-id)))
+    (mapcar (lambda (file)
+              (cons (file-relative-name file dir)
+                    (ogent-armory-native-test--file-bytes file)))
+            (sort (directory-files-recursively dir "") #'string<))))
+
+(ert-deftest ogent-armory-native-streams-rounds-into-visiting-buffer ()
+  "Round text streams into a visiting buffer; the file waits for finalize."
+  (ogent-armory-native-test-with-temp-dir dir
+    (let ((ogent-armory-runner-ensure-beads-redirect nil)
+          (ogent-analytics-enabled nil)
+          (callback nil))
+      (cl-letf (((symbol-function 'gptel-request)
+                 (lambda (_prompt &rest args)
+                   (setq callback (plist-get args :callback))
+                   'stub-handle)))
+        (let* ((plan (ogent-armory-native-test--plan
+                      :root dir :conversation-id "stream-conv"))
+               (state (ogent-armory-native-start plan))
+               (file (plist-get plan :conversation-file))
+               (buffer (find-file-noselect file)))
+          (unwind-protect
+              (let ((before (ogent-armory-native-test--file-bytes file)))
+                ;; Streaming must survive a read-only conversation buffer.
+                (with-current-buffer buffer (setq buffer-read-only t))
+                (funcall callback "Hello " '(:tool-pending t))
+                (should (string-suffix-p
+                         "Hello "
+                         (with-current-buffer buffer (buffer-string))))
+                ;; No per-chunk file write: bytes unchanged mid-run.
+                (should (equal (ogent-armory-native-test--file-bytes file)
+                               before))
+                (funcall callback "world" '(:tool-pending t))
+                ;; Chunks accumulate incrementally at the marker.
+                (should (string-suffix-p
+                         "Hello world"
+                         (with-current-buffer buffer (buffer-string))))
+                (should (equal (ogent-armory-native-test--file-bytes file)
+                               before))
+                (funcall callback "." nil)
+                (should (plist-get state :finished))
+                ;; Finalize alone rewrote the file.
+                (should-not (equal (ogent-armory-native-test--file-bytes file)
+                                   before))
+                ;; The visiting buffer reverts onto the canonical record.
+                (should (equal (with-current-buffer buffer (buffer-string))
+                               (decode-coding-string
+                                (ogent-armory-native-test--file-bytes file)
+                                'utf-8)))
+                ;; Echoing never dirties the buffer.
+                (should-not (buffer-modified-p buffer)))
+            (kill-buffer buffer)))))))
+
+(ert-deftest ogent-armory-native-no-visiting-buffer-file-byte-identical ()
+  "Without a visiting buffer the store is byte-identical to finalize-only."
+  (ogent-armory-native-test-with-temp-dir native-root
+    (ogent-armory-native-test-with-temp-dir manual-root
+      (let ((ogent-armory-runner-ensure-beads-redirect nil)
+            (ogent-analytics-enabled nil))
+        (cl-letf (((symbol-function 'ogent-armory-runner--iso-now)
+                   (lambda () "2026-07-16T12:00:00+0000"))
+                  ((symbol-function 'float-time)
+                   (lambda (&optional _specified-time) 1000.0)))
+          ;; Native run with nothing visiting the conversation file.
+          (cl-letf (((symbol-function 'gptel-request)
+                     (lambda (_prompt &rest args)
+                       (funcall (plist-get args :callback)
+                                "Final answer." nil)
+                       'stub-handle)))
+            (let ((plan (ogent-armory-native-test--plan
+                         :root native-root :conversation-id "ident-conv")))
+              (ogent-armory-native-start plan)
+              (should-not (get-file-buffer
+                           (plist-get plan :conversation-file)))))
+          ;; Today's behavior: create + finalize, no streaming code at all.
+          (let ((plan (ogent-armory-native-test--plan
+                       :root manual-root :conversation-id "ident-conv")))
+            (plist-put plan :conversation-file
+                       (ogent-armory-runner--create-conversation
+                        plan (ogent-armory-runner--iso-now)))
+            (plist-put plan :duration "0.00s")
+            (ogent-armory-runner--finalize-conversation
+             plan "Final answer." nil 0)))
+        (should (equal (ogent-armory-native-test--conversation-tree
+                        native-root "ident-conv")
+                       (ogent-armory-native-test--conversation-tree
+                        manual-root "ident-conv")))))))
+
+(ert-deftest ogent-armory-native-resume-rebuilds-message-list ()
+  "Resume reloads stored turns into the gptel message list (golden)."
+  (ogent-armory-native-test-with-temp-dir dir
+    (let ((ogent-armory-runner-ensure-beads-redirect nil)
+          (ogent-analytics-enabled nil)
+          (conversation-id "resume-conv")
+          (captured nil)
+          (state nil))
+      (ogent-armory-conversation-create
+       dir (list :id conversation-id :agent "native-agent"
+                 :title "Fixture" :status "done"))
+      (ogent-armory-conversation-append-turn
+       dir conversation-id "user" "First question."
+       :ts "2026-07-15T09:00:00Z")
+      (ogent-armory-conversation-append-turn
+       dir conversation-id "agent" "First answer."
+       :ts "2026-07-15T09:00:05Z")
+      (cl-letf (((symbol-function 'gptel-request)
+                 (lambda (prompt &rest args)
+                   (setq captured prompt)
+                   (funcall (plist-get args :callback) "Second answer." nil)
+                   'stub-handle)))
+        (setq state (ogent-armory-native-start
+                     (ogent-armory-native-test--plan
+                      :root dir :conversation-id conversation-id
+                      :prompt "Continue the task."))))
+      ;; Golden message list: stored turns oldest first, new prompt last.
+      (should (equal captured
+                     '("First question." "First answer."
+                       "Continue the task.")))
+      ;; Fresh iteration budget: a resumed conversation is a new run.
+      (should (= (plist-get state :iteration) 1))
+      (should (plist-get state :finished))
+      ;; Turn numbering continues from the stored turns.
+      (should (equal (mapcar (lambda (turn)
+                               (list (plist-get turn :turn)
+                                     (plist-get turn :role)))
+                             (ogent-armory-conversation-read-turns
+                              dir conversation-id))
+                     '((1 "user") (1 "agent") (2 "user") (2 "agent")))))))
+
+(ert-deftest ogent-armory-native-resume-capability-matches-behavior ()
+  "The registry resume flag is true and backed by working turn reload."
+  (ogent-armory-native-test-with-temp-dir dir
+    (should (plist-get (ogent-armory-adapter-get "gptel-native")
+                       :supports-session-resume))
+    ;; Fresh conversation: nothing to reload.
+    (should-not (ogent-armory-native--resume-messages
+                 (ogent-armory-native-test--plan
+                  :root dir :conversation-id "fresh-conv")))
+    ;; Stored conversation: turns come back for the message list.
+    (ogent-armory-conversation-create
+     dir '(:id "cap-conv" :agent "native-agent" :title "Cap" :status "done"))
+    (ogent-armory-conversation-append-turn
+     dir "cap-conv" "user" "Hi." :ts "2026-07-15T09:00:00Z")
+    (should (equal (ogent-armory-native--resume-messages
+                    (ogent-armory-native-test--plan
+                     :root dir :conversation-id "cap-conv"))
+                   '("Hi.")))))
 
 (provide 'ogent-armory-native-tests)
 
