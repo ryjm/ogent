@@ -7,6 +7,8 @@
 (defvar ogent-mcp-servers)
 (defvar ogent-mcp--connections)
 (declare-function make-ogent-mcp-connection "ogent-mcp")
+(defvar transient-version)
+(defvar ogent-model-registry)
 
 ;;; Framework fixtures
 
@@ -550,5 +552,182 @@
         (should (eq (car result) 'ok))
         (should (string-match-p "already connected" (cdr result)))
         (should-not disconnected)))))
+
+;;; e73.3 full-run golden
+
+(defun ogent-doctor-tests--scrub (report substitutions)
+  "Return REPORT with machine-specific paths replaced.
+SUBSTITUTIONS is an alist of (PATH . PLACEHOLDER) string pairs; every
+literal occurrence of PATH in REPORT becomes PLACEHOLDER."
+  (dolist (substitution substitutions report)
+    (setq report (string-replace (car substitution) (cdr substitution)
+                                 report))))
+
+(defun ogent-doctor-tests--unified-diff (expected actual)
+  "Return a unified diff between the EXPECTED and ACTUAL strings.
+Both are compared line-wise via a longest-common-subsequence walk and
+rendered as a single whole-file hunk, entirely in Lisp so batch test
+runs never shell out."
+  (let* ((a (vconcat (split-string expected "\n")))
+         (b (vconcat (split-string actual "\n")))
+         (n (length a))
+         (m (length b))
+         (stride (1+ m))
+         (lcs (make-vector (* (1+ n) stride) 0)))
+    (dotimes (i n)
+      (dotimes (j m)
+        (aset lcs (+ (* (1+ i) stride) (1+ j))
+              (if (equal (aref a i) (aref b j))
+                  (1+ (aref lcs (+ (* i stride) j)))
+                (max (aref lcs (+ (* i stride) (1+ j)))
+                     (aref lcs (+ (* (1+ i) stride) j)))))))
+    (let ((i n) (j m) (lines nil))
+      (while (or (> i 0) (> j 0))
+        (cond
+         ((and (> i 0) (> j 0) (equal (aref a (1- i)) (aref b (1- j))))
+          (push (concat " " (aref a (1- i))) lines)
+          (setq i (1- i) j (1- j)))
+         ((and (> j 0)
+               (or (zerop i)
+                   (>= (aref lcs (+ (* i stride) (1- j)))
+                       (aref lcs (+ (* (1- i) stride) j)))))
+          (push (concat "+" (aref b (1- j))) lines)
+          (setq j (1- j)))
+         (t
+          (push (concat "-" (aref a (1- i))) lines)
+          (setq i (1- i)))))
+      (concat (format "--- expected\n+++ actual\n@@ -1,%d +1,%d @@\n" n m)
+              (string-join lines "\n")))))
+
+(defun ogent-doctor-tests--full-run-elc-dir ()
+  "Provision a retained temp dir holding current and stale ogent bytecode.
+The directory carries an ogent source marker so the stale-elc scan
+treats it as ogent's own, one .elc from the pinned Emacs 30 (fresh),
+and one from Emacs 99 (stale)."
+  (let ((dir (make-temp-file "ogent-doctor-full-run-elc-" t)))
+    (with-temp-file (expand-file-name "ogent-fixture.el" dir)
+      (insert ";;; fixture\n"))
+    (with-temp-file (expand-file-name "ogent-current.elc" dir)
+      (insert ";ELC\n;;; Compiled\n;;; in Emacs version 30.1\n"))
+    (with-temp-file (expand-file-name "ogent-stale.elc" dir)
+      (insert ogent-doctor-tests--elc-header-newer))
+    dir))
+
+(defun ogent-doctor-tests--full-run ()
+  "Run every registered doctor check in a fully-stubbed environment.
+Every environment boundary the checks probe - version variables,
+PATH lookups, OAuth caches, the model registry, adapter registry,
+store paths, `load-path', and the MCP handshake - is pinned to fixture
+values; the registered check functions themselves execute for real.
+Return (RESULTS . REPORT) where REPORT is the rendered Org report with
+machine-specific temp paths scrubbed to stable placeholders."
+  (require 'transient)
+  (require 'ogent-codex-oauth)
+  (require 'ogent-anthropic-oauth)
+  (require 'ogent-armory-adapter)
+  (require 'ogent-analytics)
+  (require 'ogent-mcp)
+  (let* ((token-file (ogent-doctor-tests--token-file
+                      (list :type 'auth/oauth :access-token "x"
+                            :expires-at (+ (floor (float-time))
+                                           (* 30 86400)))))
+         (elc-dir (ogent-doctor-tests--full-run-elc-dir))
+         (real-require (symbol-function 'require))
+         ;; Pin the environment the checks read dynamically.
+         (emacs-version "30.2")
+         (emacs-major-version 30)
+         (transient-version "0.13.5")
+         (gptel-use-tools t)
+         (ogent-doctor-required-emacs-version "29.1")
+         (ogent-doctor-required-org-version "9.8.7")
+         (ogent-doctor-required-transient-version "0.13.5")
+         (ogent-model-registry '((:id "claude-fixture" :backend "Claude")
+                                 (:id "gpt-fixture" :backend "OpenAI")))
+         (ogent-default-model "claude-fixture")
+         (ogent-mcp-servers '(("fixture" . (:command "fixture-server"))))
+         (ogent-mcp--connections (make-hash-table :test 'equal))
+         (ogent-doctor-mcp-timeout 0.2)
+         (load-path (list elc-dir)))
+    (cl-letf (((symbol-function 'require)
+               (lambda (feature &optional filename noerror)
+                 ;; Optional packages read as absent regardless of the
+                 ;; machine; everything else resolves for real (all
+                 ;; ogent modules are preloaded above, so the narrowed
+                 ;; `load-path' is never searched).
+                 (unless (memq feature '(org-ql vterm markdown-mode))
+                   (funcall real-require feature filename noerror))))
+              ((symbol-function 'org-version)
+               (lambda (&rest _) "9.8.10"))
+              ((symbol-function 'executable-find)
+               (lambda (program &optional _remote)
+                 (cdr (assoc program
+                             '(("br" . "/stub/bin/br")
+                               ("curl" . "/stub/bin/curl")
+                               ("codex-fixture" . "/stub/bin/codex-fixture"))))))
+              ((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_model) (record 'gptel-anthropic "Claude")))
+              ((symbol-function 'gptel-backend-key)
+               (lambda (_backend) "sk-fixture-secret"))
+              ((symbol-function 'ogent-codex-oauth--auth-file)
+               (lambda () "/stub/.codex/auth.json"))
+              ((symbol-function 'ogent-codex-oauth-mode)
+               (lambda () "chatgpt"))
+              ((symbol-function 'ogent-codex-oauth-get-api-key)
+               (lambda () "sk-codex-stub"))
+              ((symbol-function 'ogent-anthropic-oauth--find-existing-token-file)
+               (lambda () token-file))
+              ((symbol-function 'ogent-armory-adapter-list)
+               (lambda ()
+                 '((:id "codex-cli" :name "Codex CLI"
+                        :default-executable "codex-fixture")
+                   (:id "pi-cli" :name "Pi CLI"
+                        :default-executable "pi"
+                        :unsupported-reason "pi CLI invocation flags are unverified")
+                   (:id "gptel-native" :name "gptel (in-process)"))))
+              ((symbol-function 'ogent-armory-adapter-executable)
+               (lambda (adapter) (plist-get adapter :default-executable)))
+              ((symbol-function 'sqlite-available-p) (lambda () t))
+              ((symbol-function 'ogent-analytics--db-path)
+               (lambda () "/stub/project/.ogent/analytics.db"))
+              ((symbol-function 'ogent-mcp-connect)
+               (lambda (name)
+                 (puthash name
+                          (make-ogent-mcp-connection :name name :status 'ready)
+                          ogent-mcp--connections)))
+              ((symbol-function 'ogent-mcp-disconnect) (lambda (_name) nil)))
+      (let ((results (ogent-doctor-run t)))
+        (cons results
+              (ogent-doctor-tests--scrub
+               (ogent-doctor-format results)
+               (list (cons token-file "<claude-token-file>")
+                     (cons elc-dir "<ogent-elc-dir>"))))))))
+
+(ert-deftest ogent-doctor-full-run-matches-golden ()
+  "Full doctor run over every registered check is pinned by a golden report.
+Executes each registered check function against a fully-stubbed
+environment and compares the whole rendered report - grouping, glyphs,
+alignment, detail text, and registry remediation hints - against the
+golden artifact, printing a unified diff on drift."
+  (pcase-let* ((`(,results . ,report) (ogent-doctor-tests--full-run))
+               (golden-file (expand-file-name
+                             "data/ogent-doctor-full-run-golden.org"
+                             ogent-test-root))
+               (expected (with-temp-buffer
+                           (insert-file-contents golden-file)
+                           (buffer-string))))
+    ;; Every registered check ran, in registry order; adding a check
+    ;; without regenerating the golden fails here by name first.
+    (should (equal (mapcar (lambda (result) (plist-get result :id)) results)
+                   (mapcar (lambda (check) (plist-get check :id))
+                           ogent-doctor-checks)))
+    ;; No stub crashed: crashes would surface as error results and are
+    ;; indistinguishable from real regressions in the golden alone.
+    (dolist (result results)
+      (should-not (string-match-p "\\`check crashed"
+                                  (plist-get result :detail))))
+    (unless (equal report expected)
+      (ert-fail (concat "Doctor full-run report drifted from the golden "
+                        "artifact (test/data/ogent-doctor-full-run-golden.org):\n"
+                        (ogent-doctor-tests--unified-diff expected report))))))
 
 ;;; ogent-doctor-tests.el ends here

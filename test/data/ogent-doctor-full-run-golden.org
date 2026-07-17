@@ -1,0 +1,41 @@
+* Ogent Doctor
+Status: WARN
+
+** Environment
+ ✓ Emacs version          Emacs 30.2 (required >= 29.1)
+ ✓ Org version            Org 9.8.10 (required >= 9.8.7)
+ ✓ Transient menus        Transient 0.13.5 (required >= 0.13.5)
+ ! Stale .elc files       <ogent-elc-dir>/ogent-stale.elc (compiled by Emacs 99)
+                          fix: Recompile ogent with the running Emacs, or move the newer-Emacs .elc aside
+
+** Transport
+ ✓ gptel transport        gptel loaded and `gptel-request' is available
+ ✓ gptel tools flag       `gptel-use-tools' is enabled
+ ✓ curl transport         curl found at /stub/bin/curl
+
+** Models
+ ✓ Model registry         2 model entries registered
+ ✓ Default model          Default model: claude-fixture
+ ✓ gptel backend          Backend object: gptel-anthropic
+
+** Auth
+ ✓ Codex OAuth cache      Codex auth cache is usable (chatgpt)
+ ✓ Default model key      API key/bearer resolves for claude-fixture
+ ✓ Claude OAuth cache     Claude OAuth token valid for 30 more days (<claude-token-file>)
+
+** CLI tools
+ ✓ br issue tracker       br found at /stub/bin/br
+ · Adapter CLIs           Codex CLI: codex-fixture found
+                          Pi CLI: unsupported - pi CLI invocation flags are unverified
+                          gptel (in-process): in-process, no CLI needed
+
+** Optional packages
+ · org-ql package         org-ql is not installed; installing it unlocks saved-query search over Armory conversations (ogent-armory-ql)
+ · vterm package          vterm is not installed; installing it unlocks full terminal emulation for interactive CLI agent sessions (the Armory terminal runtime otherwise uses term.el)
+ · markdown-mode package  markdown-mode is not installed; installing it unlocks Markdown highlighting for exported conversations (ox-ogent)
+
+** Stores
+ · Analytics DB           No analytics DB for this project (/stub/project/.ogent/analytics.db)
+
+** MCP
+ ✓ MCP servers            fixture: initialize handshake succeeded
