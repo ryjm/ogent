@@ -125,9 +125,9 @@ instead of reading a keystroke."
 ;;
 ;; Subprocess note: sqlite mutations bypass `write-region' entirely (the
 ;; native sqlite API), and spawned processes inherit the environment.
-;; The tripwire bead (ogent-aq8.2) guards sqlite open/execute at those
-;; chokepoints; `ogent-test-with-real-store' exports OGENT_TEST_STORE_ROOT
-;; into `process-environment' so future subprocess-based store code can
+;; The tripwire section below (ogent-aq8.2) guards those chokepoints;
+;; `ogent-test-with-real-store' exports OGENT_TEST_STORE_ROOT into
+;; `process-environment' so future subprocess-based store code can
 ;; honor it.
 
 (defvar ogent-analytics-enabled)
@@ -272,6 +272,158 @@ exported into `process-environment' around BODY.  Nesting is allowed;
 on exit only Lisp state is reset, files are never deleted."
   (declare (indent 1) (debug (form body)))
   `(ogent-test--call-with-real-store ,kind (lambda () ,@body)))
+
+;;; Tripwire: fail any test that touches a real store path (ogent-aq8.2)
+;;
+;; The store guard above redirects defaults, but a test can still
+;; let-bind a store variable back to a real path, and two write channels
+;; bypass `write-region' entirely: the native sqlite API mutates DB
+;; files directly, and subprocesses can write anywhere.  The tripwire
+;; advises the actual store chokepoints and converts an isolation
+;; violation into a loud named failure whose message pinpoints the
+;; leaking test, path, and chokepoint.  It is installed only under
+;; noninteractive ert (batch runs); interactive helper loads for
+;; development are left untouched.  The hash-audit bead (ogent-aq8.4)
+;; remains the backstop for write channels these chokepoints miss.
+
+(declare-function ogent-analytics--db-path "ogent-analytics")
+
+(defvar ogent-test--current-test nil
+  "Name of the ert test currently executing, for tripwire messages.")
+
+(defvar ogent-test-tripwire-allowed-roots nil
+  "Extra directory roots the tripwire treats as sanctioned.
+Register one with `ogent-test-tripwire-allow-root'.  Every registration
+site MUST carry a comment justifying why `temporary-file-directory'
+\(which already sanctions every `make-temp-file' fixture root) or the
+`ogent-test-with-real-store' fixture cannot serve; unjustified entries
+fail the ogent-aq8.3 sweep audit.")
+
+(defun ogent-test-tripwire-allow-root (root)
+  "Register ROOT as a sanctioned tripwire directory and return it.
+See `ogent-test-tripwire-allowed-roots' for the justification policy."
+  (let ((expanded (file-name-as-directory (expand-file-name root))))
+    (push expanded ogent-test-tripwire-allowed-roots)
+    expanded))
+
+(defconst ogent-test--tripwire-real-store-prefixes
+  (list (file-name-as-directory (expand-file-name user-emacs-directory))
+        (file-name-as-directory (expand-file-name org-directory))
+        (file-name-as-directory (expand-file-name "~/.codex")))
+  "Absolute prefixes of real user store locations, captured at load.
+The subprocess chokepoint trips only on these prefixes (a blanket
+subprocess ban would break legitimate fixture spawns); the in-Lisp
+chokepoints use the stricter `ogent-test--tripwire-sanctioned-p'
+inside-out check instead.")
+
+(defun ogent-test--tripwire-sanctioned-p (path)
+  "Return non-nil when PATH is under a sanctioned test root.
+Sanctioned roots are `temporary-file-directory' (which contains
+`ogent-test-store-root' and every `make-temp-file' fixture) and each
+registered `ogent-test-tripwire-allowed-roots' entry."
+  (let ((expanded (expand-file-name path))
+        (roots (cons (file-name-as-directory
+                      (expand-file-name temporary-file-directory))
+                     ogent-test-tripwire-allowed-roots))
+        (hit nil))
+    (dolist (root roots hit)
+      (when (string-prefix-p root expanded)
+        (setq hit t)))))
+
+(defun ogent-test--tripwire-violation (fn path)
+  "Signal a tripwire failure: FN attempted real-store access to PATH."
+  (error "TEST %s attempted real-store access: %s via %s"
+         (or ogent-test--current-test 'no-test) path fn))
+
+(defun ogent-test--tripwire-note-test (orig test)
+  "Record TEST's name around ORIG for tripwire violation messages."
+  (let ((ogent-test--current-test (ert-test-name test)))
+    (funcall orig test)))
+
+(defun ogent-test--tripwire-check-sqlite-open (&optional file &rest _)
+  "Fail when `sqlite-open' targets FILE outside the sanctioned roots.
+A nil FILE (in-memory database) is always sanctioned."
+  (when (and file (not (ogent-test--tripwire-sanctioned-p file)))
+    (ogent-test--tripwire-violation 'sqlite-open file)))
+
+(defun ogent-test--tripwire-check-analytics-db (&rest _)
+  "Fail when `ogent-analytics--get-db' would open a real DB path.
+Checked before the body runs, so the violation fires even when the
+`sqlite-open' chokepoint is stubbed out."
+  (when (and (bound-and-true-p ogent-analytics-enabled)
+             (fboundp 'sqlite-available-p)
+             (sqlite-available-p))
+    (let ((path (ogent-analytics--db-path)))
+      (unless (ogent-test--tripwire-sanctioned-p path)
+        (ogent-test--tripwire-violation 'ogent-analytics--get-db path)))))
+
+(defun ogent-test--tripwire-check-ledger-append (file _event)
+  "Fail when the ledger writer targets FILE outside the sanctioned roots."
+  (unless (ogent-test--tripwire-sanctioned-p file)
+    (ogent-test--tripwire-violation 'ogent-ledger--append-event file)))
+
+(defun ogent-test--tripwire-check-companion-registry (&rest _)
+  "Fail when the companion registry writer targets a real path."
+  (unless (ogent-test--tripwire-sanctioned-p
+           ogent-companion-link-registry-file)
+    (ogent-test--tripwire-violation 'ogent-companion--write-link-registry
+                                    ogent-companion-link-registry-file)))
+
+(defun ogent-test--tripwire-check-capture-target (file)
+  "Fail when org-capture resolves FILE outside the sanctioned roots.
+Installed as :filter-return advice on `org-capture-expand-file', the
+single point every capture target file passes through."
+  (when (and (stringp file) (not (ogent-test--tripwire-sanctioned-p file)))
+    (ogent-test--tripwire-violation 'org-capture-expand-file file))
+  file)
+
+(defun ogent-test--tripwire-check-process (fn command)
+  "Fail when FN would spawn COMMAND referencing a real store path.
+COMMAND is the program-and-arguments list; `default-directory' is
+checked as the spawn directory.  Only the prefixes in
+`ogent-test--tripwire-real-store-prefixes' trip, so ordinary
+subprocess fixtures under temp roots stay unaffected."
+  (dolist (prefix ogent-test--tripwire-real-store-prefixes)
+    (when (and default-directory
+               (string-prefix-p prefix (expand-file-name default-directory)))
+      (ogent-test--tripwire-violation fn default-directory))
+    (dolist (arg command)
+      (when (and (stringp arg) (string-search prefix arg))
+        (ogent-test--tripwire-violation fn arg)))))
+
+(defun ogent-test--tripwire-check-make-process (&rest args)
+  "Check `make-process' ARGS against the real store prefixes."
+  (ogent-test--tripwire-check-process 'make-process
+                                      (plist-get args :command)))
+
+(defun ogent-test--tripwire-check-start-process (_name _buffer program
+                                                       &rest program-args)
+  "Check `start-process' PROGRAM and PROGRAM-ARGS against store prefixes."
+  (ogent-test--tripwire-check-process 'start-process
+                                      (cons program program-args)))
+
+(defun ogent-test--tripwire-install ()
+  "Install the tripwire advice on every store chokepoint.
+Advice on the ogent module functions attaches now and takes effect
+when the defining module loads (nadvice re-applies pending advice on
+definition)."
+  (advice-add 'ert-run-test :around #'ogent-test--tripwire-note-test)
+  (when (fboundp 'sqlite-open)
+    (advice-add 'sqlite-open :before #'ogent-test--tripwire-check-sqlite-open))
+  (advice-add 'ogent-analytics--get-db :before
+              #'ogent-test--tripwire-check-analytics-db)
+  (advice-add 'ogent-ledger--append-event :before
+              #'ogent-test--tripwire-check-ledger-append)
+  (advice-add 'ogent-companion--write-link-registry :before
+              #'ogent-test--tripwire-check-companion-registry)
+  (advice-add 'org-capture-expand-file :filter-return
+              #'ogent-test--tripwire-check-capture-target)
+  (advice-add 'make-process :before #'ogent-test--tripwire-check-make-process)
+  (advice-add 'start-process :before
+              #'ogent-test--tripwire-check-start-process))
+
+(when noninteractive
+  (ogent-test--tripwire-install))
 
 (defvar transient-history-file)
 (defvar transient-save-history)
