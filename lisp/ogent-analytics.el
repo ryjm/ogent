@@ -4,8 +4,9 @@
 ;; Tracks prompt effectiveness and provides analytics for ogent sessions.
 ;;
 ;; Metrics tracked:
-;; - Response quality ratings (accept/reject + optional thumbs up/down)
+;; - Response quality ratings (accept/reject + 1-5 star rating)
 ;; - Token usage (estimated via ~4 chars/token)
+;; - Completion cost in USD (from `ogent-analytics-model-pricing')
 ;; - Model comparison stats
 ;; - Time-to-first-token and completion latency
 ;; - Accept/reject ratio
@@ -14,6 +15,7 @@
 ;; - Per-project SQLite database (.ogent-analytics.db)
 ;;
 ;; Usage:
+;;   C-c . * - Rate the response at point 1-5
 ;;   C-c . + - Rate current completion thumbs up
 ;;   C-c . - - Rate current completion thumbs down
 ;;   M-x ogent-analytics-dashboard - View analytics
@@ -30,6 +32,10 @@
 (declare-function ogent-completion-model "ogent-completions" t t)
 (declare-function ogent-completions--current "ogent-completions")
 (declare-function ogent-completions--find-question-marker "ogent-completions")
+;; Org property lookup for the rating command; org is loaded whenever
+;; the command's `derived-mode-p' guard passes.
+(declare-function org-entry-get "org"
+                  (epom property &optional inherit literal-nil))
 
 (defgroup ogent-analytics nil
   "Analytics and benchmarking for ogent."
@@ -50,6 +56,38 @@ This is created in the project root."
   "Approximate characters per token for estimation.
 Used to estimate token counts from text length."
   :type 'number
+  :group 'ogent-analytics)
+
+(defcustom ogent-analytics-model-pricing
+  ;; Starter table for the shipped `ogent-model-registry' entries.
+  ;; Prices are USD per million tokens as published 2026-07; revisit
+  ;; when providers reprice.  The bare "claude-haiku-4-5" entry shows
+  ;; the prefix rule covering dated variants like
+  ;; claude-haiku-4-5-20251001 without listing each one.
+  '(("gpt-5.6-sol"       . (:input-per-mtok 1.25 :output-per-mtok 10.00))
+    ("gpt-5.6-terra"     . (:input-per-mtok 0.25 :output-per-mtok 2.00))
+    ("gpt-5.6-luna"      . (:input-per-mtok 0.05 :output-per-mtok 0.40))
+    ("gpt-5.5-pro"       . (:input-per-mtok 15.00 :output-per-mtok 120.00))
+    ("gpt-5.5"           . (:input-per-mtok 1.25 :output-per-mtok 10.00))
+    ("gpt-5.4-mini"      . (:input-per-mtok 0.25 :output-per-mtok 2.00))
+    ("gpt-5.4-nano"      . (:input-per-mtok 0.05 :output-per-mtok 0.40))
+    ("gpt-5.4"           . (:input-per-mtok 1.25 :output-per-mtok 10.00))
+    ("gpt-5.3-codex"     . (:input-per-mtok 1.25 :output-per-mtok 10.00))
+    ("gpt-4.1"           . (:input-per-mtok 2.00 :output-per-mtok 8.00))
+    ("gpt-4o-mini"       . (:input-per-mtok 0.15 :output-per-mtok 0.60))
+    ("claude-fable-5"    . (:input-per-mtok 5.00 :output-per-mtok 25.00))
+    ("claude-opus-4-8"   . (:input-per-mtok 15.00 :output-per-mtok 75.00))
+    ("claude-sonnet-5"   . (:input-per-mtok 3.00 :output-per-mtok 15.00))
+    ("claude-sonnet-4-6" . (:input-per-mtok 3.00 :output-per-mtok 15.00))
+    ("claude-haiku-4-5"  . (:input-per-mtok 1.00 :output-per-mtok 5.00)))
+  "Alist mapping model-id prefixes to USD pricing plists.
+Each entry is (PATTERN . (:input-per-mtok IN :output-per-mtok OUT))
+where PATTERN is a model-id prefix and IN/OUT are USD per million
+tokens.  Registry ids grow suffixed variants, so lookup uses a
+longest-prefix rule: the entry with the longest PATTERN prefixing the
+model id wins.  A model with no matching entry records a NULL cost,
+never 0 (0 lies; NULL renders as \"-\")."
+  :type '(alist :key-type string :value-type plist)
   :group 'ogent-analytics)
 
 ;;; Database
@@ -79,7 +117,10 @@ Used to estimate token counts from text length."
 
 (defun ogent-analytics--get-db ()
   "Get or create SQLite database connection for current project.
-Returns nil if sqlite is not available."
+Returns nil if sqlite is not available.  A fresh connection gets its
+schema initialized and migrated to the current version; see
+`ogent-analytics--migrate-schema' for the idempotent version-pragma
+migration pattern."
   (when (and ogent-analytics-enabled
              (fboundp 'sqlite-available-p)
              (sqlite-available-p))
@@ -95,7 +136,11 @@ Returns nil if sqlite is not available."
           db)))))
 
 (defun ogent-analytics--init-schema (db)
-  "Initialize database schema in DB."
+  "Initialize database schema in DB and migrate it to the current version.
+Creates the base (version 0) completions table when missing, runs
+`ogent-analytics--migrate-schema' (which may rebuild the table and
+drop stale views), then (re)creates the views, so every connection --
+fresh or pre-existing -- ends up at `ogent-analytics--schema-version'."
   ;; Completions table - tracks each completion event
   (sqlite-execute db "
     CREATE TABLE IF NOT EXISTS completions (
@@ -114,6 +159,10 @@ Returns nil if sqlite is not available."
       question_preview TEXT,
       response_preview TEXT
     )")
+  ;; Migrate before creating views: a migration that rebuilds the
+  ;; completions table drops the views referencing it (SQLite >= 3.25
+  ;; refuses to RENAME a table a live view mentions).
+  (ogent-analytics--migrate-schema db)
   ;; Model stats view
   (sqlite-execute db "
     CREATE VIEW IF NOT EXISTS model_stats AS
@@ -143,13 +192,120 @@ Returns nil if sqlite is not available."
     GROUP BY date(timestamp)
     ORDER BY date DESC"))
 
+(defconst ogent-analytics--schema-version 1
+  "Schema version the running code expects.
+Recorded in each database's user_version pragma by
+`ogent-analytics--migrate-schema'.")
+
+(defun ogent-analytics--migrate-schema (db)
+  "Bring DB's schema up to `ogent-analytics--schema-version'.
+Idempotent version-pragma migration pattern: the sqlite user_version
+pragma records the version already applied (0 on a fresh database),
+each block below upgrades exactly one version step inside a
+transaction that bumps the pragma, and re-running on an up-to-date
+connection is a no-op.  New migrations append a (when (< version N))
+block and bump `ogent-analytics--schema-version'."
+  (let ((version (caar (sqlite-select db "PRAGMA user_version"))))
+    (when (< version 1)
+      ;; v1 (2026-07, beads ogent-z0k.1/ogent-z0k.3): per-completion
+      ;; cost and fan-out tagging, plus the 1-5 star rating scale.
+      ;; The two new columns arrive via ALTER TABLE; widening the
+      ;; rating/outcome CHECK constraints then needs SQLite's
+      ;; documented table rebuild (constraints cannot be altered in
+      ;; place).  Legacy thumb ratings (-1/0/1) stay valid under the
+      ;; widened CHECK, so no data rewrite.
+      (sqlite-execute db "BEGIN IMMEDIATE")
+      (condition-case err
+          (progn
+            (sqlite-execute
+             db "ALTER TABLE completions ADD COLUMN cost_usd REAL")
+            (sqlite-execute
+             db "ALTER TABLE completions ADD COLUMN fanout_group TEXT")
+            ;; SQLite >= 3.25 refuses to rename a table referenced by a
+            ;; live view; drop the views here, `ogent-analytics--init-schema'
+            ;; recreates them right after this migration returns.
+            (sqlite-execute db "DROP VIEW IF EXISTS model_stats")
+            (sqlite-execute db "DROP VIEW IF EXISTS daily_stats")
+            (sqlite-execute db "
+              CREATE TABLE completions_migrate (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+                session_id TEXT,
+                model TEXT NOT NULL,
+                prompt_template TEXT,
+                prompt_tokens INTEGER,
+                response_tokens INTEGER,
+                total_tokens INTEGER,
+                time_to_first_token_ms INTEGER,
+                completion_latency_ms INTEGER,
+                outcome TEXT CHECK(outcome IN ('accepted', 'rejected', 'pending', 'rated')),
+                rating INTEGER CHECK(rating BETWEEN -1 AND 5),
+                question_preview TEXT,
+                response_preview TEXT,
+                cost_usd REAL,
+                fanout_group TEXT
+              )")
+            (sqlite-execute db "
+              INSERT INTO completions_migrate
+              SELECT id, timestamp, session_id, model, prompt_template,
+                     prompt_tokens, response_tokens, total_tokens,
+                     time_to_first_token_ms, completion_latency_ms,
+                     outcome, rating, question_preview, response_preview,
+                     cost_usd, fanout_group
+              FROM completions")
+            (sqlite-execute db "DROP TABLE completions")
+            (sqlite-execute
+             db "ALTER TABLE completions_migrate RENAME TO completions")
+            (sqlite-execute db "PRAGMA user_version = 1")
+            (sqlite-execute db "COMMIT"))
+        (error
+         (sqlite-execute db "ROLLBACK")
+         (signal (car err) (cdr err)))))))
+
 ;;; Token Estimation
 
 (defun ogent-analytics-estimate-tokens (text)
-  "Estimate token count for TEXT using character-based heuristic."
+  "Estimate token count for TEXT using a character-based heuristic.
+Divides TEXT's character count by `ogent-analytics-chars-per-token'.
+Real tokenizers vary by model and content, so expect the result to
+be within roughly +/-20% of the true count; UI surfaces must label
+values derived from it as approximate (\"~\")."
   (if (stringp text)
       (round (/ (float (length text)) ogent-analytics-chars-per-token))
     0))
+
+;;; Pricing
+
+(defun ogent-analytics--model-pricing (model)
+  "Return the pricing plist for MODEL, or nil when none matches.
+Applies the longest-prefix rule over `ogent-analytics-model-pricing':
+the entry with the longest pattern prefixing MODEL wins, so a bare
+family entry covers suffixed variants while a more specific entry
+overrides it."
+  (when (stringp model)
+    (let ((best nil)
+          (best-len -1))
+      (dolist (entry ogent-analytics-model-pricing)
+        (let ((pattern (car entry)))
+          (when (and (string-prefix-p pattern model)
+                     (> (length pattern) best-len))
+            (setq best (cdr entry)
+                  best-len (length pattern)))))
+      best)))
+
+(defun ogent-analytics--completion-cost (model prompt-tokens response-tokens)
+  "Return the estimated USD cost of a completion, or nil when unpriced.
+MODEL selects a `ogent-analytics-model-pricing' entry via the
+longest-prefix rule; PROMPT-TOKENS and RESPONSE-TOKENS are the token
+estimates.  A model without pricing yields nil -- stored as NULL,
+never 0, because 0 lies while NULL renders as \"-\"."
+  (when-let* ((pricing (ogent-analytics--model-pricing model))
+              (input-rate (plist-get pricing :input-per-mtok))
+              (output-rate (plist-get pricing :output-per-mtok)))
+    (when (and (numberp input-rate) (numberp output-rate))
+      (/ (+ (* (or prompt-tokens 0) input-rate)
+            (* (or response-tokens 0) output-rate))
+         1000000.0))))
 
 ;;; Completion Tracking
 
@@ -172,10 +328,12 @@ Returns nil if sqlite is not available."
   response-tokens       ; Estimated response tokens
   ttft-ms               ; Time to first token in ms
   latency-ms            ; Total completion latency in ms
-  outcome               ; 'pending, 'accepted, 'rejected
-  rating                ; -1 (thumbs down), 0 (no rating), 1 (thumbs up)
+  outcome               ; 'pending, 'accepted, 'rejected, 'rated
+  rating                ; 0 (unrated), 1-5 stars; legacy -1/1 thumbs
   question-preview      ; First 200 chars of question
-  response-preview)     ; First 200 chars of response
+  response-preview      ; First 200 chars of response
+  cost-usd              ; Estimated cost in USD (nil when unpriced)
+  fanout-group)         ; Fan-out group id (nil for plain requests)
 
 (defun ogent-analytics--truncate (text max-len)
   "Truncate TEXT to MAX-LEN characters."
@@ -193,8 +351,19 @@ Returns nil if sqlite is not available."
   (unless ogent-analytics--first-token-time
     (setq ogent-analytics--first-token-time (current-time))))
 
-(defun ogent-analytics-record-completion (model prompt response &optional template)
-  "Record a completion with MODEL, PROMPT, RESPONSE, and optional TEMPLATE."
+(defun ogent-analytics-record-completion (model prompt response
+                                                &optional template
+                                                &rest kwargs)
+  "Record a completion with MODEL, PROMPT, RESPONSE, and optional TEMPLATE.
+KWARGS is a trailing keyword plist; the only recognized key is
+`:fanout-group', a string tagging the row as one member of a fan-out
+run (every member records the same group id, plain requests record
+none).  The group travels as a keyword tail rather than a fifth
+positional so the recorder's `func-arity' maximum is `many', which is
+how `ogent-ui--analytics-completion-args' detects that the extra pair
+can be passed.  Cost is computed here, at record time, from the token
+estimates and `ogent-analytics-model-pricing'.  Return the saved
+completion struct, or nil when `ogent-analytics-enabled' is nil."
   (when ogent-analytics-enabled
     (let* ((now (current-time))
            (start ogent-analytics--request-start-time)
@@ -205,6 +374,7 @@ Returns nil if sqlite is not available."
                          (round (* 1000 (float-time (time-subtract now start))))))
            (prompt-tokens (ogent-analytics-estimate-tokens prompt))
            (response-tokens (ogent-analytics-estimate-tokens response))
+           (fanout-group (plist-get kwargs :fanout-group))
            (completion (make-ogent-analytics-completion
                         :session-id (when (boundp 'ogent-session-id) ogent-session-id)
                         :model model
@@ -216,7 +386,10 @@ Returns nil if sqlite is not available."
                         :outcome 'pending
                         :rating 0
                         :question-preview (ogent-analytics--truncate prompt 200)
-                        :response-preview (ogent-analytics--truncate response 200))))
+                        :response-preview (ogent-analytics--truncate response 200)
+                        :cost-usd (ogent-analytics--completion-cost
+                                   model prompt-tokens response-tokens)
+                        :fanout-group fanout-group)))
       ;; Save to database
       (ogent-analytics--save-completion completion)
       ;; Store as pending for rating
@@ -234,8 +407,9 @@ Returns nil if sqlite is not available."
         session_id, model, prompt_template,
         prompt_tokens, response_tokens, total_tokens,
         time_to_first_token_ms, completion_latency_ms,
-        outcome, rating, question_preview, response_preview
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        outcome, rating, question_preview, response_preview,
+        cost_usd, fanout_group
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
                     (list
                      (ogent-analytics-completion-session-id completion)
                      (ogent-analytics-completion-model completion)
@@ -249,7 +423,9 @@ Returns nil if sqlite is not available."
                      (symbol-name (ogent-analytics-completion-outcome completion))
                      (ogent-analytics-completion-rating completion)
                      (ogent-analytics-completion-question-preview completion)
-                     (ogent-analytics-completion-response-preview completion)))
+                     (ogent-analytics-completion-response-preview completion)
+                     (ogent-analytics-completion-cost-usd completion)
+                     (ogent-analytics-completion-fanout-group completion)))
     ;; Get the inserted row ID
     (let ((result (sqlite-select db "SELECT last_insert_rowid()")))
       (when result
@@ -306,6 +482,54 @@ Returns nil if sqlite is not available."
         (ogent-analytics--update-completion ogent-analytics--pending-completion)
         (message "Rated completion as thumbs down"))
     (message "No pending completion to rate")))
+
+(defun ogent-analytics--completion-id-at-point ()
+  "Return the analytics completion row id for the Org entry at point.
+Reads the OGENT_COMPLETION_ID property with inheritance, so the id
+stamped into the request block drawer at record time (or onto a
+fan-out member's own Response headline) is visible from the
+\"*** Response\" headline and anywhere inside the request subtree.
+Return nil outside Org buffers or when no id is recorded."
+  (when (derived-mode-p 'org-mode)
+    (when-let ((prop (org-entry-get (point) "OGENT_COMPLETION_ID" t)))
+      (let ((id (string-to-number prop)))
+        (and (> id 0) id)))))
+
+;;;###autoload
+(defun ogent-analytics-rate-response ()
+  "Rate the response at point 1-5 against its recorded completion row.
+Reads the completion row id via
+`ogent-analytics--completion-id-at-point', prompts for a single digit
+with `read-char-choice' (two keystrokes total after the registry
+chord), then updates the row's rating and sets its outcome to
+\"rated\".  Re-rating updates the same row, never duplicates it."
+  (interactive)
+  (let ((id (ogent-analytics--completion-id-at-point)))
+    (unless id
+      (user-error
+       "No completion id on this response (likely cause: analytics was disabled when it was requested)"))
+    (let ((rating (- (read-char-choice "Rate response (1-5): "
+                                       '(?1 ?2 ?3 ?4 ?5))
+                     ?0))
+          (db (ogent-analytics--get-db)))
+      (unless db
+        (user-error "Analytics database unavailable"))
+      (sqlite-execute db
+                      "UPDATE completions SET rating = ?, outcome = 'rated' WHERE id = ?"
+                      (list rating id))
+      ;; Keep the in-memory pending struct coherent when it covers the
+      ;; row just rated.
+      (when (and ogent-analytics--pending-completion
+                 (eql (ogent-analytics-completion-id
+                       ogent-analytics--pending-completion)
+                      id))
+        (setf (ogent-analytics-completion-rating
+               ogent-analytics--pending-completion)
+              rating)
+        (setf (ogent-analytics-completion-outcome
+               ogent-analytics--pending-completion)
+              'rated))
+      (message "Rated completion %d: %d/5" id rating))))
 
 ;;; Dashboard
 

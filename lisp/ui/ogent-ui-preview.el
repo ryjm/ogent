@@ -10,6 +10,7 @@
 (require 'ogent-ui-core)
 (require 'ogent-ui-format)
 (require 'ogent-context)
+(require 'ogent-models)
 
 (defvar ogent-zen-mode)
 
@@ -62,6 +63,18 @@
   "Return the prompt text to display in context previews."
   (or ogent--transient-prompt
       "(prompt will be supplied at dispatch)"))
+
+(defun ogent-ui--preview-token-header (payload)
+  "Return the token-budget header line for PAYLOAD.
+Call with the companion buffer current so the effective model (Org
+property, session, project, default) resolves exactly as dispatch
+would.  When the dispatcher holds a multi-model fan-out selection,
+the line shows the member-count multiplication; the warn threshold
+comes from the effective model's :context-window (see
+`ogent-ui-token-budget-line')."
+  (let ((model (ignore-errors (ogent-models-effective-model)))
+        (members (length ogent-ui--selected-models)))
+    (ogent-ui-token-budget-line payload model (and (> members 1) members))))
 
 (defun ogent-ui--diff-strings (old new)
   "Compare OLD and NEW strings line by line.
@@ -207,9 +220,11 @@ When invoked from a non-Org buffer, includes source buffer context."
                         source-buffer region-start region-end org-point)
                        org-point))
              (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
+             (budget-header (ogent-ui--preview-token-header payload))
              (buffer (ogent-ui--context-buffer)))
         (with-current-buffer buffer
           (let ((previous ogent-ui--previous-context))
+            (setq header-line-format budget-header)
             (insert payload)
             (goto-char (point-min))
             ;; Apply diff highlighting if we have previous context
@@ -261,9 +276,11 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
                           source-buffer region-start region-end org-point)
                          org-point))
                (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
+               (budget-header (ogent-ui--preview-token-header payload))
                (buffer (ogent-ui--context-buffer)))
           (with-current-buffer buffer
             (insert payload)
+            (setq header-line-format budget-header)
             (goto-char (point-min)))
           ;; Use side-window with slot -1 to appear above transient (slot 0)
           (setq ogent-ui--context-preview-window
@@ -288,9 +305,11 @@ If visible, close it.  Otherwise, show it in a popup without switching focus."
         (let* ((context (ogent-context-build-with-source
                          source-buffer region-start region-end org-point))
                (payload (ogent-ui--render-prompt (ogent-ui--preview-prompt) context))
+               (budget-header (ogent-ui--preview-token-header payload))
                (buffer (ogent-ui--context-buffer)))
           (with-current-buffer buffer
             (insert payload)
+            (setq header-line-format budget-header)
             (goto-char (point-min)))
           (setq ogent-ui--context-preview-window
                 (display-buffer buffer

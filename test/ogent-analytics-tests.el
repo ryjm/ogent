@@ -9,6 +9,9 @@
 (declare-function ogent-completion-reject "ogent-completions" t t)
 (declare-function ogent-completion-accept "ogent-completions" t t)
 (require 'cl-lib)
+;; The store-guard fixture macro (ogent-test-with-real-store) must be
+;; available at load AND compile time under bare -l invocation.
+(require 'ogent-test-helper)
 
 ;; Load analytics module
 (require 'ogent-analytics)
@@ -423,11 +426,17 @@
 ;;; Init Schema Tests
 
 (ert-deftest ogent-analytics-test-init-schema-executes-sql ()
-  "Test init-schema calls sqlite-execute for table and views."
+  "Test init-schema calls sqlite-execute for table and views.
+The user_version stub reports an up-to-date schema so
+`ogent-analytics--migrate-schema' is a no-op; migration statements
+have their own tests."
   (let ((executed-sqls '()))
     (cl-letf (((symbol-function 'sqlite-execute)
                (lambda (_db sql &rest _args)
-                 (push sql executed-sqls))))
+                 (push sql executed-sqls)))
+              ((symbol-function 'sqlite-select)
+               (lambda (_db _sql &rest _args)
+                 (list (list ogent-analytics--schema-version)))))
       (ogent-analytics--init-schema 'fake-db)
       ;; Should have executed 3 statements: table + 2 views
       (should (= (length executed-sqls) 3))
@@ -442,12 +451,17 @@
                        executed-sqls)))))
 
 (ert-deftest ogent-analytics-test-init-schema-completions-columns ()
-  "Test init-schema creates completions table with expected columns."
+  "Test init-schema creates completions table with expected columns.
+The user_version stub reports an up-to-date schema so the only CREATE
+TABLE seen is the base completions table."
   (let ((table-sql nil))
     (cl-letf (((symbol-function 'sqlite-execute)
                (lambda (_db sql &rest _args)
                  (when (string-match-p "CREATE TABLE" sql)
-                   (setq table-sql sql)))))
+                   (setq table-sql sql))))
+              ((symbol-function 'sqlite-select)
+               (lambda (_db _sql &rest _args)
+                 (list (list ogent-analytics--schema-version)))))
       (ogent-analytics--init-schema 'fake-db)
       (should table-sql)
       (should (string-match-p "model TEXT NOT NULL" table-sql))
@@ -690,6 +704,277 @@
                (lambda () (setq dashboard-called t))))
       (ogent-analytics-dashboard-refresh)
       (should dashboard-called))))
+
+;;; Schema Migration Tests (bead ogent-z0k.3)
+
+(ert-deftest ogent-analytics-test-migration-idempotent ()
+  "Running init-schema twice on one connection is a no-op second time."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (let ((db (sqlite-open nil)))
+    (unwind-protect
+        (progn
+          (ogent-analytics--init-schema db)
+          (ogent-analytics--init-schema db)
+          (should (= (caar (sqlite-select db "PRAGMA user_version"))
+                     ogent-analytics--schema-version))
+          (let ((columns (mapcar (lambda (row) (nth 1 row))
+                                 (sqlite-select
+                                  db "PRAGMA table_info(completions)"))))
+            (should (member "cost_usd" columns))
+            (should (member "fanout_group" columns)))
+          ;; Views survive the migrate-then-create ordering (querying
+          ;; them would error if the migration left them dangling).
+          (should (equal (sqlite-select db "
+                            SELECT name FROM sqlite_master
+                            WHERE type = 'view' ORDER BY name")
+                         '(("daily_stats") ("model_stats"))))
+          (should-not (sqlite-select db "SELECT * FROM model_stats")))
+      (sqlite-close db))))
+
+(ert-deftest ogent-analytics-test-migration-preserves-legacy-rows ()
+  "Migrating a version-0 database keeps rows and widens the CHECKs."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (let ((db (sqlite-open nil)))
+    (unwind-protect
+        (progn
+          ;; Hand-build the legacy (version 0) shape with one row.
+          (sqlite-execute db "
+            CREATE TABLE completions (
+              id INTEGER PRIMARY KEY AUTOINCREMENT,
+              timestamp TEXT NOT NULL DEFAULT (datetime('now')),
+              session_id TEXT,
+              model TEXT NOT NULL,
+              prompt_template TEXT,
+              prompt_tokens INTEGER,
+              response_tokens INTEGER,
+              total_tokens INTEGER,
+              time_to_first_token_ms INTEGER,
+              completion_latency_ms INTEGER,
+              outcome TEXT CHECK(outcome IN ('accepted', 'rejected', 'pending')),
+              rating INTEGER CHECK(rating IN (-1, 0, 1)),
+              question_preview TEXT,
+              response_preview TEXT
+            )")
+          (sqlite-execute db "
+            INSERT INTO completions (model, outcome, rating) VALUES
+            ('legacy-model', 'accepted', -1)")
+          (ogent-analytics--init-schema db)
+          ;; The legacy thumb rating survives untouched, new columns NULL.
+          (should (equal (sqlite-select db "
+                            SELECT model, outcome, rating, cost_usd, fanout_group
+                            FROM completions")
+                         '(("legacy-model" "accepted" -1 nil nil))))
+          ;; The widened CHECKs accept the new rating scale and outcome.
+          (sqlite-execute db "
+            UPDATE completions SET rating = 5, outcome = 'rated' WHERE id = 1")
+          (should (equal (sqlite-select
+                          db "SELECT rating, outcome FROM completions")
+                         '((5 "rated")))))
+      (sqlite-close db))))
+
+(ert-deftest ogent-analytics-test-migration-v1-statements ()
+  "The v1 migration adds the new columns via ALTER TABLE and bumps the pragma."
+  (let ((executed '()))
+    (cl-letf (((symbol-function 'sqlite-execute)
+               (lambda (_db sql &rest _args)
+                 (push sql executed)))
+              ((symbol-function 'sqlite-select)
+               (lambda (_db _sql &rest _args) '((0)))))
+      (ogent-analytics--migrate-schema 'fake-db)
+      (should (cl-some (lambda (sql)
+                         (string-match-p
+                          "ALTER TABLE completions ADD COLUMN cost_usd REAL" sql))
+                       executed))
+      (should (cl-some (lambda (sql)
+                         (string-match-p
+                          "ALTER TABLE completions ADD COLUMN fanout_group TEXT" sql))
+                       executed))
+      (should (cl-some (lambda (sql)
+                         (string-match-p "RENAME TO completions" sql))
+                       executed))
+      (should (cl-some (lambda (sql)
+                         (string-match-p "PRAGMA user_version = 1" sql))
+                       executed)))))
+
+;;; Pricing Tests (bead ogent-z0k.3)
+
+(ert-deftest ogent-analytics-test-pricing-longest-prefix ()
+  "The longest matching prefix wins over shorter family entries."
+  (let ((ogent-analytics-model-pricing
+         '(("gpt-5"      . (:input-per-mtok 1.0 :output-per-mtok 2.0))
+           ("gpt-5.4"    . (:input-per-mtok 3.0 :output-per-mtok 4.0))
+           ("gpt-5.4-mini" . (:input-per-mtok 5.0 :output-per-mtok 6.0)))))
+    (should (equal (ogent-analytics--model-pricing "gpt-5.5")
+                   '(:input-per-mtok 1.0 :output-per-mtok 2.0)))
+    (should (equal (ogent-analytics--model-pricing "gpt-5.4-turbo")
+                   '(:input-per-mtok 3.0 :output-per-mtok 4.0)))
+    (should (equal (ogent-analytics--model-pricing "gpt-5.4-mini-2027")
+                   '(:input-per-mtok 5.0 :output-per-mtok 6.0)))))
+
+(ert-deftest ogent-analytics-test-pricing-covers-suffixed-registry-ids ()
+  "The shipped starter table prices dated registry variants by prefix."
+  (should (ogent-analytics--model-pricing "claude-haiku-4-5-20251001"))
+  (should (ogent-analytics--model-pricing "gpt-5.6-sol")))
+
+(ert-deftest ogent-analytics-test-pricing-unknown-model-nil ()
+  "Unknown or non-string models have no pricing and a nil cost."
+  (should-not (ogent-analytics--model-pricing "mystery-model-9000"))
+  (should-not (ogent-analytics--model-pricing nil))
+  (should-not (ogent-analytics--completion-cost "mystery-model-9000" 100 100)))
+
+(ert-deftest ogent-analytics-test-cost-arithmetic ()
+  "Cost is tokens times per-mtok USD rate, divided by one million."
+  (let ((ogent-analytics-model-pricing
+         '(("m" . (:input-per-mtok 2.0 :output-per-mtok 10.0)))))
+    ;; 1000 in * $2/M + 500 out * $10/M = 0.002 + 0.005
+    (should (< (abs (- (ogent-analytics--completion-cost "m" 1000 500)
+                       0.007))
+               1e-9))
+    ;; nil token counts are treated as zero.
+    (should (= (ogent-analytics--completion-cost "m" nil nil) 0.0))))
+
+(ert-deftest ogent-analytics-test-cost-stored-at-record-time ()
+  "Recording stores the computed cost; unpriced models store NULL."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let ((ogent-analytics-model-pricing
+           '(("priced-model" . (:input-per-mtok 2.0 :output-per-mtok 10.0))))
+          (ogent-analytics-chars-per-token 4.0))
+      ;; 400 chars -> 100 prompt tokens; 800 chars -> 200 response tokens.
+      (ogent-analytics-record-completion
+       "priced-model" (make-string 400 ?a) (make-string 800 ?b))
+      (ogent-analytics-record-completion "unpriced-model" "p" "r")
+      (let ((rows (sqlite-select
+                   (ogent-analytics--get-db)
+                   "SELECT model, cost_usd FROM completions ORDER BY id")))
+        ;; 100 * $2/M + 200 * $10/M = $0.0022, stored as REAL.
+        (should (equal (caar rows) "priced-model"))
+        (should (< (abs (- (cadar rows) 0.0022)) 1e-9))
+        (should (equal (cadr rows) '("unpriced-model" nil)))))))
+
+;;; Fan-out Group Tests (bead ogent-z0k.3, moved from ogent-pje.1)
+
+(ert-deftest ogent-analytics-test-fanout-group-round-trip ()
+  "A :fanout-group keyword lands in the fanout_group column; plain is NULL."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (ogent-analytics-record-completion "m1" "p" "r" nil
+                                       :fanout-group "grp-42")
+    (ogent-analytics-record-completion "m2" "p" "r")
+    (let ((rows (sqlite-select
+                 (ogent-analytics--get-db)
+                 "SELECT model, fanout_group FROM completions ORDER BY id")))
+      (should (equal rows '(("m1" "grp-42") ("m2" nil)))))))
+
+(ert-deftest ogent-analytics-test-record-completion-arity-accepts-keywords ()
+  "The recorder's arity advertises the keyword tail to the engine sniff."
+  (let ((max (cdr (func-arity
+                   (indirect-function 'ogent-analytics-record-completion)))))
+    (should (eq max 'many))))
+
+;;; One-Key Rating Tests (bead ogent-z0k.1)
+
+(defun ogent-analytics-tests--make-rated-buffer (id)
+  "Return a live Org test buffer whose request drawer carries ID.
+Point is left on the Response headline.  The caller kills the buffer."
+  (let ((buffer (generate-new-buffer " *ogent-analytics-rate*")))
+    (with-current-buffer buffer
+      (insert "* Request: test prompt\n"
+              ":PROPERTIES:\n"
+              (format ":OGENT_COMPLETION_ID: %d\n" id)
+              ":END:\n"
+              "** Response (test-model)\nA response body\n")
+      (org-mode)
+      (goto-char (point-min))
+      (search-forward "** Response")
+      (beginning-of-line))
+    buffer))
+
+(ert-deftest ogent-analytics-test-rate-response-round-trip ()
+  "Rating via the drawer id updates the row's rating and outcome."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion))
+           (buffer (ogent-analytics-tests--make-rated-buffer id)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (cl-letf (((symbol-function 'read-char-choice)
+                       (lambda (_prompt _chars) ?4)))
+              (ogent-analytics-rate-response))
+            (should (equal (sqlite-select
+                            (ogent-analytics--get-db)
+                            "SELECT rating, outcome FROM completions WHERE id = ?"
+                            (list id))
+                           '((4 "rated")))))
+        (kill-buffer buffer)))))
+
+(ert-deftest ogent-analytics-test-rate-response-re-rating-updates ()
+  "Re-rating updates the same row instead of inserting another."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion))
+           (buffer (ogent-analytics-tests--make-rated-buffer id)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (dolist (key '(?5 ?2))
+              (cl-letf (((symbol-function 'read-char-choice)
+                         (lambda (_prompt _chars) key)))
+                (ogent-analytics-rate-response)))
+            (should (equal (sqlite-select
+                            (ogent-analytics--get-db)
+                            "SELECT COUNT(*), MAX(rating) FROM completions")
+                           '((1 2)))))
+        (kill-buffer buffer)))))
+
+(ert-deftest ogent-analytics-test-rate-response-updates-pending-struct ()
+  "Rating the row tracked as pending keeps the in-memory struct coherent."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-real-store 'analytics
+    (let* ((completion (ogent-analytics-record-completion "m" "p" "r"))
+           (id (ogent-analytics-completion-id completion))
+           (buffer (ogent-analytics-tests--make-rated-buffer id)))
+      (unwind-protect
+          (with-current-buffer buffer
+            (cl-letf (((symbol-function 'read-char-choice)
+                       (lambda (_prompt _chars) ?3)))
+              (ogent-analytics-rate-response))
+            (should (= (ogent-analytics-completion-rating completion) 3))
+            (should (eq (ogent-analytics-completion-outcome completion)
+                        'rated)))
+        (kill-buffer buffer)))))
+
+(ert-deftest ogent-analytics-test-rate-response-no-id-user-error ()
+  "Rating without a stamped completion id names the likely cause."
+  (let ((buffer (generate-new-buffer " *ogent-analytics-rate*")))
+    (unwind-protect
+        (with-current-buffer buffer
+          (insert "* Request: never recorded\n** Response (m)\nbody\n")
+          (org-mode)
+          (goto-char (point-min))
+          (let ((err (should-error (ogent-analytics-rate-response)
+                                   :type 'user-error)))
+            (should (string-match-p "analytics was disabled"
+                                    (cadr err)))))
+      (kill-buffer buffer))))
+
+(ert-deftest ogent-analytics-test-completion-id-at-point-inherits ()
+  "The drawer id is visible from the Response headline via inheritance."
+  (let ((buffer (ogent-analytics-tests--make-rated-buffer 77)))
+    (unwind-protect
+        (with-current-buffer buffer
+          (should (= (ogent-analytics--completion-id-at-point) 77))
+          ;; Also from inside the response body.
+          (goto-char (point-max))
+          (should (= (ogent-analytics--completion-id-at-point) 77)))
+      (kill-buffer buffer))))
+
+(ert-deftest ogent-analytics-test-completion-id-at-point-non-org ()
+  "Outside Org buffers there is no completion id."
+  (with-temp-buffer
+    (fundamental-mode)
+    (should-not (ogent-analytics--completion-id-at-point))))
 
 (provide 'ogent-analytics-tests)
 

@@ -335,11 +335,18 @@ Each row binds the agreed chord and carries a non-empty description."
 The reservation comment at the end of `ogent-action-registry' names the
 owning command for each chord; when one of those commands lands, bind
 it to its reserved chord and delete that chord from this list."
-  (let ((reserved '("C-d" "*"))
+  (let ((reserved '("C-d"))
         (live (mapcar (lambda (entry) (plist-get (cdr entry) :key))
                       ogent-action-registry)))
     (dolist (chord reserved)
       (should-not (member chord live)))))
+
+(ert-deftest ogent-keys-action-get-analytics-rate ()
+  "The reserved * chord is bound to the 1-5 rating command (ogent-z0k.1)."
+  (should (string= (ogent-action-get 'analytics-rate :key) "*"))
+  (should (eq (ogent-action-get 'analytics-rate :command)
+              'ogent-analytics-rate-response))
+  (should (stringp (ogent-action-get 'analytics-rate :desc))))
 
 ;;; Review Bindings Tests
 

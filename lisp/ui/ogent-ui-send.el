@@ -63,6 +63,24 @@ remembers a model that is not in `ogent-model-registry'."
   (or (and model-id (ogent-models-canonical-id model-id))
       (ogent-models-effective-id)))
 
+(defun ogent-ui--announce-token-budget (final-prompt context model-ids)
+  "Echo the estimated prompt token budget before dispatching.
+FINAL-PROMPT and CONTEXT render into the payload every member of
+MODEL-IDS receives.  With several members (a fan-out) the estimate
+carries the member-count multiplication, since each member is sent
+an identical payload.  The warn threshold comes from the members'
+:context-window registry entries; the smallest declared window
+drives the warning and members without one never warn (see
+`ogent-ui-token-budget-line').  Unknown ids are skipped rather than
+signaled: dispatch itself reports those."
+  (let* ((payload (ogent-ui--render-prompt final-prompt context))
+         (models (delq nil (mapcar #'ogent-models-get model-ids)))
+         (model (or (ogent-ui-token-budget-model models) (car models)))
+         (members (length model-ids)))
+    (message "Ogent: %s"
+             (ogent-ui-token-budget-line payload model
+                                         (and (> members 1) members)))))
+
 (defun ogent--send-with-current-model (prompt)
   "Send PROMPT using current gptel-backend and gptel-model.
 Captures source buffer context and sends to companion without switching focus.
@@ -81,25 +99,30 @@ concurrently (fan-out mode)."
       (let ((context (ogent-context-build-with-source
                       source-buffer region-start region-end)))
         (if (ogent-validate-and-prompt context)
-            (if ogent-ui--selected-models
-                ;; Multi-model fan-out: dispatch to all selected models
-                (dolist (model-id ogent-ui--selected-models)
-                  (let* ((model (ogent-models-ensure model-id))
-                         (request (funcall ogent-response-function final-prompt context model)))
-                    (unless (ogent-ui-request-p request)
-                      (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
-                    (setf (ogent-ui-request-preset request) effective-preset)
-                    (setf (ogent-ui-request-source-buffer request) source-buffer)
-                    (ogent-ui--send-request request)))
-              ;; Single model: resolve the effective model at point
-              ;; (Org property > session > project > default).
-              (let* ((model (ogent-models-ensure (ogent-ui--model-id-or-default)))
-                     (request (funcall ogent-response-function final-prompt context model)))
-                (unless (ogent-ui-request-p request)
-                  (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
-                (setf (ogent-ui-request-preset request) effective-preset)
-                (setf (ogent-ui-request-source-buffer request) source-buffer)
-                (ogent-ui--send-request request)))
+            (progn
+              (ogent-ui--announce-token-budget
+               final-prompt context
+               (or ogent-ui--selected-models
+                   (list (ogent-ui--model-id-or-default))))
+              (if ogent-ui--selected-models
+                  ;; Multi-model fan-out: dispatch to all selected models
+                  (dolist (model-id ogent-ui--selected-models)
+                    (let* ((model (ogent-models-ensure model-id))
+                           (request (funcall ogent-response-function final-prompt context model)))
+                      (unless (ogent-ui-request-p request)
+                        (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
+                      (setf (ogent-ui-request-preset request) effective-preset)
+                      (setf (ogent-ui-request-source-buffer request) source-buffer)
+                      (ogent-ui--send-request request)))
+                ;; Single model: resolve the effective model at point
+                ;; (Org property > session > project > default).
+                (let* ((model (ogent-models-ensure (ogent-ui--model-id-or-default)))
+                       (request (funcall ogent-response-function final-prompt context model)))
+                  (unless (ogent-ui-request-p request)
+                    (user-error "Function `ogent-response-function' must return an `ogent-ui-request'"))
+                  (setf (ogent-ui-request-preset request) effective-preset)
+                  (setf (ogent-ui-request-source-buffer request) source-buffer)
+                  (ogent-ui--send-request request))))
           (message "Ogent request canceled"))))))
 
 (defun ogent-ui--ensure-companion-context ()
@@ -279,6 +302,7 @@ heading, and CONTEXT-TRANSFORM, when non-nil, post-processes the context."
              last-request)
         (if (ogent-validate-and-prompt context)
             (progn
+              (ogent-ui--announce-token-budget final-prompt context model-ids)
               (dolist (model-id model-ids)
                 (let* ((model (ogent-models-ensure model-id))
                        ;; Fan-out members after the first reuse the

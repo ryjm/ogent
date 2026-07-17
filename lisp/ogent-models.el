@@ -23,44 +23,83 @@
   :group 'ogent-models)
 
 (defcustom ogent-model-registry
+  ;; :context-window values are grounded in provider documentation,
+  ;; retrieved 2026-07-16 (per-entry citation next to each value):
+  ;; - OpenAI: developers.openai.com/api/docs/models/<id>
+  ;; - Anthropic: platform.claude.com/docs/en/about-claude/models/overview
+  ;;   ("Latest models comparison" and past-models tables; 1M = 1,000,000)
+  ;; A model whose window is not documented must carry no
+  ;; :context-window at all - never a guessed value.
   '((:id "gpt-5.6-sol" :backend gptel-openai :stream? t
          :aliases ("gpt-5.6")
+         ;; docs/models/gpt-5.6-sol: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.6 Sol - flagship reasoning and coding")
     (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.6-terra: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.6 Terra - balanced intelligence and cost")
     (:id "gpt-5.6-luna" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.6-luna: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.6 Luna - cost-efficient high-volume tasks")
     (:id "gpt-5.5" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.5: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.5 - previous flagship reasoning and coding")
     (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
+         ;; docs/models/gpt-5.5-pro: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
     (:id "gpt-5.4" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.4: "1,050,000 context window"
+         :context-window 1050000
          :description "OpenAI GPT-5.4 - professional coding and agentic work")
     (:id "gpt-5.4-mini" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.4-mini: "400,000 context window"
+         :context-window 400000
          :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
     (:id "gpt-5.4-nano" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.4-nano: "400,000 context window"
+         :context-window 400000
          :description "OpenAI GPT-5.4 nano - low-cost high-volume tasks")
     (:id "gpt-5.3-codex" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-5.3-codex: "400,000 context window"
+         :context-window 400000
          :description "OpenAI GPT-5.3-Codex - agentic coding")
     (:id "gpt-4.1" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-4.1: "1,047,576 context window"
+         :context-window 1047576
          :description "OpenAI GPT-4.1 - non-reasoning long-context model")
     (:id "gpt-4o-mini" :backend gptel-openai :stream? t
+         ;; docs/models/gpt-4o-mini: "128,000 context window"
+         :context-window 128000
          :description "OpenAI GPT-4o mini - legacy fallback")
     (:id "claude-fable-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
+         ;; models/overview latest-models table: "1M tokens"
+         :context-window 1000000
          :description "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
+         ;; models/overview latest-models table: "1M tokens"
+         :context-window 1000000
          :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
     (:id "claude-sonnet-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
+         ;; models/overview latest-models table: "1M tokens"
+         :context-window 1000000
          :description "Anthropic Claude Sonnet 5 - best combination of speed and intelligence")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
+         ;; models/overview past-models table: "1M tokens"
+         :context-window 1000000
          :description "Anthropic Claude Sonnet 4.6 - previous balanced Claude model")
     (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          :aliases ("claude-haiku-4-5")
+         ;; models/overview latest-models table: "200k tokens"
+         :context-window 200000
          :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
@@ -85,11 +124,17 @@ Optional keys:
                     this model, overriding `ogent-provider-max-retries'
   :retry-base-delay - base backoff delay in seconds before the first
                     automatic retry of this model, overriding
-                    `ogent-provider-retry-base-delay'"
+                    `ogent-provider-retry-base-delay'
+  :context-window - documented context window size in tokens, used as
+                    the warn threshold for the token-budget preview.
+                    Set only from provider documentation (cite the
+                    source in a comment next to the value); leave the
+                    key absent when the window is not documented, so
+                    no warning ever rests on a fabricated limit"
   :type '(repeat (plist :options (:id :backend :preset :stream? :description
                                       :request-params :capabilities :aliases
                                       :request-timeout :max-retries
-                                      :retry-base-delay)))
+                                      :retry-base-delay :context-window)))
   :group 'ogent-models)
 
 (defun ogent-models-all ()
@@ -118,6 +163,15 @@ Returns nil when MODEL-ID names no registered model."
   "Return MODEL-ID entry or signal a user error if missing."
   (or (ogent-models-get model-id)
       (user-error "Unknown ogent model: %s" model-id)))
+
+(defun ogent-models-context-window (model)
+  "Return MODEL's documented context window size in tokens, or nil.
+MODEL is a model plist from `ogent-model-registry' or an id string
+\(aliases resolve through `ogent-models-get').  A nil result means
+the window is not documented for that model; callers must treat it
+as unknown and never substitute a fabricated limit."
+  (let ((entry (if (stringp model) (ogent-models-get model) model)))
+    (plist-get entry :context-window)))
 
 (defun ogent-models-apply-gptel-props (model)
   "Copy MODEL's :request-params and :capabilities onto its gptel model symbol.

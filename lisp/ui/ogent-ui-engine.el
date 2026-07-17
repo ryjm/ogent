@@ -45,6 +45,9 @@
 (declare-function ogent-analytics-estimate-tokens "ogent-analytics")
 (declare-function ogent-analytics-first-token "ogent-analytics")
 (declare-function ogent-analytics-record-completion "ogent-analytics")
+;; Struct accessors (fileonly: cl-defstruct-generated)
+(declare-function ogent-analytics-completion-id "ogent-analytics" t t)
+(declare-function ogent-analytics-completion-p "ogent-analytics" t t)
 
 ;; Provider login offer (autoloaded command).
 (autoload 'ogent-onboard-login-different-provider "ogent-onboard" nil t)
@@ -999,6 +1002,42 @@ group's analytics rows stay comparable."
         (append args (list :fanout-group group))
       args)))
 
+(defun ogent-ui--stamp-completion-id (request completion)
+  "Persist COMPLETION's analytics row id into REQUEST's transcript.
+Stamps an OGENT_COMPLETION_ID property at record time so the response
+headline stays traceable to its analytics row after
+`ogent-analytics--pending-completion' moves on to a newer request; the
+rating action reads the id back through Org property inheritance.  A
+plain request is stamped on its Request headline (the request block
+drawer); a fan-out member is stamped on its own Response headline
+instead, because the group shares one Request headline and per-member
+ids must not overwrite each other."
+  (when-let* ((id (and (fboundp 'ogent-analytics-completion-p)
+                       ;; Test stubs may return non-struct values;
+                       ;; only a real completion carries a row id.
+                       (ogent-analytics-completion-p completion)
+                       (ogent-analytics-completion-id completion)))
+              (marker (ogent-ui-request-request-heading-pos request)))
+    (when (and (markerp marker)
+               (marker-position marker)
+               (buffer-live-p (marker-buffer marker)))
+      (with-current-buffer (marker-buffer marker)
+        (org-with-wide-buffer
+         (goto-char marker)
+         (if (not (plist-get (ogent-ui-request-context request)
+                             :fanout-group))
+             (org-entry-put (point) "OGENT_COMPLETION_ID"
+                            (number-to-string id))
+           (let ((bound (save-excursion (org-end-of-subtree t t) (point)))
+                 (model-id (plist-get (ogent-ui-request-model request) :id)))
+             (when (and model-id
+                        (re-search-forward
+                         (format "^\\*+ Response (%s)$"
+                                 (regexp-quote model-id))
+                         bound t))
+               (org-entry-put (point) "OGENT_COMPLETION_ID"
+                              (number-to-string id))))))))))
+
 (defun ogent-ui--close-response (request &optional error-message final-status)
   "Finalize REQUEST, optionally including ERROR-MESSAGE.
 FINAL-STATUS overrides the default terminal status.
@@ -1035,8 +1074,10 @@ Provides visual feedback via mode-line flash."
       ;; Analytics is a side channel: never let it break request close.
       (when (fboundp 'ogent-analytics-record-completion)
         (condition-case err
-            (apply #'ogent-analytics-record-completion
-                   (ogent-ui--analytics-completion-args request))
+            (ogent-ui--stamp-completion-id
+             request
+             (apply #'ogent-analytics-record-completion
+                    (ogent-ui--analytics-completion-args request)))
           (error
            (message "ogent-analytics: failed to record completion: %s"
                     (error-message-string err))))))

@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- One-key response rating (`C-c . *`, `ogent-analytics-rate-response`):
+  rate the response at point 1-5 via `read-char-choice` (two keystrokes
+  total).  The engine stamps each completion's analytics row id into the
+  request block drawer (`OGENT_COMPLETION_ID`) at record time -- fan-out
+  members onto their own Response headlines -- so any response stays
+  rateable after newer requests land; re-rating updates the same row and
+  sets its outcome to `rated`.
+- Per-model pricing and completion cost tracking:
+  `ogent-analytics-model-pricing` maps model-id prefixes (longest prefix
+  wins, covering dated variants) to USD per-mtok rates, with a starter
+  table for the shipped registry.  Costs are computed at record time
+  into the new `completions.cost_usd` column; unpriced models store
+  NULL, never 0.  The analytics schema now migrates via an idempotent
+  `user_version`-pragma pattern (`ogent-analytics--migrate-schema`),
+  which also adds `completions.fanout_group`: the recorder accepts a
+  trailing `:fanout-group` keyword, so every fan-out member's row
+  carries its shared group id while plain requests record NULL.
 - Structured issue editor (`ogent-issues-edit`, bound to `e` in the issue
   list, detail view, and `?` dispatch): a form-style buffer with read-only
   chrome, freely editable title/assignee/labels/description/design/

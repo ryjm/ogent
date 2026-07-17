@@ -16,6 +16,7 @@
 (declare-function ogent-ui-insert-response-block "ogent-ui-format")
 (declare-function ogent-ui-prepare-response-block "ogent-ui-engine")
 (declare-function ogent-context-render-prompt "ogent-context")
+(declare-function ogent-analytics-estimate-tokens "ogent-analytics")
 
 (defcustom ogent-org-format-responses t
   "When non-nil, instruct LLM to format responses as Org-mode.
@@ -164,6 +165,47 @@ For example, `* Heading' becomes `**** Heading' (level 4)."
 (defun ogent-ui--render-prompt (prompt context)
   "Render PROMPT and CONTEXT into the final text sent to gptel."
   (ogent-context-render-prompt prompt context))
+
+(defun ogent-ui-token-budget-line (payload model &optional members)
+  "Return a token-budget summary for PAYLOAD dispatched to MODEL.
+PAYLOAD is the fully rendered prompt text.  MODEL is a model plist
+from `ogent-model-registry', or nil when no model is resolvable.
+MEMBERS, when an integer greater than 1, is the fan-out member
+count and the summary reads \"MEMBERS x ~N tokens\": every member
+receives an identical payload, so total prompt cost multiplies by
+MEMBERS while each member's request fills its own window with the
+single per-member estimate.
+
+The estimate comes from `ogent-analytics-estimate-tokens', a
+character heuristic accurate to roughly +/-20%, hence the \"~\"
+label.  When MODEL declares a :context-window and the per-member
+estimate meets or exceeds it, a truncation warning is appended.  A
+model without a :context-window never warns: absence means unknown,
+and no limit is ever fabricated."
+  (require 'ogent-analytics)
+  (let* ((tokens (ogent-analytics-estimate-tokens payload))
+         (estimate (if (and (integerp members) (> members 1))
+                       (format "%d x ~%d tokens" members tokens)
+                     (format "~%d tokens" tokens)))
+         (window (plist-get model :context-window)))
+    (if (and window (>= tokens window))
+        (format "%s (may exceed %s's %d-token context window)"
+                estimate (plist-get model :id) window)
+      estimate)))
+
+(defun ogent-ui-token-budget-model (models)
+  "Return the member of MODELS with the smallest :context-window.
+MODELS is a list of model plists.  Members without a :context-window
+never win: when no member declares one, return nil so callers fall
+through to a warning-free `ogent-ui-token-budget-line'.  The
+tightest window drives the fan-out warning because the group shares
+one payload and its most constrained member truncates first."
+  (let (best best-window)
+    (dolist (model models best)
+      (let ((window (plist-get model :context-window)))
+        (when (and window (or (null best-window) (< window best-window)))
+          (setq best model
+                best-window window))))))
 
 (defun ogent-ui-active-requests ()
   "Return a list of all active (non-closed) requests."

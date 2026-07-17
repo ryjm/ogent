@@ -775,6 +775,150 @@ BODY is the trimmed text between the headline and the next heading."
              (should (= 0 (hash-table-count ogent-ui--request-table)))
              (should (= 0 (hash-table-count ogent-ui--fanout-groups))))))))))
 
+;;; Real-Recorder Persistence Tests (bead ogent-z0k.3, moved from ogent-pje.1)
+
+(ert-deftest ogent-fanout-persists-group-rows-through-real-recorder ()
+  "A stubbed-gptel fan-out lands N tagged rows via the real recorder.
+End-to-end: `ogent-fanout' dispatches through the mock gptel, request
+close runs the real `ogent-analytics-record-completion' into an
+in-memory database, every member row carries the shared group id, and
+a plain request's row keeps a NULL fanout_group."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (ogent-analytics--pending-completion nil)
+           (ogent-analytics--request-start-time nil)
+           (ogent-analytics--first-token-time nil)
+           (group nil))
+       (ogent-test-with-real-store 'analytics
+         (ogent-test-with-mock-gptel
+           (setq group (ogent-fanout "Fanout prompt"
+                                     '("test-model-1" "test-model-2")))
+           (ogent-request "Solo prompt" '("test-model-1")))
+         (should (stringp group))
+         (should (equal (sqlite-select
+                         (ogent-analytics--get-db)
+                         "SELECT model, fanout_group FROM completions ORDER BY id")
+                        (list (list "test-model-1" group)
+                              (list "test-model-2" group)
+                              (list "test-model-1" nil)))))))))
+
+(ert-deftest ogent-request-stamps-completion-id-into-drawer ()
+  "A plain request's block drawer gains OGENT_COMPLETION_ID at record time."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (ogent-analytics--pending-completion nil)
+           (ogent-analytics--request-start-time nil)
+           (ogent-analytics--first-token-time nil))
+       (ogent-test-with-real-store 'analytics
+         (ogent-test-with-mock-gptel
+           (ogent-request "Solo prompt" '("test-model-1")))
+         (let ((id (caar (sqlite-select (ogent-analytics--get-db)
+                                        "SELECT id FROM completions"))))
+           (should id)
+           (goto-char (point-min))
+           (should (search-forward
+                    (format ":OGENT_COMPLETION_ID: %d" id) nil t))
+           ;; The rating action resolves the id from the Response
+           ;; headline through property inheritance.
+           (re-search-forward "^\\*+ Response (test-model-1)$")
+           (beginning-of-line)
+           (should (= (ogent-analytics--completion-id-at-point) id))))))))
+
+(ert-deftest ogent-fanout-stamps-per-member-completion-ids ()
+  "Fan-out members carry their own row ids on their Response headlines.
+The group shares one Request headline, so per-member ids must live on
+the member Response headlines to stay distinct and rateable."
+  (skip-unless (and (fboundp 'sqlite-available-p) (sqlite-available-p)))
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--fanout-groups (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry ogent-ui-send-tests--registry)
+           (ogent-analytics--pending-completion nil)
+           (ogent-analytics--request-start-time nil)
+           (ogent-analytics--first-token-time nil))
+       (ogent-test-with-real-store 'analytics
+         (ogent-test-with-mock-gptel
+           (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2")))
+         (let ((rows (sqlite-select
+                      (ogent-analytics--get-db)
+                      "SELECT id, model FROM completions ORDER BY id")))
+           (should (= 2 (length rows)))
+           (dolist (row rows)
+             (goto-char (point-min))
+             (re-search-forward (format "^\\*+ Response (%s)$"
+                                        (regexp-quote (nth 1 row))))
+             (beginning-of-line)
+             (should (= (ogent-analytics--completion-id-at-point)
+                        (car row))))))))))
+
+;;; Token budget echo at dispatch (bead ogent-3im)
+
+(ert-deftest ogent-request-echoes-token-estimate ()
+  "Dispatch echoes a '~N tokens' estimate once validation passes.
+The shipped gpt-4o-mini window dwarfs the fixture payload, so the
+anchored match also proves no spurious truncation warning."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((messages nil))
+       (cl-letf (((symbol-function 'message)
+                  (lambda (fmt &rest args)
+                    (when fmt
+                      (car (push (apply #'format fmt args) messages))))))
+         (ogent-test-with-mock-gptel
+           (ogent-request "Budget prompt" '("gpt-4o-mini"))))
+       (let ((budget (seq-find (lambda (m) (string-prefix-p "Ogent: " m))
+                               messages)))
+         (should budget)
+         (should (string-match-p "\\`Ogent: ~[0-9]+ tokens\\'" budget)))))))
+
+(ert-deftest ogent-fanout-echoes-member-multiplied-estimate ()
+  "A fan-out echo shows 'N x ~tokens' and warns via the tightest window.
+Prompt cost multiplies by the member count (per-member context is
+identical by design, see pje.1); the warning is driven by the member
+with the smallest declared :context-window while windowless members
+never warn."
+  (ogent-test-with-fixture
+   "data/fixture.org"
+   (lambda ()
+     (ogent-ui-send-tests--goto-details)
+     (let ((ogent-model-registry
+            '((:id "test-model-1" :backend gptel-openai)
+              (:id "test-model-2" :backend gptel-anthropic
+                   :context-window 1)))
+           (messages nil))
+       (cl-letf (((symbol-function 'message)
+                  (lambda (fmt &rest args)
+                    (when fmt
+                      (car (push (apply #'format fmt args) messages))))))
+         (ogent-test-with-mock-gptel
+           (ogent-fanout "Fanout prompt" '("test-model-1" "test-model-2"))))
+       (let ((budget (seq-find (lambda (m) (string-prefix-p "Ogent: " m))
+                               messages)))
+         (should budget)
+         (should (string-match-p "\\`Ogent: 2 x ~[0-9]+ tokens" budget))
+         (should (string-match-p
+                  "may exceed test-model-2's 1-token context window"
+                  budget)))))))
+
 (provide 'ogent-ui-send-tests)
 
 ;;; ogent-ui-send-tests.el ends here

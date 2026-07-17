@@ -94,6 +94,36 @@
   (should-not (ogent-models-get "claude-sonnet-4-20250514"))
   (should-not (ogent-models-get "claude-opus-4-7")))
 
+;;; Context Window Tests (bead ogent-3im)
+
+(ert-deftest ogent-models-shipped-entries-declare-context-window ()
+  "Every shipped registry entry carries a documented :context-window.
+Values are grounded in provider documentation (see the citations in
+`ogent-model-registry'); a positive integer is required so the
+token-budget preview can derive its warn threshold."
+  (dolist (entry ogent-model-registry)
+    (let ((window (plist-get entry :context-window)))
+      (should (integerp window))
+      (should (> window 0)))))
+
+(ert-deftest ogent-models-context-window-accessor-resolves-and-stays-silent ()
+  "Accessor resolves plists, ids, and aliases; unknown windows are nil.
+Absence of :context-window means the window is undocumented - the
+accessor must return nil rather than any fabricated default."
+  (let ((ogent-model-registry
+         '((:id "windowed" :backend gptel-openai :stream? t
+                :aliases ("windowed-alias") :context-window 1000)
+           (:id "windowless" :backend gptel-openai :stream? t))))
+    (should (= 1000 (ogent-models-context-window "windowed")))
+    (should (= 1000 (ogent-models-context-window "windowed-alias")))
+    (should (= 1000 (ogent-models-context-window
+                     (ogent-models-get "windowed"))))
+    (should-not (ogent-models-context-window "windowless"))
+    (should-not (ogent-models-context-window
+                 (ogent-models-get "windowless")))
+    (should-not (ogent-models-context-window "missing"))
+    (should-not (ogent-models-context-window nil))))
+
 ;;; gptel Model Property Tests
 
 (ert-deftest ogent-models-apply-gptel-props-sets-request-params ()

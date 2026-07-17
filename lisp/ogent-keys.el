@@ -48,6 +48,7 @@
 ;; Declare analytics commands (defined in ogent-analytics.el)
 (declare-function ogent-analytics-rate-up "ogent-analytics")
 (declare-function ogent-analytics-rate-down "ogent-analytics")
+(declare-function ogent-analytics-rate-response "ogent-analytics")
 (declare-function ogent-analytics-dashboard "ogent-analytics")
 
 
@@ -319,6 +320,8 @@ Set to nil to disable automatic evil binding setup."
                          :desc "Rate thumbs up")
     (analytics-rate-down :key "-" :command ogent-analytics-rate-down
                          :desc "Rate thumbs down")
+    (analytics-rate      :key "*" :command ogent-analytics-rate-response
+                         :desc "Rate response 1-5 (*: stars)")
     (analytics-dashboard :key "A" :command ogent-analytics-dashboard
                          :desc "Analytics dashboard")
     ;; Export
@@ -328,7 +331,6 @@ Set to nil to disable automatic evil binding setup."
     ;; reserved chords verbatim and drop the chord from the guard list in
     ;; `ogent-keys-reserved-chords-stay-free' (ogent-keys-tests.el):
     ;;   "C-d"  ogent-fanout-compare                    diff fan-out results
-    ;;   "*"    rating command (bead ogent-z0k.1)       star-rate response
     (export-conversation :key "C-x" :command ogent-export-conversation
                          :desc "Export conversation (C-x: eXport)")
     (export-conversation-to-kill-ring

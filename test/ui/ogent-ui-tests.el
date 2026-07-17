@@ -1498,6 +1498,156 @@
                                  (when (buffer-live-p preview-buffer)
                                    (kill-buffer preview-buffer)))))))
 
+;;; Token Budget Preview Tests (bead ogent-3im)
+
+(ert-deftest ogent-ui-token-budget-line-renders-estimate ()
+  "Budget line labels the heuristic estimate with '~'."
+  (let ((ogent-analytics-chars-per-token 4.0))
+    (should (equal (ogent-ui-token-budget-line (make-string 40 ?x) nil)
+                   "~10 tokens"))))
+
+(ert-deftest ogent-ui-token-budget-line-warns-at-window-boundary ()
+  "Warning fires exactly when the estimate reaches :context-window."
+  (let ((ogent-analytics-chars-per-token 4.0)
+        (model '(:id "tiny" :context-window 10)))
+    ;; 9 tokens: one below the window - silent.
+    (should (equal (ogent-ui-token-budget-line (make-string 36 ?x) model)
+                   "~9 tokens"))
+    ;; 10 tokens: at the boundary - warns.
+    (should (equal (ogent-ui-token-budget-line (make-string 40 ?x) model)
+                   "~10 tokens (may exceed tiny's 10-token context window)"))))
+
+(ert-deftest ogent-ui-token-budget-line-unknown-window-stays-silent ()
+  "A model without :context-window never produces a warning."
+  (let ((ogent-analytics-chars-per-token 4.0))
+    (should (equal (ogent-ui-token-budget-line (make-string 4000 ?x)
+                                               '(:id "unbounded"))
+                   "~1000 tokens"))
+    (should (equal (ogent-ui-token-budget-line (make-string 4000 ?x) nil)
+                   "~1000 tokens"))))
+
+(ert-deftest ogent-ui-token-budget-line-multiplies-fanout-members ()
+  "A fan-out member count multiplies the displayed estimate."
+  (let ((ogent-analytics-chars-per-token 4.0))
+    (should (equal (ogent-ui-token-budget-line (make-string 40 ?x) nil 3)
+                   "3 x ~10 tokens"))
+    ;; A single member renders like a plain request.
+    (should (equal (ogent-ui-token-budget-line (make-string 40 ?x) nil 1)
+                   "~10 tokens"))
+    ;; The per-member estimate still drives the window warning.
+    (should (equal (ogent-ui-token-budget-line
+                    (make-string 40 ?x) '(:id "tiny" :context-window 10) 3)
+                   "3 x ~10 tokens (may exceed tiny's 10-token context window)"))))
+
+(ert-deftest ogent-ui-token-budget-model-picks-tightest-window ()
+  "Tightest declared window wins; windowless sets return nil."
+  (let ((wide '(:id "wide" :context-window 100))
+        (tight '(:id "tight" :context-window 10))
+        (unknown '(:id "unknown")))
+    (should (eq tight (ogent-ui-token-budget-model
+                       (list wide tight unknown))))
+    (should (eq tight (ogent-ui-token-budget-model (list tight wide))))
+    (should-not (ogent-ui-token-budget-model (list unknown)))
+    (should-not (ogent-ui-token-budget-model nil))))
+
+(ert-deftest ogent-ui-context-preview-header-shows-token-estimate ()
+  "Preview header line carries the '~N tokens' estimate, nothing more.
+The shipped default model's documented window dwarfs the fixture
+payload, so the anchored match also proves no spurious warning."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-context-preview-buffer-name "*test-ogent-context-budget*")
+                                    (ogent--transient-prompt "Preview prompt")
+                                    (ogent-ui--selected-models nil)
+                                    (gptel-model nil)
+                                    (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+                               (unwind-protect
+                                   (progn
+                                     (ogent-context-preview)
+                                     (with-current-buffer preview-buffer
+                                       (should (stringp header-line-format))
+                                       (should (string-match-p "\\`~[0-9]+ tokens\\'"
+                                                               header-line-format))))
+                                 (when (buffer-live-p preview-buffer)
+                                   (kill-buffer preview-buffer)))))))
+
+(ert-deftest ogent-ui-context-preview-header-warns-past-model-window ()
+  "Preview header warns once the estimate reaches the model's window."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-model-registry
+                                     '((:id "tiny-window" :backend gptel-openai :stream? t
+                                            :context-window 1)))
+                                    (ogent-default-model "tiny-window")
+                                    (ogent-model-roles nil)
+                                    (ogent-ui--selected-models nil)
+                                    (gptel-model nil)
+                                    (ogent-context-preview-buffer-name "*test-ogent-context-warn*")
+                                    (ogent--transient-prompt "Preview prompt")
+                                    (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+                               (unwind-protect
+                                   (progn
+                                     (ogent-context-preview)
+                                     (with-current-buffer preview-buffer
+                                       (should (string-match-p
+                                                "may exceed tiny-window's 1-token context window"
+                                                header-line-format))))
+                                 (when (buffer-live-p preview-buffer)
+                                   (kill-buffer preview-buffer)))))))
+
+(ert-deftest ogent-ui-context-preview-header-silent-without-window ()
+  "An effective model without :context-window never warns in the header."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-model-registry
+                                     '((:id "no-window" :backend gptel-openai :stream? t)))
+                                    (ogent-default-model "no-window")
+                                    (ogent-model-roles nil)
+                                    (ogent-ui--selected-models nil)
+                                    (gptel-model nil)
+                                    (ogent-context-preview-buffer-name "*test-ogent-context-silent*")
+                                    (ogent--transient-prompt "Preview prompt")
+                                    (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+                               (unwind-protect
+                                   (progn
+                                     (ogent-context-preview)
+                                     (with-current-buffer preview-buffer
+                                       (should (string-match-p "\\`~[0-9]+ tokens\\'"
+                                                               header-line-format))))
+                                 (when (buffer-live-p preview-buffer)
+                                   (kill-buffer preview-buffer)))))))
+
+(ert-deftest ogent-ui-context-preview-header-multiplies-selected-models ()
+  "A live fan-out selection multiplies the preview estimate."
+  (ogent-test-with-fixture "data/fixture.org"
+                           (lambda ()
+                             (goto-char (point-min))
+                             (search-forward "Root Overview")
+                             (org-back-to-heading t)
+                             (let* ((ogent-ui--selected-models
+                                     '("gpt-5.6-sol" "claude-sonnet-5"))
+                                    (gptel-model nil)
+                                    (ogent-context-preview-buffer-name "*test-ogent-context-fanout*")
+                                    (ogent--transient-prompt "Preview prompt")
+                                    (preview-buffer (get-buffer-create ogent-context-preview-buffer-name)))
+                               (unwind-protect
+                                   (progn
+                                     (ogent-context-preview)
+                                     (with-current-buffer preview-buffer
+                                       (should (string-match-p "\\`2 x ~[0-9]+ tokens"
+                                                               header-line-format))))
+                                 (when (buffer-live-p preview-buffer)
+                                   (kill-buffer preview-buffer)))))))
+
 ;;; Error Collection and Display Tests
 
 (ert-deftest ogent-ui-record-error ()
