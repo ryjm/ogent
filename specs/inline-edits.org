@@ -500,93 +500,104 @@ generated from it. Prefixes are customizable:
 Keys below are suffixes under the prefix (e.g. ~k~ = ~C-c . k~ /
 ~SPC o k~). "Visual" marks actions also bound in Evil visual state.
 This table is generated from =ogent-action-registry= and must be kept in
-sync with it.
+sync with it; the autoload completeness regression in
+=test/ogent-keys-tests.el= (bead ogent-jk5.4) guards the registry side.
 
 ** Main Registry (=ogent-action-registry=)
-| Key   | Command                       | Description             | Visual |
-|-------+-------------------------------+-------------------------+--------|
-| ~p~   | =ogent-prompt-dispatch=       | Open prompt dispatcher  |        |
-| ~r~   | =ogent-request=               | Send request            | yes    |
-| ~a~   | =ogent-abort-request=         | Abort current request   |        |
-| ~R~   | =ogent-retry-request=         | Retry last request      |        |
-| ~@~   | =ogent-model-picker=          | Model picker            |        |
-| ~c~   | =ogent-context-preview=       | Preview context         |        |
-| ~m~   | =ogent-codemap-buffer=        | Show static codemap     |        |
-| ~M~   | =ogent-codemap-generate=      | Generate task codemap   |        |
-| ~P~   | =ogent-pin-dwim=              | Pin file/buffer/region  | yes    |
-| ~U~   | =ogent-unpin-interactive=     | Unpin item              |        |
-| ~l~   | =ogent-list-pinned=           | List pinned             |        |
-| ~e~   | =ogent-edit-menu=             | Edit menu               |        |
-| ~v~   | =ogent-ai-speed-edit=         | AI speed edit           | yes    |
-| ~f~   | =ogent-fix-diagnostic=        | Fix diagnostic          | yes    |
-| ~F~   | =ogent-fix-buffer-diagnostics= | Fix buffer diagnostics | yes    |
-| ~k~   | =ogent-quick-edit=            | Quick inline edit       | yes    |
-| ~E~   | =ogent-request-edit=          | Request edit            | yes    |
-| ~s~   | =ogent-edit-goto-source=      | Go to source            |        |
-| ~C~   | =ogent-edit-goto-companion=   | Go to companion         |        |
-| ~t~   | =ogent-debug-tools-menu=      | Tools debug menu        |        |
-| ~T~   | =ogent-tool-rerun=            | Re-run tool at point    |        |
-| ~h~   | =ogent-zen-show-tool-calls=   | Tool calls under heading |       |
-| ~n~   | =ogent-navigate=              | Navigate menu           |        |
-| ~b~   | =ogent-show-backlinks=        | Show backlinks          |        |
-| ~g~   | =ogent-show-dependency-graph= | Dependency graph        |        |
-| ~o~   | =ogent-open-block=            | Open block              |        |
-| ~i~   | =ogent-issues=                | Issue tracker           |        |
-| ~S~   | =ogent-session-save=          | Save session            |        |
-| ~L~   | =ogent-session-load=          | Load session            |        |
-| ~H~   | =ogent-session-list=          | List sessions           |        |
-| ~RET~ | =ogent-run-subtree=           | Run subtree             | yes    |
-| ~!~   | =ogent-zen-rerun=             | Re-run at point         |        |
-| ~w~   | =ogent-zen-copy-response=     | Copy Zen response       |        |
-| ~u~   | =ogent-zen-dispatch=          | Zen menu                |        |
-| ~q~   | =ogent-ask-here=              | Ask here                | yes    |
-| ~C-r~ | =ogent-zen-run-region=        | Ask region              | yes    |
-| ~C-e~ | =ogent-zen-edit-dwim=         | Rewrite here            | yes    |
-| ~C-a~ | =ogent-zen-apply-last-edit=   | Apply last edit         |        |
-| ~?~   | =ogent-ask-menu=              | Ask menu                |        |
-| ~d~   | =ogent-notes-capture=         | Capture notes           |        |
-| ~D~   | =ogent-debug-mode=            | Toggle debug mode       |        |
-| ~j~   | =ogent-armory-home=           | Armory Home             |        |
-| ~K~   | =ogent-armory-status=         | Armory graph/status     |        |
-| ~y~   | =ogent-armory-agents=         | Armory agents           |        |
-| ~Y~   | =ogent-armory-agent=          | Armory agent profile    |        |
-| ~B~   | =ogent-armory-org-chart=      | Armory org chart        |        |
-| ~;~   | =ogent-armory-data=           | Armory data browser     |        |
-| ~I~   | =ogent-armory-tasks=          | Armory tasks            |        |
-| ~O~   | =ogent-armory-conversations=  | Armory conversations    |        |
-| ~N~   | =ogent-armory-actions=        | Armory action approvals |        |
-| ~J~   | =ogent-armory-schedule=       | Armory schedule         |        |
-| ~Q~   | =ogent-armory-agenda=         | Armory agenda           |        |
-| ~:~   | =ogent-armory-git-status=     | Armory git status       |        |
-| ~/~   | =ogent-armory-command-palette= | Armory command palette |        |
-| ~,~   | =ogent-armory-settings=       | Armory settings         |        |
-| ~.~   | =ogent-armory-help=           | Armory help             |        |
-| ~'~   | =ogent-armory-onboard=        | Onboard Armory          |        |
-| ~=~   | =ogent-armory-registry-import= | Import Armory registry |        |
-| ~_~   | =ogent-armory-backup=         | Back up Armory          |        |
-| ~V~   | =ogent-armory-search=         | Armory search           |        |
-| ~W~   | =ogent-armory-apps=           | Armory apps             |        |
-| ~X~   | =ogent-armory-create-agent=   | Create Armory agent     |        |
-| ~Z~   | =ogent-armory-create-job=     | Create Armory job       |        |
-| ~]~   | =ogent-completion-next=       | Next completion         |        |
-| ~[~   | =ogent-completion-prev=       | Previous completion     |        |
-| ~z~   | =ogent-completion-accept=     | Accept completion       |        |
-| ~x~   | =ogent-completion-reject=     | Reject completion       |        |
-| ~+~   | =ogent-analytics-rate-up=     | Rate thumbs up          |        |
-| ~-~   | =ogent-analytics-rate-down=   | Rate thumbs down        |        |
-| ~A~   | =ogent-analytics-dashboard=   | Analytics dashboard     |        |
+| Key   | Command                                  | Description                              | Visual |
+|-------+------------------------------------------+------------------------------------------+--------|
+| ~p~   | =ogent-prompt-dispatch=                  | Open prompt dispatcher                   |        |
+| ~r~   | =ogent-request=                          | Send request                             | yes    |
+| ~a~   | =ogent-abort-request=                    | Abort current request                    |        |
+| ~R~   | =ogent-retry-request=                    | Retry last request                       |        |
+| ~@~   | =ogent-model-picker=                     | Model picker                             |        |
+| ~C-f~ | =ogent-fanout=                           | Fan out to models (C-f: fan out)         | yes    |
+| ~C-k~ | =ogent-fanout-abort=                     | Abort fan-out group (C-k: kill)          |        |
+| ~C-d~ | =ogent-fanout-compare=                   | Compare fan-out responses (C-d: diff)    |        |
+| ~c~   | =ogent-context-preview=                  | Preview context                          |        |
+| ~m~   | =ogent-codemap-buffer=                   | Show static codemap                      |        |
+| ~M~   | =ogent-codemap-generate=                 | Generate task codemap                    |        |
+| ~P~   | =ogent-pin-dwim=                         | Pin file/buffer/region                   | yes    |
+| ~U~   | =ogent-unpin-interactive=                | Unpin item                               |        |
+| ~l~   | =ogent-list-pinned=                      | List pinned                              |        |
+| ~e~   | =ogent-edit-menu=                        | Edit menu                                |        |
+| ~v~   | =ogent-ai-speed-edit=                    | AI speed edit                            | yes    |
+| ~f~   | =ogent-fix-diagnostic=                   | Fix diagnostic                           | yes    |
+| ~F~   | =ogent-fix-buffer-diagnostics=           | Fix buffer diagnostics                   | yes    |
+| ~k~   | =ogent-quick-edit=                       | Quick inline edit                        | yes    |
+| ~E~   | =ogent-request-edit=                     | Request edit                             | yes    |
+| ~s~   | =ogent-edit-goto-source=                 | Go to source                             |        |
+| ~C~   | =ogent-edit-goto-companion=              | Go to companion                          |        |
+| ~t~   | =ogent-debug-tools-menu=                 | Tools debug menu                         |        |
+| ~T~   | =ogent-tool-rerun=                       | Re-run tool at point                     |        |
+| ~h~   | =ogent-zen-show-tool-calls=              | Tool calls under heading                 |        |
+| ~n~   | =ogent-navigate=                         | Navigate menu                            |        |
+| ~b~   | =ogent-show-backlinks=                   | Show backlinks                           |        |
+| ~g~   | =ogent-show-dependency-graph=            | Dependency graph                         |        |
+| ~o~   | =ogent-open-block=                       | Open block                               |        |
+| ~i~   | =ogent-issues=                           | Issue tracker                            |        |
+| ~S~   | =ogent-session-save=                     | Save session                             |        |
+| ~L~   | =ogent-session-load=                     | Load session                             |        |
+| ~H~   | =ogent-session-list=                     | List sessions                            |        |
+| ~RET~ | =ogent-run-subtree=                      | Run subtree                              | yes    |
+| ~!~   | =ogent-zen-rerun=                        | Re-run at point                          |        |
+| ~w~   | =ogent-zen-copy-response=                | Copy Zen response                        |        |
+| ~u~   | =ogent-zen-dispatch=                     | Zen menu                                 |        |
+| ~q~   | =ogent-ask-here=                         | Ask here                                 | yes    |
+| ~C-r~ | =ogent-zen-run-region=                   | Ask region                               | yes    |
+| ~C-e~ | =ogent-zen-edit-dwim=                    | Rewrite here                             | yes    |
+| ~C-a~ | =ogent-zen-apply-last-edit=              | Apply last edit                          |        |
+| ~?~   | =ogent-ask-menu=                         | Ask menu                                 |        |
+| ~d~   | =ogent-notes-capture=                    | Capture notes                            |        |
+| ~D~   | =ogent-debug-mode=                       | Toggle debug mode                        |        |
+| ~C-o~ | =ogent-onboard=                          | Provider setup wizard (C-o: onboard)     |        |
+| ~j~   | =ogent-armory-home=                      | Armory Home                              |        |
+| ~K~   | =ogent-armory-status=                    | Armory graph/status                      |        |
+| ~y~   | =ogent-armory-agents=                    | Armory agents                            |        |
+| ~Y~   | =ogent-armory-agent=                     | Armory agent profile                     |        |
+| ~B~   | =ogent-armory-org-chart=                 | Armory org chart                         |        |
+| ~;~   | =ogent-armory-data=                      | Armory data browser                      |        |
+| ~I~   | =ogent-armory-tasks=                     | Armory tasks                             |        |
+| ~O~   | =ogent-armory-conversations=             | Armory conversations                     |        |
+| ~N~   | =ogent-armory-actions=                   | Armory action approvals                  |        |
+| ~J~   | =ogent-armory-schedule=                  | Armory schedule                          |        |
+| ~Q~   | =ogent-armory-agenda=                    | Armory agenda                            |        |
+| ~:~   | =ogent-armory-git-status=                | Armory git status                        |        |
+| ~/~   | =ogent-armory-command-palette=           | Armory command palette                   |        |
+| ~,~   | =ogent-armory-settings=                  | Armory settings                          |        |
+| ~.~   | =ogent-armory-help=                      | Armory help                              |        |
+| ~'~   | =ogent-armory-onboard=                   | Onboard Armory                           |        |
+| ~=~   | =ogent-armory-registry-import=           | Import Armory registry                   |        |
+| ~_~   | =ogent-armory-backup=                    | Back up Armory                           |        |
+| ~V~   | =ogent-armory-search=                    | Armory search                            |        |
+| ~W~   | =ogent-armory-apps=                      | Armory apps                              |        |
+| ~X~   | =ogent-armory-create-agent=              | Create Armory agent                      |        |
+| ~Z~   | =ogent-armory-create-job=                | Create Armory job                        |        |
+| ~C-s~ | =ogent-armory-ql-search=                 | Armory QL search (C-s: search)           |        |
+| ~C-v~ | =ogent-armory-ql-view=                   | Armory QL saved view (C-v: view)         |        |
+| ~C-p~ | =ogent-armory-agenda-control-plane=      | Armory control plane (C-p: plane)        |        |
+| ~]~   | =ogent-completion-next=                  | Next completion                          |        |
+| ~[~   | =ogent-completion-prev=                  | Previous completion                      |        |
+| ~z~   | =ogent-completion-accept=                | Accept completion                        |        |
+| ~x~   | =ogent-completion-reject=                | Reject completion                        |        |
+| ~+~   | =ogent-analytics-rate-up=                | Rate thumbs up                           |        |
+| ~-~   | =ogent-analytics-rate-down=              | Rate thumbs down                         |        |
+| ~*~   | =ogent-analytics-rate-response=          | Rate response 1-5 (*: stars)             |        |
+| ~A~   | =ogent-analytics-dashboard=              | Analytics dashboard                      |        |
+| ~C-x~ | =ogent-export-conversation=              | Export conversation (C-x: eXport)        |        |
+| ~C-w~ | =ogent-export-conversation-to-kill-ring= | Copy conversation export (C-w: like M-w) |        |
 
 ** Review Registry (=ogent-review-action-registry=, prefix =C-c ,=)
-| Key | Command                  | Description          |
-|-----+--------------------------+----------------------|
-| ~n~ | =ogent-review-next=      | Next review item     |
-| ~p~ | =ogent-review-previous=  | Previous review item |
-| ~a~ | =ogent-review-accept=    | Accept current item  |
-| ~x~ | =ogent-review-reject=    | Reject current item  |
-| ~u~ | =ogent-review-useful=    | Mark useful          |
-| ~m~ | =ogent-review-defer=     | Needs review         |
-| ~s~ | =ogent-review-stale=     | Mark stale           |
-| ~d~ | =ogent-review-dashboard= | Review dashboard     |
+| Key | Command                  | Description           |
+|-----+--------------------------+-----------------------|
+| ~n~ | =ogent-review-next=      | Next review item      |
+| ~p~ | =ogent-review-previous=  | Previous review item  |
+| ~a~ | =ogent-review-accept=    | Accept current item   |
+| ~x~ | =ogent-review-reject=    | Reject current item   |
+| ~u~ | =ogent-review-useful=    | Mark useful           |
+| ~m~ | =ogent-review-defer=     | Needs review          |
+| ~s~ | =ogent-review-stale=     | Mark stale            |
+| ~d~ | =ogent-review-dashboard= | Review dashboard      |
 | ~.~ | =ogent-review-describe=  | Describe review state |
 
 * File Organization

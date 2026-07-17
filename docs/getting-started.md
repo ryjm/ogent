@@ -281,6 +281,9 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `r` | `C-c . r` | `SPC o r` | Send request |
 | `a` | `C-c . a` | `SPC o a` | Abort request |
 | `R` | `C-c . R` | `SPC o R` | Retry last request |
+| `C-f` | `C-c . C-f` | `SPC o C-f` | Fan out to multiple models |
+| `C-k` | `C-c . C-k` | `SPC o C-k` | Abort fan-out group |
+| `C-d` | `C-c . C-d` | `SPC o C-d` | Compare fan-out responses |
 | `w` | `C-c . w` | `SPC o w` | Copy Zen response body |
 | `u` | `C-c . u` | `SPC o u` | Review Zen request/response |
 | `C-r` | `C-c . C-r` | `SPC o C-r` | Ask about selected text |
@@ -305,10 +308,17 @@ ogent uses `C-c .` as the prefix for vanilla Emacs and `SPC o` for Doom/Evil.
 | `q` | `C-c . q` | `SPC o q` | Ask here; insert Request/Response |
 | `?` | `C-c . ?` | `SPC o ?` | Contextual ask menu |
 | `D` | `C-c . D` | `SPC o D` | Toggle debug mode |
+| `C-o` | `C-c . C-o` | `SPC o C-o` | Provider setup wizard |
+| `C-s` | `C-c . C-s` | `SPC o C-s` | Armory QL search |
+| `C-v` | `C-c . C-v` | `SPC o C-v` | Armory QL saved view |
+| `C-p` | `C-c . C-p` | `SPC o C-p` | Armory agenda control plane |
 | `]` | `C-c . ]` | `SPC o ]` | Next completion |
 | `[` | `C-c . [` | `SPC o [` | Previous completion |
 | `z` | `C-c . z` | `SPC o z` | Accept completion |
 | `x` | `C-c . x` | `SPC o x` | Reject completion |
+| `*` | `C-c . *` | `SPC o *` | Rate response 1-5 |
+| `C-x` | `C-c . C-x` | `SPC o C-x` | Export conversation to buffer |
+| `C-w` | `C-c . C-w` | `SPC o C-w` | Copy conversation export |
 
 Review prefix (`C-c ,`) works in both vanilla Emacs and Doom/Evil:
 
@@ -346,14 +356,17 @@ targets (your own colliding keys always win).
 ### Exporting a conversation as a shareable document
 
 With point anywhere inside an agent conversation subtree,
-`M-x ogent-export-conversation` exports it as clean Markdown: `OGENT_*`
+`M-x ogent-export-conversation` (`C-c . C-x` / `SPC o C-x`) exports it as
+clean Markdown: `OGENT_*`
 property drawers are stripped, request/response headlines become `## User` /
 `## <model>` sections, and source blocks stay fenced. The result opens in a
 buffer; with a prefix argument (`C-u`) it is written as a `.md` file beside
 the Org file. Once `ox-ogent` is loaded, the regular `C-c C-e` export
 dispatcher also offers `g m` (Markdown) and `g h` (HTML); both locate the
 enclosing conversation subtree automatically, even from inside a
-request/response child.
+request/response child. To copy the export straight to the kill ring
+instead, use `C-c . C-w` / `SPC o C-w`
+(`ogent-export-conversation-to-kill-ring`).
 
 ### Armory extras
 

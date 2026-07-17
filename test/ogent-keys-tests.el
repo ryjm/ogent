@@ -583,5 +583,564 @@ so the `ogent-keys-reserved-chords-stay-free' guard retired with it."
                (full-key (kbd (concat "C-c . " key))))
           (should (eq (lookup-key map full-key) cmd)))))))
 
+;;; Autoload Completeness Regression (bead ogent-jk5.4)
+;;
+;; The load-bearing guard: every `;;;###autoload'-ed interactive command
+;; under lisp/ must be reachable through one of five destinations:
+;;   1. `ogent-action-registry'
+;;   2. `ogent-review-action-registry'
+;;   3. a Transient menu suffix (static walk of `transient-define-prefix'
+;;      and `ogent-armory-ui--define-prefix' forms, including the jump
+;;      group the Armory macro splices into every expansion)
+;;   4. the C-c C-e export dispatcher (:menu-entry in lisp/ox-ogent.el)
+;;   5. the documented exemption list below, each entry carrying a reason
+;; Anything else is a command we shipped and forgot to wire.
+
+(defconst ogent-keys-tests--completeness-exemptions
+  '(;; inline-diff.el
+    (inline-diff-clear
+     . "Programmatic cleanup used by the edit display pipeline; M-x escape hatch for stray overlays")
+    (inline-diff-mode
+     . "Minor-mode toggle; enabled programmatically by the Zen inline-edit pipeline")
+    ;; ogent-analytics.el
+    (ogent-analytics-export-csv
+     . "Bound to `e' in the analytics dashboard keymap; dashboard is registry `A'")
+    (ogent-analytics-export-org
+     . "Bound to `o' in the analytics dashboard keymap; dashboard is registry `A'")
+    ;; ogent-anthropic-oauth.el
+    (ogent-anthropic-login
+     . "Invoked by the onboarding wizard (registry C-o); documented M-x login (docs/gptel-integration.org)")
+    (ogent-anthropic-logout
+     . "Documented M-x auth maintenance (specs/gptel-integration.org)")
+    (ogent-anthropic-status
+     . "Documented M-x auth diagnostic (specs/gptel-integration.org)")
+    (ogent-claude-code-login
+     . "Invoked by the onboarding wizard provider table; documented M-x (docs/gptel-integration.org)")
+    (ogent-claude-code-logout
+     . "Documented M-x auth maintenance (docs/getting-started.md)")
+    (ogent-claude-code-status
+     . "Documented M-x auth diagnostic (docs/gptel-integration.org)")
+    ;; ogent-armory-adapter.el
+    (ogent-armory-providers
+     . "Documented M-x provider browser (docs/armory.org, specs/armory-parity.org)")
+    (ogent-armory-provider-verify
+     . "Bound to `v'/`C-c v'/RET in the providers buffer keymap")
+    (ogent-armory-adapter-ground
+     . "Documented M-x maintenance refreshing the checked-in CLI-help ground snapshots")
+    ;; ogent-armory-compose.el
+    (ogent-armory-compose
+     . "Backend invoked by agent compose flows (agents dispatch row); documented in docs/armory.org")
+    (ogent-armory-compose-buffer
+     . "Documented M-x compose entry (docs/armory.org, specs/armory-org-os.org)")
+    ;; ogent-armory-data.el
+    (ogent-armory-page-create
+     . "Backend for the data browser buffer commands; data browser is registry `;'")
+    (ogent-armory-page-rename
+     . "Backend for the data browser buffer commands; data browser is registry `;'")
+    (ogent-armory-page-move
+     . "Backend for the data browser buffer commands; data browser is registry `;'")
+    (ogent-armory-page-delete
+     . "Backend for the data browser buffer commands; data browser is registry `;'")
+    (ogent-armory-page-export
+     . "Backend for the data browser buffer commands; data browser is registry `;'")
+    (ogent-armory-open-file
+     . "Backend called by the data browser, palette, and apps open commands")
+    ;; ogent-armory-git.el
+    (ogent-armory-git-log-page
+     . "Backend for the git-status buffer's log-at-point command; git status is registry `:'")
+    (ogent-armory-git-diff-page
+     . "Backend for the git-status buffer's diff-at-point command; git status is registry `:'")
+    (ogent-armory-git-restore-page
+     . "Backend for the git-status buffer's restore-at-point command; git status is registry `:'")
+    (ogent-armory-git-commit
+     . "Backend for the git-status buffer's commit-from-status command; git status is registry `:'")
+    (ogent-armory-git-pull
+     . "UNWIRED (jk5.4 audit): named in specs/armory-parity.org but no chord, transient row, or buffer key reaches it")
+    ;; ogent-armory-runner.el
+    (ogent-armory-run-agent
+     . "Backend run entry invoked from status/agent/agents/conversations dispatch rows")
+    (ogent-armory-run-job
+     . "Backend run entry invoked from schedule and status/agent dispatch rows")
+    ;; ogent-armory-schedule.el
+    (ogent-armory-scheduler-mode
+     . "Minor-mode toggle arming the scheduler tick; enabled from config")
+    ;; ogent-armory-settings.el
+    (ogent-armory-settings-export
+     . "Invoked from the settings buffer flow; settings is registry `,'")
+    (ogent-armory-settings-import
+     . "Invoked from the settings buffer flow; settings is registry `,'")
+    (ogent-armory-registry-import-into
+     . "Palette action target (:command row in ogent-armory-palette.el); palette is registry `/'")
+    (ogent-armory-demo
+     . "Bound to `d'/`C-c d' in the settings buffer keymap and advertised in its help text")
+    ;; ogent-armory-skills.el
+    (ogent-armory-skills
+     . "Documented M-x skills browser (docs/how-it-works.org, docs/armory.org)")
+    ;; ogent-armory-status.el
+    (ogent-armory-status-dispatch
+     . "Transient prefix itself; bound to `?' in the Armory status buffer keymap")
+    ;; ogent-armory.el
+    (ogent-armory-scaffold
+     . "Backend called by settings/onboard scaffolding flows")
+    ;; ogent-codemap-task.el / ogent-codemap.el
+    (ogent-codemap-regenerate
+     . "M-x maintenance escape hatch: force task-codemap cache rebuild (registry `M' generates)")
+    (ogent-codemap-refresh
+     . "Idle-timer callback for codemap refresh-on-save; also M-x refresh")
+    (ogent-codemap-refresh-full
+     . "M-x maintenance escape hatch: full re-render bypassing incremental refresh")
+    (ogent-codemap-changes
+     . "M-x maintenance view of changed-file codemap deltas")
+    ;; ogent-codex-oauth.el
+    (ogent-codex-login
+     . "Invoked by the onboarding wizard provider table; documented M-x (README.org)")
+    (ogent-codex-login-device
+     . "Documented M-x device-code login for headless setups (docs/getting-started.md, README.org)")
+    (ogent-codex-status
+     . "Documented M-x auth diagnostic (README.org, docs/gptel-integration.org)")
+    (ogent-codex-logout
+     . "Documented M-x auth maintenance (README.org, docs/how-it-works.org)")
+    ;; ogent-companion.el
+    (ogent-companion-display
+     . "Documented M-x companion viewer (docs/doom-emacs.md)")
+    (ogent-companion-enable-persistence
+     . "Invoked by the `ogent-mode' activation path; M-x opt-in")
+    (ogent-companion-save-link
+     . "Companion link maintenance, M-x-only by design (persistence plumbing)")
+    (ogent-companion-rebind
+     . "Companion link maintenance, M-x-only by design (persistence plumbing)")
+    (ogent-companion-unlink
+     . "Companion link maintenance, M-x-only by design (persistence plumbing)")
+    ;; ogent-context.el
+    (ogent-pin-file
+     . "Subsumed by `ogent-pin-dwim' (registry `P'), which dispatches to it")
+    (ogent-pin-buffer
+     . "Subsumed by `ogent-pin-dwim' (registry `P'), which dispatches to it")
+    (ogent-pin-region
+     . "Subsumed by `ogent-pin-dwim' (registry `P'), which dispatches to it")
+    (ogent-unpin-all
+     . "Bulk variant of `ogent-unpin-interactive' (registry `U'); M-x-only by design")
+    ;; ogent-core.el
+    (ogent-mode
+     . "Minor-mode toggle: the ogent entry mode itself")
+    (ogent-global-mode
+     . "Globalized minor-mode toggle")
+    (ogent-session-prompt-from-question
+     . "Programmatic step in the core question flow (ogent-core.el call site)")
+    ;; ogent-debug.el
+    (ogent-debug-enable
+     . "Programmatic half of `ogent-debug-mode' (registry `D')")
+    (ogent-debug-disable
+     . "Programmatic half of `ogent-debug-mode' (registry `D')")
+    (ogent-debug-toggle
+     . "Subsumed by `ogent-debug-mode' (registry `D')")
+    (ogent-debug-show
+     . "Bound to `C-c d s' in the debug minor-mode keymap")
+    (ogent-debug-clear
+     . "Bound to `C-c d c' in the debug minor-mode keymap")
+    ;; ogent-doctor.el
+    (ogent-doctor
+     . "Documented M-x diagnostic (README.org)")
+    ;; ogent-edit-display.el
+    (ogent-edit-toggle-display-method
+     . "Bound to `t' in the edit overlay and diff-preview keymaps")
+    ;; ogent-issues-bd.el / ogent-issues-transient.el
+    (ogent-issues-agenda
+     . "Documented M-x org-agenda bridge (docs/how-it-works.org)")
+    (ogent-issues-dispatch
+     . "Transient prefix itself; bound to `?'/`h' in the issues buffer keymap")
+    ;; ogent-keys.el
+    (ogent-setup-doom-bindings
+     . "Setup fn (ogent-setup-*) run at load/init time, never a chord target")
+    ;; ogent-mcp.el
+    (ogent-mcp-connect
+     . "Invoked by the doctor and MCP auto-connect flows; M-x per-server connect")
+    (ogent-mcp-disconnect
+     . "Invoked by the doctor and MCP teardown flows; M-x per-server disconnect")
+    (ogent-mcp-list-connections
+     . "Documented M-x MCP diagnostic (docs/how-it-works.org)")
+    (ogent-mcp-connect-all
+     . "Run from the MCP auto-connect init timer; M-x bulk connect")
+    ;; ogent-notes.el
+    (ogent-notes-enable-tracking
+     . "Invoked by the `ogent-mode' activation path; M-x opt-in")
+    (ogent-notes-disable-tracking
+     . "M-x opt-out pair of `ogent-notes-enable-tracking'")
+    ;; ogent-onboard.el
+    (ogent-onboard-login-different-provider
+     . "Invoked by the provider-fallback flow (ogent-provider-fallback.el)")
+    (ogent-onboard-add-provider
+     . "UNWIRED (jk5.4 audit): post-setup provider add; nothing references it - not the wizard, a chord, or any doc")
+    (ogent-recompile
+     . "Dev utility, documented M-x (docs/getting-started.md, docs/doom-emacs.md)")
+    (ogent-reload
+     . "Dev utility, documented M-x (docs/getting-started.md)")
+    ;; ogent-presets.el
+    (ogent-presets-configure
+     . "Documented M-x preset management (docs/how-it-works.org)")
+    (ogent-presets-show
+     . "Documented M-x preset inspection (docs/how-it-works.org)")
+    (ogent-presets-mode
+     . "Minor-mode toggle; enabled from config")
+    ;; ogent-prompts-yasnippet.el
+    (ogent-prompts-yasnippet-mode
+     . "Minor-mode toggle; enabled from config")
+    ;; ogent-session.el
+    (ogent-history
+     . "Documented M-x session history browser (docs/how-it-works.org)")
+    (ogent-history-search
+     . "Bound to `s'/`/' in the history buffer keymap")
+    (ogent-session-search
+     . "Documented M-x session search (docs/how-it-works.org)")
+    (ogent-session-create-roam-note
+     . "Org-roam integration, M-x-only (requires org-roam; specs/armory-parity.org)")
+    ;; ogent-zen.el / ogent-zen-edit.el
+    (ogent-zen-accept-edit
+     . "Documented M-x wrapper (docs/getting-started.md, README.org); `C-c C-c' in `inline-diff-mode-map' is the chord path")
+    (ogent-zen-reject-edit
+     . "Documented M-x wrapper (docs/getting-started.md, README.org); `C-c C-k' in `inline-diff-mode-map' is the chord path")
+    (ogent-zen-mode
+     . "Minor-mode toggle; enabled by `ogent-mode' when Zen is active")
+    (global-ogent-zen-mode
+     . "Globalized minor-mode toggle")
+    (ogent-zen-set-review
+     . "UNWIRED (jk5.4 audit): interactive review-state setter with zero references; the review menu uses internal --review-menu-mark commands instead")
+    (ogent-zen-review-menu
+     . "Transient prefix itself; bound to `u' on Zen heading overlays (`ogent-zen--heading-overlay-map')")
+    (ogent-zen-accept-response
+     . "Backend invoked by `ogent-review-accept' / `ogent-completion-accept' (registry `z', review `a')")
+    (ogent-zen-reject-response
+     . "Backend invoked by the completion/review reject path")
+    (ogent-zen-mark-superseded
+     . "UNWIRED (jk5.4 audit): review state absent from zen-dispatch, review menu, and dashboard dispatch rows")
+    (ogent-zen-mark-failed
+     . "UNWIRED (jk5.4 audit): review state absent from zen-dispatch, review menu, and dashboard dispatch rows")
+    (ogent-review-dashboard-dispatch
+     . "Transient prefix itself; bound to `?' in the review dashboard keymap")
+    (ogent-zen-edit-region
+     . "Explicit-scope variant of `ogent-zen-edit-dwim' (registry C-e); M-x-only by design")
+    (ogent-zen-rewrite-paragraph
+     . "Explicit-scope variant of `ogent-zen-edit-dwim' (registry C-e); M-x-only by design")
+    (ogent-zen-rewrite-sentence
+     . "Explicit-scope variant of `ogent-zen-edit-dwim' (registry C-e); M-x-only by design")
+    ;; lisp/ui/ogent-ui-armory*.el
+    (ogent-armory-home-dispatch
+     . "Transient prefix itself; bound to `?' in the Armory Home buffer keymap")
+    (ogent-armory-clone-agent
+     . "UNWIRED (jk5.4 audit): spec'd in specs/armory-org-os.org but no dispatch row or chord reaches it")
+    (ogent-armory-archive-agent
+     . "UNWIRED (jk5.4 audit): spec'd in specs/armory-org-os.org but no dispatch row or chord reaches it")
+    (ogent-armory-conversation
+     . "Backend detail view opened from the conversations list, home, and status surfaces")
+    (ogent-armory-open-app
+     . "UNWIRED (jk5.4 audit): zero references; the apps dispatch row uses `ogent-armory-apps-open' instead")
+    ;; lisp/ui/ogent-ui-*.el
+    (ogent-backlinks-at-point
+     . "UNWIRED (jk5.4 audit): zero references; possibly subsumed by `ogent-show-backlinks' (registry `b')")
+    (ogent-context-manage
+     . "Documented M-x context manager (docs/how-it-works.org)")
+    (ogent-fanout-keep
+     . "UNWIRED (jk5.4 audit): fan-out winner-keeper; C-f/C-k/C-d are wired but keep has no chord or compare-buffer key")
+    (ogent-status-mode
+     . "Minor-mode toggle; enabled programmatically by status surfaces")
+    (ogent-show-errors
+     . "Documented M-x error log viewer (docs/how-it-works.org, specs/gptel-integration.org)")
+    (ogent-clear-errors
+     . "M-x pair of `ogent-show-errors' (specs/gptel-integration.org)")
+    (ogent-pause-request
+     . "M-x flow control; the pause message hints the resume command")
+    (ogent-resume-request
+     . "M-x flow control; advertised by the pause message hint (ogent-ui-engine.el)"))
+  "Autoloaded interactive commands exempt from the wiring requirement.
+Each entry is (COMMAND . REASON).  Entries whose reason starts with
+\"UNWIRED\" are known gaps recorded by the ogent-jk5.4 audit: they keep
+the suite green while staying loudly documented until a wiring bead
+lands.  Every other reason names the concrete path (mode toggle, buffer
+keymap, programmatic caller, or doc) that makes a chord unnecessary.")
+
+(defconst ogent-keys-tests--expected-transient-prefixes
+  '(ogent-debug-tools-menu
+    ogent-edit-menu
+    ogent-issues-dispatch
+    ogent-zen-review-menu
+    ogent-zen-dispatch
+    ogent-review-dashboard-dispatch
+    ogent-armory-status-dispatch
+    ogent-armory-home-dispatch
+    ogent-ask-menu
+    ogent-prompt-dispatch
+    ogent-navigate
+    ogent-model-picker)
+  "Transient prefixes the static source walk must discover.
+Guards the walker itself: if parsing breaks, these disappear and the
+completeness test would silently stop seeing transient-reachable
+commands.")
+
+(defun ogent-keys-tests--lisp-files ()
+  "Return every .el source under lisp/, sorted for determinism."
+  (sort (directory-files-recursively
+         (expand-file-name "lisp" ogent-project-root) "\\.el\\'")
+        #'string<))
+
+(defun ogent-keys-tests--defun-interactive-p (form)
+  "Return non-nil when defun-style FORM has a top-level interactive spec."
+  (let ((body (nthcdr 3 form))
+        found)
+    (while (and body (not found))
+      (let ((element (pop body)))
+        (when (and (consp element) (eq (car element) 'interactive))
+          (setq found t))))
+    found))
+
+(defun ogent-keys-tests--autoload-commands ()
+  "Return an alist of (COMMAND . FILE) for autoloaded interactive commands.
+Scans every lisp/ source for `;;;###autoload' cookies.  A bare cookie
+claims the next form: defun-style forms count when they declare
+\(interactive ...), mode and Transient definitions are interactive by
+construction.  A cookie carrying an explicit (autoload NAME FILE DOC
+INTERACTIVE) form counts when INTERACTIVE is non-nil."
+  (let (commands)
+    (dolist (file (ogent-keys-tests--lisp-files))
+      (let ((base (file-name-nondirectory file)))
+        (with-temp-buffer
+          (insert-file-contents file)
+          (goto-char (point-min))
+          (while (re-search-forward "^;;;###autoload\\(.*\\)$" nil t)
+            (let ((inline (string-trim (match-string 1))))
+              (if (> (length inline) 0)
+                  (let ((form (ignore-errors (car (read-from-string inline)))))
+                    (when (and (consp form)
+                               (eq (car form) 'autoload)
+                               (nth 4 form))
+                      (let ((name (cadr (nth 1 form))))
+                        (unless (assq name commands)
+                          (push (cons name base) commands)))))
+                (let ((form (ignore-errors (read (current-buffer)))))
+                  (when (and (consp form)
+                             (symbolp (nth 1 form))
+                             (or (memq (car form)
+                                       '(define-minor-mode
+                                          define-globalized-minor-mode
+                                          transient-define-prefix
+                                          ogent-armory-ui--define-prefix))
+                                 (and (memq (car form) '(defun cl-defun))
+                                      (ogent-keys-tests--defun-interactive-p
+                                       form))))
+                    (let ((name (nth 1 form)))
+                      (unless (assq name commands)
+                        (push (cons name base) commands)))))))))))
+    (nreverse commands)))
+
+(defun ogent-keys-tests--transient-suffix-commands (spec)
+  "Return the command symbols named by Transient suffix SPEC.
+Skips strings and keyword arguments; a keyword consumes its value,
+except `:command' whose symbol value is collected."
+  (let (acc)
+    (while spec
+      (let ((element (pop spec)))
+        (cond
+         ((keywordp element)
+          (let ((value (pop spec)))
+            (when (and (eq element :command) value (symbolp value))
+              (push value acc))))
+         ((and element (symbolp element) (not (eq element t)))
+          (push element acc)))))
+    acc))
+
+(defun ogent-keys-tests--transient-group-commands (group)
+  "Return the command symbols reachable in Transient GROUP vector."
+  (let ((elements (append group nil))
+        acc)
+    (while elements
+      (let ((element (pop elements)))
+        (cond
+         ((keywordp element) (pop elements))
+         ((stringp element) nil)
+         ((vectorp element)
+          (setq acc (nconc (ogent-keys-tests--transient-group-commands
+                            element)
+                           acc)))
+         ((consp element)
+          (setq acc (nconc (ogent-keys-tests--transient-suffix-commands
+                            element)
+                           acc))))))
+    acc))
+
+(defun ogent-keys-tests--deep-vector-commands (tree)
+  "Collect Transient group commands from every vector inside TREE.
+Used on the `ogent-armory-ui--define-prefix' macro definition, whose
+template splices a literal jump group into every expansion."
+  (cond
+   ((vectorp tree) (ogent-keys-tests--transient-group-commands tree))
+   ((consp tree)
+    (nconc (ogent-keys-tests--deep-vector-commands (car tree))
+           (ogent-keys-tests--deep-vector-commands (cdr tree))))
+   (t nil)))
+
+(defun ogent-keys-tests--transient-reachable ()
+  "Walk lisp/ sources for Transient prefixes; return (COMMANDS . PREFIXES).
+COMMANDS is every suffix command reachable from some prefix, PREFIXES
+the prefix names discovered.  The prefix body begins after NAME +
+ARGLIST + optional DOCSTRING: step `cddr' from the arglist position
+when a docstring is present (`cdddr' there would swallow the docstring
+and mis-read the body as suffix specs), `cdr' when absent."
+  (let (commands prefixes)
+    (dolist (file (ogent-keys-tests--lisp-files))
+      (with-temp-buffer
+        (insert-file-contents file)
+        (goto-char (point-min))
+        (condition-case nil
+            (while t
+              (let ((form (read (current-buffer))))
+                (cond
+                 ((and (consp form)
+                       (memq (car form) '(transient-define-prefix
+                                          ogent-armory-ui--define-prefix)))
+                  (push (nth 1 form) prefixes)
+                  (let* ((rest (nthcdr 2 form))
+                         (body (if (stringp (cadr rest))
+                                   (cddr rest)
+                                 (cdr rest))))
+                    (while body
+                      (let ((element (pop body)))
+                        (cond
+                         ((keywordp element) (pop body))
+                         ((vectorp element)
+                          (setq commands
+                                (nconc
+                                 (ogent-keys-tests--transient-group-commands
+                                  element)
+                                 commands))))))))
+                 ((and (consp form)
+                       (eq (car form) 'defmacro)
+                       (eq (nth 1 form) 'ogent-armory-ui--define-prefix))
+                  (setq commands
+                        (nconc (ogent-keys-tests--deep-vector-commands form)
+                               commands))))))
+          (end-of-file nil))))
+    (cons (delete-dups commands) (nreverse prefixes))))
+
+(defun ogent-keys-tests--export-dispatcher-commands ()
+  "Return commands reachable from the C-c C-e export dispatcher.
+Reads the `:menu-entry' of every `org-export-define-derived-backend'
+form in lisp/ox-ogent.el."
+  (let (commands)
+    (with-temp-buffer
+      (insert-file-contents
+       (expand-file-name "lisp/ox-ogent.el" ogent-project-root))
+      (goto-char (point-min))
+      (condition-case nil
+          (while t
+            (let ((form (read (current-buffer))))
+              (when (and (consp form)
+                         (eq (car form) 'org-export-define-derived-backend))
+                (let ((menu (plist-get (nthcdr 3 form) :menu-entry)))
+                  (when (eq (car-safe menu) 'quote)
+                    (setq menu (cadr menu)))
+                  (dolist (entry (nth 2 menu))
+                    (let ((command (nth 2 entry)))
+                      (when (and command (symbolp command))
+                        (push command commands))))))))
+        (end-of-file nil)))
+    commands))
+
+(defun ogent-keys-tests--registry-commands (registry)
+  "Return the :command symbols of every entry in REGISTRY."
+  (mapcar (lambda (entry) (plist-get (cdr entry) :command)) registry))
+
+(ert-deftest ogent-keys-autoload-completeness ()
+  "Every autoloaded interactive command is wired or documented exempt.
+The failure message names each unwired command and the five accepted
+destinations."
+  (let ((registry (ogent-keys-tests--registry-commands
+                   ogent-action-registry))
+        (review (ogent-keys-tests--registry-commands
+                 ogent-review-action-registry))
+        (transient (car (ogent-keys-tests--transient-reachable)))
+        (export (ogent-keys-tests--export-dispatcher-commands))
+        unwired)
+    (dolist (pair (ogent-keys-tests--autoload-commands))
+      (let ((command (car pair)))
+        (unless (or (memq command registry)
+                    (memq command review)
+                    (memq command transient)
+                    (memq command export)
+                    (assq command
+                          ogent-keys-tests--completeness-exemptions))
+          (push pair unwired))))
+    (when unwired
+      (ert-fail
+       (format
+        (concat
+         "%d autoloaded interactive command(s) reachable via none of the "
+         "five accepted destinations:\n%s\n"
+         "Destinations: (1) `ogent-action-registry', "
+         "(2) `ogent-review-action-registry', "
+         "(3) a Transient menu suffix (static walk of "
+         "`transient-define-prefix' / `ogent-armory-ui--define-prefix' "
+         "forms under lisp/), "
+         "(4) the C-c C-e export dispatcher (:menu-entry in "
+         "lisp/ox-ogent.el), "
+         "(5) the documented exemption list "
+         "`ogent-keys-tests--completeness-exemptions'.\n"
+         "Wire each command into one of the first four or add an "
+         "exemption entry with a reason.")
+        (length unwired)
+        (mapconcat (lambda (pair)
+                     (format "  %s (%s)" (car pair) (cdr pair)))
+                   (nreverse unwired) "\n"))))))
+
+(ert-deftest ogent-keys-completeness-exemptions-are-justified ()
+  "Exemption entries are unique, reasoned, current, and not redundant.
+Every exemption must name a command that still exists as an autoloaded
+interactive command (no rot), carry a non-empty reason string, and not
+duplicate coverage a wired destination already provides."
+  (let ((autoloads (mapcar #'car (ogent-keys-tests--autoload-commands)))
+        (registry (ogent-keys-tests--registry-commands
+                   ogent-action-registry))
+        (review (ogent-keys-tests--registry-commands
+                 ogent-review-action-registry))
+        (transient (car (ogent-keys-tests--transient-reachable)))
+        (export (ogent-keys-tests--export-dispatcher-commands))
+        (seen (make-hash-table :test #'eq)))
+    (dolist (entry ogent-keys-tests--completeness-exemptions)
+      (let ((command (car entry))
+            (reason (cdr entry)))
+        (should (symbolp command))
+        (should (stringp reason))
+        (should (> (length reason) 0))
+        (when (gethash command seen)
+          (ert-fail (format "Duplicate exemption entry: %s" command)))
+        (puthash command t seen)
+        (unless (memq command autoloads)
+          (ert-fail
+           (format "Stale exemption: %s is no longer an autoloaded interactive command"
+                   command)))
+        (when (or (memq command registry)
+                  (memq command review)
+                  (memq command transient)
+                  (memq command export))
+          (ert-fail
+           (format
+            "Stale exemption: %s is now reachable via a wired destination (registry/review/transient/export) - delete its exemption entry"
+            command)))))))
+
+(ert-deftest ogent-keys-completeness-walker-finds-core-prefixes ()
+  "The static Transient walk discovers every expected core prefix.
+Guards against silent walker breakage emptying the transient-reachable
+destination."
+  (let* ((walk (ogent-keys-tests--transient-reachable))
+         (commands (car walk))
+         (prefixes (cdr walk)))
+    (dolist (prefix ogent-keys-tests--expected-transient-prefixes)
+      (should (memq prefix prefixes)))
+    ;; The Armory macro's spliced jump group must be harvested too:
+    ;; `ogent-armory-jobs' is only reachable through it.
+    (should (memq 'ogent-armory-jobs commands))
+    ;; Suffix commands from a plain prefix body prove the body walk
+    ;; starts after the docstring rather than swallowing it.
+    (should (memq 'ogent-debug-tool-history-buffer commands))
+    (should (memq 'ogent-issues-create-quick commands))))
+
 (provide 'ogent-keys-tests)
 ;;; ogent-keys-tests.el ends here
