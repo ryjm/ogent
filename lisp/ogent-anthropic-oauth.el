@@ -36,6 +36,7 @@
 (declare-function gptel-backend-header "ext:gptel-request" t t)
 (declare-function gptel-curl--get-args "ext:gptel-curl")
 (declare-function gptel--request-data "ext:gptel-request")
+(declare-function gptel-backend-name "ext:gptel-request" t t)
 (declare-function gptel-anthropic-p "ext:gptel-anthropic" t t)
 (declare-function gptel--get-api-key "ext:gptel-request")
 (defvar gptel-backend)
@@ -580,13 +581,27 @@ MODE defaults to `max' for Claude Pro/Max subscriptions."
   "Dynamic `header' function for an OAuth Anthropic backend.
 Return Bearer OAuth headers when OAuth is active, otherwise the standard
 x-api-key headers (matching gptel's default).  gptel now calls the
-backend `header' with an INFO argument, so we accept and ignore any args."
+backend `header' with an INFO argument, so we accept and ignore any args.
+
+Signal when neither path yields credentials.  The first OAuth request
+through a backend installs this function on it permanently (see
+`ogent-anthropic-oauth--install-backend-header'), so a later token
+expiry lands here - and on an OAuth-only backend there is no API key to
+fall back on.  Returning nil there would ship an unauthenticated request
+and surface as an opaque 401 instead of naming the fix."
   (if (ogent-anthropic-oauth--using-oauth-for-gptel-p)
       (ogent-anthropic-oauth--get-oauth-headers-for-gptel)
-    (when-let* ((key (ignore-errors (gptel--get-api-key))))
-      `(("x-api-key" . ,key)
-        ("anthropic-version" . "2023-06-01")
-        ("anthropic-beta" . "extended-cache-ttl-2025-04-11")))))
+    (if-let* ((key (ignore-errors (gptel--get-api-key))))
+        `(("x-api-key" . ,key)
+          ("anthropic-version" . "2023-06-01")
+          ("anthropic-beta" . "extended-cache-ttl-2025-04-11"))
+      (user-error
+       "Anthropic auth unavailable for %s: no OAuth token and no API key.  Run M-x ogent-claude-code-login"
+       (or (and (boundp 'gptel-backend)
+                gptel-backend
+                (fboundp 'gptel-backend-name)
+                (ignore-errors (gptel-backend-name gptel-backend)))
+           "the current backend")))))
 
 (defun ogent-anthropic-oauth--install-backend-header (backend)
   "Permanently set BACKEND's `header' slot to the OAuth-aware function.

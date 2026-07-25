@@ -90,6 +90,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ogent-model-unpin` is scope-aware: it deletes a direct heading pin
   silently, asks before removing an inherited ancestor pin or the
   file-wide keyword at its source, and works under subtree narrowing.
+- An Anthropic backend with neither a live OAuth token nor a resolvable
+  API key now signals `Anthropic auth unavailable for <backend>` and
+  names `M-x ogent-claude-code-login`, instead of returning no headers
+  and letting the request come back as an opaque 401.  This is the state
+  a dedicated OAuth-only backend reaches when its token expires:
+  `ogent-anthropic-oauth--install-backend-header' installs the shared
+  header function permanently on the first OAuth request, and its
+  non-OAuth branch previously swallowed the missing-key error.  The
+  x-api-key branch is untouched for backends that really do have a key.
 - Requests to the `gpt-5.6` family no longer fail with `400 Function
   tools with reasoning_effort are not supported for <model> in
   /v1/chat/completions`.  The three `gpt-5.6` registry entries declare

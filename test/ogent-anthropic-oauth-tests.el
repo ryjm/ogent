@@ -916,6 +916,50 @@
     (let ((token-file (expand-file-name "tokens.el" sub-dir)))
       (should (file-exists-p token-file)))))
 
+;;; Backend header fallback
+
+(ert-deftest ogent-oauth-test-backend-header-errors-without-credentials ()
+  "An OAuth backend with no token and no API key must say so, not stay quiet.
+`ogent-anthropic-oauth--install-backend-header' installs this function
+on a backend permanently after the first OAuth request, so a later token
+expiry lands here.  Returning nil would ship a request with no auth
+headers at all and surface as an opaque 401."
+  (cl-letf (((symbol-function 'ogent-anthropic-oauth--using-oauth-for-gptel-p)
+             (lambda () nil))
+            ((symbol-function 'gptel--get-api-key)
+             (lambda (&rest _)
+               (user-error "Claude OAuth is not active")))
+            ((symbol-function 'gptel-backend-name)
+             (lambda (_backend) "Claude OAuth"))
+            (gptel-backend 'stub-backend))
+    (let ((err (should-error (ogent-anthropic-oauth--backend-header)
+                             :type 'user-error)))
+      (should (string-match-p "Claude OAuth" (error-message-string err)))
+      (should (string-match-p "ogent-claude-code-login"
+                              (error-message-string err))))))
+
+(ert-deftest ogent-oauth-test-backend-header-keeps-api-key-fallback ()
+  "A shared Anthropic backend with a real API key still gets x-api-key.
+Only the credential-less case is an error; the API-key branch is what
+non-OAuth Anthropic backends rely on."
+  (cl-letf (((symbol-function 'ogent-anthropic-oauth--using-oauth-for-gptel-p)
+             (lambda () nil))
+            ((symbol-function 'gptel--get-api-key)
+             (lambda (&rest _) "sk-ant-test")))
+    (let ((headers (ogent-anthropic-oauth--backend-header)))
+      (should (equal (alist-get "x-api-key" headers nil nil #'equal)
+                     "sk-ant-test"))
+      (should (alist-get "anthropic-version" headers nil nil #'equal)))))
+
+(ert-deftest ogent-oauth-test-backend-header-prefers-oauth ()
+  "When OAuth is live the Bearer headers win outright."
+  (cl-letf (((symbol-function 'ogent-anthropic-oauth--using-oauth-for-gptel-p)
+             (lambda () t))
+            ((symbol-function 'ogent-anthropic-oauth--get-oauth-headers-for-gptel)
+             (lambda () '(("Authorization" . "Bearer stub")))))
+    (should (equal (ogent-anthropic-oauth--backend-header)
+                   '(("Authorization" . "Bearer stub"))))))
+
 (provide 'ogent-anthropic-oauth-tests)
 
 ;;; ogent-anthropic-oauth-tests.el ends here
