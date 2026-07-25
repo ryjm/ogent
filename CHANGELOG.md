@@ -103,9 +103,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Fable 5 is $10/$50 per MTok (was $5/$25) and Claude Opus 4.8 is $5/$25
   (was $15/$75, the retired Opus 4.1 rate), so recorded completion costs
   stop under- and over-reporting those models.
-- Inline edit requests now apply the registry's `:request-params` and
-  `:capabilities` through `ogent-models-apply-gptel-props`, like every
-  other send path.
+- Inline edit and Org Babel requests now surface the ogent registry to
+  gptel before dispatch (`ogent-gptel-ensure-model-on-backend` plus
+  `ogent-models-apply-gptel-props`), like every other send path.  A
+  model id newer than the bundled gptel - Claude Opus 5 on an older
+  gptel, for instance - no longer sanitizes to the backend's fallback,
+  and the entry's `:capabilities` and `:request-params` reach gptel.
 - The model registry browser remembers the buffer it was opened from,
   so refreshing or switching from inside it keeps reporting that
   buffer's effective model (including `OGENT_MODEL` pins).

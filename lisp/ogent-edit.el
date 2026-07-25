@@ -28,6 +28,7 @@
 (declare-function gptel-backend-name "ext:gptel-request" t t)
 (declare-function gptel--model-name "ext:gptel-request")
 (declare-function gptel--parse-schema "ext:gptel-request")
+(declare-function gptel-backend-p "ext:gptel-request" t t)
 (defvar gptel-backend)
 (defvar gptel-model)
 (defvar gptel--request-params)
@@ -709,6 +710,13 @@ when response arrives."
     (setq ogent-edit--streaming-response "")
     ;; Send the request via gptel
     (message "Sending edit request to %s..." model-id)
+    ;; Surface the ogent registry to gptel before `gptel--sanitize-model'
+    ;; can rewrite a newer model id to the backend fallback, and copy the
+    ;; entry's :request-params and :capabilities onto the model symbol -
+    ;; the same setup sequence every other ogent send path runs.
+    (when (and (fboundp 'gptel-backend-p) (gptel-backend-p backend))
+      (ogent-gptel-ensure-model-on-backend model backend))
+    (ogent-models-apply-gptel-props model)
     (condition-case err
         (let ((gptel-backend backend)
               (gptel-model model-id)

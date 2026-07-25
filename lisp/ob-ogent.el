@@ -34,6 +34,7 @@
 (require 'ogent-gptel)
 
 (declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-backend-p "ext:gptel-request" t t)
 (declare-function ogent-context--dependency "ogent-context" (handle))
 ;; cl-defstruct accessor (fileonly: generated, not a top-level defun)
 (declare-function ogent-context-node-content "ogent-context" t t)
@@ -113,6 +114,14 @@ timeout or an error response."
          (gptel-use-tools nil))
     (unless backend
       (user-error "Ob-ogent: no backend for model %s" model-id))
+    ;; Same registry surfacing as every other ogent send path: without
+    ;; it `gptel--sanitize-model' can rewrite a model id newer than
+    ;; bundled gptel to the backend fallback, so a block would report a
+    ;; model it never ran, and the entry's capabilities would never
+    ;; reach gptel.
+    (when (and (fboundp 'gptel-backend-p) (gptel-backend-p backend))
+      (ogent-gptel-ensure-model-on-backend model backend))
+    (ogent-models-apply-gptel-props model)
     (gptel-request prompt
                    :system (or system gptel--system-message)
                    :stream nil

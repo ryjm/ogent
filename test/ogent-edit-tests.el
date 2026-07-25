@@ -676,6 +676,48 @@ missing separator and end marker")
           (setq buffer-file-name nil))
         (kill-buffer source)))))
 
+(ert-deftest ogent-edit-request-surfaces-registry-to-gptel ()
+  "Edit requests run the same registry setup as every other send path.
+Without it `gptel--sanitize-model' can rewrite a model id newer than
+bundled gptel to the backend fallback - the transcript would name a
+model the request never reached - and the entry's :capabilities and
+:request-params would never land on the gptel model symbol."
+  (let ((source (generate-new-buffer "ogent-edit-registry")))
+    (unwind-protect
+        (progn
+          (with-current-buffer source
+            (insert "(defun foo () nil)")
+            (setq buffer-file-name "/nonexistent/ogent-edit-registry.el")
+            (emacs-lisp-mode)
+            (let ((ogent-default-model "registry-model")
+                  (ogent-model-registry
+                   '((:id "registry-model"
+                          :backend ogent-edit-tests--backend
+                          :capabilities (tool-use))))
+                  (ogent-edit-tests--backend 'registry-backend)
+                  (gptel-model "stale-model")
+                  (gptel-backend 'stale-backend)
+                  ensured applied)
+              (cl-letf (((symbol-function 'gptel-request)
+                         (lambda (&rest _) 'mock-request))
+                        ((symbol-function 'gptel-backend-p)
+                         (lambda (_backend) t))
+                        ((symbol-function 'ogent-gptel-ensure-model-on-backend)
+                         (lambda (model backend)
+                           (setq ensured (cons (plist-get model :id) backend))))
+                        ((symbol-function 'ogent-models-apply-gptel-props)
+                         (lambda (model)
+                           (setq applied (plist-get model :id)))))
+                (ogent-request-edit "Fix this")
+                (should (equal ensured '("registry-model" . registry-backend)))
+                (should (equal applied "registry-model"))))
+            (setq buffer-file-name nil)
+            (kill-buffer)))
+      (when (buffer-live-p source)
+        (with-current-buffer source
+          (setq buffer-file-name nil))
+        (kill-buffer source)))))
+
 (ert-deftest ogent-edit-quick-target-prefers-region ()
   "Quick edit targets the active region first."
   (with-temp-buffer

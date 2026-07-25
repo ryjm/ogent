@@ -132,6 +132,30 @@ CAPTURE is set to the prompt string the executor sent."
       (org-babel-execute:ogent "hi" nil)
       (should (equal captured-model "claude-fable-5")))))
 
+(ert-deftest ob-ogent-execute-surfaces-registry-to-gptel ()
+  "Babel blocks run the same registry setup as every other send path.
+A block naming a model newer than bundled gptel must reach that model,
+not the backend's fallback, and must carry the entry's capabilities."
+  (let (ensured applied)
+    (cl-letf (((symbol-function 'gptel-request)
+               (lambda (_prompt &rest args)
+                 (funcall (plist-get args :callback) "ok" '(:status "done"))))
+              ((symbol-function 'gptel-backend-p)
+               (lambda (_backend) t))
+              ((symbol-function 'ogent-gptel-resolve-backend)
+               (lambda (_m) 'b))
+              ((symbol-function 'ogent-gptel-ensure-model-on-backend)
+               (lambda (model backend)
+                 (setq ensured (cons (plist-get model :id) backend))))
+              ((symbol-function 'ogent-models-apply-gptel-props)
+               (lambda (model) (setq applied (plist-get model :id)))))
+      ;; Resolved through the real registry, so this also asserts the
+      ;; shipped claude-opus-5 entry is reachable from Babel.
+      (let ((ogent-default-model "claude-opus-5"))
+        (org-babel-execute:ogent "hi" nil))
+      (should (equal ensured '("claude-opus-5" . b)))
+      (should (equal applied "claude-opus-5")))))
+
 (ert-deftest ob-ogent-execute-resolves-role-designator ()
   "A :model @role header resolves through `ogent-model-roles'."
   (let (captured-model)
