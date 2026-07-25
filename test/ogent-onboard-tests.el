@@ -103,6 +103,7 @@
          (openai-codex-models (mapcar (lambda (m) (plist-get m :id))
                                       (plist-get openai-codex :models))))
     (dolist (model-id '("claude-fable-5"
+                        "claude-opus-5"
                         "claude-opus-4-8"
                         "claude-sonnet-5"
                         "claude-haiku-4-5-20251001"))
@@ -165,6 +166,7 @@
                       models)))
     (should (equal (car ids) "claude-fable-5"))
     (should (member "claude-opus-4-8" ids))
+    (should (member "claude-opus-5" ids))
     (should (member "claude-sonnet-5" ids))
     (should (member "claude-haiku-4-5-20251001" ids))
     (should-not (member "claude-3-5-sonnet-20241022" ids))

@@ -24,6 +24,7 @@
 (defvar gptel-stream)
 (defvar gptel-tools)
 (defvar gptel-use-tools)
+(defvar gptel--request-params)
 
 ;; gptel integration (soft dependency).
 (declare-function gptel-request "ext:gptel-request")
@@ -256,6 +257,12 @@ turns, compacted to `ogent-multi-turn-token-budget'."
                  ;; Bind all registered tools
                  (gptel-tools (or tools gptel-tools))
                  (gptel-use-tools (when tools t))
+                 ;; Bound after the tool variables above: some models
+                 ;; need extra body params only when tools ride along
+                 ;; (gpt-5.6 rejects function tools unless
+                 ;; reasoning_effort is "none").
+                 (gptel--request-params
+                  (ogent-gptel-tool-request-params model))
                  (handle (if preset
                              (if (fboundp 'gptel-with-preset)
                                  (gptel-with-preset

@@ -30,6 +30,7 @@
 (declare-function gptel--parse-schema "ext:gptel-request")
 (defvar gptel-backend)
 (defvar gptel-model)
+(defvar gptel--request-params)
 
 ;; Analytics (optional; soft-required at response time, mirroring the
 ;; ogent-ui engine and ogent-armory-native).
@@ -710,7 +711,11 @@ when response arrives."
     (message "Sending edit request to %s..." model-id)
     (condition-case err
         (let ((gptel-backend backend)
-              (gptel-model model-id))
+              (gptel-model model-id)
+              ;; gpt-5.6 rejects function tools unless
+              ;; reasoning_effort is "none".
+              (gptel--request-params
+               (ogent-gptel-tool-request-params model)))
           (apply #'gptel-request full-prompt
                  :system (if structured
                              ogent-edit-structured-system-prompt

@@ -17,6 +17,7 @@
 (declare-function gptel-request "ext:gptel-request")
 (defvar gptel-model)
 (defvar gptel-backend)
+(defvar gptel--request-params)
 
 (defcustom ogent-codemap-llm-model nil
   "Model to use for codemap generation.
@@ -195,7 +196,11 @@ CALLBACK receives (content error) where error is nil on success."
                           (ogent-models-effective-model 'codemap)))
                  (backend (ogent-gptel-resolve-backend model))
                  (gptel-backend (or backend gptel-backend))
-                 (gptel-model (plist-get model :id)))
+                 (gptel-model (plist-get model :id))
+                 ;; gpt-5.6 rejects function tools unless
+                 ;; reasoning_effort is "none".
+                 (gptel--request-params
+                  (ogent-gptel-tool-request-params model)))
             (when backend
               (ogent-gptel-ensure-model-on-backend model backend)
               (ogent-models-apply-gptel-props model))

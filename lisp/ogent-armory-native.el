@@ -35,6 +35,7 @@
 (defvar gptel-cache)
 (defvar gptel-tools)
 (defvar gptel-use-tools)
+(defvar gptel--request-params)
 (defvar ogent-tools-project-root)
 
 (defgroup ogent-armory-native nil
@@ -367,7 +368,11 @@ Bind the resolved backend, model, and ogent's enabled tools around
            (gptel-model model-id)
            (gptel-cache ogent-gptel-cache)
            (gptel-tools (or tools (and (boundp 'gptel-tools) gptel-tools)))
-           (gptel-use-tools (and tools t)))
+           (gptel-use-tools (and tools t))
+           ;; Bound after the tool variables: gpt-5.6 rejects function
+           ;; tools unless reasoning_effort is "none".
+           (gptel--request-params
+            (ogent-gptel-tool-request-params model)))
       (plist-put state :handle
                  (gptel-request
                   (if (cdr messages) messages (car messages))

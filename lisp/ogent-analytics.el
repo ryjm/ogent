@@ -75,6 +75,16 @@ Used to estimate token counts from text length."
   ;; 1.25x the uncached input rate, neither of which we track
   ;; (computed costs OVERSTATE cache-read-heavy usage and UNDERSTATE
   ;; cache-write-heavy usage).  Estimates only.
+  ;;
+  ;; Anthropic family verified 2026-07-24 against
+  ;; platform.claude.com/docs/en/about-claude/pricing: fable-5
+  ;; $10/$50, opus-5 $5/$25, opus-4-8 $5/$25, sonnet-5 $3/$15,
+  ;; sonnet-4-6 $3/$15, haiku-4-5 $1/$5.  Same caveats: cache writes
+  ;; bill at 1.25x (5m) or 2x (1h) input and cache reads at 0.1x,
+  ;; none of which we track.  Sonnet 5 additionally runs on
+  ;; introductory $2/$10 pricing through 2026-08-31; the table pins
+  ;; the standard rate that resumes 2026-09-01, so Sonnet 5 costs
+  ;; are OVERSTATED until then.
   '(("gpt-5.6-sol"       . (:input-per-mtok 5.00 :output-per-mtok 30.00))
     ("gpt-5.6-terra"     . (:input-per-mtok 2.50 :output-per-mtok 15.00))
     ("gpt-5.6-luna"      . (:input-per-mtok 1.00 :output-per-mtok 6.00))
@@ -86,8 +96,9 @@ Used to estimate token counts from text length."
     ("gpt-5.3-codex"     . (:input-per-mtok 1.25 :output-per-mtok 10.00))
     ("gpt-4.1"           . (:input-per-mtok 2.00 :output-per-mtok 8.00))
     ("gpt-4o-mini"       . (:input-per-mtok 0.15 :output-per-mtok 0.60))
-    ("claude-fable-5"    . (:input-per-mtok 5.00 :output-per-mtok 25.00))
-    ("claude-opus-4-8"   . (:input-per-mtok 15.00 :output-per-mtok 75.00))
+    ("claude-fable-5"    . (:input-per-mtok 10.00 :output-per-mtok 50.00))
+    ("claude-opus-5"     . (:input-per-mtok 5.00 :output-per-mtok 25.00))
+    ("claude-opus-4-8"   . (:input-per-mtok 5.00 :output-per-mtok 25.00))
     ("claude-sonnet-5"   . (:input-per-mtok 3.00 :output-per-mtok 15.00))
     ("claude-sonnet-4-6" . (:input-per-mtok 3.00 :output-per-mtok 15.00))
     ("claude-haiku-4-5"  . (:input-per-mtok 1.00 :output-per-mtok 5.00)))

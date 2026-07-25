@@ -836,6 +836,25 @@ the starter table and this pin - never from aggregator sites."
       (should (= (plist-get pricing :input-per-mtok) (nth 1 expected)))
       (should (= (plist-get pricing :output-per-mtok) (nth 2 expected))))))
 
+(ert-deftest ogent-analytics-test-anthropic-pricing-matches-official ()
+  "Pin the officially verified Anthropic rates.
+Verified 2026-07-24 against
+platform.claude.com/docs/en/about-claude/pricing.  Claude Sonnet 5 is
+pinned to its standard $3/$15 rate, not the introductory $2/$10 rate
+that expires 2026-08-31, because the flat schema cannot express a
+dated switchover.  When Anthropic reprices, re-verify against that
+page and update BOTH the starter table and this pin."
+  (dolist (expected '(("claude-fable-5" 10.00 50.00)
+                      ("claude-opus-5" 5.00 25.00)
+                      ("claude-opus-4-8" 5.00 25.00)
+                      ("claude-sonnet-5" 3.00 15.00)
+                      ("claude-sonnet-4-6" 3.00 15.00)
+                      ("claude-haiku-4-5-20251001" 1.00 5.00)))
+    (let ((pricing (ogent-analytics--model-pricing (car expected))))
+      (should pricing)
+      (should (= (plist-get pricing :input-per-mtok) (nth 1 expected)))
+      (should (= (plist-get pricing :output-per-mtok) (nth 2 expected))))))
+
 (ert-deftest ogent-analytics-test-pricing-unknown-model-nil ()
   "Unknown or non-string models have no pricing and a nil cost."
   (should-not (ogent-analytics--model-pricing "mystery-model-9000"))

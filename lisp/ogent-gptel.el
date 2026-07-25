@@ -15,6 +15,8 @@
 
 (defvar gptel--known-backends)
 (defvar gptel-backend)
+(defvar gptel-tools)
+(defvar gptel-use-tools)
 
 (defcustom ogent-gptel-cache t
   "Value bound to `gptel-cache' for ogent requests.
@@ -87,6 +89,26 @@ new model ids must be added to the live backend or transcripts can claim
         (ogent-gptel--set-backend-models
          backend (append models (list symbol)))))
     symbol))
+
+(defun ogent-gptel-tool-request-params (model)
+  "Return the `gptel--request-params' value MODEL needs for this request.
+
+Some models reject function tools unless extra body parameters ride
+along: the OpenAI chat/completions endpoint rejects a gpt-5.6 request
+carrying function tools with HTTP 400 unless `reasoning_effort' is
+\"none\".  MODEL declares that override in its `:tools-request-params'
+registry key, which is merged over its `:request-params'.
+
+Return nil when the pending request carries no tools, so tool-free
+requests keep the model's normal reasoning behavior.  Bind the result
+to `gptel--request-params' after `gptel-tools' and `gptel-use-tools',
+whose live values this reads.  The override is deliberately never
+written onto the shared gptel model symbol: it is a per-request
+compatibility patch, not user configuration, so a plain `gptel-send'
+outside ogent never inherits a silently downgraded reasoning effort."
+  (when (and (bound-and-true-p gptel-use-tools)
+             (bound-and-true-p gptel-tools))
+    (plist-get model :tools-request-params)))
 
 (defun ogent-gptel-backend-matches-provider-p (backend-object provider)
   "Return non-nil when BACKEND-OBJECT has PROVIDER type."

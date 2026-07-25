@@ -374,7 +374,12 @@ so risky tools are gated there too.
    #+end_src
 
 3. Verify your model supports tools (any current family: =claude-fable-5=,
-   =claude-opus-4-8=, =claude-sonnet-4-6=, or =gpt-5.5=/=gpt-5.4=)
+   =claude-opus-5=, =claude-sonnet-5=, or =gpt-5.6=/=gpt-5.5=/=gpt-5.4=).
+   The =gpt-5.6= entries additionally ship
+   =:tools-request-params (:reasoning_effort "none")=: OpenAI's
+   =/v1/chat/completions= rejects a gpt-5.6 request carrying function
+   tools at any other reasoning effort, so ogent binds that override for
+   tool-carrying requests only.
 
 ** Tool execution fails
 

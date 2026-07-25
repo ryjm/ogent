@@ -42,7 +42,7 @@ registry:
 - **Function**: the function is called and must return a backend object.
 
 Example registry entry. The shipped registry already includes the current
-frontier models (`gpt-5.6-sol`, `claude-fable-5`, `claude-opus-4-8`, ...), so
+frontier models (`gpt-5.6-sol`, `claude-fable-5`, `claude-opus-5`, ...), so
 add your own entries with `add-to-list` instead of replacing it wholesale:
 
 ```elisp
@@ -169,6 +169,15 @@ Two optional registry keys surface gptel's per-model machinery:
   caching keep working for model IDs newer than gptel's bundled tables
   (an older gptel that predates a model would otherwise silently drop
   tools from the request).
+- `:tools-request-params`: a plist merged **over** `:request-params`, but
+  only for requests that actually carry function tools. The shipped
+  `gpt-5.6` entries use it for `(:reasoning_effort "none")`, because
+  OpenAI's `/v1/chat/completions` rejects a gpt-5.6 request carrying
+  function tools with `400 Function tools with reasoning_effort are not
+  supported` otherwise. Unlike `:request-params`, this override is bound
+  per request (`gptel--request-params`) and never written onto the shared
+  gptel model symbol, so a plain `gptel-send` outside ogent keeps the
+  model's normal reasoning effort.
 
 ```elisp
 ;; OpenAI: raise reasoning effort for one model

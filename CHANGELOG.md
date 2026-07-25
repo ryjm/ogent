@@ -69,16 +69,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zen transcripts now expose a `?` dispatch menu, direct run navigation,
   review target selection, result-density cycling, and a sectioned review
   dashboard using the shared ogent section UI.
+- Claude Opus 5 (`claude-opus-5`) in the model registry, the onboarding
+  Anthropic catalog, and the analytics pricing table ($5/$25 per MTok,
+  1M-token context window), with `media`/`tool-use`/`cache` capabilities
+  declared so tools, image input, and prompt caching work on gptel
+  releases that predate the model.
+- `:tools-request-params` registry key: request parameters merged over
+  `:request-params`, but only for requests that carry function tools.
+  Bound per request through `gptel--request-params`, never written onto
+  the shared gptel model symbol.
 
 ### Changed
 - Onboarding model catalogs now resolve from `ogent-model-registry` (single
   source of truth) instead of duplicating ids and descriptions.
 - Bumped minimum transient to 0.13.5 and Org to 9.8.7.
+- Claude Opus 4.8 is described as the previous Opus generation, matching
+  its move to Anthropic's legacy-models table.
 
 ### Fixed
 - `ogent-model-unpin` is scope-aware: it deletes a direct heading pin
   silently, asks before removing an inherited ancestor pin or the
   file-wide keyword at its source, and works under subtree narrowing.
+- Requests to the `gpt-5.6` family no longer fail with `400 Function
+  tools with reasoning_effort are not supported for <model> in
+  /v1/chat/completions`.  The three `gpt-5.6` registry entries declare
+  `:tools-request-params (:reasoning_effort "none")`, which the dispatch,
+  inline-edit, codemap, and Armory native send paths bind only when tools
+  actually ride along; tool-free requests keep full reasoning effort.
+  Verified against api.openai.com: sol/terra/luna all reject tools with
+  any reasoning effort, and `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`,
+  `gpt-5.4-nano`, and `gpt-4.1` need no override.
+- Anthropic pricing corrected against the published rate card: Claude
+  Fable 5 is $10/$50 per MTok (was $5/$25) and Claude Opus 4.8 is $5/$25
+  (was $15/$75, the retired Opus 4.1 rate), so recorded completion costs
+  stop under- and over-reporting those models.
+- Inline edit requests now apply the registry's `:request-params` and
+  `:capabilities` through `ogent-models-apply-gptel-props`, like every
+  other send path.
 - The model registry browser remembers the buffer it was opened from,
   so refreshing or switching from inside it keeps reporting that
   buffer's effective model (including `OGENT_MODEL` pins).

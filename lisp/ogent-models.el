@@ -30,18 +30,29 @@
   ;;   ("Latest models comparison" and past-models tables; 1M = 1,000,000)
   ;; A model whose window is not documented must carry no
   ;; :context-window at all - never a guessed value.
+  ;; :tools-request-params carries the gpt-5.6 chat/completions
+  ;; constraint, verified 2026-07-24 against api.openai.com with
+  ;; ogent's own tool set: a request carrying function tools is
+  ;; rejected with HTTP 400 "Function tools with reasoning_effort are
+  ;; not supported for <id> in /v1/chat/completions" unless
+  ;; reasoning_effort is "none".  The same probe confirmed gpt-5.5,
+  ;; gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, and gpt-4.1 send tools with
+  ;; no override needed, so only the gpt-5.6 entries carry the key.
   '((:id "gpt-5.6-sol" :backend gptel-openai :stream? t
          :aliases ("gpt-5.6")
          ;; docs/models/gpt-5.6-sol: "1,050,000 context window"
          :context-window 1050000
+         :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Sol - flagship reasoning and coding")
     (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
          ;; docs/models/gpt-5.6-terra: "1,050,000 context window"
          :context-window 1050000
+         :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Terra - balanced intelligence and cost")
     (:id "gpt-5.6-luna" :backend gptel-openai :stream? t
          ;; docs/models/gpt-5.6-luna: "1,050,000 context window"
          :context-window 1050000
+         :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Luna - cost-efficient high-volume tasks")
     (:id "gpt-5.5" :backend gptel-openai :stream? t
          ;; docs/models/gpt-5.5: "1,050,000 context window"
@@ -80,11 +91,16 @@
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")
+    (:id "claude-opus-5" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         ;; models/overview latest-models table: "1M tokens"
+         :context-window 1000000
+         :description "Anthropic Claude Opus 5 - complex agentic coding and enterprise work")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
-         :description "Anthropic Claude Opus 4.8 - long-horizon agentic coding")
+         :description "Anthropic Claude Opus 4.8 - previous Opus generation")
     (:id "claude-sonnet-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
@@ -112,6 +128,14 @@ Optional keys:
                     (:reasoning_effort \"high\") for OpenAI or
                     (:thinking (:type \"enabled\" :budget_tokens 4096))
                     for Anthropic
+  :tools-request-params - plist of extra request parameters merged
+                    over :request-params for requests that carry
+                    function tools, e.g. (:reasoning_effort \"none\")
+                    for the gpt-5.6 family, which the OpenAI
+                    chat/completions endpoint rejects otherwise.
+                    Applied per request by
+                    `ogent-gptel-tool-request-params', never written
+                    onto the shared gptel model symbol
   :capabilities   - list of gptel capability symbols to add to the
                     model, e.g. (cache)
   :aliases        - list of alternative id strings that resolve to
@@ -132,7 +156,8 @@ Optional keys:
                     key absent when the window is not documented, so
                     no warning ever rests on a fabricated limit"
   :type '(repeat (plist :options (:id :backend :preset :stream? :description
-                                      :request-params :capabilities :aliases
+                                      :request-params :tools-request-params
+                                      :capabilities :aliases
                                       :request-timeout :max-retries
                                       :retry-base-delay :context-window)))
   :group 'ogent-models)

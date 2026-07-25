@@ -40,6 +40,7 @@
                       "gpt-5.4-nano"
                       "gpt-5.3-codex"
                       "claude-fable-5"
+                      "claude-opus-5"
                       "claude-opus-4-8"
                       "claude-sonnet-5"
                       "claude-sonnet-4-6"
@@ -244,6 +245,57 @@ the backend and carry tool-use, media, and cache capabilities."
             (should (memq cap (get symbol :capabilities))))
           (should (equal (get symbol :description)
                          "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")))
+      (setplist symbol old-symbol-plist))))
+
+(ert-deftest ogent-models-gpt56-declares-tool-request-params ()
+  "Only the gpt-5.6 entries override reasoning effort for tool requests.
+Verified 2026-07-24 against api.openai.com: a gpt-5.6 request
+carrying function tools is rejected with HTTP 400 unless
+reasoning_effort is \"none\", while gpt-5.5, gpt-5.4, gpt-5.4-mini,
+gpt-5.4-nano, and gpt-4.1 accept tools untouched.  Widening this key
+to a model that does not need it silently disables its reasoning."
+  (dolist (model-id '("gpt-5.6-sol" "gpt-5.6-terra" "gpt-5.6-luna"))
+    (should (equal (plist-get (ogent-models-ensure model-id)
+                              :tools-request-params)
+                   '(:reasoning_effort "none"))))
+  (dolist (model-id '("gpt-5.5" "gpt-5.4" "gpt-5.4-mini" "gpt-5.4-nano"
+                      "gpt-4.1" "claude-opus-5" "claude-fable-5"))
+    (should-not (plist-get (ogent-models-ensure model-id)
+                           :tools-request-params))))
+
+(ert-deftest ogent-gptel-tool-request-params-tracks-live-tool-state ()
+  "The override rides along only when the request actually sends tools."
+  (let ((model (ogent-models-ensure "gpt-5.6-sol")))
+    (let ((gptel-use-tools t)
+          (gptel-tools '(stub-tool)))
+      (should (equal (ogent-gptel-tool-request-params model)
+                     '(:reasoning_effort "none"))))
+    ;; Tools disabled, or enabled with an empty tool list: the model
+    ;; keeps its normal reasoning effort.
+    (let ((gptel-use-tools nil)
+          (gptel-tools '(stub-tool)))
+      (should-not (ogent-gptel-tool-request-params model)))
+    (let ((gptel-use-tools t)
+          (gptel-tools nil))
+      (should-not (ogent-gptel-tool-request-params model)))))
+
+(ert-deftest ogent-gptel-tool-request-params-leaves-model-symbol-clean ()
+  "The per-request override never lands on the shared gptel symbol.
+`gptel-send' outside ogent reads the model symbol's :request-params,
+so writing the compatibility patch there would silently downgrade
+reasoning for every later plain gptel request."
+  (let* ((model (ogent-models-ensure "gpt-5.6-sol"))
+         (symbol (intern "gpt-5.6-sol"))
+         (old-symbol-plist (symbol-plist symbol)))
+    (unwind-protect
+        (progn
+          (setplist symbol nil)
+          (let ((gptel-use-tools t)
+                (gptel-tools '(stub-tool)))
+            (should (ogent-gptel-tool-request-params model))
+            (ogent-models-apply-gptel-props model))
+          (should-not (plist-member (get symbol :request-params)
+                                    :reasoning_effort)))
       (setplist symbol old-symbol-plist))))
 
 ;;; Tool confirmation policy (gptel approval bridge)
