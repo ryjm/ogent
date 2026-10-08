@@ -48,7 +48,7 @@
           (vconcat
            (mapcar (lambda (arg)
                      (append (list :name (plist-get arg :name)
-				   :type (plist-get arg :type)
+				   :type (format "%s" (plist-get arg :type))
 				   :optional (ogent-agent--boolean (plist-get arg :optional))
 				   :description (or (plist-get arg :description) ""))
                              (when (plist-member arg :enum)

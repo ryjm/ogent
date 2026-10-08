@@ -582,6 +582,7 @@ Optional keys:
   :confirm     - if non-nil, require user approval before execution
   :effects     - list of effect plists for policy and audit trails
   :include     - if non-nil, include tool results in response
+  :boolean-representation - `json' preserves false sentinels for external tools
 
 Example:
   (:name read-file

@@ -457,13 +457,13 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                                      (ogent-tools--stream-output 'grep
                                                                  'stdout
                                                                  chunk)))))
+                (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+                  (set-process-query-on-exit-flag stderr-proc nil)
+                  (set-process-sentinel stderr-proc #'ignore))
                 (let ((deadline (+ (float-time) ogent-tools-grep-timeout)))
                   (while (and (process-live-p proc)
                               (< (float-time) deadline))
                     (accept-process-output proc 0.1))
-                  (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
-                    (set-process-query-on-exit-flag stderr-proc nil)
-                    (set-process-sentinel stderr-proc #'ignore))
                   (when (process-live-p proc)
                     (kill-process proc)
                     (setq reported-error t)

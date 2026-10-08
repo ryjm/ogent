@@ -190,7 +190,7 @@ pending sentinels, which would starve the loop."
         (default-directory "/tmp/"))
     (cl-letf (((symbol-function 'projectile-project-root) nil)
               ((symbol-function 'project-current) (lambda () nil)))
-      (should (equal "/tmp/" (ogent-tools--project-root))))))
+	     (should (equal "/tmp/" (ogent-tools--project-root))))))
 
 (ert-deftest ogent-tools-project-root-uses-project-el ()
   "Project root uses project.el when projectile is unavailable."
@@ -202,7 +202,7 @@ pending sentinels, which would starve the loop."
                (lambda () '(vc Git "/home/user/project/")))
               ((symbol-function 'project-root)
                (lambda (_proj) "/home/user/project/")))
-      (should (equal "/home/user/project/" (ogent-tools--project-root))))))
+	     (should (equal "/home/user/project/" (ogent-tools--project-root))))))
 
 ;;; Additional resolve-path tests
 
@@ -268,13 +268,13 @@ pending sentinels, which would starve the loop."
       (should (< (length result) 3100)))))
 
 (ert-deftest ogent-tools-read-file-offset-past-end ()
-  "Read file with offset past file end returns empty."
+  "Read file rejects an offset past EOF with a retry hint."
   (let* ((dir (ogent-test--provision-store-directory 'tools))
          (test-file (expand-file-name "short.txt" dir)))
     (with-temp-file test-file
       (insert "line 1\nline 2\n"))
-    (let ((result (ogent-tool--read-file test-file 100 10)))
-      (should (equal "" result)))))
+    (let ((err (should-error (ogent-tool--read-file test-file 100 10) :type 'user-error)))
+      (should (string-match-p "offset=1" (error-message-string err))))))
 
 ;;; Additional glob tests
 
@@ -415,11 +415,11 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args)
                  (setq last-message (apply #'format fmt args)))))
-      (ogent-tools--progress-update)
-      (should last-message)
-      (should (string-match-p "bash" last-message))
-      (should (string-match-p "2\\.0 KB" last-message))
-      (should (string-match-p "10 lines" last-message)))))
+	     (ogent-tools--progress-update)
+	     (should last-message)
+	     (should (string-match-p "bash" last-message))
+	     (should (string-match-p "2\\.0 KB" last-message))
+	     (should (string-match-p "10 lines" last-message)))))
 
 (ert-deftest ogent-tools-progress-update-no-state ()
   "Progress update does nothing when no state."
@@ -429,8 +429,8 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (&rest _args)
                  (setq message-called t))))
-      (ogent-tools--progress-update)
-      (should-not message-called))))
+	     (ogent-tools--progress-update)
+	     (should-not message-called))))
 
 (ert-deftest ogent-tools-progress-update-disabled ()
   "Progress update does nothing when show-progress is nil."
@@ -441,8 +441,8 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (&rest _args)
                  (setq message-called t))))
-      (ogent-tools--progress-update)
-      (should-not message-called))))
+	     (ogent-tools--progress-update)
+	     (should-not message-called))))
 
 ;;; Active count tests
 
@@ -617,10 +617,10 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args)
                  (setq last-message (apply #'format fmt args)))))
-      (ogent-tools--stream-done 'bash 0)
-      (should last-message)
-      (should (string-match-p "completed" last-message))
-      (should (string-match-p "exit 0" last-message)))))
+	     (ogent-tools--stream-done 'bash 0)
+	     (should last-message)
+	     (should (string-match-p "completed" last-message))
+	     (should (string-match-p "exit 0" last-message)))))
 
 (ert-deftest ogent-tools-stream-done-cancels-timer ()
   "Stream done cancels any running progress timer."
@@ -664,7 +664,7 @@ pending sentinels, which would starve the loop."
 ;;; Grep (sync) tests - using mocked shell processes
 
 (ert-deftest ogent-tools-grep-returns-match-count ()
-  "Grep sync returns match count in output."
+  "Grep sync reports its returned result-line count."
   (let ((temp-dir (ogent-test--provision-store-directory 'tools)))
     (with-temp-file (expand-file-name "hello.txt" temp-dir)
       (insert "hello world\ngoodbye world\nhello again\n"))
@@ -674,7 +674,7 @@ pending sentinels, which would starve the loop."
           (ogent-tools--progress-state nil)
           (result (ogent-tool--grep "hello" temp-dir)))
       (should (string-match-p "hello" result))
-      (should (string-match-p "matches" result)))))
+      (should (string-match-p "2 result lines" result)))))
 
 
 (ert-deftest ogent-tools-grep-accepts-file-path ()
@@ -809,12 +809,12 @@ pending sentinels, which would starve the loop."
   (let* ((dir (ogent-test--provision-store-directory 'tools))
          (test-file (expand-file-name "edit.txt" dir)))
     (with-temp-file test-file
-      (insert "alpha beta alpha"))
+      (insert "alpha beta delta"))
     ;; Single replacement (default)
     (let ((result (ogent-tool--edit-file test-file "alpha" "gamma")))
       (should (string-match-p "1 occurrence" result))
-      ;; Only first occurrence should be replaced
-      (should (equal "gamma beta alpha"
+      ;; A unique match is replaced once.
+      (should (equal "gamma beta delta"
                      (with-temp-buffer
                        (insert-file-contents test-file)
                        (buffer-string)))))))
@@ -896,8 +896,8 @@ pending sentinels, which would starve the loop."
     (make-empty-file test-file)
     (cl-letf (((symbol-function 'file-readable-p)
                (lambda (_path) nil)))
-      (let ((err (should-error (ogent-tool--read-file test-file))))
-        (should (string-match-p "not readable" (cadr err)))))))
+	     (let ((err (should-error (ogent-tool--read-file test-file))))
+               (should (string-match-p "not readable" (cadr err)))))))
 
 (ert-deftest ogent-tools-read-file-line-numbering ()
   "Read file produces correct 6-digit padded line numbers."
@@ -912,13 +912,13 @@ pending sentinels, which would starve the loop."
       (should (string-match-p "     3\t" result)))))
 
 (ert-deftest ogent-tools-read-file-limit-zero ()
-  "Read file with limit 0 returns empty string."
+  "Read file rejects a zero limit with a correction hint."
   (let* ((dir (ogent-test--provision-store-directory 'tools))
          (test-file (expand-file-name "lines.txt" dir)))
     (with-temp-file test-file
       (insert "line1\nline2\n"))
-    (let ((result (ogent-tool--read-file test-file 1 0)))
-      (should (equal "" result)))))
+    (let ((err (should-error (ogent-tool--read-file test-file 1 0) :type 'user-error)))
+      (should (string-match-p "limit" (error-message-string err))))))
 
 ;;; Registry structure tests
 
@@ -1316,10 +1316,10 @@ pending sentinels, which would starve the loop."
         (ogent-tools--progress-state
          (list :tool 'test :bytes 0 :lines 0 :start-time (current-time))))
     (cl-letf (((symbol-function 'message) (lambda (&rest _) nil)))
-      (ogent-tools--progress-update)
-      (should (equal 1 ogent-tools--spinner-index))
-      (ogent-tools--progress-update)
-      (should (equal 2 ogent-tools--spinner-index)))))
+	     (ogent-tools--progress-update)
+	     (should (equal 1 ogent-tools--spinner-index))
+	     (ogent-tools--progress-update)
+	     (should (equal 2 ogent-tools--spinner-index)))))
 
 ;;; --- Format Bytes Boundary Cases ---
 
@@ -1614,9 +1614,9 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args)
                  (setq last-message (apply #'format fmt args)))))
-      (ogent-tools--stream-done 'my-tool 1)
-      (should (string-match-p "my-tool" last-message))
-      (should (string-match-p "exit 1" last-message)))))
+	     (ogent-tools--stream-done 'my-tool 1)
+	     (should (string-match-p "my-tool" last-message))
+	     (should (string-match-p "exit 1" last-message)))))
 
 ;;; --- Progress Update Edge Cases ---
 
@@ -1628,11 +1628,11 @@ pending sentinels, which would starve the loop."
          (list :tool 'test :bytes 0 :lines 0 :start-time (current-time)))
         (frame-count (length ogent-tools--spinner-frames)))
     (cl-letf (((symbol-function 'message) (lambda (&rest _) nil)))
-      ;; Cycle through all frames + 1 more
-      (dotimes (_ (1+ frame-count))
-        (ogent-tools--progress-update))
-      ;; Should wrap to 1 (0 + frame-count+1 mod frame-count = 1)
-      (should (equal 1 ogent-tools--spinner-index)))))
+	     ;; Cycle through all frames + 1 more
+	     (dotimes (_ (1+ frame-count))
+               (ogent-tools--progress-update))
+	     ;; Should wrap to 1 (0 + frame-count+1 mod frame-count = 1)
+	     (should (equal 1 ogent-tools--spinner-index)))))
 
 (ert-deftest ogent-tools-progress-update-includes-elapsed-time ()
   "Progress update message includes elapsed time."
@@ -1645,9 +1645,9 @@ pending sentinels, which would starve the loop."
     (cl-letf (((symbol-function 'message)
                (lambda (fmt &rest args)
                  (setq last-message (apply #'format fmt args)))))
-      (ogent-tools--progress-update)
-      ;; Should show approximately 5.0s
-      (should (string-match-p "[45]\\." last-message)))))
+	     (ogent-tools--progress-update)
+	     ;; Should show approximately 5.0s
+	     (should (string-match-p "[45]\\." last-message)))))
 
 (ert-deftest ogent-tools-default-registry-declares-effects ()
   "Every default tool declares auditable effects."

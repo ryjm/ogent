@@ -33,6 +33,7 @@ Reject stale tool objects after registry removal or schema replacement."
                     (setq values (ogent-tool-contract-validate-values snapshot values)
                           args (cl-loop for arg in (plist-get snapshot :args)
                                         for value in values
+                                        unless (and (plist-get arg :optional) (null value))
                                         append (list (intern (concat ":" (plist-get arg :name)))
                                                      value)))
                     (cond

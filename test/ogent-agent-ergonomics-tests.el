@@ -11,6 +11,7 @@
 (require 'ogent-doctor)
 (require 'ogent-ui-toolcalls)
 (require 'ogent-tool-execution)
+(require 'ogent-mcp)
 (require 'ogent-agent nil t)
 
 (defun ogent-agent-ergonomics-tests--file (root name content)
@@ -27,7 +28,8 @@
          (ogent-tools-show-progress nil)
          (err (should-error (ogent-tool--grep "[" file) :type 'user-error)))
     (should (string-match-p "grep failed" (error-message-string err)))
-    (should (string-match-p "pattern" (error-message-string err)))))
+    (should (string-match-p "pattern" (error-message-string err)))
+    (should-not (string-match-p "Process ogent-grep" (error-message-string err)))))
 
 (ert-deftest ogent-agent-ergonomics-grep-errors-no-match-is-success ()
   "A valid empty search returns a stable no-match result."
@@ -376,6 +378,77 @@
     (should-not (ogent-tool--allowed-p 'write-file nil))
     (should-not (ogent-tool--denied-p 'write-file))
     (should (ogent-tool--denied-p 'write_file))))
+
+(ert-deftest ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity ()
+  "Default diff previews reject ambiguous matches before proposing a change."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "edit.txt" "same same"))
+         (ogent-ui-edit-preview-style 'diff-block)
+         (ogent-ui--pending-diffs (make-hash-table :test 'equal)))
+    (with-temp-buffer
+      (should-error (ogent-ui--show-diff-for-tool
+                     "edit-file" (list :file_path file :old_string "same"
+                                       :new_string "new" :replace_all :json-false))
+                    :type 'user-error)
+      (should (zerop (hash-table-count ogent-ui--pending-diffs)))
+      (should (equal (buffer-string) ""))
+      (should (ogent-ui--show-diff-for-tool
+               "edit-file" (list :file_path file :old_string "same"
+                                 :new_string "new" :replace_all t))))))
+
+(ert-deftest ogent-agent-ergonomics-edit-contract-ui-accept-error ()
+  "Failed execution is never labeled applied, including bulk acceptance."
+  (let ((ogent-ui--pending-diffs (make-hash-table :test 'equal)))
+    (with-temp-buffer
+      (puthash "fixture" (list :status 'pending :buffer (current-buffer)
+                               :tool-name "edit-file" :tool-args nil)
+               ogent-ui--pending-diffs)
+      (cl-letf (((symbol-function 'ogent-ui--diff-at-point) (lambda () "fixture"))
+                ((symbol-function 'ogent-ui--execute-tool)
+                 (lambda (&rest _) "Tool error: file changed"))
+                ((symbol-function 'ogent-ui--update-diff-status) #'ignore))
+               (ogent-diff-accept)
+               (should (eq (plist-get (gethash "fixture" ogent-ui--pending-diffs) :status) 'error))
+               (ogent-accept-all-diffs)
+               (should-not (eq (plist-get (gethash "fixture" ogent-ui--pending-diffs) :status) 'applied))
+               (should (eq (ogent-ui--tool-result-status "Tool error: file changed") 'error))))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-symbol-types ()
+  "Standard gptel symbol types receive the same validation as string types."
+  (let ((spec '(:name typed :args ((:name "count" :type integer)
+                                   (:name "flag" :type boolean)))))
+    (should-error (ogent-tool-contract-validate-values spec '("bad" t)) :type 'user-error)
+    (should (equal (ogent-tool-contract-validate-values spec '(0 :json-false)) '(0 nil)))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-mcp-false-and-absence ()
+  "MCP serialization preserves optional false separately from omission."
+  (let* ((ogent-tool-registry nil)
+         (ogent--tools-registered nil)
+         (ogent--tool-specs-registered nil)
+         (ogent-tool-allow-list '("mcp-ergo-optional" "mcp-ergo-required"))
+         (conn (make-ogent-mcp-connection :name "ergo"))
+         (optional '((name . "optional")
+                     (inputSchema . ((properties . ((flag . ((type . "boolean")))))))))
+         (required '((name . "required")
+                     (inputSchema . ((properties . ((flag . ((type . "boolean")))))
+                                     (required . ["flag"])))))
+         captured)
+    (unwind-protect
+        (progn
+          (ogent-mcp--register-tools conn (list optional required))
+          (cl-letf (((symbol-function 'ogent-mcp--call-tool)
+                     (lambda (_conn _name args) (setq captured args) "ok")))
+		   (let ((wrapper (ogent-tool-execution-wrapper (ogent-tool-spec-get 'mcp-ergo-optional))))
+		     (funcall wrapper :json-false)
+		     (should (equal captured '(:flag :json-false)))
+		     (funcall wrapper nil)
+		     (should-not captured)
+		     (should (equal (ogent-tool-contract-values
+				     (ogent-tool-spec-get 'mcp-ergo-optional) '(:flag nil))
+				    '(:json-false))))
+		   (funcall (ogent-tool-execution-wrapper (ogent-tool-spec-get 'mcp-ergo-required)) nil)
+		   (should (equal (json-encode (ogent-mcp--args-to-alist captured)) "{\"flag\":false}"))))
+      (ogent-mcp--unregister-tools "ergo"))))
 
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

@@ -104,21 +104,21 @@ servers you fully trust."
   "Hash table of request-id -> callback for pending requests.")
 
 (cl-defstruct ogent-mcp-connection
-  "State for an MCP server connection."
-  name             ; Server name (string)
-  transport        ; Transport symbol: `stdio' (default) or `http'
-  url              ; Endpoint URL when transport is `http'
-  session-id       ; Mcp-Session-Id assigned by an http server, if any
-  process          ; Emacs process object (stdio transport)
-  streams          ; Live curl stream processes (http transport)
-  capabilities     ; Server capabilities from initialization
-  protocol-version ; Protocol version negotiated with the server
-  tools            ; List of available tools
-  resources        ; List of available resources
-  prompts          ; List of available prompts
-  status           ; 'connecting | 'ready | 'error | 'closed
-  error            ; Error message if status is 'error
-  buffer)          ; Output accumulator buffer
+	      "State for an MCP server connection."
+	      name             ; Server name (string)
+	      transport        ; Transport symbol: `stdio' (default) or `http'
+	      url              ; Endpoint URL when transport is `http'
+	      session-id       ; Mcp-Session-Id assigned by an http server, if any
+	      process          ; Emacs process object (stdio transport)
+	      streams          ; Live curl stream processes (http transport)
+	      capabilities     ; Server capabilities from initialization
+	      protocol-version ; Protocol version negotiated with the server
+	      tools            ; List of available tools
+	      resources        ; List of available resources
+	      prompts          ; List of available prompts
+	      status           ; 'connecting | 'ready | 'error | 'closed
+	      error            ; Error message if status is 'error
+	      buffer)          ; Output accumulator buffer
 
 ;;; JSON-RPC Protocol
 
@@ -683,13 +683,17 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
                           for value in call-args
                           unless (and (plist-get arg :optional) (null value))
                           append (list (intern (concat ":" (plist-get arg :name)))
-                                       value)))))
+                                       (if (and (equal (plist-get arg :type) "boolean")
+                                                (null value))
+                                           :json-false
+                                         value))))))
         ;; Add to ogent-tool-registry
         (let ((spec `(:name ,tool-sym
                             :function ,tool-sym
                             :description ,(format "[MCP:%s] %s" server-name description)
                             :args ,args
                             :category ,(format "mcp-%s" server-name)
+                            :boolean-representation json
                             ;; External, server-backed capability: gate behind
                             ;; approval by default so it cannot auto-execute.
                             :effects ,(copy-tree ogent-mcp-default-tool-effects))))

@@ -190,7 +190,7 @@ Results are displayed in the buffer."
                        (condition-case err
                            (progn
                              (when-let ((spec (ogent-tool-spec-get
-                                              (ogent-tool--name-symbol tool-name))))
+                                               (ogent-tool--name-symbol tool-name))))
                                (ogent-tool-contract-values spec tool-args))
                              (ogent-tool-approval-check tool-name tool-args))
                          (error (list 'invalid (error-message-string err))))))
@@ -344,15 +344,14 @@ buffers keep the normal drawer header visible."
 (defun ogent-ui--tool-result-status (result)
   "Return `error' when RESULT is a tool error or denial string, else `done'."
   (if (and (stringp result)
-           (string-match-p "\\[.*error\\|denied\\]" result))
+           (string-match-p "\\`Tool error:\\|\\`Unknown tool:\\|\\[.*error\\|denied\\]" result))
       'error 'done))
 
 (defun ogent-ui--insert-tool-drawer (name args result &optional status)
   "Insert a tool drawer with NAME, ARGS, RESULT, and STATUS.
 Uses Org drawer format for collapsible display with summary line."
   (let* ((tool-id (format "tool-%d" (cl-incf ogent-ui--tool-seq)))
-         (status (or status (if (and (stringp result)
-                                     (string-match-p "\\[.*error\\|denied\\]" result))
+         (status (or status (if (eq (ogent-ui--tool-result-status result) 'error)
                                 'error 'success)))
          (context (ogent-ui--tool-context-summary name args))
          (icon (ogent-ui--tool-status-icon status))
@@ -399,17 +398,17 @@ out of band instead of inserting a drawer so the notebook stays small."
       (ogent-ui--insert-tool-drawer name args result)))
 
 (cl-defstruct ogent-streaming-drawer
-  "State for a streaming tool drawer."
-  id
-  buffer
-  drawer-start     ; marker at :TOOL:
-  result-start     ; marker at start of result content
-  result-end       ; marker at end of result content (before #+end_src)
-  status-marker    ; marker at status icon position
-  name
-  args
-  char-count       ; total chars streamed
-  record)          ; non-nil => virtual recorder; no buffer drawer
+	      "State for a streaming tool drawer."
+	      id
+	      buffer
+	      drawer-start     ; marker at :TOOL:
+	      result-start     ; marker at start of result content
+	      result-end       ; marker at end of result content (before #+end_src)
+	      status-marker    ; marker at status icon position
+	      name
+	      args
+	      char-count       ; total chars streamed
+	      record)          ; non-nil => virtual recorder; no buffer drawer
 
 (defun ogent-ui--insert-streaming-drawer (name args)
   "Insert a streaming tool drawer for NAME with ARGS.
@@ -652,9 +651,9 @@ When set to `inline-diff', display inline diff previews in the source buffer."
   "Return list of `ogent-edit' structs for TOOL-NAME/TOOL-ARGS in BUFFER."
   (require 'ogent-edit-format)
   (when-let ((spec (or (ogent-tool-spec-get (ogent-tool--name-symbol tool-name))
-                      (seq-find (lambda (entry)
-                                  (equal tool-name (symbol-name (plist-get entry :name))))
-                                ogent-tools-default-registry))))
+                       (seq-find (lambda (entry)
+                                   (equal tool-name (symbol-name (plist-get entry :name))))
+                                 ogent-tools-default-registry))))
     (let ((values (ogent-tool-contract-values spec tool-args)))
       (setq tool-args
             (cl-loop for arg in (plist-get spec :args) for value in values
@@ -757,10 +756,13 @@ Each entry contains: :id, :file-path, :diff-text, :tool-name,
   (cl-incf ogent-ui--diff-seq)
   (format "ogent-diff-%d" ogent-ui--diff-seq))
 
-(defun ogent-ui--generate-diff (file-path new-content &optional old-string new-string)
+(defun ogent-ui--generate-diff (file-path new-content &optional old-string new-string replace-all)
   "Generate a unified diff for a file change.
 If OLD-STRING and NEW-STRING are provided, it's an edit operation.
-Otherwise, it's a write operation comparing FILE-PATH to NEW-CONTENT."
+Otherwise, compare FILE-PATH to NEW-CONTENT.  REPLACE-ALL permits repeated
+edit matches; otherwise OLD-STRING must occur exactly once."
+  (when old-string
+    (setq replace-all (ogent-tools--edit-validate old-string new-string replace-all)))
   (let* ((file-exists (file-exists-p file-path))
          (old-content (if old-string
                           ;; For edit: get current file content
@@ -776,10 +778,13 @@ Otherwise, it's a write operation comparing FILE-PATH to NEW-CONTENT."
                           "")))
          (computed-new (if old-string
                            ;; For edit: apply the replacement
-                           (replace-regexp-in-string
-                            (regexp-quote old-string)
-                            new-string
-                            old-content t t)
+                           (let ((count 0) (start 0))
+                             (while (string-match (regexp-quote old-string) old-content start)
+                               (cl-incf count)
+                               (setq start (match-end 0)))
+                             (ogent-tools--edit-check-count count replace-all file-path)
+                             (replace-regexp-in-string
+                              (regexp-quote old-string) new-string old-content t t))
                          ;; For write: use new-content directly
                          new-content)))
     (with-temp-buffer
@@ -847,6 +852,7 @@ DIFF-TEXT is the unified diff content.  STATUS is pending/applied/rejected."
                        ('pending "[PENDING - Press 'a' to accept, 'r' to reject]")
                        ('applied "[APPLIED]")
                        ('rejected "[REJECTED]")
+                       ('error "[ERROR - Press 'a' to retry, 'r' to reject]")
                        (_ "[UNKNOWN]"))))
     (insert (format "#+begin_diff %s\n" diff-id))
     (insert (format "File: %s\n" file-path))
@@ -884,10 +890,12 @@ DIFF-TEXT is the unified diff content.  STATUS is pending/applied/rejected."
                        (status-face (pcase new-status
                                       ('applied 'ogent-diff-applied)
                                       ('rejected 'ogent-diff-rejected)
+                                      ('error 'error)
                                       (_ 'ogent-diff-pending)))
                        (status-text (pcase new-status
                                       ('applied "Status: [APPLIED]")
                                       ('rejected "Status: [REJECTED]")
+                                      ('error "Status: [ERROR - Press 'a' to retry, 'r' to reject]")
                                       (_ "Status: [PENDING]"))))
                   (delete-region start end)
                   (goto-char start)
@@ -898,25 +906,27 @@ DIFF-TEXT is the unified diff content.  STATUS is pending/applied/rejected."
   "Return the diff-id at point, or nil."
   (get-text-property (point) 'ogent-diff-id))
 
+(defun ogent-ui--apply-diff (diff-id diff-info)
+  "Execute DIFF-INFO for DIFF-ID and return non-nil only on success."
+  (let* ((result (ogent-ui--execute-tool (plist-get diff-info :tool-name)
+					 (plist-get diff-info :tool-args)))
+         (status (if (eq (ogent-ui--tool-result-status result) 'error) 'error 'applied)))
+    (plist-put diff-info :status status)
+    (plist-put diff-info :result result)
+    (puthash diff-id diff-info ogent-ui--pending-diffs)
+    (ogent-ui--update-diff-status diff-id status)
+    (message "%s: %s" (if (eq status 'applied) "Applied" "Edit failed")
+             (truncate-string-to-width (format "%s" result) 60 nil nil "..."))
+    (eq status 'applied)))
+
 (defun ogent-diff-accept ()
   "Accept and apply the diff at point."
   (interactive)
   (let ((diff-id (ogent-ui--diff-at-point)))
     (if diff-id
         (let ((diff-info (gethash diff-id ogent-ui--pending-diffs)))
-          (if (and diff-info (eq (plist-get diff-info :status) 'pending))
-              (progn
-                ;; Execute the actual tool
-                (let* ((tool-name (plist-get diff-info :tool-name))
-                       (tool-args (plist-get diff-info :tool-args))
-                       (result (ogent-ui--execute-tool tool-name tool-args)))
-                  ;; Update status
-                  (plist-put diff-info :status 'applied)
-                  (plist-put diff-info :result result)
-                  (puthash diff-id diff-info ogent-ui--pending-diffs)
-                  (ogent-ui--update-diff-status diff-id 'applied)
-                  (message "Applied: %s" (truncate-string-to-width
-                                          (format "%s" result) 60 nil nil "..."))))
+          (if (and diff-info (memq (plist-get diff-info :status) '(pending error)))
+              (ogent-ui--apply-diff diff-id diff-info)
             (message "Diff already processed")))
       (message "No diff at point"))))
 
@@ -926,7 +936,7 @@ DIFF-TEXT is the unified diff content.  STATUS is pending/applied/rejected."
   (let ((diff-id (ogent-ui--diff-at-point)))
     (if diff-id
         (let ((diff-info (gethash diff-id ogent-ui--pending-diffs)))
-          (if (and diff-info (eq (plist-get diff-info :status) 'pending))
+          (if (and diff-info (memq (plist-get diff-info :status) '(pending error)))
               (progn
                 (plist-put diff-info :status 'rejected)
                 (puthash diff-id diff-info ogent-ui--pending-diffs)
@@ -948,8 +958,12 @@ Returns the diff-id if a diff was created, nil otherwise."
     (when (eq ogent-ui-edit-preview-style 'inline-diff)
       (message "Inline diff not available; falling back to diff block preview."))
     (let* ((diff-id (ogent-ui--next-diff-id))
-           (file-path (or (plist-get tool-args :file-path)
-                          (plist-get tool-args :file_path)))
+           (spec (or (ogent-tool-spec-get tool-name)
+                     (seq-find (lambda (entry)
+                                 (equal tool-name (symbol-name (plist-get entry :name))))
+                               ogent-tools-default-registry)))
+           (values (ogent-tool-contract-values spec tool-args))
+           (file-path (ogent-tools--resolve-path (car values)))
            diff-text)
       (unless file-path
         (error "No file path in tool args"))
@@ -957,14 +971,10 @@ Returns the diff-id if a diff was created, nil otherwise."
       (setq diff-text
             (pcase tool-name
               ("write-file"
-               (let ((content (plist-get tool-args :content)))
-                 (ogent-ui--generate-diff file-path content)))
+               (ogent-ui--generate-diff file-path (nth 1 values)))
               ("edit-file"
-               (let ((old-string (or (plist-get tool-args :old-string)
-                                     (plist-get tool-args :old_string)))
-                     (new-string (or (plist-get tool-args :new-string)
-                                     (plist-get tool-args :new_string))))
-                 (ogent-ui--generate-diff file-path nil old-string new-string)))
+               (ogent-ui--generate-diff file-path nil (nth 1 values)
+                                        (nth 2 values) (nth 3 values)))
               (_ (error "Unknown edit tool: %s" tool-name))))
       ;; Insert the diff block
       (let ((marker (ogent-ui--insert-diff-block diff-id file-path diff-text 'pending)))
@@ -1011,7 +1021,7 @@ Returns a generated diff-id for tracking."
   "Return a list of all pending diff info plists."
   (let (diffs)
     (maphash (lambda (_id info)
-               (when (eq (plist-get info :status) 'pending)
+               (when (memq (plist-get info :status) '(pending error))
                  (push info diffs)))
              ogent-ui--pending-diffs)
     (nreverse diffs)))
@@ -1021,14 +1031,9 @@ Returns a generated diff-id for tracking."
   (interactive)
   (let ((count 0))
     (maphash (lambda (diff-id info)
-               (when (and (eq (plist-get info :status) 'pending)
+               (when (and (memq (plist-get info :status) '(pending error))
                           (eq (plist-get info :buffer) (current-buffer)))
-                 (let ((tool-name (plist-get info :tool-name))
-                       (tool-args (plist-get info :tool-args)))
-                   (ogent-ui--execute-tool tool-name tool-args)
-                   (plist-put info :status 'applied)
-                   (puthash diff-id info ogent-ui--pending-diffs)
-                   (ogent-ui--update-diff-status diff-id 'applied)
+                 (when (ogent-ui--apply-diff diff-id info)
                    (cl-incf count))))
              ogent-ui--pending-diffs)
     (message "Applied %d diff(s)" count)))
@@ -1038,7 +1043,7 @@ Returns a generated diff-id for tracking."
   (interactive)
   (let ((count 0))
     (maphash (lambda (diff-id info)
-               (when (and (eq (plist-get info :status) 'pending)
+               (when (and (memq (plist-get info :status) '(pending error))
                           (eq (plist-get info :buffer) (current-buffer)))
                  (plist-put info :status 'rejected)
                  (puthash diff-id info ogent-ui--pending-diffs)

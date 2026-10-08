@@ -38,7 +38,7 @@
 
 (defun ogent-tool-contract--type-p (type value)
   "Return non-nil when VALUE satisfies registry TYPE."
-  (pcase type
+  (pcase (if (symbolp type) (symbol-name type) type)
     ("string" (stringp value))
     ("integer" (integerp value))
     ("number" (numberp value))
@@ -63,7 +63,8 @@ Preserve nested objects; normalize only declared boolean arguments."
      for argument in arguments
      for index from 0
      for value = (nth index values)
-     for type = (plist-get argument :type)
+     for type = (let ((declared (plist-get argument :type)))
+                  (if (symbolp declared) (symbol-name declared) declared))
      for key = (plist-get argument :name)
      for optional = (plist-get argument :optional)
      collect
@@ -79,7 +80,8 @@ Preserve nested objects; normalize only declared boolean arguments."
            (user-error "%s argument %s must be one of %S; choose a listed value"
                        name key enum)))
        (if (equal type "boolean")
-           (and (memq value '(t :json-true :true true)) t)
+           (if (memq value '(t :json-true :true true)) t
+             (if (eq (plist-get spec :boolean-representation) 'json) :json-false nil))
          value))))))
 
 (defun ogent-tool-contract-values (spec args)
@@ -118,7 +120,12 @@ false values and reject unknown or duplicate argument names with guidance."
                     (plist-get spec :name) (plist-get argument :name))))
     (ogent-tool-contract-validate-values
      spec (mapcar (lambda (argument)
-                    (cdr (assoc (plist-get argument :name) canonical)))
+                    (let ((entry (assoc (plist-get argument :name) canonical)))
+                      (if (and entry (null (cdr entry))
+                               (member (plist-get argument :type) '("boolean" boolean))
+                               (eq (plist-get spec :boolean-representation) 'json))
+                          :json-false
+                        (cdr entry))))
                   arguments))))
 
 (provide 'ogent-tool-contract)
