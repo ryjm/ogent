@@ -297,24 +297,30 @@
          (schema '((name . "read") (inputSchema . ((type . "object")
                     (properties . ((path . ((type . "string")))
                                    (flag . ((type . "boolean")))
-                                   (nullable . ((type . "null")))))))))
+                                   (nullable . ((type . "null")))
+                                   (payload . ((type . "object")))))))))
          (zero '((name . "zero") (inputSchema . ((type . "object") (properties))))))
     (ogent-mcp--register-tools conn (list schema zero))
     (let ((result (json-parse-string
                    (funcall (gptel-tool-function (ogent-tool-get 'mcp-wire-read))
-                            "/tmp/example.txt" :json-false :null)
+                            "/tmp/example.txt" :json-false :null
+                            '(:nested [:false :null (:label "ok")]))
                    :object-type 'plist :null-object :null :false-object :json-false)))
       (should (equal (plist-get result :path) "/tmp/example.txt"))
       (should (eq (plist-get result :flag) :json-false))
-      (should (eq (plist-get result :nullable) :null)))
+      (should (eq (plist-get result :nullable) :null))
+      (should (equal (plist-get result :payload)
+                     '(:nested [:json-false :null (:label "ok")]))))
     (should (equal (funcall (gptel-tool-function (ogent-tool-get 'mcp-wire-zero))) "{}"))))
 
 (ert-deftest ogent-offline-async-tool-callback-first-once ()
   "Adapt callback-first actual gptel calls and discard duplicate completions."
-  (let* ((ogent-tool-registry
+  (let* ((executions 0)
+         (ogent-tool-registry
           (list (list :name 'fixture-async :description "Fixture async" :async t
                       :args '((:name "text" :type string))
                       :function (lambda (text callback)
+                                  (cl-incf executions)
                                   (funcall callback (concat "Async " text))
                                   (funcall callback "Duplicate")))))
          (ogent--tools-registered nil)
@@ -322,7 +328,12 @@
          (results nil))
     (ogent-ui--complete-pending-tools
      (list (list tool '(:text "one") (lambda (result) (push result results)))))
-    (should (equal results '("Async one")))))
+    (should (= executions 1))
+    (should (equal results '("Async one")))
+    (ogent-ui--complete-pending-tools
+     (list (list tool '(:text "two") (lambda (result) (push result results)))))
+    (should (= executions 2))
+    (should (equal results '("Async two" "Async one")))))
 
 (ert-deftest ogent-offline-native-tool-cap-and-completion ()
   "Run native conversations through actual gptel, including the iteration cap."
@@ -345,7 +356,13 @@
                                              :runtime-mode 'native :model "gpt-6.1-sol"
                                              :instruction "fixture-tool-cycle"))
              (state (ogent-armory-runner-start plan)))
-        (ogent-offline--wait (lambda () (plist-get state :finished)))
+        (let ((buffer (find-file-noselect (plist-get plan :conversation-file))))
+          (unwind-protect
+              (progn
+                (with-current-buffer buffer (setq buffer-read-only t))
+                (ogent-offline--wait (lambda () (plist-get state :finished)))
+                (should-not (with-current-buffer buffer (buffer-modified-p))))
+            (kill-buffer buffer)))
         (should (= ogent-offline--executions 1))
         (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
                                   :status)

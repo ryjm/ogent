@@ -17,8 +17,9 @@
   "Return a gptel function enforcing policy and ledger recording for SPEC.
 Adapt gptel's callback-first convention to ogent's callback-last async specs.
 Reject stale tool objects after registry removal or schema replacement."
+  ;; Preserve the function's closure environment when copying metadata.
   (let ((name (plist-get spec :name))
-        (snapshot (copy-tree spec)))
+        (snapshot (plist-put (copy-tree spec) :function (plist-get spec :function))))
     (lambda (&rest values)
       (let* ((async (plist-get snapshot :async))
              (callback (and async (pop values)))

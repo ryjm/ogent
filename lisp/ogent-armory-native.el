@@ -257,15 +257,20 @@ pass through unchanged; return the finalized conversation file."
   (let ((conversation-file
          (when-let ((file (plist-get plan :conversation-file)))
            (expand-file-name file)))
-        (ask (symbol-function 'ask-user-about-supersession-threat)))
-    (cl-letf (((symbol-function 'ask-user-about-supersession-threat)
-               (lambda (filename)
-                 (unless (and conversation-file
-                              (equal (expand-file-name filename)
-                                     conversation-file))
-                   (funcall ask filename)))))
-      (ogent-armory-runner--finalize-conversation
-       plan output error-text exit-status))))
+        ;; Emacs 29 checks the current buffer before reaching the public
+        ;; prompt.  Shadow its entry point so a temporary writer is safe too.
+        (entry (if (fboundp 'userlock--ask-user-about-supersession-threat)
+                   'userlock--ask-user-about-supersession-threat
+                 'ask-user-about-supersession-threat)))
+    (let ((ask (symbol-function entry)))
+      (cl-letf (((symbol-function entry)
+		 (lambda (filename)
+                   (unless (and conversation-file
+				(equal (expand-file-name filename)
+                                       conversation-file))
+                     (funcall ask filename)))))
+	(ogent-armory-runner--finalize-conversation
+	 plan output error-text exit-status)))))
 
 (defun ogent-armory-native--finalize-refresh (file)
   "Revert an unmodified buffer visiting FILE onto the finalized content.

@@ -668,7 +668,9 @@ Returns the list of registered tool objects."
                                 (list :async (plist-get spec :async)))
                               (when (plist-member spec :include)
                                 (list :include (plist-get spec :include)))))))
-            (push (cons name (copy-tree spec)) ogent--tool-specs-registered)
+            (push (cons name (plist-put (copy-tree spec) :function
+					(plist-get spec :function)))
+                  ogent--tool-specs-registered)
             (push (cons name tool) ogent--tools-registered))))))
   (unless ogent-tool-registry
     (dolist (entry (copy-sequence ogent--tools-registered))
