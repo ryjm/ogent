@@ -241,38 +241,61 @@ TYPE is `stdout' or `stderr'."
 ;;; Tool: Read File
 
 (defun ogent-tool--read-file (file-path &optional offset limit)
-  "Read contents of FILE-PATH.
+  "Return a numbered page of text from FILE-PATH.
 OFFSET is the starting line number (1-indexed, default 1).
-LIMIT is the max lines to read (default `ogent-tools-max-file-lines')."
+LIMIT is the max lines to read (default `ogent-tools-max-file-lines').
+Name the next offset when more lines remain; mark truncated long lines."
+  (unless (and (stringp file-path) (not (string-empty-p file-path)))
+    (user-error "read_file file_path must be a non-empty string; use glob to find a file"))
   (let* ((path (ogent-tools--resolve-path file-path))
          (offset (or offset 1))
          (limit (or limit ogent-tools-max-file-lines)))
+    (unless (and (integerp offset) (> offset 0))
+      (user-error "read_file offset must be a positive line number; use offset 1"))
+    (unless (and (integerp limit) (> limit 0))
+      (user-error "read_file limit must be a positive integer; use limit 200"))
     (unless (file-exists-p path)
-      (error "File not found: %s" path))
+      (user-error "File not found: %s; use glob with path %s to locate it"
+                  path (file-name-directory path)))
+    (unless (file-regular-p path)
+      (user-error "read_file file_path is not a regular file: %s; use glob to list files" path))
     (unless (file-readable-p path)
-      (error "File not readable: %s" path))
+      (user-error "File not readable: %s; choose a readable file_path" path))
     ;; Check for binary
     (when (with-temp-buffer
             (insert-file-contents-literally path nil 0 1000)
             (goto-char (point-min))
             (search-forward "\0" nil t))
-      (error "Binary file detected: %s" path))
+      (user-error "Binary file detected: %s; choose a text file_path or a format-aware reader" path))
     ;; Read with line numbers
     (with-temp-buffer
       (insert-file-contents path)
-      (let ((lines (split-string (buffer-string) "\n"))
+      (let* ((content (buffer-string))
+             (lines (unless (string-empty-p content)
+                      (split-string content "\n")))
             (result nil)
             (line-num 1))
+        (when (string-suffix-p "\n" content) (setq lines (butlast lines)))
+        (when (and lines (> offset (length lines)))
+          (user-error "read_file offset %d exceeds %d lines in %s; use offset 1"
+                      offset (length lines) path))
         (dolist (line lines)
           (when (and (>= line-num offset)
                      (< (length result) limit))
             ;; Truncate very long lines
             (let ((truncated (if (> (length line) 2000)
-                                 (concat (substring line 0 2000) "...")
+                                 (format "%s... [line %d truncated to 2000 characters]"
+                                         (substring line 0 2000) line-num)
                                line)))
               (push (format "%6d\t%s" line-num truncated) result)))
           (cl-incf line-num))
-        (string-join (nreverse result) "\n")))))
+        (let ((next (+ offset (length result)))
+              (page (string-join (nreverse result) "\n")))
+          (concat
+           (if lines page "(empty file)")
+           (when (<= next (length lines))
+             (format "\n\n[More lines available. Next call: read_file(file_path=%S, offset=%d, limit=%d)]"
+                     file-path next limit))))))))
 
 ;;; Tool: Glob (File Search)
 

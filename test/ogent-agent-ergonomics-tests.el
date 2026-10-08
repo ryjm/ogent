@@ -74,5 +74,24 @@
                :type 'user-error)))
     (should (string-match-p "path" (error-message-string err)))))
 
+(ert-deftest ogent-agent-ergonomics-read-pagination-next-offset ()
+  "Read pages name the next offset and omit a phantom trailing line."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "data.txt" "a\nb\nc\nd\n"))
+         (first (ogent-tool--read-file file 1 2))
+         (last (ogent-tool--read-file file 3 2)))
+    (should (string-match-p "offset=3" first))
+    (should-not (string-match-p "More lines" last))
+    (should-not (string-match-p "5\\t" (ogent-tool--read-file file)))))
+
+(ert-deftest ogent-agent-ergonomics-read-pagination-invalid-bounds ()
+  "Invalid read bounds fail with precise correction hints."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "data.txt" "a\n")))
+    (dolist (bounds '((0 2) (1 0) ("2" 1) (1 -1)))
+      (let ((err (should-error (apply #'ogent-tool--read-file file bounds)
+                               :type 'user-error)))
+        (should (string-match-p "use" (error-message-string err)))))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
