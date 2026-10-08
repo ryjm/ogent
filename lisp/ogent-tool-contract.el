@@ -36,6 +36,20 @@
     (when name
       (replace-regexp-in-string "-" "_" (string-remove-prefix ":" name)))))
 
+(defun ogent-tool-contract--declared-name (key names)
+  "Resolve KEY to an exact or unambiguous declared name among NAMES."
+  (let* ((text (cond ((keywordp key) (substring (symbol-name key) 1))
+                     ((symbolp key) (symbol-name key))
+                     ((stringp key) key)))
+         (matches (and text
+                       (seq-filter (lambda (name)
+                                     (equal (ogent-tool-contract--key-name name)
+                                            (ogent-tool-contract--key-name key)))
+                                   names))))
+    (cond ((member text names) text)
+          ((= (length matches) 1) (car matches))
+          (t nil))))
+
 (defun ogent-tool-contract--type-p (type value)
   "Return non-nil when VALUE satisfies registry TYPE."
   (pcase (if (symbolp type) (symbol-name type) type)
@@ -95,17 +109,18 @@ false values and reject unknown or duplicate argument names with guidance."
          (names (mapcar (lambda (argument) (plist-get argument :name)) arguments))
          seen canonical)
     (cl-loop for (key value) on args by #'cddr
-             for name = (ogent-tool-contract--key-name key)
+             for name = (ogent-tool-contract--declared-name key names)
+             for input-name = (ogent-tool-contract--key-name key)
              do
              (unless (member name names)
-               (let ((closest (and (stringp name)
+               (let ((closest (and (stringp input-name)
                                    (car (sort (copy-sequence names)
                                               (lambda (a b)
-                                                (< (string-distance name a)
-                                                   (string-distance name b))))))))
+                                                (< (string-distance input-name (ogent-tool-contract--key-name a))
+                                                   (string-distance input-name (ogent-tool-contract--key-name b)))))))))
                  (user-error "%s has no argument %S; %suse declared arguments %S"
                              (plist-get spec :name) key
-                             (if (and closest (<= (string-distance name closest) 2))
+                             (if (and closest (<= (string-distance input-name (ogent-tool-contract--key-name closest)) 2))
                                  (format "did you mean %s? " closest) "")
                              names)))
              (when (member name seen)

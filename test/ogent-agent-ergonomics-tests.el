@@ -488,5 +488,22 @@
         (should (equal (plist-get (plist-get info :tool-args) :file_path)
                        (expand-file-name "target.txt" root)))))))
 
+(ert-deftest ogent-agent-ergonomics-argument-contract-declared-key-spelling ()
+  "Exact declared names win before unambiguous aliases, including MCP fields."
+  (let ((single '(:name custom :args ((:name "file-path" :type string))))
+        (distinct '(:name custom :args ((:name "file-path" :type string)
+					(:name "file_path" :type string)))))
+    (should (equal (ogent-tool-contract-values single '(:file-path "a")) '("a")))
+    (should (equal (ogent-tool-contract-values single '(:file_path "b")) '("b")))
+    (should (equal (ogent-tool-contract-values distinct '(:file-path "a" :file_path "b"))
+                   '("a" "b")))
+    (should-error (ogent-tool-contract-values single '(:file-path "a" :file_path "b"))
+                  :type 'user-error)
+    (let* ((ogent-tool-registry (list single))
+           (ogent-tool-require-approval nil)
+           (spec (append single (list :function #'identity))))
+      (setq ogent-tool-registry (list spec))
+      (should (equal (funcall (ogent-tool-execution-wrapper spec) "a") "a")))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
