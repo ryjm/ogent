@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:09:27+0000, selector `"^ogent-agent-ergonomics-grep-arguments"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-JH0bva/tools-mqMEGC (retained)
+Running 2 tests (2026-10-08 19:28:04+0000, selector `"^ogent-agent-ergonomics-grep-arguments"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-ETklbr/tools-4JhXz3 (retained)
 Test ogent-agent-ergonomics-grep-arguments-leading-dash backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -111,8 +111,8 @@ uncompressing cl-print.el.gz...done
   (let* ((fn-217 #'string-match-p) (args-218 (condition-case err (list
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x1b258a24e34d71d4>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b258a24e34d71d
+  #f(compiled-function () #<bytecode 0x12f6b7c6b36fbef0>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x12f6b7c6b36fbef0
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -164,8 +164,8 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.002362 sec) at test/ogent-agent-ergonomics-tests.el:41
-ogent-test: provisioned tools store at /tmp/ogent-test-store-JH0bva/tools-nG8X7H (retained)
+   FAILED  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.001941 sec) at test/ogent-agent-ergonomics-tests.el:41
+ogent-test: provisioned tools store at /tmp/ogent-test-store-ETklbr/tools-d8jZ4t (retained)
 Test ogent-agent-ergonomics-grep-arguments-quoted-filter backtrace:
   signal(ert-test-failed (((should-not (file-exists-p marker)) :form (
   ert-fail(((should-not (file-exists-p marker)) :form (file-exists-p "
@@ -175,8 +175,8 @@ Test ogent-agent-ergonomics-grep-arguments-quoted-filter backtrace:
   (let* ((fn-222 #'file-exists-p) (args-223 (condition-case err (list 
   (let* ((root (ogent-test--provision-store-directory 'tools)) (marker
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x1b258a24e34d71d4>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b258a24e34d71d
+  #f(compiled-function () #<bytecode 0x12f6b7c6b36fbef0>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x12f6b7c6b36fbef0
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -198,11 +198,11 @@ Test ogent-agent-ergonomics-grep-arguments-quoted-filter condition:
     (ert-test-failed
      ((should-not (file-exists-p marker)) :form
       (file-exists-p
-       "/tmp/ogent-test-store-JH0bva/tools-nG8X7H/injection-marker")
+       "/tmp/ogent-test-store-ETklbr/tools-d8jZ4t/injection-marker")
       :value t))
-   FAILED  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.002296 sec) at test/ogent-agent-ergonomics-tests.el:51
+   FAILED  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.002142 sec) at test/ogent-agent-ergonomics-tests.el:51
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:29+0000, 1.760181 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:06+0000, 1.737383 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-grep-arguments-leading-dash

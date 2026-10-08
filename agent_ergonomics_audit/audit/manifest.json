@@ -8,7 +8,7 @@
     {
       "pass": 1,
       "started_at": "2026-10-08T17:00:57Z",
-      "completed_at": "2026-10-08T19:18:21.970491+00:00",
+      "completed_at": "2026-10-08T19:34:12.106456+00:00",
       "mode": "full",
       "target_sha": "72016bb66928a20a49238266645abde583fa595d",
       "target_branch": "master",
@@ -24,11 +24,11 @@
         "ambition_bar_self_prompt_run": true,
         "median_uplift_pts": 143,
         "regressions_count": 0,
-        "fresh_eyes_rounds": 8,
+        "fresh_eyes_rounds": 10,
         "substantive_commits_note": "Primary tested behavior changes; overlapping surfaces are not independently scored per commit. Review/doc-only fixes are excluded from this count.",
         "consecutive_final_clean_rounds": [
-          7,
-          8
+          9,
+          10
         ],
         "baseline_mean": 513.6315789473684,
         "post_mean": 676.9473684210526,
@@ -67,17 +67,17 @@
         "native_checks": "audit/verification/native_checks.json",
         "fresh_eyes": "audit/phase7_fresh_eyes_log.md"
       },
-      "post_target_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4"
+      "post_target_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec"
     },
     {
       "pass": 2,
       "mode": "re-score-only",
       "started_at": "2026-10-08T17:47:00Z",
-      "completed_at": "2026-10-08T19:18:21.970491+00:00",
-      "target_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "completed_at": "2026-10-08T19:34:12.106464+00:00",
+      "target_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "target_branch": "master",
       "feature_branch": null,
-      "notes": "Post-change measurement of full implementation pass 1; no separate branch or improvement cycle.",
+      "notes": "Post-change measurement of full implementation pass 1; no separate branch or improvement cycle. Final quote-style rendering correction preserves numerical score anchors; historical scorer revision citations are retained. Native and review evidence is rerun at the final freeze.",
       "summary": {
         "surfaces_scored": 19,
         "baseline_mean": 513.6315789473684,
@@ -90,7 +90,8 @@
         "heatmap": "audit/heatmap.svg",
         "uplift_diff": "audit/uplift_diff.md",
         "reconciliation": "audit/rubric_reconciliation_post.md"
-      }
+      },
+      "scored_source_freeze": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4"
     }
   ],
   "current_pass": 2,
@@ -100,5 +101,17 @@
   "skill_version": 18,
   "jsm_bundle_version": "0.3.25",
   "measurement_method": "Independent same-model peer scoring with tiebreakers; arithmetic means of integer median dimension scores.",
-  "scope": "19 primary Emacs SDK and Make surfaces; provider login/inference and secondary Armory UI excluded."
+  "scope": "19 primary Emacs SDK and Make surfaces; provider login/inference and secondary Armory UI excluded.",
+  "ci_followup": {
+    "initial_published_sha": "0e4e9013209a13fb822cecae7e3489fe89d99a27",
+    "initial_run": "https://github.com/ryjm/ogent/actions/runs/37831345723",
+    "observed_failure": "Doctor correction apostrophe becomes a curved quote under CI text-quoting-style.",
+    "fix_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+    "regression_test": "Existing R008 invalid-format test now pins advice under curve, straight and grave quote styles.",
+    "native_checks_passed": true,
+    "final_consecutive_clean_rounds": [
+      9,
+      10
+    ]
+  }
 }

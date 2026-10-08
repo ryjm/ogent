@@ -14,12 +14,12 @@
     "offline-test"
   ],
   "exit_code": 0,
-  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-  "started_at": "2026-10-08T19:09:17.264323+00:00",
-  "completed_at": "2026-10-08T19:09:25.657651+00:00",
+  "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+  "started_at": "2026-10-08T19:33:01.897205+00:00",
+  "completed_at": "2026-10-08T19:33:10.142009+00:00",
   "summary": [
     "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
-    "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:25+0000, 4.637671 sec)"
+    "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:33:09+0000, 4.530748 sec)"
   ],
   "stdout": "audit/verification/native/emacs30-offline-minimum.stdout.log",
   "stderr": "audit/verification/native/emacs30-offline-minimum.stderr.log"

@@ -94,7 +94,7 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 3 tests (2026-10-08 19:10:05+0000, selector `"^ogent-agent-ergonomics-bash-contract"')
+Running 3 tests (2026-10-08 19:28:42+0000, selector `"^ogent-agent-ergonomics-bash-contract"')
 Test ogent-agent-ergonomics-bash-contract-async-chunk-boundaries backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -104,10 +104,10 @@ uncompressing cl-print.el.gz...
 uncompressing cl-print.el.gz...done
   signal(ert-test-failed (((should (string-prefix-p "1234567890" (mapc
   ert-fail(((should (string-prefix-p "1234567890" (mapconcat #'cadr (s
-  (if (unwind-protect (setq value-604 (apply fn-602 args-603)) (setq f
-  (let (form-description-606) (if (unwind-protect (setq value-604 (app
-  (let ((value-604 'ert-form-evaluation-aborted-605)) (let (form-descr
-  (let* ((fn-602 #'string-prefix-p) (args-603 (condition-case err (lis
+  (if (unwind-protect (setq value-609 (apply fn-607 args-608)) (setq f
+  (let (form-description-611) (if (unwind-protect (setq value-609 (app
+  (let ((value-609 'ert-form-evaluation-aborted-610)) (let (form-descr
+  (let* ((fn-607 #'string-prefix-p) (args-608 (condition-case err (lis
   (progn (setq proc (ogent-tool--bash-async command nil 3 #'(lambda (t
   (unwind-protect (progn (setq proc (ogent-tool--bash-async command ni
   (let ((ogent-tools-max-output-chars 10) (ogent-tools-show-progress n
@@ -115,8 +115,8 @@ uncompressing cl-print.el.gz...done
   (while tail (let ((command (car tail))) (let ((ogent-tools-max-outpu
   (let ((tail '("printf 1234567890" "printf 12345678901234567890"))) (
   #f(lambda () [t] (let ((tail '...)) (while tail (let (...) (let ... 
-  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  #f(compiled-function () #<bytecode 0x16271a1f5c431e24>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x16271a1f5c431e24
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -166,18 +166,18 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.001524 sec) at test/ogent-agent-ergonomics-tests.el:311
+   FAILED  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.001886 sec) at test/ogent-agent-ergonomics-tests.el:316
 Test ogent-agent-ergonomics-bash-contract-exit-survives-truncation backtrace:
   signal(ert-test-failed (((should (string-suffix-p "Exit code: 42" re
   ert-fail(((should (string-suffix-p "Exit code: 42" result)) :form (s
-  (if (unwind-protect (setq value-584 (apply fn-582 args-583)) (setq f
-  (let (form-description-586) (if (unwind-protect (setq value-584 (app
-  (let ((value-584 'ert-form-evaluation-aborted-585)) (let (form-descr
-  (let* ((fn-582 #'string-suffix-p) (args-583 (condition-case err (lis
+  (if (unwind-protect (setq value-589 (apply fn-587 args-588)) (setq f
+  (let (form-description-591) (if (unwind-protect (setq value-589 (app
+  (let ((value-589 'ert-form-evaluation-aborted-590)) (let (form-descr
+  (let* ((fn-587 #'string-suffix-p) (args-588 (condition-case err (lis
   (let* ((ogent-tools-max-output-chars 10) (ogent-tools-show-progress 
   #f(lambda () [t] (let* ((ogent-tools-max-output-chars 10) (ogent-too
-  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  #f(compiled-function () #<bytecode 0x16271a1f5c431e24>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x16271a1f5c431e24
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -201,23 +201,23 @@ Test ogent-agent-ergonomics-bash-contract-exit-survives-truncation condition:
       (string-suffix-p "Exit code: 42"
 		       "1234567890\n\n[Output truncated. Total length: 95 chars]")
       :value nil))
-   FAILED  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.000951 sec) at test/ogent-agent-ergonomics-tests.el:300
+   FAILED  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.000978 sec) at test/ogent-agent-ergonomics-tests.el:305
 Test ogent-agent-ergonomics-bash-contract-invalid-before-spawn backtrace:
   signal(ert-test-failed (((should-error (ogent-tool--bash "pwd" nil 0
   ert-fail(((should-error (ogent-tool--bash "pwd" nil 0) :type 'user-e
-  ert--should-error-handle-error(#f(lambda () [(form-description-547 (
-  (condition-case -condition- (unwind-protect (setq value-545 (apply f
-  (let ((errorp548 nil) (form-description-fn-549 #'(lambda nil form-de
-  (let (form-description-547) (let ((errorp548 nil) (form-description-
-  (let ((value-545 'ert-form-evaluation-aborted-546)) (let (form-descr
-  (let* ((fn-543 #'ogent-tool--bash) (args-544 (condition-case err (li
-  (progn (fset 'make-process vnew) (let* ((fn-543 #'ogent-tool--bash) 
-  (unwind-protect (progn (fset 'make-process vnew) (let* ((fn-543 #'og
+  ert--should-error-handle-error(#f(lambda () [(form-description-552 (
+  (condition-case -condition- (unwind-protect (setq value-550 (apply f
+  (let ((errorp553 nil) (form-description-fn-554 #'(lambda nil form-de
+  (let (form-description-552) (let ((errorp553 nil) (form-description-
+  (let ((value-550 'ert-form-evaluation-aborted-551)) (let (form-descr
+  (let* ((fn-548 #'ogent-tool--bash) (args-549 (condition-case err (li
+  (progn (fset 'make-process vnew) (let* ((fn-548 #'ogent-tool--bash) 
+  (unwind-protect (progn (fset 'make-process vnew) (let* ((fn-548 #'og
   (let* ((vnew #'(lambda (&rest _) (setq spawned t) (error "Unexpected
   (let ((events nil) spawned (ogent-tools-show-progress nil)) (let* ((
   #f(lambda () [t] (let ((events nil) spawned (ogent-tools-show-progre
-  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  #f(compiled-function () #<bytecode 0x16271a1f5c431e24>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x16271a1f5c431e24
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -241,9 +241,9 @@ Test ogent-agent-ergonomics-bash-contract-invalid-before-spawn condition:
       :form (ogent-tool--bash "pwd" nil 0) :condition
       (error "Unexpected spawn") :fail-reason
       "the error signaled did not have the expected type"))
-   FAILED  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000240 sec) at test/ogent-agent-ergonomics-tests.el:284
+   FAILED  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000235 sec) at test/ogent-agent-ergonomics-tests.el:289
 
-Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:10:09+0000, 3.236845 sec)
+Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:28:45+0000, 3.263875 sec)
 
 3 unexpected results:
    FAILED  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries

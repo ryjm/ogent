@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:09:33+0000, selector `"^ogent-agent-ergonomics-read-pagination"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-chsQLv/tools-kY6ZJH (retained)
+Running 2 tests (2026-10-08 19:28:10+0000, selector `"^ogent-agent-ergonomics-read-pagination"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-u4bEdQ/tools-BmRPL1 (retained)
 Test ogent-agent-ergonomics-read-pagination-invalid-bounds backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -116,8 +116,8 @@ uncompressing cl-print.el.gz...done
   (let ((tail '((0 2) (1 0) ("2" 1) (1 -1)))) (while tail (let ((bound
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x8bc7d560969a01e>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x8bc7d560969a01e
+  #f(compiled-function () #<bytecode -0x14b3bace6d0df137>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x14b3bace6d0df13
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -141,7 +141,7 @@ Test ogent-agent-ergonomics-read-pagination-invalid-bounds condition:
 		    'user-error)
       :form
       (apply ogent-tool--read-file
-	     "/tmp/ogent-test-store-chsQLv/tools-kY6ZJH/data.txt" (0 2))
+	     "/tmp/ogent-test-store-u4bEdQ/tools-BmRPL1/data.txt" (0 2))
       :value "     1\11a\n     2\11" :fail-reason
       "did not signal an error"))
 uncompressing vc-git.el.gz...
@@ -172,8 +172,8 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000916 sec) at test/ogent-agent-ergonomics-tests.el:91
-ogent-test: provisioned tools store at /tmp/ogent-test-store-chsQLv/tools-Zfyc4W (retained)
+   FAILED  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000653 sec) at test/ogent-agent-ergonomics-tests.el:91
+ogent-test: provisioned tools store at /tmp/ogent-test-store-u4bEdQ/tools-YDQObz (retained)
 Test ogent-agent-ergonomics-read-pagination-next-offset backtrace:
   signal(ert-test-failed (((should (string-match-p "offset=3" first)) 
   ert-fail(((should (string-match-p "offset=3" first)) :form (string-m
@@ -183,8 +183,8 @@ Test ogent-agent-ergonomics-read-pagination-next-offset backtrace:
   (let* ((fn-244 #'string-match-p) (args-245 (condition-case err (list
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x8bc7d560969a01e>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x8bc7d560969a01e
+  #f(compiled-function () #<bytecode -0x14b3bace6d0df137>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x14b3bace6d0df13
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -206,9 +206,9 @@ Test ogent-agent-ergonomics-read-pagination-next-offset condition:
     (ert-test-failed
      ((should (string-match-p "offset=3" first)) :form
       (string-match-p "offset=3" "     1\11a\n     2\11b") :value nil))
-   FAILED  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000733 sec) at test/ogent-agent-ergonomics-tests.el:81
+   FAILED  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000547 sec) at test/ogent-agent-ergonomics-tests.el:81
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:35+0000, 2.005515 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:12+0000, 2.189103 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-read-pagination-invalid-bounds

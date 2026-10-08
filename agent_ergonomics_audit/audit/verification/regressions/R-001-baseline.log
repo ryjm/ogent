@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:09:24+0000, selector `"^ogent-agent-ergonomics-grep-errors"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-62RpP9/tools-GCapKr (retained)
+Running 2 tests (2026-10-08 19:28:01+0000, selector `"^ogent-agent-ergonomics-grep-errors"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-MYyfMH/tools-x7w8NE (retained)
 Test ogent-agent-ergonomics-grep-errors-invalid-regex backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -112,8 +112,8 @@ uncompressing cl-print.el.gz...done
   (let* ((fn-185 #'ogent-tool--grep) (args-186 (condition-case err (li
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x6de8ede7fb9d1a9>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x6de8ede7fb9d1a9
+  #f(compiled-function () #<bytecode 0x1e8dbae5cd4bbe4f>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x1e8dbae5cd4bbe4f
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -135,7 +135,7 @@ Test ogent-agent-ergonomics-grep-errors-invalid-regex condition:
     (ert-test-failed
      ((should-error (ogent-tool--grep "[" file) :type 'user-error) :form
       (ogent-tool--grep "["
-			"/tmp/ogent-test-store-62RpP9/tools-GCapKr/data.txt")
+			"/tmp/ogent-test-store-MYyfMH/tools-x7w8NE/data.txt")
       :value "grep: Invalid regular expression\n\n\n[1 matches in 0.0s]"
       :fail-reason "did not signal an error"))
 uncompressing vc-git.el.gz...
@@ -166,8 +166,8 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002515 sec) at test/ogent-agent-ergonomics-tests.el:24
-ogent-test: provisioned tools store at /tmp/ogent-test-store-62RpP9/tools-vIWIBx (retained)
+   FAILED  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.003074 sec) at test/ogent-agent-ergonomics-tests.el:24
+ogent-test: provisioned tools store at /tmp/ogent-test-store-MYyfMH/tools-TLCGXO (retained)
 Test ogent-agent-ergonomics-grep-errors-no-match-is-success backtrace:
   signal(ert-test-failed (((should (equal (ogent-tool--grep "absent" f
   ert-fail(((should (equal (ogent-tool--grep "absent" file) "No matche
@@ -177,8 +177,8 @@ Test ogent-agent-ergonomics-grep-errors-no-match-is-success backtrace:
   (let* ((fn-207 #'equal) (args-208 (condition-case err (list (ogent-t
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x6de8ede7fb9d1a9>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x6de8ede7fb9d1a9
+  #f(compiled-function () #<bytecode 0x1e8dbae5cd4bbe4f>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x1e8dbae5cd4bbe4f
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -205,9 +205,9 @@ Test ogent-agent-ergonomics-grep-errors-no-match-is-success condition:
       (arrays-of-different-length 35 16
 				  "No matches found (searched in 0.0s)"
 				  "No matches found" first-mismatch-at 16)))
-   FAILED  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.002122 sec) at test/ogent-agent-ergonomics-tests.el:34
+   FAILED  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.001930 sec) at test/ogent-agent-ergonomics-tests.el:34
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:26+0000, 1.918748 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:03+0000, 1.892805 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-grep-errors-invalid-regex

@@ -49,3 +49,7 @@ Deferred scope is tracked as ogent-v2fp and ogent-lkvs. The user-facing handoff
 is: applied 12 fixes, added agent discovery/JSON health and safer tool contracts,
 verified Emacs 29/30 and real-dependency offline workflows, then pushed master
 and checked its exact CI run.
+
+Remote CI follow-up: the doctor correction now avoids locale-dependent curly
+quotes and is pinned under every Emacs quote style. It is a repair to R008,
+not an additional inflated primary recommendation count.

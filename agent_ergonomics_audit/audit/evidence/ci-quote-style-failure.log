@@ -1,0 +1,51 @@
+2026-10-08T19:22:01.4605006Z Test ogent-agent-ergonomics-doctor-json-invalid-format backtrace:
+2026-10-08T19:22:01.4641048Z uncompressing help-fns.el.gz...
+2026-10-08T19:22:01.4668395Z uncompressing help-fns.el.gz...done
+2026-10-08T19:22:01.4674940Z uncompressing radix-tree.el.gz...
+2026-10-08T19:22:01.4688979Z uncompressing radix-tree.el.gz...done
+2026-10-08T19:22:01.4851746Z uncompressing cl-print.el.gz...
+2026-10-08T19:22:01.4868443Z uncompressing cl-print.el.gz...done
+2026-10-08T19:22:03.2467094Z   signal(ert-test-failed (((should (string-match-p "(ogent-doctor-batc
+2026-10-08T19:22:03.2468385Z   ert-fail(((should (string-match-p "(ogent-doctor-batch nil 'json)" (
+2026-10-08T19:22:03.2469179Z   (if (unwind-protect (setq value-7953 (apply fn-7951 args-7952)) (set
+2026-10-08T19:22:03.2470250Z   (let (form-description-7955) (if (unwind-protect (setq value-7953 (a
+2026-10-08T19:22:03.2470995Z   (let ((value-7953 'ert-form-evaluation-aborted-7954)) (let (form-des
+2026-10-08T19:22:03.2471692Z   (let* ((fn-7951 #'string-match-p) (args-7952 (condition-case err (li
+2026-10-08T19:22:03.2472358Z   (let ((err (let* ((fn-7944 #'ogent-doctor-batch) (args-7945 (conditi
+2026-10-08T19:22:03.2472907Z   (progn (fset 'ogent-doctor-run vnew) (let ((err (let* ((fn-7944 #'og
+2026-10-08T19:22:03.2473579Z   (unwind-protect (progn (fset 'ogent-doctor-run vnew) (let ((err (let
+2026-10-08T19:22:03.2474225Z   (let* ((vnew #'(lambda (&optional _) (setq called t) nil)) (old (sym
+2026-10-08T19:22:03.2474813Z   (let (called) (let* ((vnew #'(lambda (&optional _) (setq called t) n
+2026-10-08T19:22:03.2475443Z   #f(lambda () [t] (let* ((fn-7939 #'string-match-p) (args-7940 (condi
+2026-10-08T19:22:03.2476057Z   #f(compiled-function () #<bytecode -0xe9af5419b649882>)()
+2026-10-08T19:22:03.2476724Z   handler-bind-1(#f(compiled-function () #<bytecode -0xe9af5419b649882
+2026-10-08T19:22:03.2477454Z   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+2026-10-08T19:22:03.2478091Z   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+2026-10-08T19:22:03.2478766Z   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+2026-10-08T19:22:03.2479403Z   #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+2026-10-08T19:22:03.2480405Z   funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+2026-10-08T19:22:03.2481082Z   (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+2026-10-08T19:22:03.2481752Z   ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+2026-10-08T19:22:03.2482504Z   apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+2026-10-08T19:22:03.2483192Z   ert-run-test(#s(ert-test :name ogent-agent-ergonomics-doctor-json-in
+2026-10-08T19:22:03.2483843Z   ert-run-or-rerun-test(#s(ert--stats :selector t :tests ... :test-map
+2026-10-08T19:22:03.2484529Z   ert-run-tests(t #f(compiled-function (event-type &rest event-args) #
+2026-10-08T19:22:03.2485051Z   ert-run-tests-batch(nil)
+2026-10-08T19:22:03.2485463Z   ert-run-tests-batch-and-exit()
+2026-10-08T19:22:03.2485990Z   (progn (dolist (file (ogent-test--files)) (load-file file)) (ert-run
+2026-10-08T19:22:03.2486618Z   eval((progn (dolist (file (ogent-test--files)) (load-file file)) (er
+2026-10-08T19:22:03.2487437Z   command-line-1(("-L" "/home/runner/work/_temp/emacs-lisp-compat" "-l
+2026-10-08T19:22:03.2487957Z   command-line()
+2026-10-08T19:22:03.2488321Z   normal-top-level()
+2026-10-08T19:22:03.2488843Z Test ogent-agent-ergonomics-doctor-json-invalid-format condition:
+2026-10-08T19:22:03.2489382Z     (ert-test-failed
+2026-10-08T19:22:03.2489891Z      ((should
+2026-10-08T19:22:03.2490305Z        (string-match-p "(ogent-doctor-batch nil 'json)"
+2026-10-08T19:22:03.2490804Z 		       (error-message-string err)))
+2026-10-08T19:22:03.2491215Z       :form
+2026-10-08T19:22:03.2491631Z       (string-match-p "(ogent-doctor-batch nil 'json)"
+2026-10-08T19:22:03.2492670Z 		      "Doctor format must be org or json; use (ogent-doctor-batch nil ’json)")
+2026-10-08T19:22:03.2493171Z       :value nil))
+2026-10-08T19:22:03.2826013Z    FAILED    64/3119  ogent-agent-ergonomics-doctor-json-invalid-format (0.000275 sec) at test/ogent-agent-ergonomics-tests.el:222
+2026-10-08T19:22:15.6511655Z Ran 3119 tests, 3100 results as expected, 1 unexpected, 18 skipped (2026-10-08 19:22:15+0000, 14.935428 sec)
+2026-10-08T19:22:15.6512884Z    FAILED  ogent-agent-ergonomics-doctor-json-invalid-format

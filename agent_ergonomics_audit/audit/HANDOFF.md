@@ -8,7 +8,7 @@ production-security certification are outside its scope. No provider login
 or inference request was required.
 
 Baseline: `72016bb66928a20a49238266645abde583fa595d`. Final verified production
-source: `2401f03bc5d7cd0f2915b88aede9a4444407e2b4`.
+source: `390a25c2c4cd874b0f665500a9fc6842ff3472ec`.
 The subsequent handoff commit adds audit/tracker artifacts;
 production remains at that freeze. This is implementation pass 1 followed by
 measurement pass 2, not two separate development branches.
@@ -77,12 +77,20 @@ make test pass. Four actual-dependency offline runs pass on current gptel
 and 201 on Emacs 29, with 2/3 skips. [Native records](verification/native_checks.json)
 include actual process exit codes, dependency versions and transcripts.
 
-Eight fresh-eyes rounds fixed five reviewer findings and root follow-ups.
-Rounds 7 and 8 are consecutively clean on the final production freeze, with
+Ten fresh-eyes rounds fixed five reviewer findings and root follow-ups.
+Rounds 9 and 10 are consecutively clean on the final production freeze, with
 critical contracts verified on both Emacs versions. The
 [review log](phase7_fresh_eyes_log.md) contains all three calibrated prompts,
 findings and evidence. The [ambition self-check](ambition_bar_check.md) records
 the expanded application batch and remaining limits.
+
+The first remote run on 0e4e901 exposed a locale-dependent error-advice bug:
+Emacs rendered the apostrophe in the doctor correction as a Unicode curly quote.
+Local LC_ALL=C checks had not exposed this default rendering difference. The
+follow-up uses the quote-free `(quote json)` form and pins curve, straight and
+grave styles. Historical numerical score anchors are retained; final native
+and fresh-eyes verification is repeated at the updated production freeze.
+The failed-job evidence is preserved in evidence/ci-quote-style-failure.log.
 
 Publication uses a direct master push; the exact pushed SHA's CI must pass
 before the session ends, as required by AGENTS.md. The final conversation

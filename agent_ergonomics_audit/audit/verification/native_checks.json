@@ -1,5 +1,5 @@
 {
-  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+  "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
   "provider_requests": false,
   "checks": [
     {
@@ -15,9 +15,9 @@
         "sandbox=/tmp/ogent-fixdeps"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:04:19.451733+00:00",
-      "completed_at": "2026-10-08T19:06:33.645598+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:28:00.611398+00:00",
+      "completed_at": "2026-10-08T19:30:18.822547+00:00",
       "summary": [],
       "stdout": "audit/verification/native/emacs30-lint.stdout.log",
       "stderr": "audit/verification/native/emacs30-lint.stderr.log"
@@ -35,9 +35,9 @@
         "sandbox=/tmp/ogent-fixdeps"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:06:33.645711+00:00",
-      "completed_at": "2026-10-08T19:08:53.903602+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:30:18.822696+00:00",
+      "completed_at": "2026-10-08T19:32:38.962909+00:00",
       "summary": [],
       "stdout": "audit/verification/native/emacs30-test.stdout.log",
       "stderr": "audit/verification/native/emacs30-test.stderr.log"
@@ -54,12 +54,12 @@
         "test-isolation"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:08:53.903714+00:00",
-      "completed_at": "2026-10-08T19:09:08.830649+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:32:38.963098+00:00",
+      "completed_at": "2026-10-08T19:32:53.603882+00:00",
       "summary": [
         "STORE-INTEGRITY: clean - no real-store drift across the suite run",
-        "Ran 3119 tests, 3101 results as expected, 0 unexpected, 18 skipped (2026-10-08 19:09:08+0000, 11.989328 sec)"
+        "Ran 3119 tests, 3101 results as expected, 0 unexpected, 18 skipped (2026-10-08 19:32:53+0000, 11.732537 sec)"
       ],
       "stdout": "audit/verification/native/emacs30-store-isolation.stdout.log",
       "stderr": "audit/verification/native/emacs30-store-isolation.stderr.log"
@@ -78,12 +78,12 @@
         "offline-test"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:09:08.830791+00:00",
-      "completed_at": "2026-10-08T19:09:17.264208+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:32:53.604076+00:00",
+      "completed_at": "2026-10-08T19:33:01.897049+00:00",
       "summary": [
         "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
-        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:17+0000, 4.622259 sec)"
+        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:33:01+0000, 4.582039 sec)"
       ],
       "stdout": "audit/verification/native/emacs30-offline-current.stdout.log",
       "stderr": "audit/verification/native/emacs30-offline-current.stderr.log"
@@ -104,12 +104,12 @@
         "offline-test"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:09:17.264323+00:00",
-      "completed_at": "2026-10-08T19:09:25.657651+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:33:01.897205+00:00",
+      "completed_at": "2026-10-08T19:33:10.142009+00:00",
       "summary": [
         "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
-        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:25+0000, 4.637671 sec)"
+        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:33:09+0000, 4.530748 sec)"
       ],
       "stdout": "audit/verification/native/emacs30-offline-minimum.stdout.log",
       "stderr": "audit/verification/native/emacs30-offline-minimum.stderr.log"
@@ -126,12 +126,12 @@
         "test-isolation"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:04:19.451920+00:00",
-      "completed_at": "2026-10-08T19:04:37.019607+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:28:00.611623+00:00",
+      "completed_at": "2026-10-08T19:28:18.763857+00:00",
       "summary": [
         "STORE-INTEGRITY: clean - no real-store drift across the suite run",
-        "Ran 3119 tests, 3100 results as expected, 0 unexpected, 19 skipped (2026-10-08 19:04:36+0000, 13.686681 sec)"
+        "Ran 3119 tests, 3100 results as expected, 0 unexpected, 19 skipped (2026-10-08 19:28:18+0000, 14.468467 sec)"
       ],
       "stdout": "audit/verification/native/emacs29-store-isolation.stdout.log",
       "stderr": "audit/verification/native/emacs29-store-isolation.stderr.log"
@@ -150,12 +150,12 @@
         "offline-test"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:04:37.019839+00:00",
-      "completed_at": "2026-10-08T19:04:46.452756+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:28:18.764088+00:00",
+      "completed_at": "2026-10-08T19:28:28.209460+00:00",
       "summary": [
         "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
-        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:04:46+0000, 5.384221 sec)"
+        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:28:28+0000, 5.227072 sec)"
       ],
       "stdout": "audit/verification/native/emacs29-offline-current.stdout.log",
       "stderr": "audit/verification/native/emacs29-offline-current.stderr.log"
@@ -176,12 +176,12 @@
         "offline-test"
       ],
       "exit_code": 0,
-      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-      "started_at": "2026-10-08T19:04:46.452893+00:00",
-      "completed_at": "2026-10-08T19:04:55.519706+00:00",
+      "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+      "started_at": "2026-10-08T19:28:28.209636+00:00",
+      "completed_at": "2026-10-08T19:28:37.296472+00:00",
       "summary": [
         "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
-        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:04:55+0000, 5.189467 sec)"
+        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:28:37+0000, 5.106312 sec)"
       ],
       "stdout": "audit/verification/native/emacs29-offline-minimum.stdout.log",
       "stderr": "audit/verification/native/emacs29-offline-minimum.stderr.log"

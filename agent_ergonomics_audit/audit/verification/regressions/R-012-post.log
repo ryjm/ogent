@@ -94,9 +94,9 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 1 tests (2026-10-08 19:10:15+0000, selector `"^ogent-agent-ergonomics-offline-contract"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-a117Ni/tools-lzYQnp (retained)
-   passed  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.002331 sec)
+Running 1 tests (2026-10-08 19:28:52+0000, selector `"^ogent-agent-ergonomics-offline-contract"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-hD1FPE/tools-rw7I9B (retained)
+   passed  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.001999 sec)
 
-Ran 1 tests, 1 results as expected, 0 unexpected (2026-10-08 19:10:15+0000, 0.002467 sec)
+Ran 1 tests, 1 results as expected, 0 unexpected (2026-10-08 19:28:52+0000, 0.002115 sec)
 

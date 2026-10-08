@@ -18,8 +18,8 @@
   [absent  ] /root/.config/doom/ogent/anthropic-oauth/tokens.el
   [absent  ] /root/.doom.d/ogent/anthropic-oauth/tokens.el
   [absent  ] /root/vault/projects/config/nixconfig/home-nixpkgs/doom-emacs/.local/cache/ogent/anthropic-oauth/tokens.el
--- pre-suite snapshot written: /tmp/ogent-store-integrity.aTvzWQ/before.snapshot --
+-- pre-suite snapshot written: /tmp/ogent-store-integrity.rquVRx/before.snapshot --
 -- running full ert suite --
 -- suite exit status: 0 --
--- post-suite snapshot written: /tmp/ogent-store-integrity.aTvzWQ/after.snapshot --
+-- post-suite snapshot written: /tmp/ogent-store-integrity.rquVRx/after.snapshot --
 STORE-INTEGRITY: clean - no real-store drift across the suite run

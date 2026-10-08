@@ -94,7 +94,7 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:10:02+0000, selector `"^ogent-agent-ergonomics-capabilities"')
+Running 2 tests (2026-10-08 19:28:39+0000, selector `"^ogent-agent-ergonomics-capabilities"')
 Test ogent-agent-ergonomics-capabilities-guide-and-local-triage backtrace:
 uncompressing cl-print.el.gz...
 uncompressing cl-print.el.gz...done
@@ -107,11 +107,11 @@ uncompressing radix-tree.el.gz...done
   (let* ((data (json-parse-string (ogent-agent-triage 'json) :object-t
   (progn (fset 'ogent-doctor-run vnew) (let* ((data (json-parse-string
   (unwind-protect (progn (fset 'ogent-doctor-run vnew) (let* ((data (j
-  (let* ((vnew #'(lambda (&optional opt-in) (let ((value-510 ...)) (le
+  (let* ((vnew #'(lambda (&optional opt-in) (let ((value-515 ...)) (le
   (let ((ogent-tool-registry nil) called) (let* ((vnew #'(lambda (&opt
   #f(lambda () [t] (let ((ogent-tool-registry nil) called) (let* ((vne
-  #f(compiled-function () #<bytecode -0xd4aa8157ede1ab>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0xd4aa8157ede1ab>
+  #f(compiled-function () #<bytecode 0x1b2181cd428e4e0a>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x1b2181cd428e4e0a
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -159,7 +159,7 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000242 sec) at test/ogent-agent-ergonomics-tests.el:262
+   FAILED  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000174 sec) at test/ogent-agent-ergonomics-tests.el:267
 Test ogent-agent-ergonomics-capabilities-live-stable-and-pure backtrace:
   (ogent-agent-capabilities 'json)
   (let* ((text (ogent-agent-capabilities 'json)) (data (json-parse-str
@@ -168,8 +168,8 @@ Test ogent-agent-ergonomics-capabilities-live-stable-and-pure backtrace:
   (let* ((vnew #'(lambda (&rest _) (ert-fail "Discovery constructed a 
   (let* ((ogent-tool-registry '((:name z :description "Z" :args nil) (
   #f(lambda () [t] (let* ((ogent-tool-registry '...) (ogent-tools-enab
-  #f(compiled-function () #<bytecode -0xd4aa8157ede1ab>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0xd4aa8157ede1ab>
+  #f(compiled-function () #<bytecode 0x1b2181cd428e4e0a>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x1b2181cd428e4e0a
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -189,9 +189,9 @@ Test ogent-agent-ergonomics-capabilities-live-stable-and-pure backtrace:
   normal-top-level()
 Test ogent-agent-ergonomics-capabilities-live-stable-and-pure condition:
     (void-function ogent-agent-capabilities)
-   FAILED  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000154 sec) at test/ogent-agent-ergonomics-tests.el:234
+   FAILED  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000149 sec) at test/ogent-agent-ergonomics-tests.el:239
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:04+0000, 2.199447 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:41+0000, 2.233457 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-capabilities-guide-and-local-triage

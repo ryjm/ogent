@@ -295,3 +295,80 @@ contracts passes on both Emacs 29.1 and 30.2; the earlier complete 35-test
 ergonomics selector also passed on both versions before these doctor-only
 corrections. No production source/tests or shared bytecode were changed by
 this reviewer.
+
+## Post-CI review extension
+
+Root reported that CI run `37831345723` caught quote-style substitution in
+the doctor error hint: curved quoting turns the apostrophe in `'json` into a
+Unicode apostrophe, making the captured call invalid. Root fixed the advice
+to literal `(quote json)` in `390a25c` and extended R008 across `curve`,
+`straight`, and `grave` styles. The prior Round 8 clean result remains recorded
+for its source and verification scope; the new candidate receives two further
+review rounds below.
+
+## Round 9
+
+**Source.** Frozen `390a25c2c4cd874b0f665500a9fc6842ff3472ec` on `master`.
+All three calibrated review modes above were applied, reviewing the doctor
+error-string/test delta, tracing captured error advice into actual Lisp
+evaluation, and rechecking the established critical SDK contracts.
+
+**Findings.** 0 total; 0 trivial; 0 substantive.
+
+**Verification.** On real Emacs 30.2, public runtime documentation and captured
+error advice both remain pasteable under `curve`, `straight`, and `grave`.
+The audit probe extracts the expression from each actual captured error,
+reads it with `read-from-string`, checks the complete parsed expression and
+absence of trailing input, then evaluates that parsed form against local
+fixture diagnostics. All three calls produce valid versioned JSON and exit 0;
+invalid formats run no diagnostics. Both R008 tests pass. The established
+critical-contract probes also pass, including edit rejection/error states,
+MCP false/omission/null/nested values, declared argument spelling, exact edit
+case, discovery alias collisions, and ordered single-terminal process output.
+
+Evidence:
+
+- `audit/evidence/review/doctor-hint-probe.el`
+- `audit/evidence/review/round9-probes-emacs30-390a25c.log`
+- `audit/evidence/review/round9-doctor-ert-emacs30-390a25c.log`
+
+**Substantive fixes.** None.
+
+**Verdict.** CLEAN.
+
+## Round 10
+
+**Source.** The same frozen `390a25c2c4cd874b0f665500a9fc6842ff3472ec`.
+All three calibrated review modes above were applied again, with emphasis on
+cross-version documentation/error rendering and unchanged critical execution,
+approval, serialization and edit-review boundaries.
+
+**Findings.** 0 total; 0 trivial; 0 substantive.
+
+**Verification.** Real Emacs 29.1 also preserves the actual runtime docstring
+and captured advice under every `curve`, `straight`, and `grave` style. Each
+extracted error correction reads and evaluates successfully to JSON with exit
+0; invalid formats run no diagnostics. Both R008 tests pass, as do all critical
+behavioral probes described in Round 9. The production source commit remained
+unchanged through both review rounds.
+
+Evidence:
+
+- `audit/evidence/review/round10-probes-emacs29-390a25c.log`
+- `audit/evidence/review/round10-doctor-ert-emacs29-390a25c.log`
+
+**Substantive fixes.** None.
+
+**Verdict.** CLEAN.
+
+## Current final termination
+
+Phase 7 completes after 10 recorded rounds, with consecutively CLEAN rounds
+9 and 10 on `390a25c2c4cd874b0f665500a9fc6842ff3472ec` and no unresolved
+reviewer findings. The final audit directly validates all three error quote
+styles on both Emacs 29.1 and 30.2, reading and evaluating the actual captured
+advice rather than a predefined expected expression. Earlier clean results
+and their exact source/evidence remain intact. Root owns final native full
+validation, baseline/post proof refresh and CI reruns. Only audit evidence and
+probes were changed by this reviewer; no production source/tests, shared
+bytecode, provider credentials or provider requests were changed or used.

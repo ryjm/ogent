@@ -94,10 +94,10 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 3 tests (2026-10-08 19:10:09+0000, selector `"^ogent-agent-ergonomics-bash-contract"')
-   passed  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.002683 sec)
-   passed  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.001637 sec)
-   passed  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000149 sec)
+Running 3 tests (2026-10-08 19:28:46+0000, selector `"^ogent-agent-ergonomics-bash-contract"')
+   passed  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.012684 sec)
+   passed  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.001692 sec)
+   passed  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000387 sec)
 
-Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:10:09+0000, 0.004671 sec)
+Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:28:46+0000, 0.014972 sec)
 

@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 1 tests (2026-10-08 19:10:13+0000, selector `"^ogent-agent-ergonomics-offline-contract"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-vNzyU0/tools-xD6W95 (retained)
+Running 1 tests (2026-10-08 19:28:50+0000, selector `"^ogent-agent-ergonomics-offline-contract"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-85bNdT/tools-d0kmY4 (retained)
 Test ogent-agent-ergonomics-offline-contract-missing-dependencies backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -105,18 +105,18 @@ uncompressing cl-print.el.gz...
 uncompressing cl-print.el.gz...done
   signal(ert-test-failed (((should (equal (buffer-string) "")) :form (
   ert-fail(((should (equal (buffer-string) "")) :form (equal "\nError:
-  (if (unwind-protect (setq value-750 (apply fn-748 args-749)) (setq f
-  (let (form-description-752) (if (unwind-protect (setq value-750 (app
-  (let ((value-750 'ert-form-evaluation-aborted-751)) (let (form-descr
-  (let* ((fn-748 #'equal) (args-749 (condition-case err (list (buffer-
-  (progn (let* ((fn-743 #'=) (args-744 (condition-case err (list 0 (ca
-  (unwind-protect (progn (let* ((fn-743 #'=) (args-744 (condition-case
+  (if (unwind-protect (setq value-755 (apply fn-753 args-754)) (setq f
+  (let (form-description-757) (if (unwind-protect (setq value-755 (app
+  (let ((value-755 'ert-form-evaluation-aborted-756)) (let (form-descr
+  (let* ((fn-753 #'equal) (args-754 (condition-case err (list (buffer-
+  (progn (let* ((fn-748 #'=) (args-749 (condition-case err (list 0 (ca
+  (unwind-protect (progn (let* ((fn-748 #'=) (args-749 (condition-case
   (save-current-buffer (set-buffer temp-buffer) (unwind-protect (progn
   (let ((temp-buffer (generate-new-buffer " *temp*" t))) (save-current
   (let* ((root (ogent-test--provision-store-directory 'tools)) (source
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode 0x1eb4ef6302cb9efe>)()
-  handler-bind-1(#f(compiled-function () #<bytecode 0x1eb4ef6302cb9efe
+  #f(compiled-function () #<bytecode -0xc2aa71ffa9961d0>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0xc2aa71ffa9961d0
   ert--run-test-internal(#s(ert--test-execution-info :test ... :result
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -138,11 +138,11 @@ Test ogent-agent-ergonomics-offline-contract-missing-dependencies condition:
     (ert-test-failed
      ((should (equal (buffer-string) "")) :form
       (equal
-       "\nError: error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  signal(error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  error(\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  (let ((elpa (getenv \"OGENT_ELPA_DIR\"))) (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\")) (let ((tail (directory-files elpa t \"^[^.].*\"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))\n  eval-buffer(#<buffer  *load*> nil \"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  load-with-code-conversion(\"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" \"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  load(\"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  command-line-1((\"-L\" \"/tmp/tmp.Ncbh9yOuM1\" \"-l\" \"jka-compr\" \"-L\" \"lisp\" \"-L\" \"lisp/ui\" \"-L\" \"test\" \"-L\" \"test/ui\" \"-l\" \"test/offline/boot.el.in\" \"-l\" \"test/offline/workflows.el.in\" \"--eval\" \"(ert-run-tests-batch-and-exit '(or \\\"ogent-offline-\\\" \\\"ogent-armory-\\\")))\"))\n  command-line()\n  normal-top-level()\n"
+       "\nError: error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  signal(error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  error(\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  (let ((elpa (getenv \"OGENT_ELPA_DIR\"))) (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\")) (let ((tail (directory-files elpa t \"^[^.].*\"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))\n  eval-buffer(#<buffer  *load*> nil \"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  load-with-code-conversion(\"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" \"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  load(\"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  command-line-1((\"-L\" \"/tmp/tmp.1qVlBCEXNf\" \"-l\" \"jka-compr\" \"-L\" \"lisp\" \"-L\" \"lisp/ui\" \"-L\" \"test\" \"-L\" \"test/ui\" \"-l\" \"test/offline/boot.el.in\" \"-l\" \"test/offline/workflows.el.in\" \"--eval\" \"(ert-run-tests-batch-and-exit '(or \\\"ogent-offline-\\\" \\\"ogent-armory-\\\")))\"))\n  command-line()\n  normal-top-level()\n"
        "")
       :value nil :explanation
       (arrays-of-different-length 1361 0
-				  "\nError: error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  signal(error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  error(\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  (let ((elpa (getenv \"OGENT_ELPA_DIR\"))) (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\")) (let ((tail (directory-files elpa t \"^[^.].*\"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))\n  eval-buffer(#<buffer  *load*> nil \"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  load-with-code-conversion(\"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" \"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  load(\"/tmp/ogent-test-store-vNzyU0/tools-xD6W95/test/offline/boot.el.in\" nil t)\n  command-line-1((\"-L\" \"/tmp/tmp.Ncbh9yOuM1\" \"-l\" \"jka-compr\" \"-L\" \"lisp\" \"-L\" \"lisp/ui\" \"-L\" \"test\" \"-L\" \"test/ui\" \"-l\" \"test/offline/boot.el.in\" \"-l\" \"test/offline/workflows.el.in\" \"--eval\" \"(ert-run-tests-batch-and-exit '(or \\\"ogent-offline-\\\" \\\"ogent-armory-\\\")))\"))\n  command-line()\n  normal-top-level()\n"
+				  "\nError: error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  signal(error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  error(\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  (let ((elpa (getenv \"OGENT_ELPA_DIR\"))) (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\")) (let ((tail (directory-files elpa t \"^[^.].*\"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))\n  eval-buffer(#<buffer  *load*> nil \"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  load-with-code-conversion(\"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" \"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  load(\"/tmp/ogent-test-store-85bNdT/tools-d0kmY4/test/offline/boot.el.in\" nil t)\n  command-line-1((\"-L\" \"/tmp/tmp.1qVlBCEXNf\" \"-l\" \"jka-compr\" \"-L\" \"lisp\" \"-L\" \"lisp/ui\" \"-L\" \"test\" \"-L\" \"test/ui\" \"-l\" \"test/offline/boot.el.in\" \"-l\" \"test/offline/workflows.el.in\" \"--eval\" \"(ert-run-tests-batch-and-exit '(or \\\"ogent-offline-\\\" \\\"ogent-armory-\\\")))\"))\n  command-line()\n  normal-top-level()\n"
 				  "" first-mismatch-at 0)))
 uncompressing vc-git.el.gz...
 uncompressing vc-git.el.gz...done
@@ -172,9 +172,9 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.429727 sec) at test/ogent-agent-ergonomics-tests.el:457
+   FAILED  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.479087 sec) at test/ogent-agent-ergonomics-tests.el:462
 
-Ran 1 tests, 0 results as expected, 1 unexpected (2026-10-08 19:10:14+0000, 1.311433 sec)
+Ran 1 tests, 0 results as expected, 1 unexpected (2026-10-08 19:28:51+0000, 1.352578 sec)
 
 1 unexpected results:
    FAILED  ogent-agent-ergonomics-offline-contract-missing-dependencies

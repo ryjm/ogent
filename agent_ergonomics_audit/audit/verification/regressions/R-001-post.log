@@ -94,11 +94,11 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:09:26+0000, selector `"^ogent-agent-ergonomics-grep-errors"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-aFqrC9/tools-oUKNJD (retained)
-   passed  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002296 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-aFqrC9/tools-bStozX (retained)
-   passed  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.002033 sec)
+Running 2 tests (2026-10-08 19:28:03+0000, selector `"^ogent-agent-ergonomics-grep-errors"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zYvHIB/tools-REYYuR (retained)
+   passed  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002042 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-zYvHIB/tools-QVl1cY (retained)
+   passed  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.001721 sec)
 
-Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:09:26+0000, 0.004485 sec)
+Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:03+0000, 0.003900 sec)
 

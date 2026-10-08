@@ -94,23 +94,23 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 6 tests (2026-10-08 19:09:44+0000, selector `"^ogent-agent-ergonomics-edit-contract"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-3RCGIe/tools-U5T490 (retained)
-   passed  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.001132 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-3RCGIe/tools-5YN9Yu (retained)
-   passed  2/6  ogent-agent-ergonomics-edit-contract-empty-and-review (0.000641 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-3RCGIe/tools-Cho7N1 (retained)
-   passed  3/6  ogent-agent-ergonomics-edit-contract-exact-case (0.000654 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-3RCGIe/tools-CzGfDz (retained)
-   passed  4/6  ogent-agent-ergonomics-edit-contract-reviewed-target-stable (0.003228 sec)
+Running 6 tests (2026-10-08 19:28:22+0000, selector `"^ogent-agent-ergonomics-edit-contract"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-USr0U5/tools-rgCPM1 (retained)
+   passed  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.001017 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-USr0U5/tools-OIx16X (retained)
+   passed  2/6  ogent-agent-ergonomics-edit-contract-empty-and-review (0.000549 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-USr0U5/tools-vHhIKO (retained)
+   passed  3/6  ogent-agent-ergonomics-edit-contract-exact-case (0.000606 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-USr0U5/tools-4zoqGg (retained)
+   passed  4/6  ogent-agent-ergonomics-edit-contract-reviewed-target-stable (0.002531 sec)
 uncompressing mule-util.el.gz...
 uncompressing mule-util.el.gz...done
 Edit failed: Tool error: file changed
 Edit failed: Tool error: file changed
 Applied 0 diff(s)
-   passed  5/6  ogent-agent-ergonomics-edit-contract-ui-accept-error (0.004471 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-3RCGIe/tools-JZpLQo (retained)
-   passed  6/6  ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity (0.002457 sec)
+   passed  5/6  ogent-agent-ergonomics-edit-contract-ui-accept-error (0.004596 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-USr0U5/tools-MQhlpK (retained)
+   passed  6/6  ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity (0.003134 sec)
 
-Ran 6 tests, 6 results as expected, 0 unexpected (2026-10-08 19:09:44+0000, 0.012901 sec)
+Ran 6 tests, 6 results as expected, 0 unexpected (2026-10-08 19:28:22+0000, 0.012777 sec)
 

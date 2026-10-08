@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 3 tests (2026-10-08 19:09:30+0000, selector `"^ogent-agent-ergonomics-glob-recursive"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-TTG5dw/tools-yUN8iF (retained)
+Running 3 tests (2026-10-08 19:28:07+0000, selector `"^ogent-agent-ergonomics-glob-recursive"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-dUGM2D/tools-okywjy (retained)
 Test ogent-agent-ergonomics-glob-recursive-and-stable backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -111,8 +111,8 @@ uncompressing cl-print.el.gz...done
   (let* ((fn-227 #'equal) (args-228 (condition-case err (list (split-s
   (let* ((root (ogent-test--provision-store-directory 'tools)) (files 
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode 0x2d3921b62da0ed7>)()
-  handler-bind-1(#f(compiled-function () #<bytecode 0x2d3921b62da0ed7>
+  #f(compiled-function () #<bytecode -0xdec8229bca0c19b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0xdec8229bca0c19b
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -133,16 +133,16 @@ uncompressing cl-print.el.gz...done
 Test ogent-agent-ergonomics-glob-recursive-and-stable condition:
     (ert-test-failed
      ((should (equal (split-string ... "\n" t) (sort files ...))) :form
-      (equal ("/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/near.el")
-	     ("/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/near.el"
-	      "/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/two/deep.el"
-	      "/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/root.el"))
+      (equal ("/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/near.el")
+	     ("/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/near.el"
+	      "/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/two/deep.el"
+	      "/tmp/ogent-test-store-dUGM2D/tools-okywjy/root.el"))
       :value nil :explanation
       (proper-lists-of-different-length 1 3
-					("/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/near.el")
-					("/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/near.el"
-					 "/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/one/two/deep.el"
-					 "/tmp/ogent-test-store-TTG5dw/tools-yUN8iF/root.el")
+					("/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/near.el")
+					("/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/near.el"
+					 "/tmp/ogent-test-store-dUGM2D/tools-okywjy/one/two/deep.el"
+					 "/tmp/ogent-test-store-dUGM2D/tools-okywjy/root.el")
 					first-mismatch-at 1)))
 uncompressing vc-git.el.gz...
 uncompressing vc-git.el.gz...done
@@ -172,10 +172,10 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.001214 sec) at test/ogent-agent-ergonomics-tests.el:61
-ogent-test: provisioned tools store at /tmp/ogent-test-store-TTG5dw/tools-0A3Fql (retained)
-   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000741 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-TTG5dw/tools-5ROjXt (retained)
+   FAILED  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.000707 sec) at test/ogent-agent-ergonomics-tests.el:61
+ogent-test: provisioned tools store at /tmp/ogent-test-store-dUGM2D/tools-E6BwFO (retained)
+   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000537 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-dUGM2D/tools-3zdhkW (retained)
 Test ogent-agent-ergonomics-glob-recursive-invalid-root backtrace:
   signal(ert-test-failed (((should-error (ogent-tool--glob "**/*.el" (
   ert-fail(((should-error (ogent-tool--glob "**/*.el" (expand-file-nam
@@ -187,8 +187,8 @@ Test ogent-agent-ergonomics-glob-recursive-invalid-root backtrace:
   (let* ((fn-232 #'ogent-tool--glob) (args-233 (condition-case err (li
   (let* ((root (ogent-test--provision-store-directory 'tools)) (err (l
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode 0x2d3921b62da0ed7>)()
-  handler-bind-1(#f(compiled-function () #<bytecode 0x2d3921b62da0ed7>
+  #f(compiled-function () #<bytecode -0xdec8229bca0c19b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0xdec8229bca0c19b
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -213,14 +213,14 @@ Test ogent-agent-ergonomics-glob-recursive-invalid-root condition:
        :type 'user-error)
       :form
       (ogent-tool--glob "**/*.el"
-			"/tmp/ogent-test-store-TTG5dw/tools-5ROjXt/missing")
+			"/tmp/ogent-test-store-dUGM2D/tools-3zdhkW/missing")
       :condition
       (file-missing "Opening directory" "No such file or directory"
-		    "/tmp/ogent-test-store-TTG5dw/tools-5ROjXt/missing")
+		    "/tmp/ogent-test-store-dUGM2D/tools-3zdhkW/missing")
       :fail-reason "the error signaled did not have the expected type"))
-   FAILED  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000255 sec) at test/ogent-agent-ergonomics-tests.el:73
+   FAILED  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000173 sec) at test/ogent-agent-ergonomics-tests.el:73
 
-Ran 3 tests, 1 results as expected, 2 unexpected (2026-10-08 19:09:32+0000, 1.876120 sec)
+Ran 3 tests, 1 results as expected, 2 unexpected (2026-10-08 19:28:09+0000, 2.017827 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-glob-recursive-and-stable

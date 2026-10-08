@@ -94,8 +94,8 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:10:10+0000, selector `"^ogent-agent-ergonomics-make-contract"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-ymV4U3/tools-bGjLzZ (retained)
+Running 2 tests (2026-10-08 19:28:47+0000, selector `"^ogent-agent-ergonomics-make-contract"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-lKj3pr/tools-PrqfJz (retained)
 Test ogent-agent-ergonomics-make-contract-clean-and-help backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -105,14 +105,14 @@ uncompressing cl-print.el.gz...
 uncompressing cl-print.el.gz...done
   signal(ert-test-failed (((should-not (file-exists-p (expand-file-nam
   ert-fail(((should-not (file-exists-p (expand-file-name "test/test.el
-  (if (not (unwind-protect (setq value-629 (apply fn-627 args-628)) (s
-  (let (form-description-631) (if (not (unwind-protect (setq value-629
-  (let ((value-629 'ert-form-evaluation-aborted-630)) (let (form-descr
-  (let* ((fn-627 #'file-exists-p) (args-628 (condition-case err (list 
+  (if (not (unwind-protect (setq value-634 (apply fn-632 args-633)) (s
+  (let (form-description-636) (if (not (unwind-protect (setq value-634
+  (let ((value-634 'ert-form-evaluation-aborted-635)) (let (form-descr
+  (let* ((fn-632 #'file-exists-p) (args-633 (condition-case err (list 
   (let ((default-directory (ogent-agent-ergonomics-tests--make-fixture
   #f(lambda () [t] (let ((default-directory (ogent-agent-ergonomics-te
-  #f(compiled-function () #<bytecode -0x1b69097a218d7068>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b69097a218d706
+  #f(compiled-function () #<bytecode 0x109c62e4dfad9fcc>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x109c62e4dfad9fcc
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -135,7 +135,7 @@ Test ogent-agent-ergonomics-make-contract-clean-and-help condition:
      ((should-not (file-exists-p (expand-file-name "test/test.elc")))
       :form
       (file-exists-p
-       "/tmp/ogent-test-store-ymV4U3/tools-bGjLzZ/test/test.elc")
+       "/tmp/ogent-test-store-lKj3pr/tools-PrqfJz/test/test.elc")
       :value t))
 uncompressing vc-git.el.gz...
 uncompressing vc-git.el.gz...done
@@ -165,23 +165,23 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.004911 sec) at test/ogent-agent-ergonomics-tests.el:359
-ogent-test: provisioned tools store at /tmp/ogent-test-store-ymV4U3/tools-zrCUGC (retained)
+   FAILED  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.004380 sec) at test/ogent-agent-ergonomics-tests.el:364
+ogent-test: provisioned tools store at /tmp/ogent-test-store-lKj3pr/tools-0iSyCb (retained)
 Test ogent-agent-ergonomics-make-contract-recompile-failure backtrace:
   signal(ert-test-failed (((should-not (zerop (call-process "make" nil
   ert-fail(((should-not (zerop (call-process "make" nil t nil "recompi
-  (if (not (unwind-protect (setq value-609 (apply fn-607 args-608)) (s
-  (let (form-description-611) (if (not (unwind-protect (setq value-609
-  (let ((value-609 'ert-form-evaluation-aborted-610)) (let (form-descr
-  (let* ((fn-607 #'=) (args-608 (condition-case err (list 0 (call-proc
-  (progn (let* ((fn-607 #'=) (args-608 (condition-case err (list 0 (ca
-  (unwind-protect (progn (let* ((fn-607 #'=) (args-608 (condition-case
+  (if (not (unwind-protect (setq value-614 (apply fn-612 args-613)) (s
+  (let (form-description-616) (if (not (unwind-protect (setq value-614
+  (let ((value-614 'ert-form-evaluation-aborted-615)) (let (form-descr
+  (let* ((fn-612 #'=) (args-613 (condition-case err (list 0 (call-proc
+  (progn (let* ((fn-612 #'=) (args-613 (condition-case err (list 0 (ca
+  (unwind-protect (progn (let* ((fn-612 #'=) (args-613 (condition-case
   (save-current-buffer (set-buffer temp-buffer) (unwind-protect (progn
   (let ((temp-buffer (generate-new-buffer " *temp*" t))) (save-current
   (let* ((default-directory (ogent-agent-ergonomics-tests--make-fixtur
   #f(lambda () [t] (let* ((default-directory (ogent-agent-ergonomics-t
-  #f(compiled-function () #<bytecode -0x1b69097a218d7068>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b69097a218d706
+  #f(compiled-function () #<bytecode 0x109c62e4dfad9fcc>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0x109c62e4dfad9fcc
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -203,9 +203,9 @@ Test ogent-agent-ergonomics-make-contract-recompile-failure condition:
     (ert-test-failed
      ((should-not (zerop (call-process "make" nil t nil "recompile" ...)))
       :form (= 0 0) :value t))
-   FAILED  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.006221 sec) at test/ogent-agent-ergonomics-tests.el:348
+   FAILED  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.005675 sec) at test/ogent-agent-ergonomics-tests.el:353
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:12+0000, 1.872649 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:49+0000, 1.989246 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-make-contract-clean-and-help

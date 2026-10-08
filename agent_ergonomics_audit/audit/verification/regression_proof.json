@@ -1,11 +1,11 @@
 {
-  "recorded_at": "2026-10-08T19:10:15.253060+00:00",
+  "recorded_at": "2026-10-08T19:28:52.317958+00:00",
   "records": [
     {
       "recommendation_id": "R-001",
       "test_path": "audit/regression_tests/R-001__grep-errors.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -21,9 +21,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-001-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002515 sec) at test/ogent-agent-ergonomics-tests.el:24",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.002122 sec) at test/ogent-agent-ergonomics-tests.el:34",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:26+0000, 1.918748 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.003074 sec) at test/ogent-agent-ergonomics-tests.el:24",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.001930 sec) at test/ogent-agent-ergonomics-tests.el:34",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:03+0000, 1.892805 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -41,9 +41,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-001-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002296 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.002033 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:09:26+0000, 0.004485 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-grep-errors-invalid-regex (0.002042 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.001721 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:03+0000, 0.003900 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -54,7 +54,7 @@
       "recommendation_id": "R-002",
       "test_path": "audit/regression_tests/R-002__grep-arguments.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -70,9 +70,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-002-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.002362 sec) at test/ogent-agent-ergonomics-tests.el:41",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.002296 sec) at test/ogent-agent-ergonomics-tests.el:51",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:29+0000, 1.760181 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.001941 sec) at test/ogent-agent-ergonomics-tests.el:41",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.002142 sec) at test/ogent-agent-ergonomics-tests.el:51",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:06+0000, 1.737383 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -90,9 +90,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-002-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.002522 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.001737 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:09:29+0000, 0.004409 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-grep-arguments-leading-dash (0.002506 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.002050 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:06+0000, 0.004733 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -103,7 +103,7 @@
       "recommendation_id": "R-003",
       "test_path": "audit/regression_tests/R-003__glob-recursive.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -119,10 +119,10 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-003-baseline.log",
         "summary": [
-          "\n   FAILED  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.001214 sec) at test/ogent-agent-ergonomics-tests.el:61",
-          "\n   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000741 sec)",
-          "\n   FAILED  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000255 sec) at test/ogent-agent-ergonomics-tests.el:73",
-          "Ran 3 tests, 1 results as expected, 2 unexpected (2026-10-08 19:09:32+0000, 1.876120 sec)"
+          "\n   FAILED  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.000707 sec) at test/ogent-agent-ergonomics-tests.el:61",
+          "\n   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000537 sec)",
+          "\n   FAILED  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000173 sec) at test/ogent-agent-ergonomics-tests.el:73",
+          "Ran 3 tests, 1 results as expected, 2 unexpected (2026-10-08 19:28:09+0000, 2.017827 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -140,10 +140,10 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-003-post.log",
         "summary": [
-          "\n   passed  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.001388 sec)",
-          "\n   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000638 sec)",
-          "\n   passed  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000174 sec)",
-          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:09:32+0000, 0.002406 sec)"
+          "\n   passed  1/3  ogent-agent-ergonomics-glob-recursive-and-stable (0.001193 sec)",
+          "\n   passed  2/3  ogent-agent-ergonomics-glob-recursive-exact-case (0.000513 sec)",
+          "\n   passed  3/3  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000338 sec)",
+          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:28:09+0000, 0.002264 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -154,7 +154,7 @@
       "recommendation_id": "R-004",
       "test_path": "audit/regression_tests/R-004__read-pagination.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -170,9 +170,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-004-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000916 sec) at test/ogent-agent-ergonomics-tests.el:91",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000733 sec) at test/ogent-agent-ergonomics-tests.el:81",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:09:35+0000, 2.005515 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000653 sec) at test/ogent-agent-ergonomics-tests.el:91",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000547 sec) at test/ogent-agent-ergonomics-tests.el:81",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:12+0000, 2.189103 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -190,9 +190,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-004-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000662 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000562 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:09:35+0000, 0.001364 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000644 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-read-pagination-next-offset (0.000635 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:13+0000, 0.001533 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -203,7 +203,7 @@
       "recommendation_id": "R-005",
       "test_path": "audit/regression_tests/R-005__edit-contract.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -219,7 +219,7 @@
         "exit_code": 124,
         "log": "audit/verification/regressions/R-005-baseline.log",
         "summary": [
-          "\n   FAILED  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.000881 sec) at test/ogent-agent-ergonomics-tests.el:100"
+          "\n   FAILED  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.000711 sec) at test/ogent-agent-ergonomics-tests.el:100"
         ],
         "timed_out": true,
         "timeout_seconds": 8
@@ -237,13 +237,13 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-005-post.log",
         "summary": [
-          "\n   passed  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.001132 sec)",
-          "\n   passed  2/6  ogent-agent-ergonomics-edit-contract-empty-and-review (0.000641 sec)",
-          "\n   passed  3/6  ogent-agent-ergonomics-edit-contract-exact-case (0.000654 sec)",
-          "\n   passed  4/6  ogent-agent-ergonomics-edit-contract-reviewed-target-stable (0.003228 sec)",
-          "\n   passed  5/6  ogent-agent-ergonomics-edit-contract-ui-accept-error (0.004471 sec)",
-          "\n   passed  6/6  ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity (0.002457 sec)",
-          "Ran 6 tests, 6 results as expected, 0 unexpected (2026-10-08 19:09:44+0000, 0.012901 sec)"
+          "\n   passed  1/6  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.001017 sec)",
+          "\n   passed  2/6  ogent-agent-ergonomics-edit-contract-empty-and-review (0.000549 sec)",
+          "\n   passed  3/6  ogent-agent-ergonomics-edit-contract-exact-case (0.000606 sec)",
+          "\n   passed  4/6  ogent-agent-ergonomics-edit-contract-reviewed-target-stable (0.002531 sec)",
+          "\n   passed  5/6  ogent-agent-ergonomics-edit-contract-ui-accept-error (0.004596 sec)",
+          "\n   passed  6/6  ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity (0.003134 sec)",
+          "Ran 6 tests, 6 results as expected, 0 unexpected (2026-10-08 19:28:22+0000, 0.012777 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -254,7 +254,7 @@
       "recommendation_id": "R-006",
       "test_path": "audit/regression_tests/R-006__argument-contract.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -270,14 +270,14 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-006-baseline.log",
         "summary": [
-          "\n   FAILED  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000383 sec) at test/ogent-agent-ergonomics-tests.el:168",
-          "\n   FAILED  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000147 sec) at test/ogent-agent-ergonomics-tests.el:495",
-          "\n   FAILED  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000647 sec) at test/ogent-agent-ergonomics-tests.el:427",
-          "\n   FAILED  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000217 sec) at test/ogent-agent-ergonomics-tests.el:420",
-          "\n   FAILED  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000242 sec) at test/ogent-agent-ergonomics-tests.el:151",
-          "\n   FAILED  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000310 sec) at test/ogent-agent-ergonomics-tests.el:139",
-          "\n   FAILED  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.001084 sec) at test/ogent-agent-ergonomics-tests.el:128",
-          "Ran 7 tests, 0 results as expected, 7 unexpected (2026-10-08 19:09:54+0000, 8.993651 sec)"
+          "\n   FAILED  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000332 sec) at test/ogent-agent-ergonomics-tests.el:168",
+          "\n   FAILED  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000139 sec) at test/ogent-agent-ergonomics-tests.el:500",
+          "\n   FAILED  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000597 sec) at test/ogent-agent-ergonomics-tests.el:432",
+          "\n   FAILED  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000153 sec) at test/ogent-agent-ergonomics-tests.el:425",
+          "\n   FAILED  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000218 sec) at test/ogent-agent-ergonomics-tests.el:151",
+          "\n   FAILED  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000311 sec) at test/ogent-agent-ergonomics-tests.el:139",
+          "\n   FAILED  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.000674 sec) at test/ogent-agent-ergonomics-tests.el:128",
+          "Ran 7 tests, 0 results as expected, 7 unexpected (2026-10-08 19:28:30+0000, 8.133764 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -295,14 +295,14 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-006-post.log",
         "summary": [
-          "\n   passed  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000269 sec)",
-          "\n   passed  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000557 sec)",
-          "\n   passed  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000954 sec)",
-          "\n   passed  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000076 sec)",
-          "\n   passed  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000255 sec)",
-          "\n   passed  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000155 sec)",
-          "\n   passed  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.000502 sec)",
-          "Ran 7 tests, 7 results as expected, 0 unexpected (2026-10-08 19:09:54+0000, 0.003120 sec)"
+          "\n   passed  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000237 sec)",
+          "\n   passed  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000523 sec)",
+          "\n   passed  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000977 sec)",
+          "\n   passed  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000074 sec)",
+          "\n   passed  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000254 sec)",
+          "\n   passed  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000164 sec)",
+          "\n   passed  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.000447 sec)",
+          "Ran 7 tests, 7 results as expected, 0 unexpected (2026-10-08 19:28:31+0000, 0.002979 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -313,7 +313,7 @@
       "recommendation_id": "R-007",
       "test_path": "audit/regression_tests/R-007__tool-names.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -329,10 +329,10 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-007-baseline.log",
         "summary": [
-          "\n   FAILED  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000226 sec) at test/ogent-agent-ergonomics-tests.el:371",
-          "\n   FAILED  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000156 sec) at test/ogent-agent-ergonomics-tests.el:182",
-          "\n   FAILED  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000170 sec) at test/ogent-agent-ergonomics-tests.el:194",
-          "Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:09:58+0000, 3.086561 sec)"
+          "\n   FAILED  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000157 sec) at test/ogent-agent-ergonomics-tests.el:376",
+          "\n   FAILED  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000159 sec) at test/ogent-agent-ergonomics-tests.el:182",
+          "\n   FAILED  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000174 sec) at test/ogent-agent-ergonomics-tests.el:194",
+          "Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:28:35+0000, 3.039754 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -350,10 +350,10 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-007-post.log",
         "summary": [
-          "\n   passed  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000285 sec)",
-          "\n   passed  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000170 sec)",
-          "\n   passed  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000206 sec)",
-          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:09:58+0000, 0.000831 sec)"
+          "\n   passed  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000300 sec)",
+          "\n   passed  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000173 sec)",
+          "\n   passed  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000219 sec)",
+          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:28:35+0000, 0.000863 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -364,7 +364,7 @@
       "recommendation_id": "R-008",
       "test_path": "audit/regression_tests/R-008__doctor-json.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -380,9 +380,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-008-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000218 sec) at test/ogent-agent-ergonomics-tests.el:222",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000189 sec) at test/ogent-agent-ergonomics-tests.el:204",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:01+0000, 1.916110 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000222 sec) at test/ogent-agent-ergonomics-tests.el:222",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000244 sec) at test/ogent-agent-ergonomics-tests.el:204",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:38+0000, 1.947069 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -400,9 +400,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-008-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000306 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000512 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:10:02+0000, 0.001076 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000230 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000464 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:38+0000, 0.000844 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -413,7 +413,7 @@
       "recommendation_id": "R-009",
       "test_path": "audit/regression_tests/R-009__capabilities.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -429,9 +429,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-009-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000242 sec) at test/ogent-agent-ergonomics-tests.el:262",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000154 sec) at test/ogent-agent-ergonomics-tests.el:234",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:04+0000, 2.199447 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000174 sec) at test/ogent-agent-ergonomics-tests.el:267",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000149 sec) at test/ogent-agent-ergonomics-tests.el:239",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:41+0000, 2.233457 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -449,9 +449,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-009-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000301 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000525 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:10:05+0000, 0.000982 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000312 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000489 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:42+0000, 0.000946 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -462,7 +462,7 @@
       "recommendation_id": "R-010",
       "test_path": "audit/regression_tests/R-010__bash-contract.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -478,10 +478,10 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-010-baseline.log",
         "summary": [
-          "\n   FAILED  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.001524 sec) at test/ogent-agent-ergonomics-tests.el:311",
-          "\n   FAILED  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.000951 sec) at test/ogent-agent-ergonomics-tests.el:300",
-          "\n   FAILED  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000240 sec) at test/ogent-agent-ergonomics-tests.el:284",
-          "Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:10:09+0000, 3.236845 sec)"
+          "\n   FAILED  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.001886 sec) at test/ogent-agent-ergonomics-tests.el:316",
+          "\n   FAILED  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.000978 sec) at test/ogent-agent-ergonomics-tests.el:305",
+          "\n   FAILED  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000235 sec) at test/ogent-agent-ergonomics-tests.el:289",
+          "Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:28:45+0000, 3.263875 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -499,10 +499,10 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-010-post.log",
         "summary": [
-          "\n   passed  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.002683 sec)",
-          "\n   passed  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.001637 sec)",
-          "\n   passed  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000149 sec)",
-          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:10:09+0000, 0.004671 sec)"
+          "\n   passed  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.012684 sec)",
+          "\n   passed  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.001692 sec)",
+          "\n   passed  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000387 sec)",
+          "Ran 3 tests, 3 results as expected, 0 unexpected (2026-10-08 19:28:46+0000, 0.014972 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -513,7 +513,7 @@
       "recommendation_id": "R-011",
       "test_path": "audit/regression_tests/R-011__make-contract.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -529,9 +529,9 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-011-baseline.log",
         "summary": [
-          "\n   FAILED  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.004911 sec) at test/ogent-agent-ergonomics-tests.el:359",
-          "\n   FAILED  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.006221 sec) at test/ogent-agent-ergonomics-tests.el:348",
-          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:12+0000, 1.872649 sec)"
+          "\n   FAILED  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.004380 sec) at test/ogent-agent-ergonomics-tests.el:364",
+          "\n   FAILED  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.005675 sec) at test/ogent-agent-ergonomics-tests.el:353",
+          "Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:49+0000, 1.989246 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -549,9 +549,9 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-011-post.log",
         "summary": [
-          "\n   passed  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.026594 sec)",
-          "\n   passed  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.007350 sec)",
-          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:10:12+0000, 0.034130 sec)"
+          "\n   passed  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.026347 sec)",
+          "\n   passed  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.007486 sec)",
+          "Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:49+0000, 0.034168 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -562,7 +562,7 @@
       "recommendation_id": "R-012",
       "test_path": "audit/regression_tests/R-012__offline-contract.test.sh",
       "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
-      "post_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "post_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
       "baseline": {
         "argv": [
           "docker",
@@ -578,8 +578,8 @@
         "exit_code": 1,
         "log": "audit/verification/regressions/R-012-baseline.log",
         "summary": [
-          "\n   FAILED  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.429727 sec) at test/ogent-agent-ergonomics-tests.el:457",
-          "Ran 1 tests, 0 results as expected, 1 unexpected (2026-10-08 19:10:14+0000, 1.311433 sec)"
+          "\n   FAILED  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.479087 sec) at test/ogent-agent-ergonomics-tests.el:462",
+          "Ran 1 tests, 0 results as expected, 1 unexpected (2026-10-08 19:28:51+0000, 1.352578 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30
@@ -597,8 +597,8 @@
         "exit_code": 0,
         "log": "audit/verification/regressions/R-012-post.log",
         "summary": [
-          "\n   passed  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.002331 sec)",
-          "Ran 1 tests, 1 results as expected, 0 unexpected (2026-10-08 19:10:15+0000, 0.002467 sec)"
+          "\n   passed  1/1  ogent-agent-ergonomics-offline-contract-missing-dependencies (0.001999 sec)",
+          "Ran 1 tests, 1 results as expected, 0 unexpected (2026-10-08 19:28:52+0000, 0.002115 sec)"
         ],
         "timed_out": false,
         "timeout_seconds": 30

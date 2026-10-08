@@ -94,7 +94,7 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 3 tests (2026-10-08 19:09:55+0000, selector `"^ogent-agent-ergonomics-tool-names"')
+Running 3 tests (2026-10-08 19:28:31+0000, selector `"^ogent-agent-ergonomics-tool-names"')
 Test ogent-agent-ergonomics-tool-names-approval-aliases backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -104,14 +104,14 @@ uncompressing cl-print.el.gz...
 uncompressing cl-print.el.gz...done
   signal(ert-test-failed (((should (ogent-tool--allowed-p 'write-file 
   ert-fail(((should (ogent-tool--allowed-p 'write-file nil)) :form (og
-  (if (unwind-protect (setq value-649 (apply fn-647 args-648)) (setq f
-  (let (form-description-651) (if (unwind-protect (setq value-649 (app
-  (let ((value-649 'ert-form-evaluation-aborted-650)) (let (form-descr
-  (let* ((fn-647 #'ogent-tool--allowed-p) (args-648 (condition-case er
+  (if (unwind-protect (setq value-654 (apply fn-652 args-653)) (setq f
+  (let (form-description-656) (if (unwind-protect (setq value-654 (app
+  (let ((value-654 'ert-form-evaluation-aborted-655)) (let (form-descr
+  (let* ((fn-652 #'ogent-tool--allowed-p) (args-653 (condition-case er
   (let ((ogent-tool-registry '((:name write-file :confirm t))) (ogent-
   #f(lambda () [t] (let ((ogent-tool-registry '...) (ogent-tool-allow-
-  #f(compiled-function () #<bytecode -0x1b06115a5a148137>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b06115a5a14813
+  #f(compiled-function () #<bytecode -0x1abb2ab040d7f1d1>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1abb2ab040d7f1d
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -161,7 +161,7 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000226 sec) at test/ogent-agent-ergonomics-tests.el:371
+   FAILED  1/3  ogent-agent-ergonomics-tool-names-approval-aliases (0.000157 sec) at test/ogent-agent-ergonomics-tests.el:376
 Test ogent-agent-ergonomics-tool-names-exact-and-wire-alias backtrace:
   signal(ert-test-failed (((should (eq (ogent-tool-spec-get "read_file
   ert-fail(((should (eq (ogent-tool-spec-get "read_file") read)) :form
@@ -171,8 +171,8 @@ Test ogent-agent-ergonomics-tool-names-exact-and-wire-alias backtrace:
   (let* ((fn-372 #'eq) (args-373 (condition-case err (list (ogent-tool
   (let* ((read '(:name read-file :function ignore :args nil)) (wire '(
   #f(lambda () [t] (let* ((read '...) (wire '...) (other '...) (ogent-
-  #f(compiled-function () #<bytecode -0x1b06115a5a148137>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b06115a5a14813
+  #f(compiled-function () #<bytecode -0x1abb2ab040d7f1d1>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1abb2ab040d7f1d
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -194,7 +194,7 @@ Test ogent-agent-ergonomics-tool-names-exact-and-wire-alias condition:
     (ert-test-failed
      ((should (eq (ogent-tool-spec-get "read_file") read)) :form
       (eq nil (:name read-file :function ignore :args nil)) :value nil))
-   FAILED  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000156 sec) at test/ogent-agent-ergonomics-tests.el:182
+   FAILED  2/3  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000159 sec) at test/ogent-agent-ergonomics-tests.el:182
 Test ogent-agent-ergonomics-tool-names-typo-refuses-with-hint backtrace:
   signal(ert-test-failed (((should-error (ogent-tools-enabled-list) :t
   ert-fail(((should-error (ogent-tools-enabled-list) :type 'user-error
@@ -206,8 +206,8 @@ Test ogent-agent-ergonomics-tool-names-typo-refuses-with-hint backtrace:
   (let ((err (let* ((fn-402 #'ogent-tools-enabled-list) (args-403 (con
   (let ((ogent-tool-registry '((:name read-file :function ignore :args
   #f(lambda () [t] (let ((ogent-tool-registry '...) (ogent-tools-enabl
-  #f(compiled-function () #<bytecode -0x1b06115a5a148137>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x1b06115a5a14813
+  #f(compiled-function () #<bytecode -0x1abb2ab040d7f1d1>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x1abb2ab040d7f1d
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -230,9 +230,9 @@ Test ogent-agent-ergonomics-tool-names-typo-refuses-with-hint condition:
      ((should-error (ogent-tools-enabled-list) :type 'user-error) :form
       (ogent-tools-enabled-list) :value nil :fail-reason
       "did not signal an error"))
-   FAILED  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000170 sec) at test/ogent-agent-ergonomics-tests.el:194
+   FAILED  3/3  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000174 sec) at test/ogent-agent-ergonomics-tests.el:194
 
-Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:09:58+0000, 3.086561 sec)
+Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:28:35+0000, 3.039754 sec)
 
 3 unexpected results:
    FAILED  ogent-agent-ergonomics-tool-names-approval-aliases

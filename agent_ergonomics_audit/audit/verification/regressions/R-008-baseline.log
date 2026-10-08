@@ -94,7 +94,7 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:09:59+0000, selector `"^ogent-agent-ergonomics-doctor-json"')
+Running 2 tests (2026-10-08 19:28:36+0000, selector `"^ogent-agent-ergonomics-doctor-json"')
 Test ogent-agent-ergonomics-doctor-json-invalid-format backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -109,8 +109,8 @@ uncompressing cl-print.el.gz...done
   (let ((value-453 'ert-form-evaluation-aborted-454)) (let (form-descr
   (let* ((fn-451 #'string-match-p) (args-452 (condition-case err (list
   #f(lambda () [t] (let* ((fn-451 #'string-match-p) (args-452 (conditi
-  #f(compiled-function () #<bytecode 0x164dad2cc3850ef5>)()
-  handler-bind-1(#f(compiled-function () #<bytecode 0x164dad2cc3850ef5
+  #f(compiled-function () #<bytecode -0x2aea5f1e0afc136>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x2aea5f1e0afc136
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -166,7 +166,7 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000218 sec) at test/ogent-agent-ergonomics-tests.el:222
+   FAILED  1/2  ogent-agent-ergonomics-doctor-json-invalid-format (0.000222 sec) at test/ogent-agent-ergonomics-tests.el:222
 Test ogent-agent-ergonomics-doctor-json-severity-and-schema backtrace:
   ogent-doctor-batch(nil json)
   (setq exit (ogent-doctor-batch nil 'json))
@@ -183,8 +183,8 @@ Test ogent-agent-ergonomics-doctor-json-severity-and-schema backtrace:
   (while tail (let ((severity (car tail))) (let ((results (list (list 
   (let ((tail '((ok . 0) (warn . 1) (error . 2)))) (while tail (let ((
   #f(lambda () [t] (let ((tail '...)) (while tail (let (...) (let ... 
-  #f(compiled-function () #<bytecode 0x164dad2cc3850ef5>)()
-  handler-bind-1(#f(compiled-function () #<bytecode 0x164dad2cc3850ef5
+  #f(compiled-function () #<bytecode -0x2aea5f1e0afc136>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x2aea5f1e0afc136
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -210,9 +210,9 @@ Test ogent-agent-ergonomics-doctor-json-severity-and-schema condition:
        nil
        "Run the doctor probes, print the report, and return an exit code.\nPrint the full report with `princ' and return a shell-style code for\nCI and scripting: 0 when every probe is ok or info, 1 when the worst\nresult is a warning, 2 when any probe fails.  Wire it to the batch\nexit status by wrapping the call in `kill-emacs'.\nWith INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch\nthe network."]
      2)
-   FAILED  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000189 sec) at test/ogent-agent-ergonomics-tests.el:204
+   FAILED  2/2  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000244 sec) at test/ogent-agent-ergonomics-tests.el:204
 
-Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:10:01+0000, 1.916110 sec)
+Ran 2 tests, 0 results as expected, 2 unexpected (2026-10-08 19:28:38+0000, 1.947069 sec)
 
 2 unexpected results:
    FAILED  ogent-agent-ergonomics-doctor-json-invalid-format

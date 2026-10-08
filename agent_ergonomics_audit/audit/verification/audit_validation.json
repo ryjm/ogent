@@ -1,5 +1,5 @@
 {
-  "recorded_at": "2026-10-08T19:20:53.188362+00:00",
+  "recorded_at": "2026-10-08T19:34:16.935231+00:00",
   "checks": [
     {
       "argv": [
@@ -23,5 +23,5 @@
     }
   ],
   "all_passed": true,
-  "whitespace_note": "Raw captured output retains original trailing whitespace and blank lines. Production/docs diff whitespace check passes when exact runtime transcripts are excluded."
+  "whitespace_note": "Raw runtime transcripts preserve exact whitespace; production/docs checks pass separately."
 }

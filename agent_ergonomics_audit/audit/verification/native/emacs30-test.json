@@ -11,9 +11,9 @@
     "sandbox=/tmp/ogent-fixdeps"
   ],
   "exit_code": 0,
-  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
-  "started_at": "2026-10-08T19:06:33.645711+00:00",
-  "completed_at": "2026-10-08T19:08:53.903602+00:00",
+  "source_sha": "390a25c2c4cd874b0f665500a9fc6842ff3472ec",
+  "started_at": "2026-10-08T19:30:18.822696+00:00",
+  "completed_at": "2026-10-08T19:32:38.962909+00:00",
   "summary": [],
   "stdout": "audit/verification/native/emacs30-test.stdout.log",
   "stderr": "audit/verification/native/emacs30-test.stderr.log"

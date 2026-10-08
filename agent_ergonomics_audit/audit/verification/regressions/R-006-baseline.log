@@ -94,7 +94,7 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 7 tests (2026-10-08 19:09:45+0000, selector `"^ogent-agent-ergonomics-argument-contract"')
+Running 7 tests (2026-10-08 19:28:22+0000, selector `"^ogent-agent-ergonomics-argument-contract"')
 Test ogent-agent-ergonomics-argument-contract-async-failure-once backtrace:
 uncompressing help-fns.el.gz...
 uncompressing help-fns.el.gz...done
@@ -109,8 +109,8 @@ uncompressing cl-print.el.gz...done
   (let ((value-360 (gensym "ert-form-evaluation-aborted-"))) (let (for
   (let* ((called nil) (spec (list :name 'contract-fixture :async t :fu
   #f(lambda () [t] (let* ((called nil) (spec (list :name ... :async t 
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -158,20 +158,20 @@ uncompressing diff-mode.el.gz...
 uncompressing diff-mode.el.gz...done
 uncompressing track-changes.el.gz...
 uncompressing track-changes.el.gz...done
-   FAILED  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000383 sec) at test/ogent-agent-ergonomics-tests.el:168
+   FAILED  1/7  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000332 sec) at test/ogent-agent-ergonomics-tests.el:168
 Test ogent-agent-ergonomics-argument-contract-declared-key-spelling backtrace:
   signal(void-function (ogent-tool-contract-values))
   apply(signal (void-function (ogent-tool-contract-values)))
-  (setq value-780 (apply fn-778 args-779))
-  (unwind-protect (setq value-780 (apply fn-778 args-779)) (setq form-
-  (if (unwind-protect (setq value-780 (apply fn-778 args-779)) (setq f
-  (let (form-description-782) (if (unwind-protect (setq value-780 (app
-  (let ((value-780 'ert-form-evaluation-aborted-781)) (let (form-descr
-  (let* ((fn-778 #'equal) (args-779 (condition-case err (list (ogent-t
+  (setq value-785 (apply fn-783 args-784))
+  (unwind-protect (setq value-785 (apply fn-783 args-784)) (setq form-
+  (if (unwind-protect (setq value-785 (apply fn-783 args-784)) (setq f
+  (let (form-description-787) (if (unwind-protect (setq value-785 (app
+  (let ((value-785 'ert-form-evaluation-aborted-786)) (let (form-descr
+  (let* ((fn-783 #'equal) (args-784 (condition-case err (list (ogent-t
   (let ((single '(:name custom :args ((:name "file-path" :type string)
-  #f(lambda () [t] (let ((single '...) (distinct '...)) (let* ((fn-778
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(lambda () [t] (let ((single '...) (distinct '...)) (let* ((fn-783
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -191,18 +191,18 @@ Test ogent-agent-ergonomics-argument-contract-declared-key-spelling backtrace:
   normal-top-level()
 Test ogent-agent-ergonomics-argument-contract-declared-key-spelling condition:
     (void-function ogent-tool-contract-values)
-   FAILED  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000147 sec) at test/ogent-agent-ergonomics-tests.el:495
+   FAILED  2/7  ogent-agent-ergonomics-argument-contract-declared-key-spelling (0.000139 sec) at test/ogent-agent-ergonomics-tests.el:500
 ogent-mcp: Registered tool optional from 'ergo'
 ogent-mcp: Registered tool required from 'ergo'
 Test ogent-agent-ergonomics-argument-contract-mcp-false-and-absence backtrace:
   signal(void-function (ogent-tool-contract-values))
   apply(signal (void-function (ogent-tool-contract-values)))
-  (setq value-735 (apply fn-733 args-734))
-  (unwind-protect (setq value-735 (apply fn-733 args-734)) (setq form-
-  (if (unwind-protect (setq value-735 (apply fn-733 args-734)) (setq f
-  (let (form-description-737) (if (unwind-protect (setq value-735 (app
-  (let ((value-735 'ert-form-evaluation-aborted-736)) (let (form-descr
-  (let* ((fn-733 #'equal) (args-734 (condition-case err (list (ogent-t
+  (setq value-740 (apply fn-738 args-739))
+  (unwind-protect (setq value-740 (apply fn-738 args-739)) (setq form-
+  (if (unwind-protect (setq value-740 (apply fn-738 args-739)) (setq f
+  (let (form-description-742) (if (unwind-protect (setq value-740 (app
+  (let ((value-740 'ert-form-evaluation-aborted-741)) (let (form-descr
+  (let* ((fn-738 #'equal) (args-739 (condition-case err (list (ogent-t
   (let ((wrapper (ogent-tool-execution-wrapper (ogent-tool-spec-get 'm
   (progn (fset 'ogent-mcp--call-tool vnew) (let ((wrapper (ogent-tool-
   (unwind-protect (progn (fset 'ogent-mcp--call-tool vnew) (let ((wrap
@@ -211,8 +211,8 @@ Test ogent-agent-ergonomics-argument-contract-mcp-false-and-absence backtrace:
   (unwind-protect (progn (ogent-mcp--register-tools conn (list optiona
   (let* ((ogent-tool-registry nil) (ogent--tools-registered nil) (ogen
   #f(lambda () [t] (let* ((ogent-tool-registry nil) (ogent--tools-regi
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -232,20 +232,20 @@ Test ogent-agent-ergonomics-argument-contract-mcp-false-and-absence backtrace:
   normal-top-level()
 Test ogent-agent-ergonomics-argument-contract-mcp-false-and-absence condition:
     (void-function ogent-tool-contract-values)
-   FAILED  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000647 sec) at test/ogent-agent-ergonomics-tests.el:427
+   FAILED  3/7  ogent-agent-ergonomics-argument-contract-mcp-false-and-absence (0.000597 sec) at test/ogent-agent-ergonomics-tests.el:432
 Test ogent-agent-ergonomics-argument-contract-symbol-types backtrace:
   signal(ert-test-failed (((should-error (ogent-tool-contract-validate
   ert-fail(((should-error (ogent-tool-contract-validate-values spec '(
-  ert--should-error-handle-error(#f(lambda () [(form-description-718 (
-  (condition-case -condition- (unwind-protect (setq value-716 (apply f
-  (let ((errorp719 nil) (form-description-fn-720 #'(lambda nil form-de
-  (let (form-description-718) (let ((errorp719 nil) (form-description-
-  (let ((value-716 'ert-form-evaluation-aborted-717)) (let (form-descr
-  (let* ((fn-714 #'ogent-tool-contract-validate-values) (args-715 (con
+  ert--should-error-handle-error(#f(lambda () [(form-description-723 (
+  (condition-case -condition- (unwind-protect (setq value-721 (apply f
+  (let ((errorp724 nil) (form-description-fn-725 #'(lambda nil form-de
+  (let (form-description-723) (let ((errorp724 nil) (form-description-
+  (let ((value-721 'ert-form-evaluation-aborted-722)) (let (form-descr
+  (let* ((fn-719 #'ogent-tool-contract-validate-values) (args-720 (con
   (let ((spec '(:name typed :args ((:name "count" :type integer) (:nam
-  #f(lambda () [t] (let ((spec '...)) (let* ((fn-714 ...) (args-715 ..
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(lambda () [t] (let ((spec '...)) (let* ((fn-719 ...) (args-720 ..
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -272,7 +272,7 @@ Test ogent-agent-ergonomics-argument-contract-symbol-types condition:
 					   ("bad" t))
       :condition (void-function ogent-tool-contract-validate-values)
       :fail-reason "the error signaled did not have the expected type"))
-   FAILED  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000217 sec) at test/ogent-agent-ergonomics-tests.el:420
+   FAILED  4/7  ogent-agent-ergonomics-argument-contract-symbol-types (0.000153 sec) at test/ogent-agent-ergonomics-tests.el:425
 Test ogent-agent-ergonomics-argument-contract-values-and-hints backtrace:
   signal(ert-test-failed (((should (equal (seq-take values 3) '("data.
   ert-fail(((should (equal (seq-take values 3) '("data.txt" nil 0))) :
@@ -282,8 +282,8 @@ Test ogent-agent-ergonomics-argument-contract-values-and-hints backtrace:
   (let* ((fn-338 #'equal) (args-339 (condition-case err (list (seq-tak
   (let* ((nested (make-hash-table :test #'equal)) (spec '(:name contra
   #f(lambda () [t] (let* ((nested (make-hash-table :test ...)) (spec '
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -306,7 +306,7 @@ Test ogent-agent-ergonomics-argument-contract-values-and-hints condition:
      ((should (equal (seq-take values 3) '("data.txt" nil 0))) :form
       (equal ("data.txt" :json-false 0) ("data.txt" nil 0)) :value nil
       :explanation (list-elt 1 (different-atoms :json-false nil))))
-   FAILED  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000242 sec) at test/ogent-agent-ergonomics-tests.el:151
+   FAILED  5/7  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000218 sec) at test/ogent-agent-ergonomics-tests.el:151
 Test ogent-agent-ergonomics-argument-contract-wrapper-arity backtrace:
   string-match("accepts 1" nil nil t)
   string-match-p("accepts 1" nil)
@@ -322,8 +322,8 @@ Test ogent-agent-ergonomics-argument-contract-wrapper-arity backtrace:
   (let* ((vnew #'(lambda (&rest _) (setq approval-called t) 'approved)
   (let* ((spec '(:name contract-fixture :function ignore :args ((:name
   #f(lambda () [t] (let* ((spec '...) (ogent-tool-registry (list spec)
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -343,8 +343,8 @@ Test ogent-agent-ergonomics-argument-contract-wrapper-arity backtrace:
   normal-top-level()
 Test ogent-agent-ergonomics-argument-contract-wrapper-arity condition:
     (wrong-type-argument stringp nil)
-   FAILED  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000310 sec) at test/ogent-agent-ergonomics-tests.el:139
-ogent-test: provisioned tools store at /tmp/ogent-test-store-nJETLl/tools-oCOlad (retained)
+   FAILED  6/7  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000311 sec) at test/ogent-agent-ergonomics-tests.el:139
+ogent-test: provisioned tools store at /tmp/ogent-test-store-4ezkKF/tools-LxPeVz (retained)
 Test ogent-agent-ergonomics-argument-contract-write-before-validation backtrace:
   signal(ert-test-failed (((should-error (ogent-tool--write-file file 
   ert-fail(((should-error (ogent-tool--write-file file 42) :type 'user
@@ -356,8 +356,8 @@ Test ogent-agent-ergonomics-argument-contract-write-before-validation backtrace:
   (let* ((fn-307 #'ogent-tool--write-file) (args-308 (condition-case e
   (let* ((root (ogent-test--provision-store-directory 'tools)) (file (
   #f(lambda () [t] (let* ((root (ogent-test--provision-store-directory
-  #f(compiled-function () #<bytecode -0x4a037a24611103a>)()
-  handler-bind-1(#f(compiled-function () #<bytecode -0x4a037a24611103a
+  #f(compiled-function () #<bytecode 0xb517ff4c744de7b>)()
+  handler-bind-1(#f(compiled-function () #<bytecode 0xb517ff4c744de7b>
   ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
   #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
   apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
@@ -380,12 +380,12 @@ Test ogent-agent-ergonomics-argument-contract-write-before-validation condition:
      ((should-error (ogent-tool--write-file file 42) :type 'user-error)
       :form
       (ogent-tool--write-file
-       "/tmp/ogent-test-store-nJETLl/tools-oCOlad/data.txt" 42)
+       "/tmp/ogent-test-store-4ezkKF/tools-LxPeVz/data.txt" 42)
       :condition (wrong-type-argument sequencep 42) :fail-reason
       "the error signaled did not have the expected type"))
-   FAILED  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.001084 sec) at test/ogent-agent-ergonomics-tests.el:128
+   FAILED  7/7  ogent-agent-ergonomics-argument-contract-write-before-validation (0.000674 sec) at test/ogent-agent-ergonomics-tests.el:128
 
-Ran 7 tests, 0 results as expected, 7 unexpected (2026-10-08 19:09:54+0000, 8.993651 sec)
+Ran 7 tests, 0 results as expected, 7 unexpected (2026-10-08 19:28:30+0000, 8.133764 sec)
 
 7 unexpected results:
    FAILED  ogent-agent-ergonomics-argument-contract-async-failure-once

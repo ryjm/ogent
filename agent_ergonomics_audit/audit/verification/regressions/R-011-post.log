@@ -94,11 +94,11 @@ uncompressing url-privacy.el.gz...
 uncompressing url-privacy.el.gz...done
 uncompressing url-proxy.el.gz...
 uncompressing url-proxy.el.gz...done
-Running 2 tests (2026-10-08 19:10:12+0000, selector `"^ogent-agent-ergonomics-make-contract"')
-ogent-test: provisioned tools store at /tmp/ogent-test-store-2ndhnp/tools-EKuSQx (retained)
-   passed  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.026594 sec)
-ogent-test: provisioned tools store at /tmp/ogent-test-store-2ndhnp/tools-Hbqwsg (retained)
-   passed  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.007350 sec)
+Running 2 tests (2026-10-08 19:28:49+0000, selector `"^ogent-agent-ergonomics-make-contract"')
+ogent-test: provisioned tools store at /tmp/ogent-test-store-vSEkab/tools-wC9Ckx (retained)
+   passed  1/2  ogent-agent-ergonomics-make-contract-clean-and-help (0.026347 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-vSEkab/tools-dNvryX (retained)
+   passed  2/2  ogent-agent-ergonomics-make-contract-recompile-failure (0.007486 sec)
 
-Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:10:12+0000, 0.034130 sec)
+Ran 2 tests, 2 results as expected, 0 unexpected (2026-10-08 19:28:49+0000, 0.034168 sec)
 
