@@ -96,6 +96,34 @@
         (should (equal paths (cdr case)))
         (should (= (plist-get result :total_matches) (length (cdr case))))))))
 
+(defun ogent-tool-process-tests--check-unicode-filters ()
+  "Verify Unicode name filtering without reading excluded oversized text files."
+  (ogent-tool-process-tests--with-directory
+    (dolist (name '("a.txt" "é.txt" "Ω.txt" "目录/é.txt" "目录/a.txt"
+                    "odd:\né[1]?*.txt"))
+      (ogent-tool-process-tests--write directory name "needle\n"))
+    ;; This file shares the candidate parent but must never be searched.
+    (ogent-tool-process-tests--write directory "excluded.log"
+                                     (concat "needle" (make-string 1100000 ?x) "\n"))
+    (dolist (case '(("?.txt" "a.txt" "é.txt" "Ω.txt" "目录/a.txt" "目录/é.txt")
+                    ("[!a].txt" "é.txt" "Ω.txt" "目录/é.txt")
+                    ("[éΩ].txt" "é.txt" "Ω.txt" "目录/é.txt")
+                    ("目录/?.txt" "目录/a.txt" "目录/é.txt")
+                    ("目录/[!a].txt" "目录/é.txt")
+                    ("目录/é.txt" "目录/é.txt")
+                    ("odd*?.txt" "odd:\né[1]?*.txt")))
+      (let* ((result (ogent-tool-process-grep "needle" directory (car case)))
+             (paths (mapcar
+                     (lambda (match) (file-relative-name (plist-get match :path) directory))
+                     (append (plist-get result :matches) nil))))
+        (should (equal paths (cdr case)))
+        (should (= (plist-get result :total_matches) (length (cdr case))))))
+    (should-error (ogent-tool-process-grep "[" directory "missing?.txt")
+                  :type 'ogent-tool-process-search-failed)
+    (should (= (plist-get
+                (ogent-tool-process-grep "needle" (expand-file-name "目录/é.txt" directory))
+                :total_matches) 1))))
+
 (ert-deftest ogent-tool-process-bash-separates-channels-and-exit ()
   "Preserve stdout and stderr separately on a real nonzero command exit."
   (ogent-tool-process-tests--with-directory
@@ -456,6 +484,58 @@
   "Match directory components and positive literal globs through real ripgrep."
   (ogent-tool-process-tests--with-engine 'ripgrep
     (ogent-tool-process-tests--check-component-filters)))
+
+(ert-deftest ogent-tool-process-grep-gnu-unicode-filters ()
+  "Use Unicode character widths and classes through the real GNU grep engine."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-unicode-filters)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-unicode-filters ()
+  "Select Unicode filenames while retaining real ripgrep JSON and regex execution."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-unicode-filters)
+    (ogent-tool-process-tests--with-directory
+      (ogent-tool-process-tests--write directory "é.txt" "Ωneedle\n")
+      (let ((result (ogent-tool-process-grep "\\p{L}+" directory "?.txt")))
+        (should (equal (plist-get result :engine) "ripgrep-json"))
+        (should (= (plist-get result :total_matches) 1))))))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages ()
+  "Retain ordered pagination across multiple real ripgrep filename groups."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--with-directory
+      (dotimes (index 180)
+        (ogent-tool-process-tests--write directory (format "%03d.txt" index) "needle\n"))
+      (let* ((result (ogent-tool-process-grep "needle" directory "[0-9]*.txt" 0 120 40))
+             (matches (plist-get result :matches)))
+        (should (= (plist-get result :total_matches) 180))
+        (should (= (length matches) 40))
+        (should (= (plist-get result :next_offset) 160))
+        (should (string-suffix-p "/120.txt" (plist-get (aref matches 0) :path)))
+        (should (string-suffix-p "/159.txt" (plist-get (aref matches 39) :path)))))))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-selected-parent-order ()
+  "Page globally ordered results across root, nested and repeated root groups."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--with-directory
+      (dolist (name '("a.txt" "a/é.txt" "z.txt"))
+        (ogent-tool-process-tests--write directory name "needle\n"))
+      (let ((first (ogent-tool-process-grep "needle" directory "?.txt" 0 0 2))
+            (last (ogent-tool-process-grep "needle" directory "?.txt" 0 2 2)))
+        (should (equal
+                 (mapcar (lambda (match)
+                           (file-relative-name (plist-get match :path) directory))
+                         (append (plist-get first :matches) nil))
+                 '("a.txt" "a/é.txt")))
+        (should (string-suffix-p "/z.txt"
+                                 (plist-get (aref (plist-get last :matches) 0) :path)))
+        (should (= (plist-get first :total_matches) 3))
+        (should (= (plist-get first :next_offset) 2))
+        (should (equal (plist-get first :snapshot) (plist-get last :snapshot))))
+      ;; A no-match first group must not prevent matching later parents.
+      (ogent-tool-process-tests--write directory "a.txt" "unrelated\n")
+      (should (= (plist-get (ogent-tool-process-grep "needle" directory "?.txt")
+                            :total_matches) 2)))))
 
 (ert-deftest ogent-tool-process-grep-finds-hidden-and-ignored-files ()
   "Search hidden and ignored source files consistently while excluding Git storage."
