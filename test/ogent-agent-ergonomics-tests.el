@@ -362,5 +362,20 @@
       (should (string-match-p "ogent-agent-triage" (buffer-string)))
       (should (string-match-p "1 warning, 2 error" (buffer-string))))))
 
+(ert-deftest ogent-agent-ergonomics-tool-names-approval-aliases ()
+  "Allow and deny rules resolve registered wire aliases with the same precedence."
+  (let ((ogent-tool-registry '((:name write-file :confirm t)))
+        (ogent-tool-allow-list '("write_file(*)"))
+        (ogent-tool--denied-tools '("write_file"))
+        (ogent-tool-require-approval t))
+    (should (ogent-tool--allowed-p 'write-file nil))
+    (should (ogent-tool--denied-p 'write-file))
+    (should (eq (ogent-tool-approval-check 'write-file nil) 'denied))
+    ;; An exact custom name wins, so its rule cannot grant its hyphen neighbor.
+    (push '(:name write_file :confirm t) ogent-tool-registry)
+    (should-not (ogent-tool--allowed-p 'write-file nil))
+    (should-not (ogent-tool--denied-p 'write-file))
+    (should (ogent-tool--denied-p 'write_file))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

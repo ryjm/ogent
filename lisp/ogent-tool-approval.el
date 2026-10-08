@@ -69,7 +69,7 @@ PATTERN format: \"tool-name\" or \"tool-name(arg:glob)\"."
              (string-match "^\\([^(]+\\)\\(?:(\\(.*\\))\\)?$" pattern))
         (let ((pat-name (match-string 1 pattern))
               (pat-args (match-string 2 pattern)))
-          (and (string= pat-name tool-name)
+          (and (equal (ogent-tool--name-string pat-name) tool-name)
                (or (null pat-args)
                    (string= pat-args "*")
                    (ogent-tool--args-match-p pat-args args))))
@@ -166,7 +166,9 @@ If ARGS is non-nil, create a pattern matching those specific args."
 (defun ogent-tool--denied-p (tool-name)
   "Return non-nil if TOOL-NAME is in the session deny list."
   (when-let ((name (ogent-tool--name-string tool-name)))
-    (member name ogent-tool--denied-tools)))
+    (cl-some (lambda (denied)
+               (equal name (ogent-tool--name-string denied)))
+             ogent-tool--denied-tools)))
 
 (defun ogent-tool-approval-check (tool-name tool-args)
   "Return approval decision for TOOL-NAME with TOOL-ARGS.
