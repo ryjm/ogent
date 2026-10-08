@@ -15,6 +15,7 @@
 (require 'ogent-ledger)
 (require 'ogent-edit-format)
 (require 'ogent-tools)
+(require 'ogent-tool-contract)
 
 ;; Specials read/let-bound by the tool subsystem.
 (defvar ogent-zen-mode)
@@ -185,8 +186,18 @@ Results are displayed in the buffer."
               (if (not tool-name)
                   (ogent-ui--insert-tool-block
                    "unknown" tool-args "[Malformed tool call: missing name]")
-                (let ((approval (ogent-tool-approval-check tool-name tool-args)))
+                (let ((approval
+                       (condition-case err
+                           (progn
+                             (when-let ((spec (ogent-tool-spec-get
+                                              (ogent-tool--name-symbol tool-name))))
+                               (ogent-tool-contract-values spec tool-args))
+                             (ogent-tool-approval-check tool-name tool-args))
+                         (error (list 'invalid (error-message-string err))))))
                   (pcase approval
+                    (`(invalid ,detail)
+                     (ogent-ui--insert-tool-block tool-name tool-args
+                                                  (concat "Tool error: " detail)))
                     (`approved
                      (cond
                       ;; Edit tools: show diff preview.
@@ -262,29 +273,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
     (format "Unknown tool: %s" name)))
 
 (defun ogent-ui--extract-tool-args (spec args)
-  "Extract argument values from ARGS plist based on SPEC.
-Returns a list of values in the order defined in the spec's :args."
-  (when (bound-and-true-p ogent-ui-debug-stream-completion)
-    (message "[ogent-debug] extract-tool-args: spec=%S args=%S" spec args))
-  (let ((arg-specs (plist-get spec :args))
-        (values nil))
-    (dolist (arg-spec arg-specs)
-      (let* ((arg-name (plist-get arg-spec :name))
-             ;; Try various forms: :file-path, :file_path, file-path, file_path
-             (arg-keyword-hyphen (intern (concat ":" (replace-regexp-in-string "_" "-" arg-name))))
-             (arg-keyword-underscore (intern (concat ":" arg-name)))
-             (arg-sym-hyphen (intern (replace-regexp-in-string "_" "-" arg-name)))
-             (arg-sym-underscore (intern arg-name))
-             (value (or (plist-get args arg-keyword-hyphen)
-                        (plist-get args arg-keyword-underscore)
-                        (plist-get args arg-sym-hyphen)
-                        (plist-get args arg-sym-underscore))))
-        (when (bound-and-true-p ogent-ui-debug-stream-completion)
-          (message "[ogent-debug] arg %s: tried %S %S %S %S -> %S"
-                   arg-name arg-keyword-hyphen arg-keyword-underscore
-                   arg-sym-hyphen arg-sym-underscore value))
-        (push value values)))
-    (nreverse values)))
+  "Return validated argument values from ARGS in SPEC order."
+  (ogent-tool-contract-values spec args))
 
 (defvar ogent-ui--tool-seq 0
   "Sequence number for generating unique tool IDs.")
@@ -660,6 +650,14 @@ When set to `inline-diff', display inline diff previews in the source buffer."
 (defun ogent-ui--tool-edits-for-inline-diff (tool-name tool-args buffer)
   "Return list of `ogent-edit' structs for TOOL-NAME/TOOL-ARGS in BUFFER."
   (require 'ogent-edit-format)
+  (when-let ((spec (or (ogent-tool-spec-get (ogent-tool--name-symbol tool-name))
+                      (seq-find (lambda (entry)
+                                  (equal tool-name (symbol-name (plist-get entry :name))))
+                                ogent-tools-default-registry))))
+    (let ((values (ogent-tool-contract-values spec tool-args)))
+      (setq tool-args
+            (cl-loop for arg in (plist-get spec :args) for value in values
+                     append (list (intern (concat ":" (plist-get arg :name))) value)))))
   (let ((file-path (or (plist-get tool-args :file-path)
                        (plist-get tool-args :file_path))))
     (pcase tool-name

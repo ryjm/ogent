@@ -856,6 +856,10 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
 
 (defun ogent-tool--write-file (file-path content)
   "Write CONTENT to FILE-PATH, overwriting if exists."
+  (unless (and (stringp file-path) (not (string-empty-p file-path)))
+    (user-error "write_file file_path must be a non-empty string; choose a file path"))
+  (unless (stringp content)
+    (user-error "write_file content must be a string; use text or an empty string"))
   (let ((path (ogent-tools--resolve-path file-path)))
     ;; Create parent directories if needed
     (make-directory (file-name-directory path) t)

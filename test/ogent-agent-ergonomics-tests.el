@@ -10,6 +10,7 @@
 (require 'ogent-models)
 (require 'ogent-doctor)
 (require 'ogent-ui-toolcalls)
+(require 'ogent-tool-execution)
 
 (defun ogent-agent-ergonomics-tests--file (root name content)
   "Create NAME with CONTENT under fixture ROOT and return its path."
@@ -120,6 +121,60 @@
         "edit-file" (list :file_path file :old_string "same" :new_string "new"
                           :replace_all :json-false) (current-buffer))
        :type 'user-error))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-write-before-validation ()
+  "Invalid content cannot overwrite files or create parent directories."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "data.txt" "original"))
+         (missing (expand-file-name "missing/data.txt" root)))
+    (should-error (ogent-tool--write-file file 42) :type 'user-error)
+    (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                   "original"))
+    (should-error (ogent-tool--write-file missing 42) :type 'user-error)
+    (should-not (file-exists-p (file-name-directory missing)))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-wrapper-arity ()
+  "Excess positional values are rejected before approval or execution."
+  (let* ((spec '(:name contract-fixture :function ignore
+                      :args ((:name "value" :type "string"))))
+         (ogent-tool-registry (list spec))
+         (wrapper (ogent-tool-execution-wrapper spec))
+         approval-called)
+    (cl-letf (((symbol-function 'ogent-tool-approval-check)
+               (lambda (&rest _) (setq approval-called t) 'approved)))
+      (should (string-match-p "accepts 1" (funcall wrapper "first" "excess")))
+      (should-not approval-called))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-values-and-hints ()
+  "Validation preserves false, zero and nested objects, and teaches typo repair."
+  (let* ((nested (make-hash-table :test #'equal))
+         (spec '(:name contract-fixture
+                       :args ((:name "file_path" :type "string")
+                              (:name "flag" :type "boolean" :optional t)
+                              (:name "count" :type "integer" :optional t)
+                              (:name "data" :type "object" :optional t))))
+         (values (ogent-ui--extract-tool-args
+                  spec (list :file-path "data.txt" :flag :json-false
+                             :count 0 :data nested))))
+    (should (equal (seq-take values 3) '("data.txt" nil 0)))
+    (should (eq (nth 3 values) nested))
+    (let ((err (should-error (ogent-ui--extract-tool-args
+                             spec '(:file_pth "data.txt")) :type 'user-error)))
+      (should (string-match-p "did you mean file_path" (error-message-string err))))))
+
+(ert-deftest ogent-agent-ergonomics-argument-contract-async-failure-once ()
+  "An invalid async argument produces one result without starting the tool."
+  (let* ((called nil)
+         (spec (list :name 'contract-fixture :async t
+                     :function (lambda (&rest _) (setq called t))
+                     :args '((:name "count" :type "integer"))))
+         (ogent-tool-registry (list spec))
+         results)
+    (funcall (ogent-tool-execution-wrapper spec)
+             (lambda (result) (push result results)) "wrong")
+    (should-not called)
+    (should (= (length results) 1))
+    (should (string-match-p "count requires integer" (car results)))))
 
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

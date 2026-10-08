@@ -8,6 +8,7 @@
 (require 'cl-lib)
 (require 'ogent-tool-approval)
 (require 'ogent-ledger)
+(require 'ogent-tool-contract)
 (declare-function ogent-tool-spec-get "ogent-models")
 (declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
 (declare-function ogent-ui--is-edit-tool-p "ogent-ui-toolcalls")
@@ -23,12 +24,18 @@ Reject stale tool objects after registry removal or schema replacement."
     (lambda (&rest values)
       (let* ((async (plist-get snapshot :async))
              (callback (and async (pop values)))
-             (args (cl-loop for arg in (plist-get snapshot :args)
-                            for value in values
-                            append (list (intern (concat ":" (plist-get arg :name)))
-                                         value)))
+             args
              (result
-              (cond
+              (condition-case err
+                  (progn
+                    (when (and async (not (functionp callback)))
+                      (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
+                    (setq values (ogent-tool-contract-validate-values snapshot values)
+                          args (cl-loop for arg in (plist-get snapshot :args)
+                                        for value in values
+                                        append (list (intern (concat ":" (plist-get arg :name)))
+                                                     value)))
+                    (cond
                ((not (equal snapshot (ogent-tool-spec-get name)))
                 "Tool unavailable: its registry entry changed or was removed")
                ((not (eq (ogent-tool-approval-check name args) 'approved))
@@ -42,7 +49,10 @@ Reject stale tool objects after registry removal or schema replacement."
                  (async
                   (ogent-tool-execution--async snapshot args values callback)
                   :async)
-                 (t (ogent-ui--execute-tool name args)))))))
+                 (t (ogent-ui--execute-tool name args))))))
+                (error (concat "Tool error: " (error-message-string err))))))
+        (when (and async (not (functionp callback)))
+          (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
         (if async
             (unless (eq result :async) (funcall callback result))
           result)))))
