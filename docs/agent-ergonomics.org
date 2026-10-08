@@ -1,66 +1,192 @@
 #+title: ogent agent interface
 
-* Discover the local contract
-Load ogent normally, then call =(ogent-agent-capabilities 'json)=. This reports
-the live registry in name order, with argument order matching positional calls,
-accepted aliases, enabled state, effect metadata, risk, and declared confirmation
-requirements. It does not construct gptel tools or contact providers. Per-call
-allow/deny policy still applies when executing tools.
+Load ogent normally, then call local tools by name. These SDK workflows need
+no provider login or inference. Paths resolve against =ogent-tools-project-root=
+when set, otherwise the detected project/default directory.
 
-=(ogent-agent-guide)= returns the handbook as text. =(ogent-agent-triage 'json)=
-combines discovery, recommended fixes, commands, and local doctor results. Triage
-excludes opt-in network checks. Local checks can read credential metadata to
-diagnose setup; they never log in or run inference.
+* Read a file, then follow its pages
 
-Reports return native plists by default; =json= serializes them with
-=contract_version= ="1"=. Collections are arrays, booleans are booleans, and
-missing doctor remediation is JSON null. The batch doctor retains its Org default:
-=(ogent-doctor-batch nil 'json)= is the explicit structured form, with exit
-=0= for ok/info, =1= for warning, and =2= for error.
+#+begin_src emacs-lisp
+(let ((page (ogent-agent-call "read" '(:file_path "README.org" :limit 40)))
+      pages)
+  (while (equal (plist-get page :status) "ok")
+    (push (plist-get page :data) pages)
+    (setq page (ogent-agent-next page)))
+  (list :pages (vconcat (nreverse pages)) :terminal page))
+#+end_src
 
-* Call tools safely
-Use registered execution wrappers to enforce approval and ledger recording.
-Direct =ogent-tool--*= functions are low-level SDK primitives. Shell execution
-and writes require confirmation by default; read-only tools do not.
+=ogent-agent-next= follows the exact next position, including the column inside
+a long line. It accepts a result plist or JSON string. A successful final page
+becomes =done= on the next call. Check the terminal status before combining
+pages: =snapshot_changed= means restart the original call. Continuations keep
+absolute targets, so changing the current directory cannot redirect a page.
 
-Names accept an exact registered spelling first, then an underscore alias for
-a registered hyphen name. Misspellings produce suggestions and never execute a
-different tool. Unknown names in =ogent-tools-enabled= now raise a useful error
-instead of silently removing tools.
+Read =data= contains =lines= with =number=, =column=, =text=, and =partial=,
+plus =content=, =total_lines=, =snapshot=, and =ends_with_newline=. Columns count
+characters from 1. The newline flag describes the original file; =content=
+joins the returned line fragments and does not append that final newline.
+Use positions to join partial lines rather than inserting newlines between
+every page. Empty files succeed with zero lines.
 
-Arguments are checked before approval and execution: missing required values,
-extra positional values, wrong standard types, unknown named keys, duplicate
-key spellings, and enum violations are rejected. Standard gptel string and
-symbol type names are supported. Nested objects and numeric zero are preserved.
-Native boolean false accepts =nil= or JSON false sentinels. MCP specs declare
-=:boolean-representation json= so explicit =:json-false= remains different from
-omitting an optional value with =nil=.
+* Discover and search in one batch
 
-* Read, search, edit, and execute
-File reads require positive offset and limit; truncated pages state the exact
-next =file_path=, =offset=, and =limit=. Offsets past EOF give a correction hint.
-Glob =**= includes zero and multiple directory levels; equal modification times
-are ordered by path. Grep treats patterns and filters as literal shell arguments:
-leading dashes and quotes work. No matches succeeds; invalid regexes fail with
-separate diagnostics. File/search results remain compatible text strings.
+#+begin_src emacs-lisp
+(ogent-agent-batch
+ '[(:tool "files" :args (:pattern "**/*.el" :path "lisp" :limit 5))
+   (:tool "search" :args (:pattern "defun" :path "lisp"
+                         :glob_filter "*.el" :context_lines 1 :limit 5))
+   (:tool "read" :args (:file_path "README.org" :limit 20))])
+#+end_src
 
-An edit's =old_string= must be nonempty and unique unless =replace_all= is
-explicitly true. Direct edits and both review styles validate this condition.
-Default diff previews keep an absolute target for acceptance. Failed acceptance
-shows an error and remains available for retry or rejection.
+The batch validates all calls before executing any and accepts up to 20 tools
+whose declared effects are read-only. It returns =results=, =requested=,
+=completed=, =stopped=, and status =ok= or =partial=. Pass =t= as the third
+argument to stop after the first unsuccessful call; the default continues.
+Preflight failures return the ordinary error envelope and execute nothing.
+Shell commands and writes need individual calls through approval.
 
-Shell timeouts must be positive seconds and working directories must exist.
-Output limits retain the available prefix and an explicit truncation notice;
-the final exit code is preserved. Async calls emit one terminal =done= or =error=
-event. Progress diagnostics remain separate from discovery and JSON doctor data.
+=files= returns file objects with =path=, =size=, and =modified=, ordered by
+absolute path. =**= matches zero or more directory levels. =search= returns
+match objects with =path=, =line=, =text=, =context_before=, =context_after=,
+and =truncated=. Both report totals and snapshot identities. No matches is
+successful empty data. Search uses ripgrep when available or GNU grep with
+xargs; the fallback uses extended regular expressions.
 
-* Verify without providers
-=make test= runs native unit tests; =make test-isolation= additionally checks that
-real user stores stay unchanged. =OGENT_ELPA_DIR=/path/to/elpa make offline-test=
-uses actual dependencies with loopback and fixture processes. Optionally set
-=OGENT_GPTEL_DIR= to a source checkout to test a specific supported gptel version.
-Missing prerequisites fail early with setup instructions on stderr.
+* Find the exact contract
 
-=make recompile= propagates compilation failure, =make clean= removes source and
-test bytecode, and =EMACS=PATH= selects the executable for build targets. See
-=make help= for discovery expressions and setup commands.
+#+begin_src emacs-lisp
+(ogent-agent-describe "read" 'json) ; One tool's arguments, aliases, and examples
+(ogent-agent-capabilities 'json)    ; All live tool contracts and approval metadata
+(ogent-agent-schema 'json)          ; JSON Schema for the result envelope
+(ogent-agent-guide)                 ; Copyable local SDK handbook
+#+end_src
+
+Use =call_arguments= for =ogent-agent-call= and =ogent-agent-call-async=.
+The legacy positional schema is =arguments=; named calls also accept result
+pagination arguments such as =column= and search/glob =offset= and =limit=.
+=async_sdk= declares terminal callback support; =legacy_streaming= describes
+the separate older streaming API. The =async= field refers to the primary
+legacy tool function, so inspect =async_sdk= for the public asynchronous SDK.
+
+Built-in aliases include =read=/=cat=, =files=/=find=, =search=, =shell=/=run=,
+=write=, and =edit=. Canonical names and underscore aliases such as =read_file=
+also work. Exact registered names win over aliases. Typos suggest corrections
+and execute nothing. Discovery reads metadata without constructing tools or
+contacting providers. An empty =tools= array means no specs are installed;
+=(ogent-tools-install-defaults)= explicitly adds the built-in specs.
+
+* Handle outcomes without parsing prose
+
+=ogent-agent-call= returns =contract_version= ="1"=, =tool=, =status=, =data=,
+=error=, and =next=. Pass ='json= as the final argument to serialize the same
+result. Native collections are vectors; false and null use =:json-false= and
+=:json-null=. Compare native result booleans with =t= rather than treating every
+non-nil value as true. JSON uses ordinary arrays, booleans, and null.
+
+| Status            | Next step                                              |
+|-------------------+--------------------------------------------------------|
+| ok                | Use data; follow next pages if present                  |
+| done              | Pagination completed                                   |
+| error             | Read error.code, message, and recovery                  |
+| approval_required | Continue through normal user approval/review            |
+| denied            | Respect the decision; ask the user to review the policy |
+| proposed          | An edit awaits review; it has not been applied          |
+
+Errors identify =unknown_tool=, =invalid_arguments=, =snapshot_changed=,
+=async_required=, =unsafe_batch=, =dependency_missing=, =process_start_failed=,
+=unsupported_output=, =search_failed=, =command_failed=, =timeout=, or
+=cancelled= as applicable. Extension/execution failures can use
+=execution_failed= or =unavailable=. Follow =recovery= rather than guessing
+from a human log. Arguments reject missing required fields, unknown or duplicate
+keys, wrong standard types, and invalid enums before approval or execution.
+Native boolean input accepts =nil= or =:json-false=. MCP specs using JSON
+booleans distinguish explicit =:json-false= from an omitted optional =nil=.
+
+* Keep work bounded and cancellable
+
+| Tool   | Position convention | Default page / bound                         |
+|--------+---------------------+----------------------------------------------|
+| read   | Line/column from 1  | 200 lines; at most ogent-tools-max-file-lines |
+| files  | Offset from 0       | 100 files; at most 200 per page               |
+| search | Offset from 0       | 200 matches; at most 20 context lines         |
+| shell  | Positive seconds    | ogent-tools-shell-timeout, initially 120      |
+
+=ogent-tools-max-output-chars= defaults to 30,000 characters for read content,
+combined shell stdout/stderr, and retained search match/context text. Metadata
+and the JSON envelope are outside that text budget. Read pages retain an exact
+continuation through long lines. Search retains match locations even
+when text/context is shortened; inspect =truncated= and read the matching file
+for complete text. Search uses =ogent-tools-grep-timeout=, initially 30 seconds,
+and rejects oversized wire records explicitly rather than claiming complete
+results. Read snapshots identify decoded content, glob snapshots identify file
+metadata, and search snapshots identify the observed match/context records.
+
+#+begin_src emacs-lisp
+(ogent-agent-call-async
+ "search" '(:pattern "defun" :path "lisp" :limit 5)
+ (lambda (result) (message "Search finished: %s" (plist-get result :status))))
+#+end_src
+
+The callback receives exactly one terminal envelope. The call returns a process
+for asynchronous work or =nil= when it finishes immediately. Cancel a returned
+process with =ogent-tool-process-cancel=. Legacy streaming callbacks and
+=ogent-tools-stream-callback= have their own event shapes; they do not use this
+one-result callback contract.
+
+Shell =data= separates =stdout=, =stderr=, =exit_code=, =signal=, =timed_out=,
+=cancelled=, and =truncated=. Nonzero exits, timeouts, and cancellation return
+an error while retaining available output. =encoding_loss= marks UTF-8
+replacement; =drain_incomplete= means some pipe output could not be collected
+within the drain deadline and also marks the shell result truncated. Search
+reports encoding loss when present and fails if it cannot fully drain its
+output. Search failures do not claim a complete match page.
+
+* Preserve approval and existing integrations
+
+Public calls use the shared approval, edit review, and ledger owners. They
+never grant approval or prompt from the programmatic SDK. Read-only built-ins
+need no confirmation by default; writes and shell calls require a decision
+unless existing policy already permits them. An edit's =old_string= must be
+nonempty and unique unless =replace_all= is explicitly true. A failed review
+acceptance remains available for retry or rejection.
+
+Existing =ogent-tool--*= primitives default to their text results. Explicit
+=plist= or =json= format arguments select structured data for read/search/shell
+primitives; these are low-level calls, so use =ogent-agent-call= for policy and
+ledger enforcement. The public agent SDK returns structured envelopes without
+changing the text format chosen by existing integrations.
+
+Opt normal registered model-facing calls into the same JSON envelopes:
+
+#+begin_src emacs-lisp
+(setq ogent-tools-result-format 'json)
+(ogent-register-tools)
+#+end_src
+
+JSON mode exposes the result pagination arguments in gptel's tool schema and
+keeps calls in the shared approval, review, and ledger flow. Registration
+regenerates tool objects when the format changes. Switch before assembling the
+next request's tool list; objects already held by a caller retain their captured
+format. Set the option back to =text= and re-register to restore legacy results.
+This changes local tool formatting and registration; it does not log into a
+provider or run inference.
+
+* Verify and diagnose locally
+
+=(ogent-agent-triage 'json)= combines discovery, local doctor results, and next
+actions. It excludes opt-in network checks. =(ogent-doctor-batch nil 'json)=
+returns structured health with exit 0 for ok/info, 1 for warnings, and 2 for
+errors. Local diagnostics may inspect credential metadata but do not log in
+or run inference.
+
+=make test format=json= and =make lint format=json= run the actual build helper
+with one versioned JSON report on stdout and diagnostics on stderr. Inspect
+tasks, real command exits, compiler locations, and ERT counts. Discover the
+build contract with =./makem.sh --capabilities --json=; see
+[[file:build-reporting.org][build reporting]] for the exit dictionary.
+
+=make test-isolation= checks that tests leave real stores unchanged.
+=OGENT_ELPA_DIR=/path/to/elpa make offline-test= exercises actual dependencies
+with loopback and fixture processes; =OGENT_GPTEL_DIR= optionally selects a
+supported gptel checkout. =EMACS=PATH= selects the build executable, and
+=make help= lists the available commands.

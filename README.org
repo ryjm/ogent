@@ -85,22 +85,33 @@ ogent is designed around this constraint:
    (require 'ogent)
    #+end_src
 
-* Agent discovery and local checks
-After loading ogent, these read-only SDK calls inspect the local setup without
-provider login or inference:
+* Agent tools and local checks
+Use familiar names, named arguments, and structured results after loading
+ogent. These local SDK workflows need no provider login or inference:
 
 #+begin_src emacs-lisp
-(ogent-agent-capabilities 'json) ; Live tool names, arguments, effects, and approval policy
-(ogent-agent-guide)             ; Copyable examples and error correction guidance
-(ogent-agent-triage 'json)       ; Discovery, local health, and next actions
-(ogent-doctor-batch nil 'json)   ; Batch JSON; exit 0 ok/info, 1 warning, 2 error
+(ogent-agent-describe "read" 'json) ; Exact arguments, aliases, examples, and approval policy
+(let ((page (ogent-agent-call "read" '(:file_path "README.org" :limit 20))))
+  (ogent-agent-next page))         ; Follow the exact position; reject changed snapshots
+(ogent-agent-batch
+ '[(:tool "files" :args (:pattern "**/*.el" :limit 5))
+   (:tool "search" :args (:pattern "defun" :path "lisp" :limit 5))])
+(ogent-agent-capabilities 'json)   ; All live tool contracts
+(ogent-agent-schema 'json)         ; Version 1 result envelope schema
+(ogent-agent-triage 'json)         ; Local health and next actions
 #+end_src
 
-Discovery reads the current registry. An empty =tools= array means no specs are
-installed; =(ogent-tools-install-defaults)= explicitly adds built-in specs.
-JSON reports carry =contract_version= ="1"=. Existing tool results remain text.
-Registered execution wrappers enforce approval; =ogent-tool--*= functions are
-low-level APIs. See [[file:docs/agent-ergonomics.org][the agent interface guide]] for details.
+Results separate =status=, =data=, =error=, and page continuations. Empty files
+and no matches succeed. Async calls deliver one terminal result; read-only
+batches validate the whole plan before running. Writes and shell commands
+retain the existing approval, edit review, and ledger flow.
+
+Discovery reads the current registry; =(ogent-tools-install-defaults)= explicitly
+adds built-in specs when needed. Existing integrations keep text output by
+default; =ogent-tools-result-format= can opt registered calls into =json=.
+=make test format=json= and =make lint format=json= report actual
+compiler/test results with diagnostics on stderr. See
+[[file:docs/agent-ergonomics.org][the agent interface guide]] for pagination, async calls, bounds, and migration.
 
 * Configuration
 ** Quick Setup (Recommended)
