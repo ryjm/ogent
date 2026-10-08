@@ -15,6 +15,12 @@
   "Argument contracts for ogent tools."
   :group 'ogent)
 
+(defun ogent-tool-contract--json-text (text)
+  "Return serialized JSON TEXT as Unicode characters for nested transport.
+Decode UTF-8 serializer bytes when Emacs returns an unibyte string."
+  (if (multibyte-string-p text) text
+    (decode-coding-string text 'utf-8 t)))
+
 (defun ogent-tool-contract-name-hint (name names)
   "Return a corrective lookup hint for unknown NAME among NAMES."
   (let* ((input (format "%s" name))

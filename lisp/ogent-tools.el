@@ -359,8 +359,9 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
                  (puthash key value memo))))))
       (match 0 0))))
 
-(defun ogent-tools--glob-files (pattern path)
-  "Return all regular files matching PATTERN under PATH, newest first."
+(defun ogent-tools--glob-files (pattern path &optional validate-path)
+  "Return all regular files matching PATTERN under PATH, newest first.
+Call VALIDATE-PATH on each matching path before filtering regular files."
   (let* ((case-fold-search nil)
          (dir (if path
                   (ogent-tools--resolve-path path)
@@ -383,6 +384,8 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
                  (lambda (file) (ogent-tools--glob-match-p relative-pattern (file-relative-name file base)))
                  (directory-files-recursively base ".")))
             (file-expand-wildcards pattern t)))
+    (when validate-path
+      (dolist (file files) (funcall validate-path file)))
     (setq files (seq-filter #'file-regular-p files))
     ;; Sort by mtime, newest first
     (setq files

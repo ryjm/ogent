@@ -8,6 +8,7 @@
 
 (require 'json)
 (require 'ogent-tools)
+(require 'ogent-tool-contract)
 
 (define-error 'ogent-tool-results-output-error "Unsupported file output" 'user-error)
 
@@ -21,8 +22,9 @@
   "Return DATA as a plist or serialize it according to FORMAT."
   (pcase format
     ('plist data)
-    ('json (concat (json-serialize data :null-object :json-null
-                                   :false-object :json-false) "\n"))
+    ('json (ogent-tool-contract--json-text
+            (concat (json-serialize data :null-object :json-null
+                                    :false-object :json-false) "\n")))
     (_ (user-error "Use (quote plist) or (quote json) for structured tool results"))))
 
 (defun ogent-tool-results-read (file-path &optional offset limit column)
@@ -97,7 +99,7 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
     (unless (and (integerp limit) (> limit 0) (<= limit 200))
       (user-error "Use an integer limit between 1 and 200"))
     (let* ((root (ogent-tools--resolve-path (or path ".")))
-           (files (sort (ogent-tools--glob-files pattern root) #'string<))
+           (files (sort (ogent-tools--glob-files pattern root #'ogent-tool-results--unicode) #'string<))
            (metadata (mapcar
                       (lambda (file)
                         (ogent-tool-results--unicode file)

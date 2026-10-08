@@ -19,6 +19,7 @@
 (require 'org)
 (require 'ogent-gptel)
 (require 'ogent-models)
+(require 'ogent-tool-contract)
 
 (declare-function gptel-request "ext:gptel-request")
 (declare-function ogent-codex-oauth--auth-file "ogent-codex-oauth")
@@ -724,8 +725,9 @@ Return 0 for ok/info, 1 for warnings, and 2 for errors."
 (defun ogent-doctor-format-json (results)
   "Return a JSON report string for doctor RESULTS.
 Keep check order stable and encode missing remediation as JSON null."
-  (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
-          "\n"))
+  (ogent-tool-contract--json-text
+   (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
+           "\n")))
 
 ;;; Commands
 

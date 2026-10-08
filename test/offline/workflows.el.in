@@ -37,6 +37,35 @@
             (should (equal (plist-get (ogent-agent-next result) :status) "ok"))))
       (delete-directory root t))))
 
+(ert-deftest ogent-offline-structured-unicode-tool-transport ()
+  "Embed Unicode tool results through the actual gptel request serializer."
+  (let* ((root (make-temp-file "ogent-offline-unicode-" t))
+         (file (expand-file-name "café.txt" root))
+         (ogent-tools-project-root root) (ogent-ledger-enabled nil)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-tools-result-format 'json)
+         (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
+         (ogent--tool-formats-registered nil) (gptel--known-tools nil)
+         (backend (ogent-offline--backend 'chat)))
+    (unwind-protect
+        (progn
+          (with-temp-file file (insert "alpha λ 😀\n"))
+          (let* ((tool (ogent-tool-get "read_file"))
+                 (result (funcall (gptel-tool-function tool) file 1 1))
+                 (call (list :id "unicode-call" :name "read-file" :args (list :file_path file)))
+                 ;; Keep a second call pending so processing cannot advance HTTP.
+                 (pending (list :id "unicode-pending" :name "read-file"))
+                 (fsm (gptel-make-fsm :info (list :backend backend :tool-use (list call pending)))))
+            (gptel--process-tool-call fsm tool call result)
+            (let* ((messages (gptel--parse-tool-results backend (list call)))
+                   (request (gptel--json-encode (list :messages (vconcat messages))))
+                   (parsed (json-parse-string request :object-type 'plist))
+                   (content (plist-get (aref (plist-get parsed :messages) 0) :content))
+                   (data (plist-get (json-parse-string content :object-type 'plist) :data)))
+              (should (equal content result))
+              (should (equal (plist-get data :content) "alpha λ 😀")))))
+      (delete-directory root t))))
+
 (defun ogent-offline--port ()
   "Return the running loopback fixture port."
   (with-temp-buffer

@@ -73,14 +73,15 @@ Include a typed error with CODE and MESSAGE when supplied."
   "Serialize result DATA, returning a typed error for unsupported values.
 Preserve callback delivery even when an extension returns non-JSON objects
 or raw filename bytes that cannot be represented as Unicode."
-  (condition-case nil
-      (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
-    (error
-     (concat (json-serialize
-              (ogent-tool-execution-result
-               "serialization" "error" nil "unsupported_output"
-               "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
-              :null-object :json-null :false-object :json-false) "\n"))))
+  (ogent-tool-contract--json-text
+   (condition-case nil
+       (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
+     (error
+      (concat (json-serialize
+               (ogent-tool-execution-result
+                "serialization" "error" nil "unsupported_output"
+                "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
+               :null-object :json-null :false-object :json-false) "\n")))))
 
 (defun ogent-tool-execution-process-error (data)
   "Return the stable failure code for process DATA, or nil on success."

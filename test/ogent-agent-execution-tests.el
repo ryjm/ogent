@@ -103,6 +103,56 @@
     (should (equal (ogent-tools--glob-files "**/foo/*.el" root) (list direct)))
     (should-not (ogent-tools--glob-match-p "**/foo/[ -~]*.el" "foo/deep/nested.el"))))
 
+(ert-deftest ogent-agent-execution-glob-raw-filenames-error-before-filtering ()
+  "Reject matched raw filename bytes instead of silently omitting files."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (raw (concat root "/" (unibyte-string 255) ".txt"))
+         (valid (ogent-agent-execution-tests--file root "λ.el" "valid"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-ledger-enabled nil))
+    (with-temp-file raw (insert "contents"))
+    (should (file-regular-p raw))
+    (dolist (pattern '("*.txt" "**/*.txt"))
+      (dolist (format '(plist json))
+        (let ((result (ogent-agent-call "files" (list :pattern pattern :path root) format)))
+          (when (eq format 'json)
+            (setq result (json-parse-string result :object-type 'plist)))
+          (should (equal (plist-get result :status) "error"))
+          (should (equal (plist-get (plist-get result :error) :code) "unsupported_output"))))
+      (let ((callbacks 0) result)
+        (ogent-agent-call-async
+         "files" (list :pattern pattern :path root)
+         (lambda (data) (cl-incf callbacks) (setq result data)) 'json)
+        (should (= callbacks 1))
+        (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist)
+                                             :error) :code) "unsupported_output"))))
+    (dolist (pattern '("*.el" "**/*.el"))
+      (let ((data (plist-get (ogent-agent-call "files" (list :pattern pattern :path root)) :data)))
+        (should (= (plist-get data :total_files) 1))
+        (should (equal (plist-get (aref (plist-get data :files) 0) :path) valid))))))
+
+(ert-deftest ogent-agent-execution-model-json-unicode-transport ()
+  "Preserve Unicode JSON text when embedding tool results in requests."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (text "alpha λ 😀")
+         (file (ogent-agent-execution-tests--file root "café.txt" text))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-ledger-enabled nil)
+         (results
+          (list (ogent-tool--read-file file 1 1 'json)
+                (ogent-agent-call "read" (list :file_path file) 'json)
+                (funcall (ogent-tool-execution-wrapper (ogent-tool-spec-get 'read-file) 'json)
+                         file 1 1)
+                (ogent-doctor-format-json
+                 (list (list :id 'unicode :label "Unicode" :category 'environment
+                             :status 'ok :detail text))))))
+    (dolist (result results)
+      (should (multibyte-string-p result))
+      (should (string-match-p (regexp-quote text) result))
+      (let* ((request (json-serialize (list :content result)))
+             (parsed (json-parse-string request :object-type 'plist)))
+        (should (equal (plist-get parsed :content) result))))))
+
 (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
   "Continuation calls retain absolute targets when the working root changes."
   (let* ((root (ogent-test--provision-store-directory 'tools))
