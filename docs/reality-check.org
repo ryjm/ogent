@@ -1,0 +1,427 @@
+#+title: ogent Reality Check and Bridge Plan
+#+date: 2026-10-08
+#+startup: overview
+
+* Assessment
+
+The model catalog refresh is delivered: the registry browser displays all
+seven current OpenAI/Anthropic models offline. The project has substantial
+real implementation, including Org storage, context composition, edit review,
+CLI adapters, canonical conversations, scheduling and operational UI.
+It is not verified as a reliable complete agent workflow.
+
+The most immediate failure is ordinary OpenAI dispatch with current gptel:
+its constructor creates a Responses backend, which ogent's provider resolver
+rejects. Independent confirmed failures affect stale multi-edit acceptance,
+MCP arguments and tool audit recording. Passing unit tests and closed beads
+have missed these integrations.
+
+This is an assessment and implementation plan. Runtime fixes are tracked below;
+this audit does not claim to implement them or verify live provider access.
+
+** Scope and evidence
+
+- Code baseline: =f2e4e30e576b905cb9c7c1efd7fc559be79aaf81=.
+- Measuring stick: README, AGENTS, ROADMAP, architecture, gptel integration,
+  inline-edits, Armory Org OS/parity and modularity plans/runbook. User guides
+  and how-it-works invariants/failure modes inform the workflow checks.
+- Tracker before audit: 158 records, 155 closed, 3 open, 0 in progress.
+  Full =br list --status all --json= had no pagination remainder.
+- Offline investigation: Emacs 30.2, Org reporting 9.8.10, gptel
+  =20261007.432=, transient =20261001.1359=. Loaded actual gptel before ogent;
+  =ogent-test-helper= was absent during the behavioral probes.
+- No provider login, provider inference or account-access probe was performed.
+  Fixture keys, temporary buffers/files and a captured MCP RPC boundary suffice.
+- Baseline CI [[https://github.com/ryjm/ogent/actions/runs/37728696869][37728696869]] passed required Emacs 29.1/30.2, store integrity and lint.
+  The suite ran 3076 tests: 3058 expected, 0 unexpected, 18 skipped.
+  Optional snapshot failed two Flymake diagnostic whitespace expectations.
+- A fresh non-sandbox =make test VERBOSE='--no-compile -v'= also exited 0.
+  Dependency-sandbox lint also exited 0: checkdoc, warning-gated compilation,
+  declarations, indentation, package and regexp checks. The tangled diagnostic
+  block was executed again and reproduced the observations below.
+  The earlier =make sandbox-test= runs failed nine tripwire expectations:
+  see gap G6. Do not attribute these failures solely to stale bytecode.
+- The installed dependency bootstrap emitted Org version-mismatch warnings
+  despite reporting 9.8.10. A clean supported-dependency bootstrap remains
+  part of the proof work; these probes are not a clean-room release certificate.
+
+** Answers to the reality-check questions
+
+1. Working now: offline catalog browsing; substantial local Org/file workflows;
+   scaffold/persona creation and canonical conversation read/write verified
+   directly. Existing ERT covers many local contracts and fixture CLI processes.
+2. Not working: the confirmed paths G1-G4 below. Other broad workflow claims
+   have code but insufficient real-dependency/user-journey proof.
+3. Blockers: backend-type/endpoint compatibility, competing tool execution
+   ownership, incomplete review-path safety, RPC argument conversion and weak
+   integration evidence. These are specific engineering gaps, not missing
+   provider credentials for this assessment.
+4. Completing the original three open beads would NOT close the gap. They
+   cover OAuth stalls/retry context, two old endpoint-incompatible models,
+   and legacy pricing rows. They miss resolver, diff-review, MCP, tool-ledger,
+   skill-format, test-harness and full-journey proof gaps.
+5. Previously untracked goals: real current-gptel setup-to-run compatibility,
+   intact model-to-MCP argument delivery, external SKILL.md discovery and
+   real-dependency offline workflow evidence. Two edit-review goals and native
+   shared-ledger execution had closed beads but were still incompletely fixed.
+
+* Vision checklist
+
+WORKING here means verified for the stated offline boundary, not live inference.
+PARTIAL means a confirmed missing/broken piece; UNPROVEN means implementation
+exists but the complete promised journey was not verified in this audit.
+Coverage describes the tracker before this assessment.
+
+| # | Concrete promise and source | Status | Code/test evidence and limit | Original coverage |
+|---+-----------------------------+--------+------------------------------+-------------------|
+| V1 | Browse current models, assign roles/pins offline (README, backend guide) | WORKING offline catalog; role/pin e2e UNPROVEN | Real =ogent-models-browse= showed all seven IDs; model/UI ERT covers roles/aliases | Catalog bead closed |
+| V2 | Provider setup and model selection produce compatible requests (gptel spec) | PARTIAL | =ogent-gptel.el= rejects real Responses sibling; run-subtree emits error before HTTP | =ogent-io4= partly covers endpoint problem |
+| V3 | Explicit subtree/ancestor/@handle/pin context and preview (architecture) | UNPROVEN full journey | =ogent-context.el=, Zen workspace/pins/preview, context ERT; live retry drift known | =ogent-jq5= covers retry drift |
+| V4 | Stream Org response, fan out, abort/retry/resume (README/gptel spec) | PARTIAL | UI engine/send and fanout code/ERT; OAuth pre-header stall/retry ownership unresolved | =ogent-jq5= open |
+| V5 | Every edit survives drift, review is reversible/auditable (inline-edits spec) | PARTIAL | Display re-anchors; multi-edit review does not; zero resolution hooks reproduced | =ogent-tdf.1/.2= closed inaccurately |
+| V6 | Effects/approval and ledger cover every tool run (architecture/invariants) | PARTIAL | Canonical executor records; actual gptel auto-run calls raw function without ledger | =ogent-wfv.6= closed incompletely |
+| V7 | MCP tools work through the model tool interface (ROADMAP/tools guide) | PARTIAL | Real wrapper loses positional arguments; transport/parser ERT does not test this join | No open coverage |
+| V8 | Codemap discovery/incremental refresh and task maps (ROADMAP) | UNPROVEN complete workflow | =ogent-codemap.el= has snapshot/change detection and incremental rendering; task module has requests/tests | Roadmap partial label is stale |
+| V9 | Prompt templates, notes, session save/load/export (README/playbooks) | UNPROVEN complete workflow | Templates, notes, session, =ox-ogent= and dedicated ERT exist | Roadmap says templates missing |
+| V10 | Scaffold Org Armory and persist canonical multi-turn records (Armory specs) | WORKING local storage | Real scaffold/editor plus create/append/read two turns passed; no runtime continuation tested | Prior beads closed |
+| V11 | Compose, CLI run, resume/replay, attachments/events/task board (parity acceptance) | UNPROVEN whole journey | Runner/conversation/composer/process/UI code; fixture process ERT; no live provider session claim | Prior beads closed |
+| V12 | Native Armory shares policy, ledger and analytics (playbook/native bead) | PARTIAL | Manual route shares them; gptel auto route bypasses ledger; pending callback ownership suspect | =ogent-wfv.6= closed |
+| V13 | Human-approved lead actions, nested/global agent visibility (Armory specs) | UNPROVEN whole journey | Actions/graph/agent resolution and real Org fixture ERT exist | Prior beads closed |
+| V14 | Cron/heartbeat/one-shot calendar and actual due execution (Armory specs) | UNPROVEN restart journey | =ogent-armory-schedule.el= implements event generation and scheduler tick; not just a calendar | Scheduler bead closed |
+| V15 | External skills discover and compose with provenance (Armory guide/spec) | PARTIAL | Org catalog/import works; SKILL.md in advertised .codex root is invisible | No open coverage |
+| V16 | Data/search/git/apps/settings/import/backup/help (Armory specs) | UNPROVEN combined journey | Actual modules/commands/tests exist; deliberate sidebar/org-attach exclusions remain non-goals | Prior beads closed |
+| V17 | Cost and context metadata remain accurate (analytics/model catalog) | PARTIAL | New base rows/context sizes updated; legacy pricing/tier estimates unresolved | =ogent-83c= open |
+| V18 | Documented checks prove support, isolation and performance (AGENTS/ROADMAP) | PARTIAL | Unit/stable CI green; absent real-gptel test job, sandbox failures and no measured coverage/performance claim | No open integration/harness coverage |
+
+No implementation percentage is assigned: a feature list mixes small local
+operations with large integration promises. Presence of code is not proof of
+operational parity or the roadmap's 95% coverage target.
+
+* Confirmed gaps and bridge plan
+
+** G1: Provider family and endpoint are conflated (P1)
+
+Current gptel's =gptel-make-openai= detects api.openai.com and creates
+=gptel-openai-responses= at =/v1/responses=. That struct includes
+=gptel-backend=, not =gptel-openai=. Its constructor docstring still describes
+Chat Completions; the executable constructor is the evidence.
+
+=ogent-gptel-backend-matches-provider-p= tests =gptel-openai= only, and
+=ogent-gptel-resolve-backend= returns the unresolved provider symbol.
+The documented =ogent-run-subtree= path then reports "Backend ... not loaded".
+This affects API-key onboarding as well as manually configured stock backends.
+
+Older/custom Chat Completions backends have a separate compatibility problem:
+Sol function tools require Responses, and Luna's Chat Completions override
+must not be blindly sent to Responses. Official model references:
+[[https://developers.openai.com/api/docs/models/gpt-6.1-sol][Sol]] and [[https://developers.openai.com/api/docs/models/gpt-6-luna][Luna]], consulted for the catalog refresh.
+
+Plan: preserve explicit backend objects/configuration; classify provider
+families across sibling transport structs; model endpoint/tool constraints
+explicitly and validate actual request shapes. Keep old IDs and user choices,
+with actionable compatibility hints. Never silently downgrade reasoning.
+
+Files: [[file:../lisp/ogent-gptel.el][ogent-gptel.el]], [[file:../lisp/ogent-models.el][ogent-models.el]], onboarding and all chat/edit/codemap/Babel/native call sites.
+Acceptance: normal onboarding-to-Org dispatch serializes the chosen model on
+both supported endpoint types with actual minimum/current gptel; incompatible
+choices fail clearly before HTTP. Complexity M/L. V1/V2/V4/V12.
+Beads: =ogent-xmn= then updated =ogent-io4=; companion =ogent-bpx=.
+
+** G2: Multi-edit review can corrupt unrelated text and miss the audit log (P1/P2)
+
+=ogent-edit-diff--apply-edit= deletes cached positions without re-anchoring.
+Validate old->new in "old-tail", prepend "PREFIX ", then accept:
+expected "PREFIX new-tail", actual "newFIX old-tail", status accepted.
+The resolution hook fired zero times.
+
+The closed =ogent-tdf.1= fixed the smerge display path. The closed
+=ogent-tdf.2= fixed the single-edit preview. Neither close reason proves the
+multi-edit review path. This is incomplete fix scope, not proof that those
+other paths regressed.
+
+Plan: use shared exact-text re-anchoring, preflight batches by source buffer,
+reject missing/ambiguous/overlapping edits without losing proposals, and
+route successful accept/reject through shared untracking/resolution hooks.
+Keep single/staged/batch behavior, source undo and companion logging.
+
+Files: [[file:../lisp/ogent-edit-diff.el][ogent-edit-diff.el]], edit display/log, mirrored tests.
+Acceptance: source mutation between preview/accept cannot overwrite unrelated
+text; all four review decisions log/untrack once; failed applies log no
+resolution and remain recoverable. Complexity M. V5.
+Beads: reopened =ogent-tdf.1= -> reopened =ogent-tdf.2=; =ogent-bpx= verifies.
+
+** G3: MCP receives empty arguments from real tool callers (P1)
+
+Registered wrappers receive positional values from gptel and the canonical
+UI executor. =ogent-mcp--args-to-alist= consumes keyword pairs.
+A registered tool with required path, called with "/tmp/example.txt", sent
+=((name . "read") (arguments))=. Discovery/schema/converter tests pass
+separately without exercising this contract boundary.
+
+Plan: map values through the advertised schema; preserve optional/false/null,
+object/array and zero-argument object shapes. Refresh cached gptel specs on
+schema changes/reconnect and remove disconnected capabilities.
+
+Files: [[file:../lisp/ogent-mcp.el][ogent-mcp.el]], model tool registration/cache, MCP tests.
+Acceptance: model-shaped tool call reaches a fixture server with the exact
+RPC object; refreshing/removing a schema cannot retain stale cached behavior.
+Complexity M. V7. New =ogent-b9j=; companion =ogent-bpx=.
+
+** G4: Real gptel can execute tools outside the promised ledger path (P1)
+
+=ogent-register-tools= installs raw tool functions. Actual
+=gptel--handle-tool-use= auto-executed a read-file fixture while the ogent
+ledger was enabled; result contained the file text, ledger file did not exist.
+=ogent-armory-native--handle-tool-results= records a transcript after that
+execution but cannot retroactively enforce policy or record start/finish.
+
+Code also shows native handling of pending =(TOOL ARGS RESULT-CALLBACK)=
+ignores RESULT-CALLBACK and starts a fabricated new request. The original
+FSM lifecycle, async tools and iteration/abort ownership need real-gptel
+fixtures; no live failure of that continuation was claimed here.
+
+Plan: give execution one owner, bridge approval/deny/allow, workspace and
+ledger for both automatic and confirmed calls, consume callbacks exactly
+once, and retain correct protocol tool messages/cleanup.
+
+Files: [[file:../lisp/ogent-armory-native.el][ogent-armory-native.el]], model registration, UI tool callbacks.
+Acceptance: one execution, one policy decision, one ledger start/finish,
+one completion; no orphan pending FSM or follow-up after cap/abort. Async
+callbacks work under the actual library. Complexity L. V6/V12.
+Bead reopened =ogent-wfv.6=; companion =ogent-bpx=.
+
+** G5: External skill discovery is narrower than the advertised roots (P2)
+
+=ogent-armory-skill--org-files= ignores SKILL.md. A valid package under
+=.codex/skills/audit/SKILL.md= yielded an empty catalog. This includes the
+format JSM installs. Manual =ogent-armory-skill-import= with an explicit key
+can import the text into Org; automatic external-package discovery cannot.
+
+Plan: read external package metadata/body without evaluating it; retain
+Org durable output, provenance, lazy loading, distinct package keys,
+collision precedence and reference paths. Do not automatically duplicate
+packages into a second store. Complexity M. V15.
+New =ogent-ikh=; companions =ogent-bpx= and =ogent-7omc=.
+
+** G6: Green CI does not prove the runtime dependency boundary (P1/P2)
+
+CI unit jobs load =ogent-test-helper.el= without installing gptel. The helper
+provides fake features and fallback request/preset definitions. Useful local
+contracts pass, but constructor/resolver/callback/serialization mismatches
+are outside that evidence. Lint installing dependencies is not runtime proof.
+
+Sandbox failures are separately explained by the tripwire trusting all of
+=temporary-file-directory= while makem places =user-emacs-directory= inside
+that tree. Deliberate "real store" test paths become sanctioned.
+
+Plan: retain fast unit CI, add minimum/current real-dependency offline
+journeys using loopback HTTP/SSE and fixture CLI/MCP processes, and make
+protected-store fixtures independent of config location. Log versions,
+model/endpoint, IDs/counts/cleanup and Org artifacts without secrets.
+
+Acceptance: required checks pass in sandbox and non-sandbox; actual setup,
+request/tool/edit/native/MCP paths run offline without contacting providers.
+Snapshot whitespace failures require a separate compatibility fix/support
+choice; do not label optional failure success. Complexity L for proof,
+M for harness. V2-V7/V12/V18. New =ogent-bpx= and =ogent-nr0=.
+
+** G7: Broad local Armory parity remains an integration proof gap (P2)
+
+Canonical conversations, continuation, adapters, schedules, actions,
+settings, data, git and UI are implemented. A native invocation returning
+no external program is not a stub: runner dispatch routes it to the native
+loop. A keyword scan cannot establish missing functionality here.
+
+Plan: actual Org-file/fixture-process journeys from scaffold/import through
+composer, attachments, run, continuation/replay, events/artifacts/task lanes;
+fixed-clock schedule/action/restart journeys; local data/search/git/settings/
+backup operations. Map every parity acceptance clause to evidence or an
+explicit remaining issue. CLI help snapshots prove invocation plans, not
+provider executable compatibility or model access. Complexity L. V10-V16.
+New =ogent-7omc=; preserve intentional sidebar/org-attach/daemon exclusions.
+
+** G8: Cost estimates and public status need reconciliation (P2/P3)
+
+The new model rows are current base rates, not complete bills. Legacy rows
+still have an open official-source audit. Haiku 5.5 over 100K input, caching,
+service tiers and other context premiums are not represented by a flat table.
+
+ROADMAP's "no critical gaps" statement is false. Its missing-template/backend
+claims are stale. Armory parity's Current Gaps/Parity Matrix contradict its
+July shipped note and actual canonical store/settings/provider/schedule code.
+Do not implement those already-shipped features again to satisfy stale prose.
+
+Plan: official dated row evidence and threshold tests or clearly labeled
+base estimates; reconcile one current status source with code, journeys and
+beads. Preserve historical decisions without presenting them as current.
+Acceptance: each public acceptance clause has verified evidence or an honest
+limit/issue; no unsupported coverage/performance/complete-parity claim.
+Complexity M. V8-V18. Existing =ogent-83c=, new =ogent-mgcr=.
+
+* Prioritized execution and verification
+
+1. Resolve OpenAI family/type and endpoint compatibility (=ogent-xmn= ->
+   =ogent-io4=), and fix stale multi-edit application (=ogent-tdf.1=).
+2. Complete diff resolution logging (=ogent-tdf.2=), MCP argument conversion
+   (=ogent-b9j=), shared tool ownership (=ogent-wfv.6=), and OAuth attempt
+   cleanup/immutable retries (=ogent-jq5=). Keep pricing =ogent-83c= active.
+3. Fix sandbox isolation (=ogent-nr0=) and external skills (=ogent-ikh=).
+4. Promote fixes only with =ogent-bpx= real-dependency workflow evidence and
+   =ogent-7omc= local operational journeys. Their test requirements are
+   closure criteria for implementation work, not permission to close on
+   mocked unit tests and postpone proof indefinitely.
+5. Reconcile public documentation (=ogent-mgcr=) against final evidence.
+
+After audit: 166 records, 152 closed, 14 open, 0 in progress. Eight new beads
+(including coordination epic =ogent-2ds=), three reopened, existing endpoint
+and pricing work refined. All mutations used =br=, then =br sync --flush-only=.
+The dependency graph has zero cycles. =bv --robot-triage= was run; its ranking
+is advisory, with resolver/data-corruption impact taking priority over age.
+=br doctor= reports healthy workspace/reliability integrity, with warnings
+about local merge-anchor age, sidecar ignore patterns and inherited RUST_LOG.
+
+The bridge plan was expanded in place in two ambition passes: first from
+model labels to endpoint/serialization and tool ownership; second to
+source-batch atomicity, external skill interoperability and actual local
+operational journeys. Four refinement passes checked coverage, task split/
+dependencies, error/async/cleanup proof and historical closure accuracy. The
+final pass found no further concrete correction. No new product surface or
+provider authentication requirement was added.
+
+* Offline reproduction
+
+The source block below tangles a diagnostic script under /tmp. It prints
+observations, not passing test assertions, and retains its temporary fixtures.
+Use a fresh batch Emacs with dependencies installed; set OGENT_AUDIT_ELPA to
+that package directory. No provider request is permitted by the script's
+network-boundary guard. After fixes, its observed outputs should change.
+
+#+begin_src sh
+# After tangling this document's named Elisp block:
+OGENT_AUDIT_ELPA=/path/to/elpa emacs -Q --batch \
+  -L lisp -L lisp/ui -l /tmp/ogent-reality-probes.el
+#+end_src
+
+#+name: offline-probes
+#+begin_src emacs-lisp :tangle /tmp/ogent-reality-probes.el
+;;; ogent-reality-probes.el --- Offline audit probes -*- lexical-binding: t; -*-
+(require 'cl-lib)
+(require 'package)
+(when (getenv "OGENT_AUDIT_ELPA")
+  (setq package-user-dir (getenv "OGENT_AUDIT_ELPA")))
+(package-initialize)
+(setq user-emacs-directory (make-temp-file "ogent-audit-user-" t)
+      ogent-analytics-enabled nil
+      ogent-companion-persist-links nil
+      ogent-armory-skill-include-user-roots nil
+      ogent-anthropic-oauth--token-file
+      (expand-file-name "absent-token.el" user-emacs-directory)
+      ogent-codex-oauth-auth-file
+      (expand-file-name "absent-auth.json" user-emacs-directory))
+(require 'gptel)
+(require 'ogent)
+;; Configure a normal API-key backend with a non-secret fixture key;
+;; no request is sent by these probes.
+(setq gptel-backend (gptel-make-openai "Audit OpenAI" :key "fixture-only"))
+(defun audit-print (name value)
+  (princ (format "%s: %S\n" name value)))
+(audit-print 'real-dependencies
+             (list :emacs emacs-version :org (org-version)
+                   :gptel (symbol-file 'gptel-request)
+                   :test-helper-loaded (featurep 'ogent-test-helper)))
+(ogent-models-browse)
+(audit-print 'offline-catalog
+             (with-current-buffer (current-buffer)
+               (mapcar (lambda (id) (cons id (and (string-search id (buffer-string)) t)))
+                       '("gpt-6-astra" "gpt-6.1-sol" "gpt-6-luna"
+                         "claude-fable-5-1" "claude-opus-5-5"
+                         "claude-sonnet-5-5" "claude-haiku-5-5"))))
+(let* ((model (ogent-models-ensure ogent-default-model))
+       (backend (ogent-gptel-resolve-backend model)))
+  (audit-print 'default-transport
+               (list :model (plist-get model :id) :type (type-of backend)
+                     :resolved-object-p (gptel-backend-p backend)
+                     :configured-type (type-of gptel-backend)
+                     :configured-url (gptel-backend-url gptel-backend)
+                     :resolver-provider-p (ogent-gptel-backend-matches-provider-p
+                                            gptel-backend 'gptel-openai))))
+(with-temp-buffer
+  (org-mode)
+  (insert "* Audit prompt\nSummarize this bullet.\n")
+  (goto-char (point-min))
+  ;; Stop at the real gptel transport boundary if a future resolver fix
+  ;; allows this dispatch to reach HTTP.
+  (cl-letf (((symbol-function 'gptel--handle-wait)
+             (lambda (_fsm) (error "Audit blocked outgoing transport"))))
+    (ogent-run-subtree))
+  (audit-print 'run-subtree
+               (list :rendered-error (and (string-search "not loaded" (buffer-string)) t)
+                     :response-heading (and (string-search "Response" (buffer-string)) t))))
+(let ((resolved 0)
+      (ogent-edit-resolved-hook nil))
+  (add-hook 'ogent-edit-resolved-hook (lambda (_edit) (cl-incf resolved)))
+  (with-temp-buffer
+    (insert "old-tail")
+    (let ((edit (make-ogent-edit :id "audit-stale" :old-text "old"
+                                 :new-text "new" :source-buffer (current-buffer)
+                                 :status 'pending)))
+      (ogent-edit-validate edit)
+      (goto-char (point-min))
+      (insert "PREFIX ")
+      (ogent-edit-diff--apply-edit edit)
+      (audit-print 'diff-review-stale
+                   (list :expected "PREFIX new-tail" :actual (buffer-string)
+                         :status (ogent-edit-status edit)
+                         :resolution-hooks resolved)))))
+(let ((conn (make-ogent-mcp-connection :name "audit" :status 'ready))
+      (ogent-tool-registry nil)
+      sent)
+  (ogent-mcp--register-tools
+   conn '(((name . "read")
+           (inputSchema . ((type . "object")
+                           (properties . ((path . ((type . "string")))))
+                           (required . ["path"]))))))
+  ;; Only the RPC boundary is replaced; registration and both callers are real.
+  (cl-letf (((symbol-function 'ogent-mcp--request-sync)
+             (lambda (_conn _method params)
+               (setq sent params)
+               (cons '((content . [((type . "text") (text . "ok"))])) nil))))
+    (funcall 'mcp-audit-read "/tmp/example.txt")
+    (audit-print 'mcp-positional (list :requested "/tmp/example.txt" :sent sent))))
+(let* ((dir (make-temp-file "ogent-audit-ledger-" t))
+       (file (expand-file-name "input.txt" dir))
+       (ogent-ledger-enabled t)
+       (ogent-ledger-file (expand-file-name "ledger.org" dir))
+       (gptel-confirm-tool-calls 'auto)
+       (tool (ogent-tool-get 'read-file)))
+  (with-temp-file file (insert "fixture contents"))
+  (with-temp-buffer
+    (let* ((call (list :name "read-file" :args (list :file_path file)))
+           (fsm (gptel-make-fsm
+                 :state 'TOOL :table nil :handlers nil
+                 :info (list :backend gptel-backend :buffer (current-buffer)
+                             :tools (list tool) :tool-use (list call)
+                             :callback (lambda (&rest _) nil)))))
+      (gptel--handle-tool-use fsm)
+      (audit-print 'gptel-auto-tool-ledger
+                   (list :result (plist-get call :result)
+                         :ledger-exists (file-exists-p ogent-ledger-file))))))
+(let* ((root (make-temp-file "ogent-audit-armory-" t))
+       (ogent-armory-skill-include-user-roots nil)
+       (skill-dir (expand-file-name ".codex/skills/audit" root)))
+  (ogent-armory-scaffold root "Audit" :create-editor t)
+  (make-directory skill-dir t)
+  (with-temp-file (expand-file-name "SKILL.md" skill-dir)
+    (insert "---\nname: audit\ndescription: audit fixture\n---\nRead this skill.\n"))
+  (audit-print 'armory-markdown-skill
+               (list :org-agents (length (ogent-armory-list-agents root))
+                     :markdown-skill-discovered (ogent-armory-skill-list root)))
+  (ogent-armory-conversation-create root '(:id "audit" :agent-slug "editor"
+                                          :title "Audit conversation" :status "idle"))
+  (ogent-armory-conversation-append-turn root "audit" "user" "Fixture question")
+  (ogent-armory-conversation-append-turn root "audit" "agent" "Fixture answer")
+  (audit-print 'org-conversation
+               (list :status (plist-get (ogent-armory-conversation-read root "audit") :status)
+                     :turns (mapcar (lambda (turn) (plist-get turn :content))
+                                    (ogent-armory-conversation-read-turns root "audit")))))
+#+end_src

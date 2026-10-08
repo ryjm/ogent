@@ -2,6 +2,10 @@
 #+author: Jake Miller
 #+startup: overview
 
+Current status (2026-10-08): see [[file:docs/reality-check.org][Reality Check and Bridge Plan]]
+for verified gaps, proof limits, and prioritized beads. The historical phase
+statuses below are not evidence of complete operational delivery.
+
 * Vision Alignment Analysis
 
 This roadmap tracks ogent's progress toward the vision outlined in README.md.

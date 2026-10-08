@@ -85,6 +85,8 @@ test=), specs in =specs/=, and user docs here in =docs/=.
 
 ** Project planning and specs (pre-existing)
 
+- [[file:reality-check.org][Reality Check and Bridge Plan]]: 2026-10-08 assessment of actual
+  workflows, confirmed integration gaps, offline reproductions, and tracked fixes.
 - [[file:../ROADMAP.org][ROADMAP.org]]: vision-alignment analysis and feature roadmap.
 - [[file:../specs/architecture.org][specs/architecture.org]]: original architecture spec.
 - [[file:../specs/armory-org-os.org][specs/armory-org-os.org]]: Armory "Org OS" design spec.
