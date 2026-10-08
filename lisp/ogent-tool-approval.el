@@ -9,6 +9,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'ogent-tool-effects)
+(defvar ogent-tool-registry)
 
 (declare-function ogent-tool-spec-get "ogent-models" (name))
 
@@ -41,16 +42,24 @@ When nil, all tools execute without prompting."
   "Return TOOL-NAME as a string, or nil when it is not usable."
   (cond
    ((null tool-name) nil)
-   ((stringp tool-name) tool-name)
-   ((symbolp tool-name) (symbol-name tool-name))
+   ((or (stringp tool-name) (symbolp tool-name))
+    (symbol-name (ogent-tool--name-symbol tool-name)))
    (t nil)))
 
 (defun ogent-tool--name-symbol (tool-name)
-  "Return TOOL-NAME as a symbol, or nil when it is not usable."
-  (cond
-   ((symbolp tool-name) tool-name)
-   ((stringp tool-name) (intern tool-name))
-   (t nil)))
+  "Return canonical TOOL-NAME, or nil when it is not usable.
+Prefer exact registered names; accept underscore spellings of hyphen names.
+Never resolve a typo to a different tool automatically."
+  (when (or (stringp tool-name) (and tool-name (symbolp tool-name)))
+    (let* ((text (if (stringp tool-name) tool-name (symbol-name tool-name)))
+           (exact (intern text))
+           (alias (intern (replace-regexp-in-string "_" "-" text)))
+           (names (when (boundp 'ogent-tool-registry)
+                    (mapcar (lambda (spec) (plist-get spec :name))
+                            ogent-tool-registry))))
+      (cond ((memq exact names) exact)
+            ((memq alias names) alias)
+            (t exact)))))
 
 (defun ogent-tool--pattern-match-p (pattern tool-name args)
   "Return non-nil if TOOL-NAME with ARGS matches PATTERN.

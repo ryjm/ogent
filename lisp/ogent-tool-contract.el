@@ -14,6 +14,21 @@
   "Argument contracts for ogent tools."
   :group 'ogent)
 
+(defun ogent-tool-contract-name-hint (name names)
+  "Return a corrective lookup hint for unknown NAME among NAMES."
+  (let* ((input (format "%s" name))
+         (choices (sort (mapcar (lambda (item) (format "%s" item)) names) #'string<))
+         (closest (car (sort (copy-sequence choices)
+                             (lambda (a b)
+                               (< (string-distance input a)
+                                  (string-distance input b)))))))
+    (format "Unknown tool: %s; %savailable tools: %s. Use ogent-agent-capabilities to inspect argument names"
+            input
+            (if (and closest (<= (string-distance input closest) 2))
+                (format "did you mean %s? " closest) "")
+            (if choices (string-join choices ", ")
+              "none; run ogent-tools-install-defaults or register your tools"))))
+
 (defun ogent-tool-contract--key-name (key)
   "Return the canonical argument spelling for KEY."
   (let ((name (cond ((symbolp key) (symbol-name key))

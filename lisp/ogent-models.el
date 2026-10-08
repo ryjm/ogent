@@ -678,9 +678,18 @@ Returns the list of registered tool objects."
   ogent--tools-registered)
 
 (defun ogent-tool-get (name)
-  "Return the gptel tool object for NAME (symbol), or nil."
+  "Return the gptel tool object for NAME (symbol or string), or nil."
   (ogent-register-tools)
-  (cdr (assq name ogent--tools-registered)))
+  (cdr (assq (ogent-tool--name-symbol name) ogent--tools-registered)))
+
+(defun ogent-tool-ensure (name)
+  "Return the registered tool for NAME, or signal a corrective error."
+  (or (ogent-tool-get name)
+      (if (ogent-tool-spec-get name)
+          (user-error "Tool %s is registered but unavailable; load gptel and call ogent-register-tools" name)
+        (user-error "%s" (ogent-tool-contract-name-hint
+                          name (mapcar (lambda (spec) (plist-get spec :name))
+                                       ogent-tool-registry))))))
 
 (defun ogent-tools-all ()
   "Return all registered tool objects as a list."
@@ -695,13 +704,14 @@ if `ogent-tools-enabled' is a list of tool name symbols."
    ((null ogent-tools-enabled) nil)
    ((eq ogent-tools-enabled t) (ogent-tools-all))
    ((listp ogent-tools-enabled)
-    (delq nil (mapcar #'ogent-tool-get ogent-tools-enabled)))
-   (t nil)))
+    (mapcar #'ogent-tool-ensure ogent-tools-enabled))
+   (t (user-error "ogent-tools-enabled must be t, nil, or a list of tool names; use t to enable registered tools"))))
 
 (defun ogent-tool-spec-get (name)
-  "Return the tool spec plist for NAME (symbol) from the registry."
-  (seq-find (lambda (spec) (eq (plist-get spec :name) name))
-            ogent-tool-registry))
+  "Return the tool spec plist for NAME (symbol or string) from the registry."
+  (let ((canonical (ogent-tool--name-symbol name)))
+    (seq-find (lambda (spec) (eq (plist-get spec :name) canonical))
+              ogent-tool-registry)))
 
 (provide 'ogent-models)
 

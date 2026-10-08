@@ -176,5 +176,27 @@
     (should (= (length results) 1))
     (should (string-match-p "count requires integer" (car results)))))
 
+(ert-deftest ogent-agent-ergonomics-tool-names-exact-and-wire-alias ()
+  "Lookup accepts strings and wire aliases while preserving exact custom names."
+  (let* ((read '(:name read-file :function ignore :args nil))
+         (wire '(:name custom_name :function ignore :args nil))
+         (other '(:name custom-name :function ignore :args nil))
+         (ogent-tool-registry (list read wire other)))
+    (should (eq (ogent-tool-spec-get "read_file") read))
+    (should (eq (ogent-tool-spec-get 'read_file) read))
+    (should (eq (ogent-tool-spec-get "custom_name") wire))
+    (should (eq (ogent-tool-spec-get "custom-name") other))
+    (should (equal (ogent-tool--name-string "read_file") "read-file"))))
+
+(ert-deftest ogent-agent-ergonomics-tool-names-typo-refuses-with-hint ()
+  "Unknown configured tools give a suggestion and never execute a fuzzy match."
+  (let ((ogent-tool-registry '((:name read-file :function ignore :args nil)))
+        (ogent-tools-enabled '(read-fiel)))
+    (should-not (ogent-tool-spec-get 'read-fiel))
+    (let ((err (should-error (ogent-tools-enabled-list) :type 'user-error)))
+      (should (string-match-p "did you mean read-file" (error-message-string err))))
+    (should (string-match-p "did you mean read-file"
+                            (ogent-ui--execute-tool "read-fiel" nil)))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

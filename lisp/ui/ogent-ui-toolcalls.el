@@ -270,7 +270,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                (ogent-debug-log-tool-call
                 (plist-put history-call :error msg) nil duration))
              (format "Tool error: %s" msg)))))
-    (format "Unknown tool: %s" name)))
+    (ogent-tool-contract-name-hint
+     name (mapcar (lambda (spec) (plist-get spec :name)) ogent-tool-registry))))
 
 (defun ogent-ui--extract-tool-args (spec args)
   "Return validated argument values from ARGS in SPEC order."
