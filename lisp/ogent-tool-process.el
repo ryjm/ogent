@@ -248,6 +248,8 @@ Retain partial output on a nonzero exit, timeout or cancellation."
                 ogent-tool-process--max-limit))
   (unless (and (numberp ogent-tools-grep-timeout) (> ogent-tools-grep-timeout 0))
     (user-error "Invalid grep timeout; set ogent-tools-grep-timeout to positive seconds"))
+  (ogent-tool-results--unicode pattern)
+  (when glob-filter (ogent-tool-results--unicode glob-filter))
   (setq path (ogent-tool-results--unicode
               (ogent-tools--resolve-path (or path (ogent-tools--project-root)))))
   (condition-case err
