@@ -41,6 +41,8 @@
           :category (or (plist-get spec :category) "")
           :enabled (ogent-agent--boolean enabled)
           :async (ogent-agent--boolean (plist-get spec :async))
+          :boolean_representation (if (eq (plist-get spec :boolean-representation) 'json)
+                                      "json" "native")
           :confirmation_required (ogent-agent--boolean
                                   (ogent-tool-spec-confirm-p spec))
           :risk (symbol-name (ogent-tool-effects-risk (plist-get spec :effects)))
@@ -97,7 +99,8 @@ per-call allow/deny rules still apply at execution time."
    "(ogent-tools-install-defaults) explicitly installs built-in specs if wanted.\n"
    "Use canonical hyphen names or registered underscore aliases; typos get hints, never execution.\n"
    "Arguments follow registry order; named calls reject unknown/duplicate keys before approval.\n"
-   "Boolean false is nil or :json-false; zero and nested objects are preserved.\n"
+   "Native boolean false is nil or :json-false; zero and nested objects are preserved.\n"
+   "MCP calls use :json-false for explicit false; optional nil means omit the argument.\n"
    "Tool results remain text. JSON discovery and doctor reports use contract_version 1.\n"
    "Read: (ogent-tool--read-file \"/path/file\" 1 200); follow the exact next offset in its footer.\n"
    "Search: (ogent-tool--glob \"**/*.el\" \"/path/project\") includes every depth.\n"

@@ -706,7 +706,7 @@ if `ogent-tools-enabled' is a list of tool name symbols."
    ((eq ogent-tools-enabled t) (ogent-tools-all))
    ((listp ogent-tools-enabled)
     (mapcar #'ogent-tool-ensure ogent-tools-enabled))
-   (t (user-error "ogent-tools-enabled must be t, nil, or a list of tool names; use t to enable registered tools"))))
+   (t (user-error "Invalid ogent-tools-enabled; use t, nil, or a list of registered tool names"))))
 
 (defun ogent-tool-spec-get (name)
   "Return the tool spec plist for NAME (symbol or string) from the registry."

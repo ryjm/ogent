@@ -1,0 +1,66 @@
+#+title: ogent agent interface
+
+* Discover the local contract
+Load ogent normally, then call =(ogent-agent-capabilities 'json)=. This reports
+the live registry in name order, with argument order matching positional calls,
+accepted aliases, enabled state, effect metadata, risk, and declared confirmation
+requirements. It does not construct gptel tools or contact providers. Per-call
+allow/deny policy still applies when executing tools.
+
+=(ogent-agent-guide)= returns the handbook as text. =(ogent-agent-triage 'json)=
+combines discovery, recommended fixes, commands, and local doctor results. Triage
+excludes opt-in network checks. Local checks can read credential metadata to
+diagnose setup; they never log in or run inference.
+
+Reports return native plists by default; =json= serializes them with
+=contract_version= ="1"=. Collections are arrays, booleans are booleans, and
+missing doctor remediation is JSON null. The batch doctor retains its Org default:
+=(ogent-doctor-batch nil 'json)= is the explicit structured form, with exit
+=0= for ok/info, =1= for warning, and =2= for error.
+
+* Call tools safely
+Use registered execution wrappers to enforce approval and ledger recording.
+Direct =ogent-tool--*= functions are low-level SDK primitives. Shell execution
+and writes require confirmation by default; read-only tools do not.
+
+Names accept an exact registered spelling first, then an underscore alias for
+a registered hyphen name. Misspellings produce suggestions and never execute a
+different tool. Unknown names in =ogent-tools-enabled= now raise a useful error
+instead of silently removing tools.
+
+Arguments are checked before approval and execution: missing required values,
+extra positional values, wrong standard types, unknown named keys, duplicate
+key spellings, and enum violations are rejected. Standard gptel string and
+symbol type names are supported. Nested objects and numeric zero are preserved.
+Native boolean false accepts =nil= or JSON false sentinels. MCP specs declare
+=:boolean-representation json= so explicit =:json-false= remains different from
+omitting an optional value with =nil=.
+
+* Read, search, edit, and execute
+File reads require positive offset and limit; truncated pages state the exact
+next =file_path=, =offset=, and =limit=. Offsets past EOF give a correction hint.
+Glob =**= includes zero and multiple directory levels; equal modification times
+are ordered by path. Grep treats patterns and filters as literal shell arguments:
+leading dashes and quotes work. No matches succeeds; invalid regexes fail with
+separate diagnostics. File/search results remain compatible text strings.
+
+An edit's =old_string= must be nonempty and unique unless =replace_all= is
+explicitly true. Direct edits and both review styles validate this condition.
+Default diff previews keep an absolute target for acceptance. Failed acceptance
+shows an error and remains available for retry or rejection.
+
+Shell timeouts must be positive seconds and working directories must exist.
+Output limits retain the available prefix and an explicit truncation notice;
+the final exit code is preserved. Async calls emit one terminal =done= or =error=
+event. Progress diagnostics remain separate from discovery and JSON doctor data.
+
+* Verify without providers
+=make test= runs native unit tests; =make test-isolation= additionally checks that
+real user stores stay unchanged. =OGENT_ELPA_DIR=/path/to/elpa make offline-test=
+uses actual dependencies with loopback and fixture processes. Optionally set
+=OGENT_GPTEL_DIR= to a source checkout to test a specific supported gptel version.
+Missing prerequisites fail early with setup instructions on stderr.
+
+=make recompile= propagates compilation failure, =make clean= removes source and
+test bytecode, and =EMACS=PATH= selects the executable for build targets. See
+=make help= for discovery expressions and setup commands.

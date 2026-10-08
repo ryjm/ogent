@@ -104,21 +104,21 @@ servers you fully trust."
   "Hash table of request-id -> callback for pending requests.")
 
 (cl-defstruct ogent-mcp-connection
-	      "State for an MCP server connection."
-	      name             ; Server name (string)
-	      transport        ; Transport symbol: `stdio' (default) or `http'
-	      url              ; Endpoint URL when transport is `http'
-	      session-id       ; Mcp-Session-Id assigned by an http server, if any
-	      process          ; Emacs process object (stdio transport)
-	      streams          ; Live curl stream processes (http transport)
-	      capabilities     ; Server capabilities from initialization
-	      protocol-version ; Protocol version negotiated with the server
-	      tools            ; List of available tools
-	      resources        ; List of available resources
-	      prompts          ; List of available prompts
-	      status           ; 'connecting | 'ready | 'error | 'closed
-	      error            ; Error message if status is 'error
-	      buffer)          ; Output accumulator buffer
+  "State for an MCP server connection."
+  name             ; Server name (string)
+  transport        ; Transport symbol: `stdio' (default) or `http'
+  url              ; Endpoint URL when transport is `http'
+  session-id       ; Mcp-Session-Id assigned by an http server, if any
+  process          ; Emacs process object (stdio transport)
+  streams          ; Live curl stream processes (http transport)
+  capabilities     ; Server capabilities from initialization
+  protocol-version ; Protocol version negotiated with the server
+  tools            ; List of available tools
+  resources        ; List of available resources
+  prompts          ; List of available prompts
+  status           ; 'connecting | 'ready | 'error | 'closed
+  error            ; Error message if status is 'error
+  buffer)          ; Output accumulator buffer
 
 ;;; JSON-RPC Protocol
 

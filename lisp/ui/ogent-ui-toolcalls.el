@@ -18,6 +18,7 @@
 (require 'ogent-tool-contract)
 
 ;; Specials read/let-bound by the tool subsystem.
+(defvar ogent-tool-registry)
 (defvar ogent-zen-mode)
 (defvar ogent-zen-tool-calls-inline)
 (defvar ogent-tools-project-root)
@@ -37,6 +38,7 @@
 (declare-function ogent-edit-inline-diff-available-p "ogent-edit-display")
 
 ;; Tool execution helpers from sibling subsystems.
+(declare-function ogent-tool-spec-get "ogent-models" (name))
 (declare-function ogent-debug-log-tool-call "ogent-debug")
 (declare-function ogent-tool--bash-async "ogent-tools")
 (declare-function ogent-tools--resolve-path "ogent-tools")
@@ -344,7 +346,7 @@ buffers keep the normal drawer header visible."
 (defun ogent-ui--tool-result-status (result)
   "Return `error' when RESULT is a tool error or denial string, else `done'."
   (if (and (stringp result)
-           (string-match-p "\\`Tool error:\\|\\`Unknown tool:\\|\\[.*error\\|denied\\]" result))
+           (string-match-p "\\`Tool error:\\|\\`Unknown tool:\\|\\`Tool unavailable:\\|\\`Tool execution denied\\|\\[.*error\\|denied\\]" result))
       'error 'done))
 
 (defun ogent-ui--insert-tool-drawer (name args result &optional status)
@@ -398,17 +400,17 @@ out of band instead of inserting a drawer so the notebook stays small."
       (ogent-ui--insert-tool-drawer name args result)))
 
 (cl-defstruct ogent-streaming-drawer
-	      "State for a streaming tool drawer."
-	      id
-	      buffer
-	      drawer-start     ; marker at :TOOL:
-	      result-start     ; marker at start of result content
-	      result-end       ; marker at end of result content (before #+end_src)
-	      status-marker    ; marker at status icon position
-	      name
-	      args
-	      char-count       ; total chars streamed
-	      record)          ; non-nil => virtual recorder; no buffer drawer
+  "State for a streaming tool drawer."
+  id
+  buffer
+  drawer-start     ; marker at :TOOL:
+  result-start     ; marker at start of result content
+  result-end       ; marker at end of result content (before #+end_src)
+  status-marker    ; marker at status icon position
+  name
+  args
+  char-count       ; total chars streamed
+  record)          ; non-nil => virtual recorder; no buffer drawer
 
 (defun ogent-ui--insert-streaming-drawer (name args)
   "Insert a streaming tool drawer for NAME with ARGS.
@@ -965,6 +967,10 @@ Returns the diff-id if a diff was created, nil otherwise."
            (values (ogent-tool-contract-values spec tool-args))
            (file-path (ogent-tools--resolve-path (car values)))
            diff-text)
+      ;; Keep the reviewed target stable if the buffer's project root changes.
+      (setq tool-args (cl-loop for arg in (plist-get spec :args) for value in values
+                               append (list (intern (concat ":" (plist-get arg :name))) value)))
+      (setq tool-args (plist-put tool-args :file_path file-path))
       (unless file-path
         (error "No file path in tool args"))
       ;; Generate diff based on tool type
@@ -997,8 +1003,9 @@ Returns a generated diff-id for tracking."
   (unless (ogent-ui--inline-diff-available-p)
     (error "Inline-diff not available"))
   (let* ((diff-id (ogent-ui--next-diff-id))
-         (file-path (or (plist-get tool-args :file-path)
-                        (plist-get tool-args :file_path))))
+         (file-path (ogent-tools--resolve-path
+                     (or (plist-get tool-args :file-path)
+                         (plist-get tool-args :file_path)))))
     (unless file-path
       (error "No file path in tool args"))
     (let* ((buffer (find-file-noselect file-path))

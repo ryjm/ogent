@@ -37,20 +37,20 @@ Reject stale tool objects after registry removal or schema replacement."
                                         append (list (intern (concat ":" (plist-get arg :name)))
                                                      value)))
                     (cond
-               ((not (equal snapshot (ogent-tool-spec-get name)))
-                "Tool unavailable: its registry entry changed or was removed")
-               ((not (eq (ogent-tool-approval-check name args) 'approved))
-                "Tool execution denied by user")
-               (t
-                (require 'ogent-ui-toolcalls)
-                (cond
-                 ((ogent-ui--is-edit-tool-p (symbol-name name))
-                  (ogent-ui--show-diff-for-tool (symbol-name name) args)
-                  "Edit proposed for user review")
-                 (async
-                  (ogent-tool-execution--async snapshot args values callback)
-                  :async)
-                 (t (ogent-ui--execute-tool name args))))))
+		     ((not (equal snapshot (ogent-tool-spec-get name)))
+                      "Tool unavailable: its registry entry changed or was removed")
+		     ((not (eq (ogent-tool-approval-check name args) 'approved))
+                      "Tool execution denied by user")
+		     (t
+                      (require 'ogent-ui-toolcalls)
+                      (cond
+                       ((ogent-ui--is-edit-tool-p (symbol-name name))
+			(ogent-ui--show-diff-for-tool (symbol-name name) args)
+			"Edit proposed for user review")
+                       (async
+			(ogent-tool-execution--async snapshot args values callback)
+			:async)
+                       (t (ogent-ui--execute-tool name args))))))
                 (error (concat "Tool error: " (error-message-string err))))))
         (when (and async (not (functionp callback)))
           (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
