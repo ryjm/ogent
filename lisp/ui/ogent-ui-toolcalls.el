@@ -643,10 +643,11 @@ When set to `inline-diff', display inline diff previews in the source buffer."
     (error "Old string is empty; cannot build inline diff edits"))
   (let (positions)
     (with-current-buffer buffer
-      (save-excursion
-        (goto-char (point-min))
-        (while (search-forward old-string nil t)
-          (push (cons (match-beginning 0) (match-end 0)) positions))))
+      (let ((case-fold-search nil))
+        (save-excursion
+          (goto-char (point-min))
+          (while (search-forward old-string nil t)
+            (push (cons (match-beginning 0) (match-end 0)) positions)))))
     (nreverse positions)))
 
 (defun ogent-ui--tool-edits-for-inline-diff (tool-name tool-args buffer)
@@ -765,7 +766,8 @@ Otherwise, compare FILE-PATH to NEW-CONTENT.  REPLACE-ALL permits repeated
 edit matches; otherwise OLD-STRING must occur exactly once."
   (when old-string
     (setq replace-all (ogent-tools--edit-validate old-string new-string replace-all)))
-  (let* ((file-exists (file-exists-p file-path))
+  (let* ((case-fold-search nil)
+         (file-exists (file-exists-p file-path))
          (old-content (if old-string
                           ;; For edit: get current file content
                           (with-temp-buffer

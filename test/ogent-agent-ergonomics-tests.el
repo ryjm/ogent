@@ -505,5 +505,30 @@
       (setq ogent-tool-registry (list spec))
       (should (equal (funcall (ogent-tool-execution-wrapper spec) "a") "a")))))
 
+(ert-deftest ogent-agent-ergonomics-edit-contract-exact-case ()
+  "Exact edits never match differently cased text in direct or review paths."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "case.txt" "same SAME"))
+         (case-fold-search t))
+    (should-error (ogent-tool--edit-file file "Same" "new") :type 'user-error)
+    (should-error (ogent-ui--generate-diff file nil "Same" "new") :type 'user-error)
+    (with-temp-buffer
+      (insert "same SAME")
+      (should-not (ogent-ui--tool-edit-occurrences (current-buffer) "Same"))
+      (should (= 1 (length (ogent-ui--tool-edit-occurrences (current-buffer) "same")))))
+    (should (string-match-p "1 occurrence" (ogent-tool--edit-file file "same" "new")))
+    (with-temp-buffer
+      (insert-file-contents file)
+      (should (equal (buffer-string) "new SAME")))))
+
+(ert-deftest ogent-agent-ergonomics-glob-recursive-exact-case ()
+  "Recursive glob follows the exact case of its file pattern."
+  (let ((root (ogent-test--provision-store-directory 'tools))
+        (case-fold-search t))
+    (ogent-agent-ergonomics-tests--file root "nested/lower.el" "")
+    (ogent-agent-ergonomics-tests--file root "nested/upper.EL" "")
+    (should (equal (ogent-tool--glob "**/*.el" root)
+                   (expand-file-name "nested/lower.el" root)))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

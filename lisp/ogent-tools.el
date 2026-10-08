@@ -319,7 +319,8 @@ Name the next offset when more lines remain; mark truncated long lines."
   "Find files matching glob PATTERN.
 PATH is the directory to search (default project root).
 Returns files sorted by modification time (newest first)."
-  (let* ((dir (if path
+  (let* ((case-fold-search nil)
+         (dir (if path
                   (ogent-tools--resolve-path path)
                 (ogent-tools--project-root)))
          (default-directory (file-name-as-directory dir))
@@ -935,7 +936,8 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
   "Replace OLD-STRING with NEW-STRING in FILE-PATH.
 If REPLACE-ALL is non-nil, replace all occurrences."
   (setq replace-all (ogent-tools--edit-validate old-string new-string replace-all))
-  (let* ((path (ogent-tools--resolve-path file-path))
+  (let* ((case-fold-search nil)
+         (path (ogent-tools--resolve-path file-path))
          (content (with-temp-buffer
                     (insert-file-contents path)
                     (buffer-string)))
