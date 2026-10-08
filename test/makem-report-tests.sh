@@ -174,6 +174,48 @@ assert any(d["file"] == "lisp/report-fixture.el" and d["line"] > 0 for d in r["d
 assert any("report-fixture-missing" in c["output"] for c in r["commands"])
 PY
 
+# Syntax diagnostics can put positions in prose instead of the file prefix.
+cat > lisp/report-fixture.el <<'ELISP'
+;;; Malformed syntax fixture.
+(defun report-fixture-add (value) (1+ value))
+(provide 'report-fixture)
+)
+ELISP
+run-report 1 ./makem.sh --json --emacs="$report_test_emacs" compile
+python3 - <<'PY'
+import json
+r = json.load(open("output.json"))
+assert any(d["file"] == "lisp/report-fixture.el" and d["line"] == 4 and d["column"] == 1
+           for d in r["diagnostics"]), r
+PY
+run-report 1 ./makem.sh --json --emacs="$report_test_emacs" --no-compile batch
+python3 - <<'PY'
+import json
+r = json.load(open("output.json"))
+assert any((d["file"] or "").endswith("/lisp/report-fixture.el") and
+           d["line"] == 4 and d["column"] == 1 for d in r["diagnostics"]), r
+PY
+
+# Multiple nested load frames do not identify an owner without guessing.
+cat > lisp/report-fixture.el <<'ELISP'
+(require 'report-untracked)
+(defun report-fixture-add (value) (1+ value))
+(provide 'report-fixture)
+ELISP
+cat > lisp/report-untracked.el <<'ELISP'
+;;; Untracked dependency syntax fixture.
+(defun report-untracked-function () t)
+(provide 'report-untracked)
+)
+ELISP
+run-report 1 ./makem.sh --json --emacs="$report_test_emacs" --no-compile batch
+python3 - <<'PY'
+import json
+r = json.load(open("output.json"))
+syntax = [d for d in r["diagnostics"] if "Invalid read syntax:" in d["message"]]
+assert syntax and all(d["file"] is None and d["line"] is None for d in syntax), r
+PY
+
 # Restore a loadable source and prove failed ERT results survive JSON escaping.
 cat > lisp/report-fixture.el <<'ELISP'
 (defun report-fixture-add (value) (1+ value))
@@ -191,6 +233,9 @@ assert any(c.get("tests", {}).get("unexpected") == 1 for c in r["commands"]), r
 assert any("report-fixture-intentional-failure" in c["output"] for c in r["commands"])
 assert r["tasks"][-1]["status"] == "error"
 assert r["next_actions"]
+located = [d for d in r["diagnostics"] if d["file"] == "test/report-fixture-tests.el"]
+assert any(d["line"] == 7 and "report-fixture-intentional-failure" in d["message"]
+           for d in located), r
 PY
 
 # Human diagnostics are plain when redirected and NO_COLOR is presence-based.

@@ -211,16 +211,40 @@ for event in events:
         # Keep raw output above so diagnostics are lossless even when an Emacs
         # version changes its presentation.  Normalize familiar compiler/ERT
         # lines as an additional convenience, not as the source of truth.
+        load_sources = set()
+        for literal in re.findall(r'load-with-code-conversion\(("(?:[^"\\]|\\.)*")', output):
+            try:
+                load_sources.add(json.loads(literal))
+            except ValueError:
+                pass
+        # A nested require can report several loaded files.  Its syntax error
+        # numbers alone do not identify the owner; retain prose in that case.
+        load_source = next(iter(load_sources)) if len(load_sources) == 1 else None
         for line in output.splitlines():
             if purpose == "availability_probe":
                 continue
             location = re.match(r"^(.*\.el):(\d+)(?::(\d+))?:\s*(.*)$", line)
+            ert_location = re.search(r"\bFAILED\b.*\bat (.+\.el):(\d+)(?::(\d+))?\s*$", line)
+            syntax = re.search(r"Invalid read syntax:.*?,\s*(\d+),\s*(\d+)\s*$", line)
+            syntax_owner = re.match(r"^(.+\.el):\s*(?:Error:\s*)?Invalid read syntax:", line)
             if location:
                 path, number, column, message = location.groups()
                 report["diagnostics"].append({"source": "emacs", "command_index": index,
                     "task": task, "severity": "warning" if "Warning:" in message else "error",
                     "file": path, "line": int(number), "column": int(column) if column else None,
                     "message": message})
+            elif ert_location:
+                path, number, column = ert_location.groups()
+                report["diagnostics"].append({"source": "emacs", "command_index": index,
+                    "task": task, "severity": "error", "file": path, "line": int(number),
+                    "column": int(column) if column else None, "message": line})
+            elif syntax:
+                path = syntax_owner.group(1) if syntax_owner else load_source
+                number, column = syntax.groups()
+                report["diagnostics"].append({"source": "emacs", "command_index": index,
+                    "task": task, "severity": "error", "file": path,
+                    "line": int(number) if path else None,
+                    "column": int(column) if path else None, "message": line})
             elif re.search(r"\bFAILED\b|\b[1-9]\d* unexpected\b|^Error:|^error:", line):
                 report["diagnostics"].append({"source": "emacs", "command_index": index,
                     "task": task, "severity": "error", "file": None, "line": None,
