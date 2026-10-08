@@ -1,0 +1,78 @@
+#+title: Machine-readable build and test reports
+
+Run =make test format=json=, =make lint format=json=, or
+=make compile format=json= to execute the ordinary build helper and receive
+one JSON document on stdout. Diagnostics go to stderr. Redirect stdout to save
+a report, for example =make test format=json > /tmp/ogent-tests.json=.
+
+The same option works directly with =./makem.sh --json test-ert=. Select Emacs
+with =make test format=json EMACS=/path/to/emacs= or
+=./makem.sh --json --emacs=/path/to/emacs test-ert=.
+
+Discover the task list, prerequisites, examples, and exit codes with
+=./makem.sh --capabilities --json=. Discovery needs Python 3 for JSON and does
+not run Emacs, load project code, install packages, or contact providers.
+
+* Contract version 1
+
+Every completed report includes:
+
+| Field              | Meaning                                             |
+|--------------------+-----------------------------------------------------|
+| contract_version   | String =1=; additive fields may appear               |
+| status             | =success= or =error=                                 |
+| exit_code          | Actual shell exit status of the helper               |
+| exit_kind          | Stable reason from the exit dictionary               |
+| requested_tasks    | Validated tasks selected by the caller               |
+| tasks              | Completed tasks and subtasks, including skips        |
+| commands           | Actual Emacs argument vectors, exits, raw output     |
+| diagnostics        | Build errors plus normalized compiler/ERT messages   |
+| next_actions       | Suggested recovery or rerun commands                 |
+
+Tasks have a =name=, =status= (=success=, =error=, or =skipped=), =exit_code=,
+and optional =reason=. A missing optional linter or absent Buttercup suite is
+an explicit skip; requesting that missing task directly still fails.
+
+Commands include =purpose= (=task= or =availability_probe=), =pid=, =argv=,
+=exit_code=, and =output=. ERT summaries also include =tests= with =total=,
+=expected=, =unexpected=, and =skipped= counts when Emacs emits that summary.
+Compiler diagnostics include source paths, line and column numbers when
+available. Raw output remains available if an Emacs version emits unfamiliar
+diagnostics. Availability probes retain their real exit and output; an absent
+optional package does not become an error diagnostic by itself.
+
+Reports include no environment values. Command arguments and Emacs output can
+contain caller-provided content; treat saved reports like ordinary build logs.
+
+* Exit dictionary
+
+| Exit | Meaning                                  |
+|------+------------------------------------------|
+|    0 | Tasks succeeded; optional tasks may skip  |
+|    1 | A requested task failed                   |
+|    2 | Invalid task, option, or interactive mode |
+|    3 | Missing prerequisite or project files     |
+|  130 | Interrupted with SIGINT                   |
+|  143 | Terminated with SIGTERM                   |
+
+GNU Make returns its own nonzero status, usually 2, when a recipe fails. The
+JSON =exit_code= preserves the helper's more specific reason. Use the direct
+helper when a process supervisor needs the exact exit dictionary.
+
+JSON requires Python 3 and supports noninteractive makem-backed targets,
+including =all=, =lint=, =test=, =compile=, =recompile=, and named lint/test
+rules. The separate =offline-test=, =test-isolation=, =bench=, =demo=, and
+=clean=, and =test-build-report= targets keep their existing output. For interactive Emacs, omit
+=format=json=. Standard output from batch Elisp is captured in the command's
+=output= field alongside Emacs diagnostics.
+
+Ordinary diagnostic output also respects =NO_COLOR= (including an empty
+value) and disables ANSI color when stderr is not a terminal. The human mode
+keeps the existing verbosity controls and task behavior.
+
+* Verification
+
+=make test-build-report EMACS=/path/to/emacs= runs actual compilation,
+successful and failing ERT suites, compiler warnings, malformed invocations,
+Make integration, and cancellation in an independent tracked Git fixture.
+It never substitutes a build runner or contacts an AI provider.

@@ -81,6 +81,8 @@ Options:
   -h, --help     I need somebody!
   -v, --verbose  Increase verbosity, up to -vvv.
   --no-color     Disable color output.
+  --json         Return a versioned JSON report; send diagnostics to stderr.
+  --capabilities Show rules, reporting contracts, and exit codes without Emacs.
 
   --debug-load-path  Print load-path from inside Emacs.
 
@@ -118,7 +120,172 @@ Checkdoc's spell checker may not recognize some words, causing the
 or directory-local variables using the variable
 \`ispell-buffer-session-localwords', which should be set to a list of
 strings.
+
+JSON exit codes: 0 success, 1 task failure, 2 invalid invocation,
+3 missing prerequisite, 130 interrupted, 143 terminated.
+JSON requires Python 3 and supports noninteractive rules only.  NO_COLOR and
+non-terminal stderr disable color in ordinary output too.
 EOF
+}
+
+# ** Structured reporting
+
+# Reporting observes the real runner: Emacs commands still execute in
+# run_emacs, with their output captured before the same task checks run.
+# No environment values are included in reports.
+function report-event {
+    [[ $report_dir ]] || return 0
+    python3 - "$report_dir/events.jsonl" "$@" <<'PY'
+import json
+import pathlib
+import sys
+
+kind, *values = sys.argv[2:]
+event = {"kind": kind, "values": values}
+if kind == "process":
+    event["output"] = pathlib.Path(values[2]).read_text(errors="replace")
+with open(sys.argv[1], "a", encoding="utf-8") as stream:
+    stream.write(json.dumps(event, ensure_ascii=False) + "\n")
+PY
+}
+
+function report-bootstrap-failure {
+    # The prerequisite itself cannot serialize JSON yet.  These messages are
+    # fixed literals so this minimal contract needs no ad-hoc JSON escaping.
+    local message
+    case "$1" in
+        python3) message='JSON reporting requires python3; install Python 3 or omit --json.' ;;
+        *) message='JSON reporting requires GNU mktemp and a writable temporary directory.' ;;
+    esac
+    printf 'ERROR: %s\n' "$message" >&2
+    printf '%s\n' '{"contract_version":"1","tool":"makem.sh","status":"error","exit_code":3,"exit_kind":"missing_prerequisite","exit_codes":{"0":"success","1":"task_failure","2":"invalid_invocation","3":"missing_prerequisite","130":"interrupted","143":"terminated"},"project_root":null,"requested_tasks":[],"tasks":[],"commands":[],"diagnostics":[{"source":"makem","command_index":null,"task":null,"severity":"error","file":null,"line":null,"column":null,"message":"'"$message"'"}],"next_actions":["Install the missing prerequisite or omit --json."]}'
+    exit 3
+}
+
+function report-finish {
+    local status=$1
+    # EXIT runs once; signal traps only set the status and leave through EXIT.
+    trap - EXIT INT TERM
+    if [[ $report_dir ]]
+    then
+        python3 - "$report_dir/events.jsonl" "$status" "$PWD" <<'PY' >&3
+import json
+import pathlib
+import re
+import sys
+
+events = [json.loads(line) for line in pathlib.Path(sys.argv[1]).read_text().splitlines()]
+exit_code = int(sys.argv[2])
+rules = ["all", "compile", "lint", "lint-checkdoc", "lint-compile",
+         "lint-declare", "lint-elsa", "lint-elint", "lint-indent", "lint-package",
+         "lint-regexps", "test", "tests", "test-buttercup", "test-ert", "batch",
+         "interactive", "test-ert-interactive"]
+exit_codes = {"0": "success", "1": "task_failure", "2": "invalid_invocation",
+              "3": "missing_prerequisite", "130": "interrupted", "143": "terminated"}
+report = {"contract_version": "1", "tool": "makem.sh", "status":
+          "success" if exit_code == 0 else "error", "exit_code": exit_code,
+          "exit_kind": exit_codes.get(str(exit_code), "task_failure"),
+          "exit_codes": exit_codes, "project_root": sys.argv[3], "requested_tasks": [],
+          "tasks": [], "commands": [], "diagnostics": [], "next_actions": []}
+ansi = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+for event in events:
+    kind, values = event["kind"], event["values"]
+    if kind == "requested":
+        report["requested_tasks"] = values
+    elif kind == "task":
+        task, status, code, reason = values
+        report["tasks"].append({"name": task, "status": status, "exit_code": int(code),
+                                "reason": reason or None})
+    elif kind == "process":
+        task, code, _, purpose, pid, *argv = values
+        output = ansi.sub("", event["output"])
+        index = len(report["commands"])
+        command = {"task": task, "purpose": purpose, "pid": int(pid) if pid else None, "argv": argv,
+                   "exit_code": int(code), "output": output}
+        summary = re.search(r"Ran (\d+) tests?, (\d+) results as expected, (\d+) unexpected(?:, (\d+) skipped)?", output)
+        if summary:
+            count, expected, unexpected, skipped = summary.groups()
+            command["tests"] = {"total": int(count), "expected": int(expected),
+                                "unexpected": int(unexpected), "skipped": int(skipped or 0)}
+        report["commands"].append(command)
+        # Keep raw output above so diagnostics are lossless even when an Emacs
+        # version changes its presentation.  Normalize familiar compiler/ERT
+        # lines as an additional convenience, not as the source of truth.
+        for line in output.splitlines():
+            if purpose == "availability_probe":
+                continue
+            location = re.match(r"^(.*\.el):(\d+)(?::(\d+))?:\s*(.*)$", line)
+            if location:
+                path, number, column, message = location.groups()
+                report["diagnostics"].append({"source": "emacs", "command_index": index,
+                    "task": task, "severity": "warning" if "Warning:" in message else "error",
+                    "file": path, "line": int(number), "column": int(column) if column else None,
+                    "message": message})
+            elif re.search(r"\bFAILED\b|\b[1-9]\d* unexpected\b|^Error:|^error:", line):
+                report["diagnostics"].append({"source": "emacs", "command_index": index,
+                    "task": task, "severity": "error", "file": None, "line": None,
+                    "column": None, "message": line})
+    elif kind in ("error", "warning"):
+        report["diagnostics"].append({"source": "makem", "command_index": None,
+            "task": values[0] or None, "severity": kind, "file": None,
+            "line": None, "column": None, "message": values[1]})
+    elif kind == "next":
+        report["next_actions"].extend(values)
+    elif kind == "help":
+        report["help"] = values[0]
+    elif kind == "capabilities":
+        report["capabilities"] = {"rules": rules,
+            "report_option": "--json", "discovery_command": "./makem.sh --capabilities --json",
+            "requirements": {"execution": ["bash", "git", "GNU getopt", "GNU coreutils", "gzip", "Emacs"],
+                             "json": ["python3"]},
+            "environment": {"NO_COLOR": "Disable ANSI color, including when empty"},
+            "noninteractive_json_only": True,
+            "examples": ["make test format=json", "make lint format=json",
+                         "./makem.sh --json --emacs=/path/to/emacs compile"]}
+print(json.dumps(report, ensure_ascii=False, separators=(",", ":")))
+PY
+        local report_status=$?
+        [[ $report_status == 0 ]] || status=3
+    fi
+    cleanup
+    exit "$status"
+}
+
+function report-interrupt {
+    local status=$1
+    if [[ $report_child_pid ]]
+    then
+        kill -TERM "$report_child_pid" 2>/dev/null
+        wait "$report_child_pid" 2>/dev/null
+        report-event process "${report_task:-setup}" "$status" "$report_child_output" "${report_command_purpose:-task}" "$report_child_pid" "${report_child_argv[@]}"
+        report-event task "${report_task:-setup}" error "$status" "Execution interrupted."
+    fi
+    report-event error "$report_task" "Execution interrupted."
+    exit "$status"
+}
+
+function run-rule {
+    local task=$1
+    shift
+    local report_task=$task report_skipped= before_errors=$errors
+    "$task" "$@"
+    local status=$?
+    if [[ $status != 0 && $errors == "$before_errors" ]]
+    then
+        error "Task '$task' failed with exit $status. Inspect its diagnostics and rerun make $task."
+    fi
+    [[ $errors -gt $before_errors ]] && status=1
+    if [[ $report_skipped && $status == 0 ]]
+    then
+        report-event task "$task" skipped 0 "$report_skipped"
+    elif [[ $status == 0 ]]
+    then
+        report-event task "$task" success 0 ""
+    else
+        report-event task "$task" error "$status" "Task diagnostics are included in this report."
+        report-event next "${report_rerun% }"
+    fi
+    return "$status"
 }
 
 # ** Elisp
@@ -395,15 +562,31 @@ function run_emacs {
 
     # Run Emacs.
     debug "run_emacs: ${emacs_command[@]} $@ &>\"$output_file\""
-    "${emacs_command[@]}" "$@" &>"$output_file"
+    local exit process_pid
+    if [[ $report_dir ]]
+    then
+        report_child_output=$output_file
+        report_child_argv=("${emacs_command[@]}" "$@")
+        "${emacs_command[@]}" "$@" &>"$output_file" &
+        report_child_pid=$!
+        process_pid=$report_child_pid
+        wait "$report_child_pid"
+        exit=$?
+        unset report_child_pid
+        unset report_child_output report_child_argv
+    else
+        "${emacs_command[@]}" "$@" &>"$output_file"
+        exit=$?
+    fi
+
+    report-event process "${report_task:-setup}" "$exit" "$output_file" "${report_command_purpose:-task}" "$process_pid" "${emacs_command[@]}" "$@"
 
     # Check exit code and output.
-    exit=$?
     [[ $exit != 0 ]] \
         && debug "Emacs exited non-zero: $exit"
 
     [[ $verbose -gt 1 || $exit != 0 ]] \
-        && cat $output_file
+        && cat "$output_file" >&2
 
     return $exit
 }
@@ -563,7 +746,7 @@ function test-files-p {
 
 function buttercup-tests-p {
     # Return 0 if Buttercup tests are found.
-    test-files-p || die "No tests found."
+    test-files-p || return 1
     debug "Checking for Buttercup tests..."
 
     grep "(require 'buttercup)" "${files_project_test[@]}" &>/dev/null
@@ -571,7 +754,7 @@ function buttercup-tests-p {
 
 function ert-tests-p {
     # Return 0 if ERT tests are found.
-    test-files-p || die "No tests found."
+    test-files-p || return 1
     debug "Checking for ERT tests..."
 
     # We check for this rather than "(require 'ert)", because ERT may
@@ -769,6 +952,8 @@ function cleanup {
             debug "Temporary path doesn't exist, not deleting: $path"
         fi
     done
+    [[ $report_dir ]] && rm -rf "$report_dir"
+    return 0
 }
 
 function echo-unset-p {
@@ -784,9 +969,11 @@ function ensure-package-available {
     # here avoids repetition in callers.
     local package=$1
     local direct_p=$2
+    local report_command_purpose=availability_probe
 
     if ! run_emacs --load $package &>/dev/null
     then
+        report_skipped="$package is not installed; use --install-linters in a sandbox to install optional linters."
         if [[ $direct_p ]]
         then
             error "$package not available."
@@ -807,6 +994,7 @@ function ensure-tests-available {
 
     if ! $test_command
     then
+        report_skipped="$test_name tests are not present in the project."
         if [[ $direct_p ]]
         then
             error "$test_name tests not found."
@@ -845,6 +1033,7 @@ function debug {
 }
 function error {
     echo_color red "ERROR ($(ts)): $@" >&2
+    report-event error "$report_task" "$*"
     ((errors++))
     return 1
 }
@@ -854,6 +1043,7 @@ function die {
 }
 function warn {
     echo_color yellow "WARNING ($(ts)): $@" >&2
+    report-event warning "$report_task" "$*"
     ((warnings++))
 }
 function log {
@@ -897,9 +1087,24 @@ function emacs-version {
 
 function rule-p {
     # Return 0 if $1 is a rule.
-    [[ $1 =~ ^(lint-?|tests?)$ ]] \
-        || [[ $1 =~ ^(batch|interactive)$ ]] \
-        || [[ $(type -t "$2" 2>/dev/null) =~ function ]]
+    case "$1" in
+        all|compile|lint|lint-checkdoc|lint-compile|lint-declare|lint-elsa|lint-elint|lint-indent|lint-package|lint-regexps|test|tests|test-buttercup|test-ert|test-ert-interactive|batch|interactive)
+            return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+function invalid-rule {
+    local task=$1 hint
+    case "$task" in
+        tset|tets|tes|testing) hint=test ;;
+        compiel|comiple|compil|build) hint=compile ;;
+        lnit|litn|lints) hint=lint ;;
+        *) hint=help ;;
+    esac
+    error "Unknown task '$task'. Try make $hint; run make help or ./makem.sh --capabilities --json for the complete task list."
+    report-event next "make $hint" "./makem.sh --capabilities --json"
+    exit 2
 }
 
 # * Rules
@@ -912,8 +1117,8 @@ function rule-p {
 function all {
     verbose 1 "Running all rules..."
 
-    lint
-    tests
+    run-rule lint
+    run-rule tests
 }
 
 function compile-batch {
@@ -995,15 +1200,15 @@ function interactive {
 function lint {
     verbose 1 "Linting..."
 
-    lint-checkdoc
-    lint-compile
-    lint-declare
+    run-rule lint-checkdoc
+    run-rule lint-compile
+    run-rule lint-declare
     # NOTE: Elint doesn't seem very useful at the moment.  See comment
     # in lint-elint function.
     # lint-elint
-    lint-indent
-    lint-package
-    lint-regexps
+    run-rule lint-indent
+    run-rule lint-package
+    run-rule lint-regexps
 }
 
 function lint-checkdoc {
@@ -1105,7 +1310,7 @@ function lint-indent {
 }
 
 function lint-package {
-    ensure-package-available package-lint $1 || return $(echo-unset-p $1)
+    ensure-package-available package-lint "$1" || { [[ $1 ]] && return 1; return 0; }
 
     verbose 1 "Linting package..."
 
@@ -1119,7 +1324,7 @@ function lint-package {
 }
 
 function lint-regexps {
-    ensure-package-available relint $1 || return $(echo-unset-p $1)
+    ensure-package-available relint "$1" || { [[ $1 ]] && return 1; return 0; }
 
     verbose 1 "Linting regexps..."
 
@@ -1134,8 +1339,8 @@ function lint-regexps {
 function tests {
     verbose 1 "Running all tests..."
 
-    test-ert
-    test-buttercup
+    run-rule test-ert
+    run-rule test-buttercup
 }
 
 function test-ert-interactive {
@@ -1149,7 +1354,7 @@ function test-ert-interactive {
 }
 
 function test-buttercup {
-    ensure-tests-available Buttercup $1 || return $(echo-unset-p $1)
+    ensure-tests-available Buttercup "$1" || { [[ $1 ]] && return 1; return 0; }
     compile || die
 
     verbose 1 "Running Buttercup tests..."
@@ -1163,7 +1368,7 @@ function test-buttercup {
 }
 
 function test-ert {
-    ensure-tests-available ERT $1 || return $(echo-unset-p $1)
+    ensure-tests-available ERT "$1" || { [[ $1 ]] && return 1; return 0; }
     compile || die
 
     verbose 1 "Running ERT tests..."
@@ -1189,10 +1394,8 @@ compile=true
 arg_batch="--batch"
 compile=each
 
-# MAYBE: Disable color if not outputting to a terminal.  (OTOH, the
-# colorized output is helpful in CI logs, and I don't know if,
-# e.g. GitHub Actions logging pretends to be a terminal.)
-color=true
+# Diagnostics use stderr.  Honor the standard presence-based NO_COLOR contract.
+[[ -t 2 && ! ${NO_COLOR+x} ]] && color=true
 
 # TODO: Using the current directory (i.e. a package's repo root directory) in
 # load-path can cause weird errors in case of--you guessed it--stale .ELC files,
@@ -1239,11 +1442,57 @@ args_package_init=(
 
 # * Args
 
+# Initialize reporting before getopt, so invalid options also have a contract.
+original_args=("$@")
+printf -v report_rerun '%q ' "$0" "${original_args[@]}"
+for argument in "$@"
+do
+    [[ $argument == -- ]] && break
+    if [[ $argument == --json ]]
+    then
+        if ! command -v python3 >/dev/null 2>&1
+        then
+            report-bootstrap-failure python3
+        fi
+        report_dir=$(mktemp --tmpdir -d "makem-report-XXXXXX") || report-bootstrap-failure mktemp
+        : > "$report_dir/events.jsonl"
+        exec 3>&1
+        exec 1>&2
+        unset color
+        break
+    fi
+done
+trap 'report-finish "$?"' EXIT
+trap 'report-interrupt 130' INT
+trap 'report-interrupt 143' TERM
+
+if ! command -v getopt >/dev/null 2>&1
+then
+    error "GNU getopt is required to parse options. Install GNU getopt and run ./makem.sh --help."
+    report-event next "Install GNU getopt and run ./makem.sh --help."
+    exit 3
+fi
+
 args=$(getopt -n "$0" \
               -o dhce:E:i:s::vf:C \
-              -l compile-batch,exclude:,emacs:,install-deps,install-linters,debug,debug-load-path,help,install:,verbose,file:,no-color,no-compile,sandbox:: \
+              -l compile-batch,exclude:,emacs:,install-deps,install-linters,debug,debug-load-path,help,install:,verbose,file:,no-color,no-compile,sandbox::,json,capabilities \
               -- "$@") \
-    || { usage; exit 1; }
+    || {
+        error "Invalid option. Run ./makem.sh --help or make help for supported options."
+        for argument in "${original_args[@]}"
+        do
+            case "$argument" in
+                --emax*|--emacsx*)
+                    error "Use --emacs=/path/to/emacs to select Emacs."
+                    report-event next "./makem.sh --json --emacs=/path/to/emacs test" ;;
+                --jason|--jsno)
+                    error "Use --json for machine-readable reports."
+                    report-event next "./makem.sh --json test" ;;
+            esac
+        done
+        report-event next "./makem.sh --help"
+        exit 2
+    }
 eval set -- "$args"
 
 while true
@@ -1265,7 +1514,7 @@ do
             debug_load_path=true
             ;;
         -h|--help)
-            usage
+            if [[ $report_dir ]]; then report-event help "$(usage)"; else usage; fi
             exit
             ;;
         -c|--compile-batch)
@@ -1274,7 +1523,7 @@ do
             ;;
         -E|--emacs)
             shift
-            emacs_command=($1)
+            emacs_command=("$1")
             ;;
         -i|--install)
             shift
@@ -1308,6 +1557,11 @@ do
         --no-color)
             unset color
             ;;
+        --json)
+            ;;
+        --capabilities)
+            capabilities=true
+            ;;
         -C|--no-compile)
             unset compile
             ;;
@@ -1320,6 +1574,46 @@ do
     esac
 
     shift
+done
+
+if [[ $capabilities ]]
+then
+    if [[ $report_dir ]]; then report-event capabilities; else usage; fi
+    exit 0
+fi
+
+# Validate the complete plan before generating helpers or starting Emacs.
+if [[ ${#rest[@]} == 0 ]]
+then
+    error "No task selected. Try make test, make lint, or ./makem.sh --capabilities --json."
+    report-event next "make test format=json" "./makem.sh --capabilities --json"
+    exit 2
+fi
+requested_tasks=()
+for rule in "${rest[@]}"
+do
+    rule-p "$rule" || invalid-rule "$rule"
+    requested_tasks+=("$rule")
+    if [[ $rule == batch || $rule == interactive ]]
+    then
+        break
+    fi
+done
+report-event requested "${requested_tasks[@]}"
+if [[ $report_dir && " ${requested_tasks[*]} " =~ " interactive "|" test-ert-interactive " ]]
+then
+    error "JSON reports require noninteractive tasks. Use batch or test-ert, or omit --json."
+    report-event next "./makem.sh --json batch" "./makem.sh --json test-ert"
+    exit 2
+fi
+for executable in "${emacs_command[0]}" git getopt mktemp gzip
+do
+    if ! command -v "$executable" >/dev/null 2>&1
+    then
+        error "Required executable '$executable' is unavailable. Install it or select Emacs with --emacs=/path/to/emacs (make EMACS=/path/to/emacs)."
+        report-event next "Install the missing executable or pass --emacs=/path/to/emacs."
+        exit 3
+    fi
 done
 
 debug "ARGS: $args"
@@ -1349,10 +1643,13 @@ done
 
 # * Main
 
-trap cleanup EXIT INT TERM
-
 # Change to project root directory first.
-cd "$(project-root)"
+root_dir=$(project-root) || exit 3
+if [[ ! $root_dir ]] || ! cd "$root_dir"
+then
+    error "No project Git root found. Run makem.sh from a Git project with tracked Elisp files."
+    exit 3
+fi
 
 # Discover project files.
 files_project_feature=($(files-project-feature))
@@ -1375,7 +1672,7 @@ debug "PACKAGE-MAIN-FILE: $(package-main-file)"
 if ! [[ ${files_project_feature[@]} ]]
 then
     error "No files specified and not in a git repo."
-    exit 1
+    exit 3
 fi
 
 # Set load path.
@@ -1414,24 +1711,24 @@ do
         # Remaining arguments are passed to Emacs.
         interactive=true
 
-    elif type -t "$rule" 2>/dev/null | grep function &>/dev/null
+    elif [[ $rule != test ]] && rule-p "$rule"
     then
         # Pass called-directly as $1 to indicate that the rule is
         # being called directly rather than from a meta-rule.
-        $rule called-directly
+        run-rule "$rule" called-directly
     elif [[ $rule = test ]]
     then
         # Allow the "tests" rule to be called as "test".  Since "test"
         # is a shell builtin, this workaround is required.
-        tests
+        run-rule tests
     else
-        error "Invalid rule: $rule"
+        invalid-rule "$rule"
     fi
 done
 
 # Batch/interactive rules.
-[[ $batch ]] && batch
-[[ $interactive ]] && interactive
+[[ $batch ]] && run-rule batch
+[[ $interactive ]] && run-rule interactive
 
 if [[ $errors -gt 0 ]]
 then
@@ -1440,4 +1737,8 @@ else
     success "Finished without errors."
 fi
 
-exit $errors
+if [[ $report_dir && $errors -gt 0 ]]
+then
+    exit 1
+fi
+exit "$errors"

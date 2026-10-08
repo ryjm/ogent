@@ -2,7 +2,14 @@
 # See: https://github.com/alphapapa/makem.sh
 
 EMACS ?= emacs
-MAKEM = ./makem.sh --emacs="$(EMACS)"
+MAKEM = ./makem.sh --emacs="$(EMACS)" $(REPORT)
+
+# Machine reports apply to the makem-backed targets listed in help.
+ifeq ($(format),json)
+REPORT = --json
+else ifneq ($(format),)
+$(error Unsupported format '$(format)'; use format=json or omit format)
+endif
 
 # macOS compatibility: makem.sh requires GNU coreutils and getopt.
 # If on macOS with Homebrew, prepend GNU tools to PATH.
@@ -56,7 +63,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile test-isolation offline-test
+.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile test-isolation offline-test test-build-report
 
 # Default: run all lints and tests
 all:
@@ -69,6 +76,10 @@ lint:
 # Run all tests
 test:
 	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) test
+
+# Exercise machine reports against actual Emacs in an independent Git fixture.
+test-build-report:
+	@EMACS="$(EMACS)" bash ./test/makem-report-tests.sh
 
 # Store-integrity hash audit (ogent-aq8.4): hash every real-store path,
 # run the full ert suite, re-hash, and fail on any drift.  Belt to the
@@ -88,11 +99,11 @@ compile:
 # Remove all byte-compiled files
 clean:
 	@find lisp/ test/ -name "*.elc" -delete
-	@echo "Removed all .elc files"
+	@echo "Removed all .elc files" $(if $(REPORT),>&2)
 
 # Clean and recompile all elisp files (use after code changes)
 recompile: clean
-	@$(MAKE) compile
+	@$(MAKE) --no-print-directory compile
 
 # Run Emacs in batch mode with project loaded
 batch:
@@ -135,6 +146,7 @@ help:
 	@echo "  make all          - Run all lints and tests"
 	@echo "  make lint         - Run all linters (checkdoc, compile, package-lint)"
 	@echo "  make test         - Run all tests"
+	@echo "  make test-build-report - Verify machine reports against real compiler/ERT fixtures"
 	@echo "  make test-isolation - Verify the suite never writes real user stores"
 	@echo "  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)"
 	@echo "  make compile      - Byte-compile source files"
@@ -155,11 +167,15 @@ help:
 	@echo "  install-linters=1 - Auto-install linting tools"
 	@echo "  debug=1           - Enable debug mode"
 	@echo "  EMACS=PATH        - Select the Emacs executable for every target"
+	@echo "  format=json       - Versioned report for makem-backed targets; diagnostics on stderr"
+	@echo "  NO_COLOR=1        - Disable color (nonterminal stderr is already plain)"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test v=2                    - Run tests with verbose output"
 	@echo "  make lint sandbox=1              - Lint in clean sandbox"
 	@echo "  make all sandbox=1 install-deps=1 - Full CI-like run"
+	@echo "  make test format=json            - Actual ERT run with structured results"
+	@echo "  ./makem.sh --capabilities --json  - Discover tasks and exit codes without Emacs"
 	@echo ""
 	@echo "Additional makem.sh rules (use make <rule>):"
 	@echo "  lint-checkdoc, lint-compile, lint-declare, lint-indent,"

@@ -104,3 +104,5 @@ jobs:
 
       - name: Lint
         run: make sandbox-lint
+      - name: Build report contracts
+        run: make test-build-report
