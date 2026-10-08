@@ -837,13 +837,13 @@ TABLE seen is the base completions table."
 
 (ert-deftest ogent-analytics-test-gpt56-pricing-matches-official ()
   "Pin the officially verified gpt-5.6 family rates.
-Verified 2026-07-17 against the official model pages at
+Verified 2026-10-08 against the official model pages at
 developers.openai.com/api/docs/models/gpt-5.6-{sol,terra,luna}.
 When OpenAI reprices, re-verify against those pages and update BOTH
 the starter table and this pin - never from aggregator sites."
-  (dolist (expected '(("gpt-5.6-sol" 5.00 30.00)
-                      ("gpt-5.6-terra" 2.50 15.00)
-                      ("gpt-5.6-luna" 1.00 6.00)))
+  (dolist (expected '(("gpt-5.6-sol" 4.00 20.00)
+                      ("gpt-5.6-terra" 2.00 12.00)
+                      ("gpt-5.6-luna" 0.20 1.20)))
     (let ((pricing (ogent-analytics--model-pricing (car expected))))
       (should pricing)
       (should (= (plist-get pricing :input-per-mtok) (nth 1 expected)))
@@ -851,16 +851,12 @@ the starter table and this pin - never from aggregator sites."
 
 (ert-deftest ogent-analytics-test-anthropic-pricing-matches-official ()
   "Pin the officially verified Anthropic rates.
-Verified 2026-07-24 against
-platform.claude.com/docs/en/about-claude/pricing.  Claude Sonnet 5 is
-pinned to its standard $3/$15 rate, not the introductory $2/$10 rate
-that expires 2026-08-31, because the flat schema cannot express a
-dated switchover.  When Anthropic reprices, re-verify against that
-page and update BOTH the starter table and this pin."
+Verified 2026-10-08 against the official Claude pricing page.
+Update the implementation and source fixture when the provider reprices."
   (dolist (expected '(("claude-fable-5" 10.00 50.00)
                       ("claude-opus-5" 5.00 25.00)
                       ("claude-opus-4-8" 5.00 25.00)
-                      ("claude-sonnet-5" 3.00 15.00)
+                      ("claude-sonnet-5" 2.00 10.00)
                       ("claude-sonnet-4-6" 3.00 15.00)
                       ("claude-haiku-4-5-20251001" 1.00 5.00)))
     (let ((pricing (ogent-analytics--model-pricing (car expected))))

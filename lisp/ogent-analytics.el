@@ -65,60 +65,42 @@ Used to estimate token counts from text length."
   ;; covering dated variants like claude-haiku-4-5-20251001 without
   ;; listing each one.
   ;;
-  ;; gpt-5.6 family verified 2026-07-17 against the official model
-  ;; pages (developers.openai.com/api/docs/models/gpt-5.6-{sol,terra,
-  ;; luna}): sol $5/$30, terra $2.50/$15, luna $1/$6; cached-input
-  ;; rates $0.50/$0.25/$0.10.  CAVEATS the flat schema cannot express:
-  ;; prompts >272K input tokens bill at 2x input / 1.5x output for the
-  ;; FULL request (computed costs UNDERSTATE long-context usage), and
-  ;; cache reads bill at the cheaper cached rate and cache writes at
-  ;; 1.25x the uncached input rate, neither of which we track
-  ;; (computed costs OVERSTATE cache-read-heavy usage and UNDERSTATE
-  ;; cache-write-heavy usage).  Estimates only.
-  ;;
-  ;; Anthropic family verified 2026-07-24 against
-  ;; platform.claude.com/docs/en/about-claude/pricing: fable-5
-  ;; $10/$50, opus-5 $5/$25, opus-4-8 $5/$25, sonnet-5 $3/$15,
-  ;; sonnet-4-6 $3/$15, haiku-4-5 $1/$5.  Same caveats: cache writes
-  ;; bill at 1.25x (5m) or 2x (1h) input and cache reads at 0.1x,
-  ;; none of which we track.  Sonnet 5 additionally runs on
-  ;; introductory $2/$10 pricing through 2026-08-31; the table pins
-  ;; the standard rate that resumes 2026-09-01, so Sonnet 5 costs
-  ;; are OVERSTATED until then.
-  ;; Current catalog verified 2026-10-08:
-  ;; https://developers.openai.com/api/docs/models
-  ;; https://platform.claude.com/docs/en/models/overview
-  ;; Haiku 5.5 uses the base rate up to 100K input tokens; longer
-  ;; prompts cost 5x input and output, which this flat table cannot
-  ;; express.  Those long-context estimates UNDERSTATE actual cost.
-  '(("gpt-6-astra"       . (:input-per-mtok 10.00 :output-per-mtok 50.00))
-    ("gpt-6.1-sol"       . (:input-per-mtok 2.00 :output-per-mtok 10.00))
-    ("gpt-6-luna"        . (:input-per-mtok 0.10 :output-per-mtok 0.50))
-    ("claude-fable-5-1"  . (:input-per-mtok 10.00 :output-per-mtok 50.00))
-    ("claude-opus-5-5"   . (:input-per-mtok 4.00 :output-per-mtok 20.00))
-    ("claude-sonnet-5-5" . (:input-per-mtok 2.00 :output-per-mtok 10.00))
-    ("claude-haiku-5-5"  . (:input-per-mtok 0.10 :output-per-mtok 0.50))
-    ("gpt-5.6-sol"       . (:input-per-mtok 5.00 :output-per-mtok 30.00))
-    ("gpt-5.6-terra"     . (:input-per-mtok 2.50 :output-per-mtok 15.00))
-    ("gpt-5.6-luna"      . (:input-per-mtok 1.00 :output-per-mtok 6.00))
-    ("gpt-5.5-pro"       . (:input-per-mtok 15.00 :output-per-mtok 120.00))
-    ("gpt-5.5"           . (:input-per-mtok 1.25 :output-per-mtok 10.00))
-    ("gpt-5.4-mini"      . (:input-per-mtok 0.25 :output-per-mtok 2.00))
-    ("gpt-5.4-nano"      . (:input-per-mtok 0.05 :output-per-mtok 0.40))
-    ("gpt-5.4"           . (:input-per-mtok 1.25 :output-per-mtok 10.00))
-    ("gpt-5.3-codex"     . (:input-per-mtok 1.25 :output-per-mtok 10.00))
-    ("gpt-4.1"           . (:input-per-mtok 2.00 :output-per-mtok 8.00))
-    ("gpt-4o-mini"       . (:input-per-mtok 0.15 :output-per-mtok 0.60))
-    ("claude-fable-5"    . (:input-per-mtok 10.00 :output-per-mtok 50.00))
-    ("claude-opus-5"     . (:input-per-mtok 5.00 :output-per-mtok 25.00))
-    ("claude-opus-4-8"   . (:input-per-mtok 5.00 :output-per-mtok 25.00))
-    ("claude-sonnet-5"   . (:input-per-mtok 3.00 :output-per-mtok 15.00))
-    ("claude-sonnet-4-6" . (:input-per-mtok 3.00 :output-per-mtok 15.00))
-    ("claude-haiku-4-5"  . (:input-per-mtok 1.00 :output-per-mtok 5.00)))
+  ;; Estimates use uncached Standard text rates, verified 2026-10-08.
+  ;; Per-row official citations and retrieved values live in
+  ;; test/data/model-pricing.json.  Apply documented prompt-length tiers
+  ;; to the whole request; cache reads/writes, service tiers, residency,
+  ;; server tools and full-session billing adjustments remain untracked.
+  '(("gpt-6-astra"       . (:input-per-mtok 10.0 :output-per-mtok 50.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-6.1-sol"       . (:input-per-mtok 2.0 :output-per-mtok 10.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-6-luna"        . (:input-per-mtok 0.1 :output-per-mtok 0.5 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("claude-fable-5-1"  . (:input-per-mtok 10 :output-per-mtok 50))
+    ("claude-opus-5-5"   . (:input-per-mtok 4 :output-per-mtok 20))
+    ("claude-sonnet-5-5" . (:input-per-mtok 2 :output-per-mtok 10))
+    ("claude-haiku-5-5"  . (:input-per-mtok 0.1 :output-per-mtok 0.5 :long-context-threshold 100000 :long-input-multiplier 5 :long-output-multiplier 5))
+    ("gpt-5.6-sol"       . (:input-per-mtok 4.0 :output-per-mtok 20.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-5.6-terra"     . (:input-per-mtok 2.0 :output-per-mtok 12.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-5.6-luna"      . (:input-per-mtok 0.2 :output-per-mtok 1.2 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-5.5-pro"       . (:input-per-mtok 30.0 :output-per-mtok 180.0))
+    ("gpt-5.5"           . (:input-per-mtok 5.0 :output-per-mtok 30.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-5.4-mini"      . (:input-per-mtok 0.75 :output-per-mtok 4.5))
+    ("gpt-5.4-nano"      . (:input-per-mtok 0.2 :output-per-mtok 1.25))
+    ("gpt-5.4"           . (:input-per-mtok 2.5 :output-per-mtok 15.0 :long-context-threshold 272000 :long-input-multiplier 2 :long-output-multiplier 1.5))
+    ("gpt-5.3-codex"     . (:input-per-mtok 1.75 :output-per-mtok 14.0))
+    ("gpt-4.1"           . (:input-per-mtok 2.0 :output-per-mtok 8.0))
+    ("gpt-4o-mini"       . (:input-per-mtok 0.15 :output-per-mtok 0.6))
+    ("claude-fable-5"    . (:input-per-mtok 10 :output-per-mtok 50))
+    ("claude-opus-5"     . (:input-per-mtok 5 :output-per-mtok 25))
+    ("claude-opus-4-8"   . (:input-per-mtok 5 :output-per-mtok 25))
+    ("claude-sonnet-5"   . (:input-per-mtok 2 :output-per-mtok 10))
+    ("claude-sonnet-4-6" . (:input-per-mtok 3 :output-per-mtok 15))
+    ("claude-haiku-4-5"  . (:input-per-mtok 1 :output-per-mtok 5)))
   "Alist mapping model-id prefixes to USD pricing plists.
 Each entry is (PATTERN . (:input-per-mtok IN :output-per-mtok OUT))
 where PATTERN is a model-id prefix and IN/OUT are USD per million
-tokens.  Registry ids grow suffixed variants, so lookup uses a
+tokens.  Optional :long-context-threshold, :long-input-multiplier and
+:long-output-multiplier keys apply the documented tier to the whole request
+when estimated input tokens exceed the threshold.  Registry ids grow
+suffixed variants, so lookup uses a
 longest-prefix rule: the entry with the longest PATTERN prefixing the
 model id wins.  A model with no matching entry records a NULL cost,
 never 0 (0 lies; NULL renders as \"-\")."
@@ -332,12 +314,17 @@ overrides it."
   "Return the estimated USD cost of a completion, or nil when unpriced.
 MODEL selects a `ogent-analytics-model-pricing' entry via the
 longest-prefix rule; PROMPT-TOKENS and RESPONSE-TOKENS are the token
-estimates.  A model without pricing yields nil -- stored as NULL,
+estimates.  Apply optional :long-context-threshold tiers to the whole request.
+A model without pricing yields nil -- stored as NULL,
 never 0, because 0 lies while NULL renders as \"-\"."
   (when-let* ((pricing (ogent-analytics--model-pricing model))
               (input-rate (plist-get pricing :input-per-mtok))
               (output-rate (plist-get pricing :output-per-mtok)))
     (when (and (numberp input-rate) (numberp output-rate))
+      (when (and (numberp (plist-get pricing :long-context-threshold))
+                 (> (or prompt-tokens 0) (plist-get pricing :long-context-threshold)))
+        (setq input-rate (* input-rate (or (plist-get pricing :long-input-multiplier) 1))
+              output-rate (* output-rate (or (plist-get pricing :long-output-multiplier) 1))))
       (/ (+ (* (or prompt-tokens 0) input-rate)
             (* (or response-tokens 0) output-rate))
          1000000.0))))
