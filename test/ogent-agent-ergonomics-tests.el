@@ -34,5 +34,25 @@
          (ogent-tools-show-progress nil))
     (should (equal (ogent-tool--grep "absent" file) "No matches found"))))
 
+(ert-deftest ogent-agent-ergonomics-grep-arguments-leading-dash ()
+  "A pattern beginning with a dash is data, not a search option."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file
+                root "data.txt" "ordinary needle\n-needle\n"))
+         (ogent-tools-show-progress nil)
+         (result (ogent-tool--grep "-needle" file)))
+    (should (string-match-p "2:-needle" result))
+    (should-not (string-match-p "ordinary needle" result))))
+
+(ert-deftest ogent-agent-ergonomics-grep-arguments-quoted-filter ()
+  "Quotes and shell syntax in a glob filter remain literal data."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (marker (expand-file-name "injection-marker" root))
+         (ogent-tools-show-progress nil))
+    (ogent-agent-ergonomics-tests--file root "data.el" "needle\n")
+    (ogent-tool--grep "needle" root
+                      "*.el'; printf injected > injection-marker; #")
+    (should-not (file-exists-p marker))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

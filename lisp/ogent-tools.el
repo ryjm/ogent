@@ -305,7 +305,7 @@ Returns files sorted by modification time (newest first)."
   "Return validated grep PATTERN."
   (unless (and (stringp pattern)
                (not (string-empty-p (string-trim pattern))))
-    (error "grep requires a non-empty pattern"))
+    (user-error "grep pattern must be a non-empty string; use pattern needle"))
   pattern)
 
 (defun ogent-tools--grep-target (path)
@@ -329,23 +329,27 @@ The plist contains :directory for process `default-directory' and
 (defun ogent-tools--grep-command (pattern target glob-filter context)
   "Build a search command for PATTERN in TARGET.
 Use GLOB-FILTER and CONTEXT to shape the command."
+  (unless (and (integerp context) (>= context 0))
+    (user-error "grep context_lines must be a non-negative integer; use context_lines 0"))
+  (unless (or (null glob-filter) (stringp glob-filter))
+    (user-error "grep glob_filter must be a string; use glob_filter *.el"))
   (let ((use-rg (executable-find "rg"))
         (max-count (and (integerp ogent-tools-grep-max-count)
                         (> ogent-tools-grep-max-count 0)
                         ogent-tools-grep-max-count)))
-    (if use-rg
-        (format "rg --no-heading --line-number --color=never %s %s %s %s %s"
-                (if (> context 0) (format "-C %d" context) "")
-                (if max-count (format "--max-count %d" max-count) "")
-                (if glob-filter (format "-g '%s'" glob-filter) "")
-                (shell-quote-argument pattern)
-                (shell-quote-argument target))
-      (format "grep -rn %s %s %s %s %s"
-              (if (> context 0) (format "-C %d" context) "")
-              (if max-count (format "-m %d" max-count) "")
-              (if glob-filter (format "--include='%s'" glob-filter) "")
-              (shell-quote-argument pattern)
-              (shell-quote-argument target)))))
+    (mapconcat
+     #'shell-quote-argument
+     (append
+      (if use-rg
+          '("rg" "--no-heading" "--line-number" "--color=never")
+        '("grep" "-rn"))
+      (when (> context 0) (list "-C" (number-to-string context)))
+      (when max-count (list "-m" (number-to-string max-count)))
+      (when glob-filter
+        (if use-rg (list "-g" glob-filter)
+          (list (concat "--include=" glob-filter))))
+      (list "--" pattern target))
+     " ")))
 
 (defun ogent-tools--grep-failure (status diagnostic)
   "Return corrective search failure text for STATUS and DIAGNOSTIC."
