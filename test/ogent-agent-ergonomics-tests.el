@@ -54,5 +54,25 @@
                       "*.el'; printf injected > injection-marker; #")
     (should-not (file-exists-p marker))))
 
+(ert-deftest ogent-agent-ergonomics-glob-recursive-and-stable ()
+  "Recursive glob includes zero and multiple directory depths with stable ties."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (files (list
+                 (ogent-agent-ergonomics-tests--file root "root.el" "")
+                 (ogent-agent-ergonomics-tests--file root "one/near.el" "")
+                 (ogent-agent-ergonomics-tests--file root "one/two/deep.el" ""))))
+    (ogent-agent-ergonomics-tests--file root "one/two/other.txt" "")
+    (dolist (file files) (set-file-times file (encode-time 0 0 0 1 1 2020)))
+    (should (equal (split-string (ogent-tool--glob "**/*.el" root) "\n" t)
+                   (sort files #'string<)))))
+
+(ert-deftest ogent-agent-ergonomics-glob-recursive-invalid-root ()
+  "An invalid glob root gives a corrective path hint."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (err (should-error
+               (ogent-tool--glob "**/*.el" (expand-file-name "missing" root))
+               :type 'user-error)))
+    (should (string-match-p "path" (error-message-string err)))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

@@ -276,6 +276,22 @@ LIMIT is the max lines to read (default `ogent-tools-max-file-lines')."
 
 ;;; Tool: Glob (File Search)
 
+(defun ogent-tools--glob-regexp (pattern)
+  "Return a path regexp for glob PATTERN, including recursive ** segments."
+  (let* ((parts (split-string pattern "/"))
+         (last (1- (length parts))))
+    (concat
+     "\\`"
+     (mapconcat
+      (lambda (index)
+        (let ((part (nth index parts)))
+          (if (equal part "**")
+              (if (= index last) ".*" "\\(?:[^/]+/\\)*")
+            (concat (substring (wildcard-to-regexp part) 2 -2)
+                    (unless (= index last) "/")))))
+      (number-sequence 0 last) "")
+     "\\'")))
+
 (defun ogent-tool--glob (pattern &optional path)
   "Find files matching glob PATTERN.
 PATH is the directory to search (default project root).
@@ -283,15 +299,35 @@ Returns files sorted by modification time (newest first)."
   (let* ((dir (if path
                   (ogent-tools--resolve-path path)
                 (ogent-tools--project-root)))
-         (default-directory dir)
-         (files (file-expand-wildcards pattern t)))
+         (default-directory (file-name-as-directory dir))
+         files)
+    (unless (and (stringp pattern) (not (string-empty-p pattern)))
+      (user-error "glob pattern must be a non-empty string; use pattern **/*.el"))
+    (unless (file-directory-p dir)
+      (user-error "glob path is not a directory: %s; set path to an existing directory" dir))
+    (setq files
+          (if (member "**" (split-string pattern "/"))
+              (let* ((absolute (expand-file-name pattern dir))
+                     (first-star (string-match "[*?\\[]" absolute))
+                     (base (file-name-directory (substring absolute 0 first-star)))
+                     (regexp (ogent-tools--glob-regexp
+                              (file-relative-name absolute base))))
+                (unless (file-directory-p base)
+                  (user-error "glob path is not a directory: %s; use an existing path" base))
+                (seq-filter
+                 (lambda (file) (string-match-p regexp (file-relative-name file base)))
+                 (directory-files-recursively base ".")))
+            (file-expand-wildcards pattern t)))
+    (setq files (seq-filter #'file-regular-p files))
     ;; Sort by mtime, newest first
     (setq files
           (sort files
                 (lambda (a b)
-                  (time-less-p
-                   (file-attribute-modification-time (file-attributes b))
-                   (file-attribute-modification-time (file-attributes a))))))
+                  (let ((a-time (file-attribute-modification-time (file-attributes a)))
+                        (b-time (file-attribute-modification-time (file-attributes b))))
+                    (if (time-equal-p a-time b-time)
+                        (string< a b)
+                      (time-less-p b-time a-time))))))
     ;; Limit results
     (when (> (length files) 100)
       (setq files (seq-take files 100)))
