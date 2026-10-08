@@ -1,0 +1,3 @@
+FIXTURE /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/glob-aGgYU9
+EXPECTED root.el one/middle.el one/two/deep.el
+"/work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/glob-aGgYU9/one/middle.el"

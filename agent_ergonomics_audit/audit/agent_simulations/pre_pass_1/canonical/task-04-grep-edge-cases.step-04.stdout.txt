@@ -1,0 +1,4 @@
+"grep: Invalid regular expression
+
+
+[1 matches in 0.0s]"

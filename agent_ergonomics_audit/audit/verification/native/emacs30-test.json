@@ -1,0 +1,20 @@
+{
+  "check": "emacs30-test",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "make",
+    "test",
+    "sandbox=/tmp/ogent-fixdeps"
+  ],
+  "exit_code": 0,
+  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+  "started_at": "2026-10-08T19:06:33.645711+00:00",
+  "completed_at": "2026-10-08T19:08:53.903602+00:00",
+  "summary": [],
+  "stdout": "audit/verification/native/emacs30-test.stdout.log",
+  "stderr": "audit/verification/native/emacs30-test.stderr.log"
+}

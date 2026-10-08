@@ -1,0 +1,5 @@
+FIXTURE /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/edit-WOXMe7
+Replaced 1 occurrence(s) in /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/edit-WOXMe7/single.txt
+     1	first: changed
+     2	second: same
+     3	

@@ -1,0 +1,16 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+Run the doctor probes, print the report, and return an exit code.
+Print the full report with `princ' and return a shell-style code for
+CI and scripting: 0 when every probe is ok or info, 1 when the worst
+result is a warning, 2 when any probe fails.  Wire it to the batch
+exit status by wrapping the call in `kill-emacs'.
+With INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch
+the network.  FORMAT defaults to `org'; use `json' for a versioned
+data-only report, for example (ogent-doctor-batch nil ='json).

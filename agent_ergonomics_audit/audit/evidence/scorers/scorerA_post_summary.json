@@ -1,0 +1,8 @@
+{
+  "scorer_id": "A",
+  "target_sha": "2ee1692212afcc0e0a7a245bdf023dfa2d750172",
+  "surfaces": 19,
+  "baseline_mean": 497.84688995215305,
+  "post_mean": 668.1818181818182,
+  "delta": 170.3349282296652
+}

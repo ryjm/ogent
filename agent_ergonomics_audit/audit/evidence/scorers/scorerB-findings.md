@@ -1,0 +1,20 @@
+# Independent baseline B findings
+
+Baseline: 72016bb66928a20a49238266645abde583fa595d. SDK dimensions use the skill SDK extension. No scorer A output read. All19 partials populated with all11 dimensions and supporting evidence.
+
+Runtime transcripts: scorerB-runtime.stdout / .stderr; reproducible probe: scorerB-probe.el. Make transcripts: scorerB-make-runtime.jsonl. All fixture work is under audit/partial/scorerB-*; no production files changed.
+
+Confirmed defects and recommendations:
+
+1. **Grep shell injection (sync and async shared builder).** glob_filter `*.el'; printf INJECTED > injection-marker; #` created fixture sentinel. Replace shell string construction with process argv, or shell-quote every argument including globs. Avoid treating read-only wrappers as safe when they execute raw shell interpolations.
+2. **Sync grep false success.** Pattern `[` returns `grep: Invalid regular expression` followed by `[1 matches in0.0s]`. Capture stderr separately, branch on exit status (0=match,1=none,other=failure), normalize typed result/error contract. Async correctly reports an error in this case.
+3. **Recursive glob false negative.** Documented `**/*.el` misses existing `nested/deeper/deep.el`. Implement documented recursive semantics or explicitly reject unsupported patterns with corrected call; report result cap/truncation deterministically.
+4. **Unsafe edit ambiguity/hang.** File containing repeat twice accepts single edit and changes first, contrary to uniqueness docs. Empty old string + replace_all hangs; bounded3second probe exit124; remote Emacs process explicitly terminated. Reject empty match, enforce unique single edits, validate booleans, preserve content on invalid inputs.
+5. **Write mutates before reporting invalid argument.** Integer content10 is inserted as newline by Emacs then length raises wrong-type-argument. Fixture previously containing second now contains b'\n'. Validate string content before any directory/file mutation; atomic write + actionable conditions.
+6. **Recompile suppresses failure.** Minimal copied Makefile with EMACS=/bin/false returns0 and prints Recompiled all .el files. Remove `||true`, preserve stderr, use runtime dependencies like standard compile. Source Makefile uses EMACS directly only in recompile; compile makem delegation does not pass EMACS override.
+7. **Registry silent failures.** `ogent-tool-get "read-file"`, read-fiel symbol and enabled typo silently nil. Preserve explicit lookup compatibility but add normalization/capabilities or validation at execution/configuration boundary with exact suggestions; avoid interpreting malformed selection as disabled-tools success.
+8. **Execution boundary loses status shape.** Missing required arg yields generic Tool error: Wrong type argument: stringp,nil. Extra argument validation and structured error payload would make policy denial, missing tool, execution failure, and successful text distinguishable.
+9. **Shell sync result contamination.** Captured stderr contains unsolicited Process ogent-bash stderr finished; human output mixes stdout/stderr,exit,duration. Suppress default stderr sentinel and expose optional structured machine result while keeping existing human strings.
+10. **Introspection/docs missing.** Provide stable versioned capabilities with tool names, parameter schemas, effects, confirmation policy, output/error/limit semantics and runtime prerequisites. SDK self-doc currently only arglists/docstrings plus tool spec plist; no canonical automation handbook/examples.
+
+Boundaries: Make compile/offline-test were source+dry-run assessed; minimal fixture failures do not prove runtime target failures except recompile forced success which is definitive. Existing3084ERT and required4offline CI matrices were considered for regression scores, without rerunning completed prior checks. Tests currently lack contract coverage for several newly observed malformed-argument cases. Grep safety receives0 despite mutates=false inventory because injection demonstrably violates the read-only claim; other read-only and regenerable artifact safety fields are n/a1000 with reasons.

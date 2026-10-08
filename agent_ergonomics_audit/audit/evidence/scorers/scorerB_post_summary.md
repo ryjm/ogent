@@ -1,0 +1,11 @@
+# Post-change independent B assessment
+
+All19 original surfaces rescored independently for pass2 with the same11 dimensions/rubric and paired applicability. No A outputs read. Runtime/source HEAD: 2ee1692212afcc0e0a7a245bdf023dfa2d750172.
+
+Probes: scorerB_post_probe.el, scorerB_post_runtime.stdout/stderr, scorerB_post_make_runtime.jsonl. Native source explicitly loaded; bounded processes, fixture paths only, no provider credentials/login/inference. Build wrapper fixture used a fake compiler to prove nonzero/error propagation without touching production bytecode. Actual offline missing-prerequisite invocation proved empty stdout and corrective stderr before fixture startup; successful4-matrix offline/native checks are separate project verification evidence.
+
+Confirmed improvements: exact read pagination/bounds guidance; recursive glob and stable ties; quoted grep filters and leading-dash patterns; bad regex errors rather than successful search text; pre-write content validation; ambiguous/empty edits rejected, including default diff-block review; registry string/underscore aliases and typo refusal at selection boundary; wrapper arity/type preflight and review consistency; versioned data-only doctor JSON; stable capabilities, in-package handbook and triage; build failures propagated, EMACS forwarded, clean test-bytecode coverage; early offline prerequisite diagnostics.
+
+Limits retained in scores: file/search/write/edit results are human strings; unknown low-level registry getter/spec still nil for compatibility; glob100-result cap is unannounced; raw private shell functions deliberately ungated trusted primitives, with policy only registered wrapper; arbitrary shell stream chunks/timing not reproducible, timeout callback prose lacks typed outcome/retry; build/test wrappers produce native exit status and human logs rather than JSON. Adjacent discovery does not justify blanket parseability lifts on original text-returning helpers. Direct positional tool intent applicability remains paired with baseline; no broad n/a or alias reassignment.
+
+Please exclude/delete scorerB_post_fixture and scorerB_post_makefixture working directories before committing audit artifacts; transcripts retain evidence.

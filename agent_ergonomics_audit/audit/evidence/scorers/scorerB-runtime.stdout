@@ -1,0 +1,97 @@
+{"label":"doc:ogent-tool--read-file","value":"(:args (file-path &optional offset limit) :doc \"Read contents of FILE-PATH.\nOFFSET is the starting line number (1-indexed, default 1).\nLIMIT is the max lines to read (default `ogent-tools-max-file-lines').\")"}
+{"label":"doc:ogent-tool--glob","value":"(:args (pattern &optional path) :doc \"Find files matching glob PATTERN.\nPATH is the directory to search (default project root).\nReturns files sorted by modification time (newest first).\")"}
+{"label":"doc:ogent-tool--grep","value":"(:args (pattern &optional path glob-filter context-lines) :doc \"Search for PATTERN in files with streaming progress.\nPATH is file or directory to search (default project root).\nGLOB-FILTER limits to matching files (e.g., \\\"*.el\\\").\nCONTEXT-LINES shows N lines before/after matches.\nOutput is streamed incrementally via `ogent-tools-stream-callback'.\")"}
+{"label":"doc:ogent-tool--grep-async","value":"(:args (pattern &optional path glob-filter context-lines callback) :doc \"Search for PATTERN asynchronously with streaming.\nPATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'.\nCALLBACK is called with (TYPE DATA) where TYPE is:\n  - `match': DATA is a matched line string\n  - `done': DATA is the total match count\n  - `error': DATA is an error message\nIf CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.\")"}
+{"label":"doc:ogent-tool--bash","value":"(:args (command &optional working-directory timeout) :doc \"Execute shell COMMAND with streaming progress.\nWORKING-DIRECTORY defaults to project root.\nTIMEOUT in seconds (default `ogent-tools-shell-timeout').\nOutput is streamed incrementally via `ogent-tools-stream-callback'.\")"}
+{"label":"doc:ogent-tool--bash-async","value":"(:args (command &optional working-directory timeout callback) :doc \"Execute shell COMMAND asynchronously with streaming output.\nWORKING-DIRECTORY defaults to project root.\nTIMEOUT in seconds (default `ogent-tools-shell-timeout').\nCALLBACK is called with (TYPE DATA) where TYPE is:\n  - `stdout': DATA is a string of stdout chunk\n  - `stderr': DATA is a string of stderr chunk\n  - `done': DATA is the exit code (integer)\n  - `error': DATA is an error message\nIf CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.\")"}
+{"label":"doc:ogent-tool--write-file","value":"(:args (file-path content) :doc \"Write CONTENT to FILE-PATH, overwriting if exists.\")"}
+{"label":"doc:ogent-tool--edit-file","value":"(:args (file-path old-string new-string &optional replace-all) :doc \"Replace OLD-STRING with NEW-STRING in FILE-PATH.\nIf REPLACE-ALL is non-nil, replace all occurrences.\")"}
+{"label":"doc:ogent-tool-get","value":"(:args (name) :doc \"Return the gptel tool object for NAME (symbol), or nil.\")"}
+{"label":"doc:ogent-tool-spec-get","value":"(:args (name) :doc \"Return the tool spec plist for NAME (symbol) from the registry.\")"}
+{"label":"doc:ogent-tools-enabled-list","value":"(:args nil :doc \"Return list of enabled tool objects based on `ogent-tools-enabled'.\nReturns nil if tools are disabled, all tools if t, or filtered list\nif `ogent-tools-enabled' is a list of tool name symbols.\")"}
+{"label":"doc:ogent-tool-execution-wrapper","value":"(:args (spec) :doc \"Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement.\")"}
+{"label":"doc:ogent-doctor-run","value":"(:args (&optional include-opt-in) :doc \"Run every registered doctor probe and return result plists.\nEntries flagged :opt-in in `ogent-doctor-checks' are skipped unless\nINCLUDE-OPT-IN is non-nil.\")"}
+{"label":"doc:ogent-doctor-batch","value":"(:args (&optional include-opt-in) :doc \"Run the doctor probes, print the report, and return an exit code.\nPrint the full report with `princ' and return a shell-style code for\nCI and scripting: 0 when every probe is ok or info, 1 when the worst\nresult is a warning, 2 when any probe fails.  Wire it to the batch\nexit status by wrapping the call in `kill-emacs'.\nWith INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch\nthe network.\")"}
+{"label":"read:normal-repeat","value":"(\"     1\tone\n     2\trepeat\n     3\trepeat\n     4\t\" \"     1\tone\n     2\trepeat\n     3\trepeat\n     4\t\")"}
+{"label":"read:missing","value":"(:error error :message \"File not found: /work/agent_ergonomics_audit/audit/partial/scorerB-fixture/absent.el\")"}
+{"label":"read:negative-offset","value":"\"     1\tone\n     2\trepeat\""}
+{"label":"read:negative-limit","value":"\"\""}
+{"label":"glob:normal-repeat","value":"(\"/work/agent_ergonomics_audit/audit/partial/scorerB-fixture/alpha.el\" \"/work/agent_ergonomics_audit/audit/partial/scorerB-fixture/alpha.el\")"}
+{"label":"glob:recursive","value":"\"No files found matching pattern\""}
+{"label":"grep:normal-repeat","value":"(\"2:repeat\n3:repeat\n\n\n[2 matches in 0.0s]\" \"2:repeat\n3:repeat\n\n\n[2 matches in 0.0s]\")"}
+{"label":"grep:no-matches","value":"\"No matches found (searched in 0.0s)\""}
+{"label":"grep:bad-regex","value":"\"grep: Invalid regular expression\n\n\n[1 matches in 0.0s]\""}
+{"label":"grep:empty-pattern","value":"(:error error :message \"grep requires a non-empty pattern\")"}
+{"label":"grep:negative-context","value":"\"2:repeat\n3:repeat\n\n\n[2 matches in 0.0s]\""}
+{"label":"grep:glob-quote","value":"\"/bin/sh: 1: Syntax error: Unterminated quoted string\n\n\n[1 matches in 0.0s]\""}
+{"label":"grep:glob-injection","value":"(\"Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\n\n\n[2 matches in 0.0s]\" t)"}
+{"label":"grep-async:normal","value":"((match \"2:repeat\") (match \"3:repeat\") (done 2))"}
+{"label":"grep-async:bad-regex","value":"((error \"grep: Invalid regular expression\"))"}
+{"label":"bash:normal-repeat","value":"(\"hello\n\n--- stderr ---\n\nProcess ogent-bash stderr finished\nwarning\n\nExit code: 3 (0.0s)\" \"hello\n\n--- stderr ---\n\nProcess ogent-bash stderr finished\nwarning\n\nExit code: 3 (0.0s)\")"}
+{"label":"bash:timeout","value":"(:error error :message \"Command timed out after 0.1s\")"}
+{"label":"bash:wrong-timeout","value":"(:error wrong-type-argument :message \"Wrong type argument: number-or-marker-p, \\\"2\\\"\")"}
+{"label":"bash-async:normal","value":"((stdout \"hello\") (stderr \"warning\") (done 3))"}
+{"label":"bash-async:timeout","value":"((error \"Timeout after 0.1s\"))"}
+{"label":"write:normal-repeat","value":"(\"Wrote 5 characters to /work/agent_ergonomics_audit/audit/partial/scorerB-fixture/write.el\" \"Wrote 6 characters to /work/agent_ergonomics_audit/audit/partial/scorerB-fixture/write.el\" \"     1\tsecond\")"}
+{"label":"write:invalid-content","value":"(:error wrong-type-argument :message \"Wrong type argument: sequencep, 10\")"}
+{"label":"edit:duplicate","value":"(\"Replaced 1 occurrence(s) in /work/agent_ergonomics_audit/audit/partial/scorerB-fixture/alpha.el\" \"     1\tone\n     2\tchanged\n     3\trepeat\n     4\t\")"}
+{"label":"edit:missing","value":"(:error error :message \"Old_string not found in file: /work/agent_ergonomics_audit/audit/partial/scorerB-fixture/alpha.el\")"}
+{"label":"registry:get","value":"(:name \"read-file\" :args ((:name \"file_path\" :type \"string\" :description \"Absolute path to the file to read\") (:name \"offset\" :type \"integer\" :optional t :description \"Line number to start from (1-indexed)\") (:name \"limit\" :type \"integer\" :optional t :description \"Maximum lines to read\")) :async nil)"}
+{"label":"registry:unknown","value":"nil"}
+{"label":"registry:string-name","value":"nil"}
+{"label":"registry:spec","value":"(:name read-file :function ogent-tool--read-file :description \"Read the contents of a file. Returns lines with line numbers.\" :args ((:name \"file_path\" :type \"string\" :description \"Absolute path to the file to read\") (:name \"offset\" :type \"integer\" :optional t :description \"Line number to start from (1-indexed)\") (:name \"limit\" :type \"integer\" :optional t :description \"Maximum lines to read\")) :category \"filesystem\" :effects ((:kind read :target file :scope workspace :risk low)))"}
+{"label":"registry:enabled-repeat","value":"((\"read-file\" \"glob\" \"grep\" \"bash\" \"write-file\" \"edit-file\") (\"read-file\" \"glob\" \"grep\" \"bash\" \"write-file\" \"edit-file\"))"}
+{"label":"registry:typo-enabled","value":"nil"}
+{"label":"wrapper:normal","value":"\"     1\tone\n     2\tchanged\n     3\trepeat\n     4\t\""}
+{"label":"wrapper:unknown","value":"\"Tool unavailable: its registry entry changed or was removed\""}
+{"label":"wrapper:denied","value":"\"Tool execution denied by user\""}
+{"label":"wrapper:wrong-arity","value":"\"Tool error: Wrong type argument: stringp, nil\""}
+{"label":"doctor:normal","value":"((:id emacs-version :label \"Emacs version\" :category environment :status ok :detail \"Emacs 30.2 (required >= 29.1)\" :remediation \"Upgrade Emacs to at least the version in `ogent-doctor-required-emacs-version'\") (:id org-version :label \"Org version\" :category environment :status ok :detail \"Org 9.8.10 (required >= 9.8.7)\" :remediation \"Upgrade Org to at least the version in `ogent-doctor-required-org-version'\") (:id transient :label \"Transient menus\" :category environment :status ok :detail \"Transient 0.13.8 (required >= 0.13.5)\" :remediation \"Upgrade Transient to at least the version in `ogent-doctor-required-transient-version'\") (:id gptel :label \"gptel transport\" :category transport :status ok :detail \"gptel loaded and `gptel-request' is available\" :remediation \"Install gptel (M-x package-install RET gptel RET)\") (:id gptel-tools :label \"gptel tools flag\" :category transport :status ok :detail \"`gptel-use-tools' is enabled\" :remediation \"Set `gptel-use-tools' non-nil so ogent tools can run\") (:id model-registry :label \"Model registry\" :category models :status ok :detail \"24 model entries registered\" :remediation \"Give every `ogent-model-registry' entry an :id and a :backend\") (:id default-model :label \"Default model\" :category models :status ok :detail \"Default model: gpt-6.1-sol\" :remediation \"Set `ogent-default-model' to a registered model id\") (:id backend :label \"gptel backend\" :category models :status warn :detail \"Backend gptel-openai is unresolved\" :remediation \"Define the gptel backend the default model's :backend refers to\") (:id codex-auth :label \"Codex OAuth cache\" :category auth :status info :detail \"No Codex auth file at /root/.codex/auth.json\" :remediation \"Run `codex login' to refresh the Codex auth cache\") (:id default-model-key :label \"Default model key\" :category auth :status warn :detail \"Backend for gpt-6.1-sol has not resolved; key check deferred\" :remediation \"Configure an API key or bearer on the default model's gptel backend\") (:id anthropic-auth :label \"Claude OAuth cache\" :category auth :status info :detail \"No Claude OAuth token file found\" :remediation \"Run M-x ogent-anthropic-login to refresh the OAuth tokens\") (:id br :label \"br issue tracker\" :category cli :status warn :detail \"br executable not found in PATH\" :remediation \"Install br (beads_rust) and put it on PATH for issue integration\") (:id adapter-clis :label \"Adapter CLIs\" :category cli :status info :detail \"Codex CLI: codex not in PATH\nClaude Code: claude not in PATH\nGemini CLI: gemini not in PATH\nCursor Agent: cursor-agent not in PATH\nOpenCode: opencode not in PATH\nPi CLI: unsupported - pi CLI invocation flags are unverified (no local pi --help to ground them)\nGrok CLI: unsupported - grok CLI invocation flags are unverified (no local grok --help to ground them)\nGitHub Copilot: copilot not in PATH\ngptel (in-process): in-process, no CLI needed\" :remediation \"Install the adapter CLIs you plan to run through the Armory\") (:id curl :label \"curl transport\" :category transport :status ok :detail \"curl found at /usr/bin/curl\" :remediation \"Install curl to enable streaming MCP HTTP transport\") (:id org-ql :label \"org-ql package\" :category optional :status info :detail \"org-ql is not installed; installing it unlocks saved-query search over Armory conversations (ogent-armory-ql)\" :remediation nil) (:id vterm :label \"vterm package\" :category optional :status info :detail \"vterm is not installed; installing it unlocks full terminal emulation for interactive CLI agent sessions (the Armory terminal runtime otherwise uses term.el)\" :remediation nil) (:id markdown-mode :label \"markdown-mode package\" :category optional :status ok :detail \"markdown-mode is available\" :remediation nil) (:id analytics-db :label \"Analytics DB\" :category stores :status info :detail \"No analytics DB for this project (/work/.ogent-analytics.db)\" :remediation \"Move the corrupt analytics DB aside; ogent recreates it on next use\") (:id stale-elc :label \"Stale .elc files\" :category environment :status ok :detail \"No ogent .elc compiled by an Emacs newer than 30\" :remediation \"Recompile ogent with the running Emacs, or move the newer-Emacs .elc aside\"))"}
+{"label":"doctor:normal-repeat-equal","value":"t"}
+* Ogent Doctor
+Status: WARN
+
+** Environment
+ ✓ Emacs version          Emacs 30.2 (required >= 29.1)
+ ✓ Org version            Org 9.8.10 (required >= 9.8.7)
+ ✓ Transient menus        Transient 0.13.8 (required >= 0.13.5)
+ ✓ Stale .elc files       No ogent .elc compiled by an Emacs newer than 30
+
+** Transport
+ ✓ gptel transport        gptel loaded and `gptel-request' is available
+ ✓ gptel tools flag       `gptel-use-tools' is enabled
+ ✓ curl transport         curl found at /usr/bin/curl
+
+** Models
+ ✓ Model registry         24 model entries registered
+ ✓ Default model          Default model: gpt-6.1-sol
+ ! gptel backend          Backend gptel-openai is unresolved
+                          fix: Define the gptel backend the default model's :backend refers to
+
+** Auth
+ · Codex OAuth cache      No Codex auth file at /root/.codex/auth.json
+ ! Default model key      Backend for gpt-6.1-sol has not resolved; key check deferred
+                          fix: Configure an API key or bearer on the default model's gptel backend
+ · Claude OAuth cache     No Claude OAuth token file found
+
+** CLI tools
+ ! br issue tracker       br executable not found in PATH
+                          fix: Install br (beads_rust) and put it on PATH for issue integration
+ · Adapter CLIs           Codex CLI: codex not in PATH
+                          Claude Code: claude not in PATH
+                          Gemini CLI: gemini not in PATH
+                          Cursor Agent: cursor-agent not in PATH
+                          OpenCode: opencode not in PATH
+                          Pi CLI: unsupported - pi CLI invocation flags are unverified (no local pi --help to ground them)
+                          Grok CLI: unsupported - grok CLI invocation flags are unverified (no local grok --help to ground them)
+                          GitHub Copilot: copilot not in PATH
+                          gptel (in-process): in-process, no CLI needed
+
+** Optional packages
+ · org-ql package         org-ql is not installed; installing it unlocks saved-query search over Armory conversations (ogent-armory-ql)
+ · vterm package          vterm is not installed; installing it unlocks full terminal emulation for interactive CLI agent sessions (the Armory terminal runtime otherwise uses term.el)
+ ✓ markdown-mode package  markdown-mode is available
+
+** Stores
+ · Analytics DB           No analytics DB for this project (/work/.ogent-analytics.db)
+{"label":"doctor:batch","value":"1"}

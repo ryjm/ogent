@@ -1,0 +1,24 @@
+{
+  "check": "emacs29-offline-current",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+    "ogent-fixes-29",
+    "make",
+    "offline-test"
+  ],
+  "exit_code": 0,
+  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+  "started_at": "2026-10-08T19:04:37.019839+00:00",
+  "completed_at": "2026-10-08T19:04:46.452756+00:00",
+  "summary": [
+    "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
+    "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:04:46+0000, 5.384221 sec)"
+  ],
+  "stdout": "audit/verification/native/emacs29-offline-current.stdout.log",
+  "stderr": "audit/verification/native/emacs29-offline-current.stderr.log"
+}

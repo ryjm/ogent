@@ -1,0 +1,8 @@
+(:name edit-file :args (("file_path" "string" nil) ("old_string" "string" nil) ("new_string" "string" nil) ("replace_all" "boolean" t)) :approval-required t)
+(:name write-file :args (("file_path" "string" nil) ("content" "string" nil)) :approval-required t)
+(:name bash :args (("command" "string" nil) ("working_directory" "string" t) ("timeout" "integer" t)) :approval-required t)
+(:name grep :args (("pattern" "string" nil) ("path" "string" t) ("glob_filter" "string" t) ("context_lines" "integer" t)) :approval-required nil)
+(:name glob :args (("pattern" "string" nil) ("path" "string" t)) :approval-required nil)
+(:name read-file :args (("file_path" "string" nil) ("offset" "integer" t) ("limit" "integer" t)) :approval-required nil)
+UNKNOWN reed-file: nil
+CORRECTION VIA REGISTRY read-file: read-file

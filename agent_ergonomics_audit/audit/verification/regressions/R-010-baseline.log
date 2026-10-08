@@ -1,0 +1,252 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing url.el.gz...
+uncompressing url.el.gz...done
+uncompressing mailcap.el.gz...
+uncompressing mailcap.el.gz...done
+uncompressing mm-decode.el.gz...
+uncompressing mm-decode.el.gz...done
+uncompressing mail-parse.el.gz...
+uncompressing mail-parse.el.gz...done
+uncompressing mail-prsvr.el.gz...
+uncompressing mail-prsvr.el.gz...done
+uncompressing ietf-drums.el.gz...
+uncompressing ietf-drums.el.gz...done
+uncompressing rfc2231.el.gz...
+uncompressing rfc2231.el.gz...done
+uncompressing rfc2047.el.gz...
+uncompressing rfc2047.el.gz...done
+uncompressing mm-util.el.gz...
+uncompressing mm-util.el.gz...done
+uncompressing rfc2045.el.gz...
+uncompressing rfc2045.el.gz...done
+uncompressing mm-bodies.el.gz...
+uncompressing mm-bodies.el.gz...done
+uncompressing mm-encode.el.gz...
+uncompressing mm-encode.el.gz...done
+uncompressing mm-view.el.gz...
+uncompressing mm-view.el.gz...done
+uncompressing smime.el.gz...
+uncompressing smime.el.gz...done
+uncompressing dig.el.gz...
+uncompressing dig.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing gnutls.el.gz...
+uncompressing gnutls.el.gz...done
+uncompressing puny.el.gz...
+uncompressing puny.el.gz...done
+uncompressing password-cache.el.gz...
+uncompressing password-cache.el.gz...done
+uncompressing mml-smime.el.gz...
+uncompressing mml-smime.el.gz...done
+uncompressing mml-sec.el.gz...
+uncompressing mml-sec.el.gz...done
+uncompressing gnus-util.el.gz...
+uncompressing gnus-util.el.gz...done
+uncompressing text-property-search.el.gz...
+uncompressing text-property-search.el.gz...done
+uncompressing epg.el.gz...
+uncompressing epg.el.gz...done
+uncompressing epg-config.el.gz...
+uncompressing epg-config.el.gz...done
+uncompressing rfc6068.el.gz...
+uncompressing rfc6068.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+uncompressing epa.el.gz...
+uncompressing epa.el.gz...done
+uncompressing url-vars.el.gz...
+uncompressing url-vars.el.gz...done
+uncompressing url-cookie.el.gz...
+uncompressing url-cookie.el.gz...done
+uncompressing url-util.el.gz...
+uncompressing url-util.el.gz...done
+uncompressing url-parse.el.gz...
+uncompressing url-parse.el.gz...done
+uncompressing auth-source.el.gz...
+uncompressing auth-source.el.gz...done
+uncompressing eieio.el.gz...
+uncompressing eieio.el.gz...done
+uncompressing eieio-core.el.gz...
+uncompressing eieio-core.el.gz...done
+uncompressing url-domsuf.el.gz...
+uncompressing url-domsuf.el.gz...done
+uncompressing generate-lisp-file.el.gz...
+uncompressing generate-lisp-file.el.gz...done
+uncompressing url-history.el.gz...
+uncompressing url-history.el.gz...done
+uncompressing url-expand.el.gz...
+uncompressing url-expand.el.gz...done
+uncompressing url-methods.el.gz...
+uncompressing url-methods.el.gz...done
+uncompressing url-privacy.el.gz...
+uncompressing url-privacy.el.gz...done
+uncompressing url-proxy.el.gz...
+uncompressing url-proxy.el.gz...done
+Running 3 tests (2026-10-08 19:10:05+0000, selector `"^ogent-agent-ergonomics-bash-contract"')
+Test ogent-agent-ergonomics-bash-contract-async-chunk-boundaries backtrace:
+uncompressing help-fns.el.gz...
+uncompressing help-fns.el.gz...done
+uncompressing radix-tree.el.gz...
+uncompressing radix-tree.el.gz...done
+uncompressing cl-print.el.gz...
+uncompressing cl-print.el.gz...done
+  signal(ert-test-failed (((should (string-prefix-p "1234567890" (mapc
+  ert-fail(((should (string-prefix-p "1234567890" (mapconcat #'cadr (s
+  (if (unwind-protect (setq value-604 (apply fn-602 args-603)) (setq f
+  (let (form-description-606) (if (unwind-protect (setq value-604 (app
+  (let ((value-604 'ert-form-evaluation-aborted-605)) (let (form-descr
+  (let* ((fn-602 #'string-prefix-p) (args-603 (condition-case err (lis
+  (progn (setq proc (ogent-tool--bash-async command nil 3 #'(lambda (t
+  (unwind-protect (progn (setq proc (ogent-tool--bash-async command ni
+  (let ((ogent-tools-max-output-chars 10) (ogent-tools-show-progress n
+  (let ((command (car tail))) (let ((ogent-tools-max-output-chars 10) 
+  (while tail (let ((command (car tail))) (let ((ogent-tools-max-outpu
+  (let ((tail '("printf 1234567890" "printf 12345678901234567890"))) (
+  #f(lambda () [t] (let ((tail '...)) (while tail (let (...) (let ... 
+  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-ergonomics-bash-contract-
+  ert-run-or-rerun-test(#s(ert--stats :selector "^ogent-agent-ergonomi
+  ert-run-tests("^ogent-agent-ergonomics-bash-contract" #f(compiled-fu
+  ert-run-tests-batch("^ogent-agent-ergonomics-bash-contract")
+  ert-run-tests-batch-and-exit("^ogent-agent-ergonomics-bash-contract"
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-ergonomics-bash-contract-async-chunk-boundaries condition:
+    (ert-test-failed
+     ((should (string-prefix-p "1234567890" (mapconcat ... ... ""))) :form
+      (string-prefix-p "1234567890" "") :value nil))
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+   FAILED  1/3  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.001524 sec) at test/ogent-agent-ergonomics-tests.el:311
+Test ogent-agent-ergonomics-bash-contract-exit-survives-truncation backtrace:
+  signal(ert-test-failed (((should (string-suffix-p "Exit code: 42" re
+  ert-fail(((should (string-suffix-p "Exit code: 42" result)) :form (s
+  (if (unwind-protect (setq value-584 (apply fn-582 args-583)) (setq f
+  (let (form-description-586) (if (unwind-protect (setq value-584 (app
+  (let ((value-584 'ert-form-evaluation-aborted-585)) (let (form-descr
+  (let* ((fn-582 #'string-suffix-p) (args-583 (condition-case err (lis
+  (let* ((ogent-tools-max-output-chars 10) (ogent-tools-show-progress 
+  #f(lambda () [t] (let* ((ogent-tools-max-output-chars 10) (ogent-too
+  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-ergonomics-bash-contract-
+  ert-run-or-rerun-test(#s(ert--stats :selector "^ogent-agent-ergonomi
+  ert-run-tests("^ogent-agent-ergonomics-bash-contract" #f(compiled-fu
+  ert-run-tests-batch("^ogent-agent-ergonomics-bash-contract")
+  ert-run-tests-batch-and-exit("^ogent-agent-ergonomics-bash-contract"
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-ergonomics-bash-contract-exit-survives-truncation condition:
+    (ert-test-failed
+     ((should (string-suffix-p "Exit code: 42" result)) :form
+      (string-suffix-p "Exit code: 42"
+		       "1234567890\n\n[Output truncated. Total length: 95 chars]")
+      :value nil))
+   FAILED  2/3  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.000951 sec) at test/ogent-agent-ergonomics-tests.el:300
+Test ogent-agent-ergonomics-bash-contract-invalid-before-spawn backtrace:
+  signal(ert-test-failed (((should-error (ogent-tool--bash "pwd" nil 0
+  ert-fail(((should-error (ogent-tool--bash "pwd" nil 0) :type 'user-e
+  ert--should-error-handle-error(#f(lambda () [(form-description-547 (
+  (condition-case -condition- (unwind-protect (setq value-545 (apply f
+  (let ((errorp548 nil) (form-description-fn-549 #'(lambda nil form-de
+  (let (form-description-547) (let ((errorp548 nil) (form-description-
+  (let ((value-545 'ert-form-evaluation-aborted-546)) (let (form-descr
+  (let* ((fn-543 #'ogent-tool--bash) (args-544 (condition-case err (li
+  (progn (fset 'make-process vnew) (let* ((fn-543 #'ogent-tool--bash) 
+  (unwind-protect (progn (fset 'make-process vnew) (let* ((fn-543 #'og
+  (let* ((vnew #'(lambda (&rest _) (setq spawned t) (error "Unexpected
+  (let ((events nil) spawned (ogent-tools-show-progress nil)) (let* ((
+  #f(lambda () [t] (let ((events nil) spawned (ogent-tools-show-progre
+  #f(compiled-function () #<bytecode -0x6704607dff8310c>)()
+  handler-bind-1(#f(compiled-function () #<bytecode -0x6704607dff8310c
+  ert--run-test-internal(#s(ert--test-execution-info :test #s(ert-test
+  #f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the result
+  apply(#f(compiled-function (ert-test) "Run ERT-TEST.\n\nReturns the 
+  #f(advice ogent-test--store-guard-reassert :before #f(compiled-funct
+  funcall(#f(advice ogent-test--store-guard-reassert :before #f(compil
+  (let ((ogent-test--current-test (let* ((cl-x test)) (progn (or (let*
+  ogent-test--tripwire-note-test(#f(advice ogent-test--store-guard-rea
+  apply(ogent-test--tripwire-note-test #f(advice ogent-test--store-gua
+  ert-run-test(#s(ert-test :name ogent-agent-ergonomics-bash-contract-
+  ert-run-or-rerun-test(#s(ert--stats :selector "^ogent-agent-ergonomi
+  ert-run-tests("^ogent-agent-ergonomics-bash-contract" #f(compiled-fu
+  ert-run-tests-batch("^ogent-agent-ergonomics-bash-contract")
+  ert-run-tests-batch-and-exit("^ogent-agent-ergonomics-bash-contract"
+  eval((ert-run-tests-batch-and-exit (getenv "OGENT_AUDIT_SELECTOR")) 
+  command-line-1(("-L" "/work/lisp" "-L" "/work/lisp/ui" "-L" "/work/t
+  command-line()
+  normal-top-level()
+Test ogent-agent-ergonomics-bash-contract-invalid-before-spawn condition:
+    (ert-test-failed
+     ((should-error (ogent-tool--bash "pwd" nil 0) :type 'user-error)
+      :form (ogent-tool--bash "pwd" nil 0) :condition
+      (error "Unexpected spawn") :fail-reason
+      "the error signaled did not have the expected type"))
+   FAILED  3/3  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000240 sec) at test/ogent-agent-ergonomics-tests.el:284
+
+Ran 3 tests, 0 results as expected, 3 unexpected (2026-10-08 19:10:09+0000, 3.236845 sec)
+
+3 unexpected results:
+   FAILED  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries
+   FAILED  ogent-agent-ergonomics-bash-contract-exit-survives-truncation
+   FAILED  ogent-agent-ergonomics-bash-contract-invalid-before-spawn
+

@@ -8,23 +8,45 @@
     {
       "pass": 1,
       "started_at": "2026-10-08T17:00:57Z",
-      "completed_at": null,
+      "completed_at": "2026-10-08T19:18:21.970491+00:00",
       "mode": "full",
       "target_sha": "72016bb66928a20a49238266645abde583fa595d",
       "target_branch": "master",
       "feature_branch": null,
       "summary": {
-        "surfaces_inventoried": 0,
-        "surfaces_scored": 0,
-        "recommendations_total": 0,
-        "recommendations_applied": 0,
-        "substantive_commits": 0,
-        "dimensions_touched": 0,
-        "ambition_bar_met": false,
-        "ambition_bar_self_prompt_run": false,
-        "median_uplift_pts": 0,
+        "surfaces_inventoried": 19,
+        "surfaces_scored": 19,
+        "recommendations_total": 12,
+        "recommendations_applied": 12,
+        "substantive_commits": 12,
+        "dimensions_touched": 11,
+        "ambition_bar_met": true,
+        "ambition_bar_self_prompt_run": true,
+        "median_uplift_pts": 143,
         "regressions_count": 0,
-        "fresh_eyes_rounds": 0
+        "fresh_eyes_rounds": 8,
+        "substantive_commits_note": "Primary tested behavior changes; overlapping surfaces are not independently scored per commit. Review/doc-only fixes are excluded from this count.",
+        "consecutive_final_clean_rounds": [
+          7,
+          8
+        ],
+        "baseline_mean": 513.6315789473684,
+        "post_mean": 676.9473684210526,
+        "mean_uplift_pts": 163.31578947368416,
+        "surfaces_with_dimension_uplift_ge_100": 19,
+        "positive_dimension_mean_gains": {
+          "agent_ease_of_use": 221.05263157894737,
+          "agent_ergonomics": 44.73684210526316,
+          "agent_intuitiveness": 109.21052631578948,
+          "composability": 113.15789473684211,
+          "determinism_and_reproducibility": 90.78947368421052,
+          "error_pedagogy": 343.42105263157896,
+          "intent_inference": 93.42105263157895,
+          "output_parseability": 84.21052631578948,
+          "regression_resistance": 326.3157894736842,
+          "safety_with_recovery": 109.21052631578948,
+          "self_documentation": 261.8421052631579
+        }
       },
       "artifacts": {
         "surface_inventory": "audit/surface_inventory.jsonl",
@@ -34,17 +56,49 @@
         "playbook": "audit/playbook.md",
         "applied_changes": "audit/applied_changes.jsonl",
         "ambition_bar_check": "audit/ambition_bar_check.md",
-        "scorecard": "audit/scorecard_pass_N.md",
-        "heatmap": "audit/heatmap.svg",
+        "scorecard": "audit/scorecard_pass_1.md",
+        "heatmap": "audit/heatmap_pass_1.svg",
         "uplift_diff": "audit/uplift_diff.md",
         "regression_alerts": "audit/regression_alerts.md",
         "handoff": "audit/HANDOFF.md",
-        "simulations_pre": "audit/agent_simulations/pre_pass_N/",
-        "simulations_post": "audit/agent_simulations/post_pass_N/"
+        "simulations_pre": "audit/agent_simulations/pre_pass_1/",
+        "simulations_post": "audit/agent_simulations/post_pass_1/",
+        "regression_proof": "audit/verification/regression_proof.json",
+        "native_checks": "audit/verification/native_checks.json",
+        "fresh_eyes": "audit/phase7_fresh_eyes_log.md"
+      },
+      "post_target_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4"
+    },
+    {
+      "pass": 2,
+      "mode": "re-score-only",
+      "started_at": "2026-10-08T17:47:00Z",
+      "completed_at": "2026-10-08T19:18:21.970491+00:00",
+      "target_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "target_branch": "master",
+      "feature_branch": null,
+      "notes": "Post-change measurement of full implementation pass 1; no separate branch or improvement cycle.",
+      "summary": {
+        "surfaces_scored": 19,
+        "baseline_mean": 513.6315789473684,
+        "post_mean": 676.9473684210526,
+        "median_uplift_pts": 143,
+        "regressions_over_50_count": 0
+      },
+      "artifacts": {
+        "scorecard": "audit/scorecard_pass_2.md",
+        "heatmap": "audit/heatmap.svg",
+        "uplift_diff": "audit/uplift_diff.md",
+        "reconciliation": "audit/rubric_reconciliation_post.md"
       }
     }
   ],
-  "current_pass": 1,
-  "pass_N+1_ready": false,
-  "next_pass_focus": null
+  "current_pass": 2,
+  "pass_N+1_ready": true,
+  "next_pass_focus": "Versioned structured read/search results (ogent-v2fp) and machine-readable build reporting (ogent-lkvs).",
+  "skill_name": "agent-ergonomics-and-intuitiveness-maximization-for-cli-tools",
+  "skill_version": 18,
+  "jsm_bundle_version": "0.3.25",
+  "measurement_method": "Independent same-model peer scoring with tiebreakers; arithmetic means of integer median dimension scores.",
+  "scope": "19 primary Emacs SDK and Make surfaces; provider login/inference and secondary Armory UI excluded."
 }

@@ -1,0 +1,36 @@
+{
+  "surface_id": "verb__make__compile",
+  "scorer_id": "tiebreaker",
+  "pass_number": 1,
+  "historical_archive": "audit/triangulation/baseline_pre_paired_calibration/scores_pass1_verb__make__compile_scorertiebreaker.jsonl",
+  "historical_sha256": "df2a52e397ad61e8a86f8c1c594cd1c6de1a7f6384f8cd33a774750e03fd0d39",
+  "active_partial": "audit/partial/scores_pass1_verb__make__compile_scorertiebreaker.jsonl",
+  "active_sha256": "5e0fdb9750d53c15aa13f111c933b168502d909acb14bccb73488132799112e1",
+  "rubric_version": "sha256:44e7c00b3dee6be38118f1f40719d814278cb129f9aad34572e0936104b135a4",
+  "baseline_sha": "72016bb66928a20a49238266645abde583fa595d",
+  "changes": {
+    "scores.composability": {
+      "before": 500,
+      "after": 250
+    },
+    "weighted_score": {
+      "before": 445.45,
+      "after": 422.72727272727275
+    },
+    "evidence.composability": "actual delegated makem runtime replaces source-only/stub inference",
+    "notes": "explicit history and paired-calibration explanation",
+    "target_sha": "explicit baseline SHA added"
+  },
+  "unchanged_score_dimensions": [
+    "agent_ease_of_use",
+    "agent_ergonomics",
+    "agent_intuitiveness",
+    "determinism_and_reproducibility",
+    "error_pedagogy",
+    "intent_inference",
+    "output_parseability",
+    "regression_resistance",
+    "safety_with_recovery",
+    "self_documentation"
+  ]
+}

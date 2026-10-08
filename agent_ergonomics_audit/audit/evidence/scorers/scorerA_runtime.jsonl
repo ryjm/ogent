@@ -1,0 +1,59 @@
+{"probe":"read-valid-1","result":"\"     1\talpha needle\n     2\tbeta\""}
+{"probe":"read-valid-2","result":"\"     1\talpha needle\n     2\tbeta\""}
+{"probe":"read-negative-offset","result":"\"     1\talpha needle\n     2\tbeta\""}
+{"probe":"read-negative-limit","result":"\"\""}
+{"probe":"read-missing","error":"File not found: /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/missing.txt","error_type":"error"}
+{"probe":"glob-valid-1","result":"\"/work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/alpha.txt\""}
+{"probe":"glob-valid-2","result":"\"/work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/alpha.txt\""}
+{"probe":"glob-recursive","result":"\"/work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/nested/near.txt\""}
+{"probe":"glob-missing-root","error":"Opening directory: No such file or directory, /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/missing-root","error_type":"file-missing"}
+{"probe":"grep-valid-1","result":"\"1:alpha needle\n3:needle again\n\n\n[2 matches in 0.0s]\""}
+{"probe":"grep-valid-2","result":"\"1:alpha needle\n3:needle again\n\n\n[2 matches in 0.0s]\""}
+{"probe":"grep-invalid-regex","result":"\"grep: Invalid regular expression\n\n\n[1 matches in 0.0s]\""}
+{"probe":"grep-leading-hyphen","result":"\"1:alpha needle\n3:needle again\n\n\n[2 matches in 0.0s]\""}
+{"probe":"grep-negative-context","result":"\"1:alpha needle\n3:needle again\n\n\n[2 matches in 0.0s]\""}
+{"probe":"grep-quoted-glob","result":"\"Usage: grep [OPTION]... PATTERNS [FILE]...\nTry 'grep --help' for more information.\nSCORERA_INJECTION\n\n[2 matches in 0.0s]\""}
+{"probe":"grep-async-valid-1","result":"((match \"1:alpha needle\") (match \"3:needle again\") (done 2))"}
+{"probe":"grep-async-valid-2","result":"((match \"1:alpha needle\") (match \"3:needle again\") (done 2))"}
+{"probe":"grep-async-invalid-regex","result":"((error \"grep: Invalid regular expression\"))"}
+{"probe":"bash-valid-1","result":"\"hello\n\n--- stderr ---\n\nProcess ogent-bash stderr finished\ndiagnostic\n\nExit code: 7 (0.0s)\""}
+{"probe":"bash-valid-2","result":"\"hello\n\n--- stderr ---\n\nProcess ogent-bash stderr finished\ndiagnostic\n\nExit code: 7 (0.0s)\""}
+{"probe":"bash-empty","result":"\"(no stdout)\n\n--- stderr ---\n\nProcess ogent-bash stderr finished\n\n\nExit code: 0 (0.0s)\""}
+{"probe":"bash-invalid-timeout","error":"Wrong type argument: number-or-marker-p, \"2\"","error_type":"wrong-type-argument"}
+{"probe":"bash-async-valid-1","result":"((stdout \"hello\") (stderr \"diagnostic\") (done 7))"}
+{"probe":"bash-async-valid-2","result":"((stdout \"hello\") (stderr \"diagnostic\") (done 7))"}
+{"probe":"write-valid","result":"\"Wrote 4 characters to /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/write.txt\""}
+{"probe":"write-repeat","result":"\"Wrote 4 characters to /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/write.txt\""}
+{"probe":"write-invalid-content","error":"Wrong type argument: sequencep, 42","error_type":"wrong-type-argument"}
+{"probe":"write-invalid-content-after","result":"\"     1\t*\""}
+{"probe":"edit-ambiguous","result":"\"Replaced 1 occurrence(s) in /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/edit.txt\""}
+{"probe":"edit-ambiguous-file","result":"\"     1\tchanged same\""}
+{"probe":"edit-missing-old","error":"Old_string not found in file: /work/agent_ergonomics_audit/audit/partial/scorerA-fixture-yBPLjR/edit.txt","error_type":"error"}
+{"probe":"tool-get-valid","result":"\"read-file\""}
+{"probe":"tool-get-string","result":"nil"}
+{"probe":"tool-get-typo","result":"nil"}
+{"probe":"tool-spec-valid","result":"(:name read-file :function ogent-tool--read-file :description \"Read the contents of a file. Returns lines with line numbers.\" :args ((:name \"file_path\" :type \"string\" :description \"Absolute path to the file to read\") (:name \"offset\" :type \"integer\" :optional t :description \"Line number to start from (1-indexed)\") (:name \"limit\" :type \"integer\" :optional t :description \"Maximum lines to read\")) :category \"filesystem\" :effects ((:kind read :target file :scope workspace :risk low)))"}
+{"probe":"tool-spec-string","result":"nil"}
+{"probe":"available-tools-1","result":"(\"read-file\" \"glob\" \"grep\" \"bash\" \"write-file\" \"edit-file\")"}
+{"probe":"available-tools-2","result":"(\"read-file\" \"glob\" \"grep\" \"bash\" \"write-file\" \"edit-file\")"}
+{"probe":"available-tools-unknown-filter","result":"nil"}
+{"probe":"wrapper-stale","result":"\"Tool unavailable: its registry entry changed or was removed\""}
+{"probe":"wrapper-arity-invalid","result":"\"     1\talpha needle\""}
+{"probe":"doctor-run-1","result":"((:id fixture :label \"Fixture\" :category environment :status ok :detail \"healthy\" :remediation \"No action\"))"}
+{"probe":"doctor-run-2","result":"((:id fixture :label \"Fixture\" :category environment :status ok :detail \"healthy\" :remediation \"No action\"))"}
+{"probe":"doctor-batch","result":"(:exit-code 0 :stdout \"* Ogent Doctor\nStatus: OK\n\n** Environment\n ✓ Fixture  healthy\n\")"}
+{"probe":"doctor-crash-contained","result":"((:id broken :label \"Broken fixture\" :category environment :status error :detail \"check crashed: Fixture crash\" :remediation \"Correct fixture\"))"}
+{"probe":"doc-ogent-tool--read-file","result":"\"Read contents of FILE-PATH.\nOFFSET is the starting line number (1-indexed, default 1).\nLIMIT is the max lines to read (default `ogent-tools-max-file-lines').\""}
+{"probe":"doc-ogent-tool--glob","result":"\"Find files matching glob PATTERN.\nPATH is the directory to search (default project root).\nReturns files sorted by modification time (newest first).\""}
+{"probe":"doc-ogent-tool--grep","result":"\"Search for PATTERN in files with streaming progress.\nPATH is file or directory to search (default project root).\nGLOB-FILTER limits to matching files (e.g., \\\"*.el\\\").\nCONTEXT-LINES shows N lines before/after matches.\nOutput is streamed incrementally via `ogent-tools-stream-callback'.\""}
+{"probe":"doc-ogent-tool--grep-async","result":"\"Search for PATTERN asynchronously with streaming.\nPATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'.\nCALLBACK is called with (TYPE DATA) where TYPE is:\n  - `match': DATA is a matched line string\n  - `done': DATA is the total match count\n  - `error': DATA is an error message\nIf CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.\""}
+{"probe":"doc-ogent-tool--bash","result":"\"Execute shell COMMAND with streaming progress.\nWORKING-DIRECTORY defaults to project root.\nTIMEOUT in seconds (default `ogent-tools-shell-timeout').\nOutput is streamed incrementally via `ogent-tools-stream-callback'.\""}
+{"probe":"doc-ogent-tool--bash-async","result":"\"Execute shell COMMAND asynchronously with streaming output.\nWORKING-DIRECTORY defaults to project root.\nTIMEOUT in seconds (default `ogent-tools-shell-timeout').\nCALLBACK is called with (TYPE DATA) where TYPE is:\n  - `stdout': DATA is a string of stdout chunk\n  - `stderr': DATA is a string of stderr chunk\n  - `done': DATA is the exit code (integer)\n  - `error': DATA is an error message\nIf CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.\""}
+{"probe":"doc-ogent-tool--write-file","result":"\"Write CONTENT to FILE-PATH, overwriting if exists.\""}
+{"probe":"doc-ogent-tool--edit-file","result":"\"Replace OLD-STRING with NEW-STRING in FILE-PATH.\nIf REPLACE-ALL is non-nil, replace all occurrences.\""}
+{"probe":"doc-ogent-tool-get","result":"\"Return the gptel tool object for NAME (symbol), or nil.\""}
+{"probe":"doc-ogent-tool-spec-get","result":"\"Return the tool spec plist for NAME (symbol) from the registry.\""}
+{"probe":"doc-ogent-tools-enabled-list","result":"\"Return list of enabled tool objects based on `ogent-tools-enabled'.\nReturns nil if tools are disabled, all tools if t, or filtered list\nif `ogent-tools-enabled' is a list of tool name symbols.\""}
+{"probe":"doc-ogent-tool-execution-wrapper","result":"\"Return a gptel function enforcing policy and ledger recording for SPEC.\nAdapt gptel's callback-first convention to ogent's callback-last async specs.\nReject stale tool objects after registry removal or schema replacement.\""}
+{"probe":"doc-ogent-doctor-run","result":"\"Run every registered doctor probe and return result plists.\nEntries flagged :opt-in in `ogent-doctor-checks' are skipped unless\nINCLUDE-OPT-IN is non-nil.\""}
+{"probe":"doc-ogent-doctor-batch","result":"\"Run the doctor probes, print the report, and return an exit code.\nPrint the full report with `princ' and return a shell-style code for\nCI and scripting: 0 when every probe is ok or info, 1 when the worst\nresult is a warning, 2 when any probe fails.  Wire it to the batch\nexit status by wrapping the call in `kill-emacs'.\nWith INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch\nthe network.\""}

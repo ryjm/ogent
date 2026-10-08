@@ -1,0 +1,3 @@
+FILE /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/read-F4NOH6/pages.txt
+     1	one
+     2	two

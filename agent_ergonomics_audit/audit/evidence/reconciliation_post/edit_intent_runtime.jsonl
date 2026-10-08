@@ -1,0 +1,6 @@
+{"stage":"baseline","candidate":"ogent-tool--edit_file","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--edit_file"}
+{"stage":"baseline","candidate":"ogent-tool--edit-fiel","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--edit-fiel"}
+{"stage":"baseline","candidate":"ogent-tool--patch-file","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--patch-file"}
+{"stage":"post","candidate":"ogent-tool--edit_file","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--edit_file"}
+{"stage":"post","candidate":"ogent-tool--edit-fiel","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--edit-fiel"}
+{"stage":"post","candidate":"ogent-tool--patch-file","fboundp":false,"error_type":"void-function","error_message":"Symbol's function definition is void: ogent-tool--patch-file"}

@@ -1,0 +1,12 @@
+
+Error: error ("Set OGENT_ELPA_DIR to the installed runtime package directory")
+  signal(error ("Set OGENT_ELPA_DIR to the installed runtime package directory"))
+  error("Set OGENT_ELPA_DIR to the installed runtime package directory")
+  (if (and elpa (file-directory-p elpa)) nil (error "Set OGENT_ELPA_DIR to the installed runtime package directory"))
+  (let ((elpa (getenv "OGENT_ELPA_DIR"))) (if (and elpa (file-directory-p elpa)) nil (error "Set OGENT_ELPA_DIR to the installed runtime package directory")) (let ((tail (directory-files elpa t "^[^.].*"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))
+  eval-buffer(#<buffer  *load*> nil "/work/test/offline/boot.el.in" nil t)
+  load-with-code-conversion("/work/test/offline/boot.el.in" "/work/test/offline/boot.el.in" nil t)
+  load("/work/test/offline/boot.el.in" nil t)
+  command-line-1(("-L" "/work/agent_ergonomics_audit/audit/partial/scorerB_post_fixture/tmp.7a72ZNWs56" "-l" "jka-compr" "-L" "lisp" "-L" "lisp/ui" "-L" "test" "-L" "test/ui" "-l" "test/offline/boot.el.in" "-l" "test/offline/workflows.el.in" "--eval" "(ert-run-tests-batch-and-exit '(or \"ogent-offline-\" \"ogent-armory-\")))"))
+  command-line()
+  normal-top-level()

@@ -1,0 +1,47 @@
+Fresh-context usability simulation: post_pass_1/canonical
+Candidate supplied: 303fa14; Docker ogent-fixes / Emacs 30.2.
+Completed 7/7 paired goals; first strategy succeeded in 5/7. Task 7 required a recorded temporary-helper workaround.
+Counts: 9 strategy attempts, 13 product round trips, plus 1 shared runtime-guide/capabilities query. Fixture setup and verification commands are separately retained.
+
+Task 1: Discover tool names, argument types, approval expectations, and unknown-tool correction.
+Outcome: success; attempts=2; round_trips=2; first_try=False; stuck_tokens=['^ogent-.*tool', 'ogent-agent-capabilities']
+Initial tool-only apropos documentation did not give registered names/types. Second query printed six live registry contracts, confirmation metadata, and a corrective unknown-tool error. Runtime capabilities/guide were subsequently verified in one separate documentation query.
+
+Task 2: Find .el files recursively at root and two nested depths.
+Outcome: success; attempts=1; round_trips=1; first_try=True; stuck_tokens=[]
+**/*.el returned root.el, nested/one.el, and nested/deep/two.el; ignored the .txt fixture.
+
+Task 3: Read a fixture in two-line pages and derive exact next-page arguments from output.
+Outcome: success; attempts=1; round_trips=3; first_try=True; stuck_tokens=[]
+First footer specified identical file_path, offset=3, limit=2; second specified offset=5, limit=2. Those arguments were followed sequentially. Final page returned line 5 with no more-lines footer.
+
+Task 4: Search a leading-dash pattern and distinguish no matches from invalid regex.
+Outcome: success; attempts=1; round_trips=1; first_try=True; stuck_tokens=[]
+-needle matched. Valid absent pattern returned No matches found. Invalid [ signaled user-error with grep exit 2 and corrective guidance. That signal was intentionally caught to capture all three classifications in one query.
+
+Task 5: Safely handle two occurrences of same, then explicitly replace all.
+Outcome: success; attempts=1; round_trips=2; first_try=True; stuck_tokens=[]
+Default edit signaled Ambiguous edit_file ... matches 2 occurrences and suggested unique context or replace_all. Read-back showed both same lines intact. Explicit replace_all=t reported two replacements; read-back showed both updated lines.
+Limit: Documented low-level direct SDK functions were used on authorized temporary fixtures; approval enforcement was discovered through metadata but not exercised.
+
+Task 6: Obtain parseable JSON local health without provider requests.
+Outcome: success; attempts=1; round_trips=1; first_try=True; stuck_tokens=[]
+ogent-agent-triage json returned a clean document, strictly parsed by Python. contract_version=1; 19 checks; project_health.status=error and exit_code=2; process status=0 because triage returns data. Test doubles/base package versions account for local health deficiencies; provider inference/login/network checks were not invoked.
+
+Task 7: Compile with deliberately failing selected Emacs in an isolated Makefile fixture and detect failure from status.
+Outcome: success_with_fixture_workaround; attempts=2; round_trips=3; first_try=False; stuck_tokens=['./makem.sh']
+make help documented compile and EMACS=PATH. Initial Makefile-only fixture returned status 2 because makem.sh was absent; this did not prove selected-Emacs failure. Added a fixture-only helper that requires the selected path in argv and propagates its status. Retry reached selected Emacs, which exited 47; make reported Error 47 and returned status 2. Full helper/selected argv were captured.
+Limit: Tests copied Makefile failure propagation and selected executable forwarding with a temporary passthrough; actual makem.sh implementation was neither read nor copied, so real compiler/makem integration is not covered.
+
+Optional recompile probe (excluded from paired metrics):
+Recompile removed both temporary .elc sentinels, forwarded the selected Emacs path, and reported child Error 47 then parent Error 2. No shared bytecode was cleaned or compiled.
+
+Limits and recording notes:
+- Candidate hash supplied by task, not independently inspected through git.
+- Bootstrap emitted an OAuth-support-enabled message; no OAuth/login function or provider request was called. Health reports inspected only absent auth paths in isolated test stores.
+- Direct low-level SDK calls do not exercise registered approval enforcement.
+- Capabilities reported async=false for all tools while raw grep/bash specs named async functions; observation retained without assigning a cause under source-blind constraints.
+- Per-task sampled inference token counts are unavailable; stuck_tokens lists literal blocked/discovery tokens transparently.
+- Two preliminary tool-channel environment checks (pwd and docker ps) preceded exact stream capture. Their visible combined results were /workspace/ogent and the two running ogent-fixes containers, both exit 0. docker ps was repeated under full capture; no product action preceded recording.
+
+Artifacts: transcript.jsonl (full argv/stdout/stderr/status), transcript.txt (readable rendering), metrics.json, health.json, run_probe.py, write_summary.py.

@@ -1,0 +1,191 @@
+{
+  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+  "provider_requests": false,
+  "checks": [
+    {
+      "check": "emacs30-lint",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "lint",
+        "sandbox=/tmp/ogent-fixdeps"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:04:19.451733+00:00",
+      "completed_at": "2026-10-08T19:06:33.645598+00:00",
+      "summary": [],
+      "stdout": "audit/verification/native/emacs30-lint.stdout.log",
+      "stderr": "audit/verification/native/emacs30-lint.stderr.log"
+    },
+    {
+      "check": "emacs30-test",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "test",
+        "sandbox=/tmp/ogent-fixdeps"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:06:33.645711+00:00",
+      "completed_at": "2026-10-08T19:08:53.903602+00:00",
+      "summary": [],
+      "stdout": "audit/verification/native/emacs30-test.stdout.log",
+      "stderr": "audit/verification/native/emacs30-test.stderr.log"
+    },
+    {
+      "check": "emacs30-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:08:53.903714+00:00",
+      "completed_at": "2026-10-08T19:09:08.830649+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3119 tests, 3101 results as expected, 0 unexpected, 18 skipped (2026-10-08 19:09:08+0000, 11.989328 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs30-store-isolation.stdout.log",
+      "stderr": "audit/verification/native/emacs30-store-isolation.stderr.log"
+    },
+    {
+      "check": "emacs30-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:09:08.830791+00:00",
+      "completed_at": "2026-10-08T19:09:17.264208+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:17+0000, 4.622259 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs30-offline-current.stdout.log",
+      "stderr": "audit/verification/native/emacs30-offline-current.stderr.log"
+    },
+    {
+      "check": "emacs30-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:09:17.264323+00:00",
+      "completed_at": "2026-10-08T19:09:25.657651+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:25+0000, 4.637671 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs30-offline-minimum.stdout.log",
+      "stderr": "audit/verification/native/emacs30-offline-minimum.stderr.log"
+    },
+    {
+      "check": "emacs29-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes-29",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:04:19.451920+00:00",
+      "completed_at": "2026-10-08T19:04:37.019607+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3119 tests, 3100 results as expected, 0 unexpected, 19 skipped (2026-10-08 19:04:36+0000, 13.686681 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs29-store-isolation.stdout.log",
+      "stderr": "audit/verification/native/emacs29-store-isolation.stderr.log"
+    },
+    {
+      "check": "emacs29-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:04:37.019839+00:00",
+      "completed_at": "2026-10-08T19:04:46.452756+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:04:46+0000, 5.384221 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs29-offline-current.stdout.log",
+      "stderr": "audit/verification/native/emacs29-offline-current.stderr.log"
+    },
+    {
+      "check": "emacs29-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+      "started_at": "2026-10-08T19:04:46.452893+00:00",
+      "completed_at": "2026-10-08T19:04:55.519706+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 204 tests, 201 results as expected, 0 unexpected, 3 skipped (2026-10-08 19:04:55+0000, 5.189467 sec)"
+      ],
+      "stdout": "audit/verification/native/emacs29-offline-minimum.stdout.log",
+      "stderr": "audit/verification/native/emacs29-offline-minimum.stderr.log"
+    }
+  ],
+  "all_passed": true
+}

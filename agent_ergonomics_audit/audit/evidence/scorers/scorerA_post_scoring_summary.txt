@@ -1,0 +1,20 @@
+scored sdk_method__tools__read-file as A: weighted=695.5 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__read-file_scorerA.jsonl
+scored sdk_method__tools__glob as A: weighted=677.3 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__glob_scorerA.jsonl
+scored sdk_method__tools__grep as A: weighted=686.4 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__grep_scorerA.jsonl
+scored sdk_method__tools__grep-async as A: weighted=709.1 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__grep-async_scorerA.jsonl
+scored sdk_method__tools__bash as A: weighted=672.7 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__bash_scorerA.jsonl
+scored sdk_method__tools__bash-async as A: weighted=709.1 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__bash-async_scorerA.jsonl
+scored sdk_method__tools__write-file as A: weighted=568.2 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__write-file_scorerA.jsonl
+scored sdk_method__tools__edit-file as A: weighted=554.5 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__tools__edit-file_scorerA.jsonl
+scored sdk_method__registry__tool-get as A: weighted=690.9 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__registry__tool-get_scorerA.jsonl
+scored sdk_method__registry__tool-spec-get as A: weighted=718.2 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__registry__tool-spec-get_scorerA.jsonl
+scored sdk_method__registry__available-tools as A: weighted=818.2 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__registry__available-tools_scorerA.jsonl
+scored sdk_method__execution__wrapper as A: weighted=636.4 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__execution__wrapper_scorerA.jsonl
+scored sdk_method__doctor__run as A: weighted=822.7 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__doctor__run_scorerA.jsonl
+scored sdk_method__doctor__batch as A: weighted=854.5 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_sdk_method__doctor__batch_scorerA.jsonl
+scored verb__make__help as A: weighted=600.0 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_verb__make__help_scorerA.jsonl
+scored verb__make__compile as A: weighted=509.1 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_verb__make__compile_scorerA.jsonl
+scored verb__make__recompile as A: weighted=531.8 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_verb__make__recompile_scorerA.jsonl
+scored verb__make__clean as A: weighted=595.5 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_verb__make__clean_scorerA.jsonl
+scored verb__make__offline-test as A: weighted=645.5 wrote /workspace/ogent/agent_ergonomics_audit/audit/partial/scores_pass2_verb__make__offline-test_scorerA.jsonl
+{"scorer_id": "A", "target_sha": "2ee1692212afcc0e0a7a245bdf023dfa2d750172", "surfaces": 19, "baseline_mean": 497.84688995215305, "post_mean": 668.1818181818182, "delta": 170.3349282296652}

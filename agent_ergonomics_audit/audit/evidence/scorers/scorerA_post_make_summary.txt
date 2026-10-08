@@ -1,0 +1,150 @@
+[
+  {
+    "probe": "help-1",
+    "invocation": [
+      "make",
+      "help"
+    ],
+    "exit_code": 0,
+    "stdout": "ogent Makefile targets:\n\n  make all          - Run all lints and tests\n  make lint         - Run all linters (checkdoc, compile, package-lint)\n  make test         - Run all tests\n  make test-isolation - Verify the suite never writes real user stores\n  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)\n  make compile      - Byte-compile source files\n  make recompile    - Clean and compile; failures remain nonzero\n  make clean        - Remove generated lisp/ and test/ bytecode\n  make bench        - Run performance benchmarks\n  make batch        - Run Emacs in batch mode with project loaded\n  make interactive  - Run Emacs interactively with project loaded\n  make sandbox      - Run interactive Emacs in clean sandbox\n  make sandbox-test - Run tests in clean sandbox environment\n  make sandbox-lint - Run all linters in clean sandbox\n  make demo         - Launch demo.org in minimal Emacs\n\nOptions (pass as var=val):\n  v=1|2|3           - Verbosity level (-v, -vv, -vvv)\n  sandbox=1|DIR     - Run in sandbox mode\n  install-deps=1    - Auto-install package dependencies\n  install-linters=1 - Auto-install linting tools\n  debug=1           - Enable debug mode\n  EMACS=PATH        - Select the Emacs executable for every target\n\nExamples:\n  make test v=2                    - Run tests with verbose output\n  make lint sandbox=1              - Lint in clean sandbox\n  make all sandbox=1 install-deps=1 - Full CI-like run\n\nAdditional makem.sh rules (use make <rule>):\n  lint-checkdoc, lint-compile, lint-declare, lint-indent,\n  lint-package, lint-regexps, test-ert, test-buttercup\n\nAgent discovery (after loading ogent; no provider requests):\n  (ogent-agent-capabilities 'json) - Live tool contracts and approval policy\n  (ogent-agent-guide)             - Paste-ready SDK handbook\n  (ogent-agent-triage 'json)       - Discovery plus local health and next actions\n  (ogent-doctor-batch nil 'json)   - JSON health; exit 0 ok/info, 1 warning, 2 error\n",
+    "stderr": ""
+  },
+  {
+    "probe": "help-2",
+    "invocation": [
+      "make",
+      "help"
+    ],
+    "exit_code": 0,
+    "stdout": "ogent Makefile targets:\n\n  make all          - Run all lints and tests\n  make lint         - Run all linters (checkdoc, compile, package-lint)\n  make test         - Run all tests\n  make test-isolation - Verify the suite never writes real user stores\n  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)\n  make compile      - Byte-compile source files\n  make recompile    - Clean and compile; failures remain nonzero\n  make clean        - Remove generated lisp/ and test/ bytecode\n  make bench        - Run performance benchmarks\n  make batch        - Run Emacs in batch mode with project loaded\n  make interactive  - Run Emacs interactively with project loaded\n  make sandbox      - Run interactive Emacs in clean sandbox\n  make sandbox-test - Run tests in clean sandbox environment\n  make sandbox-lint - Run all linters in clean sandbox\n  make demo         - Launch demo.org in minimal Emacs\n\nOptions (pass as var=val):\n  v=1|2|3           - Verbosity level (-v, -vv, -vvv)\n  sandbox=1|DIR     - Run in sandbox mode\n  install-deps=1    - Auto-install package dependencies\n  install-linters=1 - Auto-install linting tools\n  debug=1           - Enable debug mode\n  EMACS=PATH        - Select the Emacs executable for every target\n\nExamples:\n  make test v=2                    - Run tests with verbose output\n  make lint sandbox=1              - Lint in clean sandbox\n  make all sandbox=1 install-deps=1 - Full CI-like run\n\nAdditional makem.sh rules (use make <rule>):\n  lint-checkdoc, lint-compile, lint-declare, lint-indent,\n  lint-package, lint-regexps, test-ert, test-buttercup\n\nAgent discovery (after loading ogent; no provider requests):\n  (ogent-agent-capabilities 'json) - Live tool contracts and approval policy\n  (ogent-agent-guide)             - Paste-ready SDK handbook\n  (ogent-agent-triage 'json)       - Discovery plus local health and next actions\n  (ogent-doctor-batch nil 'json)   - JSON health; exit 0 ok/info, 1 warning, 2 error\n",
+    "stderr": ""
+  },
+  {
+    "probe": "compile-dry",
+    "invocation": [
+      "make",
+      "-n",
+      "compile"
+    ],
+    "exit_code": 0,
+    "stdout": "./makem.sh --emacs=\"emacs\"     compile\n",
+    "stderr": ""
+  },
+  {
+    "probe": "clean-dry",
+    "invocation": [
+      "make",
+      "-n",
+      "clean"
+    ],
+    "exit_code": 0,
+    "stdout": "find lisp/ test/ -name \"*.elc\" -delete\necho \"Removed all .elc files\"\n",
+    "stderr": ""
+  },
+  {
+    "probe": "recompile-dry",
+    "invocation": [
+      "make",
+      "-n",
+      "recompile"
+    ],
+    "exit_code": 0,
+    "stdout": "find lisp/ test/ -name \"*.elc\" -delete\necho \"Removed all .elc files\"\nmake compile\nmake[1]: Entering directory '/workspace/ogent'\n./makem.sh --emacs=\"emacs\"     compile\nmake[1]: Leaving directory '/workspace/ogent'\n",
+    "stderr": ""
+  },
+  {
+    "probe": "offline-test-dry",
+    "invocation": [
+      "make",
+      "-n",
+      "offline-test"
+    ],
+    "exit_code": 0,
+    "stdout": "EMACS=\"emacs\" ./test/offline/run.sh\n",
+    "stderr": ""
+  },
+  {
+    "probe": "compile-help",
+    "invocation": [
+      "make",
+      "-n",
+      "compile",
+      "help"
+    ],
+    "exit_code": 0,
+    "stdout": "./makem.sh --emacs=\"emacs\"     compile\necho \"ogent Makefile targets:\"\necho \"\"\necho \"  make all          - Run all lints and tests\"\necho \"  make lint         - Run all linters (checkdoc, compile, package-lint)\"\necho \"  make test         - Run all tests\"\necho \"  make test-isolation - Verify the suite never writes real user stores\"\necho \"  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)\"\necho \"  make compile      - Byte-compile source files\"\necho \"  make recompile    - Clean and compile; failures remain nonzero\"\necho \"  make clean        - Remove generated lisp/ and test/ bytecode\"\necho \"  make bench        - Run performance benchmarks\"\necho \"  make batch        - Run Emacs in batch mode with project loaded\"\necho \"  make interactive  - Run Emacs interactively with project loaded\"\necho \"  make sandbox      - Run interactive Emacs in clean sandbox\"\necho \"  make sandbox-test - Run tests in clean sandbox environment\"\necho \"  make sandbox-lint - Run all linters in clean sandbox\"\necho \"  make demo         - Launch demo.org in minimal Emacs\"\necho \"\"\necho \"Options (pass as var=val):\"\necho \"  v=1|2|3           - Verbosity level (-v, -vv, -vvv)\"\necho \"  sandbox=1|DIR     - Run in sandbox mode\"\necho \"  install-deps=1    - Auto-install package dependencies\"\necho \"  install-linters=1 - Auto-install linting tools\"\necho \"  debug=1           - Enable debug mode\"\necho \"  EMACS=PATH        - Select the Emacs executable for every target\"\necho \"\"\necho \"Examples:\"\necho \"  make test v=2                    - Run tests with verbose output\"\necho \"  make lint sandbox=1              - Lint in clean sandbox\"\necho \"  make all sandbox=1 install-deps=1 - Full CI-like run\"\necho \"\"\necho \"Additional makem.sh rules (use make <rule>):\"\necho \"  lint-checkdoc, lint-compile, lint-declare, lint-indent,\"\necho \"  lint-package, lint-regexps, test-ert, test-buttercup\"\necho \"\"\necho \"Agent discovery (after loading ogent; no provider requests):\"\necho \"  (ogent-agent-capabilities 'json) - Live tool contracts and approval policy\"\necho \"  (ogent-agent-guide)             - Paste-ready SDK handbook\"\necho \"  (ogent-agent-triage 'json)       - Discovery plus local health and next actions\"\necho \"  (ogent-doctor-batch nil 'json)   - JSON health; exit 0 ok/info, 1 warning, 2 error\"\n",
+    "stderr": ""
+  },
+  {
+    "probe": "typo-dry",
+    "invocation": [
+      "make",
+      "-n",
+      "recomiple"
+    ],
+    "exit_code": 0,
+    "stdout": "./makem.sh --emacs=\"emacs\"      recomiple\n",
+    "stderr": ""
+  },
+  {
+    "probe": "compile-failing-emacs",
+    "invocation": [
+      "make",
+      "compile",
+      "EMACS=/workspace/ogent/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj/fake-emacs"
+    ],
+    "exit_code": 2,
+    "stdout": "intentional compiler failure\n",
+    "stderr": "intentional compiler failure\n\u001b[0;31mERROR (2026-10-08 17:50:57): Compiling failed.\u001b[0m\n\u001b[0;31mLOG (2026-10-08 17:50:57): Finished with 1 errors.\u001b[0m\nmake: *** [Makefile:86: compile] Error 1\n"
+  },
+  {
+    "probe": "recompile-failing-emacs",
+    "invocation": [
+      "make",
+      "recompile",
+      "EMACS=/workspace/ogent/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj/fake-emacs"
+    ],
+    "exit_code": 2,
+    "stdout": "Removed all .elc files\nmake[1]: Entering directory '/workspace/ogent/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj'\nintentional compiler failure\nmake[1]: Leaving directory '/workspace/ogent/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj'\n",
+    "stderr": "intentional compiler failure\n\u001b[0;31mERROR (2026-10-08 17:50:57): Compiling failed.\u001b[0m\n\u001b[0;31mLOG (2026-10-08 17:50:57): Finished with 1 errors.\u001b[0m\nmake[1]: *** [Makefile:86: compile] Error 1\nmake: *** [Makefile:95: recompile] Error 2\n",
+    "bytecode_removed": true
+  },
+  {
+    "probe": "clean-1",
+    "invocation": [
+      "make",
+      "clean"
+    ],
+    "exit_code": 0,
+    "stdout": "Removed all .elc files\n",
+    "stderr": ""
+  },
+  {
+    "probe": "clean-2",
+    "invocation": [
+      "make",
+      "clean"
+    ],
+    "exit_code": 0,
+    "stdout": "Removed all .elc files\n",
+    "stderr": ""
+  },
+  {
+    "probe": "offline-test-missing-deps",
+    "invocation": [
+      "docker",
+      "exec",
+      "ogent-fixes",
+      "env",
+      "TMPDIR=/work/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj",
+      "OGENT_ELPA_DIR=/missing/scorerA-dependencies",
+      "timeout",
+      "12",
+      "make",
+      "offline-test"
+    ],
+    "exit_code": 2,
+    "stdout": "\nError: error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  signal(error (\"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  error(\"Set OGENT_ELPA_DIR to the installed runtime package directory\")\n  (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\"))\n  (let ((elpa (getenv \"OGENT_ELPA_DIR\"))) (if (and elpa (file-directory-p elpa)) nil (error \"Set OGENT_ELPA_DIR to the installed runtime package directory\")) (let ((tail (directory-files elpa t \"^[^.].*\"))) (while tail (let ((dir (car tail))) (if (file-directory-p dir) (progn (add-to-list 'load-path dir))) (setq tail (cdr tail))))))\n  eval-buffer(#<buffer  *load*> nil \"/work/test/offline/boot.el.in\" nil t)\n  load-with-code-conversion(\"/work/test/offline/boot.el.in\" \"/work/test/offline/boot.el.in\" nil t)\n  load(\"/work/test/offline/boot.el.in\" nil t)\n  command-line-1((\"-L\" \"/work/agent_ergonomics_audit/audit/partial/scorerA-post-make-wa8y3pmj/tmp.vsrcwIOSVc\" \"-l\" \"jka-compr\" \"-L\" \"lisp\" \"-L\" \"lisp/ui\" \"-L\" \"test\" \"-L\" \"test/ui\" \"-l\" \"test/offline/boot.el.in\" \"-l\" \"test/offline/workflows.el.in\" \"--eval\" \"(ert-run-tests-batch-and-exit '(or \\\"ogent-offline-\\\" \\\"ogent-armory-\\\")))\"))\n  command-line()\n  normal-top-level()\n",
+    "stderr": "\nuncompressing cl-print.el.gz...\nuncompressing cl-print.el.gz...done\nuncompressing cl-macs.el.gz...\nuncompressing cl-macs.el.gz...done\nuncompressing gv.el.gz...\nuncompressing gv.el.gz...done\nuncompressing pcase.el.gz...\nuncompressing pcase.el.gz...done\nuncompressing inline.el.gz...\nuncompressing inline.el.gz...done\nuncompressing bytecomp.el.gz...\nuncompressing bytecomp.el.gz...done\nuncompressing compile.el.gz...\nuncompressing compile.el.gz...done\nuncompressing tool-bar.el.gz...\nuncompressing tool-bar.el.gz...done\nuncompressing easy-mmode.el.gz...\nuncompressing easy-mmode.el.gz...done\nuncompressing comint.el.gz...\nuncompressing comint.el.gz...done\nuncompressing ring.el.gz...\nuncompressing ring.el.gz...done\nuncompressing ansi-color.el.gz...\nuncompressing ansi-color.el.gz...done\nuncompressing ansi-osc.el.gz...\nuncompressing ansi-osc.el.gz...done\nuncompressing regexp-opt.el.gz...\nuncompressing regexp-opt.el.gz...done\nuncompressing subr-x.el.gz...\nuncompressing subr-x.el.gz...done\nuncompressing derived.el.gz...\nuncompressing derived.el.gz...done\nuncompressing files-x.el.gz...\nuncompressing files-x.el.gz...done\nuncompressing text-property-search.el.gz...\nuncompressing text-property-search.el.gz...done\nuncompressing cl-seq.el.gz...\nuncompressing cl-seq.el.gz...done\nuncompressing rx.el.gz...\nuncompressing rx.el.gz...done\nuncompressing byte-opt.el.gz...\nuncompressing byte-opt.el.gz...done\nSet OGENT_ELPA_DIR to the installed runtime package directory\nmake: *** [Makefile:82: offline-test] Error 255\n"
+  }
+]

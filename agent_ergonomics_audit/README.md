@@ -1,33 +1,32 @@
-# Agent Ergonomics Audit Workspace
+# ogent agent ergonomics audit
 
-For tool: `ogent`
-Target: `/workspace/ogent`
+This in-repository audit applies JSM's agent ergonomics skill to 19 primary
+Emacs Lisp SDK and Make surfaces. It covers the six built-in tools, their
+registry/execution boundary, local doctor APIs and build/test commands.
+It is a focused pass; Armory UI flows and provider inference are outside scope.
 
-This is a measurement workspace produced by the
-`agent-ergonomics-and-intuitiveness-maximization-for-cli-tools` skill.
+Read [the handoff](audit/HANDOFF.md), [scorecard](audit/scorecard.md),
+[paired changes](audit/uplift_diff.md), and [review log](audit/phase7_fresh_eyes_log.md).
+The [manifest](audit/manifest.json) distinguishes the implementation pass from
+its post-change measurement. Scores are qualitative same-model peer judgments,
+with explicit applicability reconciliation and archived original measurements.
 
-## Layout
+The machine-readable trail includes the surface inventory, scores, observed
+intent corpus, twelve recommendations and applied-change commit references.
+`audit/verification/` contains actual native exit codes and genuine
+baseline-fail/post-pass regression proofs. `audit/triangulation/` preserves
+historical scorer records; `audit/evidence/` archives decisive probes.
+Temporary fixtures, baseline source extraction and scaffolding templates are
+ignored. No credentials are needed for the workflows below.
 
-- `audit/manifest.json` — entry point (pass number, target SHA, artifact paths)
-- `audit/surface_inventory.jsonl` — every agent surface discovered
-- `audit/agent_surfaces.jsonl` — surfaces scored across 11 dimensions
-- `audit/intent_inference_corpus.jsonl` — wrong-invocation corpus + outcomes
-- `audit/recommendations.jsonl` — ranked recommendations
-- `audit/applied_changes.jsonl` — what was applied + commit refs
-- `audit/scorecard.md` — human-readable scorecard
-- `audit/heatmap.svg` — surfaces × dimensions heatmap
-- `audit/playbook.md` — top-10 narrative
-- `audit/uplift_diff.md` — pass-N vs pass-N-1 deltas
-- `audit/regression_alerts.md` — surfaces that dropped scores
-- `audit/regression_tests/` — golden/snapshot tests
-- `audit/agent_simulations/` — fresh-agent canonical-task transcripts
-- `audit/HANDOFF.md` — what's queued for next pass
+With Emacs and the supported dependencies available, use `make lint`,
+`make test`, `make test-isolation`, and
+`OGENT_ELPA_DIR=/path/to/elpa make offline-test`. To replay a targeted
+improvement, run `bash audit/regression_tests/R-001__grep-errors.test.sh`
+from this directory, selecting `EMACS` when needed. The regression runner
+accepts `OGENT_AUDIT_SOURCE` for an extracted historical source root.
 
-## How to resume
-
-This workspace lives **inside the target repo** at `/workspace/ogent/agent_ergonomics_audit/` and is committed alongside the code on the target's current branch (typically `main`). The phase-loop scripts live in the **skill repo**, not in this workspace. From the skill repo's root (or with absolute paths), run:
-
-1. `<SKILL>/scripts/discover-cli.sh /workspace/ogent` to confirm the binary still exists.
-2. `<SKILL>/scripts/validate_pass.sh /workspace/ogent/agent_ergonomics_audit` to check artifact integrity.
-3. Read `audit/HANDOFF.md` here in the workspace.
-4. Pick a mode and send the resumed-pass kickoff prompt.
+The exact rubric hash and skill version are recorded in the manifest/scope.
+The installed skill's Bash scripts aggregate, validate, render and diff the
+audit files; there is no standalone ogent binary. Future passes should retain
+the SDK adaptation, work on `master`, and preserve the historical evidence.

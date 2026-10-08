@@ -1,0 +1,174 @@
+FUNCTION ogent-tool--bash (command &optional working-directory timeout)
+Execute shell COMMAND with streaming progress.
+WORKING-DIRECTORY defaults to project root.
+TIMEOUT in seconds (default `ogent-tools-shell-timeout').
+Output is streamed incrementally via `ogent-tools-stream-callback'.
+
+FUNCTION ogent-tool--bash-async (command &optional working-directory timeout callback)
+Execute shell COMMAND asynchronously with streaming output.
+WORKING-DIRECTORY defaults to project root.
+TIMEOUT in seconds (default `ogent-tools-shell-timeout').
+CALLBACK is called with (TYPE DATA) where TYPE is:
+  - `stdout': DATA is a string of stdout chunk
+  - `stderr': DATA is a string of stderr chunk
+  - `done': DATA is the exit code (integer)
+  - `error': DATA is an error message
+If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
+
+FUNCTION ogent-tool--edit-file (file-path old-string new-string &optional replace-all)
+Replace OLD-STRING with NEW-STRING in FILE-PATH.
+If REPLACE-ALL is non-nil, replace all occurrences.
+
+FUNCTION ogent-tool--glob (pattern &optional path)
+Find files matching glob PATTERN.
+PATH is the directory to search (default project root).
+Returns files sorted by modification time (newest first).
+
+FUNCTION ogent-tool--grep (pattern &optional path glob-filter context-lines)
+Search for PATTERN in files with streaming progress.
+PATH is file or directory to search (default project root).
+GLOB-FILTER limits to matching files (e.g., "*.el").
+CONTEXT-LINES shows N lines before/after matches.
+Output is streamed incrementally via `ogent-tools-stream-callback'.
+
+FUNCTION ogent-tool--grep-async (pattern &optional path glob-filter context-lines callback)
+Search for PATTERN asynchronously with streaming.
+PATH, GLOB-FILTER, CONTEXT-LINES as in `ogent-tool--grep'.
+CALLBACK is called with (TYPE DATA) where TYPE is:
+  - `match': DATA is a matched line string
+  - `done': DATA is the total match count
+  - `error': DATA is an error message
+If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
+
+FUNCTION ogent-tool--read-file (file-path &optional offset limit)
+Read contents of FILE-PATH.
+OFFSET is the starting line number (1-indexed, default 1).
+LIMIT is the max lines to read (default `ogent-tools-max-file-lines').
+
+FUNCTION ogent-tool--write-file (file-path content)
+Write CONTENT to FILE-PATH, overwriting if exists.
+
+FUNCTION ogent-tools--append-to-buffer-if-live (buffer text)
+Append TEXT to BUFFER when BUFFER is still live.
+
+FUNCTION ogent-tools--cancel-timer (timer)
+Cancel TIMER when it is non-nil.
+
+FUNCTION ogent-tools--drop-active-process (process)
+Remove PROCESS from the active async process registry.
+
+FUNCTION ogent-tools--format-bytes (bytes)
+Format BYTES as human-readable string.
+
+FUNCTION ogent-tools--format-timeout (seconds)
+Return SECONDS formatted for timeout messages.
+
+FUNCTION ogent-tools--grep-command (pattern target glob-filter context)
+Build a search command for PATTERN in TARGET.
+Use GLOB-FILTER and CONTEXT to shape the command.
+
+FUNCTION ogent-tools--grep-pattern (pattern)
+Return validated grep PATTERN.
+
+FUNCTION ogent-tools--grep-target (path)
+Return a plist describing PATH as a grep target.
+The plist contains :directory for process `default-directory' and
+:target for the file or directory passed to grep.
+
+FUNCTION ogent-tools--kill-buffer-if-live (buffer)
+Kill BUFFER when it is still live.
+
+FUNCTION ogent-tools--progress-update nil
+Update the progress display in echo area.
+
+FUNCTION ogent-tools--project-root nil
+Return the project root directory.
+
+FUNCTION ogent-tools--resolve-path (path)
+Resolve PATH to absolute, expanding ~ and relative paths.
+
+FUNCTION ogent-tools--stream-done (tool-name exit-code)
+Signal completion of TOOL-NAME with EXIT-CODE.
+
+FUNCTION ogent-tools--stream-error (tool-name message)
+Signal error for TOOL-NAME with MESSAGE.
+
+FUNCTION ogent-tools--stream-output (tool-name type data)
+Stream output DATA of TYPE for TOOL-NAME.
+TYPE is `stdout' or `stderr'.
+
+FUNCTION ogent-tools--stream-start (tool-name &optional info)
+Signal start of streaming for TOOL-NAME with optional INFO plist.
+
+FUNCTION ogent-tools--truncate-output (output max-chars)
+Truncate OUTPUT to MAX-CHARS, adding notice if truncated.
+
+FUNCTION ogent-tools-active-count nil
+Return the number of active tool processes.
+
+FUNCTION ogent-tools-cancel-all nil
+Cancel all active tool processes.
+
+FUNCTION ogent-tools-install-defaults nil
+Install default tools into `ogent-tool-registry'.
+Does not overwrite existing entries with the same name.
+
+VARIABLE ogent-tools--active-processes
+Alist of (process . callback-info) for active async tool processes.
+
+VARIABLE ogent-tools--progress-state
+Current progress state plist with :tool, :bytes, :lines, :start-time.
+
+VARIABLE ogent-tools--progress-timer
+Timer for updating progress display.
+
+VARIABLE ogent-tools--spinner-frames
+Frames for progress spinner animation.
+
+VARIABLE ogent-tools--spinner-index
+Current spinner frame index.
+
+VARIABLE ogent-tools-bash-stream-threshold
+Byte threshold above which bash output is streamed.
+Set to 0 to always stream, or a larger value to only stream
+for commands that produce significant output.
+
+VARIABLE ogent-tools-default-registry
+Default tool definitions for ogent.
+These provide Claude Code-like functionality.
+
+VARIABLE ogent-tools-grep-max-count
+Maximum matches per file returned by grep searches.
+
+VARIABLE ogent-tools-grep-timeout
+Default timeout in seconds for grep searches.
+
+VARIABLE ogent-tools-max-file-lines
+Maximum lines to return from file read operations.
+
+VARIABLE ogent-tools-max-output-chars
+Maximum characters to return from tool output.
+
+VARIABLE ogent-tools-project-root
+Project root for relative path resolution.
+If nil, uses `default-directory' or projectile/project.el root.
+
+VARIABLE ogent-tools-shell-timeout
+Default timeout in seconds for shell commands.
+
+VARIABLE ogent-tools-show-progress
+Whether to show progress indicators for long-running tools.
+When non-nil, displays spinner and byte counts in echo area.
+
+VARIABLE ogent-tools-stream-callback
+Function called with streaming output from tools.
+If set, receives (TOOL-NAME TYPE DATA) where:
+  TOOL-NAME is a symbol like `bash' or `grep'
+  TYPE is one of: `start', `stdout', `stderr', `progress', `done', `error'
+  DATA varies by type:
+    start: plist with :command, :directory
+    stdout/stderr: string of output chunk
+    progress: plist with :bytes, :lines, :elapsed
+    done: plist with :exit-code, :duration
+    error: error message string
+

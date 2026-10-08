@@ -1,0 +1,165 @@
+{
+  "method": "Independent same-model peer scoring; no multi-model consensus claimed.",
+  "records": [
+    {
+      "original_path": "audit/partial/scorerA_make_probe.py",
+      "archived_path": "audit/evidence/scorers/scorerA_make_probe.py"
+    },
+    {
+      "original_path": "audit/partial/scorerA_make_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerA_make_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_R006.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_post_R006.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_R006.stdout",
+      "archived_path": "audit/evidence/scorers/scorerA_post_R006.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_make_probe.py",
+      "archived_path": "audit/evidence/scorers/scorerA_post_make_probe.py"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_make_probe.stdout",
+      "archived_path": "audit/evidence/scorers/scorerA_post_make_probe.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_make_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerA_post_make_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_make_summary.txt",
+      "archived_path": "audit/evidence/scorers/scorerA_post_make_summary.txt"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_probe.el",
+      "archived_path": "audit/evidence/scorers/scorerA_post_probe.el"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_regression.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_post_regression.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_regression.stdout",
+      "archived_path": "audit/evidence/scorers/scorerA_post_regression.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_regressions.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_post_regressions.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_regressions.stdout",
+      "archived_path": "audit/evidence/scorers/scorerA_post_regressions.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_review_probe.el",
+      "archived_path": "audit/evidence/scorers/scorerA_post_review_probe.el"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_review_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerA_post_review_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_review_runtime.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_post_review_runtime.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerA_post_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_runtime.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_post_runtime.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_scoring_summary.txt",
+      "archived_path": "audit/evidence/scorers/scorerA_post_scoring_summary.txt"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_summary.json",
+      "archived_path": "audit/evidence/scorers/scorerA_post_summary.json"
+    },
+    {
+      "original_path": "audit/partial/scorerA_post_write_scores.py",
+      "archived_path": "audit/evidence/scorers/scorerA_post_write_scores.py"
+    },
+    {
+      "original_path": "audit/partial/scorerA_probe.el",
+      "archived_path": "audit/evidence/scorers/scorerA_probe.el"
+    },
+    {
+      "original_path": "audit/partial/scorerA_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerA_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerA_runtime.stderr",
+      "archived_path": "audit/evidence/scorers/scorerA_runtime.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerA_scoring_summary.txt",
+      "archived_path": "audit/evidence/scorers/scorerA_scoring_summary.txt"
+    },
+    {
+      "original_path": "audit/partial/scorerA_write_scores.py",
+      "archived_path": "audit/evidence/scorers/scorerA_write_scores.py"
+    },
+    {
+      "original_path": "audit/partial/scorerB-empty-edit.stderr",
+      "archived_path": "audit/evidence/scorers/scorerB-empty-edit.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerB-empty-edit.stdout",
+      "archived_path": "audit/evidence/scorers/scorerB-empty-edit.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerB-findings.md",
+      "archived_path": "audit/evidence/scorers/scorerB-findings.md"
+    },
+    {
+      "original_path": "audit/partial/scorerB-make-runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerB-make-runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerB-probe.el",
+      "archived_path": "audit/evidence/scorers/scorerB-probe.el"
+    },
+    {
+      "original_path": "audit/partial/scorerB-runtime.stderr",
+      "archived_path": "audit/evidence/scorers/scorerB-runtime.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerB-runtime.stdout",
+      "archived_path": "audit/evidence/scorers/scorerB-runtime.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_make_runtime.jsonl",
+      "archived_path": "audit/evidence/scorers/scorerB_post_make_runtime.jsonl"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_offline.stderr",
+      "archived_path": "audit/evidence/scorers/scorerB_post_offline.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_offline.stdout",
+      "archived_path": "audit/evidence/scorers/scorerB_post_offline.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_probe.el",
+      "archived_path": "audit/evidence/scorers/scorerB_post_probe.el"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_runtime.stderr",
+      "archived_path": "audit/evidence/scorers/scorerB_post_runtime.stderr"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_runtime.stdout",
+      "archived_path": "audit/evidence/scorers/scorerB_post_runtime.stdout"
+    },
+    {
+      "original_path": "audit/partial/scorerB_post_summary.md",
+      "archived_path": "audit/evidence/scorers/scorerB_post_summary.md"
+    }
+  ]
+}

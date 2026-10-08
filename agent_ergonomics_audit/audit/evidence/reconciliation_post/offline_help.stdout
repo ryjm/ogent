@@ -1,0 +1,4 @@
+Usage: OGENT_ELPA_DIR=/path/to/elpa make offline-test
+Optional: OGENT_GPTEL_DIR=/path/to/gptel, EMACS=/path/to/emacs.
+Runs local fixtures only; no provider login or requests.
+Exit 0: tests passed; nonzero: prerequisite, fixture, or test failure.

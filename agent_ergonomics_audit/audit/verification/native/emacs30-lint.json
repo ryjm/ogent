@@ -1,0 +1,20 @@
+{
+  "check": "emacs30-lint",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "make",
+    "lint",
+    "sandbox=/tmp/ogent-fixdeps"
+  ],
+  "exit_code": 0,
+  "source_sha": "2401f03bc5d7cd0f2915b88aede9a4444407e2b4",
+  "started_at": "2026-10-08T19:04:19.451733+00:00",
+  "completed_at": "2026-10-08T19:06:33.645598+00:00",
+  "summary": [],
+  "stdout": "audit/verification/native/emacs30-lint.stdout.log",
+  "stderr": "audit/verification/native/emacs30-lint.stderr.log"
+}

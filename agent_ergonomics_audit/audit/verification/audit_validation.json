@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-10-08T19:20:53.188362+00:00",
+  "checks": [
+    {
+      "argv": [
+        "bash",
+        "/home/agent/.claude/skills/agent-ergonomics-and-intuitiveness-maximization-for-cli-tools/tools/validate_scorecard.sh",
+        "agent_ergonomics_audit/audit/agent_surfaces.jsonl"
+      ],
+      "exit_code": 0,
+      "stdout": "validate_scorecard: OK\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "bash",
+        "/home/agent/.claude/skills/agent-ergonomics-and-intuitiveness-maximization-for-cli-tools/scripts/validate_pass.sh",
+        "/workspace/ogent/agent_ergonomics_audit"
+      ],
+      "exit_code": 0,
+      "stdout": "validate_pass: OK (/workspace/ogent/agent_ergonomics_audit/audit)\n",
+      "stderr": ""
+    }
+  ],
+  "all_passed": true,
+  "whitespace_note": "Raw captured output retains original trailing whitespace and blank lines. Production/docs diff whitespace check passes when exact runtime transcripts are excluded."
+}

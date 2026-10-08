@@ -1,0 +1,11 @@
+FIXTURE /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/grep-chNg4Y
+"grep: invalid argument 'ash' for '--directories'
+Valid arguments are:
+  - 'read'
+  - 'recurse'
+  - 'skip'
+Usage: grep [OPTION]... PATTERNS [FILE]...
+Try 'grep --help' for more information.
+
+
+[7 matches in 0.0s]"

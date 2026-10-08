@@ -1,0 +1,11 @@
+./one/middle.el
+./one/two/deep.el
+./root.el
+
+
+--- stderr ---
+
+Process ogent-bash stderr finished
+
+
+Exit code: 0 (0.0s)

@@ -1,0 +1,25 @@
+== ogent store-integrity audit (ogent-aq8.4) ==
+-- auditing 18 real-store paths --
+  [absent  ] /work/.ogent-analytics.db
+  [absent  ] /work/.ogent/ledger.org
+  [absent  ] /root/.local/share/emacs/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/.emacs.d/.local/cache/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/.codex/auth.json
+  [absent  ] /root/.emacs.d/ogent/beads
+  [absent  ] /root/.emacs.d/ogent-snippets
+  [absent  ] /root/.emacs.d/codemap-cache
+  [absent  ] /root/.emacs.d/ogent/anthropic-oauth
+  [absent  ] /root/.emacs.d/ogent-sessions
+  [absent  ] /root/org/ogent-companion.org
+  [absent  ] /root/org/ogent-notes.org
+  [absent  ] /root/.emacs.d/ogent-companion-links.el
+  [absent  ] /root/.emacs.d/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/.config/emacs/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/.config/doom/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/.doom.d/ogent/anthropic-oauth/tokens.el
+  [absent  ] /root/vault/projects/config/nixconfig/home-nixpkgs/doom-emacs/.local/cache/ogent/anthropic-oauth/tokens.el
+-- pre-suite snapshot written: /tmp/ogent-store-integrity.aTvzWQ/before.snapshot --
+-- running full ert suite --
+-- suite exit status: 0 --
+-- post-suite snapshot written: /tmp/ogent-store-integrity.aTvzWQ/after.snapshot --
+STORE-INTEGRITY: clean - no real-store drift across the suite run

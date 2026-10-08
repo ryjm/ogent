@@ -1,0 +1,7 @@
+FIXTURE /work/agent_ergonomics_audit/audit/agent_simulations/pre_pass_1/canonical/fixtures/compile-CreEjB
+CHILD STDERR: 
+In toplevel form:
+broken.el:1:1: Warning: file has no `lexical-binding' directive on its first line
+broken.el: Error: End of file during parsing
+
+SDK done exit-code: 1

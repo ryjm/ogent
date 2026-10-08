@@ -1,0 +1,33 @@
+{
+  "stage": "pre",
+  "pass": 1,
+  "tasks_completed": 7,
+  "tasks_attempted": 7,
+  "tasks_failed": 0,
+  "tasks_stuck": 0,
+  "first_try_successes": 4,
+  "round_trips": [
+    3,
+    3,
+    4,
+    4,
+    2,
+    2,
+    1
+  ],
+  "median_round_trips": 3,
+  "sdk_round_trips": [
+    3,
+    2,
+    4,
+    4,
+    2,
+    1,
+    1
+  ],
+  "median_sdk_round_trips": 2,
+  "total_invocations": 19,
+  "nonzero_outer_invocations": 1,
+  "unexpected_sdk_operation_failures": 2,
+  "deliberate_negative_outcomes": 2
+}

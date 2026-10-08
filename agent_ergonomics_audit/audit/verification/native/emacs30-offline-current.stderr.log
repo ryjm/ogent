@@ -1,0 +1,801 @@
+uncompressing format-spec.el.gz...
+uncompressing format-spec.el.gz...done
+uncompressing rx.el.gz...
+uncompressing rx.el.gz...done
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing subr-x.el.gz...
+uncompressing subr-x.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing gv.el.gz...
+uncompressing gv.el.gz...done
+uncompressing inline.el.gz...
+uncompressing inline.el.gz...done
+uncompressing cl-seq.el.gz...
+uncompressing cl-seq.el.gz...done
+uncompressing map.el.gz...
+uncompressing map.el.gz...done
+uncompressing bytecomp.el.gz...
+uncompressing bytecomp.el.gz...done
+uncompressing compile.el.gz...
+uncompressing compile.el.gz...done
+uncompressing tool-bar.el.gz...
+uncompressing tool-bar.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing comint.el.gz...
+uncompressing comint.el.gz...done
+uncompressing ring.el.gz...
+uncompressing ring.el.gz...done
+uncompressing ansi-color.el.gz...
+uncompressing ansi-color.el.gz...done
+uncompressing ansi-osc.el.gz...
+uncompressing ansi-osc.el.gz...done
+uncompressing regexp-opt.el.gz...
+uncompressing regexp-opt.el.gz...done
+uncompressing derived.el.gz...
+uncompressing derived.el.gz...done
+uncompressing files-x.el.gz...
+uncompressing files-x.el.gz...done
+uncompressing text-property-search.el.gz...
+uncompressing text-property-search.el.gz...done
+uncompressing byte-opt.el.gz...
+uncompressing byte-opt.el.gz...done
+uncompressing gnus-sum.el.gz...
+uncompressing gnus-sum.el.gz...done
+uncompressing gnus.el.gz...
+uncompressing gnus.el.gz...done
+uncompressing wid-edit.el.gz...
+uncompressing wid-edit.el.gz...done
+uncompressing mm-util.el.gz...
+uncompressing mm-util.el.gz...done
+uncompressing mail-prsvr.el.gz...
+uncompressing mail-prsvr.el.gz...done
+uncompressing nnheader.el.gz...
+uncompressing nnheader.el.gz...done
+uncompressing range.el.gz...
+uncompressing range.el.gz...done
+uncompressing mail-utils.el.gz...
+uncompressing mail-utils.el.gz...done
+uncompressing gnus-util.el.gz...
+uncompressing gnus-util.el.gz...done
+uncompressing time-date.el.gz...
+uncompressing time-date.el.gz...done
+uncompressing message.el.gz...
+uncompressing message.el.gz...done
+uncompressing mailheader.el.gz...
+uncompressing mailheader.el.gz...done
+uncompressing gmm-utils.el.gz...
+uncompressing gmm-utils.el.gz...done
+uncompressing mailabbrev.el.gz...
+uncompressing mailabbrev.el.gz...done
+uncompressing sendmail.el.gz...
+uncompressing sendmail.el.gz...done
+uncompressing rfc2047.el.gz...
+uncompressing rfc2047.el.gz...done
+uncompressing ietf-drums.el.gz...
+uncompressing ietf-drums.el.gz...done
+uncompressing rfc2045.el.gz...
+uncompressing rfc2045.el.gz...done
+uncompressing mail-parse.el.gz...
+uncompressing mail-parse.el.gz...done
+uncompressing rfc2231.el.gz...
+uncompressing rfc2231.el.gz...done
+uncompressing mml.el.gz...
+uncompressing mml.el.gz...done
+uncompressing mm-bodies.el.gz...
+uncompressing mm-bodies.el.gz...done
+uncompressing mm-encode.el.gz...
+uncompressing mm-encode.el.gz...done
+uncompressing mm-decode.el.gz...
+uncompressing mm-decode.el.gz...done
+uncompressing mml-sec.el.gz...
+uncompressing mml-sec.el.gz...done
+uncompressing epg.el.gz...
+uncompressing epg.el.gz...done
+uncompressing epg-config.el.gz...
+uncompressing epg-config.el.gz...done
+uncompressing rfc6068.el.gz...
+uncompressing rfc6068.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+uncompressing help-mode.el.gz...
+uncompressing help-mode.el.gz...done
+uncompressing epa.el.gz...
+uncompressing epa.el.gz...done
+uncompressing password-cache.el.gz...
+uncompressing password-cache.el.gz...done
+uncompressing url.el.gz...
+uncompressing url.el.gz...done
+uncompressing mailcap.el.gz...
+uncompressing mailcap.el.gz...done
+uncompressing mm-view.el.gz...
+uncompressing mm-view.el.gz...done
+uncompressing smime.el.gz...
+uncompressing smime.el.gz...done
+uncompressing dig.el.gz...
+uncompressing dig.el.gz...done
+uncompressing gnutls.el.gz...
+uncompressing gnutls.el.gz...done
+uncompressing puny.el.gz...
+uncompressing puny.el.gz...done
+uncompressing mml-smime.el.gz...
+uncompressing mml-smime.el.gz...done
+uncompressing url-vars.el.gz...
+uncompressing url-vars.el.gz...done
+uncompressing url-cookie.el.gz...
+uncompressing url-cookie.el.gz...done
+uncompressing url-util.el.gz...
+uncompressing url-util.el.gz...done
+uncompressing url-parse.el.gz...
+uncompressing url-parse.el.gz...done
+uncompressing auth-source.el.gz...
+uncompressing auth-source.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing icons.el.gz...
+uncompressing icons.el.gz...done
+uncompressing eieio.el.gz...
+uncompressing eieio.el.gz...done
+uncompressing eieio-core.el.gz...
+uncompressing eieio-core.el.gz...done
+uncompressing url-domsuf.el.gz...
+uncompressing url-domsuf.el.gz...done
+uncompressing generate-lisp-file.el.gz...
+uncompressing generate-lisp-file.el.gz...done
+uncompressing url-history.el.gz...
+uncompressing url-history.el.gz...done
+uncompressing url-expand.el.gz...
+uncompressing url-expand.el.gz...done
+uncompressing url-methods.el.gz...
+uncompressing url-methods.el.gz...done
+uncompressing url-privacy.el.gz...
+uncompressing url-privacy.el.gz...done
+uncompressing url-proxy.el.gz...
+uncompressing url-proxy.el.gz...done
+uncompressing rfc822.el.gz...
+uncompressing rfc822.el.gz...done
+uncompressing dired.el.gz...
+uncompressing dired.el.gz...done
+uncompressing autorevert.el.gz...
+uncompressing autorevert.el.gz...done
+uncompressing filenotify.el.gz...
+uncompressing filenotify.el.gz...done
+uncompressing dired-loaddefs.el.gz...
+uncompressing dired-loaddefs.el.gz...done
+uncompressing dnd.el.gz...
+uncompressing dnd.el.gz...done
+uncompressing desktop.el.gz...
+uncompressing desktop.el.gz...done
+uncompressing frameset.el.gz...
+uncompressing frameset.el.gz...done
+uncompressing yank-media.el.gz...
+uncompressing yank-media.el.gz...done
+uncompressing gnus-group.el.gz...
+uncompressing gnus-group.el.gz...done
+uncompressing gnus-start.el.gz...
+uncompressing gnus-start.el.gz...done
+uncompressing gnus-win.el.gz...
+uncompressing gnus-win.el.gz...done
+uncompressing gnus-int.el.gz...
+uncompressing gnus-int.el.gz...done
+uncompressing gnus-range.el.gz...
+uncompressing gnus-range.el.gz...done
+uncompressing gnus-spec.el.gz...
+uncompressing gnus-spec.el.gz...done
+uncompressing gnus-cloud.el.gz...
+uncompressing gnus-cloud.el.gz...done
+uncompressing parse-time.el.gz...
+uncompressing parse-time.el.gz...done
+uncompressing iso8601.el.gz...
+uncompressing iso8601.el.gz...done
+uncompressing nnimap.el.gz...
+uncompressing nnimap.el.gz...done
+uncompressing nnoo.el.gz...
+uncompressing nnoo.el.gz...done
+uncompressing utf7.el.gz...
+uncompressing utf7.el.gz...done
+uncompressing nnmail.el.gz...
+uncompressing nnmail.el.gz...done
+uncompressing mail-source.el.gz...
+uncompressing mail-source.el.gz...done
+uncompressing imap.el.gz...
+uncompressing imap.el.gz...done
+uncompressing rfc2104.el.gz...
+uncompressing rfc2104.el.gz...done
+uncompressing browse-url.el.gz...
+uncompressing browse-url.el.gz...done
+uncompressing gnus-dbus.el.gz...
+uncompressing gnus-dbus.el.gz...done
+uncompressing dbus.el.gz...
+uncompressing dbus.el.gz...done
+uncompressing xml.el.gz...
+uncompressing xml.el.gz...done
+uncompressing gnus-undo.el.gz...
+uncompressing gnus-undo.el.gz...done
+uncompressing mm-url.el.gz...
+uncompressing mm-url.el.gz...done
+uncompressing gnus-sum.el.gz...
+uncompressing gnus-sum.el.gz...done
+uncompressing shr.el.gz...
+uncompressing shr.el.gz...done
+uncompressing dom.el.gz...
+uncompressing dom.el.gz...done
+uncompressing svg.el.gz...
+uncompressing svg.el.gz...done
+uncompressing image.el.gz...
+uncompressing image.el.gz...done
+uncompressing url-file.el.gz...
+uncompressing url-file.el.gz...done
+uncompressing pixel-fill.el.gz...
+uncompressing pixel-fill.el.gz...done
+uncompressing kinsoku.el.gz...
+uncompressing kinsoku.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing shr.el.gz...
+uncompressing shr.el.gz...done
+uncompressing dom.el.gz...
+uncompressing dom.el.gz...done
+uncompressing svg.el.gz...
+uncompressing svg.el.gz...done
+uncompressing image.el.gz...
+uncompressing image.el.gz...done
+uncompressing url-file.el.gz...
+uncompressing url-file.el.gz...done
+uncompressing pixel-fill.el.gz...
+uncompressing pixel-fill.el.gz...done
+uncompressing kinsoku.el.gz...
+uncompressing kinsoku.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing calendar.el.gz...
+uncompressing calendar.el.gz...done
+uncompressing cal-loaddefs.el.gz...
+uncompressing cal-loaddefs.el.gz...done
+uncompressing cal-menu.el.gz...
+uncompressing cal-menu.el.gz...done
+uncompressing find-func.el.gz...
+uncompressing find-func.el.gz...done
+uncompressing thingatpt.el.gz...
+uncompressing thingatpt.el.gz...done
+uncompressing outline.el.gz...
+uncompressing outline.el.gz...done
+uncompressing so-long.el.gz...
+uncompressing so-long.el.gz...done
+uncompressing pcomplete.el.gz...
+uncompressing pcomplete.el.gz...done
+uncompressing sh-script.el.gz...
+uncompressing sh-script.el.gz...done
+uncompressing skeleton.el.gz...
+uncompressing skeleton.el.gz...done
+uncompressing let-alist.el.gz...
+uncompressing let-alist.el.gz...done
+uncompressing executable.el.gz...
+uncompressing executable.el.gz...done
+uncompressing treesit.el.gz...
+uncompressing treesit.el.gz...done
+uncompressing shortdoc.el.gz...
+uncompressing shortdoc.el.gz...done
+uncompressing smie.el.gz...
+uncompressing smie.el.gz...done
+uncompressing flymake.el.gz...
+uncompressing flymake.el.gz...done
+uncompressing warnings.el.gz...
+uncompressing warnings.el.gz...done
+uncompressing mwheel.el.gz...
+uncompressing mwheel.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing xdg.el.gz...
+uncompressing xdg.el.gz...done
+uncompressing edmacro.el.gz...
+uncompressing edmacro.el.gz...done
+uncompressing kmacro.el.gz...
+uncompressing kmacro.el.gz...done
+uncompressing pp.el.gz...
+uncompressing pp.el.gz...done
+Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)
+uncompressing ert.el.gz...
+uncompressing ert.el.gz...done
+uncompressing debug.el.gz...
+uncompressing debug.el.gz...done
+uncompressing backtrace.el.gz...
+uncompressing backtrace.el.gz...done
+uncompressing ewoc.el.gz...
+uncompressing ewoc.el.gz...done
+uncompressing avl-tree.el.gz...
+uncompressing avl-tree.el.gz...done
+uncompressing generator.el.gz...
+uncompressing generator.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing face-remap.el.gz...
+uncompressing face-remap.el.gz...done
+uncompressing sqlite.el.gz...
+uncompressing sqlite.el.gz...done
+uncompressing diff.el.gz...
+uncompressing diff.el.gz...done
+uncompressing smerge-mode.el.gz...
+uncompressing smerge-mode.el.gz...done
+uncompressing diff-mode.el.gz...
+uncompressing diff-mode.el.gz...done
+uncompressing track-changes.el.gz...
+uncompressing track-changes.el.gz...done
+Anthropic OAuth support enabled
+uncompressing vc-git.el.gz...
+uncompressing vc-git.el.gz...done
+uncompressing vc-dispatcher.el.gz...
+uncompressing vc-dispatcher.el.gz...done
+uncompressing vc.el.gz...
+uncompressing vc.el.gz...done
+uncompressing vc-dir.el.gz...
+uncompressing vc-dir.el.gz...done
+Loading /work/test/ogent-armory-actions-tests.el (source)...
+Loading /work/test/ogent-armory-adapter-tests.el (source)...
+Loading /work/test/ogent-armory-cache-tests.el (source)...
+Loading /work/test/ogent-armory-compose-tests.el (source)...
+Loading /work/test/ogent-armory-conversations-tests.el (source)...
+Loading /work/test/ogent-armory-data-tests.el (source)...
+Loading /work/test/ogent-armory-evil-tests.el (source)...
+Loading /work/test/ogent-armory-git-tests.el (source)...
+Loading /work/test/ogent-armory-palette-tests.el (source)...
+Loading /work/test/ogent-armory-ql-tests.el (source)...
+Loading /work/test/ogent-armory-runner-tests.el (source)...
+Loading /work/test/ogent-armory-schedule-tests.el (source)...
+Loading /work/test/ogent-armory-settings-tests.el (source)...
+Loading /work/test/ogent-armory-skills-tests.el (source)...
+Loading /work/test/ogent-armory-status-tests.el (source)...
+Loading /work/test/ogent-armory-tests.el (source)...
+Running 204 tests (2026-10-08 19:09:12+0000, selector `(or "ogent-offline-" "ogent-armory-")')
+   passed    1/204  ogent-offline-tool-override-preserves-shared-model-props (0.001424 sec)
+   passed    2/204  ogent-offline-tool-cycle-policy-and-ledger (0.098164 sec)
+uncompressing bibtex.el.gz...
+uncompressing bibtex.el.gz...done
+uncompressing doc-view.el.gz...
+uncompressing doc-view.el.gz...done
+uncompressing image-mode.el.gz...
+uncompressing image-mode.el.gz...done
+uncompressing exif.el.gz...
+uncompressing exif.el.gz...done
+uncompressing nnselect.el.gz...
+uncompressing nnselect.el.gz...done
+uncompressing gnus-art.el.gz...
+uncompressing gnus-art.el.gz...done
+uncompressing mm-uu.el.gz...
+uncompressing mm-uu.el.gz...done
+uncompressing mml2015.el.gz...
+uncompressing mml2015.el.gz...done
+uncompressing eww.el.gz...
+uncompressing eww.el.gz...done
+uncompressing url-queue.el.gz...
+uncompressing url-queue.el.gz...done
+Ogent: ~134 tokens
+uncompressing mule-util.el.gz...
+uncompressing mule-util.el.gz...done
+✓ Response complete (0.0s)
+Offline Org lifecycle: endpoint=chat model=gpt-6.1-sol finishes=1
+Ogent: ~134 tokens
+✓ Response complete (0.0s)
+Offline Org lifecycle: endpoint=responses model=gpt-6.1-sol finishes=1
+   passed    3/204  ogent-offline-streamed-org-entrypoint (0.230382 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-94TskV (retained)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-schedule-94TskV/.agents/.conversations/20261008T190912-daily-review-aa200d/index.org (finished)
+   passed    4/204  ogent-offline-scheduler-restart-durable-claim (0.070036 sec)
+Ogent: ~69 tokens
+uncompressing view.el.gz...
+uncompressing view.el.gz...done
+✗ Request failed: (:message fixture validation error)
+ogent: request for gpt-6.1-sol failed with no fallback available: (:message fixture validation error)
+   passed    5/204  ogent-offline-provider-error-closes-org-request (0.035019 sec)
+   passed    6/204  ogent-offline-presets-validate-effective-configuration (0.001509 sec)
+   passed    7/204  ogent-offline-openai-family-and-wire (0.002617 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-hdIc2l (retained)
+uncompressing userlock.el.gz...
+uncompressing userlock.el.gz...done
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-hdIc2l/.agents/.conversations/20261008T190912-run-2e7dab/index.org (native gptel)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-wBc5ep (retained)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-wBc5ep/.agents/.conversations/20261008T190912-run-6a1405/index.org (native gptel)
+   passed    8/204  ogent-offline-native-tool-cap-and-completion (0.109620 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-BA9ugv (retained)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-BA9ugv/.agents/.conversations/20261008T190913-run-fb411b/index.org (native gptel)
+   passed    9/204  ogent-offline-native-stop-live-transport (0.028491 sec)
+ogent-mcp: Registered tool read from 'offline'
+   passed   10/204  ogent-offline-mcp-positional-and-cache (0.000912 sec)
+ogent-mcp: Registered tool read from 'wire'
+ogent-mcp: Registered tool zero from 'wire'
+   passed   11/204  ogent-offline-mcp-http-json-shapes (0.203555 sec)
+   passed   12/204  ogent-offline-header-timeout-precedes-transport (0.050782 sec)
+   passed   13/204  ogent-offline-endpoint-tool-parameters (0.002433 sec)
+ogent: edit offline-edit re-anchored after buffer changed
+   passed   14/204  ogent-offline-edit-reanchor-and-log (0.006084 sec)
+   passed   15/204  ogent-offline-cancel-targets-one-live-attempt (0.525860 sec)
+   passed   16/204  ogent-offline-async-tool-callback-first-once (0.000918 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-mCoQZ2 (retained)
+ogent: terminal runtime requested for worker, but Emacs is running in batch mode; falling back to pipe
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-mCoQZ2/.agents/.conversations/20261008T190913-run-45afec/index.org (finished)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-mCoQZ2/.agents/.conversations/20261008T190913-run-45afec/index.org (finished)
+Offline Armory journey: id=20261008T190913-run-45afec turns=4 file=/tmp/ogent-test-store-17NFsb/armory-runner-mCoQZ2/.agents/.conversations/20261008T190913-run-45afec/index.org
+   passed   17/204  ogent-offline-armory-compose-run-resume-compact (0.211888 sec)
+Accepted edit
+Rejected edit
+Accepted 2 staged edits
+Rejected all edits
+   passed   18/204  ogent-offline-all-review-commands-log-once (0.024004 sec)
+ogent-test: provisioned armory-actions store at /tmp/ogent-test-store-17NFsb/armory-actions-e8PpsB (retained)
+   passed   19/204  ogent-armory-actions-approval-dispatches-runs-and-jobs (0.034105 sec)
+   passed   20/204  ogent-armory-actions-parse-and-dedupe-proposals (0.000475 sec)
+ogent-test: provisioned armory-actions store at /tmp/ogent-test-store-17NFsb/armory-actions-tnCcbT (retained)
+   passed   21/204  ogent-armory-actions-scheduled-task-gets-stable-key (0.180244 sec)
+ogent-test: provisioned armory-actions store at /tmp/ogent-test-store-17NFsb/armory-actions-56yvQc (retained)
+   passed   22/204  ogent-armory-actions-store-and-read-pending-actions (0.017167 sec)
+ogent-test: provisioned armory-actions store at /tmp/ogent-test-store-17NFsb/armory-actions-Hxre1y (retained)
+   passed   23/204  ogent-armory-actions-validate-targets-and-self-launch (0.016581 sec)
+   passed   24/204  ogent-armory-adapter-builds-codex-and-claude-invocations (0.000269 sec)
+   passed   25/204  ogent-armory-adapter-builds-expanded-provider-invocations (0.000199 sec)
+   passed   26/204  ogent-armory-adapter-classifies-common-errors (0.000225 sec)
+   passed   27/204  ogent-armory-adapter-claude-resume-invocation (0.000182 sec)
+   passed   28/204  ogent-armory-adapter-codex-resume-invocation (0.000223 sec)
+   passed   29/204  ogent-armory-adapter-fresh-invocations-omit-resume-flags (0.000167 sec)
+   passed   30/204  ogent-armory-adapter-ground-claude-flags-in-snapshot (0.001305 sec)
+   passed   31/204  ogent-armory-adapter-ground-codex-flags-in-snapshot (0.001196 sec)
+   passed   32/204  ogent-armory-adapter-ground-detects-drift-on-doctored-snapshot (0.008209 sec)
+   passed   33/204  ogent-armory-adapter-ground-missing-snapshot-warns-and-skips (0.000317 sec)
+   passed   34/204  ogent-armory-adapter-ground-parses-cli-versions (0.000173 sec)
+   passed   35/204  ogent-armory-adapter-ground-picks-versioned-snapshots (0.000220 sec)
+   passed   36/204  ogent-armory-adapter-lists-builtins-and-aliases (0.000192 sec)
+Armory model listing failed for offline-cli: provider unavailable
+   passed   37/204  ogent-armory-adapter-models-fall-back-to-static-list (0.000286 sec)
+   passed   38/204  ogent-armory-adapter-models-use-fresh-provider-list (0.000246 sec)
+   passed   39/204  ogent-armory-adapter-opencode-models-query-cli (0.000296 sec)
+   passed   40/204  ogent-armory-adapter-pi-and-grok-report-unsupported (0.000207 sec)
+   passed   41/204  ogent-armory-adapter-runtime-candidates-cover-modes (0.000271 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-CIkiEH (retained)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-AGKB5R (retained)
+   passed   42/204  ogent-armory-agent-resolution-prefers-local-then-global (0.014249 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-7RwHFs (retained)
+   passed   43/204  ogent-armory-agent-resolution-uses-visible-unique-armories (0.006551 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-pOLhEe (retained)
+   passed   44/204  ogent-armory-agent-round-trips-armory-identity (0.005648 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-t36g03 (retained)
+   passed   45/204  ogent-armory-agent-round-trips-org-persona (0.005450 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-Sp9Fqb (retained)
+   passed   46/204  ogent-armory-agents-group-by-department-and-lead (0.015300 sec)
+ogent-test: provisioned armory-palette store at /tmp/ogent-test-store-17NFsb/armory-palette-zNKDiA (retained)
+   passed   47/204  ogent-armory-apps-identify-canonical-conversation-owner (0.004559 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-3IiWsO (retained)
+   passed   48/204  ogent-armory-backup-excludes-transient-state (0.008574 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-8uo4Y6 (retained)
+   passed   49/204  ogent-armory-build-graph-connects-armory-agents-and-jobs (0.030034 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-cRZwy2 (retained)
+   passed   50/204  ogent-armory-build-graph-degrades-without-usable-issues-jsonl (0.019987 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-uuoNgQ (retained)
+   passed   51/204  ogent-armory-build-graph-ingests-br-export-parents (0.012793 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-NVtxZl (retained)
+   passed   52/204  ogent-armory-build-graph-legacy-fixture-keeps-old-kinds (0.032924 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-8bB8nJ (retained)
+   passed   53/204  ogent-armory-build-graph-links-conversation-parent-tasks (0.026088 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-UCjri7 (retained)
+   passed   54/204  ogent-armory-build-graph-links-issue-parents (0.010055 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-wVpBEn (retained)
+   passed   55/204  ogent-armory-build-graph-projects-conversation-nodes (0.026910 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-2zirs4 (retained)
+   passed   56/204  ogent-armory-build-graph-tracks-issues-jsonl-rewrites (0.018781 sec)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-NP6OQ7 (retained)
+   passed   57/204  ogent-armory-cache-force-rebuilds-despite-unchanged-stamp (0.000970 sec)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-wnQqYQ (retained)
+   passed   58/204  ogent-armory-cache-hit-reuses-builder-value-while-stamp-unchanged (0.000642 sec)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-7vXpZs (retained)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-jLUtAC (retained)
+   passed   59/204  ogent-armory-cache-invalidate-clears-only-the-requested-root (0.001051 sec)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-rTSqqp (retained)
+   passed   60/204  ogent-armory-cache-missing-root-bypasses-cache (0.000283 sec)
+ogent-test: provisioned armory-cache store at /tmp/ogent-test-store-17NFsb/armory-cache-cCo5ax (retained)
+   passed   61/204  ogent-armory-cache-rebuilds-when-relevant-files-change (0.001266 sec)
+ogent-test: provisioned armory-palette store at /tmp/ogent-test-store-17NFsb/armory-palette-X7t9Bc (retained)
+   passed   62/204  ogent-armory-command-palette-completes-live-index (0.005743 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-ofQ3Fu (retained)
+   passed   63/204  ogent-armory-compose-builds-runner-plan-with-metadata (0.015807 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-8sgt2e (retained)
+   passed   64/204  ogent-armory-compose-prompt-includes-context (0.008919 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-3GJKja (retained)
+   passed   65/204  ogent-armory-compose-resolves-all-mention-types (0.018883 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-huEUH2 (retained)
+   passed   66/204  ogent-armory-compose-skill-catalog-loads-origins-on-demand (0.005850 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-fwkOSL (retained)
+   passed   67/204  ogent-armory-compose-skill-read-prefers-direct-key-file (0.005277 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-wIWrlf (retained)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-350RcL (retained)
+   passed   68/204  ogent-armory-compose-skill-read-stops-after-first-match (0.005145 sec)
+ogent-test: provisioned armory-compose store at /tmp/ogent-test-store-17NFsb/armory-compose-y4qTRq (retained)
+   passed   69/204  ogent-armory-compose-stages-and-finalizes-attachments (0.006098 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-1TdYLB (retained)
+   passed   70/204  ogent-armory-conversation-append-turn-does-not-visit-index (0.006923 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-KFJ01F (retained)
+   passed   71/204  ogent-armory-conversation-appends-turns-and-events (0.015214 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-cDma2z (retained)
+   passed   72/204  ogent-armory-conversation-demotes-turn-headings (0.005351 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-aEbvfp (retained)
+   passed   73/204  ogent-armory-conversation-list-sorts-by-activity (0.010619 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-E9ylJU (retained)
+   passed   74/204  ogent-armory-conversation-migrates-legacy-session (0.021835 sec)
+   passed   75/204  ogent-armory-conversation-parses-armory-blocks (0.000329 sec)
+ogent-test: provisioned armory-conversations store at /tmp/ogent-test-store-17NFsb/armory-conversations-7EBm46 (retained)
+   passed   76/204  ogent-armory-conversation-round-trips-index (0.005672 sec)
+ogent-test: provisioned armory-data store at /tmp/ogent-test-store-17NFsb/armory-data-tRaKYq (retained)
+   passed   77/204  ogent-armory-data-open-file-dispatches-by-kind (0.000687 sec)
+ogent-test: provisioned armory-data store at /tmp/ogent-test-store-17NFsb/armory-data-p7UFpQ (retained)
+uncompressing table.el.gz...
+uncompressing table.el.gz...done
+uncompressing rng-loc.el.gz...
+uncompressing rng-loc.el.gz...done
+uncompressing nxml-util.el.gz...
+uncompressing nxml-util.el.gz...done
+uncompressing nxml-parse.el.gz...
+uncompressing nxml-parse.el.gz...done
+uncompressing xmltok.el.gz...
+uncompressing xmltok.el.gz...done
+uncompressing nxml-enc.el.gz...
+uncompressing nxml-enc.el.gz...done
+uncompressing nxml-ns.el.gz...
+uncompressing nxml-ns.el.gz...done
+uncompressing rng-parse.el.gz...
+uncompressing rng-parse.el.gz...done
+uncompressing rng-match.el.gz...
+uncompressing rng-match.el.gz...done
+uncompressing rng-pttrn.el.gz...
+uncompressing rng-pttrn.el.gz...done
+uncompressing rng-util.el.gz...
+uncompressing rng-util.el.gz...done
+uncompressing rng-dt.el.gz...
+uncompressing rng-dt.el.gz...done
+uncompressing rng-uri.el.gz...
+uncompressing rng-uri.el.gz...done
+   passed   78/204  ogent-armory-data-page-operations-preserve-metadata-and-links (0.384192 sec)
+ogent-test: provisioned armory-data store at /tmp/ogent-test-store-17NFsb/armory-data-jp39Si (retained)
+   passed   79/204  ogent-armory-data-records-classify-files (0.004901 sec)
+   passed   80/204  ogent-armory-evil-display-maps-bind-quit (0.000281 sec)
+   passed   81/204  ogent-armory-evil-keymap-bindings-ignore-parent-maps (0.000268 sec)
+   passed   82/204  ogent-armory-evil-setup-functions-wire-display-modes (0.002849 sec)
+   passed   83/204  ogent-armory-evil-setup-mode-uses-canonical-override (0.000569 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-pSB218 (retained)
+   passed   84/204  ogent-armory-find-root-discovers-parent-armory (0.000911 sec)
+ogent-test: provisioned armory-git store at /tmp/ogent-test-store-17NFsb/armory-git-Tqtvdy (retained)
+   passed   85/204  ogent-armory-git-commit-stages-selected-files (0.017512 sec)
+   passed   86/204  ogent-armory-git-pull-calls-fast-forward-only (0.000268 sec)
+   passed   87/204  ogent-armory-git-pull-from-status-pulls-root-and-refreshes (0.000217 sec)
+ogent-test: provisioned armory-git store at /tmp/ogent-test-store-17NFsb/armory-git-lCpzY2 (retained)
+   passed   88/204  ogent-armory-git-status-diff-log-and-restore-page (0.016795 sec)
+   passed   89/204  ogent-armory-git-status-keymap-binds-pull (0.000248 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-5pzpuO (retained)
+   passed   90/204  ogent-armory-graph-build-ignores-user-org-hooks (0.023039 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-ALP4VC (retained)
+   passed   91/204  ogent-armory-help-and-demo-render (0.009459 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-ny15FZ (retained)
+   passed   92/204  ogent-armory-import-artifacts-writes-org-records (0.002455 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-4JiRJO (retained)
+   passed   93/204  ogent-armory-job-metadata-and-archive-preserve-org-body (0.019076 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-raPP8y (retained)
+   passed   94/204  ogent-armory-job-round-trips-org-file (0.005807 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-alMSp6 (retained)
+   passed   95/204  ogent-armory-job-validation-reports-friendly-errors (0.014201 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-YTtRWj (retained)
+   passed   96/204  ogent-armory-list-apps-includes-linked-state-artifacts (0.005543 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-G1rXNx (retained)
+   passed   97/204  ogent-armory-onboard-completes-models-for-provider (0.013054 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-KVTa8e (retained)
+   passed   98/204  ogent-armory-onboard-writes-settings-and-team (0.014104 sec)
+ogent-test: provisioned armory-palette store at /tmp/ogent-test-store-17NFsb/armory-palette-9Kl6Xq (retained)
+   passed   99/204  ogent-armory-palette-open-record-dispatches-commands-and-files (0.001143 sec)
+ogent-test: provisioned armory-palette store at /tmp/ogent-test-store-17NFsb/armory-palette-ylIw2c (retained)
+   passed  100/204  ogent-armory-palette-ranks-exact-titles-and-paths (0.007486 sec)
+   passed  101/204  ogent-armory-ql-query-action-status-maps-property (0.000227 sec)
+   passed  102/204  ogent-armory-ql-query-agent-falls-back-to-slug (0.000174 sec)
+   passed  103/204  ogent-armory-ql-query-archived-covers-truthy-strings (0.000194 sec)
+   passed  104/204  ogent-armory-ql-query-composes-with-and (0.000164 sec)
+   passed  105/204  ogent-armory-ql-query-kind-accepts-strings (0.000169 sec)
+   passed  106/204  ogent-armory-ql-query-kind-maps-marker-properties (0.000259 sec)
+   passed  107/204  ogent-armory-ql-query-order-is-canonical (0.000164 sec)
+   passed  108/204  ogent-armory-ql-query-rejects-bad-intents (0.000256 sec)
+   passed  109/204  ogent-armory-ql-query-status-matches-todo-or-property (0.000164 sec)
+   passed  110/204  ogent-armory-ql-query-tag-matches-tags-or-property (0.000158 sec)
+   passed  111/204  ogent-armory-ql-query-text-is-regexp-quoted (0.000183 sec)
+   passed  112/204  ogent-armory-ql-recent-first-orders-by-activity (0.000309 sec)
+ogent-test: provisioned armory-ql store at /tmp/ogent-test-store-17NFsb/armory-ql-uCd1Tu (retained)
+   passed  113/204  ogent-armory-ql-recent-view-passes-sort-comparator (0.000591 sec)
+   passed  114/204  ogent-armory-ql-saved-views-defaults-expand (0.000240 sec)
+ogent-test: provisioned armory-ql store at /tmp/ogent-test-store-17NFsb/armory-ql-5NlcJT (retained)
+   passed  115/204  ogent-armory-ql-search-dispatches-intent (0.000534 sec)
+   passed  116/204  ogent-armory-ql-search-signals-install-hint-without-org-ql (0.000220 sec)
+   passed  117/204  ogent-armory-ql-sort-argument-translates-recent (0.000180 sec)
+ogent-test: provisioned armory-ql store at /tmp/ogent-test-store-17NFsb/armory-ql-6xyGn4 (retained)
+   passed  118/204  ogent-armory-ql-view-dispatches-org-ql-search (0.001108 sec)
+   passed  119/204  ogent-armory-ql-view-rejects-unknown-names (0.000216 sec)
+   passed  120/204  ogent-armory-ql-view-signals-install-hint-without-org-ql (0.000217 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-NcAbAE (retained)
+   passed  121/204  ogent-armory-record-metadata-classifies-specific-records (0.010811 sec)
+   passed  122/204  ogent-armory-register-todo-keywords-is-idempotent (0.000256 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-OfZKRm (retained)
+   passed  123/204  ogent-armory-registry-import-creates-org-records (0.018599 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-vhX4px (retained)
+   passed  124/204  ogent-armory-runner-adds-action-contract-for-leads (0.008362 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-F4N0GW (retained)
+   passed  125/204  ogent-armory-runner-applies-armory-runtime-defaults (0.017202 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-X6LzZB (retained)
+   passed  126/204  ogent-armory-runner-builds-claude-plan-from-agent (0.008523 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-YU8uuL (retained)
+   passed  127/204  ogent-armory-runner-builds-codex-plan-from-job (0.011576 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-3D8OhD (retained)
+   passed  128/204  ogent-armory-runner-capture-actions-ignores-failed-runs (0.005122 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-TXnzuH (retained)
+   passed  129/204  ogent-armory-runner-capture-actions-ignores-non-lead-agents (0.005275 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-43SCru (retained)
+   passed  130/204  ogent-armory-runner-capture-actions-ignores-plain-output (0.004962 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-XBySVM (retained)
+ogent: 1 lead action(s) pending approval; M-x ogent-armory-actions
+   passed  131/204  ogent-armory-runner-capture-actions-stores-lead-proposals (0.015766 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-AXFjsn (retained)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-AXFjsn/.agents/.conversations/20261008T190915-run-12bac7/index.org (exited abnormally with code 1)
+   passed  132/204  ogent-armory-runner-classifies-adapter-errors (0.028022 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-NatWoe (retained)
+   passed  133/204  ogent-armory-runner-escapes-org-block-terminators (0.008549 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-l4qOlP (retained)
+   passed  134/204  ogent-armory-runner-job-overrides-provider-model-and-workspace (0.011597 sec)
+   passed  135/204  ogent-armory-runner-parses-session-id-from-output (0.000223 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-FuGRZJ (retained)
+   passed  136/204  ogent-armory-runner-persists-and-resumes-adapter-session (0.024742 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-6L0u6z (retained)
+   passed  137/204  ogent-armory-runner-prompts-for-org-output (0.008318 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-AAqEBF (retained)
+   passed  138/204  ogent-armory-runner-records-schedule-linkage (0.020479 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-0IyKf3 (retained)
+   passed  139/204  ogent-armory-runner-rejects-malformed-job-metadata (0.011852 sec)
+   passed  140/204  ogent-armory-runner-runtime-dispatch-prefers-pipe (0.000277 sec)
+   passed  141/204  ogent-armory-runner-runtime-dispatch-selects-term-when-usable (0.000207 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-gGggjG (retained)
+   passed  142/204  ogent-armory-runner-selects-implementation-template (0.008501 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-6Ti9wz (retained)
+   passed  143/204  ogent-armory-runner-selects-review-template-from-job (0.011555 sec)
+uncompressing term.el.gz...
+uncompressing term.el.gz...done
+uncompressing ange-ftp.el.gz...
+uncompressing ange-ftp.el.gz...done
+uncompressing ehelp.el.gz...
+uncompressing ehelp.el.gz...done
+uncompressing shell.el.gz...
+uncompressing shell.el.gz...done
+uncompressing disp-table.el.gz...
+uncompressing disp-table.el.gz...done
+   passed  144/204  ogent-armory-runner-spawn-dispatches-term-vs-pipe (0.044071 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-154CCZ (retained)
+ogent: terminal runtime requested for cto, but Emacs is running in batch mode; falling back to pipe
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-154CCZ/.agents/.conversations/20261008T190915-run-6b0410/index.org (finished)
+   passed  145/204  ogent-armory-runner-start-ensures-beads-worktree-redirect (0.026179 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-Qrsx1U (retained)
+ogent: terminal runtime requested for cto, but Emacs is running in batch mode; falling back to pipe
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-Qrsx1U/.agents/.conversations/20261008T190915-run-aafe79/index.org (finished)
+   passed  146/204  ogent-armory-runner-start-skips-beads-redirect-when-disabled (0.025987 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-iqKXWS (retained)
+ogent: 1 lead action(s) pending approval; M-x ogent-armory-actions
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-iqKXWS/.agents/.conversations/20261008T190915-run-e60fa6/index.org (finished)
+   passed  147/204  ogent-armory-runner-start-stores-lead-action-proposals (0.038464 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-50ePtc (retained)
+ogent: terminal runtime requested for cto, but Emacs is running in batch mode; falling back to pipe
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-50ePtc/.agents/.conversations/20261008T190915-run-806139/index.org (finished)
+   passed  148/204  ogent-armory-runner-start-writes-canonical-conversation (0.032930 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-LLoNEK (retained)
+   passed  149/204  ogent-armory-runner-success-stderr-is-runtime-trace (0.009376 sec)
+ogent-test: provisioned armory-runner store at /tmp/ogent-test-store-17NFsb/armory-runner-2BqmDb (retained)
+Armory agent finished: /tmp/ogent-test-store-17NFsb/armory-runner-2BqmDb/.agents/.conversations/20261008T190915-run-112ee6/index.org (finished)
+   passed  150/204  ogent-armory-runner-transcript-links-generated-apps (0.031693 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-HssdNg (retained)
+   passed  151/204  ogent-armory-scaffold-creates-org-layout (0.002713 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-ao1pQV (retained)
+   passed  152/204  ogent-armory-scaffold-index-declares-todo-keywords (0.000726 sec)
+   passed  153/204  ogent-armory-schedule-agenda-actions-mode-bindings (0.000175 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-M6y8jb (retained)
+ogent: approved action act-1
+   passed  154/204  ogent-armory-schedule-agenda-approve-persists-status (0.005201 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-OUsPjc (retained)
+   passed  155/204  ogent-armory-schedule-agenda-files-cover-visible-org-records (0.004315 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-6M9z8Z (retained)
+   passed  156/204  ogent-armory-schedule-agenda-keeps-scope-buffer-locally (0.003599 sec)
+   passed  157/204  ogent-armory-schedule-agenda-retry-dispatches-failed-job (0.002201 sec)
+   passed  158/204  ogent-armory-schedule-agenda-retry-requires-failed (0.001989 sec)
+   passed  159/204  ogent-armory-schedule-agenda-run-dispatches-job (0.002077 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-KH8ZYG (retained)
+uncompressing display-line-numbers.el.gz...
+uncompressing display-line-numbers.el.gz...done
+   passed  160/204  ogent-armory-schedule-buffer-switches-day-week-month (0.381661 sec)
+   passed  161/204  ogent-armory-schedule-control-plane-command-structure (0.000355 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-SglXpE (retained)
+   passed  162/204  ogent-armory-schedule-control-plane-scopes-buffer-locally (0.003938 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-K1NKFF (retained)
+   passed  163/204  ogent-armory-schedule-expands-cron-and-heartbeats (0.030628 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-gDZw34 (retained)
+   passed  164/204  ogent-armory-schedule-expands-one-shot-run-after-tasks (0.017472 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-4zm9pN (retained)
+   passed  165/204  ogent-armory-schedule-expands-sunday-cron-ranges (0.030071 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-K2SPqX (retained)
+   passed  166/204  ogent-armory-schedule-marks-missed-and-linked-runs (0.160107 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-SyJ95A (retained)
+   passed  167/204  ogent-armory-schedule-scheduler-dedups-fired-slots (0.017171 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-EasPIc (retained)
+   passed  168/204  ogent-armory-schedule-scheduler-fires-due-cron-job (0.010081 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-uQ44yi (retained)
+   passed  169/204  ogent-armory-schedule-scheduler-fires-heartbeat-instruction (0.006555 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-VmzQNK (retained)
+   passed  170/204  ogent-armory-schedule-scheduler-floors-window-at-catchup (0.009959 sec)
+   passed  171/204  ogent-armory-schedule-scheduler-mode-manages-timer (0.000254 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-dTBE6i (retained)
+ogent scheduler: cto::job::daily-review::2026-05-04T09:00 due (auto-run disabled)
+   passed  172/204  ogent-armory-schedule-scheduler-respects-auto-run-gate (0.009690 sec)
+ogent-test: provisioned armory-schedule store at /tmp/ogent-test-store-17NFsb/armory-schedule-aV9INr (retained)
+   passed  173/204  ogent-armory-schedule-scheduler-skips-claimed-slots (0.018529 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-mjpnRM (retained)
+   passed  174/204  ogent-armory-search-filters-kind-agent-status-tag-and-archive (0.045992 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-OusXOS (retained)
+   passed  175/204  ogent-armory-search-includes-canonical-conversations (0.006810 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-NoPPJj (retained)
+   passed  176/204  ogent-armory-search-kind-filter-isolates-conversations (0.028966 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-cQ4Yj0 (retained)
+   passed  177/204  ogent-armory-search-works-without-conversation-store (0.002561 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-lOdEyO (retained)
+   passed  178/204  ogent-armory-session-detail-keeps-legacy-failed-error (0.006003 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-G4UNpw (retained)
+   passed  179/204  ogent-armory-session-detail-keeps-src-block-headings-in-trace (0.006024 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-VPvjIn (retained)
+   passed  180/204  ogent-armory-session-detail-parses-transcript-sections (0.006131 sec)
+ogent-test: provisioned armory store at /tmp/ogent-test-store-17NFsb/armory-Aai4ZY (retained)
+   passed  181/204  ogent-armory-session-detail-treats-success-error-as-trace (0.006182 sec)
+ogent-test: provisioned armory-settings store at /tmp/ogent-test-store-17NFsb/armory-settings-b1nAlz (retained)
+   passed  182/204  ogent-armory-settings-round-trips-through-org (0.040283 sec)
+   passed  183/204  ogent-armory-skills-markdown-packages-keep-distinct-keys (0.003679 sec)
+   passed  184/204  ogent-armory-skills-skip-symlink-packages (0.000773 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-2e0qfZ (retained)
+   passed  185/204  ogent-armory-status-action-keys-are-discoverable (0.010630 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-Kwb7sE (retained)
+   passed  186/204  ogent-armory-status-can-show-node-ids-for-debugging (0.029480 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-yEl5Zj (retained)
+   passed  187/204  ogent-armory-status-edits-agent-and-job-properties (0.113042 sec)
+   passed  188/204  ogent-armory-status-enter-variants-visit-records (0.000290 sec)
+   passed  189/204  ogent-armory-status-evil-installs-local-dispatch-keys (0.000420 sec)
+   passed  190/204  ogent-armory-status-evil-local-keys-cover-status-map (0.000573 sec)
+   passed  191/204  ogent-armory-status-formats-recent-work-quietly (0.000451 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-8zoMMf (retained)
+   passed  192/204  ogent-armory-status-graph-includes-sessions-apps-issues-and-hook (0.033567 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-TuWdr1 (retained)
+   passed  193/204  ogent-armory-status-header-shows-context-at-point (0.029333 sec)
+Type q in help window to delete it
+   passed  194/204  ogent-armory-status-help-documents-dwim-actions (0.000750 sec)
+  skipped  195/204  ogent-armory-status-magit-sections-collapse (0.000970 sec)
+  skipped  196/204  ogent-armory-status-navigation-skips-collapsed-sections (0.000929 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-lymcfE (retained)
+   passed  197/204  ogent-armory-status-opens-profile-jobs-and-bodies (0.051773 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-q5HGc1 (retained)
+   passed  198/204  ogent-armory-status-renders-armory-graph-and-bridges (0.029490 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-fHBCyi (retained)
+   passed  199/204  ogent-armory-status-runs-job-at-point (0.029313 sec)
+   passed  200/204  ogent-armory-status-section-keybindings-are-discoverable (0.000303 sec)
+   passed  201/204  ogent-armory-status-transient-renders (0.020934 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-FsgVtN (retained)
+   passed  202/204  ogent-armory-status-visit-opens-armory-node-file (0.015318 sec)
+ogent-test: provisioned armory-status store at /tmp/ogent-test-store-17NFsb/armory-status-9IFSC5 (retained)
+   passed  203/204  ogent-armory-status-visit-session-opens-reader (0.041616 sec)
+   passed  204/204  ogent-armory-todo-sequence-orders-active-and-done (0.000296 sec)
+
+Ran 204 tests, 202 results as expected, 0 unexpected, 2 skipped (2026-10-08 19:09:17+0000, 4.622259 sec)
+
+2 skipped results:
+  SKIPPED  ogent-armory-status-magit-sections-collapse
+  SKIPPED  ogent-armory-status-navigation-skips-collapsed-sections
+

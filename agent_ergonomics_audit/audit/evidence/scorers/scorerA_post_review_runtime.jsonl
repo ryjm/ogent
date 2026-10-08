@@ -1,0 +1,1 @@
+{"probe":"wrapper-ambiguous-review","result":"Tool error: edit_file old_string matches 2 occurrences in /work/agent_ergonomics_audit/audit/partial/scorerA-post-review-xz9Xjg/data.txt; include unique surrounding context or explicitly set replace_all true","pending_count":0}

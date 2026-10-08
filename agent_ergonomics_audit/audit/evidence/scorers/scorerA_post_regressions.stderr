@@ -1,0 +1,65 @@
+uncompressing pcase.el.gz...
+uncompressing pcase.el.gz...done
+uncompressing cl-macs.el.gz...
+uncompressing cl-macs.el.gz...done
+uncompressing project.el.gz...
+uncompressing project.el.gz...done
+uncompressing json.el.gz...
+uncompressing json.el.gz...done
+uncompressing thunk.el.gz...
+uncompressing thunk.el.gz...done
+uncompressing easy-mmode.el.gz...
+uncompressing easy-mmode.el.gz...done
+uncompressing cl-extra.el.gz...
+uncompressing cl-extra.el.gz...done
+Running 28 tests (2026-10-08 17:53:32+0000, selector `"^ogent-agent-ergonomics-"')
+   passed   1/28  ogent-agent-ergonomics-argument-contract-async-failure-once (0.000211 sec)
+   passed   2/28  ogent-agent-ergonomics-argument-contract-values-and-hints (0.000174 sec)
+   passed   3/28  ogent-agent-ergonomics-argument-contract-wrapper-arity (0.000178 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-0n1nBt (retained)
+   passed   4/28  ogent-agent-ergonomics-argument-contract-write-before-validation (0.000375 sec)
+   passed   5/28  ogent-agent-ergonomics-bash-contract-async-chunk-boundaries (0.012159 sec)
+   passed   6/28  ogent-agent-ergonomics-bash-contract-exit-survives-truncation (0.001422 sec)
+   passed   7/28  ogent-agent-ergonomics-bash-contract-invalid-before-spawn (0.000140 sec)
+   passed   8/28  ogent-agent-ergonomics-capabilities-guide-and-local-triage (0.000207 sec)
+   passed   9/28  ogent-agent-ergonomics-capabilities-live-stable-and-pure (0.000475 sec)
+   passed  10/28  ogent-agent-ergonomics-doctor-json-invalid-format (0.000068 sec)
+   passed  11/28  ogent-agent-ergonomics-doctor-json-severity-and-schema (0.000405 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-oRp7E2 (retained)
+   passed  12/28  ogent-agent-ergonomics-edit-contract-ambiguous-before-write (0.000784 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-sDj0yQ (retained)
+   passed  13/28  ogent-agent-ergonomics-edit-contract-empty-and-review (0.000385 sec)
+uncompressing mule-util.el.gz...
+uncompressing mule-util.el.gz...done
+Edit failed: Tool error: file changed
+Edit failed: Tool error: file changed
+Applied 0 diff(s)
+   passed  14/28  ogent-agent-ergonomics-edit-contract-ui-accept-error (0.004452 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-wU1Wy9 (retained)
+   passed  15/28  ogent-agent-ergonomics-edit-contract-ui-preview-ambiguity (0.002416 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-uhFmO4 (retained)
+   passed  16/28  ogent-agent-ergonomics-glob-recursive-and-stable (0.000806 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-z5HXqg (retained)
+   passed  17/28  ogent-agent-ergonomics-glob-recursive-invalid-root (0.000145 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-Riwgl7 (retained)
+   passed  18/28  ogent-agent-ergonomics-grep-arguments-leading-dash (0.001668 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-RYMnqT (retained)
+   passed  19/28  ogent-agent-ergonomics-grep-arguments-quoted-filter (0.001579 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-C2njZW (retained)
+   passed  20/28  ogent-agent-ergonomics-grep-errors-invalid-regex (0.001643 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-FvtMkW (retained)
+   passed  21/28  ogent-agent-ergonomics-grep-errors-no-match-is-success (0.001628 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-FQvJuj (retained)
+   passed  22/28  ogent-agent-ergonomics-make-contract-clean-and-help (0.026526 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-gm0ssI (retained)
+   passed  23/28  ogent-agent-ergonomics-make-contract-recompile-failure (0.006156 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-ZLrxIi (retained)
+   passed  24/28  ogent-agent-ergonomics-read-pagination-invalid-bounds (0.000376 sec)
+ogent-test: provisioned tools store at /tmp/ogent-test-store-OjG1Vr/tools-zFDT0w (retained)
+   passed  25/28  ogent-agent-ergonomics-read-pagination-next-offset (0.000649 sec)
+   passed  26/28  ogent-agent-ergonomics-tool-names-approval-aliases (0.000261 sec)
+   passed  27/28  ogent-agent-ergonomics-tool-names-exact-and-wire-alias (0.000146 sec)
+   passed  28/28  ogent-agent-ergonomics-tool-names-typo-refuses-with-hint (0.000232 sec)
+
+Ran 28 tests, 28 results as expected, 0 unexpected (2026-10-08 17:53:32+0000, 0.066850 sec)
+

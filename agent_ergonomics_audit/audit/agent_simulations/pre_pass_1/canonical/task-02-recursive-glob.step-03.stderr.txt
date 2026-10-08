@@ -1,0 +1,1 @@
+bash completed (exit 0) in 0.0s
