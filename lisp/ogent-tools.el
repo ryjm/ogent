@@ -10,6 +10,8 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'seq)
+(require 'subr-x)
 
 ;; Forward declaration for variable defined in ogent-models.el
 (defvar ogent-tool-registry)
@@ -345,6 +347,11 @@ Use GLOB-FILTER and CONTEXT to shape the command."
               (shell-quote-argument pattern)
               (shell-quote-argument target)))))
 
+(defun ogent-tools--grep-failure (status diagnostic)
+  "Return corrective search failure text for STATUS and DIAGNOSTIC."
+  (format "grep failed (exit %s): %s. Check pattern syntax and path; retry grep with a valid pattern, such as needle"
+          status (string-trim diagnostic)))
+
 (defun ogent-tool--grep (pattern &optional path glob-filter context-lines)
   "Search for PATTERN in files with streaming progress.
 PATH is file or directory to search (default project root).
@@ -359,7 +366,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
          (cmd (ogent-tools--grep-command pattern target glob-filter context))
          (default-directory dir)
          (output-buffer (generate-new-buffer " *ogent-grep*"))
-         (start-time (current-time))
+         (stderr-buffer (generate-new-buffer " *ogent-grep-stderr*"))
          output-chunks
          exit-code output
          reported-error)
@@ -377,6 +384,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                                           shell-command-switch
                                           cmd)
                            :buffer output-buffer
+                           :stderr stderr-buffer
                            :sentinel #'ignore
                            :noquery t
                            :filter (lambda (_proc chunk)
@@ -390,6 +398,9 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                   (while (and (process-live-p proc)
                               (< (float-time) deadline))
                     (accept-process-output proc 0.1))
+                  (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+                    (set-process-query-on-exit-flag stderr-proc nil)
+                    (set-process-sentinel stderr-proc #'ignore))
                   (when (process-live-p proc)
                     (kill-process proc)
                     (setq reported-error t)
@@ -401,25 +412,30 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
                     (error "grep timed out after %s"
                            (ogent-tools--format-timeout
                             ogent-tools-grep-timeout))))
-                (accept-process-output proc 0.1)
+                (while (accept-process-output proc 0.01))
+                (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+                  (while (accept-process-output stderr-proc 0.01)))
                 (set-process-filter proc nil)
                 (setq exit-code (process-exit-status proc))
-                (setq output (apply #'concat (nreverse output-chunks))))
-            (ogent-tools--kill-buffer-if-live output-buffer))
+                (setq output (apply #'concat (nreverse output-chunks)))
+                (unless (memq exit-code '(0 1))
+                  (user-error "%s" (ogent-tools--grep-failure
+                                    exit-code
+                                    (with-current-buffer stderr-buffer
+                                      (buffer-string))))))
+            (ogent-tools--kill-buffer-if-live output-buffer)
+            (ogent-tools--kill-buffer-if-live stderr-buffer))
           (ogent-tools--stream-done 'grep exit-code)
           (ogent-tools--truncate-output
            (if (string-empty-p output)
-               (format "No matches found (searched in %.1fs)"
-                       (float-time (time-subtract (current-time)
-                                                  start-time)))
-             (format "%s\n\n[%d matches in %.1fs]"
+               "No matches found"
+             (format "%s\n\n[%d result lines]"
                      output
-                     (cl-count ?\n output)
-                     (float-time (time-subtract (current-time)
-                                                start-time))))
+                     (length (split-string output "\n" t))))
            ogent-tools-max-output-chars))
       (error
        (ogent-tools--kill-buffer-if-live output-buffer)
+       (ogent-tools--kill-buffer-if-live stderr-buffer)
        (unless reported-error
          (ogent-tools--stream-error 'grep (error-message-string err)))
        (signal (car err) (cdr err))))))
@@ -483,6 +499,7 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
                                 (emit-output output))))
           (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
             (set-process-query-on-exit-flag stderr-proc nil)
+            (set-process-sentinel stderr-proc #'ignore)
             (set-process-filter
              stderr-proc
              (lambda (_proc output)
@@ -519,6 +536,7 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
                                          ""))))
                        (when (string-empty-p message)
                          (setq message (string-trim event)))
+                       (setq message (ogent-tools--grep-failure status message))
                        (ogent-tools--stream-error 'grep message)
                        (when callback
                          (funcall callback 'error message))))))))
