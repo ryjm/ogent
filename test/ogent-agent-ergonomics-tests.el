@@ -221,6 +221,9 @@
 
 (ert-deftest ogent-agent-ergonomics-doctor-json-invalid-format ()
   "Invalid formats are rejected before running even opt-in probes."
+  (should (string-match-p
+           (regexp-quote "(ogent-doctor-batch nil (quote json))")
+           (documentation 'ogent-doctor-batch)))
   (let (called)
     (cl-letf (((symbol-function 'ogent-doctor-run)
                (lambda (&optional _) (setq called t) nil)))

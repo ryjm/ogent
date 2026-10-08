@@ -758,7 +758,7 @@ result is a warning, 2 when any probe fails.  Wire it to the batch
 exit status by wrapping the call in `kill-emacs'.
 With INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch
 the network.  FORMAT defaults to `org'; use `json' for a versioned
-data-only report, for example (ogent-doctor-batch nil \='json)."
+data-only report, for example (ogent-doctor-batch nil (quote json))."
   (unless (memq format '(nil org json))
     (user-error "Doctor format must be org or json; use (ogent-doctor-batch nil 'json)"))
   (let ((results (ogent-doctor-run include-opt-in)))
