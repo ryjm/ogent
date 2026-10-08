@@ -760,7 +760,7 @@ With INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch
 the network.  FORMAT defaults to `org'; use `json' for a versioned
 data-only report, for example (ogent-doctor-batch nil \='json)."
   (unless (memq format '(nil org json))
-    (user-error "Doctor format must be org or json; use (ogent-doctor-batch nil \='json)"))
+    (user-error "Doctor format must be org or json; use (ogent-doctor-batch nil 'json)"))
   (let ((results (ogent-doctor-run include-opt-in)))
     (princ (if (eq format 'json)
                (ogent-doctor-format-json results)

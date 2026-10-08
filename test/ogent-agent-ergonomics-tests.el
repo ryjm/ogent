@@ -224,7 +224,8 @@
   (let (called)
     (cl-letf (((symbol-function 'ogent-doctor-run)
                (lambda (&optional _) (setq called t) nil)))
-      (should-error (ogent-doctor-batch t 'jsno) :type 'user-error)
+      (let ((err (should-error (ogent-doctor-batch t 'jsno) :type 'user-error)))
+        (should (string-match-p "(ogent-doctor-batch nil 'json)" (error-message-string err))))
       (should-not called))))
 
 (ert-deftest ogent-agent-ergonomics-capabilities-live-stable-and-pure ()
