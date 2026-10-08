@@ -96,7 +96,7 @@ Run =M-x ogent-onboard= to interactively configure your LLM provider. This wizar
    making network calls.
 
 ** OpenAI Codex / ChatGPT OAuth
-If you already use the Codex CLI with ChatGPT login, ogent can reuse the API key
+If you already use the Codex CLI with ChatGPT login, ogent reads supported credentials (including OAuth tokens)
 cached in =$CODEX_HOME/auth.json= or =~/.codex/auth.json=:
 
 #+begin_src emacs-lisp

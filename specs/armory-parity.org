@@ -12,6 +12,10 @@ native Emacs workflows backed by Org files. Org remains the durable record,
 Emacs remains the operating surface, and local CLI agents remain first-class
 runtimes.
 
+Current verification (2026-10-08): see the Parity Matrix and
+[[file:../docs/reality-check.org][reality-check resolution]]. The original comparison and phased implementation
+plan below are retained as design history.
+
 Audit note (2026-07-13): this spec was reconciled against the shipped
 codebase. Promises that shipped are now described as shipped, with their
 real entry points; promises deliberately not built are struck and listed
@@ -133,6 +137,14 @@ armory-root/
   index.org
   imports/
   .agents/
+    .conversations/
+      <conversation-id>/
+        index.org
+        turns/
+        events.org
+        session.org
+        attachments/
+        artifacts/
     <slug>/
       persona.org
       inbox.org
@@ -234,36 +246,19 @@ Implemented test coverage:
   conversations, search, apps, Evil integration, section navigation, run/edit
   actions.
 
-** Current Gaps Inside Ogent
+** Current verification scope (2026-10-08)
 
-The main parity gaps are architectural, not cosmetic:
+The inventory below describes the original product comparison. Its older
+"add" statements are design history; the current implementation and proof
+matrix is [[*Parity Matrix][Parity Matrix]]. Canonical conversations, settings, scheduling, skills,
+provider adapters, nested scope and local operations are implemented.
 
-- Conversations are saved as per-agent session transcripts under
-  =.agents/<slug>/sessions/=. Armory v2 uses a canonical global
-  =.agents/.conversations/<id>/= store with metadata, turns, events, artifacts,
-  attachments, and session handles.
-- Ogent has single-run transcripts, but not durable multi-turn continuation.
-- Ogent has no conversation event log, reconnect replay, or live task update
-  bus.
-- Ogent supports Codex and Claude CLI only. Armory has eight provider families
-  and a structured adapter interface.
-- Ogent has no runtime picker abstraction for provider, adapter, model, effort,
-  and terminal/native mode.
-- Ogent has no provider verification, install guidance, dynamic model listing,
-  or error taxonomy.
-- Ogent has no skill catalog, skill mention, per-agent skill selection, or
-  runtime skill mount.
-- Ogent has no Armory-scoped nested armory visibility model.
-- Ogent has no onboarding wizard, registry import, or team template flow.
-- Ogent has no schedule calendar view.
-- Ogent has no git dirty popover, commit, pull, log, diff, or restore UI.
-- Ogent has no terminal tab manager or PTY bridge.
-- Ogent has no settings surface for providers, storage, integrations,
-  notifications, appearance, updates, or data locations.
-- Ogent has no page file manager with move, reorder, armory creation, or
-  hidden-file toggles.
-- Ogent has no WYSIWYG editor parity, media viewers, PDF/CSV/Office viewers, or
-  rich page embeds - but we do not need that functionality.
+The actual-dependency workflow suite loads Armory contract tests after real
+Org, transient and gptel. It exercises a fixture CLI compose/run/continue/
+compact/archive journey and durable schedule claims across a simulated
+scheduler restart. Generated drawer metadata is normalized to one line;
+full digests remain in conversation turns. Provider installation, live auth,
+provider-side resume and throughput remain outside fixture evidence.
 
 * Armory Product Inventory
 
@@ -963,35 +958,32 @@ Ogent target:
 
 * Parity Matrix
 
-| Area | Armory today | Ogent today | Target parity |
-|------+---------------+-------------+---------------|
-| Root storage | Markdown data root with =.agents= | Org root with =index.org= and =.agents= | Keep Org root, add nested armory manifests |
-| Page editor | Tiptap WYSIWYG plus Markdown | Org buffers | Use Org as editor, add page management and export |
-| File tree | React sidebar, drawers, move/reorder | Home/status/list buffers, command palette | Palette shipped (=ogent-armory-command-palette=); side window struck |
-| Armory scope | Own, child depth, all | Single root | Add visibility mode to readers and UI |
-| Agents list | Cards, departments, active count | Tabulated list | Add departments, scope, status, identity fields |
-| Agent detail | Identity, composer, inbox, convos, work, schedule, details, skills, persona | Similar sections, fewer fields | Extend schema, add skills, runtime picker, actions |
-| Global agents | =.global-agents= | absent | Add global resolution tier |
-| Jobs | Cron jobs, one-shot, post actions | Cron-ish Org jobs | Add one-shot, runAfter, post actions, owner task |
-| Heartbeats | Cron per agent, history, run now | heartbeat metadata | Add calendar, history, missed-run links |
-| Routines | UI over scheduled jobs | jobs only | Treat routines as named job templates |
-| Conversations | Global store, multi-turn, events, attachments, artifacts | Per-agent session files | Migrate to Org conversation store |
-| Continue | Resume or replay | absent | Add turn append and adapter resume strategy |
-| Task board | Kanban/List/Schedule, five lanes | Derived board with seven lanes | Match five lanes, keep extra filters |
-| Task detail | Turns, terminal, diffs, logs, artifacts, compact, approvals | Session detail | Add full detail actions and panels |
-| Providers | 8 provider families, adapters | Codex and Claude | General adapter registry |
-| Runtime picker | provider, adapter, model, effort, terminal/native | provider/model fields | Shared runtime picker |
-| Provider verify | install/auth/model guidance | basic auth helper | Verify commands and error taxonomy |
-| Skills | Catalog, origins, mentions, mounts | absent | Add skill storage, mention, mount, import |
-| Attachments | staging and conversation attachments | staging + per-conversation =attachments/= | Shipped staging dirs; =org-attach= struck |
-| Agent actions | launch/schedule proposals and approval | absent | Parse, validate, approve, dispatch |
-| Calendar | Day/week/month with missed runs | absent | Add schedule buffer and agenda integration |
-| Git | dirty, commit, pull, log, diff, restore | external Magit/VC | Add Armory git commands using Magit/VC |
-| Terminal | Web terminal tabs and PTY | subprocess output buffers | Add comint/vterm terminal mode |
-| Search | Flexsearch palette | palette + ranked index | Shipped (=lisp/ogent-armory-palette.el=) |
-| Settings | Full settings app | customization only | Add Armory settings buffer |
-| Onboarding | setup wizard and registry | docs/scaffold | Add onboarding and registry import |
-| Help | guided help and demos | docs | Add help buffer and demo fixtures |
+Current as of 2026-10-08. "Implemented" means the entry points exist. Proof
+uses temporary Org stores, local git, fixture CLI processes and loopback
+HTTP. It does not establish live provider access. Run =make offline-test=;
+see [[file:../docs/reality-check.org][reality-check evidence]] for boundaries and tracked fixes.
+
+| Acceptance area | Current implementation | Offline proof |
+|-----------------+------------------------+---------------|
+| Scaffold/import, onboarding, registry and settings | =ogent-armory-scaffold=, =ogent-armory-settings= | Armory/store/settings tests |
+| Nested roots, visibility and global agents | =ogent-armory-store=, =ogent-armory-visible-agents= | Armory visibility/metadata tests |
+| Pages, file operations, search, app ownership | =ogent-armory-data=, =ogent-armory-palette= | Data/palette tests |
+| Agents, jobs, tasks and creation surfaces | =ogent-ui-armory-*= | Armory/status/UI tests in required unit jobs |
+| Canonical conversations, events, attachments and artifacts | =ogent-armory-conversations= | Conversation tests and compose/run journey |
+| Continue, resume/replay, compact and archive | =ogent-armory-runner=, =ogent-armory-native= | Runner/conversation tests; durable continuation journey |
+| Task attention lanes | =ogent-ui-armory-tasks= | Armory UI lane tests |
+| Provider adapters, runtime picker and verification guidance | =ogent-armory-adapter= | Adapter tests with captured invocation contracts |
+| Org and external SKILL.md skill sources | =ogent-armory-skills=, =ogent-armory-compose= | Discovery tests and composed fixture run |
+| Proposed agent actions and human approvals | =ogent-armory-actions= | Action validation/dispatch tests |
+| Cron, heartbeat, one-shot and missed/claimed schedule slots | =ogent-armory-schedule= | Schedule tests and restart claim journey |
+| Git status, commit, pull, log, diff and restore | =ogent-armory-git= | Real local git fixture tests; remote pull boundary stubbed |
+| Terminal/native execution, output and stop | =ogent-armory-runner=, =ogent-armory-native= | Fixture subprocess and real-gptel tool/cap tests |
+| Backup, help and metadata preservation | =ogent-armory-settings=, =ogent-armory-help= | Filtered backup, roundtrip and malformed-record tests |
+
+Live provider executables, credentials, model availability and provider-side
+session continuity need separate authorized checks. Emacs timers run while
+Emacs is alive. Optional Magit/vterm affordances are tested when installed;
+their absence is reported as a skip.
 
 * What Emacs Can Do Better
 
@@ -1445,43 +1437,15 @@ Where these areas overlap with org-native machinery (agenda cockpits,
 org-ql views, capture flows), that work is tracked in the org-trifecta epic
 =ogent-9w7=.
 
-* Open Decisions
+* Settled implementation decisions
 
-- Whether to implement a full cron parser in Elisp or add a dependency. The
-  current rule: do not add a dependency until official project/user approval.
-- Whether global agents live inside each Armory tree, a user-global directory,
-  or a configurable shared Armory root.
-- Whether schedule execution should remain Emacs-timer based for parity v1 or
-  use a detached automation bridge for unattended runs.
-- Whether terminal mode should require =vterm= for best behavior or start with
-  built-in =comint=.
-- Whether to keep =Scheduled= and =Stale= as hidden filters, secondary views,
-  or remove them after the Armory v2 lane migration.
-- Whether Org conversation turns should be separate files or subtrees in
-  =index.org=. Separate files match Armory's append model; subtrees make
-  hand-editing and agenda integration simpler.
-- Whether registry imports should preserve Armory Markdown as imports first or
-  convert pages to Org at import time.
-
-* Recommended Next Work
-
-The first implementation slice should be the canonical conversation store. It
-unlocks task-board parity, continuation, attachments, artifacts, events,
-actions, schedule linkage, and provider adapters. Without it, later surfaces
-would keep layering features over legacy session files and the architecture
-would drift.
-
-Concrete next bead:
-
-#+begin_example
-bd create "Implement Org-native Armory conversation store" --type task --priority 1
-#+end_example
-
-Scope:
-
-- Add =lisp/ogent-armory-conversations.el=.
-- Add create/read/write/list/append-turn APIs.
-- Add event log support.
-- Add metadata block parsing.
-- Add legacy session import.
-- Add tests from fixture files.
+- The cron parser is implemented in Elisp in =ogent-armory-schedule=.
+- Global agents use the configurable =ogent-armory-global-agents-root= and
+  the root's =.global-agents= convention.
+- Scheduling uses an Emacs timer; no detached daemon is required.
+- Terminal execution uses existing Emacs process/terminal facilities;
+  optional vterm remains an affordance.
+- Conversations use separate Org turn files in the canonical store;
+  legacy per-agent sessions remain readable and migratable.
+- Skill discovery reads external SKILL.md packages without converting them
+  automatically; manual imports remain durable Org records.

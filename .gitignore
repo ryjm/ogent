@@ -52,3 +52,5 @@ sandbox/
 /work.org
 /index.org
 /imports/
+# br doctor per-run artifacts
+.doctor/

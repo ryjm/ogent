@@ -31,7 +31,8 @@ The asymmetry is deliberate: requests are data (structured payloads with machine
 *** Diffs Over Descriptions
 When the model suggests code changes, ogent renders them as smerge conflicts:
 - Red/green highlighting shows exactly what changed
-- =C-c C-c= accepts, =C-c C-k= rejects
+- =ogent-edit-accept= accepts and =ogent-edit-reject= rejects; review
+  buffer =a/r= accepts/rejects and =A= accepts staged proposals
 - No parsing prose like "change line 42 to..."
 
 Visual review is faster than textual review. The interface should optimize for the bottleneck, which is human verification.
@@ -60,7 +61,8 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
 *** Tool Execution
 - =ogent-tool-registry= (in =ogent-models.el=) defines available tools,
   each declaring =:effects= and an optional =:confirm= flag
-- The request callback in =ogent-ui.el= owns the live execution path:
+- Registered gptel tools share =ogent-tool-execution= as their execution
+  boundary. UI/native callbacks return pending results to the original FSM.
   =ogent-tool-approval-check= gates each call against the persistent
   allow-list (=ogent-tool-allow-list=), the session deny list
   (=ogent-tool--denied-tools=), and the effects policy, prompting the user
@@ -69,8 +71,8 @@ When invoked from non-Org buffers, ogent creates a companion Org buffer for the 
   =:TOOL:= drawer
 - =ogent-register-tools= bridges each tool's confirmation requirement into
   =gptel-make-tool='s =:confirm= slot (resolved by
-  =ogent-tool-spec-confirm-p=), so gptel-native tool execution honors the
-  same policy rather than auto-running risky tools
+  =ogent-tool-spec-confirm-p=), and wraps automatic/confirmed gptel calls with
+  =ogent-tool-execution= so both paths share approval, review and ledger
 - Edit-producing tools (=write-file=, =edit-file=) route through the inline
   diff review flow; async tools stream into a live drawer
 - Users can re-run a recorded tool with =ogent-debug-replay-tool=
@@ -103,7 +105,7 @@ frontmatter:
   point and links into =ogent-issues=
 - =ogent-armory-runner= executes agents and jobs through local Codex or Claude
   CLI subscriptions, then persists each run as an Org transcript under the
-  agent's session directory
+  canonical =.agents/.conversations/<id>/= directory; legacy sessions remain readable
 
 See [[file:armory-org-os.org][Org Armory Integration]] for the full mapping from
 Armory's repository architecture to ogent's Emacs/Org architecture.
@@ -130,7 +132,7 @@ The four largest source files were de-monolithized into same-directory siblings 
 filename-preserving *façade*: the original =ogent-<base>.el= keeps =(provide 'ogent-<base>)=,
 =require=s its new =ogent-<base>-<concern>.el= siblings, and (where relevant) hosts the load-time
 side effects + autoload redirects, so =ogent.el= and every external =(require 'ogent-<base>)= are
-unchanged. Plan of record + runbook: [[file:modularity/decomposition-plan.org][specs/modularity/]].
+unchanged. Plan of record + runbook: [[file:modularity/decomposition-plan.md][specs/modularity/]].
 - =ogent-ui.el= (façade) → =ogent-ui-core= / =-format= / =-toolcalls= / =-engine= / =-send= /
   =-preview= / =-dispatch= (lisp/ui/). The two load-time forms (response-function migration, gptel
   hook) live in the façade; autoload targets preserved (=ogent-request/-ask-menu/-prompt-dispatch=
@@ -200,3 +202,17 @@ visibility); cross-module references that would cycle (e.g. zen↔ui) use =decla
 
 * Extending Specs
 If a feature introduces new architectural rules, add a child heading here or create another file under =specs/= and cross-link it.
+
+* Request compatibility and recovery
+
+=ogent-gptel-request= validates the final backend/model/tool combination after
+presets, resolves OpenAI's Chat Completions and Responses sibling structs,
+and prepares bounded authentication headers before transport starts. Model
+metadata declares supported endpoints; tools-only overrides apply to Chat
+Completions. Presets cannot silently change a picked or pinned model.
+
+Request snapshots retain prompt, history and system options for retries.
+Cancellation targets its own gptel FSM and cleans up before recovery. Native
+tool callbacks return results into the original FSM; no second fabricated
+request owns that cycle. Staged edit acceptance preflights all proposals and
+applies each source buffer atomically, then resolves/logs each edit once.

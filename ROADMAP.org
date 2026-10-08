@@ -3,176 +3,38 @@
 #+startup: overview
 
 Current status (2026-10-08): see [[file:docs/reality-check.org][Reality Check and Bridge Plan]]
-for verified gaps, proof limits, and prioritized beads. The historical phase
-statuses below are not evidence of complete operational delivery.
+for verified fixes, proof limits, and bead references. Implementation presence
+and live provider access are separate evidence.
 
-* Vision Alignment Analysis
+* Current delivery evidence
 
-This roadmap tracks ogent's progress toward the vision outlined in README.md.
-Each section maps vision statements to implementation status.
+The model picker and retained aliases are available without provider login.
+Runtime fixes and their offline evidence are recorded in
+[[file:docs/reality-check.org][the October reality check]]. Historical closed beads record implementation
+work; they do not establish live provider access or measured coverage.
 
-** Core Mission Alignment
+| Capability | Implementation | Verification |
+|------------+----------------+--------------|
+| Org subtree, ancestors, explicit handles and pins | =ogent-context=, =ogent-core= | ERT and real-gptel loopback Org command |
+| Current model roles and endpoint validation | =ogent-models=, =ogent-gptel= | Minimum/current gptel wire fixtures |
+| Streaming, cancellation and immutable retry payloads | =ogent-ui-engine=, =ogent-ui-send= | Offline lifecycle and recovery regressions |
+| Approved tool execution and proof ledger | =ogent-tool-execution=, =ogent-ui-toolcalls= | Actual gptel automatic/confirmed cycles |
+| MCP tools and external skills | =ogent-mcp=, =ogent-armory-skills= | HTTP argument fixtures and local package discovery |
+| Safe staged edit review | =ogent-edit-diff=, =ogent-edit-log= | Source mutation, undo and companion resolution |
+| Persistent agents, jobs, conversations and local operations | =ogent-armory*= | Actual-dependency Armory fixtures and durable journeys |
+| Prompt templates and backend guidance | =ogent-prompts=, =ogent-presets= | [[file:docs/backends-and-presets.md][Backend guide]], prompt tests |
 
-| Vision Statement | Status | Implementation |
-|------------------+--------+----------------|
-| Org subtree as addressable knowledge block | Done | =ogent-context.el= with OGENT_ID support |
-| @handle references for composition | Done | =ogent-context-completion-at-point=, resolution |
-| Explicit Org hierarchy for context | Done | =ogent-context-build= collects ancestors |
-| Cross-buffer/file context expansion | Done | org-roam integration, file handles |
-| Context summary before dispatch | Done | =ogent-ui-context.el= with token counts |
-| Org buffer as agent panel + plan | Partial | Companion buffer exists, inline responses work |
+* Development gates
 
-** Identified Gaps (Vision vs Code)
+Run =make test=, =make sandbox-test=, =make test-isolation= and =make lint=.
+The separate =make offline-test= runs actual dependencies with loopback HTTP
+and fixture CLI executables. CI requires Emacs 29.1/30.2 and minimum/current
+gptel workflow jobs; snapshot remains an early-warning job.
 
-*** Critical Gaps
-(None - all critical features implemented)
-
-*** Recently Completed
-1. *Notes Capture (C-c . d)*: Shunt completion to Notes child - IMPLEMENTED in =ogent-notes.el=
-2. *ogent-ask*: Quick Q&A command - IMPLEMENTED in =ogent-core.el=
-3. *ogent-open-block*: Open source block with ogent-mode - IMPLEMENTED in =ogent-core.el=
-4. *Multi-model Fan-out*: Concurrent requests to multiple models via the prompt dispatcher's model fan-out infix - IMPLEMENTED in =ogent-ui.el=
-5. *Ergonomic Review (C-c . ] / [ / z / x)*: Cycle, accept, reject completions - IMPLEMENTED in =ogent-completions.el=
-6. *MCP Server Support*: Model Context Protocol client for external tools - IMPLEMENTED in =ogent-mcp.el=
-7. *LLM-Powered Codemap*: Task-scoped codemaps via @codemap-task: handles - IMPLEMENTED in =ogent-codemap.el=
-8. *Magit-style Diff UX*: Diff preview for edits with smerge/overlay display - IMPLEMENTED in =ogent-edit-display.el=
-
-*** Partial Implementations
-1. *Incremental codemap refresh*: Mentioned in README, partially implemented (ogent-tro tracks this)
-2. *Tool result streaming*: Async shell commands stream, but some tools still batch results
-
-*** Documentation Gaps
-1. *Prompt templates*: No default templates shipped (ogent-60u tracks this)
-2. *Backend/preset configuration docs*: Mentioned in README roadmap, not written
-
-* Completed Work
-
-** Phase 1: Foundation (Complete)
-- [X] Core minor mode scaffold (=ogent-core.el=)
-- [X] Context building with @handle resolution (=ogent-context.el=)
-- [X] Model registry and gptel integration (=ogent-models.el=)
-- [X] Companion buffer for non-Org files (=ogent-companion.el=)
-- [X] Basic codemap generation (=ogent-codemap.el=)
-- [X] Onboarding wizard (=ogent-onboard.el=)
-- [X] Anthropic OAuth support (=ogent-anthropic-oauth.el=)
-
-** Phase 2: Handle System (Complete)
-- [X] @handle completion with annotations (=ogent-context.el=)
-- [X] Backlink tracking and UI (=ogent-ui-backlinks.el=)
-- [X] Handle validation before sending (=ogent-core.el=)
-- [X] Dependency graph visualization (=ogent-ui-graph.el=)
-- [X] org-roam integration for cross-file handles
-
-** Phase 3: Context Preview (Complete)
-- [X] Interactive context preview buffer (=ogent-ui-context.el=)
-- [X] Token/character count estimates
-- [X] Section exclusion with checkboxes
-- [X] Visual diff for context changes
-
-** Phase 4: Tool System (Complete)
-- [X] Tool definition schema and registry (=ogent-models.el=)
-- [X] Tool implementations: read-file, glob, grep, bash, write-file, edit-file (=ogent-tools.el=)
-- [X] Tool approval, rendering, and execution in the request callback (=ogent-ui.el=); effects policy in =ogent-tool-effects.el=
-- [X] Tool call history and debugging (=ogent-debug.el=)
-
-** Phase 5: Inline Edits (Complete)
-- [X] SEARCH/REPLACE block format (=ogent-edit-format.el=)
-- [X] Edit block parser (=ogent-edit-parse.el=)
-- [X] smerge-based edit display (=ogent-edit-display.el=)
-- [X] Edit logging to companion (=ogent-edit-log.el=)
-- [X] Marker synchronization for navigation (=ogent-edit-display.el=)
-- [X] Diff preview buffer
-
-** Phase 6: UI Polish (Complete)
-- [X] gptel-style transient dispatcher (=ogent-ui.el=)
-- [X] Header-line status indicator (=ogent-ui-status.el=)
-- [X] Completion notifications (=ogent-core.el=)
-- [X] Error buffer and display (=ogent-ui.el=)
-- [X] Doom Emacs documentation and popup support
-
-** Phase 7: Debug Infrastructure (Complete)
-- [X] Debug mode with gptel logging integration (=ogent-debug.el=)
-- [X] Structured logging (request/response/edit/validation)
-- [X] Tool call history with replay
-
-* Current Sprint
-
-** P2 - In Progress
-- [X] Tool result streaming (ogent-5tjw) - DONE in ogent-tools.el
-  - Stream stdout/stderr incrementally via :async-function
-  - Callback styles: :stream (stdout/stderr/done/error) and :match (match/done/error)
-  - Generic streaming callback factory in ogent-ui.el
-
-** P2 - Ready
-- [X] LLM-powered codemap generation (ogent-32t) - DONE in ogent-codemap.el
-  - Task-scoped codemaps via @codemap-task: handles
-  - Semantic relationship understanding
-
-- [ ] Incremental codemap refresh (ogent-tro)
-  - Detect changed files
-  - Update only affected sections
-  - Preserve manual annotations
-
-* Backlog
-
-** P3 - Features
-- [X] MCP server support (ogent-c8l) - DONE in ogent-mcp.el
-  - Model Context Protocol integration
-  - External tool providers
-
-- [X] Magit-style diff UX (ogent-wxc) - DONE in ogent-edit-display.el
-  - Diff preview before applying
-  - smerge and overlay display options
-
-- [X] Inline-diff alternative display (ogent-npb) - DONE in inline-diff.el
-  - Word-level diff highlighting via inline-diff.el
-  - Toggle display method cycles smerge → overlay → inline-diff
-
-** P3 - Content
-- [ ] Default Prompts & Workflow Templates (ogent-60u)
-  - Code review template
-  - Refactoring template
-  - Documentation template
-  - Bug fix template
-
-- [ ] Test Coverage Expansion (ogent-80q)
-  - Streaming edge cases
-  - Error injection tests
-  - Multi-model fan-out tests
-
-** P3 - Bugs
-- [ ] Context preview popup positioning (ogent-ey3)
-
-** P4 - Research
-- [ ] plz.el for HTTP (ogent-v21)
-- [ ] Buttercup BDD tests (ogent-sq0)
-
-* Untracked Work (New Beads Needed)
-
-These items from README.md are not yet tracked as beads:
-
-** Critical (P1)
-#+begin_src elisp
-;; Notes Capture - DONE: implemented in ogent-notes.el
-;; Multi-model fan-out - DONE: implemented in ogent-ui.el (ogent-lrgk)
-;; Ergonomic review - DONE: implemented in ogent-completions.el
-;; MCP server support - DONE: implemented in ogent-mcp.el
-;; LLM-powered codemap - DONE: implemented in ogent-codemap.el
-;; Magit-style diff UX - DONE: implemented in ogent-edit-display.el
-;; ALL CRITICAL FEATURES COMPLETE
-#+end_src
-
-** High (P2)
-#+begin_src elisp
-;; ogent-ask - DONE: implemented in ogent-core.el
-;; ogent-open-block - DONE: implemented in ogent-core.el
-
-;; Backend/preset configuration docs
-(bd-quick_create :title "Document backend/preset configuration and gptel-make-preset" :type "task" :priority 2)
-
-;; Cancellation/resume controls
-(bd-quick_create :title "Request cancellation and resume controls" :type "feature" :priority 2)
-#+end_src
+Live provider credentials, provider CLI installations, model entitlement,
+unattended execution outside Emacs, performance benchmarks and coverage
+percentages are separate proof boundaries. The offline catalog needs none
+of them. Follow [[file:specs/armory-parity.org][Armory parity]] for intentional non-goals.
 
 * Architecture Overview
 
@@ -239,37 +101,9 @@ These items from README.md are not yet tracked as beads:
 | C-c . x   | ogent-completion-reject        | Implemented |
 | C-c . d   | ogent-notes-capture            | Implemented |
 
-* Test Coverage
+* Verification scope
 
-The suite currently has ~2,600 =ert-deftest= forms across 60 =*-tests.el=
-files mirroring the =lisp/= tree (every armory, issues, analytics,
-schedule, and evil module has a suite). Run =make test= for the live
-totals; a hand-maintained per-module table goes stale too quickly to
-keep here.
-
-* Release Milestones
-
-** v0.1.0 - Foundation (Current)
-- Core handle system
-- Context preview
-- Tool system
-- Inline edits
-- Doom Emacs support
-
-** v0.2.0 - Workflow Polish (Complete)
-- [X] Notes capture (C-c . d)
-- [X] Ergonomic review (C-c . ] / [ / z / x)
-- [X] Multi-model fan-out
-- [ ] Default prompt templates (in progress)
-
-** v0.3.0 - Intelligence (Mostly Complete)
-- [X] LLM-powered codemap (@codemap-task: handles)
-- [ ] Incremental refresh (partial)
-- [X] Tool result streaming (async shell)
-- [X] MCP support
-
-** v1.0.0 - Production Ready
-- Full README feature parity
-- Comprehensive documentation
-- 95%+ test coverage
-- Performance optimization
+Tests cover local contracts and actual-dependency offline workflows. Test
+counts change with implementation and optional packages; use the current CI
+artifacts, not a frozen count. The architecture's context coverage target is
+a target; no coverage percentage is claimed here.

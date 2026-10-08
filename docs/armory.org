@@ -17,6 +17,14 @@ armory-root/
   index.org
   imports/
   .agents/
+    .conversations/
+      <conversation-id>/
+        index.org
+        turns/
+        events.org
+        session.org
+        attachments/
+        artifacts/
     editor/
       persona.org
       inbox.org
@@ -27,8 +35,7 @@ armory-root/
         context.org
         decisions.org
         learnings.org
-      sessions/
-        20260504T090000-weekly-review.org
+      sessions/  # legacy records remain readable; new runs use .conversations
 #+end_example
 
 Org is the durable source of truth. Commands edit property drawers and body
@@ -520,3 +527,17 @@ Migration limits:
   (ogent-setup-doom-bindings)
   (ogent-global-mode 1))
 #+end_src
+
+* External skills and offline verification
+
+The catalog reads Org skills and =SKILL.md= packages from the documented
+roots. Earlier roots win; Org files win within the same root. Symlinked
+files/directories are skipped. Frontmatter name/description are read as
+text, bodies load on demand, and references retain their package directory.
+=@skill:key= composition includes source provenance. Manual import writes an
+Org copy with =OGENT_SKILL_SOURCE=; no automatic copy or network is needed.
+
+Run =make offline-test= with =OGENT_ELPA_DIR= pointing at installed runtime
+dependencies. The harness uses temporary stores, local git, fixture CLIs and
+loopback gptel/MCP servers. It requires no provider login or paid inference.
+Optional Magit UI checks may skip. See [[file:reality-check.org][the reality check]] for evidence.

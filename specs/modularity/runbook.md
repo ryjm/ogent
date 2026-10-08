@@ -1,17 +1,20 @@
 # ogent Modularity Runbook
 
 How to execute a façade split safely, and how to keep modules small going forward. Pairs with
-`phase8_decomposition_plan.md` (the per-file designs) and the `ogent-xlo` bead graph.
+`decomposition-plan.md` (the per-file designs) and the `ogent-xlo` bead graph.
 
 ## The elisp isomorphism gate (run after every mechanical move)
 
 ```bash
 cd ~/vault/projects/ogent
-# 1. Behavior, must match the frozen baseline exactly:
-make test            # expect exit 0, "Ran 2583 tests, 2576 results as expected, 0 unexpected, 7 skipped"
-# 2. Byte-compile, no NEW warning vs baseline (pre-existing: project-root@ogent-zen.el:2390,
-#    ogent-tools-project-root free var in zen tests, ui-tests indentation):
-make recompile 2>&1 | grep -iE "warning|error" | grep -v <known-baseline-lines>
+# 1. Behavior: all current tests must pass; historical counts are not a gate.
+make test
+make sandbox-test
+make test-isolation
+# 2. Byte compilation, checkdoc, declarations and indentation must pass.
+make lint
+# Actual dependency replay uses a separate loopback/fixture job.
+make offline-test
 # 3. Surface, union of new siblings must define the SAME symbol set + autoload set as baseline:
 emacs -Q --batch -l ../ogent__demonolith_workspace/scan-surface.el \
   -f ogent-scan-surface lisp/<new-sibling>.el /tmp/sib.scan
@@ -20,8 +23,10 @@ emacs -Q --batch -l ../ogent__demonolith_workspace/scan-surface.el \
 # 4. Autoload target, regenerate loaddefs and confirm each cookied symbol still loads the FAÇADE:
 #    diff the generated autoloads before/after; targets must be "ogent-<base>", not a submodule.
 ```
-CI (`.github/workflows/ci.yml`) runs only the ert suite across Emacs 29.1/30.2/snapshot; step 1 is
-the CI-aligned gate. Steps 2–4 are local correctness checks `make lint` does not fully cover.
+CI (`.github/workflows/ci.yml`) requires stable Emacs unit/store-integrity
+jobs, warning-free lint, and minimum/current gptel offline workflows. Snapshot
+is an optional early-warning job. The surface/autoload gates remain local
+checks for a mechanical façade split.
 
 ## The façade move (one new sibling = one commit)
 

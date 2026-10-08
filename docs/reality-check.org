@@ -2,7 +2,83 @@
 #+date: 2026-10-08
 #+startup: overview
 
-* Assessment
+* Resolution and current evidence (2026-10-08)
+
+The audit's runtime defects are repaired. The picker still works without
+provider login. Requests validate the effective model/backend after presets,
+retain the selected wire model, and bound authentication-header preparation
+before starting transport. Retries retain the original prompt, history,
+context and workspace; a failed transport cleanup blocks recovery.
+
+| Audit gap / bead | Repair | Reproducible evidence |
+|------------------+--------+-----------------------|
+| G1 / =ogent-xmn=, =ogent-io4= | Resolve exact OpenAI Chat/Responses objects; validate endpoint and tool parameters after presets | Actual-gptel wire checks and streamed =ogent-run-subtree= on both endpoints |
+| Recovery / =ogent-jq5= | Bounded header preparation, request-specific cancellation, immutable retry payload | Header timeout before spawn, two live sibling curl requests, recovery regressions |
+| G2 / =ogent-tdf.1=, =ogent-tdf.2= | Re-anchor every review path, preflight staged overlaps, emit one resolution and untrack | Stale/narrowed/undo/rejection tests and all four review commands and real companion Org resolutions |
+| G3 / =ogent-b9j= | Map positional tool args to MCP schema names; encode JSON shapes; invalidate discovery cache | Actual HTTP false/null/zero-argument fixture and stale-tool refresh checks |
+| G4 / =ogent-wfv.6= | One shared approval/ledger executor; return pending results to the original FSM | Automatic/confirmed × allowed/denied real-gptel cycles, async once with retained closure state, native cap and stop |
+| G5 / =ogent-ikh= | Discover external SKILL.md packages lazily with package keys and provenance | Distinct keys, Org precedence, import/symlink tests; composed CLI fixture journey |
+| G6 / =ogent-nr0=, =ogent-bpx= | Protect config roots under /tmp; load actual supported dependencies before test helpers | Fresh sandbox, store hash audit and required four-job offline CI matrix |
+| G7 / =ogent-7omc= | Replay durable local workflows and scheduled execution | Compose → run → continue → compact → archive; schedule claim survives restart; actual-dependency Armory fixtures |
+| G8 / =ogent-83c=, =ogent-mgcr= | Correct all 24 retained pricing rows and documented long-context tiers; reconcile public status | Dated official-source pricing fixture, threshold tests, current parity matrix |
+| Newly reproduced / =ogent-g41x= | Flatten generated multiline property values to preserve Org drawers | Compact/archive journey reads status, agent and summary after multiline output |
+
+** Running the proof
+
+The [[file:../test/offline/workflows.el.in][workflow tests]], [[file:../test/offline/boot.el.in][dependency bootstrap]] and
+[[file:../.github/workflows/ci.yml][required CI matrix]] are the executable proof. The
+[[file:../test/data/model-pricing.json][pricing fixture]] records official sources and retrieval dates; dedicated
+[[file:../test/ogent-pricing-tests.el][pricing regressions]] verify all retained rows and tier boundaries.
+
+The fast unit suite remains useful for isolated contracts. The separate
+offline suite loads actual Org, transient and gptel before any test helpers,
+uses loopback HTTP/SSE plus fixture CLI processes, and rejects gptel transport
+to other hosts. Runtime dependency installation needs public package access;
+the workflow replay itself needs no provider credentials or paid inference.
+
+#+begin_src sh
+make test
+make sandbox-test
+make test-isolation
+make lint sandbox=/tmp/ogent-runtime install-deps=1 install-linters=1
+./makem.sh --no-compile --sandbox=/tmp/ogent-runtime --install-deps batch -- --eval '(princ emacs-version)'
+# Use the Emacs version printed above (for example 30.2).
+OGENT_ELPA_DIR=/tmp/ogent-runtime/30.2/elpa make offline-test
+git clone --depth 1 --branch v0.9.9.5 https://github.com/karthink/gptel /tmp/ogent-gptel-minimum
+OGENT_ELPA_DIR=/tmp/ogent-runtime/30.2/elpa OGENT_GPTEL_DIR=/tmp/ogent-gptel-minimum make offline-test
+#+end_src
+
+Local replay on Emacs 30.2, Org 9.8.10 and transient
+=20261001.1359= installed sources passes 204 tests: 202 expected, zero unexpected, two
+optional Magit-section skips. It passes against current gptel
+=20261007.432= and minimum tag =v0.9.9.5= (commit
+=f5ad4eb812920fba3fcfbe32042ef89f979a7e17=). Logs print the actual dependency
+source path, conversation IDs, stored turn counts and temporary artifact
+paths. CI repeats these workflows on Emacs 29.1 and 30.2 with both gptel
+versions; required unit, store-integrity and warning-gated lint jobs remain.
+Emacs 29.1 also passes the 204-test workflow suite with both gptel versions;
+its third skip is the deliberate missing-adapter-snapshot probe. The native
+finalizer handles Emacs 29's supersession entry point when updating a file
+already open for live streaming.
+The full local =make test= run has 3084 tests, 3066 expected results, zero
+unexpected and 18 optional/interactive skips. Its nine expected failures
+are deliberate tripwire probes. On Emacs 29.1 the full suite also passes:
+3065 expected results, zero unexpected and 19 skips (including the deliberate
+missing-adapter-snapshot probe). =make sandbox-test= also exits zero, and
+=make test-isolation= reports no real-store drift.
+
+The [[file:../specs/armory-parity.org::*Parity Matrix][current parity matrix]] maps the product acceptance areas to implementation
+and proof. Local git and Org persistence are exercised; external browsing,
+remote pulls and provider executables use captured boundaries. Optional UI
+packages, performance, measured coverage, live provider entitlements and
+provider-side session continuity are separate evidence. Emacs scheduling
+runs while Emacs is alive, as designed.
+
+All sections below preserve the original audit at its stated baseline.
+Their PARTIAL/UNPROVEN labels, open statuses and diagnostic reproduction
+are historical findings, superseded by the resolution table above.
+
+* Baseline assessment
 
 The model catalog refresh is delivered: the registry browser displays all
 seven current OpenAI/Anthropic models offline. The project has substantial

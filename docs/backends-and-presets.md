@@ -89,38 +89,17 @@ lineup as the preferred choices. Explicit user defaults and role assignments rem
 For actual requests, GPT-6.1 Sol function tools require a gptel **Responses API**
 backend; Chat Completions supports it without tools. GPT-6 Luna supports
 Chat Completions tools with `reasoning_effort: "none"`, which ogent applies only
-when tools are enabled. The registry refresh does not change your configured
-transport or authenticate a provider.
+when tools are enabled on Chat Completions. Validation runs after presets.
+Current and minimum supported gptel create a Responses backend for
+`api.openai.com`; custom compatible hosts may use Chat Completions.
+Responses-only models (`gpt-5.5-pro`, `gpt-5.3-codex`) receive an actionable
+error on Chat Completions. Presets cannot silently change a picked or pinned
+model; choose that model explicitly. None of these catalog checks logs in.
 
-Pricing estimates use standard base rates. Haiku 5.5 prompts over 100K input
-tokens cost five times its base rate; the flat estimate table cannot represent
-that tier. Caching, service tiers, and other long-context premiums also affect
-actual bills.
-
-## Model selection
-
-`M-x ogent-model-picker` (`C-c . @`) is the model cockpit: switch the
-session or buffer model, set the default, assign task roles, pin models
-onto Org subtrees, and browse the registry as an Org table.
-
-The model used by a request is resolved in layers (see
-`ogent-models-effective`):
-
-1. The inherited `OGENT_MODEL` Org property at point — set it with the
-   picker or `#+PROPERTY: OGENT_MODEL <model-or-@role>` for a whole file.
-2. The request's task role (`edit`, `codemap`, ...) from
-   `ogent-model-roles`.
-3. The buffer's current gptel model, when it is registered.
-4. The project model from `.ogent.el` (`ogent-project-model`).
-5. `ogent-default-model`.
-
-Official provider aliases resolve everywhere a model id is accepted:
-`gpt-5.6` canonicalizes to `gpt-5.6-sol` and `claude-haiku-4-5` to its
-dated snapshot id (see the `:aliases` registry key).
-
-Org Babel blocks resolve `:model` first; without it they use Org
-property → project → default, deliberately skipping the transient gptel
-session layer so blocks stay reproducible.
+Prices use uncached Standard text rates. Documented prompt-length tiers,
+including Haiku 5.5 above 100K input tokens, apply to the whole request.
+Caching, service tiers, residency and session-wide billing adjustments remain
+outside the estimate. The per-row official-source fixture is dated 2026-10-08.
 
 ### Task roles
 
@@ -202,7 +181,7 @@ Two optional registry keys surface gptel's per-model machinery:
   (an older gptel that predates a model would otherwise silently drop
   tools from the request).
 - `:tools-request-params`: a plist merged **over** `:request-params`, but
-  only for requests that actually carry function tools. The shipped
+  only for Chat Completions requests that actually carry function tools. The shipped
   `gpt-5.6` entries use it for `(:reasoning_effort "none")`, because
   OpenAI's `/v1/chat/completions` rejects a gpt-5.6 request carrying
   function tools with `400 Function tools with reasoning_effort are not
@@ -214,7 +193,7 @@ Two optional registry keys surface gptel's per-model machinery:
 ```elisp
 ;; OpenAI: raise reasoning effort for one model
 (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
- :request-params (:reasoning_effort "high"))
+ :endpoints (responses) :request-params (:reasoning (:effort "high")))
 
 ;; Anthropic: enable extended thinking with a token budget
 (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
@@ -266,3 +245,10 @@ consistent across a repo:
     `@preset` token matches exactly.
   - If you use `:preset` in the model registry, ensure the preset name is a
     symbol (e.g., `ogent-explain`), not a string.
+
+Prices are uncached Standard text estimates checked on 2026-10-08 against
+[official OpenAI model pages](https://developers.openai.com/api/docs/models)
+and [official Claude pricing](https://platform.claude.com/docs/en/about-claude/pricing).
+The dated per-row fixture is `test/data/model-pricing.json`. Documented prompt
+length tiers apply to the full request. Cache usage, service tiers, residency,
+server tool charges and session-wide adjustments are outside the estimate.
