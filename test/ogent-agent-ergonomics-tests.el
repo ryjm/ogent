@@ -137,14 +137,14 @@
 (ert-deftest ogent-agent-ergonomics-argument-contract-wrapper-arity ()
   "Excess positional values are rejected before approval or execution."
   (let* ((spec '(:name contract-fixture :function ignore
-                      :args ((:name "value" :type "string"))))
+                       :args ((:name "value" :type "string"))))
          (ogent-tool-registry (list spec))
          (wrapper (ogent-tool-execution-wrapper spec))
          approval-called)
     (cl-letf (((symbol-function 'ogent-tool-approval-check)
                (lambda (&rest _) (setq approval-called t) 'approved)))
-      (should (string-match-p "accepts 1" (funcall wrapper "first" "excess")))
-      (should-not approval-called))))
+	     (should (string-match-p "accepts 1" (funcall wrapper "first" "excess")))
+	     (should-not approval-called))))
 
 (ert-deftest ogent-agent-ergonomics-argument-contract-values-and-hints ()
   "Validation preserves false, zero and nested objects, and teaches typo repair."
@@ -160,7 +160,7 @@
     (should (equal (seq-take values 3) '("data.txt" nil 0)))
     (should (eq (nth 3 values) nested))
     (let ((err (should-error (ogent-ui--extract-tool-args
-                             spec '(:file_pth "data.txt")) :type 'user-error)))
+                              spec '(:file_pth "data.txt")) :type 'user-error)))
       (should (string-match-p "did you mean file_path" (error-message-string err))))))
 
 (ert-deftest ogent-agent-ergonomics-argument-contract-async-failure-once ()
@@ -203,27 +203,27 @@
   "JSON batch output is data-only and preserves the 0/1/2 severity dictionary."
   (dolist (severity '((ok . 0) (warn . 1) (error . 2)))
     (let ((results (list (list :id 'fixture :label "Fixture" :category 'environment
-                              :status (car severity) :detail "local check")))
+                               :status (car severity) :detail "local check")))
           exit)
       (cl-letf (((symbol-function 'ogent-doctor-run)
                  (lambda (&optional opt-in) (should-not opt-in) results)))
-        (let* ((output (with-output-to-string
-                         (setq exit (ogent-doctor-batch nil 'json))))
-               (data (json-parse-string output :object-type 'plist)))
-          (should (= exit (cdr severity)))
-          (should (= (plist-get data :exit_code) exit))
-          (should (equal (plist-get data :contract_version) "1"))
-          (should (equal (plist-get data :status) (symbol-name (car severity))))
-          (should (vectorp (plist-get data :checks)))
-          (should (equal output (ogent-doctor-format-json results))))))))
+               (let* ((output (with-output-to-string
+				(setq exit (ogent-doctor-batch nil 'json))))
+		      (data (json-parse-string output :object-type 'plist)))
+		 (should (= exit (cdr severity)))
+		 (should (= (plist-get data :exit_code) exit))
+		 (should (equal (plist-get data :contract_version) "1"))
+		 (should (equal (plist-get data :status) (symbol-name (car severity))))
+		 (should (vectorp (plist-get data :checks)))
+		 (should (equal output (ogent-doctor-format-json results))))))))
 
 (ert-deftest ogent-agent-ergonomics-doctor-json-invalid-format ()
   "Invalid formats are rejected before running even opt-in probes."
   (let (called)
     (cl-letf (((symbol-function 'ogent-doctor-run)
                (lambda (&optional _) (setq called t) nil)))
-      (should-error (ogent-doctor-batch t 'jsno) :type 'user-error)
-      (should-not called))))
+	     (should-error (ogent-doctor-batch t 'jsno) :type 'user-error)
+	     (should-not called))))
 
 (ert-deftest ogent-agent-ergonomics-capabilities-live-stable-and-pure ()
   "Discovery exposes live contracts without construction or registry mutation."
@@ -238,20 +238,20 @@
          (before (copy-tree ogent-tool-registry)))
     (cl-letf (((symbol-function 'gptel-make-tool)
                (lambda (&rest _) (ert-fail "Discovery constructed a gptel tool"))))
-      (let* ((text (ogent-agent-capabilities 'json))
-             (data (json-parse-string text :object-type 'plist))
-             (tools (plist-get data :tools))
-             (read (aref tools 0)))
-        (should (equal (plist-get data :contract_version) "1"))
-        (should (equal (plist-get read :name) "read-file"))
-        (should (eq (plist-get read :enabled) t))
-        (should (eq (plist-get read :confirmation_required) :false))
-        (should (eq (plist-get (aref tools 1) :confirmation_required) t))
-        (should (equal (plist-get (aref (plist-get read :arguments) 1) :enum)
-                       ["a" "b"]))
-        (should (equal before ogent-tool-registry))
-        (setq ogent-tool-registry (reverse ogent-tool-registry))
-        (should (equal text (ogent-agent-capabilities 'json)))))))
+	     (let* ((text (ogent-agent-capabilities 'json))
+		    (data (json-parse-string text :object-type 'plist))
+		    (tools (plist-get data :tools))
+		    (read (aref tools 0)))
+               (should (equal (plist-get data :contract_version) "1"))
+               (should (equal (plist-get read :name) "read-file"))
+               (should (eq (plist-get read :enabled) t))
+               (should (eq (plist-get read :confirmation_required) :false))
+               (should (eq (plist-get (aref tools 1) :confirmation_required) t))
+               (should (equal (plist-get (aref (plist-get read :arguments) 1) :enum)
+			      ["a" "b"]))
+               (should (equal before ogent-tool-registry))
+               (setq ogent-tool-registry (reverse ogent-tool-registry))
+               (should (equal text (ogent-agent-capabilities 'json)))))))
 
 (ert-deftest ogent-agent-ergonomics-capabilities-guide-and-local-triage ()
   "The handbook and triage are usable without provider or opt-in probes."
@@ -262,18 +262,70 @@
                  (should-not opt-in)
                  (setq called t)
                  '((:id fixture :label "Fixture" :category environment
-                    :status warn :detail "missing" :remediation "Install fixture")))))
-      (let* ((data (json-parse-string (ogent-agent-triage 'json) :object-type 'plist))
-             (health (plist-get data :project_health)))
-        (should called)
-        (should (equal (plist-get (plist-get data :quick_ref) :tools) []))
-        (should (equal (plist-get health :exit_code) 1))
-        (should (equal (plist-get (aref (plist-get data :recommendations) 0) :action)
-                       "Install fixture"))
-        (should (string-match-p "ogent-agent-capabilities 'json" (ogent-agent-guide))))
-      (setq called nil)
-      (should-error (ogent-agent-triage 'jsno) :type 'user-error)
-      (should-not called))))
+			:status warn :detail "missing" :remediation "Install fixture")))))
+	     (let* ((data (json-parse-string (ogent-agent-triage 'json) :object-type 'plist))
+		    (health (plist-get data :project_health)))
+               (should called)
+               (should (equal (plist-get (plist-get data :quick_ref) :tools) []))
+               (should (equal (plist-get health :exit_code) 1))
+               (should (equal (plist-get (aref (plist-get data :recommendations) 0) :action)
+			      "Install fixture"))
+               (should (string-match-p "ogent-agent-capabilities 'json" (ogent-agent-guide))))
+	     (setq called nil)
+	     (should-error (ogent-agent-triage 'jsno) :type 'user-error)
+	     (should-not called))))
+
+(ert-deftest ogent-agent-ergonomics-bash-contract-invalid-before-spawn ()
+  "Invalid shell inputs cannot spawn a process or produce two terminal events."
+  (let ((events nil)
+        spawned
+        (ogent-tools-show-progress nil))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest _) (setq spawned t) (error "Unexpected spawn"))))
+	     (should-error (ogent-tool--bash "pwd" nil 0) :type 'user-error)
+	     (should-not (ogent-tool--bash-async
+			  "pwd" nil "bad"
+			  (lambda (type data) (push (list type data) events))))
+	     (should-not spawned)
+	     (should (= (length events) 1))
+	     (should (eq (caar events) 'error))
+	     (should (string-match-p "timeout=120" (cadar events))))))
+
+(ert-deftest ogent-agent-ergonomics-bash-contract-exit-survives-truncation ()
+  "The shell exit remains visible after body truncation and stderr has no sentinel."
+  (let* ((ogent-tools-max-output-chars 10)
+         (ogent-tools-show-progress nil)
+         (result (ogent-tool--bash "printf 12345678901234567890; exit 42")))
+    (should (string-prefix-p "1234567890" result))
+    (should (string-match-p "Output truncated" result))
+    (should (string-suffix-p "Exit code: 42" result))
+    (let ((ogent-tools-max-output-chars 1000))
+      (should-not (string-match-p "Process ogent-bash" (ogent-tool--bash "printf err >&2"))))))
+
+(ert-deftest ogent-agent-ergonomics-bash-contract-async-chunk-boundaries ()
+  "Exact and oversized chunks keep their prefix and finish exactly once."
+  (dolist (command '("printf 1234567890" "printf 12345678901234567890"))
+    (let ((ogent-tools-max-output-chars 10)
+          (ogent-tools-show-progress nil)
+          (events nil)
+          proc)
+      (unwind-protect
+          (progn
+            (setq proc (ogent-tool--bash-async
+                        command nil 3
+                        (lambda (type data) (push (list type data) events))))
+            (let ((deadline (+ (float-time) 5)))
+              (while (and (not (seq-find (lambda (event) (memq (car event) '(done error))) events))
+                          (< (float-time) deadline))
+                (accept-process-output (and (process-live-p proc) proc) 0.01)))
+            (should (= 1 (cl-count 'done events :key #'car)))
+            (should (= 0 (cl-count 'error events :key #'car)))
+            (should (string-prefix-p
+                     "1234567890"
+                     (mapconcat #'cadr
+                                (seq-filter (lambda (event) (eq (car event) 'stdout))
+                                            (reverse events)) ""))))
+        (when (and proc (process-live-p proc)) (delete-process proc))))))
 
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
