@@ -218,7 +218,7 @@
           (list (list :name 'delayed :async t :args nil
                       :function (lambda (callback)
                                   (cl-incf runs) (funcall callback "first")
-                                  (funcall callback "second") (error "after terminal")))))
+                                  (funcall callback "second") (error "After terminal")))))
          (ogent-tool-require-approval nil)
          (callbacks 0) result)
     (should (equal (plist-get (plist-get (ogent-agent-call "delayed" nil) :error) :code) "async_required"))
@@ -226,6 +226,206 @@
     (ogent-agent-call-async "delayed" nil (lambda (data) (cl-incf callbacks) (setq result data)))
     (should (= callbacks 1))
     (should (equal (plist-get (plist-get result :data) :value) "first"))))
+
+(defun ogent-agent-execution-tests--wait-process (process)
+  "Wait for real PROCESS to finish within a bounded test deadline."
+  (should (processp process))
+  (let ((deadline (+ (float-time) 3)))
+    (while (and (process-live-p process) (< (float-time) deadline))
+      (accept-process-output process 0.01)))
+  (should-not (process-live-p process))
+  (accept-process-output nil 0.05))
+
+(ert-deftest ogent-agent-execution-async-ledger-write-failure-retains-terminal ()
+  "Real finish write failures deliver SDK and gptel results without reruns."
+  (dolist (format '(plist json gptel-json))
+    (let* ((root (ogent-test--provision-store-directory 'tools))
+           (file (expand-file-name "ledger.org" root))
+           (effect (expand-file-name "effect.txt" root))
+           (command (format "sleep 0.05; printf effect >> %s; printf complete; printf diagnostic >&2"
+                            (shell-quote-argument effect)))
+           (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+           (ogent-tool-require-approval nil)
+           (ogent-tools--active-processes nil)
+           (ogent-ledger-enabled t) (ogent-ledger-file file)
+           (callbacks 0) result
+           (callback (lambda (data) (cl-incf callbacks) (setq result data)))
+           (process
+            (if (eq format 'gptel-json)
+                (let ((spec (ogent-tool-spec-get 'bash)))
+                  (plist-put spec :async t)
+                  (funcall (ogent-tool-execution-wrapper spec 'json) callback command nil 1))
+              (ogent-agent-call-async "shell" (list :command command :timeout 1)
+                                      callback format))))
+      (should (file-exists-p file))
+      (setq ogent-ledger-file root)
+      (ogent-agent-execution-tests--wait-process process)
+      (unless (eq format 'plist)
+        (setq result (json-parse-string result :object-type 'plist)))
+      (should (= callbacks 1))
+      (should (equal (plist-get result :status) "error"))
+      (should (equal (plist-get (plist-get result :data) :stdout) "complete"))
+      (should (equal (plist-get (plist-get result :data) :stderr) "diagnostic"))
+      (should (= (plist-get (plist-get result :data) :exit_code) 0))
+      (should (equal (plist-get (plist-get result :error) :code) "ledger_write_failed"))
+      (should (string-match-p "already completed" (plist-get (plist-get result :error) :recovery)))
+      (should (string-match-p "Do not rerun" (plist-get (plist-get result :error) :recovery)))
+      (should-not (process-get process 'ogent-callback-error))
+      (should-not ogent-tools--active-processes)
+      (should (equal (with-temp-buffer (insert-file-contents effect) (buffer-string)) "effect"))
+      (let ((ledger (with-temp-buffer (insert-file-contents file) (buffer-string))))
+        (should (string-match-p "tool-start" ledger))
+        (should-not (string-match-p "tool-finish" ledger))))))
+
+(ert-deftest ogent-agent-execution-async-ledger-records-success ()
+  "Successful async completion still appends a real ledger terminal."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-ledger-file (expand-file-name "ledger.org" root))
+         (ogent-ledger-enabled t)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-tool-require-approval nil) result
+         (process (ogent-agent-call-async "shell" '(:command "printf complete")
+                                          (lambda (data) (setq result data)))))
+    (ogent-agent-execution-tests--wait-process process)
+    (should (equal (plist-get result :status) "ok"))
+    (let ((ledger (with-temp-buffer (insert-file-contents ogent-ledger-file) (buffer-string))))
+      (should (string-match-p "tool-start" ledger))
+      (should (string-match-p "tool-finish" ledger)))))
+
+(ert-deftest ogent-agent-execution-legacy-async-ledger-failure-visible-once ()
+  "Legacy callbacks retain real process output and a visible ledger warning."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (expand-file-name "ledger.org" root))
+         (effect (expand-file-name "effect.txt" root))
+         (spec (list :name 'legacy-process :async t
+                     :args '((:name "command" :type "string"))
+                     :function
+                     (lambda (command callback)
+                       (ogent-tool-process-bash-async
+                        command nil 1
+                        (lambda (data failure)
+                          (funcall callback (plist-get data :stdout)
+                                   (and failure (error-message-string failure)))
+                          (funcall callback "duplicate"))))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil)
+         (ogent-tools--active-processes nil)
+         (ogent-ledger-enabled t) (ogent-ledger-file file)
+         (callbacks 0) result
+         (process (progn
+                    (funcall (ogent-tool-execution-wrapper spec 'text)
+                             (lambda (data) (cl-incf callbacks) (setq result data))
+                             (format "sleep 0.05; printf effect >> %s; printf complete"
+                                     (shell-quote-argument effect)))
+                    (caar ogent-tools--active-processes))))
+    (should (file-exists-p file))
+    (setq ogent-ledger-file root)
+    (ogent-agent-execution-tests--wait-process process)
+    (should (= callbacks 1))
+    (should (string-prefix-p "complete\n[Ledger warning:" result))
+    (should (string-match-p "already completed" result))
+    (should (string-match-p "Do not rerun" result))
+    (should-not (string-match-p "duplicate" result))
+    (should-not (process-get process 'ogent-callback-error))
+    (should-not ogent-tools--active-processes)
+    (should (equal (with-temp-buffer (insert-file-contents effect) (buffer-string)) "effect"))))
+
+(ert-deftest ogent-agent-execution-sync-ledger-failure-retains-completed-data ()
+  "Sync storage failures retain data and distinguish actual tool failures."
+  (dolist (exit-code '(0 7))
+    (let* ((root (ogent-test--provision-store-directory 'tools))
+           (file (expand-file-name "ledger.org" root))
+           (ogent-ledger-enabled t) (ogent-ledger-file file)
+           (runs 0)
+           (spec (list :name 'ledger-sync :args nil :function #'ignore
+                       :result-function (lambda ()
+                                          (cl-incf runs)
+                                          (should (file-exists-p file))
+                                          (setq ogent-ledger-file root)
+                                          (list :stdout "completed" :exit_code exit-code))))
+           (ogent-tool-registry (list spec))
+           (ogent-tool-require-approval nil)
+           (result (ogent-agent-call "ledger-sync" nil))
+           (error-data (plist-get result :error)))
+      (should (= runs 1))
+      (should (equal (plist-get (plist-get result :data) :stdout) "completed"))
+      (should (= (plist-get (plist-get result :data) :exit_code) exit-code))
+      (should (equal (plist-get error-data :code) "ledger_write_failed"))
+      (if (= exit-code 0)
+          (should-not (plist-get error-data :tool_error))
+        (should (equal (plist-get (plist-get error-data :tool_error) :code) "command_failed"))))))
+
+(ert-deftest ogent-agent-execution-async-malformed-result-delivers-once ()
+  "Result construction errors preserve completed extension data once."
+  (let* ((data '(:has_more t :content "completed"))
+         (spec (list :name 'read-file :async t
+                     :args '((:name "path" :type "integer"))
+                     :result-function #'ignore
+                     :function (lambda (_path callback)
+                                 (funcall callback data)
+                                 (funcall callback "duplicate"))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil) (callbacks 0) result)
+    (ogent-agent-call-async "read-file" '(:path 42)
+                            (lambda (data) (cl-incf callbacks) (setq result data)))
+    (should (= callbacks 1))
+    (should (equal (plist-get result :data) data))
+    (should (equal (plist-get (plist-get result :error) :code) "unsupported_result"))))
+
+(ert-deftest ogent-agent-execution-async-immediate-result-returns-nil ()
+  "Immediate native completion delivers once and returns no process handle."
+  (let* ((spec (list :name 'immediate :async t :args nil
+                     :function (lambda (callback) (funcall callback "completed"))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil) (callbacks 0) result)
+    (should-not (ogent-agent-call-async
+                 "immediate" nil
+                 (lambda (data) (cl-incf callbacks) (setq result data))))
+    (should (= callbacks 1))
+    (should (equal (plist-get (plist-get result :data) :value) "completed"))))
+
+(ert-deftest ogent-agent-execution-async-ledger-failure-preserves-tool-error ()
+  "A reported tool error and its completed data survive a finish write failure."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (expand-file-name "ledger.org" root))
+         (ogent-ledger-enabled t) (ogent-ledger-file file)
+         (spec (list :name 'terminal-failure :async t :args nil :result-function #'ignore
+                     :function (lambda (callback)
+                                 (should (file-exists-p file))
+                                 (setq ogent-ledger-file root)
+                                 (funcall callback '(:stdout "completed") '(error "Reported tool error"))
+                                 (funcall callback "duplicate"))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil) (callbacks 0) result)
+    (should-not (ogent-agent-call-async
+                 "terminal-failure" nil
+                 (lambda (data) (cl-incf callbacks) (setq result data))))
+    (should (= callbacks 1))
+    (should (equal (plist-get (plist-get result :data) :stdout) "completed"))
+    (let ((error-data (plist-get result :error)))
+      (should (equal (plist-get error-data :code) "ledger_write_failed"))
+      (should (equal (plist-get (plist-get error-data :tool_error) :code) "execution_failed"))
+      (should (equal (plist-get (plist-get error-data :tool_error) :message) "Reported tool error")))))
+
+(ert-deftest ogent-agent-execution-ledger-start-failure-prevents-effects ()
+  "An actual start write failure delivers an error without running the tool."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-ledger-enabled t) (ogent-ledger-file root)
+         (runs 0)
+         (spec (list :name 'ledger-start :async t :args nil
+                     :function (lambda (callback)
+                                 (cl-incf runs)
+                                 (funcall callback "completed"))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil) (callbacks 0) result)
+    (should-not (ogent-agent-call-async
+                 "ledger-start" nil
+                 (lambda (data) (cl-incf callbacks) (setq result data))))
+    (should (= runs 0))
+    (should (= callbacks 1))
+    (should (equal (plist-get result :status) "error"))
+    (should (equal (plist-get (plist-get result :error) :code) "execution_failed"))
+    (should-not (string-match-p "already completed" (plist-get (plist-get result :error) :message)))))
 
 (ert-deftest ogent-agent-execution-async-denial-and-cancel ()
   "Async denials do not start processes and cancellation retains output."
@@ -587,7 +787,7 @@
                          '(:type "integer"))))))))
 
 (ert-deftest ogent-agent-execution-model-json-async-callback ()
-  "gptel callback-first calls retain JSON and exactly one terminal callback."
+  "Gptel callback-first calls retain JSON and exactly one terminal callback."
   (let* ((spec (list :name 'async-fixture :async t :args '((:name "value" :type "string"))
                      :function (lambda (value callback) (funcall callback value) (funcall callback "again"))))
          (ogent-tool-registry (list spec))

@@ -18,6 +18,22 @@
 (defvar ogent-tools-result-format 'text)
 (defvar ogent-tool-registry)
 
+(define-error 'ogent-tool-ledger-write-failed "Tool completion ledger write failed")
+
+(defun ogent-tool-execution-record-finish (call data failure duration effects)
+  "Record terminal CALL with DATA, FAILURE, DURATION and EFFECTS.
+Return the storage error on failure, preserving terminal result delivery."
+  (condition-case err
+      (progn
+        (ogent-ledger-record-tool-finish call data failure duration effects)
+        nil)
+    (error err)))
+
+(defun ogent-tool-execution-ledger-warning (err)
+  "Return a visible ledger completion warning for ERR."
+  (format "Tool has already completed, but its ledger completion could not be recorded: %s. Inspect retained result data and configure ogent-ledger-file as a writable file for future calls. Do not rerun the tool merely to repair the ledger"
+          (error-message-string err)))
+
 (defun ogent-tool-execution-result (name status &optional data code message)
   "Return a versioned result for NAME with STATUS and DATA.
 Include a typed error with CODE and MESSAGE when supplied."
@@ -31,6 +47,8 @@ Include a typed error with CODE and MESSAGE when supplied."
 				((or "denied" "approval_required") "Use the normal user approval/review flow; do not retry with relaxed policy")
 				("snapshot_changed" "Restart the original read/search call from its first page")
 				((or "command_failed" "timeout" "cancelled") "Inspect retained stdout/stderr and exit_code before deciding whether to retry")
+                                ("ledger_write_failed" "The tool has already completed; inspect retained data and configure ogent-ledger-file as a writable file for future calls. Do not rerun the tool merely to repair the ledger")
+                                ("unsupported_result" "The tool has already completed; inspect retained data and its result contract. Do not rerun the tool merely to rebuild its result")
 				(_ "Inspect the error message and tool contract before retrying")))
                  :json-null)
         :next []))
@@ -150,10 +168,41 @@ or raw filename bytes that cannot be represented as Unicode."
      (_ code))
    (if (consp err) (error-message-string err) (format "%s" err))))
 
+(defun ogent-tool-execution--terminal-result (spec args data failure)
+  "Return SPEC's terminal result from ARGS, DATA and FAILURE.
+Retain completed DATA if constructing an extension result fails."
+  (condition-case err
+      (if failure
+          (let ((result (ogent-tool-execution--failure
+                         (plist-get spec :name) "execution_failed" failure)))
+            (if data
+                (plist-put result :data
+                           (if (plist-get spec :result-function) data (list :value data)))
+              result))
+        (ogent-tool-execution--success spec args data))
+    (error
+     (ogent-tool-execution-result
+      (plist-get spec :name) "error"
+      (if (plist-get spec :result-function) data (list :value data))
+      "unsupported_result"
+      (format "Tool has already completed, but its result could not be interpreted: %s"
+              (error-message-string err))))))
+
+(defun ogent-tool-execution--ledger-failure (result err)
+  "Return retained RESULT with a typed ledger failure from ERR."
+  (let* ((failure (ogent-tool-execution-result
+                   (plist-get result :tool) "error" (plist-get result :data)
+                   "ledger_write_failed" (ogent-tool-execution-ledger-warning err)))
+         (tool-error (plist-get result :error)))
+    (unless (eq tool-error :json-null)
+      (plist-put (plist-get failure :error) :tool_error tool-error))
+    (plist-put failure :next (plist-get result :next))))
+
 (defun ogent-tool-execution--start (spec args values callback)
   "Start asynchronous SPEC with ARGS, VALUES and terminal CALLBACK.
-Record exactly one ledger terminal even if the tool completes twice or fails
-after completion.  Adapt native callback-last tools to the result contract."
+Attempt one ledger terminal even if the tool completes twice or fails after
+completion.  Deliver retained results even when completion recording fails.
+Adapt native callback-last tools to the result contract."
   (let* ((name (plist-get spec :name))
          (call (list :name (symbol-name name) :args args))
          (effects (plist-get spec :effects))
@@ -162,17 +211,19 @@ after completion.  Adapt native callback-last tools to the result contract."
          (complete (lambda (data &optional failure)
                      (unless finished
                        (setq finished t)
-                       (let ((result (if failure
-                                         (ogent-tool-execution--failure name "execution_failed" failure)
-                                       (ogent-tool-execution--success spec args data))))
-                         (ogent-ledger-record-tool-finish
-                          call data (unless (eq (plist-get result :error) :json-null)
-                                      (plist-get (plist-get result :error) :message))
-                          (- (float-time) started) effects)
-                         (funcall callback result))))))
+                       (let* ((result (ogent-tool-execution--terminal-result spec args data failure))
+                              (ledger-error
+                               (ogent-tool-execution-record-finish
+                                call data (unless (eq (plist-get result :error) :json-null)
+                                            (plist-get (plist-get result :error) :message))
+                                (- (float-time) started) effects)))
+                         (funcall callback (if ledger-error
+                                               (ogent-tool-execution--ledger-failure result ledger-error)
+                                             result)))))))
     (ogent-ledger-record-tool-start call effects)
     (condition-case err
-        (apply function (append values (list complete)))
+        (let ((process (apply function (append values (list complete)))))
+          (and (processp process) process))
       (error (funcall complete nil err) nil))))
 
 (defun ogent-tool-execution-call (name args &optional callback prompt)
@@ -240,7 +291,11 @@ PROMPT is reserved for the normal interactive gptel execution path."
 			  (ogent-tool-execution--success spec canonical data)))))))
                (error
                 (setq deferred nil)
-                (ogent-tool-execution--failure name phase err)))))
+                (if (eq (car err) 'ogent-tool-ledger-write-failed)
+                    (ogent-tool-execution--ledger-failure
+                     (ogent-tool-execution--terminal-result spec canonical (nth 1 err) (nth 2 err))
+                     (nth 3 err))
+                  (ogent-tool-execution--failure name phase err))))))
         (if (and callback (not deferred)) (progn (deliver result) nil) result)))))
 
 (defun ogent-tool-execution--json-call (spec values)
@@ -333,9 +388,15 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
          (complete (lambda (result &optional failure)
                      (unless finished
                        (setq finished t)
-                       (ogent-ledger-record-tool-finish
-                        call result failure (- (float-time) started) effects)
-                       (funcall callback (or result (concat "Tool error: " failure)))))))
+                       (let ((terminal (or result (concat "Tool error: " failure)))
+                             (ledger-error
+                              (ogent-tool-execution-record-finish
+                               call result failure (- (float-time) started) effects)))
+                         (funcall callback
+                                  (if ledger-error
+                                      (format "%s\n[Ledger warning: %s]" terminal
+                                              (ogent-tool-execution-ledger-warning ledger-error))
+                                    terminal)))))))
     (ogent-ledger-record-tool-start call effects)
     (condition-case err
         (apply (plist-get spec :function) (append values (list complete)))

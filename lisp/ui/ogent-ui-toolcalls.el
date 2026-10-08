@@ -16,6 +16,7 @@
 (require 'ogent-edit-format)
 (require 'ogent-tools)
 (require 'ogent-tool-contract)
+(require 'ogent-tool-execution)
 (declare-function ogent-tool-execution-process-error "ogent-tool-execution")
 
 ;; Specials read/let-bound by the tool subsystem.
@@ -143,15 +144,21 @@ Uses the :async-function and :async-callback-style from the tool spec."
         (let* ((tool-call (ogent-ui--tool-ledger-call tool-name tool-args))
                (effects (plist-get spec :effects))
                (start (current-time))
+               finished
                (callback
                 (lambda (type data)
-                  (when (memq type '(done error))
-                    (ogent-ledger-record-tool-finish
-                     tool-call (and (eq type 'done) data)
-                     (and (eq type 'error) (format "%s" data))
-                     (float-time (time-subtract (current-time) start))
-                     effects))
-                  (funcall base-callback type data))))
+                  (unless finished
+                    (when (memq type '(done error))
+                      (setq finished t)
+                      (when-let ((err (ogent-tool-execution-record-finish
+                                       tool-call (and (eq type 'done) data)
+                                       (and (eq type 'error) (format "%s" data))
+                                       (float-time (time-subtract (current-time) start))
+                                       effects)))
+                        (ogent-ui--streaming-drawer-append
+                         drawer (format "\n[Ledger warning: %s]"
+                                        (ogent-tool-execution-ledger-warning err)))))
+                    (funcall base-callback type data)))))
           (ogent-ledger-record-tool-start tool-call effects)
           (apply async-func (append arg-values (list callback))))
       ;; Fallback: no async function found. ogent-ui--execute-tool records
@@ -259,7 +266,7 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                                  :name tool-symbol :args args
                                  :structured (and structured t)))
              (effects (plist-get spec :effects))
-             (start (current-time)))
+             (start (current-time)) result execution-error)
         (ogent-ledger-record-tool-start tool-call effects)
         (condition-case err
             (let* ((schema (if structured
@@ -268,24 +275,31 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                                                   (plist-get spec :result-args)))
                              spec))
                    (arg-values (ogent-ui--extract-tool-args schema args))
-                   (result (apply func arg-values))
-                   (duration (float-time (time-subtract (current-time) start)))
-                   (failure (and structured (plist-get spec :result-function)
-                                 (ogent-tool-execution-process-error result))))
-              (ogent-ledger-record-tool-finish tool-call result failure duration effects)
-              (when (fboundp 'ogent-debug-log-tool-call)
-                (ogent-debug-log-tool-call
-                 (plist-put history-call :error failure) result duration))
-              result)
-          (error
-           (let ((msg (error-message-string err))
-                 (duration (float-time (time-subtract (current-time) start))))
-             (ogent-ledger-record-tool-finish tool-call nil msg duration effects)
-             (when (fboundp 'ogent-debug-log-tool-call)
-               (ogent-debug-log-tool-call
-                (plist-put history-call :error msg) nil duration))
-             (if structured (signal (car err) (cdr err))
-               (format "Tool error: %s" msg))))))
+                   (value (apply func arg-values)))
+              (setq result value))
+          (error (setq execution-error err)))
+        (let* ((duration (float-time (time-subtract (current-time) start)))
+               (failure (if execution-error
+                            (error-message-string execution-error)
+                          (and structured (plist-get spec :result-function)
+                               (ogent-tool-execution-process-error result))))
+               (ledger-error (ogent-tool-execution-record-finish
+                              tool-call result failure duration effects)))
+          (when (fboundp 'ogent-debug-log-tool-call)
+            (ogent-debug-log-tool-call
+             (plist-put history-call :error failure) result duration))
+          (cond
+           (ledger-error
+            (if structured
+                (signal 'ogent-tool-ledger-write-failed
+                        (list result execution-error ledger-error))
+              (format "%s\n[Ledger warning: %s]"
+                      (if execution-error (concat "Tool error: " failure) result)
+                      (ogent-tool-execution-ledger-warning ledger-error))))
+           (execution-error
+            (if structured (signal (car execution-error) (cdr execution-error))
+              (concat "Tool error: " failure)))
+           (t result))))
     (ogent-tool-contract-name-hint
      name (mapcar (lambda (spec) (plist-get spec :name)) ogent-tool-registry))))
 
