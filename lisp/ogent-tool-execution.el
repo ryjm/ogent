@@ -20,14 +20,30 @@
 
 (define-error 'ogent-tool-ledger-write-failed "Tool completion ledger write failed")
 
-(defun ogent-tool-execution-record-finish (call data failure duration effects)
+(defun ogent-tool-execution-ledger-context ()
+  "Capture the enabled state and absolute destination for one tool call.
+Ledger configuration changes apply to future calls.  Preserve the caller's
+ambient context by binding captured settings only while recording events."
+  (list :enabled ogent-ledger-enabled
+        :file (and ogent-ledger-enabled (copy-sequence (ogent-ledger--file)))))
+
+(defun ogent-tool-execution-record-start (call effects context)
+  "Record CALL with EFFECTS using the captured ledger CONTEXT."
+  (let ((ogent-ledger-enabled (plist-get context :enabled))
+        (ogent-ledger-file (plist-get context :file)))
+    (ogent-ledger-record-tool-start call effects)))
+
+(defun ogent-tool-execution-record-finish (call data failure duration effects &optional context)
   "Record terminal CALL with DATA, FAILURE, DURATION and EFFECTS.
-Return the storage error on failure, preserving terminal result delivery."
-  (condition-case err
-      (progn
-        (ogent-ledger-record-tool-finish call data failure duration effects)
-        nil)
-    (error err)))
+Use captured ledger CONTEXT when supplied.  Return the storage error on
+failure, preserving terminal result delivery."
+  (let ((ogent-ledger-enabled (if context (plist-get context :enabled) ogent-ledger-enabled))
+        (ogent-ledger-file (if context (plist-get context :file) ogent-ledger-file)))
+    (condition-case err
+        (progn
+          (ogent-ledger-record-tool-finish call data failure duration effects)
+          nil)
+      (error err))))
 
 (defun ogent-tool-execution-ledger-warning (err)
   "Return a visible ledger completion warning for ERR."
@@ -207,6 +223,7 @@ Adapt native callback-last tools to the result contract."
          (call (list :name (symbol-name name) :args args))
          (effects (plist-get spec :effects))
          (function (or (plist-get spec :result-async-function) (plist-get spec :function)))
+         (ledger-context (ogent-tool-execution-ledger-context))
          (started (float-time)) finished
          (complete (lambda (data &optional failure)
                      (unless finished
@@ -216,11 +233,11 @@ Adapt native callback-last tools to the result contract."
                                (ogent-tool-execution-record-finish
                                 call data (unless (eq (plist-get result :error) :json-null)
                                             (plist-get (plist-get result :error) :message))
-                                (- (float-time) started) effects)))
+                                (- (float-time) started) effects ledger-context)))
                          (funcall callback (if ledger-error
                                                (ogent-tool-execution--ledger-failure result ledger-error)
                                              result)))))))
-    (ogent-ledger-record-tool-start call effects)
+    (ogent-tool-execution-record-start call effects ledger-context)
     (condition-case err
         (let ((process (apply function (append values (list complete)))))
           (and (processp process) process))
@@ -383,6 +400,7 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
   "Execute async SPEC with ARGS, positional VALUES and gptel CALLBACK."
   (let* ((call (list :name (symbol-name (plist-get spec :name)) :args args))
          (effects (plist-get spec :effects))
+         (ledger-context (ogent-tool-execution-ledger-context))
          (started (float-time))
          (finished nil)
          (complete (lambda (result &optional failure)
@@ -391,13 +409,13 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
                        (let ((terminal (or result (concat "Tool error: " failure)))
                              (ledger-error
                               (ogent-tool-execution-record-finish
-                               call result failure (- (float-time) started) effects)))
+                               call result failure (- (float-time) started) effects ledger-context)))
                          (funcall callback
                                   (if ledger-error
                                       (format "%s\n[Ledger warning: %s]" terminal
                                               (ogent-tool-execution-ledger-warning ledger-error))
                                     terminal)))))))
-    (ogent-ledger-record-tool-start call effects)
+    (ogent-tool-execution-record-start call effects ledger-context)
     (condition-case err
         (apply (plist-get spec :function) (append values (list complete)))
       (error (funcall complete nil (error-message-string err))))))

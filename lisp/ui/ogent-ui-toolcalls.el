@@ -143,6 +143,7 @@ Uses the :async-function and :async-callback-style from the tool spec."
         ;; Call the async function with args + a ledger-wrapped callback.
         (let* ((tool-call (ogent-ui--tool-ledger-call tool-name tool-args))
                (effects (plist-get spec :effects))
+               (ledger-context (ogent-tool-execution-ledger-context))
                (start (current-time))
                finished
                (callback
@@ -154,12 +155,12 @@ Uses the :async-function and :async-callback-style from the tool spec."
                                        tool-call (and (eq type 'done) data)
                                        (and (eq type 'error) (format "%s" data))
                                        (float-time (time-subtract (current-time) start))
-                                       effects)))
+                                       effects ledger-context)))
                         (ogent-ui--streaming-drawer-append
                          drawer (format "\n[Ledger warning: %s]"
                                         (ogent-tool-execution-ledger-warning err)))))
                     (funcall base-callback type data)))))
-          (ogent-ledger-record-tool-start tool-call effects)
+          (ogent-tool-execution-record-start tool-call effects ledger-context)
           (apply async-func (append arg-values (list callback))))
       ;; Fallback: no async function found. ogent-ui--execute-tool records
       ;; its own ledger events.
@@ -266,8 +267,9 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                                  :name tool-symbol :args args
                                  :structured (and structured t)))
              (effects (plist-get spec :effects))
+             (ledger-context (ogent-tool-execution-ledger-context))
              (start (current-time)) result execution-error)
-        (ogent-ledger-record-tool-start tool-call effects)
+        (ogent-tool-execution-record-start tool-call effects ledger-context)
         (condition-case err
             (let* ((schema (if structured
                                (plist-put (copy-sequence spec) :args
@@ -284,7 +286,7 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                           (and structured (plist-get spec :result-function)
                                (ogent-tool-execution-process-error result))))
                (ledger-error (ogent-tool-execution-record-finish
-                              tool-call result failure duration effects)))
+                              tool-call result failure duration effects ledger-context)))
           (when (fboundp 'ogent-debug-log-tool-call)
             (ogent-debug-log-tool-call
              (plist-put history-call :error failure) result duration))

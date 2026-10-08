@@ -236,6 +236,13 @@
   (should-not (process-live-p process))
   (accept-process-output nil 0.05))
 
+(defun ogent-agent-execution-tests--break-ledger-file (file)
+  "Make original ledger FILE unwritable and return its retained start copy."
+  (let ((started (concat file ".started")))
+    (rename-file file started)
+    (make-directory file)
+    started))
+
 (ert-deftest ogent-agent-execution-async-ledger-write-failure-retains-terminal ()
   "Real finish write failures deliver SDK and gptel results without reruns."
   (dolist (format '(plist json gptel-json))
@@ -258,7 +265,7 @@
               (ogent-agent-call-async "shell" (list :command command :timeout 1)
                                       callback format))))
       (should (file-exists-p file))
-      (setq ogent-ledger-file root)
+      (setq file (ogent-agent-execution-tests--break-ledger-file file))
       (ogent-agent-execution-tests--wait-process process)
       (unless (eq format 'plist)
         (setq result (json-parse-string result :object-type 'plist)))
@@ -319,7 +326,7 @@
                                      (shell-quote-argument effect)))
                     (caar ogent-tools--active-processes))))
     (should (file-exists-p file))
-    (setq ogent-ledger-file root)
+    (setq file (ogent-agent-execution-tests--break-ledger-file file))
     (ogent-agent-execution-tests--wait-process process)
     (should (= callbacks 1))
     (should (string-prefix-p "complete\n[Ledger warning:" result))
@@ -341,7 +348,7 @@
                        :result-function (lambda ()
                                           (cl-incf runs)
                                           (should (file-exists-p file))
-                                          (setq ogent-ledger-file root)
+                                          (ogent-agent-execution-tests--break-ledger-file file)
                                           (list :stdout "completed" :exit_code exit-code))))
            (ogent-tool-registry (list spec))
            (ogent-tool-require-approval nil)
@@ -392,7 +399,7 @@
          (spec (list :name 'terminal-failure :async t :args nil :result-function #'ignore
                      :function (lambda (callback)
                                  (should (file-exists-p file))
-                                 (setq ogent-ledger-file root)
+                                 (ogent-agent-execution-tests--break-ledger-file file)
                                  (funcall callback '(:stdout "completed") '(error "Reported tool error"))
                                  (funcall callback "duplicate"))))
          (ogent-tool-registry (list spec))
@@ -426,6 +433,137 @@
     (should (equal (plist-get result :status) "error"))
     (should (equal (plist-get (plist-get result :error) :code) "execution_failed"))
     (should-not (string-match-p "already completed" (plist-get (plist-get result :error) :message)))))
+
+(defun ogent-agent-execution-tests--assert-ledger-pair (file)
+  "Assert exactly one start and finish event in actual ledger FILE."
+  (with-temp-buffer
+    (insert-file-contents file)
+    (should (= (count-matches "^:OGENT_LEDGER_TYPE: tool-start$" (point-min) (point-max)) 1))
+    (should (= (count-matches "^:OGENT_LEDGER_TYPE: tool-finish$" (point-min) (point-max)) 1))))
+
+(ert-deftest ogent-agent-execution-async-ledger-context-survives-project-switch ()
+  "SDK, JSON and legacy async calls keep paired events at their start origin."
+  (dolist (format '(plist json gptel-json text))
+    (dolist (initially-enabled '(t nil))
+      (dolist (change-settings '(t nil))
+	(let* ((origin (ogent-test--provision-store-directory 'tools))
+               (other (ogent-test--provision-store-directory 'tools))
+               (file (expand-file-name ".ogent/ledger.org" origin))
+               (effect (expand-file-name "effect.txt" origin))
+               (command (format "sleep 0.05; printf effect >> %s; printf complete"
+				(shell-quote-argument effect)))
+               (ogent-ledger-enabled initially-enabled)
+               (ogent-ledger-file ".ogent/ledger.org")
+               (ogent-tools-project-root origin)
+               (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+               (ogent-tool-require-approval nil)
+               (ogent-tools--active-processes nil)
+               (callbacks 0) result callback-directory callback-enabled callback-file process
+               (callback (lambda (data)
+                           (cl-incf callbacks)
+                           (setq result data callback-directory default-directory
+				 callback-enabled ogent-ledger-enabled callback-file ogent-ledger-file))))
+          (let ((default-directory origin))
+            (setq process
+                  (pcase format
+                    ('gptel-json
+                     (let ((spec (ogent-tool-spec-get 'bash)))
+                       (plist-put spec :async t)
+                       (funcall (ogent-tool-execution-wrapper spec 'json) callback command nil 1)))
+                    ('text
+                     (let ((spec (list :name 'legacy-process :async t
+                                       :args '((:name "command" :type "string"))
+                                       :function
+                                       (lambda (shell-command complete)
+					 (ogent-tool-process-bash-async
+                                          shell-command nil 1
+                                          (lambda (data failure)
+                                            (funcall complete (plist-get data :stdout)
+                                                     (and failure (error-message-string failure)))))))))
+                       (setq ogent-tool-registry (list spec))
+                       (funcall (ogent-tool-execution-wrapper spec 'text) callback command)
+                       (caar ogent-tools--active-processes)))
+                    (_ (ogent-agent-call-async "shell" (list :command command :timeout 1)
+                                               callback format)))))
+          (should (eq (file-exists-p file) initially-enabled))
+          (when change-settings
+            (setq ogent-ledger-enabled (not initially-enabled) ogent-ledger-file "future.org"))
+          (let ((default-directory other))
+            (ogent-agent-execution-tests--wait-process process)
+            (should (= callbacks 1))
+            (should (equal callback-directory other))
+            (should (eq callback-enabled (if change-settings (not initially-enabled) initially-enabled)))
+            (should (equal callback-file (if change-settings "future.org" ".ogent/ledger.org")))
+            (pcase format
+              ('text (should (equal result "complete")))
+              (_
+               (unless (eq format 'plist)
+		 (setq result (json-parse-string result :object-type 'plist)))
+               (should (equal (plist-get result :status) "ok"))
+               (should (equal (plist-get (plist-get result :data) :stdout) "complete"))))
+            (should-not (process-get process 'ogent-callback-error))
+            (should-not ogent-tools--active-processes)
+            (should (equal (with-temp-buffer (insert-file-contents effect) (buffer-string)) "effect"))
+            (if initially-enabled
+		(ogent-agent-execution-tests--assert-ledger-pair file)
+              (should-not (file-exists-p file)))
+            (should-not (file-exists-p (expand-file-name ".ogent/ledger.org" other)))
+            (should-not (file-exists-p (expand-file-name "future.org" other)))
+            ;; A later call uses the new enabled state and destination in B.
+            (push (list :name 'future :args nil :function (lambda () "future")) ogent-tool-registry)
+            (should (equal (plist-get (ogent-agent-call "future" nil) :status) "ok"))
+            (let ((future-file (expand-file-name ogent-ledger-file other)))
+              (if ogent-ledger-enabled
+                  (ogent-agent-execution-tests--assert-ledger-pair future-file)
+		(should-not (file-exists-p future-file))))
+            (should-not (file-exists-p (expand-file-name "future.org" origin)))
+            (when initially-enabled
+              (ogent-agent-execution-tests--assert-ledger-pair file))))))))
+
+(ert-deftest ogent-agent-execution-sync-ledger-context-survives-tool-context-change ()
+  "Sync tools changing ambient settings keep their original ledger context."
+  (dolist (format '(plist json text))
+    (dolist (initially-enabled '(t nil))
+      (dolist (change-settings '(t nil))
+	(let* ((origin (ogent-test--provision-store-directory 'tools))
+               (other (ogent-test--provision-store-directory 'tools))
+               (file (expand-file-name ".ogent/ledger.org" origin))
+               (effect (expand-file-name "effect.txt" origin))
+               (ogent-ledger-enabled initially-enabled)
+               (ogent-ledger-file ".ogent/ledger.org")
+               (runs 0)
+               (execute (lambda ()
+                          (cl-incf runs)
+                          (with-temp-buffer (insert "effect") (append-to-file (point-min) (point-max) effect))
+                          (setq default-directory other)
+                          (when change-settings
+                            (setq ogent-ledger-file "future.org"
+                                  ogent-ledger-enabled (not initially-enabled)))))
+               (spec (list :name 'context-changing :args nil
+                           :function (lambda () (funcall execute) "complete")
+                           :result-function (lambda () (funcall execute) '(:stdout "complete"))))
+               (ogent-tool-registry (list spec))
+               (ogent-tool-require-approval nil))
+          (let* ((default-directory origin)
+		 (result (if (eq format 'text)
+                             (funcall (ogent-tool-execution-wrapper spec 'text))
+                           (ogent-agent-call "context-changing" nil format))))
+            (should (= runs 1))
+            (should (equal default-directory other))
+            (should (equal ogent-ledger-file (if change-settings "future.org" ".ogent/ledger.org")))
+            (should (eq ogent-ledger-enabled (if change-settings (not initially-enabled) initially-enabled)))
+            (if (eq format 'text)
+		(should (equal result "complete"))
+              (when (eq format 'json) (setq result (json-parse-string result :object-type 'plist)))
+              (should (equal (plist-get result :status) "ok"))
+              (should (equal (plist-get (plist-get result :data) :stdout) "complete")))
+            (should (equal (with-temp-buffer (insert-file-contents effect) (buffer-string)) "effect"))
+            (if initially-enabled
+		(ogent-agent-execution-tests--assert-ledger-pair file)
+              (should-not (file-exists-p file)))
+            (should-not (file-exists-p (expand-file-name ".ogent/ledger.org" other)))
+            (should-not (file-exists-p (expand-file-name "future.org" other)))
+            (should-not (file-exists-p (expand-file-name "future.org" origin)))))))))
 
 (ert-deftest ogent-agent-execution-async-denial-and-cancel ()
   "Async denials do not start processes and cancellation retains output."
