@@ -865,34 +865,52 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
 
 ;;; Tool: Edit File
 
+(defun ogent-tools--boolean (value argument)
+  "Return boolean VALUE, accepting JSON sentinels for named ARGUMENT."
+  (cond
+   ((memq value '(nil :json-false :false false)) nil)
+   ((memq value '(t :json-true :true true)) t)
+   (t (user-error "%s must be a boolean; use true or false" argument))))
+
+(defun ogent-tools--edit-validate (old-string new-string replace-all)
+  "Validate OLD-STRING and NEW-STRING, and normalize REPLACE-ALL."
+  (unless (and (stringp old-string) (not (string-empty-p old-string)))
+    (user-error "edit_file old_string must be non-empty; read_file first and copy exact context"))
+  (unless (stringp new-string)
+    (user-error "edit_file new_string must be a string; use an empty string to delete text"))
+  (ogent-tools--boolean replace-all "edit_file replace_all"))
+
+(defun ogent-tools--edit-check-count (count replace-all path)
+  "Validate match COUNT for REPLACE-ALL editing PATH before any mutation."
+  (when (= count 0)
+    (user-error "Old_string not found in file: %s; read_file and copy exact old_string context" path))
+  (when (and (> count 1) (not replace-all))
+    (user-error "edit_file old_string matches %d occurrences in %s; include unique surrounding context or explicitly set replace_all true"
+                count path)))
+
 (defun ogent-tool--edit-file (file-path old-string new-string &optional replace-all)
   "Replace OLD-STRING with NEW-STRING in FILE-PATH.
 If REPLACE-ALL is non-nil, replace all occurrences."
+  (setq replace-all (ogent-tools--edit-validate old-string new-string replace-all))
   (let* ((path (ogent-tools--resolve-path file-path))
          (content (with-temp-buffer
                     (insert-file-contents path)
                     (buffer-string)))
          (count 0)
          new-content)
-    (unless (string-match-p (regexp-quote old-string) content)
-      (error "Old_string not found in file: %s" path))
+    (let ((pos 0))
+      (while (string-match (regexp-quote old-string) content pos)
+        (setq count (1+ count)
+              pos (match-end 0))))
+    (ogent-tools--edit-check-count count replace-all path)
     (if replace-all
-        (progn
-          (setq new-content (replace-regexp-in-string
-                             (regexp-quote old-string)
-                             new-string
-                             content t t))
-          ;; Count occurrences by counting matches in original content
-          (let ((pos 0)
-                (old-len (length old-string)))
-            (while (string-match (regexp-quote old-string) content pos)
-              (setq count (1+ count)
-                    pos (+ (match-beginning 0) old-len)))))
+        (setq new-content (replace-regexp-in-string
+                           (regexp-quote old-string) new-string content t t))
       ;; Single replacement
       (if (string-match (regexp-quote old-string) content)
           (setq new-content (replace-match new-string t t content)
                 count 1)
-        (error "Old_string not found in file")))
+        (user-error "Old_string not found in file: %s; read_file before retrying" path)))
     (with-temp-file path
       (insert new-content))
     (format "Replaced %d occurrence(s) in %s" count path)))

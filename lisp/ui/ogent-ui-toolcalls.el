@@ -14,6 +14,7 @@
 (require 'ogent-tool-approval)
 (require 'ogent-ledger)
 (require 'ogent-edit-format)
+(require 'ogent-tools)
 
 ;; Specials read/let-bound by the tool subsystem.
 (defvar ogent-zen-mode)
@@ -684,14 +685,16 @@ When set to `inline-diff', display inline diff previews in the source buffer."
                               (plist-get tool-args :new_string)))
               (replace-all (or (plist-get tool-args :replace-all)
                                (plist-get tool-args :replace_all)))
-              (positions (and old-string
-                              (ogent-ui--tool-edit-occurrences buffer old-string))))
+              (replace-all (ogent-tools--edit-validate
+                            old-string new-string replace-all))
+              (positions (ogent-ui--tool-edit-occurrences buffer old-string)))
          (unless old-string
            (error "No old-string in tool args"))
          (unless new-string
            (error "No new-string in tool args"))
          (unless positions
            (error "Old string not found in buffer for %s" file-path))
+         (ogent-tools--edit-check-count (length positions) replace-all file-path)
          (let* ((targets (if replace-all positions (list (car positions)))))
            (with-current-buffer buffer
              (mapcar (lambda (pos)

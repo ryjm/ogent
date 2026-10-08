@@ -93,5 +93,33 @@
                                :type 'user-error)))
         (should (string-match-p "use" (error-message-string err)))))))
 
+(ert-deftest ogent-agent-ergonomics-edit-contract-ambiguous-before-write ()
+  "Ambiguous matches are refused before the file changes, including JSON false."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "data.txt" "same same")))
+    (dolist (flag '(nil :json-false :false))
+      (let ((err (should-error (ogent-tool--edit-file file "same" "new" flag)
+                               :type 'user-error)))
+        (should (string-match-p "replace_all true" (error-message-string err)))
+        (should (equal (with-temp-buffer
+                         (insert-file-contents file) (buffer-string))
+                       "same same"))))
+    (ogent-tool--edit-file file "same" "new" t)
+    (should (equal (with-temp-buffer (insert-file-contents file) (buffer-string))
+                   "new new"))))
+
+(ert-deftest ogent-agent-ergonomics-edit-contract-empty-and-review ()
+  "Empty matches fail promptly and inline review obeys the same uniqueness rule."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-ergonomics-tests--file root "data.txt" "same same")))
+    (should-error (ogent-tool--edit-file file "" "new" t) :type 'user-error)
+    (with-temp-buffer
+      (insert "same same")
+      (should-error
+       (ogent-ui--tool-edits-for-inline-diff
+        "edit-file" (list :file_path file :old_string "same" :new_string "new"
+                          :replace_all :json-false) (current-buffer))
+       :type 'user-error))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
