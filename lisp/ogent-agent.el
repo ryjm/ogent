@@ -112,7 +112,8 @@ For example, batch a glob, search and file read in one local SDK round trip."
            (dolist (entry (nreverse prepared))
              (unless stopped
                (let* ((spec (car entry)) (call (cdr entry))
-                      (result (if (equal spec (ogent-tool-spec-get (plist-get spec :name)))
+                      (result (if (ogent-tool-execution-snapshot-equal-p
+                                   spec (ogent-tool-spec-get (plist-get spec :name)))
                                   (ogent-tool-execution-call (plist-get call :tool) (plist-get call :args))
                                 (ogent-tool-execution-result
                                  (plist-get spec :name) "error" nil "unavailable"

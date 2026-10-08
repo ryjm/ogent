@@ -90,12 +90,43 @@ or raw filename bytes that cannot be represented as Unicode."
              (append (plist-get spec :args) (plist-get spec :result-args))))
 
 (defun ogent-tool-execution-copy-data (value)
-  "Copy mutable strings, lists and vectors in contract VALUE."
-  (cond ((stringp value) (copy-sequence value))
+  "Copy mutable strings, lists, vectors and object tables in contract VALUE."
+  (cond ((functionp value) value)
+        ((stringp value) (copy-sequence value))
+        ((hash-table-p value)
+         (let ((copy (copy-hash-table value)))
+           (clrhash copy)
+           (maphash (lambda (key item)
+                      (puthash (if (memq (hash-table-test value) '(eq eql)) key
+                                 (ogent-tool-execution-copy-data key))
+                               (ogent-tool-execution-copy-data item) copy))
+                    value)
+           copy))
         ((consp value) (cons (ogent-tool-execution-copy-data (car value))
                              (ogent-tool-execution-copy-data (cdr value))))
         ((vectorp value) (vconcat (mapcar #'ogent-tool-execution-copy-data value)))
         (t value)))
+
+(defun ogent-tool-execution-snapshot-equal-p (left right)
+  "Compare contract snapshots LEFT and RIGHT, including object table values."
+  (cond ((eq left right) t)
+        ((and (hash-table-p left) (hash-table-p right))
+         (and (eq (hash-table-test left) (hash-table-test right))
+              (= (hash-table-count left) (hash-table-count right))
+              (let ((missing (make-symbol "missing")) (same t))
+                (maphash (lambda (key value)
+                           (unless (ogent-tool-execution-snapshot-equal-p
+                                    value (gethash key right missing))
+                             (setq same nil)))
+                         left)
+                same)))
+        ((and (consp left) (consp right))
+         (and (ogent-tool-execution-snapshot-equal-p (car left) (car right))
+              (ogent-tool-execution-snapshot-equal-p (cdr left) (cdr right))))
+        ((and (vectorp left) (vectorp right) (= (length left) (length right)))
+         (cl-loop for index below (length left)
+                  always (ogent-tool-execution-snapshot-equal-p (aref left index) (aref right index))))
+        (t (equal left right))))
 
 (defun ogent-tool-execution-snapshot (spec)
   "Copy registry SPEC metadata while preserving callable closure identity."
@@ -190,7 +221,7 @@ PROMPT is reserved for the normal interactive gptel execution path."
 		       name "denied" nil "denied" "Current approval policy denies this tool; ask the user to review the decision"))
 		     (_
 		      (setq phase "unavailable")
-		      (unless (equal spec (ogent-tool-spec-get name))
+		      (unless (ogent-tool-execution-snapshot-equal-p spec (ogent-tool-spec-get name))
 			(user-error "Registry entry changed before execution; rediscover the tool and retry"))
 		      (require 'ogent-ui-toolcalls)
 		      (setq phase "execution_failed")
@@ -231,7 +262,7 @@ PROMPT is reserved for the normal interactive gptel execution path."
                                 for value in values
                                 unless (and (plist-get arg :optional) (null value))
                                 append (list (intern (concat ":" (plist-get arg :name))) value))))
-            (if (not (equal spec (ogent-tool-spec-get name)))
+            (if (not (ogent-tool-execution-snapshot-equal-p spec (ogent-tool-spec-get name)))
                 (let ((result (ogent-tool-execution-result
                                name "error" nil "unavailable" "Tool registry entry changed; rediscover before retrying")))
                   (if async (deliver result) (serialize result)))
@@ -270,11 +301,11 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
                                           append (list (intern (concat ":" (plist-get arg :name)))
                                                        value)))
                       (cond
-		       ((not (equal snapshot (ogent-tool-spec-get name)))
+		       ((not (ogent-tool-execution-snapshot-equal-p snapshot (ogent-tool-spec-get name)))
 			"Tool unavailable: its registry entry changed or was removed")
 		       ((not (eq (ogent-tool-approval-check name args) 'approved))
 			"Tool execution denied by user")
-		       ((not (equal snapshot (ogent-tool-spec-get name)))
+		       ((not (ogent-tool-execution-snapshot-equal-p snapshot (ogent-tool-spec-get name)))
 			"Tool unavailable: its registry entry changed during approval")
 		       (t
 			(require 'ogent-ui-toolcalls)

@@ -658,7 +658,8 @@ Returns the list of registered tool objects."
              (existing (assq name ogent--tools-registered)))
         (unless (and existing
                      (eq ogent-tools-result-format (cdr (assq name ogent--tool-formats-registered)))
-                     (equal spec (cdr (assq name ogent--tool-specs-registered))))
+                     (ogent-tool-execution-snapshot-equal-p
+                      spec (cdr (assq name ogent--tool-specs-registered))))
           (ogent-unregister-tool name)
           (let ((tool (apply #'gptel-make-tool
                              :name (symbol-name name)
@@ -666,9 +667,10 @@ Returns the list of registered tool objects."
                              :description (concat (plist-get spec :description)
                                                   (when (eq ogent-tools-result-format 'json)
                                                     " Returns JSON status/data/error/next. Follow next.tool and next.args to continue; snapshots identify consistent pages."))
-                             :args (copy-tree (append (plist-get spec :args)
-                                                      (when (eq ogent-tools-result-format 'json)
-                                                        (plist-get spec :result-args))))
+                             :args (ogent-tool-execution-copy-data
+                                    (append (plist-get spec :args)
+                                            (when (eq ogent-tools-result-format 'json)
+                                              (plist-get spec :result-args))))
                              ;; Always pass :confirm so gptel-native
                              ;; execution prompts for risky tools; a
                              ;; missing flag would let gptel auto-run
@@ -681,8 +683,7 @@ Returns the list of registered tool objects."
                                 (list :async (plist-get spec :async)))
                               (when (plist-member spec :include)
                                 (list :include (plist-get spec :include)))))))
-            (push (cons name (plist-put (copy-tree spec) :function
-					(plist-get spec :function)))
+            (push (cons name (ogent-tool-execution-snapshot spec))
                   ogent--tool-specs-registered)
             (push (cons name tool) ogent--tools-registered)
             (push (cons name ogent-tools-result-format) ogent--tool-formats-registered))))))
