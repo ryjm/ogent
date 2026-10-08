@@ -1,0 +1,33 @@
+;;; boot.el --- Load actual dependencies before any test doubles -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Bootstrap the offline workflow suite using installed dependencies.
+
+;;; Code:
+
+(require 'cl-lib)
+(setq load-suffixes (remove ".elc" load-suffixes))
+(let ((elpa (getenv "OGENT_ELPA_DIR")))
+  (unless (and elpa (file-directory-p elpa))
+    (error "Set OGENT_ELPA_DIR to the installed runtime package directory"))
+  (dolist (dir (directory-files elpa t "^[^.].*"))
+    (when (file-directory-p dir) (add-to-list 'load-path dir))))
+(when-let ((gptel (getenv "OGENT_GPTEL_DIR")))
+  (add-to-list 'load-path gptel))
+(require 'org)
+(require 'gptel)
+(require 'gptel-openai)
+(require 'gptel-anthropic)
+(require 'transient)
+(unless (and (version<= "9.8.7" (org-version))
+             (version<= "0.13.5" transient-version))
+  (error "Offline workflows require supported Org and transient versions"))
+(message "Offline dependencies: Emacs %s, Org %s, transient %s, gptel %s (%s)"
+         emacs-version (org-version) transient-version
+         (if (boundp 'gptel-version) gptel-version "source")
+         (symbol-file 'gptel-request))
+(require 'ogent-test-helper)
+(require 'ogent)
+
+(provide 'ogent-offline-boot)
+;;; boot.el ends here

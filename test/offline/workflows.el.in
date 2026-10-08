@@ -1,0 +1,517 @@
+;;; workflows.el --- Offline workflows using actual gptel -*- lexical-binding: t; -*-
+
+;;; Commentary:
+;; Exercise wire serialization, transport, policy and durable Org outcomes.
+;; The only HTTP server is the loopback fixture started by run.sh.
+
+;;; Code:
+
+(require 'ogent-offline-boot)
+(require 'ogent-edit-diff)
+(require 'ogent-edit-log)
+(require 'ogent-mcp)
+(require 'ogent-armory-skills)
+(require 'ogent-armory-native)
+
+(defvar ogent-offline--executions 0
+  "Number of fixture tool executions.")
+
+(defun ogent-offline--port ()
+  "Return the running loopback fixture port."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "port" (getenv "OGENT_OFFLINE_FIXTURE")))
+    (string-trim (buffer-string))))
+
+(defun ogent-offline--backend (endpoint)
+  "Construct a real gptel backend for ENDPOINT and redirect it to loopback."
+  (let* ((responses (eq endpoint 'responses))
+         (backend (gptel-make-openai
+                   (format "Offline-%s" endpoint) :key "offline-fixture-key"
+                   :stream t :host (if responses "api.openai.com" "127.0.0.1")
+                   :models '(gpt-4o-mini)))
+         (path (if responses "/v1/responses" "/v1/chat/completions")))
+    (aset backend (cl-struct-slot-offset 'gptel-backend 'host) "127.0.0.1")
+    (aset backend (cl-struct-slot-offset 'gptel-backend 'url)
+          (concat "http://127.0.0.1:" (ogent-offline--port) path))
+    backend))
+
+(defun ogent-offline--guard-transport (fsm)
+  "Reject HTTP from FSM unless its backend is the loopback fixture."
+  (unless (equal (gptel-backend-host (plist-get (gptel-fsm-info fsm) :backend))
+                 "127.0.0.1")
+    (error "Offline workflow attempted non-fixture HTTP")))
+(advice-add 'gptel-curl-get-response :before #'ogent-offline--guard-transport)
+(advice-add 'gptel--url-get-response :before #'ogent-offline--guard-transport)
+
+(defun ogent-offline--wait (predicate)
+  "Wait at most ten seconds for PREDICATE while servicing actual processes."
+  (let ((deadline (+ (float-time) 10)))
+    (while (and (not (funcall predicate)) (< (float-time) deadline))
+      (accept-process-output nil .02))
+    (should (funcall predicate))))
+
+(defun ogent-offline--wire (model endpoint tools)
+  "Return the real serialized body for MODEL, ENDPOINT and TOOLS."
+  (let* ((gptel-backend (ogent-offline--backend endpoint))
+         (gptel-model model)
+         (gptel-use-tools (and tools t))
+         (gptel-tools tools)
+         (fsm (ogent-gptel-request "Fixture prompt" :dry-run t)))
+    (json-parse-string (gptel--json-encode (plist-get (gptel-fsm-info fsm) :data))
+                       :object-type 'plist)))
+
+(ert-deftest ogent-offline-openai-family-and-wire ()
+  "Resolve the exact Responses object and preserve the selected wire model."
+  (let ((gptel-backend (ogent-offline--backend 'responses)))
+    (should (eq gptel-backend (ogent-gptel-resolve-backend
+                             (ogent-models-get "gpt-6.1-sol")))))
+  (dolist (endpoint '(chat responses))
+    (dolist (model '("gpt-6-astra" "gpt-6.1-sol" "gpt-6-luna" "gpt-4.1"))
+      (should (equal (plist-get (ogent-offline--wire model endpoint nil) :model) model)))))
+
+(ert-deftest ogent-offline-endpoint-tool-parameters ()
+  "Validate Sol tool requirements and restrict Luna's override to chat."
+  (let* ((tool (gptel-make-tool :name "fixture-read" :function #'identity
+                                :description "Fixture" :args '((:name "text" :type string))))
+         (tools (list tool)))
+    (should-error (ogent-offline--wire "gpt-6.1-sol" 'chat tools) :type 'user-error)
+    (should-error (ogent-offline--wire "gpt-5.5-pro" 'chat nil) :type 'user-error)
+    (should-error (ogent-offline--wire "gpt-5.3-codex" 'chat nil) :type 'user-error)
+    (should (equal (plist-get (ogent-offline--wire "gpt-6-luna" 'chat tools)
+                              :reasoning_effort) "none"))
+    (should-not (plist-member (ogent-offline--wire "gpt-6-luna" 'responses tools)
+                              :reasoning_effort))
+    (should (plist-get (ogent-offline--wire "gpt-6.1-sol" 'responses tools) :tools))))
+
+(ert-deftest ogent-offline-streamed-org-entrypoint ()
+  "Run the Org command through real curl/SSE and finish its transcript once."
+  (dolist (endpoint '(chat responses))
+    (with-temp-buffer
+      (org-mode)
+      (insert "* Parent\nParent context\n** Task\n:PROPERTIES:\n:OGENT_MODEL: gpt-6.1-sol\n:END:\nFixture prompt\n")
+      (goto-char (point-max))
+      (let* ((gptel-backend (ogent-offline--backend endpoint))
+             (gptel-use-curl t)
+             (gptel-proxy "")
+             (ogent-tools-enabled nil)
+             (ogent-prompt-provider-login-on-access-error nil)
+             (ogent-provider-max-retries 0)
+             (ogent-ui--request-table (make-hash-table :test #'equal))
+             (finishes 0)
+             (ogent-after-request-hook (list (lambda (_) (cl-incf finishes)))))
+        (ogent-run-subtree)
+        (ogent-offline--wait (lambda () (= 0 (hash-table-count ogent-ui--request-table))))
+        (should (= finishes 1))
+        (should (string-match-p "Fixture answer\\." (buffer-string)))
+        (should (string-match-p ":status done" (buffer-string)))
+        (message "Offline Org lifecycle: endpoint=%s model=gpt-6.1-sol finishes=%d"
+                 endpoint finishes)))))
+
+(ert-deftest ogent-offline-header-timeout-precedes-transport ()
+  "Bound header failure before any curl child can be spawned."
+  (let ((gptel-backend (ogent-offline--backend 'responses))
+        (gptel-model "gpt-6.1-sol")
+        (gptel-tools nil) (gptel-use-tools nil)
+        (ogent-gptel-header-timeout .05)
+        (spawns 0))
+    (aset gptel-backend (cl-struct-slot-offset 'gptel-backend 'header)
+          (lambda (_) (while t (accept-process-output nil .01))))
+    (cl-letf (((symbol-function 'make-process)
+               (lambda (&rest _) (cl-incf spawns) (error "Unexpected spawn"))))
+      (should-error (ogent-gptel-request "Fixture prompt")))
+    (should (= spawns 0))))
+
+(defun ogent-offline--read (text)
+  "Return fixture TEXT and count this execution."
+  (cl-incf ogent-offline--executions)
+  (concat "Read " text))
+
+(ert-deftest ogent-offline-tool-cycle-policy-and-ledger ()
+  "Run actual gptel automatic and confirmed tool cycles exactly once."
+  (dolist (confirm '(nil t))
+    (dolist (denied '(nil t))
+      (with-temp-buffer
+        (let* ((gptel-backend (ogent-offline--backend 'responses))
+               (gptel-model "gpt-6.1-sol")
+               (gptel-use-curl t) (gptel-proxy "")
+               (gptel-confirm-tool-calls confirm)
+               (ogent-offline--executions 0)
+               (ogent--tools-registered nil)
+               (ogent-tool-registry
+                '((:name fixture-read :function ogent-offline--read :description "Fixture"
+                         :args ((:name "text" :type string))
+                         :effects ((:kind read :target file :scope workspace :risk low)))))
+               (ogent-tool--denied-tools (and denied '("fixture-read")))
+               (ogent-ledger-enabled t)
+               (ogent-ledger-file (make-temp-file "ogent-offline-ledger"))
+               (gptel-tools (ogent-tools-all))
+               (gptel-use-tools t)
+               (done nil) results)
+          (unwind-protect
+              (progn
+                (ogent-gptel-request
+                 "fixture-tool-cycle" :stream nil
+                 :callback (lambda (text info)
+                             (pcase (car-safe text)
+                               ('tool-call (ogent-ui--complete-pending-tools (cdr text)))
+                               ('tool-result (setq results (cdr text))))
+                             (when (and (stringp text) (not (plist-get info :tool-use)))
+                               (setq done t))))
+                (ogent-offline--wait (lambda () done))
+                (should (= ogent-offline--executions (if denied 0 1)))
+                (should (= (length results) 1))
+                (with-temp-buffer
+                  (insert-file-contents ogent-ledger-file)
+                  (should (= (how-many "^:OGENT_LEDGER_TYPE: *tool-start" (point-min) (point-max))
+                             (if denied 0 1)))
+                  (should (= (how-many "^:OGENT_LEDGER_TYPE: *tool-finish" (point-min) (point-max))
+                             (if denied 0 1)))))
+            (delete-file ogent-ledger-file)))))))
+
+(ert-deftest ogent-offline-edit-reanchor-and-log ()
+  "Accept moved source text and persist one companion resolution."
+  (let ((source (generate-new-buffer " *offline-source*"))
+        (companion (generate-new-buffer " *offline-companion*")))
+    (unwind-protect
+        (with-current-buffer source
+          (buffer-enable-undo)
+          (insert "old-tail")
+          (let ((edit (make-ogent-edit :id "offline-edit" :old-text "old"
+                                       :new-text "new" :status 'pending
+                                       :source-buffer source :timestamp (current-time))))
+            (ogent-edit-validate edit)
+            (setq-local ogent-companion-buffer companion)
+            (with-current-buffer companion (org-mode))
+            (cl-letf (((symbol-function 'ogent-companion--get-linked-buffer)
+                       (lambda (_) companion)))
+              (ogent-edit-log-proposal edit)
+              (ogent-edit--track-edits (list edit))
+              (goto-char (point-min)) (insert "PREFIX ")
+              (ogent-edit-diff--apply-edit edit)
+              (should (equal (buffer-string) "PREFIX new-tail"))
+              (should-not ogent-edit--pending-edits)
+              (with-current-buffer companion
+                (should (string-match-p ":STATUS:[ \t]+accepted" (buffer-string)))
+                (should (= (how-many "^\\*\\*\\* Resolution" (point-min) (point-max)) 1))))))
+      (kill-buffer source) (kill-buffer companion))))
+
+(ert-deftest ogent-offline-mcp-positional-and-cache ()
+  "Map MCP positional values and reject stale registered objects on refresh."
+  (let* ((ogent-tool-registry nil) (ogent--tools-registered nil)
+         (conn (make-ogent-mcp-connection :name "offline"))
+         (schema '((name . "read") (inputSchema . ((type . "object")
+                    (properties . ((path . ((type . "string")))
+                                   (flag . ((type . "boolean")))))))))
+         params)
+    (ogent-mcp--register-tools conn (list schema))
+    (let ((tool (ogent-tool-get 'mcp-offline-read))
+          (ogent-tool-allow-list '("mcp-offline-read")))
+      (cl-letf (((symbol-function 'ogent-mcp--request-sync)
+                 (lambda (_conn _method arguments)
+                   (setq params arguments)
+                   (cons '((content . [((type . "text") (text . "ok"))])) nil))))
+        (should (equal (funcall (gptel-tool-function tool) "/tmp/example.txt" :false) "ok"))
+        (should (equal (alist-get 'arguments params)
+                       '((path . "/tmp/example.txt") (flag . :json-false)))))
+      (ogent-mcp--register-tools conn nil)
+      (should-not (ogent-tool-spec-get 'mcp-offline-read))
+      (should (string-match-p "unavailable" (funcall (gptel-tool-function tool) "stale" nil))))))
+
+
+;; Existing Armory tests use real temporary Org files and fixture executables.
+;; Loading them after boot also verifies their optional dependencies are not
+;; replaced by the fast unit suite's fake gptel features.
+(dolist (file (directory-files "test" t "^ogent-armory.*-tests\\.el$"))
+  (unless (string-suffix-p "ogent-armory-native-tests.el" file) (load-file file)))
+
+(ert-deftest ogent-offline-armory-compose-run-resume-compact ()
+  "Compose external skills and attachments, run a fixture CLI, then continue."
+  (ogent-armory-runner-test-with-temp-dir root
+    (ogent-armory-scaffold root "Offline journey" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "codex") "Be concise.")
+    (ogent-armory--write-file (expand-file-name ".codex/skills/audit/SKILL.md" root)
+                              "---\nname: audit\ndescription: Offline review\n---\nInspect local artifacts.\n")
+    (let* ((attachment (expand-file-name "input.txt" root))
+           (fixture (ogent-armory-runner-test--make-executable
+                     root "#!/bin/sh\ncat >/dev/null\nprintf 'fixture journey complete\\n'\n"))
+           (ogent-armory-codex-executable fixture)
+           (ogent-armory-runner-confirm-before-run nil)
+           (ogent-armory-runner-ensure-beads-redirect nil)
+           (ogent-armory-skill-include-user-roots nil))
+      (ogent-armory--write-file attachment "Attached context.")
+      (let* ((process (ogent-armory-compose
+                       root "worker" "Review @skill:audit" :attachments (list attachment)
+                       :runtime '(:runtime-mode terminal)))
+             (plan (process-get process 'ogent-armory-plan))
+             (id (plist-get plan :conversation-id)))
+        (ogent-offline--wait (lambda () (not (process-live-p process))))
+        (ogent-offline--wait
+         (lambda () (equal (plist-get (ogent-armory-conversation-read root id) :status) "done")))
+        (should (string-match-p "Inspect local artifacts" (plist-get plan :prompt)))
+        (should (= (length (ogent-armory-conversation-read-turns root id)) 2))
+        (should (string-match-p "fixture journey complete"
+                                (ogent-armory-conversation-replay-prompt root id "Continue")))
+        (let* ((continued (ogent-armory-runner-plan root "worker" :conversation-id id
+                                                   :instruction "Continue offline."))
+               (next (ogent-armory-runner-start continued)))
+          (ogent-offline--wait (lambda () (not (process-live-p next))))
+          (ogent-offline--wait (lambda () (= 4 (length (ogent-armory-conversation-read-turns root id))))))
+        (ogent-armory-conversation-compact-record root id)
+        (should (plist-get (ogent-armory-conversation-detail root id) :context-summary))
+        (ogent-armory-conversation-update-properties root id '(("OGENT_ARCHIVED" . "t")))
+        (should (plist-get (ogent-armory-conversation-read root id) :archived))
+        (message "Offline Armory journey: id=%s turns=%d file=%s" id
+                 (length (ogent-armory-conversation-read-turns root id))
+                 (ogent-armory-conversation-file root id))))))
+
+(ert-deftest ogent-offline-scheduler-restart-durable-claim ()
+  "Persist a real scheduled conversation and deduplicate after scheduler restart."
+  (ogent-armory-schedule-test-with-temp-dir root
+    (ogent-armory-schedule-tests--scheduler-job root)
+    (let* ((fixture (ogent-armory-runner-test--make-executable
+                     root "#!/bin/sh\ncat >/dev/null\nprintf 'scheduled fixture complete\\n'\n"))
+           (ogent-armory-codex-executable fixture)
+           (ogent-armory-runner-confirm-before-run nil)
+           (ogent-armory-runner-ensure-beads-redirect nil)
+           (ogent-armory-scheduler-roots (list root))
+           (ogent-armory-scheduler-auto-run t)
+           (ogent-armory-scheduler--fired (make-hash-table :test #'equal))
+           (ogent-armory-scheduler--last-tick nil)
+           (arm (ogent-armory-schedule-test--time 2026 5 4 8 59))
+           (tick (ogent-armory-schedule-test--time 2026 5 4 9 1)))
+      (ogent-armory-scheduler-tick arm)
+      (should (= (length (ogent-armory-scheduler-tick tick)) 1))
+      (ogent-offline--wait (lambda () (not (seq-some #'process-live-p ogent-armory-runner--processes))))
+      (setq ogent-armory-scheduler--fired (make-hash-table :test #'equal)
+            ogent-armory-scheduler--last-tick nil)
+      (ogent-armory-scheduler-tick arm)
+      (should-not (ogent-armory-scheduler-tick tick)))))
+
+(ert-deftest ogent-offline-mcp-http-json-shapes ()
+  "Send positional MCP calls over real HTTP with false, null and zero args."
+  (let* ((ogent-tool-registry nil) (ogent--tools-registered nil)
+         (ogent-tool-allow-list '("mcp-wire-read" "mcp-wire-zero"))
+         (conn (make-ogent-mcp-connection
+                :name "wire" :transport 'http :status 'ready
+                :url (concat "http://127.0.0.1:" (ogent-offline--port) "/mcp")))
+         (schema '((name . "read") (inputSchema . ((type . "object")
+                    (properties . ((path . ((type . "string")))
+                                   (flag . ((type . "boolean")))
+                                   (nullable . ((type . "null")))))))))
+         (zero '((name . "zero") (inputSchema . ((type . "object") (properties))))))
+    (ogent-mcp--register-tools conn (list schema zero))
+    (let ((result (json-parse-string
+                   (funcall (gptel-tool-function (ogent-tool-get 'mcp-wire-read))
+                            "/tmp/example.txt" :json-false :null)
+                   :object-type 'plist :null-object :null :false-object :json-false)))
+      (should (equal (plist-get result :path) "/tmp/example.txt"))
+      (should (eq (plist-get result :flag) :json-false))
+      (should (eq (plist-get result :nullable) :null)))
+    (should (equal (funcall (gptel-tool-function (ogent-tool-get 'mcp-wire-zero))) "{}"))))
+
+(ert-deftest ogent-offline-async-tool-callback-first-once ()
+  "Adapt callback-first actual gptel calls and discard duplicate completions."
+  (let* ((ogent-tool-registry
+          (list (list :name 'fixture-async :description "Fixture async" :async t
+                      :args '((:name "text" :type string))
+                      :function (lambda (text callback)
+                                  (funcall callback (concat "Async " text))
+                                  (funcall callback "Duplicate")))))
+         (ogent--tools-registered nil)
+         (tool (ogent-tool-get 'fixture-async))
+         (results nil))
+    (ogent-ui--complete-pending-tools
+     (list (list tool '(:text "one") (lambda (result) (push result results)))))
+    (should (equal results '("Async one")))))
+
+(ert-deftest ogent-offline-native-tool-cap-and-completion ()
+  "Run native conversations through actual gptel, including the iteration cap."
+  (dolist (cap '(1 3))
+    (ogent-armory-runner-test-with-temp-dir root
+      (ogent-armory-scaffold root "Native fixture" :kind "root" :create-editor nil)
+      (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Use fixture tools.")
+      (let* ((gptel-backend (ogent-offline--backend 'responses))
+             (gptel-use-curl t) (gptel-proxy "")
+             (ogent-armory-native-max-iterations cap)
+             (ogent-armory-runner-ensure-beads-redirect nil)
+             (ogent-tools-enabled t)
+             (ogent-offline--executions 0)
+             (ogent--tools-registered nil)
+             (ogent-tool-registry
+              '((:name fixture-read :function ogent-offline--read :description "Fixture"
+                       :args ((:name "text" :type string))
+                       :effects ((:kind read :target file :scope workspace :risk low)))))
+             (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
+                                             :runtime-mode 'native :model "gpt-6.1-sol"
+                                             :instruction "fixture-tool-cycle"))
+             (state (ogent-armory-runner-start plan)))
+        (ogent-offline--wait (lambda () (plist-get state :finished)))
+        (should (= ogent-offline--executions 1))
+        (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
+                                  :status)
+                        (if (= cap 1) "failed" "done")))
+        (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs))))))
+
+(ert-deftest ogent-offline-cancel-targets-one-live-attempt ()
+  "Cancel one real curl request without aborting its sibling in the same buffer."
+  (with-temp-buffer
+    (let* ((gptel-backend (ogent-offline--backend 'responses))
+           (gptel-model "gpt-6.1-sol")
+           (gptel-use-curl t) (gptel-proxy "")
+           (gptel-tools nil) (gptel-use-tools nil)
+           (done nil)
+           (first (ogent-gptel-request "fixture-hang one" :callback #'ignore))
+           (second (ogent-gptel-request "fixture-hang two"
+                                        :callback (lambda (text _)
+                                                    (when (stringp text) (setq done t))))))
+      (should (seq-find (lambda (entry) (eq (cadr entry) first)) gptel--request-alist))
+      (ogent-gptel-cancel first (current-buffer))
+      (should-not (seq-find (lambda (entry) (eq (cadr entry) first)) gptel--request-alist))
+      (should (seq-find (lambda (entry) (eq (cadr entry) second)) gptel--request-alist))
+      (ogent-offline--wait (lambda () done)))))
+
+(ert-deftest ogent-offline-native-stop-live-transport ()
+  "Stop a native run through the public conversation action before completion."
+  (ogent-armory-runner-test-with-temp-dir root
+    (ogent-armory-scaffold root "Stop fixture" :kind "root" :create-editor nil)
+    (ogent-armory-write-agent root '(:slug "worker" :name "Worker" :provider "gptel") "Fixture.")
+    (let* ((gptel-backend (ogent-offline--backend 'responses))
+           (gptel-use-curl t) (gptel-proxy "")
+           (ogent-armory-runner-ensure-beads-redirect nil)
+           (ogent-tools-enabled nil)
+           (plan (ogent-armory-runner-plan root "worker" :adapter-id "gptel-native"
+                                           :runtime-mode 'native :model "gpt-6.1-sol"
+                                           :instruction "fixture-hang"))
+           (state (ogent-armory-runner-start plan))
+           (handle (plist-get state :handle)))
+      (should (ogent-armory-runner-stop-conversation root (plist-get plan :conversation-id)))
+      (should (plist-get state :finished))
+      (should (equal (plist-get (ogent-armory-conversation-read root (plist-get plan :conversation-id))
+                                :status) "cancelled"))
+      (should-not (seq-find (lambda (entry) (eq (cadr entry) handle)) gptel--request-alist))
+      (should-not (gethash (plist-get plan :conversation-file) ogent-armory-native--runs)))))
+
+(ert-deftest ogent-offline-provider-error-closes-org-request ()
+  "Handle a real HTTP failure with one terminal hook and no provider login."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Task\n:PROPERTIES:\n:OGENT_MODEL: gpt-6.1-sol\n:END:\nfixture-error\n")
+    (goto-char (point-max))
+    (let ((gptel-backend (ogent-offline--backend 'responses))
+          (gptel-use-curl t) (gptel-proxy "")
+          (ogent-tools-enabled nil)
+          (ogent-prompt-provider-login-on-access-error nil)
+          (ogent-provider-max-retries 0)
+          (ogent-ui--request-table (make-hash-table :test #'equal))
+          (finishes 0) (ogent-after-request-hook nil))
+      (setq ogent-after-request-hook (list (lambda (_) (cl-incf finishes))))
+      (ogent-run-subtree)
+      (ogent-offline--wait (lambda () (= 0 (hash-table-count ogent-ui--request-table))))
+      (should (= finishes 1))
+      (should (string-match-p ":status error" (buffer-string)))
+      (should (string-match-p "fixture validation error" (buffer-string))))))
+
+(ert-deftest ogent-offline-all-review-commands-log-once ()
+  "Resolve all four review commands across sources with actual companion logs."
+  (let ((left (generate-new-buffer " *review-left*"))
+        (right (generate-new-buffer " *review-right*"))
+        (companion (generate-new-buffer " *review-log*")))
+    (unwind-protect
+        (progn
+          (with-current-buffer left (insert "aa cc ee"))
+          (with-current-buffer right (insert "bb dd ff"))
+          (with-current-buffer companion (org-mode))
+          (let (edits)
+            (cl-letf (((symbol-function 'ogent-companion--get-linked-buffer)
+                       (lambda (_) companion)))
+              (cl-loop for text in '("aa" "bb" "cc" "dd" "ee" "ff")
+                       for index from 0
+                       for source = (if (= 0 (% index 2)) left right)
+                       do (with-current-buffer source
+                            (let ((edit (make-ogent-edit
+                                         :id text :old-text text :new-text (upcase text)
+                                         :source-buffer source :status 'pending
+                                         :timestamp (current-time))))
+                              (ogent-edit-validate edit)
+                              (ogent-edit-log-proposal edit)
+                              (ogent-edit--track-edits (list edit))
+                              (push edit edits))))
+              (setq edits (nreverse edits))
+              (with-temp-buffer
+                (ogent-edit-diff-mode)
+                (setq ogent-edit-diff--edits edits
+                      ogent-edit-diff--staged (make-hash-table :test #'equal))
+                (cl-letf (((symbol-function 'ogent-edit-diff--current-edit)
+                           (lambda () (nth 0 edits))))
+                  (ogent-edit-diff-accept-at-point))
+                (cl-letf (((symbol-function 'ogent-edit-diff--current-edit)
+                           (lambda () (nth 1 edits))))
+                  (ogent-edit-diff-reject-at-point))
+                (puthash "cc" t ogent-edit-diff--staged)
+                (puthash "dd" t ogent-edit-diff--staged)
+                (ogent-edit-diff-accept-staged)
+                (cl-letf (((symbol-function 'yes-or-no-p) (lambda (&rest _) t)))
+                  (ogent-edit-diff-reject-all))))
+            (with-current-buffer left
+              (should (equal (buffer-string) "AA CC ee"))
+              (should-not ogent-edit--pending-edits))
+            (with-current-buffer right
+              (should (equal (buffer-string) "bb DD ff"))
+              (should-not ogent-edit--pending-edits))
+            (with-current-buffer companion
+              (should (= 6 (how-many "^\\*\\*\\* Resolution" (point-min) (point-max))))
+              (should (= 3 (how-many ":STATUS: *accepted" (point-min) (point-max))))
+              (should (= 3 (how-many ":STATUS: *rejected" (point-min) (point-max)))))))
+      (kill-buffer left) (kill-buffer right) (kill-buffer companion))))
+
+(ert-deftest ogent-offline-presets-validate-effective-configuration ()
+  "Apply real presets before checking endpoints and merging tool parameters."
+  (let* ((gptel-backend (ogent-offline--backend 'chat))
+         (gptel-model "gpt-6-luna")
+         (gptel-use-tools t)
+         (gptel-tools (list (gptel-make-tool :name "fixture-read" :function #'identity
+                                             :description "Fixture"
+                                             :args '((:name "text" :type string)))))
+         (responses (ogent-offline--backend 'responses))
+         (fsm (gptel-with-preset (list :backend responses)
+                (ogent-gptel-request "Fixture preset" :dry-run t)))
+         (body (json-parse-string (gptel--json-encode (plist-get (gptel-fsm-info fsm) :data))
+                                  :object-type 'plist)))
+    (should (equal (plist-get body :model) "gpt-6-luna"))
+    (should (plist-get body :tools))
+    (should-not (plist-member body :reasoning_effort))
+    (should-error (gptel-with-preset '(:model gpt-6.1-sol)
+                    (ogent-gptel-request "Fixture invalid preset" :dry-run t))
+                  :type 'user-error)))
+
+(ert-deftest ogent-offline-tool-override-preserves-shared-model-props ()
+  "Override incompatible preset, backend and model reasoning only for tools."
+  (let* ((gptel-backend (ogent-offline--backend 'chat))
+         (gptel-model "gpt-6-luna")
+         (gptel-use-tools t)
+         (gptel-tools (list (gptel-make-tool :name "fixture-read" :function #'identity
+                                             :description "Fixture"
+                                             :args '((:name "text" :type string)))))
+         (gptel--request-params '(:reasoning_effort "high" :seed 7))
+         (old (copy-tree (symbol-plist 'gpt-6-luna))))
+    (unwind-protect
+        (progn
+          (put 'gpt-6-luna :request-params '(:reasoning_effort "high"))
+          (aset gptel-backend (cl-struct-slot-offset 'gptel-backend 'request-params)
+                '(:reasoning_effort "high"))
+          (let* ((fsm (ogent-gptel-request "Fixture precedence" :dry-run t))
+                 (body (json-parse-string (gptel--json-encode (plist-get (gptel-fsm-info fsm) :data))
+                                          :object-type 'plist)))
+            (should (equal (plist-get body :model) "gpt-6-luna"))
+            (should (equal (plist-get body :reasoning_effort) "none"))
+            (should (= (plist-get body :seed) 7)))
+          (should (equal (get 'gpt-6-luna :request-params) '(:reasoning_effort "high")))
+          (should (equal (gptel-backend-request-params gptel-backend) '(:reasoning_effort "high")))
+          (let* ((gptel-tools nil)
+                 (fsm (ogent-gptel-request "Fixture tool-free" :dry-run t)))
+            (should (equal (plist-get (plist-get (gptel-fsm-info fsm) :data) :reasoning_effort)
+                            "high"))))
+      (setplist 'gpt-6-luna old))))
+
+(provide 'ogent-offline-workflows)
+;;; workflows.el ends here

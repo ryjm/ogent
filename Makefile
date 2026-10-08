@@ -55,7 +55,7 @@ ifdef debug
 DEBUG = --debug
 endif
 
-.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile test-isolation
+.PHONY: all lint test compile batch interactive sandbox sandbox-test sandbox-lint demo bench help clean recompile test-isolation offline-test
 
 # Default: run all lints and tests
 all:
@@ -74,6 +74,11 @@ test:
 # test-helper tripwire's suspenders.
 test-isolation:
 	@EMACS="$(EMACS)" ./test/store-integrity.sh
+
+# Actual runtime dependencies, loopback HTTP/SSE and fixture CLI processes.
+# Set OGENT_ELPA_DIR; optionally set OGENT_GPTEL_DIR to test a pinned version.
+offline-test:
+	@EMACS="$(EMACS)" ./test/offline/run.sh
 
 # Byte-compile source files (via makem.sh)
 compile:
@@ -133,6 +138,7 @@ help:
 	@echo "  make lint         - Run all linters (checkdoc, compile, package-lint)"
 	@echo "  make test         - Run all tests"
 	@echo "  make test-isolation - Verify the suite never writes real user stores"
+	@echo "  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)"
 	@echo "  make compile      - Byte-compile source files"
 	@echo "  make bench        - Run performance benchmarks"
 	@echo "  make batch        - Run Emacs in batch mode with project loaded"

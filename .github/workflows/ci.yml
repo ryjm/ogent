@@ -63,6 +63,36 @@ jobs:
       - name: Store integrity
         run: make test-isolation
 
+  offline-workflows:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        emacs_version: ["29.1", "30.2"]
+        gptel_version: [minimum, current]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: purcell/setup-emacs@v8.0
+        with:
+          version: ${{ matrix.emacs_version }}
+      - name: Install runtime dependencies
+        run: |
+          ./makem.sh --no-compile --sandbox="$RUNNER_TEMP/ogent-runtime" --install-deps batch -- --eval '(princ (emacs-version))'
+      - name: Pin minimum supported gptel
+        if: matrix.gptel_version == 'minimum'
+        run: git clone --depth 1 --branch v0.9.9.5 https://github.com/karthink/gptel "$RUNNER_TEMP/gptel-minimum"
+      - name: Replay offline workflows
+        env:
+          GPTEL_VERSION: ${{ matrix.gptel_version }}
+        run: |
+          emacs_version=$(emacs -Q --batch --eval '(princ emacs-version)')
+          export OGENT_ELPA_DIR="$RUNNER_TEMP/ogent-runtime/$emacs_version/elpa"
+          if [ "$GPTEL_VERSION" = minimum ]; then
+            export OGENT_GPTEL_DIR="$RUNNER_TEMP/gptel-minimum"
+          fi
+          make offline-test
+
   lint:
     runs-on: ubuntu-latest
     steps:
