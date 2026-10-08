@@ -16,6 +16,7 @@
 (require 'ogent-edit-format)
 (require 'ogent-tools)
 (require 'ogent-tool-contract)
+(declare-function ogent-tool-execution-process-error "ogent-tool-execution")
 
 ;; Specials read/let-bound by the tool subsystem.
 (defvar ogent-tool-registry)
@@ -267,8 +268,10 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                              spec))
                    (arg-values (ogent-ui--extract-tool-args schema args))
                    (result (apply func arg-values))
-                   (duration (float-time (time-subtract (current-time) start))))
-              (ogent-ledger-record-tool-finish tool-call result nil duration effects)
+                   (duration (float-time (time-subtract (current-time) start)))
+                   (failure (and structured (plist-get spec :result-function)
+                                 (ogent-tool-execution-process-error result))))
+              (ogent-ledger-record-tool-finish tool-call result failure duration effects)
               (when (fboundp 'ogent-debug-log-tool-call)
                 (ogent-debug-log-tool-call history-call result duration))
               result)

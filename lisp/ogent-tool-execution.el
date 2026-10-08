@@ -32,15 +32,18 @@ Include a typed error with CODE and MESSAGE when supplied."
                  :json-null)
         :next []))
 
+(defun ogent-tool-execution-process-error (data)
+  "Return the stable failure code for process DATA, or nil on success."
+  (cond ((eq (plist-get data :timed_out) t) "timeout")
+        ((eq (plist-get data :cancelled) t) "cancelled")
+        ((and (integerp (plist-get data :exit_code))
+              (/= (plist-get data :exit_code) 0)) "command_failed")))
+
 (defun ogent-tool-execution--success (spec args data)
   "Return a structured terminal result for SPEC, ARGS and DATA."
   (let* ((name (plist-get spec :name))
          (structured (plist-get spec :result-function))
-         (code (and structured
-                    (cond ((eq (plist-get data :timed_out) t) "timeout")
-                          ((eq (plist-get data :cancelled) t) "cancelled")
-                          ((and (integerp (plist-get data :exit_code))
-                                (/= (plist-get data :exit_code) 0)) "command_failed"))))
+         (code (and structured (ogent-tool-execution-process-error data)))
          (result (ogent-tool-execution-result
                   name (if code "error" "ok")
                   (if structured data (list :value data)) code
@@ -65,13 +68,67 @@ Include a typed error with CODE and MESSAGE when supplied."
                                                       (list 'quote next-args))))))))))
     result))
 
-(defun ogent-tool-execution-call (name args)
+(defun ogent-tool-execution--schema (spec)
+  "Return SPEC's named structured argument schema."
+  (plist-put (copy-sequence spec) :args
+             (append (plist-get spec :args) (plist-get spec :result-args))))
+
+(defun ogent-tool-execution--failure (name code err)
+  "Return a typed failure for NAME from ERR, defaulting to CODE."
+  (ogent-tool-execution-result
+   name "error" nil
+   (pcase (car-safe err)
+     ('ogent-tool-process-search-timeout "timeout")
+     ('ogent-tool-process-search-cancelled "cancelled")
+     ('ogent-tool-process-start-failed "process_start_failed")
+     ('ogent-tool-process-unavailable "dependency_missing")
+     ('ogent-tool-process-output-error "unsupported_output")
+     ('ogent-tool-process-search-failed "search_failed")
+     (_ code))
+   (if (consp err) (error-message-string err) (format "%s" err))))
+
+(defun ogent-tool-execution--start (spec args values callback)
+  "Start asynchronous SPEC with ARGS, VALUES and terminal CALLBACK.
+Record exactly one ledger terminal even if the tool completes twice or fails
+after completion.  Adapt native callback-last tools to the result contract."
+  (let* ((name (plist-get spec :name))
+         (call (list :name (symbol-name name) :args args))
+         (effects (plist-get spec :effects))
+         (function (or (plist-get spec :result-async-function) (plist-get spec :function)))
+         (started (float-time)) finished
+         (complete (lambda (data &optional failure)
+                     (unless finished
+                       (setq finished t)
+                       (let ((result (if failure
+                                         (ogent-tool-execution--failure name "execution_failed" failure)
+                                       (ogent-tool-execution--success spec args data))))
+                         (ogent-ledger-record-tool-finish
+                          call data (unless (eq (plist-get result :error) :json-null)
+                                      (plist-get (plist-get result :error) :message))
+                          (- (float-time) started) effects)
+                         (funcall callback result))))))
+    (ogent-ledger-record-tool-start call effects)
+    (condition-case err
+        (apply function (append values (list complete)))
+      (error (funcall complete nil err) nil))))
+
+(defun ogent-tool-execution-call (name args &optional callback prompt)
   "Execute registered NAME with named ARGS and return a typed result.
 Validate before approval.  Never prompt for approval: return approval_required
 when policy needs a decision.  Preserve the existing edit review and ledger
-owners.  Prefer registered structured result functions when available."
-  (let ((phase "unknown_tool") spec canonical schema)
-    (condition-case err
+owners.  Prefer registered structured result functions when available.
+When CALLBACK is non-nil, call it once with the terminal result and return
+the process for asynchronous tools.  Other tools can complete immediately.
+PROMPT is reserved for the normal interactive gptel execution path."
+  (when (and callback (not (functionp callback)))
+    (user-error "Provide a function callback accepting one terminal result"))
+  (let ((phase "unknown_tool") spec canonical schema deferred delivered)
+    (cl-labels ((deliver (result)
+                  (unless delivered
+                    (setq delivered t)
+                    (funcall callback result))))
+      (let ((result
+             (condition-case err
         (progn
           (setq spec (ogent-tool-spec-get name))
           (unless spec
@@ -80,16 +137,17 @@ owners.  Prefer registered structured result functions when available."
                                            ogent-tool-registry))))
           (setq name (plist-get spec :name)
                 phase "invalid_arguments"
-                schema (plist-put (copy-sequence spec) :args
-                                  (append (plist-get spec :args)
-                                          (plist-get spec :result-args))))
+                schema (ogent-tool-execution--schema spec))
           (let ((values (ogent-tool-contract-values schema args)))
             (setq canonical
                   (cl-loop for argument in (plist-get schema :args)
                            for value in values
                            unless (and (plist-get argument :optional) (null value))
                            append (list (intern (concat ":" (plist-get argument :name))) value))))
-          (pcase (ogent-tool-approval-check name canonical t)
+          (when (and (plist-get spec :async) (not callback))
+            (setq phase "async_required")
+            (user-error "This tool requires ogent-agent-call-async with a terminal callback"))
+          (pcase (ogent-tool-approval-check name canonical (not prompt))
             ('required
              (ogent-tool-execution-result
               name "approval_required" nil "approval_required"
@@ -103,22 +161,23 @@ owners.  Prefer registered structured result functions when available."
                (user-error "Registry entry changed before execution; rediscover the tool and retry"))
              (require 'ogent-ui-toolcalls)
              (setq phase "execution_failed")
-             (if (ogent-ui--is-edit-tool-p (symbol-name name))
+             (cond
+              ((ogent-ui--is-edit-tool-p (symbol-name name))
                  (progn
                    (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
-                   (ogent-tool-execution-result name "proposed" (list :review_required t)))
+                   (ogent-tool-execution-result name "proposed" (list :review_required t))))
+              ((and callback (or (plist-get spec :result-async-function)
+                                 (plist-get spec :async)))
+               (setq deferred t)
+               (ogent-tool-execution--start
+                spec canonical (ogent-tool-contract-values schema canonical) #'deliver))
+              (t
                (let ((data (ogent-ui--execute-tool name canonical t)))
-                 (ogent-tool-execution--success spec canonical data))))))
-      (error (ogent-tool-execution-result name "error" nil
-                                          (pcase (car err)
-                                            ('ogent-tool-process-search-timeout "timeout")
-                                            ('ogent-tool-process-search-cancelled "cancelled")
-                                            ('ogent-tool-process-start-failed "process_start_failed")
-                                            ('ogent-tool-process-unavailable "dependency_missing")
-                                            ('ogent-tool-process-output-error "unsupported_output")
-                                            ('ogent-tool-process-search-failed "search_failed")
-                                            (_ phase))
-                                          (error-message-string err))))))
+                 (ogent-tool-execution--success spec canonical data)))))))
+               (error
+                (setq deferred nil)
+                (ogent-tool-execution--failure name phase err)))))
+        (if (and callback (not deferred)) (progn (deliver result) nil) result)))))
 
 (defun ogent-tool-execution-wrapper (spec)
   "Return a gptel function enforcing policy and ledger recording for SPEC.

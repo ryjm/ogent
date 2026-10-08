@@ -103,6 +103,8 @@ Feed INPUT to stdin when non-nil.  Invoke CLEANUP on every terminal path."
              (setq completed t)
              (when process
                (process-put process 'ogent-cancel nil)
+               (set-process-filter process #'ignore)
+               (set-process-sentinel process #'ignore)
                (ogent-tools--drop-active-process process))
              (when stderr-process
                (set-process-filter stderr-process #'ignore)

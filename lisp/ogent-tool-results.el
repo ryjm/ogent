@@ -71,6 +71,7 @@ budget.  Snapshot the decoded content so callers can detect changed pages."
                 :offset offset :column column :limit limit
                 :lines (vconcat page)
                 :content (mapconcat (lambda (line) (plist-get line :text)) page "\n")
+                :ends_with_newline (if (string-suffix-p "\n" content) t :json-false)
                 :has_more (if more t :json-false)
                 :next_offset (if more line-number :json-null)
                 :next_column (if more next-column :json-null)))))))

@@ -61,6 +61,18 @@ Return a terminal result with status done when no continuation remains."
                   actual))))))
     (ogent-agent--output page format)))
 
+(defun ogent-agent-call-async (name args callback &optional format)
+  "Execute NAME with named ARGS and send its terminal result to CALLBACK.
+Serialize that result according to FORMAT.  Return a process for asynchronous
+tools; immediate results return nil.  CALLBACK accepts one result and runs
+exactly once, including validation, denial, timeout and cancellation failures.
+Cancel a returned process with `ogent-tool-process-cancel'."
+  (ogent-agent--output nil format)
+  (unless (functionp callback)
+    (user-error "Provide a callback function accepting one terminal result"))
+  (ogent-tool-execution-call
+   name args (lambda (result) (funcall callback (ogent-agent--output result format)))))
+
 (defun ogent-agent--boolean (value)
   "Return a JSON-compatible boolean for VALUE."
   (if value t :json-false))

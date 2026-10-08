@@ -170,6 +170,78 @@
       (should (equal (plist-get (plist-get timed :error) :code) "timeout"))
       (should (equal (plist-get (plist-get timed :data) :stdout) "partial")))))
 
+(ert-deftest ogent-agent-execution-async-real-process-and-ledger ()
+  "Async SDK calls return immediately and record one terminal result."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool-require-approval nil)
+        (starts 0) (finishes 0) (callbacks 0) result)
+    (cl-letf (((symbol-function 'ogent-ledger-record-tool-start)
+               (lambda (&rest _) (cl-incf starts)))
+              ((symbol-function 'ogent-ledger-record-tool-finish)
+               (lambda (&rest _) (cl-incf finishes))))
+      (let ((process (ogent-agent-call-async
+                      "shell" '(:command "sleep 0.1; printf complete")
+                      (lambda (data) (cl-incf callbacks) (setq result data)) 'json)))
+        (should (processp process))
+        (should (= callbacks 0))
+        (while (process-live-p process) (accept-process-output process 0.05))
+        (accept-process-output nil 0.05)
+        (should (= callbacks 1))
+        (should (= starts 1))
+        (should (= finishes 1))
+        (should (equal (plist-get (json-parse-string result :object-type 'plist) :status) "ok"))))))
+
+(ert-deftest ogent-agent-execution-async-custom-once-and-sync-rejection ()
+  "Native async tools receive callbacks and cannot execute synchronously."
+  (let* ((runs 0)
+         (ogent-tool-registry
+          (list (list :name 'delayed :async t :args nil
+                      :function (lambda (callback)
+                                  (cl-incf runs) (funcall callback "first")
+                                  (funcall callback "second") (error "after terminal")))))
+         (ogent-tool-require-approval nil)
+         (callbacks 0) result)
+    (should (equal (plist-get (plist-get (ogent-agent-call "delayed" nil) :error) :code) "async_required"))
+    (should (= runs 0))
+    (ogent-agent-call-async "delayed" nil (lambda (data) (cl-incf callbacks) (setq result data)))
+    (should (= callbacks 1))
+    (should (equal (plist-get (plist-get result :data) :value) "first"))))
+
+(ert-deftest ogent-agent-execution-async-denial-and-cancel ()
+  "Async denials do not start processes and cancellation retains output."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool--denied-tools '("bash"))
+        (ogent-tool-require-approval t)
+        (callbacks 0) result)
+    (should-not (ogent-agent-call-async "shell" '(:command "sleep 2")
+                                       (lambda (data) (cl-incf callbacks) (setq result data))))
+    (should (= callbacks 1))
+    (should (equal (plist-get result :status) "denied"))
+    (let* ((ogent-tool-require-approval nil)
+           (process (ogent-agent-call-async
+                     "shell" '(:command "printf partial; sleep 2")
+                     (lambda (data) (setq result data)))))
+      (accept-process-output process 0.05)
+      (ogent-tool-process-cancel process)
+      (accept-process-output nil 0.05)
+      (should (equal (plist-get (plist-get result :error) :code) "cancelled"))
+      (should (equal (plist-get (plist-get result :data) :stdout) "partial")))))
+
+(ert-deftest ogent-agent-execution-async-and-sync-failures-in-ledger ()
+  "Both SDK execution paths record failed process returns as failures."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool-require-approval nil) failures done)
+    (cl-letf (((symbol-function 'ogent-ledger-record-tool-finish)
+               (lambda (_call _data failure &rest _) (push failure failures))))
+      (ogent-agent-call "bash" '(:command "exit 7"))
+      (let ((process (ogent-agent-call-async "bash" '(:command "exit 8")
+                                            (lambda (_) (setq done t)))))
+        (while (and (process-live-p process) (not done)) (accept-process-output process 0.05))
+        (accept-process-output nil 0.05))
+      (should done)
+      (should (= (length failures) 2))
+      (should (cl-every #'stringp failures)))))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry
