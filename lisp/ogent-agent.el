@@ -131,6 +131,18 @@ For example, batch a glob, search and file read in one local SDK round trip."
   "Return a JSON-compatible boolean for VALUE."
   (if value t :json-false))
 
+(defun ogent-agent--arguments (arguments)
+  "Return public metadata for registry ARGUMENTS as a vector."
+  (vconcat
+   (mapcar (lambda (arg)
+             (append (list :name (plist-get arg :name)
+                           :type (format "%s" (plist-get arg :type))
+                           :optional (ogent-agent--boolean (plist-get arg :optional))
+                           :description (or (plist-get arg :description) ""))
+                     (when (plist-member arg :enum)
+                       (list :enum (vconcat (plist-get arg :enum))))))
+           arguments)))
+
 (defun ogent-agent--tool (spec)
   "Return public discovery metadata for tool SPEC."
   (let* ((name (plist-get spec :name))
@@ -150,21 +162,23 @@ For example, batch a glob, search and file read in one local SDK round trip."
           :category (or (plist-get spec :category) "")
           :enabled (ogent-agent--boolean enabled)
           :async (ogent-agent--boolean (plist-get spec :async))
+          :async_sdk (ogent-agent--boolean (or (plist-get spec :result-async-function)
+                                               (plist-get spec :async)))
+          :legacy_streaming (ogent-agent--boolean (plist-get spec :async-function))
           :boolean_representation (if (eq (plist-get spec :boolean-representation) 'json)
                                       "json" "native")
           :confirmation_required (ogent-agent--boolean
                                   (ogent-tool-spec-confirm-p spec))
           :risk (symbol-name (ogent-tool-effects-risk (plist-get spec :effects)))
-          :arguments
-          (vconcat
-           (mapcar (lambda (arg)
-                     (append (list :name (plist-get arg :name)
-				   :type (format "%s" (plist-get arg :type))
-				   :optional (ogent-agent--boolean (plist-get arg :optional))
-				   :description (or (plist-get arg :description) ""))
-                             (when (plist-member arg :enum)
-                               (list :enum (vconcat (plist-get arg :enum))))))
-                   (plist-get spec :args)))
+          :arguments (ogent-agent--arguments (plist-get spec :args))
+          :call_arguments (ogent-agent--arguments
+                           (append (plist-get spec :args) (plist-get spec :result-args)))
+          :execution (if (plist-get spec :async) "ogent-agent-call-async" "ogent-agent-call")
+          :result (if (plist-get spec :result-function) "structured data" "value envelope")
+          :examples (if-let ((args (plist-get spec :example-args)))
+                        (let ((print-length nil) (print-level nil))
+                          (vector (prin1-to-string (list 'ogent-agent-call (symbol-name name)
+                                                        (list 'quote args))))) [])
           :effects
           (vconcat
            (mapcar (lambda (effect)
@@ -190,13 +204,58 @@ per-call allow/deny rules still apply at execution time."
                                   (string< (symbol-name (plist-get a :name))
                                            (symbol-name (plist-get b :name)))))))
          :result_contract
-         (list :tool_results "text; errors are signaled or returned as Tool error: text by the execution wrapper"
+         (list :tool_results "ogent-agent-call returns versioned status/data/error/next envelopes; legacy functions default to text"
+               :schema "(ogent-agent-schema 'json)"
+               :continuation "(ogent-agent-next RESULT) follows the next page and guards snapshots"
+               :batch "ogent-agent-batch accepts up to 20 declared read-only calls"
+               :async_sdk "ogent-agent-call-async returns a process and invokes one terminal callback"
                :async_events ["stdout" "stderr" "done" "error"]
                :doctor_exit_codes (list :ok 0 :warning 1 :error 2))
          :discovery
          (list :guide "(ogent-agent-guide)"
+               :describe "(ogent-agent-describe TOOL 'json)"
                :triage "(ogent-agent-triage 'json)"
                :doctor "(ogent-doctor-batch nil 'json)"))
+   format))
+
+(defun ogent-agent-describe (name &optional format)
+  "Return the exact live tool contract for NAME, optionally in FORMAT.
+Include legacy and named-call arguments, aliases, approval metadata, examples
+and actual asynchronous support.  Never construct or execute a tool."
+  (ogent-agent--output nil format)
+  (let ((spec (ogent-tool-spec-get name)))
+    (unless spec
+      (user-error "%s" (ogent-tool-contract-name-hint
+                        name (mapcar (lambda (item) (plist-get item :name)) ogent-tool-registry))))
+    (ogent-agent--output (list :contract_version "1" :tool (ogent-agent--tool spec)
+                              :result_schema "(ogent-agent-schema 'json)") format)))
+
+(defun ogent-agent-schema (&optional format)
+  "Return the JSON Schema for version 1 tool-call results in FORMAT.
+Permit additive fields and extension-specific objects under data.  Built-in
+file and process data shapes are described in `ogent-agent-guide'."
+  (ogent-agent--output
+   (list :$schema "https://json-schema.org/draft/2020-12/schema"
+         :title "ogent tool result" :type "object"
+         :required ["contract_version" "tool" "status" "data" "error" "next"]
+         :properties
+         (list :contract_version (list :const "1")
+               :tool (list :type "string")
+               :status (list :enum ["ok" "error" "denied" "approval_required" "proposed" "done"])
+               :data (list :type ["object" "null"])
+               :error (list :oneOf
+                            (vector (list :type "null")
+                                    (list :type "object" :required ["code" "message" "recovery"]
+                                          :properties (list :code (list :type "string")
+                                                            :message (list :type "string")
+                                                            :recovery (list :type "string")))))
+               :next (list :type "array"
+                           :items (list :type "object" :required ["tool" "args" "snapshot" "call"]
+                                        :properties (list :tool (list :type "string")
+                                                          :args (list :type "object")
+                                                          :snapshot (list :type "string")
+                                                          :call (list :type "string")))))
+         :additionalProperties t)
    format))
 
 (defun ogent-agent-guide ()
@@ -207,21 +266,42 @@ per-call allow/deny rules still apply at execution time."
    "This reads the live registry; an empty tools array means no tools are installed.\n"
    "(ogent-tools-install-defaults) explicitly installs built-in specs if wanted.\n"
    "Use canonical hyphen names or registered underscore aliases; typos get hints, never execution.\n"
-   "Arguments follow registry order; named calls reject unknown/duplicate keys before approval.\n"
+   "Use (ogent-agent-describe \"read\" 'json) for exact call_arguments and examples.\n"
+   "Call (ogent-agent-call \"read\" '(:file_path \"README.org\" :limit 40) 'json).\n"
+   "Named calls reject unknown/duplicate keys before approval.\n"
    "Native boolean false is nil or :json-false; zero and nested objects are preserved.\n"
    "MCP calls use :json-false for explicit false; optional nil means omit the argument.\n"
-   "Tool results remain text. JSON discovery and doctor reports use contract_version 1.\n"
+   "Named calls return contract_version 1, tool, status, data, error and next.\n"
+   "Status ok means success, even for empty files or no matches; error includes code/message/recovery.\n"
+   "Legacy ogent-tool-- functions still default to text; optional plist/json selects structured data.\n"
+   "Read data: lines[number,column,text,partial], content, ends_with_newline, total_lines, snapshot.\n"
+   "Glob data: files[path,size,modified], total_files and snapshot; stable path ordering.\n"
+   "Search data: matches[path,line,text,context_before,context_after,truncated], total_matches and snapshot.\n"
+   "Search text can be truncated while retaining every returned match's path and line.\n"
+   "Read offsets/columns start at 1; search/glob offsets start at 0. Follow (ogent-agent-next RESULT).\n"
+   "Continuations freeze absolute targets and refuse changed snapshots. Do not combine different snapshots.\n"
+   "A long read line continues at its exact column, retaining all characters over successive pages.\n"
+   "Search pages cap at 200 matches and context at 20 lines; GNU fallback uses ERE syntax.\n"
+   "(ogent-agent-batch '[(:tool \"files\" :args (:pattern \"**/*.el\")) (:tool \"read\" :args (:file_path \"README.org\"))]) batches reads only.\n"
+   "(ogent-agent-call-async \"shell\" '(:command \"pwd\") #'YOUR-CALLBACK) returns a process with one terminal result.\n"
+   "Cancel that process with ogent-tool-process-cancel; timeout/cancel retains partial output.\n"
+   "(ogent-agent-schema 'json) exports the result envelope JSON Schema.\n"
    "Read: (ogent-tool--read-file \"/path/file\" 1 200); follow the exact next offset in its footer.\n"
    "Search: (ogent-tool--glob \"**/*.el\" \"/path/project\") includes every depth.\n"
    "Grep: (ogent-tool--grep \"-needle\" \"/path/project\"); no matches is success, invalid regex is an error.\n"
    "Edit: old_string must be nonempty and unique; set replace_all to t only for intentional repeated replacement.\n"
    "Read-only tools need no confirmation by default. Writes and shell execution require approval.\n"
+   "Programmatic calls never prompt or grant approval: approval_required directs you to the user review flow.\n"
    "Direct ogent-tool-- functions are low-level APIs; use registered execution wrappers for approval enforcement.\n"
    "Shell: use a positive timeout in seconds and an existing working_directory.\n"
    "Shell stdout/stderr may be truncated; the final exit code is preserved.\n"
+   "Structured shell data has stdout, stderr, exit_code, signal, timed_out, cancelled and truncated.\n"
+   "Nonzero exits have status error; inspect retained data. encoding_loss marks UTF-8 replacements.\n"
    "Local health: (ogent-agent-triage 'json), no provider requests or MCP handshakes.\n"
    "Batch health: (ogent-doctor-batch nil 'json), exit 0=ok/info, 1=warning, 2=error.\n"
-   "Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.\n"))
+   "Check readiness offline: make test; make test-isolation; make offline-test with OGENT_ELPA_DIR.\n"
+   "Build/test reports: make test format=json; make lint format=json. Diagnostics stay on stderr.\n"
+   "Discover actual build tasks and exits: ./makem.sh --capabilities --json.\n"))
 
 (defun ogent-agent-triage (&optional format)
   "Return discovery, next actions, and local health, optionally in FORMAT.

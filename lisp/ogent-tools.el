@@ -1026,6 +1026,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 (defvar ogent-tools-default-registry
   '((:name read-file
            :aliases ["read" "cat"]
+           :example-args (:file_path "README.org" :limit 40)
            :function ogent-tool--read-file
            :result-function ogent-tool-results-read
            :result-args ((:name "column" :type "integer" :optional t
@@ -1042,6 +1043,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name glob
            :aliases ["find" "files"]
+           :example-args (:pattern "**/*.el" :limit 20)
            :function ogent-tool--glob
            :result-function ogent-tool-results-glob
            :result-args ((:name "offset" :type "integer" :optional t
@@ -1058,6 +1060,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name grep
            :aliases ["search"]
+           :example-args (:pattern "defun" :glob_filter "*.el" :limit 20)
            :function ogent-tool--grep
            :result-function ogent-tool-process-grep
            :result-async-function ogent-tool-process-grep-async
@@ -1081,6 +1084,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name bash
            :aliases ["shell" "run"]
+           :example-args (:command "pwd" :timeout 10)
            :function ogent-tool--bash
            :result-function ogent-tool-process-bash
            :result-async-function ogent-tool-process-bash-async
@@ -1102,6 +1106,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name write-file
            :aliases ["write"]
+           :example-args (:file_path "notes.txt" :content "Reviewed content\n")
            :function ogent-tool--write-file
            :description "Write content to a file, creating it if it doesn't exist."
            :args ((:name "file_path" :type "string"
@@ -1114,6 +1119,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name edit-file
            :aliases ["edit"]
+           :example-args (:file_path "notes.txt" :old_string "old text" :new_string "new text")
            :function ogent-tool--edit-file
            :description "Replace a string in a file. The old_string must be unique."
            :args ((:name "file_path" :type "string"

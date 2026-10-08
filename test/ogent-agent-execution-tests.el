@@ -285,6 +285,43 @@
     (should (= (plist-get (ogent-agent-batch calls nil t) :completed) 1))
     (should (equal (plist-get (ogent-agent-batch []) :results) []))))
 
+(ert-deftest ogent-agent-execution-discovery-exposes-real-call-shapes ()
+  "Tool discovery advertises pagination, examples and actual async support."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+    (let ((read (plist-get (ogent-agent-describe "read") :tool))
+          (search (plist-get (ogent-agent-describe "search") :tool)))
+      (should (member "column" (mapcar (lambda (arg) (plist-get arg :name))
+                                      (append (plist-get read :call_arguments) nil))))
+      (should (member "limit" (mapcar (lambda (arg) (plist-get arg :name))
+                                     (append (plist-get search :call_arguments) nil))))
+      (should (eq (plist-get search :async_sdk) t))
+      (should (eq (plist-get search :async) :json-false))
+      (should (> (length (plist-get read :examples)) 0)))))
+
+(ert-deftest ogent-agent-execution-discovery-example-executes ()
+  "The curated read example is executable against a project fixture."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-tools-project-root root)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+    (ogent-agent-execution-tests--file root "README.org" "example\n")
+    (let* ((tool (plist-get (ogent-agent-describe "read_file") :tool))
+           (result (eval (read (aref (plist-get tool :examples) 0)) t)))
+      (should (equal (plist-get result :status) "ok"))
+      (should (equal (plist-get (plist-get result :data) :content) "example")))))
+
+(ert-deftest ogent-agent-execution-discovery-schema-and-purity ()
+  "Descriptions and schemas serialize without running a tool or provider."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+    (cl-letf (((symbol-function 'ogent-tool-execution-call)
+               (lambda (&rest _) (ert-fail "Discovery executed a tool"))))
+      (let ((schema (json-parse-string (ogent-agent-schema 'json) :object-type 'plist)))
+        (should (equal (plist-get schema :type) "object"))
+        (should (vectorp (plist-get schema :required)))
+        (should (equal (plist-get (plist-get (plist-get schema :properties) :next) :type) "array")))
+      (should (stringp (ogent-agent-describe "read" 'json)))
+      (should (string-match-p "ogent-agent-next" (ogent-agent-guide)))
+      (should-error (ogent-agent-describe "shll") :type 'user-error))))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry
