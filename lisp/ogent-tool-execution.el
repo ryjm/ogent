@@ -89,13 +89,20 @@ or raw filename bytes that cannot be represented as Unicode."
   (plist-put (copy-sequence spec) :args
              (append (plist-get spec :args) (plist-get spec :result-args))))
 
+(defun ogent-tool-execution-copy-data (value)
+  "Copy mutable strings, lists and vectors in contract VALUE."
+  (cond ((stringp value) (copy-sequence value))
+        ((consp value) (cons (ogent-tool-execution-copy-data (car value))
+                             (ogent-tool-execution-copy-data (cdr value))))
+        ((vectorp value) (vconcat (mapcar #'ogent-tool-execution-copy-data value)))
+        (t value)))
+
 (defun ogent-tool-execution-snapshot (spec)
   "Copy registry SPEC metadata while preserving callable closure identity."
-  (let ((snapshot (copy-tree spec t)))
-    (dolist (key '(:function :async-function :result-function :result-async-function))
-      (when (plist-member spec key)
-        (setq snapshot (plist-put snapshot key (plist-get spec key)))))
-    snapshot))
+  (cl-loop for (key value) on spec by #'cddr
+           append (list key (if (memq key '(:function :async-function :result-function :result-async-function))
+                                value
+                              (ogent-tool-execution-copy-data value)))))
 
 (defun ogent-tool-execution--failure (name code err)
   "Return a typed failure for NAME from ERR, defaulting to CODE."
@@ -163,7 +170,8 @@ PROMPT is reserved for the normal interactive gptel execution path."
 		   (setq name (plist-get spec :name)
 			 phase "invalid_arguments"
 			 schema (ogent-tool-execution--schema spec))
-		   (let ((values (ogent-tool-contract-values schema args)))
+		   (let ((values (ogent-tool-execution-copy-data
+				  (ogent-tool-contract-values schema args))))
 		     (setq canonical
 			   (cl-loop for argument in (plist-get schema :args)
 				    for value in values
@@ -254,7 +262,8 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
                     (progn
                       (when (and async (not (functionp callback)))
 			(user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
-                      (setq values (ogent-tool-contract-validate-values snapshot values)
+                      (setq values (ogent-tool-execution-copy-data
+                                    (ogent-tool-contract-validate-values snapshot values))
                             args (cl-loop for arg in (plist-get snapshot :args)
                                           for value in values
                                           unless (and (plist-get arg :optional) (null value))

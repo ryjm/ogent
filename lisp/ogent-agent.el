@@ -105,7 +105,10 @@ For example, batch a glob, search and file read in one local SDK round trip."
                    (user-error "Batch accepts only declared read-only tools; invoke %s individually through approval"
                                (plist-get spec :name))))
                (setq phase "invalid_arguments")
-               (push (cons (ogent-tool-execution-snapshot spec) call) prepared)))
+               (push (cons (ogent-tool-execution-snapshot spec)
+                           (list :tool (plist-get spec :name)
+                                 :args (ogent-tool-execution-copy-data (plist-get call :args))))
+                     prepared)))
            (dolist (entry (nreverse prepared))
              (unless stopped
                (let* ((spec (car entry)) (call (cdr entry))
