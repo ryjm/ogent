@@ -77,6 +77,7 @@
 (require 'ogent-codemap)
 (require 'ogent-codemap-task)
 (require 'ogent-doctor)
+(require 'ogent-agent)
 (require 'ogent-ui-theme)  ; Design system - load before UI
 (require 'ogent-ui)
 (require 'ogent-ui-models)

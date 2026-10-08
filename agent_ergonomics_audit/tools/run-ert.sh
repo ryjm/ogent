@@ -12,11 +12,18 @@ esac
 audit_root=$(cd "$(dirname "$0")/.." && pwd)
 repo_root=$(cd "$audit_root/.." && pwd)
 export OGENT_AUDIT_SELECTOR="$1"
+export OGENT_AUDIT_REPO="$repo_root"
 "${EMACS:-emacs}" -Q --batch \
   -L "$repo_root/lisp" -L "$repo_root/lisp/ui" \
   -L "$repo_root/test" -L "$repo_root/test/ui" \
   -l "$repo_root/test/ogent-test-helper.el" \
   --eval '(when-let ((root (getenv "OGENT_AUDIT_SOURCE")))
+            (setq load-path
+                  (seq-remove
+                   (lambda (path)
+                     (string-prefix-p (expand-file-name "lisp/" (getenv "OGENT_AUDIT_REPO"))
+                                      (file-name-as-directory path)))
+                   load-path))
             (add-to-list (quote load-path) (expand-file-name "lisp" root))
             (add-to-list (quote load-path) (expand-file-name "lisp/ui" root)))' \
   -l "$repo_root/test/ogent-agent-ergonomics-tests.el" \
