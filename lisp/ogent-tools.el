@@ -12,6 +12,8 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(autoload 'ogent-tool-results-read "ogent-tool-results")
+(autoload 'ogent-tool-results-format "ogent-tool-results")
 
 ;; Forward declaration for variable defined in ogent-models.el
 (defvar ogent-tool-registry)
@@ -240,11 +242,16 @@ TYPE is `stdout' or `stderr'."
 
 ;;; Tool: Read File
 
-(defun ogent-tool--read-file (file-path &optional offset limit)
+(defun ogent-tool--read-file (file-path &optional offset limit format)
   "Return a numbered page of text from FILE-PATH.
 OFFSET is the starting line number (1-indexed, default 1).
 LIMIT is the max lines to read (default `ogent-tools-max-file-lines').
-Name the next offset when more lines remain; mark truncated long lines."
+Name the next offset when more lines remain; mark truncated long lines.
+When FORMAT is `plist' or `json', return structured lines and continuations."
+  (if format
+      (progn
+        (ogent-tool-results-format nil format)
+        (ogent-tool-results-format (ogent-tool-results-read file-path offset limit) format))
   (unless (and (stringp file-path) (not (string-empty-p file-path)))
     (user-error "Invalid read_file file_path; use a non-empty string or glob to find a file"))
   (let* ((path (ogent-tools--resolve-path file-path))
@@ -295,7 +302,7 @@ Name the next offset when more lines remain; mark truncated long lines."
            (if lines page "(empty file)")
            (when (<= next (length lines))
              (format "\n\n[More lines available. Next call: read_file(file_path=%S, offset=%d, limit=%d)]"
-                     file-path next limit))))))))
+                     file-path next limit)))))))))
 
 ;;; Tool: Glob (File Search)
 
@@ -965,6 +972,9 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 (defvar ogent-tools-default-registry
   '((:name read-file
            :function ogent-tool--read-file
+           :result-function ogent-tool-results-read
+           :result-args ((:name "column" :type "integer" :optional t
+                                :description "Starting column for a continued long line (1-indexed)"))
            :description "Read the contents of a file. Returns lines with line numbers."
            :args ((:name "file_path" :type "string"
                          :description "Absolute path to the file to read")

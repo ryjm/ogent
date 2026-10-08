@@ -9,6 +9,55 @@
 (require 'ogent-agent nil t)
 (require 'ogent-tools)
 (require 'ogent-ui-toolcalls)
+(require 'ogent-tool-results nil t)
+
+(defun ogent-agent-execution-tests--file (root name text)
+  "Create fixture NAME containing TEXT under ROOT."
+  (let ((file (expand-file-name name root)))
+    (make-directory (file-name-directory file) t)
+    (with-temp-file file (insert text))
+    file))
+
+(ert-deftest ogent-agent-execution-read-structured-pages ()
+  "Structured reads return exact positions, content and genuine JSON arrays."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "read.txt" "alpha\nbeta\ngamma\n"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (result (ogent-agent-call "read_file" (list :file_path file :limit 2)))
+         (data (plist-get result :data)))
+    (should (equal (plist-get result :status) "ok"))
+    (should (equal (plist-get data :content) "alpha\nbeta"))
+    (should (= (plist-get data :total_lines) 3))
+    (should (= (plist-get data :next_offset) 3))
+    (should (vectorp (plist-get data :lines)))
+    (should (equal (plist-get (json-parse-string (ogent-tool--read-file file 3 2 'json)
+                                                :object-type 'plist) :content) "gamma"))
+    (should (string-match-p "1\talpha" (ogent-tool--read-file file 1 2)))))
+
+(ert-deftest ogent-agent-execution-read-long-line-continuation ()
+  "A bounded long-line page retains every character through continuation."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "long.txt" "abcdefghij\nlast\n"))
+         (ogent-tools-max-output-chars 4)
+         (first (ogent-tool-results-read file 1 20))
+         (second (ogent-tool-results-read file (plist-get first :next_offset) 20
+                                           (plist-get first :next_column))))
+    (should (equal (plist-get first :content) "abcd"))
+    (should (= (plist-get first :next_offset) 1))
+    (should (= (plist-get first :next_column) 5))
+    (should (equal (plist-get second :content) "efgh"))
+    (should (equal (plist-get first :snapshot) (plist-get second :snapshot)))))
+
+(ert-deftest ogent-agent-execution-read-empty-and-invalid ()
+  "Empty files have no invented lines, and invalid positions remain typed."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "empty.txt" ""))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (data (plist-get (ogent-agent-call "read-file" (list :file_path file)) :data)))
+    (should (equal (plist-get data :lines) []))
+    (should (eq (plist-get data :has_more) :json-false))
+    (should (equal (plist-get (ogent-agent-call "read-file" (list :file_path file :offset 2)) :status)
+                   "error"))))
 
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
