@@ -259,22 +259,47 @@ Retain partial output on a nonzero exit, timeout or cancellation."
         (decode-coding-string (base64-decode-string bytes) 'utf-8-unix))
       ""))
 
+(defun ogent-tool-process--grep-file-matches-p (file target glob-filter)
+  "Return non-nil when FILE under TARGET matches positive GLOB-FILTER."
+  (let ((case-fold-search nil))
+    (or (null glob-filter)
+        (ogent-tools--glob-match-p glob-filter (file-name-nondirectory file))
+        (ogent-tools--glob-match-p
+         glob-filter
+         (file-relative-name file (if (file-directory-p target) target
+                                    (file-name-directory target)))))))
+
 (defun ogent-tool-process--grep-files (target glob-filter)
   "Return sorted regular files in TARGET matching GLOB-FILTER."
-  (let ((case-fold-search nil)
-        (regexp (and glob-filter (wildcard-to-regexp glob-filter))))
+  (let ((case-fold-search nil))
     (sort
      (cl-remove-if-not
       (lambda (file)
         (and (file-regular-p file)
              (not (string-match-p "/\\.git/" file))
-             (or (null regexp)
-                 (string-match-p regexp (file-name-nondirectory file))
-                 (string-match-p regexp (file-relative-name file target)))))
+             (ogent-tool-process--grep-file-matches-p file target glob-filter)))
       (if (file-directory-p target)
           (directory-files-recursively target "." nil nil)
         (list target)))
      #'string<)))
+
+(defun ogent-tool-process--search-glob (pattern)
+  "Return a positive ripgrep wildcard equivalent to component PATTERN."
+  (let ((index -1))
+    (concat
+     (when (and (string-match-p "/" pattern)
+                (not (string-prefix-p "/" pattern))) "/")
+     (mapconcat
+      (lambda (character)
+        (cl-incf index)
+        (let ((text (char-to-string character)))
+          (if (or (memq character '(?\\ ?{ ?}))
+                  (and (= index 0) (= character ?!))
+                  (and (> index 0) (= character ?^)
+                       (= (aref pattern (1- index)) ?\[)))
+              (concat "\\" text)
+            text)))
+      (string-to-list pattern) ""))))
 
 (defun ogent-tool-process--literal-glob (name)
   "Return an anchored ripgrep glob matching literal filename NAME."
@@ -293,6 +318,8 @@ Retain partial output on a nonzero exit, timeout or cancellation."
   "Search PATTERN and return its asynchronous local process.
 Search PATH with optional GLOB-FILTER and CONTEXT-LINES (0 through 20).
 Apply GLOB-FILTER to explicit files as well as directories; skip binary files.
+Match basename or relative path with positive component wildcards; ** matches
+zero or more components.  Treat a leading ! and brace expressions literally.
 OFFSET is zero-based; LIMIT defaults to 200 and must be 1 through 200.
 Call CALLBACK once with (DATA ERROR), where ERROR is a condition or nil.
 DATA contains match objects, pagination, a snapshot hash and truncation flags.
@@ -399,11 +426,12 @@ Count all matching lines, retaining only the requested page and bounded text."
                       (type (plist-get event :type))
                       (data (plist-get event :data)))
                  (when (member type '("match" "context"))
-                   (line (ogent-tool-process--json-text (plist-get data :path))
-                         (plist-get data :line_number)
-                         (string-remove-suffix
-                          "\n" (ogent-tool-process--json-text (plist-get data :lines)))
-                         (equal type "match")))))
+                   (let ((file (ogent-tool-process--json-text (plist-get data :path))))
+                     (when (ogent-tool-process--grep-file-matches-p file target glob-filter)
+                       (line file (plist-get data :line_number)
+                             (string-remove-suffix
+                              "\n" (ogent-tool-process--json-text (plist-get data :lines)))
+                             (equal type "match")))))))
              (consume (chunk)
                (setq pending (concat pending chunk))
                (if rg
@@ -478,6 +506,8 @@ Count all matching lines, retaining only the requested page and bounded text."
                                   "--hidden" "--no-ignore" "-g" "!**/.git/**"
                                   "-C" (number-to-string context))
                             (cond
+                             ((and glob-filter (string-empty-p glob-filter))
+                              (list "--" pattern null-device))
                              ((and explicit-file explicit-candidate)
                               ;; Explicit rg argv paths override its glob and
                               ;; binary rules.  Search through the parent with
@@ -491,7 +521,8 @@ Count all matching lines, retaining only the requested page and bounded text."
                               ;; excludes the sole candidate.
                               (list "--" pattern null-device))
                              (t
-                              (append (when glob-filter (list "-g" glob-filter))
+                              (append (when glob-filter
+                                        (list "-g" (ogent-tool-process--search-glob glob-filter)))
                                       (list "--" pattern target))))))
             ;; xargs preserves ordered filename input and invokes grep in
             ;; argument-size-safe batches.  Normalize grep's no-match exit 1.

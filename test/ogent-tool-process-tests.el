@@ -72,6 +72,30 @@
 	(should (= (plist-get result :total_matches) 1))
 	(should (equal (plist-get (aref matches 0) :path) text))))))
 
+(defun ogent-tool-process-tests--check-component-filters ()
+  "Verify shared positive wildcard semantics against a real search engine."
+  (ogent-tool-process-tests--with-directory
+    (dolist (name '("src/direct.txt" "src/deep/nested.txt" "top.txt"
+                    "!literal.txt" "{a,b}.txt" "a.txt" "^literal.txt"))
+      (ogent-tool-process-tests--write directory name "needle\n"))
+    (dolist (case '(("src/*.txt" "src/direct.txt")
+                    ("src/**/*.txt" "src/deep/nested.txt" "src/direct.txt")
+                    ("*.txt" "!literal.txt" "^literal.txt" "a.txt" "src/deep/nested.txt"
+                     "src/direct.txt" "top.txt" "{a,b}.txt")
+                    ("**/*.txt" "!literal.txt" "^literal.txt" "a.txt" "src/deep/nested.txt"
+                     "src/direct.txt" "top.txt" "{a,b}.txt")
+                    ("!*.txt" "!literal.txt")
+                    ("{a,b}.txt" "{a,b}.txt")
+                    ("[^a]*.txt" "^literal.txt" "a.txt")
+                    ("")))
+      (let* ((result (ogent-tool-process-grep "needle" directory (car case)))
+             (matches (plist-get result :matches))
+             (paths (mapcar
+                     (lambda (match) (file-relative-name (plist-get match :path) directory))
+                     (append matches nil))))
+        (should (equal paths (cdr case)))
+        (should (= (plist-get result :total_matches) (length (cdr case))))))))
+
 (ert-deftest ogent-tool-process-bash-separates-channels-and-exit ()
   "Preserve stdout and stderr separately on a real nonzero command exit."
   (ogent-tool-process-tests--with-directory
@@ -422,6 +446,16 @@
   "Skip NUL-containing binary files through the real ripgrep engine."
   (ogent-tool-process-tests--with-engine 'ripgrep
     (ogent-tool-process-tests--check-binary-scope)))
+
+(ert-deftest ogent-tool-process-grep-gnu-component-filters ()
+  "Match directory components and recursive wildcards through real GNU grep."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-component-filters)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-component-filters ()
+  "Match directory components and positive literal globs through real ripgrep."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-component-filters)))
 
 (ert-deftest ogent-tool-process-grep-finds-hidden-and-ignored-files ()
   "Search hidden and ignored source files consistently while excluding Git storage."
