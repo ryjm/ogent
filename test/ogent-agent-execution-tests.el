@@ -261,8 +261,9 @@
                       (list :tool "read" :args (list :file_path file))))
          (batch (json-parse-string (ogent-agent-batch calls 'json) :object-type 'plist)))
     (should (equal (plist-get batch :status) "ok"))
-    (should (= (length (plist-get batch :results)) 3))
-    (should (equal (plist-get (aref (plist-get batch :results) 2) :tool) "read-file"))))
+    (should (equal (plist-get batch :tool) "batch"))
+    (should (= (length (plist-get (plist-get batch :data) :results)) 3))
+    (should (equal (plist-get (aref (plist-get (plist-get batch :data) :results) 2) :tool) "read-file"))))
 
 (ert-deftest ogent-agent-execution-batch-preflight-prevents-unsafe-prefix ()
   "An unsafe or invalid trailing call prevents any batch execution."
@@ -282,9 +283,9 @@
          (ogent-tool-registry (copy-tree ogent-tools-default-registry))
          (calls (list (list :tool "read" :args (list :file_path (expand-file-name "missing" root)))
                       (list :tool "files" :args (list :pattern "*.el" :path root)))))
-    (should (= (plist-get (ogent-agent-batch calls) :completed) 2))
-    (should (= (plist-get (ogent-agent-batch calls nil t) :completed) 1))
-    (should (equal (plist-get (ogent-agent-batch []) :results) []))))
+    (should (= (plist-get (plist-get (ogent-agent-batch calls) :data) :completed) 2))
+    (should (= (plist-get (plist-get (ogent-agent-batch calls nil t) :data) :completed) 1))
+    (should (equal (plist-get (plist-get (ogent-agent-batch []) :data) :results) []))))
 
 (ert-deftest ogent-agent-execution-discovery-exposes-real-call-shapes ()
   "Tool discovery advertises pagination, examples and actual async support."

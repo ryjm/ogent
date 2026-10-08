@@ -39,8 +39,9 @@ every page. Empty files succeed with zero lines.
 #+end_src
 
 The batch validates all calls before executing any and accepts up to 20 tools
-whose declared effects are read-only. It returns =results=, =requested=,
-=completed=, =stopped=, and status =ok= or =partial=. Pass =t= as the third
+whose declared effects are read-only. It uses the same result envelope as
+individual calls, with =results=, =requested=, =completed=, and =stopped= under
+=data=, and status =ok= or =partial=. Pass =t= as the third
 argument to stop after the first unsuccessful call; the default continues.
 Preflight failures return the ordinary error envelope and execute nothing.
 Shell commands and writes need individual calls through approval.

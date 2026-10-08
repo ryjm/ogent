@@ -119,11 +119,11 @@ For example, batch a glob, search and file read in one local SDK round trip."
                  (when (and fail-fast (not (equal (plist-get result :status) "ok")))
                    (setq stopped t)))))
            (setq results (nreverse results))
-           (list :contract_version "1"
-                 :status (if (cl-every (lambda (result) (equal (plist-get result :status) "ok")) results)
-                             "ok" "partial")
-                 :results (vconcat results) :requested (length calls) :completed (length results)
-                 :stopped (if stopped t :json-false)))
+           (ogent-tool-execution-result
+            "batch" (if (cl-every (lambda (result) (equal (plist-get result :status) "ok")) results)
+                        "ok" "partial")
+            (list :results (vconcat results) :requested (length calls) :completed (length results)
+                  :stopped (if stopped t :json-false))))
        (error (ogent-tool-execution--failure "batch" phase err)))
      format)))
 
@@ -241,7 +241,7 @@ file and process data shapes are described in `ogent-agent-guide'."
          :properties
          (list :contract_version (list :const "1")
                :tool (list :type "string")
-               :status (list :enum ["ok" "error" "denied" "approval_required" "proposed" "done"])
+               :status (list :enum ["ok" "partial" "error" "denied" "approval_required" "proposed" "done"])
                :data (list :type ["object" "null"])
                :error (list :oneOf
                             (vector (list :type "null")
