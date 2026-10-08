@@ -123,6 +123,28 @@
             page (ogent-agent-next page)))
     (should (equal content "abcdefghij"))))
 
+(ert-deftest ogent-agent-execution-aliases-share-policy ()
+  "Common verbs resolve exactly and cannot bypass a canonical denial."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool--denied-tools '("bash"))
+        (ogent-tool-require-approval t))
+    (should (eq (ogent-tool--name-symbol "read") 'read-file))
+    (should (eq (ogent-tool--name-symbol "find") 'glob))
+    (should (eq (ogent-tool--name-symbol "search") 'grep))
+    (should (equal (plist-get (ogent-agent-call "shell" '(:command "printf unsafe")) :status) "denied"))
+    (let ((error-data (plist-get (ogent-agent-call "shll" nil) :error)))
+      (should (equal (plist-get error-data :code) "unknown_tool"))
+      (should (string-match-p "did you mean shell" (plist-get error-data :message))))))
+
+(ert-deftest ogent-agent-execution-aliases-exact-and-ambiguous ()
+  "Exact registrations win and ambiguous declared aliases never execute."
+  (let ((ogent-tool-registry
+         '((:name alpha :aliases ["shared" "exact"])
+           (:name beta :aliases ["shared"])
+           (:name exact))))
+    (should (eq (ogent-tool--name-symbol "exact") 'exact))
+    (should-not (ogent-tool-spec-get "shared"))))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry

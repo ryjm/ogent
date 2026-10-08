@@ -56,9 +56,14 @@ Never resolve a typo to a different tool automatically."
            (alias (intern (replace-regexp-in-string "_" "-" text)))
            (names (when (boundp 'ogent-tool-registry)
                     (mapcar (lambda (spec) (plist-get spec :name))
-                            ogent-tool-registry))))
+                            ogent-tool-registry)))
+           (declared (when (boundp 'ogent-tool-registry)
+                       (cl-remove-if-not
+                        (lambda (spec) (member text (append (plist-get spec :aliases) nil)))
+                        ogent-tool-registry))))
       (cond ((memq exact names) exact)
             ((memq alias names) alias)
+            ((= (length declared) 1) (plist-get (car declared) :name))
             (t exact)))))
 
 (defun ogent-tool--pattern-match-p (pattern tool-name args)

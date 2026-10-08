@@ -73,12 +73,13 @@ Return a terminal result with status done when no continuation remains."
                            (memq name (mapcar #'ogent-tool--name-symbol
                                               ogent-tools-enabled))))))
     (list :name (symbol-name name)
-          :aliases (let ((alias (replace-regexp-in-string
-                                 "-" "_" (symbol-name name))))
-                     (if (and (not (equal alias (symbol-name name)))
-                              (eq name (ogent-tool--name-symbol alias)))
-                         (vector alias)
-                       []))
+          :aliases (vconcat
+                    (delete-dups
+                     (seq-filter
+                      (lambda (alias) (and (not (equal alias (symbol-name name)))
+                                           (eq name (ogent-tool--name-symbol alias))))
+                      (cons (replace-regexp-in-string "-" "_" (symbol-name name))
+                            (append (plist-get spec :aliases) nil)))))
           :description (or (plist-get spec :description) "")
           :category (or (plist-get spec :category) "")
           :enabled (ogent-agent--boolean enabled)

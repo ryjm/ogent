@@ -982,6 +982,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
 (defvar ogent-tools-default-registry
   '((:name read-file
+           :aliases ["read" "cat"]
            :function ogent-tool--read-file
            :result-function ogent-tool-results-read
            :result-args ((:name "column" :type "integer" :optional t
@@ -997,6 +998,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
            :effects ((:kind read :target file :scope workspace :risk low)))
 
     (:name glob
+           :aliases ["find" "files"]
            :function ogent-tool--glob
            :result-function ogent-tool-results-glob
            :result-args ((:name "offset" :type "integer" :optional t
@@ -1012,6 +1014,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
            :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name grep
+           :aliases ["search"]
            :function ogent-tool--grep
            :async-function ogent-tool--grep-async
            :async-callback-style :match  ; callback receives (match line), (done count), (error msg)
@@ -1028,6 +1031,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
            :effects ((:kind read :target filesystem :scope workspace :risk low)))
 
     (:name bash
+           :aliases ["shell" "run"]
            :function ogent-tool--bash
            :async-function ogent-tool--bash-async
            :async-callback-style :stream  ; callback receives (stdout chunk), (stderr chunk), (done code), (error msg)
@@ -1046,6 +1050,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
            :confirm t)
 
     (:name write-file
+           :aliases ["write"]
            :function ogent-tool--write-file
            :description "Write content to a file, creating it if it doesn't exist."
            :args ((:name "file_path" :type "string"
@@ -1057,6 +1062,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
            :confirm t)
 
     (:name edit-file
+           :aliases ["edit"]
            :function ogent-tool--edit-file
            :description "Replace a string in a file. The old_string must be unique."
            :args ((:name "file_path" :type "string"
