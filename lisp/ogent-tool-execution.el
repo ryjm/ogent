@@ -13,6 +13,7 @@
 (declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
 (declare-function ogent-ui--is-edit-tool-p "ogent-ui-toolcalls")
 (declare-function ogent-ui--show-diff-for-tool "ogent-ui-toolcalls")
+(declare-function ogent-tools--resolve-path "ogent-tools")
 
 (defun ogent-tool-execution-result (name status &optional data code message)
   "Return a versioned result for NAME with STATUS and DATA.
@@ -23,6 +24,39 @@ Include a typed error with CODE and MESSAGE when supplied."
                              :recovery "Inspect ogent-agent-describe for arguments and policy; correct the call before retrying")
                  :json-null)
         :next []))
+
+(defun ogent-tool-execution--success (spec args data)
+  "Return a structured terminal result for SPEC, ARGS and DATA."
+  (let* ((name (plist-get spec :name))
+         (structured (plist-get spec :result-function))
+         (code (and structured
+                    (cond ((eq (plist-get data :timed_out) t) "timeout")
+                          ((eq (plist-get data :cancelled) t) "cancelled")
+                          ((and (integerp (plist-get data :exit_code))
+                                (/= (plist-get data :exit_code) 0)) "command_failed"))))
+         (result (ogent-tool-execution-result
+                  name (if code "error" "ok")
+                  (if structured data (list :value data)) code
+                  (when code "Inspect stdout, stderr and exit_code; correct the command or increase its timeout before retrying"))))
+    (when (and structured (eq (plist-get data :has_more) t))
+      (let ((next-args (copy-sequence args)))
+        (setq next-args (plist-put next-args :offset (plist-get data :next_offset)))
+        (when (memq name '(read-file glob grep))
+          (setq next-args
+                (plist-put next-args (if (eq name 'read-file) :file_path :path)
+                           (or (plist-get data :path)
+                               (ogent-tools--resolve-path (or (plist-get args :path) "."))))))
+        (when (eq name 'read-file)
+          (setq next-args (plist-put next-args :column (plist-get data :next_column))))
+        (let ((print-length nil) (print-level nil))
+          (setq result
+                (plist-put result :next
+                           (vector (list :tool (symbol-name name) :args next-args
+                                         :snapshot (plist-get data :snapshot)
+                                         :call (prin1-to-string
+                                                (list 'ogent-agent-call (symbol-name name)
+                                                      (list 'quote next-args))))))))))
+    result))
 
 (defun ogent-tool-execution-call (name args)
   "Execute registered NAME with named ARGS and return a typed result.
@@ -67,9 +101,7 @@ owners.  Prefer registered structured result functions when available."
                    (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
                    (ogent-tool-execution-result name "proposed" (list :review_required t)))
                (let ((data (ogent-ui--execute-tool name canonical t)))
-                 (ogent-tool-execution-result
-                  name "ok" (if (plist-get spec :result-function) data
-                                (list :value data))))))))
+                 (ogent-tool-execution--success spec canonical data))))))
       (error (ogent-tool-execution-result name "error" nil phase
                                           (error-message-string err))))))
 

@@ -29,6 +29,38 @@ permission.  For example:
   (ogent-agent--output nil format)
   (ogent-agent--output (ogent-tool-execution-call name args) format))
 
+(defun ogent-agent-next (result &optional format)
+  "Follow RESULT's first continuation and return the next page in FORMAT.
+Accept a native result plist or JSON string.  Refuse changed snapshots so
+pagination cannot silently combine different versions of file/search data.
+Return a terminal result with status done when no continuation remains."
+  (ogent-agent--output nil format)
+  (when (stringp result)
+    (setq result (json-parse-string result :object-type 'plist
+                                   :null-object :json-null :false-object :json-false)))
+  (unless (and (proper-list-p result) (equal (plist-get result :contract_version) "1")
+               (vectorp (plist-get result :next)))
+    (user-error "Provide a contract_version 1 result from ogent-agent-call"))
+  (let* ((next (and (> (length (plist-get result :next)) 0)
+                    (aref (plist-get result :next) 0)))
+         (name (plist-get result :tool))
+         (page
+          (if (null next)
+              (ogent-tool-execution-result name "done")
+            (let ((expected (plist-get next :snapshot)))
+              (unless (and (equal name (plist-get next :tool))
+                           (stringp expected)
+                           (equal expected (plist-get (plist-get result :data) :snapshot)))
+                (user-error "Invalid continuation; restart with ogent-agent-call"))
+              (let ((actual (ogent-tool-execution-call name (plist-get next :args))))
+                (if (and (equal (plist-get actual :status) "ok")
+                         (not (equal expected (plist-get (plist-get actual :data) :snapshot))))
+                    (ogent-tool-execution-result
+                     name "error" nil "snapshot_changed"
+                     "Files changed between pages; restart the original call rather than combining these results")
+                  actual))))))
+    (ogent-agent--output page format)))
+
 (defun ogent-agent--boolean (value)
   "Return a JSON-compatible boolean for VALUE."
   (if value t :json-false))

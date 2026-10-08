@@ -83,6 +83,46 @@
     (should (equal (plist-get (ogent-tool-results-glob "*.txt" root) :files) []))
     (should-error (ogent-tool-results-glob "*.el" root 2) :type 'user-error)))
 
+(ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
+  "Continuation calls retain absolute targets when the working root changes."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (other (ogent-test--provision-store-directory 'tools))
+         (ogent-tools-project-root root)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+    (ogent-agent-execution-tests--file root "data.txt" "a\nb\nc\n")
+    (ogent-agent-execution-tests--file other "data.txt" "wrong\n")
+    (let ((first (ogent-agent-call "read_file" '(:file_path "data.txt" :limit 1) 'json)))
+      (let* ((ogent-tools-project-root other)
+             (second (ogent-agent-next first))
+             (third (ogent-agent-next second)))
+        (should (equal (plist-get (plist-get second :data) :content) "b"))
+        (should (equal (plist-get (plist-get third :data) :content) "c"))
+        (should (equal (plist-get (ogent-agent-next third) :status) "done"))))))
+
+(ert-deftest ogent-agent-execution-next-refuses-changed-snapshot ()
+  "Changed file pages are discarded with an explicit restart instruction."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "data.txt" "a\nb\n"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (first (ogent-agent-call "read-file" (list :file_path file :limit 1))))
+    (with-temp-file file (insert "a\nchanged\n"))
+    (let ((result (ogent-agent-next first)))
+      (should (equal (plist-get (plist-get result :error) :code) "snapshot_changed"))
+      (should (eq (plist-get result :data) :json-null)))))
+
+(ert-deftest ogent-agent-execution-next-retains-long-line-characters ()
+  "Following pages reconstructs long lines without dropping characters."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "data.txt" "abcdefghij"))
+         (ogent-tools-max-output-chars 3)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (page (ogent-agent-call "read-file" (list :file_path file)))
+         (content ""))
+    (while (equal (plist-get page :status) "ok")
+      (setq content (concat content (plist-get (plist-get page :data) :content))
+            page (ogent-agent-next page)))
+    (should (equal content "abcdefghij"))))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry
