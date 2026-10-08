@@ -10,6 +10,7 @@
 (require 'json)
 (require 'ogent-models)
 (require 'ogent-doctor)
+(require 'ogent-tool-execution)
 
 (defun ogent-agent--output (data format)
   "Return DATA as a plist or serialize it according to FORMAT."
@@ -17,7 +18,16 @@
     ((or 'nil 'plist) data)
     ('json (concat (json-serialize data :null-object :json-null
                                    :false-object :json-false) "\n"))
-    (_ (user-error "Use nil, 'plist, or 'json for the agent report format"))))
+    (_ (user-error "Use nil, (quote plist), or (quote json) for the agent report format"))))
+
+(defun ogent-agent-call (name args &optional format)
+  "Execute tool NAME with named ARGS and return its structured result.
+Return a plist by default or JSON when FORMAT is `json'.  Validate FORMAT
+before execution.  Calls respect approval policy and never grant themselves
+permission.  For example:
+  (ogent-agent-call \"read_file\" \='(:file_path \"README.org\" :limit 20))"
+  (ogent-agent--output nil format)
+  (ogent-agent--output (ogent-tool-execution-call name args) format))
 
 (defun ogent-agent--boolean (value)
   "Return a JSON-compatible boolean for VALUE."

@@ -170,9 +170,10 @@ If ARGS is non-nil, create a pattern matching those specific args."
                (equal name (ogent-tool--name-string denied)))
              ogent-tool--denied-tools)))
 
-(defun ogent-tool-approval-check (tool-name tool-args)
+(defun ogent-tool-approval-check (tool-name tool-args &optional no-prompt)
   "Return approval decision for TOOL-NAME with TOOL-ARGS.
-The return value is `approved' or `denied'."
+Return `approved' or `denied', or `required' when NO-PROMPT prevents
+an interactive approval question.  Apply the same policy in either mode."
   (let ((tool-symbol (ogent-tool--name-symbol tool-name)))
     (cond
      ((not tool-symbol) 'denied)
@@ -186,6 +187,7 @@ The return value is `approved' or `denied'."
                       (ogent-tool-effects-approval-required-p
                        (plist-get spec :effects))))))
       'approved)
+     (no-prompt 'required)
      (t (let ((response (ogent-tool--prompt-approval tool-name tool-args)))
           (pcase response
             ('approve 'approved)

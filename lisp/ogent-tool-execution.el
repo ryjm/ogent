@@ -14,6 +14,65 @@
 (declare-function ogent-ui--is-edit-tool-p "ogent-ui-toolcalls")
 (declare-function ogent-ui--show-diff-for-tool "ogent-ui-toolcalls")
 
+(defun ogent-tool-execution-result (name status &optional data code message)
+  "Return a versioned result for NAME with STATUS and DATA.
+Include a typed error with CODE and MESSAGE when supplied."
+  (list :contract_version "1" :tool (format "%s" name) :status status
+        :data (or data :json-null)
+        :error (if code (list :code code :message message
+                             :recovery "Inspect ogent-agent-describe for arguments and policy; correct the call before retrying")
+                 :json-null)
+        :next []))
+
+(defun ogent-tool-execution-call (name args)
+  "Execute registered NAME with named ARGS and return a typed result.
+Validate before approval.  Never prompt for approval: return approval_required
+when policy needs a decision.  Preserve the existing edit review and ledger
+owners.  Prefer registered structured result functions when available."
+  (let ((phase "unknown_tool") spec canonical schema)
+    (condition-case err
+        (progn
+          (setq spec (ogent-tool-spec-get name))
+          (unless spec
+            (user-error "%s" (ogent-tool-contract-name-hint
+                              name (mapcar (lambda (item) (plist-get item :name))
+                                           ogent-tool-registry))))
+          (setq name (plist-get spec :name)
+                phase "invalid_arguments"
+                schema (plist-put (copy-sequence spec) :args
+                                  (append (plist-get spec :args)
+                                          (plist-get spec :result-args))))
+          (let ((values (ogent-tool-contract-values schema args)))
+            (setq canonical
+                  (cl-loop for argument in (plist-get schema :args)
+                           for value in values
+                           unless (and (plist-get argument :optional) (null value))
+                           append (list (intern (concat ":" (plist-get argument :name))) value))))
+          (pcase (ogent-tool-approval-check name canonical t)
+            ('required
+             (ogent-tool-execution-result
+              name "approval_required" nil "approval_required"
+              "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule"))
+            ('denied
+             (ogent-tool-execution-result
+              name "denied" nil "denied" "Current approval policy denies this tool; ask the user to review the decision"))
+            (_
+             (setq phase "unavailable")
+             (unless (equal spec (ogent-tool-spec-get name))
+               (user-error "Registry entry changed before execution; rediscover the tool and retry"))
+             (require 'ogent-ui-toolcalls)
+             (setq phase "execution_failed")
+             (if (ogent-ui--is-edit-tool-p (symbol-name name))
+                 (progn
+                   (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
+                   (ogent-tool-execution-result name "proposed" (list :review_required t)))
+               (let ((data (ogent-ui--execute-tool name canonical t)))
+                 (ogent-tool-execution-result
+                  name "ok" (if (plist-get spec :result-function) data
+                                (list :value data))))))))
+      (error (ogent-tool-execution-result name "error" nil phase
+                                          (error-message-string err))))))
+
 (defun ogent-tool-execution-wrapper (spec)
   "Return a gptel function enforcing policy and ledger recording for SPEC.
 Adapt gptel's callback-first convention to ogent's callback-last async specs.

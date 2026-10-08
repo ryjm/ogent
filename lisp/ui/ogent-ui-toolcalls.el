@@ -239,16 +239,19 @@ Results are displayed in the buffer."
   "Build a ledger tool-call plist for NAME with ARGS."
   (list :name (ogent-tool--name-string name) :args args))
 
-(defun ogent-ui--execute-tool (name args)
-  "Execute tool NAME with ARGS and return result string.
+(defun ogent-ui--execute-tool (name args &optional structured)
+  "Execute tool NAME with ARGS and return its result.
 Looks up tool in `ogent-tool-registry' and calls its function.
+When STRUCTURED is non-nil, use its declared result function and extra
+result arguments, and re-signal failures after recording them.
 Records start/finish to the proof ledger (a no-op unless
 `ogent-ledger-enabled') and, when `ogent-debug' is loaded, appends to
 the inspectable tool-call history that powers `ogent-debug-replay-tool'."
   (if-let* ((tool-symbol (ogent-tool--name-symbol name))
             (spec (and (fboundp 'ogent-tool-spec-get)
                        (ogent-tool-spec-get tool-symbol)))
-            (func (plist-get spec :function)))
+            (func (or (and structured (plist-get spec :result-function))
+                      (plist-get spec :function))))
       (let* ((tool-call (ogent-ui--tool-ledger-call name args))
              ;; History entries key on a symbol name and carry an id.
              (history-call (list :id (format "tool-%d" (abs (random)))
@@ -257,7 +260,12 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
              (start (current-time)))
         (ogent-ledger-record-tool-start tool-call effects)
         (condition-case err
-            (let* ((arg-values (ogent-ui--extract-tool-args spec args))
+            (let* ((schema (if structured
+                               (plist-put (copy-sequence spec) :args
+                                          (append (plist-get spec :args)
+                                                  (plist-get spec :result-args)))
+                             spec))
+                   (arg-values (ogent-ui--extract-tool-args schema args))
                    (result (apply func arg-values))
                    (duration (float-time (time-subtract (current-time) start))))
               (ogent-ledger-record-tool-finish tool-call result nil duration effects)
@@ -271,7 +279,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
              (when (fboundp 'ogent-debug-log-tool-call)
                (ogent-debug-log-tool-call
                 (plist-put history-call :error msg) nil duration))
-             (format "Tool error: %s" msg)))))
+             (if structured (signal (car err) (cdr err))
+               (format "Tool error: %s" msg))))))
     (ogent-tool-contract-name-hint
      name (mapcar (lambda (spec) (plist-get spec :name)) ogent-tool-registry))))
 
