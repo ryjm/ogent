@@ -15,6 +15,7 @@
 
 (require 'subr-x)
 (require 'seq)
+(require 'json)
 (require 'org)
 (require 'ogent-gptel)
 (require 'ogent-models)
@@ -697,6 +698,35 @@ detail column; warn/error results append their remediation hint."
       (ogent-doctor--group-results results)
       ""))))
 
+(defun ogent-doctor-exit-code (results)
+  "Return the documented batch severity code for RESULTS.
+Return 0 for ok/info, 1 for warnings, and 2 for errors."
+  (pcase (ogent-doctor-summary-status results)
+    ('error 2) ('warn 1) (_ 0)))
+
+(defun ogent-doctor-data (results)
+  "Return the versioned machine-readable health data for RESULTS."
+  (list :contract_version "1"
+        :status (symbol-name (ogent-doctor-summary-status results))
+        :exit_code (ogent-doctor-exit-code results)
+        :checks
+        (vconcat
+         (mapcar
+          (lambda (result)
+            (list :id (symbol-name (plist-get result :id))
+                  :label (plist-get result :label)
+                  :category (symbol-name (plist-get result :category))
+                  :status (symbol-name (plist-get result :status))
+                  :detail (plist-get result :detail)
+                  :remediation (or (plist-get result :remediation) :json-null)))
+          results))))
+
+(defun ogent-doctor-format-json (results)
+  "Return a JSON report string for doctor RESULTS.
+Keep check order stable and encode missing remediation as JSON null."
+  (concat (json-serialize (ogent-doctor-data results) :null-object :json-null)
+          "\n"))
+
 ;;; Commands
 
 ;;;###autoload
@@ -720,20 +750,22 @@ may touch the network (for example MCP server handshakes)."
     results))
 
 ;;;###autoload
-(defun ogent-doctor-batch (&optional include-opt-in)
+(defun ogent-doctor-batch (&optional include-opt-in format)
   "Run the doctor probes, print the report, and return an exit code.
 Print the full report with `princ' and return a shell-style code for
 CI and scripting: 0 when every probe is ok or info, 1 when the worst
 result is a warning, 2 when any probe fails.  Wire it to the batch
 exit status by wrapping the call in `kill-emacs'.
 With INCLUDE-OPT-IN non-nil, also run opt-in probes that may touch
-the network."
+the network.  FORMAT defaults to `org'; use `json' for a versioned
+data-only report, for example (ogent-doctor-batch nil \='json)."
+  (unless (memq format '(nil org json))
+    (user-error "Doctor format must be org or json; use (ogent-doctor-batch nil \='json)"))
   (let ((results (ogent-doctor-run include-opt-in)))
-    (princ (ogent-doctor-format results))
-    (pcase (ogent-doctor-summary-status results)
-      ('error 2)
-      ('warn 1)
-      (_ 0))))
+    (princ (if (eq format 'json)
+               (ogent-doctor-format-json results)
+             (ogent-doctor-format results)))
+    (ogent-doctor-exit-code results)))
 
 (provide 'ogent-doctor)
 

@@ -198,5 +198,31 @@
     (should (string-match-p "did you mean read-file"
                             (ogent-ui--execute-tool "read-fiel" nil)))))
 
+(ert-deftest ogent-agent-ergonomics-doctor-json-severity-and-schema ()
+  "JSON batch output is data-only and preserves the 0/1/2 severity dictionary."
+  (dolist (severity '((ok . 0) (warn . 1) (error . 2)))
+    (let ((results (list (list :id 'fixture :label "Fixture" :category 'environment
+                              :status (car severity) :detail "local check")))
+          exit)
+      (cl-letf (((symbol-function 'ogent-doctor-run)
+                 (lambda (&optional opt-in) (should-not opt-in) results)))
+        (let* ((output (with-output-to-string
+                         (setq exit (ogent-doctor-batch nil 'json))))
+               (data (json-parse-string output :object-type 'plist)))
+          (should (= exit (cdr severity)))
+          (should (= (plist-get data :exit_code) exit))
+          (should (equal (plist-get data :contract_version) "1"))
+          (should (equal (plist-get data :status) (symbol-name (car severity))))
+          (should (vectorp (plist-get data :checks)))
+          (should (equal output (ogent-doctor-format-json results))))))))
+
+(ert-deftest ogent-agent-ergonomics-doctor-json-invalid-format ()
+  "Invalid formats are rejected before running even opt-in probes."
+  (let (called)
+    (cl-letf (((symbol-function 'ogent-doctor-run)
+               (lambda (&optional _) (setq called t) nil)))
+      (should-error (ogent-doctor-batch t 'jsno) :type 'user-error)
+      (should-not called))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
