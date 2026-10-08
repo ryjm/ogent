@@ -1,8 +1,8 @@
-;;; ogent-agent.el --- Read-only agent interface discovery -*- lexical-binding: t; -*-
+;;; ogent-agent.el --- Agent contracts and named execution -*- lexical-binding: t; -*-
 
 ;;; Commentary:
-;; Publish live tool metadata and local diagnostics without constructing gptel
-;; tools, requesting approval, contacting providers, or changing configuration.
+;; Publish live metadata and local diagnostics without provider requests.
+;; Execute named tools through the shared approval, review and ledger owners.
 ;; Plists are the native SDK format; JSON is an explicit serialization option.
 
 ;;; Code:

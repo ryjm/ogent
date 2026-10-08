@@ -19,7 +19,7 @@
 (autoload 'ogent-tool-process-grep-async "ogent-tool-process")
 (autoload 'ogent-tool-process-bash "ogent-tool-process")
 (autoload 'ogent-tool-process-bash-async "ogent-tool-process")
-(declare-function ogent-tool-process-cancel "ogent-tool-process")
+(autoload 'ogent-tool-process-cancel "ogent-tool-process")
 
 ;; Forward declaration for variable defined in ogent-models.el
 (defvar ogent-tool-registry)
