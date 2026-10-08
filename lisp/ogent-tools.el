@@ -43,6 +43,14 @@
   :type 'integer
   :group 'ogent-tools)
 
+(defcustom ogent-tools-result-format 'text
+  "Result format for registered model-facing tool calls.
+Keep legacy text by default.  Select `json' for versioned status/data/error/next
+envelopes and structured pagination arguments.  Re-register tools after changing
+this option; `ogent-agent-call' always uses structured results independently."
+  :type '(choice (const text) (const json))
+  :group 'ogent-tools)
+
 
 (defcustom ogent-tools-grep-timeout 30
   "Default timeout in seconds for grep searches."

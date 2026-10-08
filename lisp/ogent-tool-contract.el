@@ -9,6 +9,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'subr-x)
+(defvar ogent-tool-registry)
 
 (defgroup ogent-tool-contract nil
   "Argument contracts for ogent tools."

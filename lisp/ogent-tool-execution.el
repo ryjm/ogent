@@ -6,6 +6,7 @@
 ;;; Code:
 
 (require 'cl-lib)
+(require 'json)
 (require 'ogent-tool-approval)
 (require 'ogent-ledger)
 (require 'ogent-tool-contract)
@@ -14,6 +15,7 @@
 (declare-function ogent-ui--is-edit-tool-p "ogent-ui-toolcalls")
 (declare-function ogent-ui--show-diff-for-tool "ogent-ui-toolcalls")
 (declare-function ogent-tools--resolve-path "ogent-tools")
+(defvar ogent-tools-result-format 'text)
 
 (defun ogent-tool-execution-result (name status &optional data code message)
   "Return a versioned result for NAME with STATUS and DATA.
@@ -179,14 +181,49 @@ PROMPT is reserved for the normal interactive gptel execution path."
                 (ogent-tool-execution--failure name phase err)))))
         (if (and callback (not deferred)) (progn (deliver result) nil) result)))))
 
-(defun ogent-tool-execution-wrapper (spec)
+(defun ogent-tool-execution--json-call (spec values)
+  "Execute snapshot SPEC with gptel VALUES and return versioned JSON."
+  (let* ((name (plist-get spec :name))
+         (async (plist-get spec :async))
+         (callback (and async (pop values))) delivered)
+    (when (and async (not (functionp callback)))
+      (user-error "Async tool %s requires a callback first" name))
+    (cl-labels ((serialize (result)
+                  (concat (json-serialize result :null-object :json-null :false-object :json-false) "\n"))
+                (deliver (result)
+                  (unless delivered
+                    (setq delivered t)
+                    (funcall callback (serialize result)))))
+      (condition-case err
+          (let* ((schema (ogent-tool-execution--schema spec))
+                 (values (ogent-tool-contract-validate-values schema values))
+                 (args (cl-loop for arg in (plist-get schema :args)
+                                for value in values
+                                unless (and (plist-get arg :optional) (null value))
+                                append (list (intern (concat ":" (plist-get arg :name))) value))))
+            (if (not (equal spec (ogent-tool-spec-get name)))
+                (let ((result (ogent-tool-execution-result
+                               name "error" nil "unavailable" "Tool registry entry changed; rediscover before retrying")))
+                  (if async (deliver result) (serialize result)))
+              (if async
+                  (ogent-tool-execution-call name args #'deliver t)
+                (serialize (ogent-tool-execution-call name args nil t)))))
+        (error
+         (let ((result (ogent-tool-execution--failure name "invalid_arguments" err)))
+           (if async (deliver result) (serialize result))))))))
+
+(defun ogent-tool-execution-wrapper (spec &optional result-format)
   "Return a gptel function enforcing policy and ledger recording for SPEC.
 Adapt gptel's callback-first convention to ogent's callback-last async specs.
-Reject stale tool objects after registry removal or schema replacement."
+Reject stale tool objects after registry removal or schema replacement.
+Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
   ;; Preserve the function's closure environment when copying metadata.
   (let ((name (plist-get spec :name))
+        (format (or result-format ogent-tools-result-format))
         (snapshot (plist-put (copy-tree spec) :function (plist-get spec :function))))
     (lambda (&rest values)
+      (if (eq format 'json)
+          (ogent-tool-execution--json-call snapshot values)
       (let* ((async (plist-get snapshot :async))
              (callback (and async (pop values)))
              args
@@ -206,6 +243,8 @@ Reject stale tool objects after registry removal or schema replacement."
                       "Tool unavailable: its registry entry changed or was removed")
 		     ((not (eq (ogent-tool-approval-check name args) 'approved))
                       "Tool execution denied by user")
+		     ((not (equal snapshot (ogent-tool-spec-get name)))
+                      "Tool unavailable: its registry entry changed during approval")
 		     (t
                       (require 'ogent-ui-toolcalls)
                       (cond
@@ -221,7 +260,7 @@ Reject stale tool objects after registry removal or schema replacement."
           (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
         (if async
             (unless (eq result :async) (funcall callback result))
-          result)))))
+          result))))))
 
 (defun ogent-tool-execution--async (spec args values callback)
   "Execute async SPEC with ARGS, positional VALUES and gptel CALLBACK."

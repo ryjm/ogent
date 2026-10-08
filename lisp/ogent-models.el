@@ -579,6 +579,10 @@ Required keys:
 Optional keys:
   :category    - grouping (e.g., \"filesystem\", \"shell\", \"search\")
   :async       - if non-nil, function takes a callback as last arg
+  :aliases     - vector/list of explicit alternative tool names
+  :result-function - structured data function with native args and result args
+  :result-async-function - callback-last structured function receiving data/error
+  :result-args  - optional named pagination arguments for structured calls
   :confirm     - if non-nil, require user approval before execution
   :effects     - list of effect plists for policy and audit trails
   :include     - if non-nil, include tool results in response
@@ -630,12 +634,15 @@ approval path."
 
 (defvar ogent--tool-specs-registered nil
   "Snapshots of specs used to build registered gptel tools.")
+(defvar ogent--tool-formats-registered nil
+  "Alist of result formats captured by registered gptel tools.")
 (defvar gptel--known-tools)
 
 (defun ogent-unregister-tool (name)
   "Remove NAME from ogent and gptel caches."
   (setq ogent--tools-registered (assq-delete-all name ogent--tools-registered)
         ogent--tool-specs-registered (assq-delete-all name ogent--tool-specs-registered))
+  (setq ogent--tool-formats-registered (assq-delete-all name ogent--tool-formats-registered))
   (when (boundp 'gptel--known-tools)
     (dolist (category gptel--known-tools)
       (setcdr category (assoc-delete-all (symbol-name name) (cdr category))))))
@@ -650,13 +657,18 @@ Returns the list of registered tool objects."
       (let* ((name (plist-get spec :name))
              (existing (assq name ogent--tools-registered)))
         (unless (and existing
+                     (eq ogent-tools-result-format (cdr (assq name ogent--tool-formats-registered)))
                      (equal spec (cdr (assq name ogent--tool-specs-registered))))
           (ogent-unregister-tool name)
           (let ((tool (apply #'gptel-make-tool
                              :name (symbol-name name)
-                             :function (ogent-tool-execution-wrapper spec)
-                             :description (plist-get spec :description)
-                             :args (copy-tree (plist-get spec :args))
+                             :function (ogent-tool-execution-wrapper spec ogent-tools-result-format)
+                             :description (concat (plist-get spec :description)
+                                                  (when (eq ogent-tools-result-format 'json)
+                                                    " Returns JSON status/data/error/next. Follow next.tool and next.args to continue; snapshots identify consistent pages."))
+                             :args (copy-tree (append (plist-get spec :args)
+                                                      (when (eq ogent-tools-result-format 'json)
+                                                        (plist-get spec :result-args))))
                              ;; Always pass :confirm so gptel-native
                              ;; execution prompts for risky tools; a
                              ;; missing flag would let gptel auto-run
@@ -672,7 +684,8 @@ Returns the list of registered tool objects."
             (push (cons name (plist-put (copy-tree spec) :function
 					(plist-get spec :function)))
                   ogent--tool-specs-registered)
-            (push (cons name tool) ogent--tools-registered))))))
+            (push (cons name tool) ogent--tools-registered)
+            (push (cons name ogent-tools-result-format) ogent--tool-formats-registered))))))
   (unless ogent-tool-registry
     (dolist (entry (copy-sequence ogent--tools-registered))
       (ogent-unregister-tool (car entry))))

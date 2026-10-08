@@ -16,6 +16,27 @@
 (defvar ogent-offline--executions 0
   "Number of fixture tool executions.")
 
+(ert-deftest ogent-offline-structured-tool-contract ()
+  "Real gptel tools expose pagination and preserve structured execution."
+  (let* ((root (make-temp-file "ogent-offline-pages-" t))
+         (ogent-tools-project-root root)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (ogent-tools-result-format 'json)
+         (ogent--tools-registered nil) (ogent--tool-specs-registered nil)
+         (ogent--tool-formats-registered nil) (gptel--known-tools nil))
+    (unwind-protect
+        (progn
+          (with-temp-file (expand-file-name "one.el" root) (insert "needle\n"))
+          (with-temp-file (expand-file-name "two.el" root) (insert "other\n"))
+          (let* ((tool (ogent-tool-get "glob"))
+                 (result (json-parse-string (funcall (gptel-tool-function tool) "*.el" root 0 1)
+                                            :object-type 'plist)))
+            (should (= (length (gptel-tool-args tool)) 4))
+            (should (equal (plist-get result :status) "ok"))
+            (should (= (length (plist-get result :next)) 1))
+            (should (equal (plist-get (ogent-agent-next result) :status) "ok"))))
+      (delete-directory root t))))
+
 (defun ogent-offline--port ()
   "Return the running loopback fixture port."
   (with-temp-buffer
