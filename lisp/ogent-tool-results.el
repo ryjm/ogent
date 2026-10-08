@@ -9,6 +9,14 @@
 (require 'json)
 (require 'ogent-tools)
 
+(define-error 'ogent-tool-results-output-error "Unsupported file output" 'user-error)
+
+(defun ogent-tool-results--unicode (text)
+  "Return TEXT when JSON can represent it as Unicode, otherwise signal."
+  (condition-case nil (progn (json-serialize text) text)
+    (error (signal 'ogent-tool-results-output-error
+                   '("Use a Unicode filename and a supported text encoding; raw bytes cannot be represented in structured results")))))
+
 (defun ogent-tool-results-format (data format)
   "Return DATA as a plist or serialize it according to FORMAT."
   (pcase format
@@ -25,8 +33,11 @@ budget.  Snapshot the decoded content so callers can detect changed pages."
   (unless (and (stringp file-path) (not (string-empty-p file-path)))
     (user-error "Provide a nonempty file_path; use glob to discover files"))
   (let* ((path (ogent-tools--resolve-path file-path))
-         (offset (or offset 1)) (limit (or limit 200)) (column (or column 1))
+         (offset (or offset 1))
+         (limit (or limit (min 200 ogent-tools-max-file-lines)))
+         (column (or column 1))
          (budget ogent-tools-max-output-chars))
+    (ogent-tool-results--unicode path)
     (dolist (position (list offset column))
       (unless (and (integerp position) (> position 0))
         (user-error "Use positive integer offset and column positions starting at 1")))
@@ -40,7 +51,7 @@ budget.  Snapshot the decoded content so callers can detect changed pages."
       (insert-file-contents path)
       (when (search-forward "\0" nil t)
         (user-error "Binary file detected: %s; choose a text file" path))
-      (let* ((content (buffer-string))
+      (let* ((content (ogent-tool-results--unicode (buffer-string)))
              (lines (unless (string-empty-p content) (split-string content "\n")))
              (snapshot (secure-hash 'sha256 content))
              page (used 0) (line-number offset) (next-column column))
@@ -89,6 +100,7 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
            (files (sort (ogent-tools--glob-files pattern root) #'string<))
            (metadata (mapcar
                       (lambda (file)
+                        (ogent-tool-results--unicode file)
                         (let ((attributes (file-attributes file)))
                           (list :path file :size (file-attribute-size attributes)
                                 :modified (format "%S" (file-attribute-modification-time attributes)))))

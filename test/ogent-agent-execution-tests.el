@@ -60,6 +60,17 @@
     (should (equal (plist-get (ogent-agent-call "read-file" (list :file_path file :offset 2)) :status)
                    "error"))))
 
+(ert-deftest ogent-agent-execution-read-respects-configured-default ()
+  "Use a smaller configured line budget without requiring explicit limits."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "small.txt" "a\nb\nc\n"))
+         (ogent-tools-max-file-lines 2)
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (result (ogent-agent-call "read" (list :file_path file))))
+    (should (equal (plist-get result :status) "ok"))
+    (should (= (plist-get (plist-get result :data) :limit) 2))
+    (should (equal (plist-get (plist-get (ogent-agent-next result) :data) :content) "c"))))
+
 (ert-deftest ogent-agent-execution-glob-complete-pagination ()
   "File discovery exposes every result beyond the previous 100-file cap."
   (let* ((root (ogent-test--provision-store-directory 'tools))
@@ -374,6 +385,45 @@
                              "unavailable"))
             (should (string-match-p "Tool unavailable:" result))))))))
 
+(ert-deftest ogent-agent-execution-model-inplace-change-during-approval ()
+  "Reject in-place function and effect changes made while approving a tool."
+  (dolist (format '(text json))
+    (let* ((executed nil)
+           (spec (list :name 'changing :confirm t :args nil :function (lambda () "original")))
+           (ogent-tool-registry (list spec))
+           (ogent-tool-require-approval t)
+           (ogent-tool-allow-list nil) (ogent-tool--denied-tools nil)
+           (wrapper (ogent-tool-execution-wrapper spec format)))
+      (cl-letf (((symbol-function 'ogent-tool--prompt-approval)
+                 (lambda (&rest _)
+                   (setf (plist-get spec :function) (lambda () (setq executed t)))
+                   (setf (plist-get spec :effects) '((:kind network :risk critical)))
+                   'approve)))
+        (let ((result (funcall wrapper)))
+          (should-not executed)
+          (if (eq format 'json)
+              (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist) :error) :code)
+                             "unavailable"))
+            (should (string-match-p "Tool unavailable:" result))))))))
+
+(ert-deftest ogent-agent-execution-batch-inplace-effects-change ()
+  "Refuse a preflighted read when an earlier call mutates its live effects."
+  (let* ((executed nil)
+         (later (list :name 'later :args nil :effects '((:kind read :target file :risk low))
+                      :function (lambda () "safe")))
+         (first (list :name 'first :args nil :effects '((:kind read :target file :risk low))
+                      :function (lambda ()
+                                  (setf (plist-get later :function) (lambda () (setq executed t)))
+                                  (setf (plist-get later :effects) '((:kind write :target file :risk high)))
+                                  "first")))
+         (ogent-tool-registry (list first later))
+         (ogent-tool-require-approval nil)
+         (result (ogent-agent-batch '[(:tool "first" :args nil) (:tool "later" :args nil)])))
+    (should-not executed)
+    (should (equal (plist-get result :status) "partial"))
+    (should (equal (plist-get (plist-get (aref (plist-get (plist-get result :data) :results) 1) :error) :code)
+                   "unavailable"))))
+
 (ert-deftest ogent-agent-execution-model-json-async-callback ()
   "gptel callback-first calls retain JSON and exactly one terminal callback."
   (let* ((spec (list :name 'async-fixture :async t :args '((:name "value" :type "string"))
@@ -384,6 +434,36 @@
              (lambda (json) (cl-incf calls) (setq result json)) "payload")
     (should (= calls 1))
     (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist) :data) :value) "payload"))))
+
+(ert-deftest ogent-agent-execution-json-unsupported-path-delivers-error ()
+  "Raw-byte filenames produce safe typed errors including async JSON calls."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (concat root "/" (unibyte-string 255) ".txt"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         result (calls 0))
+    (with-temp-file file (insert "contents"))
+    (let ((sync (json-parse-string (ogent-agent-call "read" (list :file_path file) 'json)
+                                   :object-type 'plist)))
+      (should (equal (plist-get (plist-get sync :error) :code) "unsupported_output")))
+    (ogent-agent-call-async "read" (list :file_path file)
+                            (lambda (data) (cl-incf calls) (setq result data)) 'json)
+    (should (= calls 1))
+    (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist) :error) :code)
+                   "unsupported_output"))))
+
+(ert-deftest ogent-agent-execution-json-unsupported-extension-callback-once ()
+  "Unserializable extension results still deliver one JSON error callback."
+  (let* ((spec (list :name 'bad-json :async t :args nil
+                     :function (lambda (callback) (funcall callback (unibyte-string 255)))))
+         (ogent-tool-registry (list spec))
+         (ogent-tool-require-approval nil) (calls 0) result)
+    (dolist (invoke (list (lambda (callback) (ogent-agent-call-async "bad-json" nil callback 'json))
+                          (lambda (callback) (funcall (ogent-tool-execution-wrapper spec 'json) callback))))
+      (setq calls 0 result nil)
+      (funcall invoke (lambda (data) (cl-incf calls) (setq result data)))
+      (should (= calls 1))
+      (should (equal (plist-get (plist-get (json-parse-string result :object-type 'plist) :error) :code)
+                     "unsupported_output")))))
 
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."

@@ -35,6 +35,19 @@ Include a typed error with CODE and MESSAGE when supplied."
                  :json-null)
         :next []))
 
+(defun ogent-tool-execution-json (data)
+  "Serialize result DATA, returning a typed error for unsupported values.
+Preserve callback delivery even when an extension returns non-JSON objects
+or raw filename bytes that cannot be represented as Unicode."
+  (condition-case nil
+      (concat (json-serialize data :null-object :json-null :false-object :json-false) "\n")
+    (error
+     (concat (json-serialize
+              (ogent-tool-execution-result
+               "serialization" "error" nil "unsupported_output"
+               "Result cannot be represented as JSON; use Unicode filenames and JSON-compatible tool values")
+              :null-object :json-null :false-object :json-false) "\n"))))
+
 (defun ogent-tool-execution-process-error (data)
   "Return the stable failure code for process DATA, or nil on success."
   (cond ((eq (plist-get data :timed_out) t) "timeout")
@@ -76,6 +89,14 @@ Include a typed error with CODE and MESSAGE when supplied."
   (plist-put (copy-sequence spec) :args
              (append (plist-get spec :args) (plist-get spec :result-args))))
 
+(defun ogent-tool-execution-snapshot (spec)
+  "Copy registry SPEC metadata while preserving callable closure identity."
+  (let ((snapshot (copy-tree spec t)))
+    (dolist (key '(:function :async-function :result-function :result-async-function))
+      (when (plist-member spec key)
+        (setq snapshot (plist-put snapshot key (plist-get spec key)))))
+    snapshot))
+
 (defun ogent-tool-execution--failure (name code err)
   "Return a typed failure for NAME from ERR, defaulting to CODE."
   (ogent-tool-execution-result
@@ -86,6 +107,7 @@ Include a typed error with CODE and MESSAGE when supplied."
      ('ogent-tool-process-start-failed "process_start_failed")
      ('ogent-tool-process-unavailable "dependency_missing")
      ('ogent-tool-process-output-error "unsupported_output")
+     ('ogent-tool-results-output-error "unsupported_output")
      ('ogent-tool-process-search-failed "search_failed")
      (_ code))
    (if (consp err) (error-message-string err) (format "%s" err))))
@@ -133,7 +155,7 @@ PROMPT is reserved for the normal interactive gptel execution path."
       (let ((result
              (condition-case err
 		 (progn
-		   (setq spec (ogent-tool-spec-get name))
+		   (setq spec (ogent-tool-execution-snapshot (ogent-tool-spec-get name)))
 		   (unless spec
 		     (user-error "%s" (ogent-tool-contract-name-hint
 				       name (mapcar (lambda (item) (plist-get item :name))
@@ -189,8 +211,7 @@ PROMPT is reserved for the normal interactive gptel execution path."
          (callback (and async (pop values))) delivered)
     (when (and async (not (functionp callback)))
       (user-error "Async tool %s requires a callback first" name))
-    (cl-labels ((serialize (result)
-                  (concat (json-serialize result :null-object :json-null :false-object :json-false) "\n"))
+    (cl-labels ((serialize (result) (ogent-tool-execution-json result))
                 (deliver (result)
                   (unless delivered
                     (setq delivered t)
@@ -221,7 +242,7 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
   ;; Preserve the function's closure environment when copying metadata.
   (let ((name (plist-get spec :name))
         (format (or result-format ogent-tools-result-format))
-        (snapshot (plist-put (copy-tree spec) :function (plist-get spec :function))))
+        (snapshot (ogent-tool-execution-snapshot spec)))
     (lambda (&rest values)
       (if (eq format 'json)
           (ogent-tool-execution--json-call snapshot values)

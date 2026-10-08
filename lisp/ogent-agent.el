@@ -16,8 +16,7 @@
   "Return DATA as a plist or serialize it according to FORMAT."
   (pcase format
     ((or 'nil 'plist) data)
-    ('json (concat (json-serialize data :null-object :json-null
-                                   :false-object :json-false) "\n"))
+    ('json (ogent-tool-execution-json data))
     (_ (user-error "Use nil, (quote plist), or (quote json) for the agent report format"))))
 
 (defun ogent-agent-call (name args &optional format)
@@ -106,7 +105,7 @@ For example, batch a glob, search and file read in one local SDK round trip."
                    (user-error "Batch accepts only declared read-only tools; invoke %s individually through approval"
                                (plist-get spec :name))))
                (setq phase "invalid_arguments")
-               (push (cons spec call) prepared)))
+               (push (cons (ogent-tool-execution-snapshot spec) call) prepared)))
            (dolist (entry (nreverse prepared))
              (unless stopped
                (let* ((spec (car entry)) (call (cdr entry))

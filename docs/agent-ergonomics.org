@@ -27,6 +27,8 @@ characters from 1. The newline flag describes the original file; =content=
 joins the returned line fragments and does not append that final newline.
 Use positions to join partial lines rather than inserting newlines between
 every page. Empty files succeed with zero lines.
+Structured file paths must be Unicode; unsupported raw filename bytes return
+=unsupported_output=, including one terminal error callback in asynchronous JSON calls.
 
 * Discover and search in one batch
 
@@ -107,7 +109,7 @@ booleans distinguish explicit =:json-false= from an omitted optional =nil=.
 
 | Tool   | Position convention | Default page / bound                         |
 |--------+---------------------+----------------------------------------------|
-| read   | Line/column from 1  | 200 lines; at most ogent-tools-max-file-lines |
+| read   | Line/column from 1  | Lesser of 200 and ogent-tools-max-file-lines  |
 | files  | Offset from 0       | 100 files; at most 200 per page               |
 | search | Offset from 0       | 200 matches; at most 20 context lines         |
 | shell  | Positive seconds    | ogent-tools-shell-timeout, initially 120      |
@@ -133,6 +135,10 @@ for asynchronous work or =nil= when it finishes immediately. Cancel a returned
 process with =ogent-tool-process-cancel=. Legacy streaming callbacks and
 =ogent-tools-stream-callback= have their own event shapes; they do not use this
 one-result callback contract.
+
+Structured read results require Unicode filenames and supported text encoding.
+Unsupported raw bytes return =unsupported_output=; JSON serialization failures
+from extension values also deliver a typed error, including async callbacks.
 
 Shell =data= separates =stdout=, =stderr=, =exit_code=, =signal=, =timed_out=,
 =cancelled=, and =truncated=. Nonzero exits, timeouts, and cancellation return
