@@ -37,7 +37,7 @@ Return a terminal result with status done when no continuation remains."
   (ogent-agent--output nil format)
   (when (stringp result)
     (setq result (json-parse-string result :object-type 'plist
-                                   :null-object :json-null :false-object :json-false)))
+                                    :null-object :json-null :false-object :json-false)))
   (unless (and (proper-list-p result) (equal (plist-get result :contract_version) "1")
                (vectorp (plist-get result :next)))
     (user-error "Provide a contract_version 1 result from ogent-agent-call"))
@@ -178,7 +178,7 @@ For example, batch a glob, search and file read in one local SDK round trip."
           :examples (if-let ((args (plist-get spec :example-args)))
                         (let ((print-length nil) (print-level nil))
                           (vector (prin1-to-string (list 'ogent-agent-call (symbol-name name)
-                                                        (list 'quote args))))) [])
+                                                         (list 'quote args))))) [])
           :effects
           (vconcat
            (mapcar (lambda (effect)
@@ -228,7 +228,7 @@ and actual asynchronous support.  Never construct or execute a tool."
       (user-error "%s" (ogent-tool-contract-name-hint
                         name (mapcar (lambda (item) (plist-get item :name)) ogent-tool-registry))))
     (ogent-agent--output (list :contract_version "1" :tool (ogent-agent--tool spec)
-                              :result_schema "(ogent-agent-schema 'json)") format)))
+                               :result_schema "(ogent-agent-schema 'json)") format)))
 
 (defun ogent-agent-schema (&optional format)
   "Return the JSON Schema for version 1 tool-call results in FORMAT.

@@ -23,14 +23,14 @@ Include a typed error with CODE and MESSAGE when supplied."
   (list :contract_version "1" :tool (format "%s" name) :status status
         :data (or data :json-null)
         :error (if code (list :code code :message message
-                             :recovery
-                             (pcase code
-                               ("unknown_tool" "Call ogent-agent-capabilities to inspect available names and aliases")
-                               ("invalid_arguments" (format "Call (ogent-agent-describe %S) for the declared arguments" (format "%s" name)))
-                               ((or "denied" "approval_required") "Use the normal user approval/review flow; do not retry with relaxed policy")
-                               ("snapshot_changed" "Restart the original read/search call from its first page")
-                               ((or "command_failed" "timeout" "cancelled") "Inspect retained stdout/stderr and exit_code before deciding whether to retry")
-                               (_ "Inspect the error message and tool contract before retrying")))
+                              :recovery
+                              (pcase code
+				("unknown_tool" "Call ogent-agent-capabilities to inspect available names and aliases")
+				("invalid_arguments" (format "Call (ogent-agent-describe %S) for the declared arguments" (format "%s" name)))
+				((or "denied" "approval_required") "Use the normal user approval/review flow; do not retry with relaxed policy")
+				("snapshot_changed" "Restart the original read/search call from its first page")
+				((or "command_failed" "timeout" "cancelled") "Inspect retained stdout/stderr and exit_code before deciding whether to retry")
+				(_ "Inspect the error message and tool contract before retrying")))
                  :json-null)
         :next []))
 
@@ -131,51 +131,51 @@ PROMPT is reserved for the normal interactive gptel execution path."
                     (funcall callback result))))
       (let ((result
              (condition-case err
-        (progn
-          (setq spec (ogent-tool-spec-get name))
-          (unless spec
-            (user-error "%s" (ogent-tool-contract-name-hint
-                              name (mapcar (lambda (item) (plist-get item :name))
-                                           ogent-tool-registry))))
-          (setq name (plist-get spec :name)
-                phase "invalid_arguments"
-                schema (ogent-tool-execution--schema spec))
-          (let ((values (ogent-tool-contract-values schema args)))
-            (setq canonical
-                  (cl-loop for argument in (plist-get schema :args)
-                           for value in values
-                           unless (and (plist-get argument :optional) (null value))
-                           append (list (intern (concat ":" (plist-get argument :name))) value))))
-          (when (and (plist-get spec :async) (not callback))
-            (setq phase "async_required")
-            (user-error "This tool requires ogent-agent-call-async with a terminal callback"))
-          (pcase (ogent-tool-approval-check name canonical (not prompt))
-            ('required
-             (ogent-tool-execution-result
-              name "approval_required" nil "approval_required"
-              "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule"))
-            ('denied
-             (ogent-tool-execution-result
-              name "denied" nil "denied" "Current approval policy denies this tool; ask the user to review the decision"))
-            (_
-             (setq phase "unavailable")
-             (unless (equal spec (ogent-tool-spec-get name))
-               (user-error "Registry entry changed before execution; rediscover the tool and retry"))
-             (require 'ogent-ui-toolcalls)
-             (setq phase "execution_failed")
-             (cond
-              ((ogent-ui--is-edit-tool-p (symbol-name name))
-                 (progn
-                   (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
-                   (ogent-tool-execution-result name "proposed" (list :review_required t))))
-              ((and callback (or (plist-get spec :result-async-function)
-                                 (plist-get spec :async)))
-               (setq deferred t)
-               (ogent-tool-execution--start
-                spec canonical (ogent-tool-contract-values schema canonical) #'deliver))
-              (t
-               (let ((data (ogent-ui--execute-tool name canonical t)))
-                 (ogent-tool-execution--success spec canonical data)))))))
+		 (progn
+		   (setq spec (ogent-tool-spec-get name))
+		   (unless spec
+		     (user-error "%s" (ogent-tool-contract-name-hint
+				       name (mapcar (lambda (item) (plist-get item :name))
+						    ogent-tool-registry))))
+		   (setq name (plist-get spec :name)
+			 phase "invalid_arguments"
+			 schema (ogent-tool-execution--schema spec))
+		   (let ((values (ogent-tool-contract-values schema args)))
+		     (setq canonical
+			   (cl-loop for argument in (plist-get schema :args)
+				    for value in values
+				    unless (and (plist-get argument :optional) (null value))
+				    append (list (intern (concat ":" (plist-get argument :name))) value))))
+		   (when (and (plist-get spec :async) (not callback))
+		     (setq phase "async_required")
+		     (user-error "This tool requires ogent-agent-call-async with a terminal callback"))
+		   (pcase (ogent-tool-approval-check name canonical (not prompt))
+		     ('required
+		      (ogent-tool-execution-result
+		       name "approval_required" nil "approval_required"
+		       "This call needs user approval under the current effects policy; use the normal tool review flow or an existing explicit allow rule"))
+		     ('denied
+		      (ogent-tool-execution-result
+		       name "denied" nil "denied" "Current approval policy denies this tool; ask the user to review the decision"))
+		     (_
+		      (setq phase "unavailable")
+		      (unless (equal spec (ogent-tool-spec-get name))
+			(user-error "Registry entry changed before execution; rediscover the tool and retry"))
+		      (require 'ogent-ui-toolcalls)
+		      (setq phase "execution_failed")
+		      (cond
+		       ((ogent-ui--is-edit-tool-p (symbol-name name))
+			(progn
+			  (ogent-ui--show-diff-for-tool (symbol-name name) canonical)
+			  (ogent-tool-execution-result name "proposed" (list :review_required t))))
+		       ((and callback (or (plist-get spec :result-async-function)
+					  (plist-get spec :async)))
+			(setq deferred t)
+			(ogent-tool-execution--start
+			 spec canonical (ogent-tool-contract-values schema canonical) #'deliver))
+		       (t
+			(let ((data (ogent-ui--execute-tool name canonical t)))
+			  (ogent-tool-execution--success spec canonical data)))))))
                (error
                 (setq deferred nil)
                 (ogent-tool-execution--failure name phase err)))))
@@ -224,43 +224,43 @@ Capture RESULT-FORMAT, defaulting to `ogent-tools-result-format'."
     (lambda (&rest values)
       (if (eq format 'json)
           (ogent-tool-execution--json-call snapshot values)
-      (let* ((async (plist-get snapshot :async))
-             (callback (and async (pop values)))
-             args
-             (result
-              (condition-case err
-                  (progn
-                    (when (and async (not (functionp callback)))
-                      (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
-                    (setq values (ogent-tool-contract-validate-values snapshot values)
-                          args (cl-loop for arg in (plist-get snapshot :args)
-                                        for value in values
-                                        unless (and (plist-get arg :optional) (null value))
-                                        append (list (intern (concat ":" (plist-get arg :name)))
-                                                     value)))
-                    (cond
-		     ((not (equal snapshot (ogent-tool-spec-get name)))
-                      "Tool unavailable: its registry entry changed or was removed")
-		     ((not (eq (ogent-tool-approval-check name args) 'approved))
-                      "Tool execution denied by user")
-		     ((not (equal snapshot (ogent-tool-spec-get name)))
-                      "Tool unavailable: its registry entry changed during approval")
-		     (t
-                      (require 'ogent-ui-toolcalls)
+	(let* ((async (plist-get snapshot :async))
+               (callback (and async (pop values)))
+               args
+               (result
+		(condition-case err
+                    (progn
+                      (when (and async (not (functionp callback)))
+			(user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
+                      (setq values (ogent-tool-contract-validate-values snapshot values)
+                            args (cl-loop for arg in (plist-get snapshot :args)
+                                          for value in values
+                                          unless (and (plist-get arg :optional) (null value))
+                                          append (list (intern (concat ":" (plist-get arg :name)))
+                                                       value)))
                       (cond
-                       ((ogent-ui--is-edit-tool-p (symbol-name name))
-			(ogent-ui--show-diff-for-tool (symbol-name name) args)
-			"Edit proposed for user review")
-                       (async
-			(ogent-tool-execution--async snapshot args values callback)
-			:async)
-                       (t (ogent-ui--execute-tool name args))))))
-                (error (concat "Tool error: " (error-message-string err))))))
-        (when (and async (not (functionp callback)))
-          (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
-        (if async
-            (unless (eq result :async) (funcall callback result))
-          result))))))
+		       ((not (equal snapshot (ogent-tool-spec-get name)))
+			"Tool unavailable: its registry entry changed or was removed")
+		       ((not (eq (ogent-tool-approval-check name args) 'approved))
+			"Tool execution denied by user")
+		       ((not (equal snapshot (ogent-tool-spec-get name)))
+			"Tool unavailable: its registry entry changed during approval")
+		       (t
+			(require 'ogent-ui-toolcalls)
+			(cond
+			 ((ogent-ui--is-edit-tool-p (symbol-name name))
+			  (ogent-ui--show-diff-for-tool (symbol-name name) args)
+			  "Edit proposed for user review")
+			 (async
+			  (ogent-tool-execution--async snapshot args values callback)
+			  :async)
+			 (t (ogent-ui--execute-tool name args))))))
+                  (error (concat "Tool error: " (error-message-string err))))))
+          (when (and async (not (functionp callback)))
+            (user-error "Async tool %s requires a callback first; pass the result callback before arguments" name))
+          (if async
+              (unless (eq result :async) (funcall callback result))
+            result))))))
 
 (defun ogent-tool-execution--async (spec args values callback)
   "Execute async SPEC with ARGS, positional VALUES and gptel CALLBACK."

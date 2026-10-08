@@ -266,57 +266,57 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
       (progn
         (ogent-tool-results-format nil format)
         (ogent-tool-results-format (ogent-tool-results-read file-path offset limit) format))
-  (unless (and (stringp file-path) (not (string-empty-p file-path)))
-    (user-error "Invalid read_file file_path; use a non-empty string or glob to find a file"))
-  (let* ((path (ogent-tools--resolve-path file-path))
-         (offset (or offset 1))
-         (limit (or limit ogent-tools-max-file-lines)))
-    (unless (and (integerp offset) (> offset 0))
-      (user-error "Invalid read_file offset; use a positive line number, such as offset=1"))
-    (unless (and (integerp limit) (> limit 0))
-      (user-error "Invalid read_file limit; use a positive integer, such as limit=200"))
-    (unless (file-exists-p path)
-      (user-error "File not found: %s; use glob with path %s to locate it"
-                  path (file-name-directory path)))
-    (unless (file-regular-p path)
-      (user-error "Invalid read_file file_path: %s is not a regular file; use glob to list files" path))
-    (unless (file-readable-p path)
-      (user-error "File not readable: %s; choose a readable file_path" path))
-    ;; Check for binary
-    (when (with-temp-buffer
-            (insert-file-contents-literally path nil 0 1000)
-            (goto-char (point-min))
-            (search-forward "\0" nil t))
-      (user-error "Binary file detected: %s; choose a text file_path or a format-aware reader" path))
-    ;; Read with line numbers
-    (with-temp-buffer
-      (insert-file-contents path)
-      (let* ((content (buffer-string))
-             (lines (unless (string-empty-p content)
-                      (split-string content "\n")))
-             (result nil)
-             (line-num 1))
-        (when (string-suffix-p "\n" content) (setq lines (butlast lines)))
-        (when (and lines (> offset (length lines)))
-          (user-error "Invalid read_file offset %d exceeds %d lines in %s; use offset=1"
-                      offset (length lines) path))
-        (dolist (line lines)
-          (when (and (>= line-num offset)
-                     (< (length result) limit))
-            ;; Truncate very long lines
-            (let ((truncated (if (> (length line) 2000)
-                                 (format "%s... [line %d truncated to 2000 characters]"
-                                         (substring line 0 2000) line-num)
-                               line)))
-              (push (format "%6d\t%s" line-num truncated) result)))
-          (cl-incf line-num))
-        (let ((next (+ offset (length result)))
-              (page (string-join (nreverse result) "\n")))
-          (concat
-           (if lines page "(empty file)")
-           (when (<= next (length lines))
-             (format "\n\n[More lines available. Next call: read_file(file_path=%S, offset=%d, limit=%d)]"
-                     file-path next limit)))))))))
+    (unless (and (stringp file-path) (not (string-empty-p file-path)))
+      (user-error "Invalid read_file file_path; use a non-empty string or glob to find a file"))
+    (let* ((path (ogent-tools--resolve-path file-path))
+           (offset (or offset 1))
+           (limit (or limit ogent-tools-max-file-lines)))
+      (unless (and (integerp offset) (> offset 0))
+	(user-error "Invalid read_file offset; use a positive line number, such as offset=1"))
+      (unless (and (integerp limit) (> limit 0))
+	(user-error "Invalid read_file limit; use a positive integer, such as limit=200"))
+      (unless (file-exists-p path)
+	(user-error "File not found: %s; use glob with path %s to locate it"
+                    path (file-name-directory path)))
+      (unless (file-regular-p path)
+	(user-error "Invalid read_file file_path: %s is not a regular file; use glob to list files" path))
+      (unless (file-readable-p path)
+	(user-error "File not readable: %s; choose a readable file_path" path))
+      ;; Check for binary
+      (when (with-temp-buffer
+              (insert-file-contents-literally path nil 0 1000)
+              (goto-char (point-min))
+              (search-forward "\0" nil t))
+	(user-error "Binary file detected: %s; choose a text file_path or a format-aware reader" path))
+      ;; Read with line numbers
+      (with-temp-buffer
+	(insert-file-contents path)
+	(let* ((content (buffer-string))
+               (lines (unless (string-empty-p content)
+			(split-string content "\n")))
+               (result nil)
+               (line-num 1))
+          (when (string-suffix-p "\n" content) (setq lines (butlast lines)))
+          (when (and lines (> offset (length lines)))
+            (user-error "Invalid read_file offset %d exceeds %d lines in %s; use offset=1"
+			offset (length lines) path))
+          (dolist (line lines)
+            (when (and (>= line-num offset)
+                       (< (length result) limit))
+              ;; Truncate very long lines
+              (let ((truncated (if (> (length line) 2000)
+                                   (format "%s... [line %d truncated to 2000 characters]"
+                                           (substring line 0 2000) line-num)
+				 line)))
+		(push (format "%6d\t%s" line-num truncated) result)))
+            (cl-incf line-num))
+          (let ((next (+ offset (length result)))
+		(page (string-join (nreverse result) "\n")))
+            (concat
+             (if lines page "(empty file)")
+             (when (<= next (length lines))
+               (format "\n\n[More lines available. Next call: read_file(file_path=%S, offset=%d, limit=%d)]"
+                       file-path next limit)))))))))
 
 ;;; Tool: Glob (File Search)
 
@@ -482,87 +482,87 @@ and page LIMIT, including exact paths, positions, context and counts."
         (ogent-tool-results-format nil format)
         (ogent-tool-results-format
          (ogent-tool-process-grep pattern path glob-filter context-lines offset limit) format))
-  (let* ((pattern (ogent-tools--grep-pattern pattern))
-         (target-info (ogent-tools--grep-target path))
-         (dir (plist-get target-info :directory))
-         (target (plist-get target-info :target))
-         (context (or context-lines 0))
-         (cmd (ogent-tools--grep-command pattern target glob-filter context))
-         (default-directory dir)
-         (output-buffer (generate-new-buffer " *ogent-grep*"))
-         (stderr-buffer (generate-new-buffer " *ogent-grep-stderr*"))
-         output-chunks
-         exit-code output
-         reported-error)
-    (ogent-tools--stream-start 'grep
-                               (list :pattern pattern
-                                     :directory dir
-                                     :target target
-                                     :filter glob-filter))
-    (condition-case err
-        (progn
-          (unwind-protect
-              (let ((proc (make-process
-                           :name "ogent-grep"
-                           :command (list shell-file-name
-                                          shell-command-switch
-                                          cmd)
-                           :buffer output-buffer
-                           :stderr stderr-buffer
-                           :sentinel #'ignore
-                           :noquery t
-                           :filter (lambda (_proc chunk)
-                                     (push chunk output-chunks)
-                                     (ogent-tools--append-to-buffer-if-live
-                                      output-buffer chunk)
-                                     (ogent-tools--stream-output 'grep
-                                                                 'stdout
-                                                                 chunk)))))
-                (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
-                  (set-process-query-on-exit-flag stderr-proc nil)
-                  (set-process-sentinel stderr-proc #'ignore))
-                (let ((deadline (+ (float-time) ogent-tools-grep-timeout)))
-                  (while (and (process-live-p proc)
-                              (< (float-time) deadline))
-                    (accept-process-output proc 0.1))
-                  (when (process-live-p proc)
-                    (kill-process proc)
-                    (setq reported-error t)
-                    (ogent-tools--stream-error
-                     'grep
-                     (format "Timeout after %s"
+    (let* ((pattern (ogent-tools--grep-pattern pattern))
+           (target-info (ogent-tools--grep-target path))
+           (dir (plist-get target-info :directory))
+           (target (plist-get target-info :target))
+           (context (or context-lines 0))
+           (cmd (ogent-tools--grep-command pattern target glob-filter context))
+           (default-directory dir)
+           (output-buffer (generate-new-buffer " *ogent-grep*"))
+           (stderr-buffer (generate-new-buffer " *ogent-grep-stderr*"))
+           output-chunks
+           exit-code output
+           reported-error)
+      (ogent-tools--stream-start 'grep
+				 (list :pattern pattern
+                                       :directory dir
+                                       :target target
+                                       :filter glob-filter))
+      (condition-case err
+          (progn
+            (unwind-protect
+		(let ((proc (make-process
+                             :name "ogent-grep"
+                             :command (list shell-file-name
+                                            shell-command-switch
+                                            cmd)
+                             :buffer output-buffer
+                             :stderr stderr-buffer
+                             :sentinel #'ignore
+                             :noquery t
+                             :filter (lambda (_proc chunk)
+                                       (push chunk output-chunks)
+                                       (ogent-tools--append-to-buffer-if-live
+					output-buffer chunk)
+                                       (ogent-tools--stream-output 'grep
+                                                                   'stdout
+                                                                   chunk)))))
+                  (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+                    (set-process-query-on-exit-flag stderr-proc nil)
+                    (set-process-sentinel stderr-proc #'ignore))
+                  (let ((deadline (+ (float-time) ogent-tools-grep-timeout)))
+                    (while (and (process-live-p proc)
+				(< (float-time) deadline))
+                      (accept-process-output proc 0.1))
+                    (when (process-live-p proc)
+                      (kill-process proc)
+                      (setq reported-error t)
+                      (ogent-tools--stream-error
+                       'grep
+                       (format "Timeout after %s"
+                               (ogent-tools--format-timeout
+				ogent-tools-grep-timeout)))
+                      (error "grep timed out after %s"
                              (ogent-tools--format-timeout
-                              ogent-tools-grep-timeout)))
-                    (error "grep timed out after %s"
-                           (ogent-tools--format-timeout
-                            ogent-tools-grep-timeout))))
-                (while (accept-process-output proc 0.01))
-                (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
-                  (while (accept-process-output stderr-proc 0.01)))
-                (set-process-filter proc nil)
-                (setq exit-code (process-exit-status proc))
-                (setq output (apply #'concat (nreverse output-chunks)))
-                (unless (memq exit-code '(0 1))
-                  (user-error "%s" (ogent-tools--grep-failure
-                                    exit-code
-                                    (with-current-buffer stderr-buffer
-                                      (buffer-string))))))
-            (ogent-tools--kill-buffer-if-live output-buffer)
-            (ogent-tools--kill-buffer-if-live stderr-buffer))
-          (ogent-tools--stream-done 'grep exit-code)
-          (ogent-tools--truncate-output
-           (if (string-empty-p output)
-               "No matches found"
-             (format "%s\n\n[%d result lines]"
-                     output
-                     (length (split-string output "\n" t))))
-           ogent-tools-max-output-chars))
-      (error
-       (ogent-tools--kill-buffer-if-live output-buffer)
-       (ogent-tools--kill-buffer-if-live stderr-buffer)
-       (unless reported-error
-         (ogent-tools--stream-error 'grep (error-message-string err)))
-       (signal (car err) (cdr err)))))))
+                              ogent-tools-grep-timeout))))
+                  (while (accept-process-output proc 0.01))
+                  (when-let ((stderr-proc (get-buffer-process stderr-buffer)))
+                    (while (accept-process-output stderr-proc 0.01)))
+                  (set-process-filter proc nil)
+                  (setq exit-code (process-exit-status proc))
+                  (setq output (apply #'concat (nreverse output-chunks)))
+                  (unless (memq exit-code '(0 1))
+                    (user-error "%s" (ogent-tools--grep-failure
+                                      exit-code
+                                      (with-current-buffer stderr-buffer
+					(buffer-string))))))
+              (ogent-tools--kill-buffer-if-live output-buffer)
+              (ogent-tools--kill-buffer-if-live stderr-buffer))
+            (ogent-tools--stream-done 'grep exit-code)
+            (ogent-tools--truncate-output
+             (if (string-empty-p output)
+		 "No matches found"
+               (format "%s\n\n[%d result lines]"
+                       output
+                       (length (split-string output "\n" t))))
+             ogent-tools-max-output-chars))
+	(error
+	 (ogent-tools--kill-buffer-if-live output-buffer)
+	 (ogent-tools--kill-buffer-if-live stderr-buffer)
+	 (unless reported-error
+           (ogent-tools--stream-error 'grep (error-message-string err)))
+	 (signal (car err) (cdr err)))))))
 
 (defun ogent-tool--grep-async (pattern &optional path glob-filter context-lines callback)
   "Search for PATTERN asynchronously with streaming.
@@ -721,92 +721,92 @@ timeout, cancellation and truncation fields, retaining partial output."
         (ogent-tool-results-format nil format)
         (ogent-tool-results-format
          (ogent-tool-process-bash command working-directory timeout) format))
-  (ogent-tools--bash-validate command working-directory
-                              (or timeout ogent-tools-shell-timeout))
-  (let* ((default-directory (if working-directory
-                                (ogent-tools--resolve-path working-directory)
-                              (ogent-tools--project-root)))
-         (timeout-secs (or timeout ogent-tools-shell-timeout))
-         (output-buffer (generate-new-buffer " *ogent-bash*"))
-         (stderr-buffer (generate-new-buffer " *ogent-bash-stderr*"))
-         exit-code stdout-text stderr-text)
-    ;; Signal start
-    (ogent-tools--stream-start 'bash
-                               (list :command command
-                                     :directory default-directory))
-    (unwind-protect
-        (progn
-          ;; Use make-process for separate stdout/stderr handling
-          (let* ((proc (make-process
-                        :name "ogent-bash"
-                        :command (list shell-file-name
-                                       shell-command-switch
-                                       command)
-                        :buffer output-buffer
-                        :stderr stderr-buffer
-                        :sentinel #'ignore
-                        :noquery t
-                        :filter (lambda (_proc output)
-                                  (ogent-tools--append-to-buffer-if-live
-                                   output-buffer output)
-                                  (ogent-tools--stream-output 'bash 'stdout output))))
-                 ;; Set up stderr filter
-                 (stderr-proc (get-buffer-process stderr-buffer)))
-            ;; Don't query on stderr process exit either
-            (when stderr-proc
-              (set-process-query-on-exit-flag stderr-proc nil)
-              (set-process-sentinel stderr-proc #'ignore))
-            (when stderr-proc
-              (set-process-filter
-               stderr-proc
-               (lambda (_proc output)
-                 (ogent-tools--append-to-buffer-if-live stderr-buffer output)
-                 (ogent-tools--stream-output 'bash 'stderr output))))
-            ;; Wait for completion with timeout
-            (let ((deadline (+ (float-time) timeout-secs)))
-              (while (and (process-live-p proc)
-                          (< (float-time) deadline))
-                (accept-process-output proc 0.1))
-              ;; Check for timeout
-              (when (process-live-p proc)
-                (kill-process proc)
-                (ogent-tools--stream-error 'bash
-                                           (format "Timeout after %s"
-                                                   (ogent-tools--format-timeout
-                                                    timeout-secs)))
-                (error "Command timed out after %s"
-                       (ogent-tools--format-timeout timeout-secs))))
-            ;; Emacs 29 can report process exit before delivering final pipe
-            ;; data to filters.
-            (while (accept-process-output proc 0.01))
-            (when stderr-proc
-              (while (accept-process-output stderr-proc 0.01)))
-            (setq exit-code (process-exit-status proc)))
-          ;; Collect output
-          (setq stdout-text (if (buffer-live-p output-buffer)
-                                (with-current-buffer output-buffer
-                                  (buffer-string))
-                              ""))
-          (setq stderr-text (if (buffer-live-p stderr-buffer)
-                                (with-current-buffer stderr-buffer
-                                  (buffer-string))
-                              "")))
-      ;; Cleanup
-      (ogent-tools--kill-buffer-if-live output-buffer)
-      (ogent-tools--kill-buffer-if-live stderr-buffer))
-    ;; Signal completion
-    (ogent-tools--stream-done 'bash exit-code)
-    ;; Format result
-    (concat
-     (ogent-tools--truncate-output
+    (ogent-tools--bash-validate command working-directory
+				(or timeout ogent-tools-shell-timeout))
+    (let* ((default-directory (if working-directory
+                                  (ogent-tools--resolve-path working-directory)
+				(ogent-tools--project-root)))
+           (timeout-secs (or timeout ogent-tools-shell-timeout))
+           (output-buffer (generate-new-buffer " *ogent-bash*"))
+           (stderr-buffer (generate-new-buffer " *ogent-bash-stderr*"))
+           exit-code stdout-text stderr-text)
+      ;; Signal start
+      (ogent-tools--stream-start 'bash
+				 (list :command command
+                                       :directory default-directory))
+      (unwind-protect
+          (progn
+            ;; Use make-process for separate stdout/stderr handling
+            (let* ((proc (make-process
+                          :name "ogent-bash"
+                          :command (list shell-file-name
+					 shell-command-switch
+					 command)
+                          :buffer output-buffer
+                          :stderr stderr-buffer
+                          :sentinel #'ignore
+                          :noquery t
+                          :filter (lambda (_proc output)
+                                    (ogent-tools--append-to-buffer-if-live
+                                     output-buffer output)
+                                    (ogent-tools--stream-output 'bash 'stdout output))))
+                   ;; Set up stderr filter
+                   (stderr-proc (get-buffer-process stderr-buffer)))
+              ;; Don't query on stderr process exit either
+              (when stderr-proc
+		(set-process-query-on-exit-flag stderr-proc nil)
+		(set-process-sentinel stderr-proc #'ignore))
+              (when stderr-proc
+		(set-process-filter
+		 stderr-proc
+		 (lambda (_proc output)
+                   (ogent-tools--append-to-buffer-if-live stderr-buffer output)
+                   (ogent-tools--stream-output 'bash 'stderr output))))
+              ;; Wait for completion with timeout
+              (let ((deadline (+ (float-time) timeout-secs)))
+		(while (and (process-live-p proc)
+                            (< (float-time) deadline))
+                  (accept-process-output proc 0.1))
+		;; Check for timeout
+		(when (process-live-p proc)
+                  (kill-process proc)
+                  (ogent-tools--stream-error 'bash
+                                             (format "Timeout after %s"
+                                                     (ogent-tools--format-timeout
+                                                      timeout-secs)))
+                  (error "Command timed out after %s"
+			 (ogent-tools--format-timeout timeout-secs))))
+              ;; Emacs 29 can report process exit before delivering final pipe
+              ;; data to filters.
+              (while (accept-process-output proc 0.01))
+              (when stderr-proc
+		(while (accept-process-output stderr-proc 0.01)))
+              (setq exit-code (process-exit-status proc)))
+            ;; Collect output
+            (setq stdout-text (if (buffer-live-p output-buffer)
+                                  (with-current-buffer output-buffer
+                                    (buffer-string))
+				""))
+            (setq stderr-text (if (buffer-live-p stderr-buffer)
+                                  (with-current-buffer stderr-buffer
+                                    (buffer-string))
+				"")))
+	;; Cleanup
+	(ogent-tools--kill-buffer-if-live output-buffer)
+	(ogent-tools--kill-buffer-if-live stderr-buffer))
+      ;; Signal completion
+      (ogent-tools--stream-done 'bash exit-code)
+      ;; Format result
       (concat
-       (if (string-empty-p stdout-text)
-           "(no stdout)"
-         stdout-text)
-       (unless (string-empty-p stderr-text)
-         (concat "\n\n--- stderr ---\n" stderr-text)))
-      ogent-tools-max-output-chars)
-     (format "\n\nExit code: %s" exit-code)))))
+       (ogent-tools--truncate-output
+	(concat
+	 (if (string-empty-p stdout-text)
+             "(no stdout)"
+           stdout-text)
+	 (unless (string-empty-p stderr-text)
+           (concat "\n\n--- stderr ---\n" stderr-text)))
+	ogent-tools-max-output-chars)
+       (format "\n\nExit code: %s" exit-code)))))
 
 (defun ogent-tool--bash-async (command &optional working-directory timeout callback)
   "Execute shell COMMAND asynchronously with streaming output.
