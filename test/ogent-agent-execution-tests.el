@@ -83,6 +83,14 @@
     (should (equal (plist-get (ogent-tool-results-glob "*.txt" root) :files) []))
     (should-error (ogent-tool-results-glob "*.el" root 2) :type 'user-error)))
 
+(ert-deftest ogent-agent-execution-glob-star-stays-in-component ()
+  "A single glob star never consumes another directory component."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (direct (ogent-agent-execution-tests--file root "foo/direct.el" "")))
+    (ogent-agent-execution-tests--file root "foo/deep/nested.el" "")
+    (should (equal (ogent-tools--glob-files "**/foo/*.el" root) (list direct)))
+    (should-not (ogent-tools--glob-match-p "**/foo/[ -~]*.el" "foo/deep/nested.el"))))
+
 (ert-deftest ogent-agent-execution-next-freezes-path-and-follows-json ()
   "Continuation calls retain absolute targets when the working root changes."
   (let* ((root (ogent-test--provision-store-directory 'tools))
@@ -241,6 +249,41 @@
       (should done)
       (should (= (length failures) 2))
       (should (cl-every #'stringp failures)))))
+
+(ert-deftest ogent-agent-execution-batch-composes-read-tools ()
+  "A single batch returns ordered typed results for independent read calls."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "data.txt" "needle\n"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (calls (list (list :tool "files" :args (list :pattern "*.txt" :path root))
+                      (list :tool "search" :args (list :pattern "needle" :path root))
+                      (list :tool "read" :args (list :file_path file))))
+         (batch (json-parse-string (ogent-agent-batch calls 'json) :object-type 'plist)))
+    (should (equal (plist-get batch :status) "ok"))
+    (should (= (length (plist-get batch :results)) 3))
+    (should (equal (plist-get (aref (plist-get batch :results) 2) :tool) "read-file"))))
+
+(ert-deftest ogent-agent-execution-batch-preflight-prevents-unsafe-prefix ()
+  "An unsafe or invalid trailing call prevents any batch execution."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool-require-approval nil) (starts 0))
+    (cl-letf (((symbol-function 'ogent-ledger-record-tool-start)
+               (lambda (&rest _) (cl-incf starts))))
+      (dolist (tail '((:tool "shell" :args (:command "touch marker"))
+                      (:tool "read" :args (:file_path 2))))
+        (let ((result (ogent-agent-batch (list '(:tool "files" :args (:pattern "*.el")) tail))))
+          (should (equal (plist-get result :status) "error"))
+          (should (= starts 0)))))))
+
+(ert-deftest ogent-agent-execution-batch-continues-or-stops ()
+  "Read failures are individually preserved, with explicit fail-fast counts."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (calls (list (list :tool "read" :args (list :file_path (expand-file-name "missing" root)))
+                      (list :tool "files" :args (list :pattern "*.el" :path root)))))
+    (should (= (plist-get (ogent-agent-batch calls) :completed) 2))
+    (should (= (plist-get (ogent-agent-batch calls nil t) :completed) 1))
+    (should (equal (plist-get (ogent-agent-batch []) :results) []))))
 
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."

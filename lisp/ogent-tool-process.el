@@ -58,6 +58,14 @@ Return non-nil when PROCESS had an active cancellation handler."
     (funcall cancel)
     t))
 
+(defun ogent-tool-process--drain (process deadline)
+  "Drain PROCESS until DEADLINE, returning nil when the drain budget expires."
+  (let ((iterations 0) (more t))
+    (while (and process (< iterations 128) (< (float-time) deadline)
+                (setq more (accept-process-output process 0.005)))
+      (cl-incf iterations))
+    (or (null process) (not more))))
+
 (defun ogent-tool-process--run (command directory timeout callback
 					&optional stdout-handler input cleanup)
   "Run COMMAND in DIRECTORY with TIMEOUT and terminal CALLBACK.
@@ -93,13 +101,15 @@ Feed INPUT to stdin when non-nil.  Invoke CLEANUP on every terminal path."
            (unless (or completed finishing)
              (setq finishing t)
              (when timer (cancel-timer timer))
-             (when (and process (eq (process-status process) 'signal))
-               (ogent-tool-process--stop process))
-             (when process
-               (while (accept-process-output process 0.01)))
-             ;; Drain the separate stderr pipe before marking the result final.
-             (while (and stderr-process
-                         (accept-process-output stderr-process 0.01)))
+             ;; A shell may exit while descendants still own its output pipes.
+             ;; End that owned group before draining, then bound the drain even
+             ;; on platforms where process-group signaling is unavailable.
+             (when process (ogent-tool-process--stop process))
+             (let ((deadline (+ (float-time) 0.05)))
+               (let ((stdout-drained (ogent-tool-process--drain process deadline))
+                     (stderr-drained (ogent-tool-process--drain stderr-process deadline)))
+                 (unless (and stdout-drained stderr-drained)
+                   (when process (process-put process 'ogent-drain-incomplete t)))))
              (setq completed t)
              (when process
                (process-put process 'ogent-cancel nil)
@@ -128,7 +138,10 @@ Feed INPUT to stdin when non-nil.  Invoke CLEANUP on every terminal path."
                          :timed_out (if timed-out t :json-false)
                          :cancelled (if cancelled t :json-false)
                          :encoding_loss (if encoding-loss t :json-false)
-                         :truncated (if (process-get process 'ogent-truncated)
+                         :drain_incomplete (if (process-get process 'ogent-drain-incomplete)
+                                               t :json-false)
+                         :truncated (if (or (process-get process 'ogent-truncated)
+                                            (process-get process 'ogent-drain-incomplete))
                                         t :json-false)))
               failure process))))
       (condition-case err
@@ -424,6 +437,11 @@ Count all matching lines, retaining only the requested page and bounded text."
                         (ogent-tools--grep-failure
                          (plist-get process-data :exit_code)
                          (plist-get process-data :stderr)))))
+                ((eq (plist-get process-data :drain_incomplete) t)
+                 (ogent-tool-process--callback
+                  callback nil
+                  '(ogent-tool-process-output-error
+                    "Search output could not be fully drained; narrow path or glob_filter and retry")))
                 (t
                  (ogent-tool-process--callback
                   callback
@@ -448,33 +466,38 @@ Count all matching lines, retaining only the requested page and bounded text."
             (setq input (mapconcat #'identity
                                    (ogent-tool-process--grep-files target glob-filter)
                                    "\0"))
-            (unless (string-empty-p input) (setq input (concat input "\0")))
-            (setq temporary-file (make-temp-file "ogent-grep-files-"))
-            (condition-case write-error
-                (let ((coding-system-for-write 'utf-8-unix))
-                  (with-temp-file temporary-file (insert input)))
-              (error
-               (when (file-exists-p temporary-file) (delete-file temporary-file))
-               (signal (car write-error) (cdr write-error))))
-            (setq command
-                  (list shell-file-name shell-command-switch
-                        (concat
-                         (mapconcat
-                          #'shell-quote-argument
-                          (list xargs "-0" "-r" "-n" "128"
-                                shell-file-name shell-command-switch
-                                (concat
-                                 (mapconcat
-                                  #'shell-quote-argument
-                                  (list grep "-HnZE" "--color=never"
-                                        "--binary-files=without-match"
-                                        "--no-group-separator" "-C"
-                                        (number-to-string context) "--" pattern)
-                                  " ")
-                                 " \"$@\"; code=$?; test \"$code\" -le 1")
-                                "ogent-grep")
-                          " ")
-                         " < " (shell-quote-argument temporary-file)))))
+            (if (string-empty-p input)
+                ;; Validate the regex even when the candidate set is empty.
+                ;; GNU grep compiles PATTERN before its successful no-match
+                ;; exit on the null device; xargs -r would skip compilation.
+                (setq command (list grep "-E" "--" pattern null-device))
+              (setq input (concat input "\0"))
+              (setq temporary-file (make-temp-file "ogent-grep-files-"))
+              (condition-case write-error
+                  (let ((coding-system-for-write 'utf-8-unix))
+                    (with-temp-file temporary-file (insert input)))
+                (error
+                 (when (file-exists-p temporary-file) (delete-file temporary-file))
+                 (signal (car write-error) (cdr write-error))))
+              (setq command
+                    (list shell-file-name shell-command-switch
+                          (concat
+                           (mapconcat
+                            #'shell-quote-argument
+                            (list xargs "-0" "-r" "-n" "128"
+                                  shell-file-name shell-command-switch
+                                  (concat
+                                   (mapconcat
+                                    #'shell-quote-argument
+                                    (list grep "-HnZE" "--color=never"
+                                          "--binary-files=without-match"
+                                          "--no-group-separator" "-C"
+                                          (number-to-string context) "--" pattern)
+                                    " ")
+                                   " \"$@\"; code=$?; test \"$code\" -le 1")
+                                  "ogent-grep")
+                            " ")
+                           " < " (shell-quote-argument temporary-file))))))
           (ogent-tool-process--run
            command directory ogent-tools-grep-timeout #'finish #'consume nil
            (lambda ()

@@ -323,10 +323,33 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
         (let ((part (nth index parts)))
           (if (equal part "**")
               (if (= index last) ".*" "\\(?:[^/]+/\\)*")
-            (concat (substring (wildcard-to-regexp part) 2 -2)
+            (concat (replace-regexp-in-string
+                     (regexp-quote "[^") "[^/"
+                     (substring (wildcard-to-regexp part) 2 -2) t t)
                     (unless (= index last) "/")))))
       (number-sequence 0 last) "")
      "\\'")))
+
+(defun ogent-tools--glob-match-p (pattern path)
+  "Return non-nil when PATH matches PATTERN by complete path components."
+  (let ((parts (vconcat (split-string pattern "/")))
+        (names (vconcat (split-string path "/")))
+        (memo (make-hash-table :test #'equal)))
+    (cl-labels
+        ((match (p n)
+           (let* ((key (cons p n))
+                  (cached (gethash key memo 'missing)))
+             (if (not (eq cached 'missing)) cached
+               (let ((value
+                      (cond ((= p (length parts)) (= n (length names)))
+                            ((equal (aref parts p) "**")
+                             (or (match (1+ p) n)
+                                 (and (< n (length names)) (match p (1+ n)))))
+                            (t (and (< n (length names))
+                                    (string-match-p (wildcard-to-regexp (aref parts p)) (aref names n))
+                                    (match (1+ p) (1+ n)))))))
+                 (puthash key value memo))))))
+      (match 0 0))))
 
 (defun ogent-tools--glob-files (pattern path)
   "Return all regular files matching PATTERN under PATH, newest first."
@@ -345,12 +368,11 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
               (let* ((absolute (expand-file-name pattern dir))
                      (first-star (string-match "[*?\\[]" absolute))
                      (base (file-name-directory (substring absolute 0 first-star)))
-                     (regexp (ogent-tools--glob-regexp
-                              (file-relative-name absolute base))))
+                     (relative-pattern (file-relative-name absolute base)))
                 (unless (file-directory-p base)
                   (user-error "Invalid glob path: %s is not a directory; use an existing path" base))
                 (seq-filter
-                 (lambda (file) (string-match-p regexp (file-relative-name file base)))
+                 (lambda (file) (ogent-tools--glob-match-p relative-pattern (file-relative-name file base)))
                  (directory-files-recursively base ".")))
             (file-expand-wildcards pattern t)))
     (setq files (seq-filter #'file-regular-p files))

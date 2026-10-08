@@ -26,9 +26,9 @@
     (with-temp-file file (insert text))
     file))
 
-(defun ogent-tool-process-tests--wait (predicate)
-  "Pump process events until PREDICATE succeeds, for at most five seconds."
-  (let ((deadline (+ (float-time) 5)))
+(defun ogent-tool-process-tests--wait (predicate &optional timeout)
+  "Pump events until PREDICATE succeeds within TIMEOUT, default five seconds."
+  (let ((deadline (+ (float-time) (or timeout 5))))
     (while (and (not (funcall predicate)) (< (float-time) deadline))
       (accept-process-output nil 0.02))
     (funcall predicate)))
@@ -159,6 +159,39 @@
                             (equal (cdr (assq 'state (process-attributes child)))
                                    "Z")))))))
        (ogent-tool-process-cancel process)))))
+
+(ert-deftest ogent-tool-process-bash-terminal-exit-bounds-descendant-drain ()
+  "Finish promptly when an exited shell leaves a descendant flooding stderr."
+  (skip-unless (eq system-type 'gnu/linux))
+  (ogent-tool-process-tests--with-directory
+   (let* ((start (float-time))
+          (ogent-tools-max-output-chars 1000)
+          ;; The independent two-second guard keeps this regression bounded
+          ;; even when evaluated against the original broken implementation.
+          (result (ogent-tool-process-bash
+                   (concat
+                     ;; Deliver stdout before the deliberately tiny shared
+                     ;; budget can be consumed by the flooding stderr stream.
+                     "printf parent; sleep 0.02; "
+                    "(while :; do printf x >&2; done) & child=$!; "
+                    "printf '%s' \"$child\" > child.pid; "
+                    "(sleep 2; kill -KILL \"$child\" 2>/dev/null) & "
+                     "exit 0")
+                   nil 0.2))
+          (child (string-to-number
+                  (with-temp-buffer
+                    (insert-file-contents (expand-file-name "child.pid" directory))
+                    (buffer-string)))))
+     (should (< (- (float-time) start) 0.75))
+     (should (= (plist-get result :exit_code) 0))
+     (should (equal (plist-get result :stdout) "parent"))
+     (should (<= (+ (length (plist-get result :stdout))
+                    (length (plist-get result :stderr))) 1000))
+     (should (ogent-tool-process-tests--wait
+              (lambda ()
+                (or (null (process-attributes child))
+                    (equal (cdr (assq 'state (process-attributes child))) "Z")))
+              0.25)))))
 
 (ert-deftest ogent-tool-process-bash-callback-error-cleans-up ()
   "Clean up timers and registration even when a terminal callback signals."
@@ -297,6 +330,22 @@
    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
    (let ((failure (should-error (ogent-tool-process-grep "[") :type 'user-error)))
      (should (string-match-p "pattern syntax" (error-message-string failure))))))
+
+(ert-deftest ogent-tool-process-grep-empty-gnu-candidates-validate-regex ()
+  "Validate GNU grep regex syntax even when a directory or filter yields no files."
+  (let ((find-executable (symbol-function 'executable-find)))
+    (ogent-tool-process-tests--with-directory
+     (cl-letf (((symbol-function 'executable-find)
+                (lambda (name &optional remote)
+                  (unless (equal name "rg")
+                    (funcall find-executable name remote)))))
+       (should-error (ogent-tool-process-grep "[")
+                     :type 'ogent-tool-process-search-failed)
+       (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+       (should-error (ogent-tool-process-grep "[" nil "*.el")
+                     :type 'ogent-tool-process-search-failed)
+       (should (= (plist-get (ogent-tool-process-grep "needle" nil "*.el")
+                             :total_matches) 0))))))
 
 (ert-deftest ogent-tool-process-grep-pattern-is-literal-process-argument ()
   "Keep shell metacharacters in a search pattern from executing commands."

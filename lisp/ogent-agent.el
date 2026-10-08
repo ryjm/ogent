@@ -46,7 +46,8 @@ Return a terminal result with status done when no continuation remains."
          (name (plist-get result :tool))
          (page
           (if (null next)
-              (ogent-tool-execution-result name "done")
+              (if (equal (plist-get result :status) "ok")
+                  (ogent-tool-execution-result name "done") result)
             (let ((expected (plist-get next :snapshot)))
               (unless (and (equal name (plist-get next :tool))
                            (stringp expected)
@@ -72,6 +73,59 @@ Cancel a returned process with `ogent-tool-process-cancel'."
     (user-error "Provide a callback function accepting one terminal result"))
   (ogent-tool-execution-call
    name args (lambda (result) (funcall callback (ogent-agent--output result format)))))
+
+(defun ogent-agent-batch (calls &optional format fail-fast)
+  "Execute up to 20 explicitly read-only CALLS and return results in FORMAT.
+CALLS is a list or vector of plists containing :tool and :args.  Preflight the
+entire batch before running any call.  Reject writes, shell commands and tools
+without declared read effects.  Continue after errors unless FAIL-FAST is t.
+For example, batch a glob, search and file read in one local SDK round trip."
+  (ogent-agent--output nil format)
+  (let ((phase "invalid_arguments") prepared results stopped)
+    (ogent-agent--output
+     (condition-case err
+         (progn
+           (unless (and (or (proper-list-p calls) (vectorp calls))
+                        (<= (length calls) 20))
+             (user-error "Provide at most 20 calls as a list or vector"))
+           (unless (memq fail-fast '(nil t))
+             (user-error "Use nil or t for fail-fast"))
+           (dolist (call (append calls nil))
+             (unless (and (proper-list-p call) (= (length call) 4)
+                          (plist-member call :tool) (plist-member call :args)
+                          (cl-loop for key in call by #'cddr always (memq key '(:tool :args))))
+               (user-error "Each call needs only :tool and :args fields"))
+             (let ((spec (ogent-tool-spec-get (plist-get call :tool))))
+               (unless spec (user-error "%s" (ogent-tool-contract-name-hint
+                                              (plist-get call :tool)
+                                              (mapcar (lambda (item) (plist-get item :name)) ogent-tool-registry))))
+               (ogent-tool-contract-values (ogent-tool-execution--schema spec) (plist-get call :args))
+               (setq phase "unsafe_batch")
+               (let ((effects (ogent-tool-effects-normalize (plist-get spec :effects))))
+                 (unless (and effects (cl-every (lambda (effect) (eq (plist-get effect :kind) 'read)) effects))
+                   (user-error "Batch accepts only declared read-only tools; invoke %s individually through approval"
+                               (plist-get spec :name))))
+               (setq phase "invalid_arguments")
+               (push (cons spec call) prepared)))
+           (dolist (entry (nreverse prepared))
+             (unless stopped
+               (let* ((spec (car entry)) (call (cdr entry))
+                      (result (if (equal spec (ogent-tool-spec-get (plist-get spec :name)))
+                                  (ogent-tool-execution-call (plist-get call :tool) (plist-get call :args))
+                                (ogent-tool-execution-result
+                                 (plist-get spec :name) "error" nil "unavailable"
+                                 "Tool registry changed during batch; rediscover before retrying"))))
+                 (push result results)
+                 (when (and fail-fast (not (equal (plist-get result :status) "ok")))
+                   (setq stopped t)))))
+           (setq results (nreverse results))
+           (list :contract_version "1"
+                 :status (if (cl-every (lambda (result) (equal (plist-get result :status) "ok")) results)
+                             "ok" "partial")
+                 :results (vconcat results) :requested (length calls) :completed (length results)
+                 :stopped (if stopped t :json-false)))
+       (error (ogent-tool-execution--failure "batch" phase err)))
+     format)))
 
 (defun ogent-agent--boolean (value)
   "Return a JSON-compatible boolean for VALUE."
