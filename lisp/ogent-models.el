@@ -17,14 +17,14 @@
   "Configuration for ogent model registry."
   :group 'ogent)
 
-(defcustom ogent-default-model "gpt-5.6-sol"
+(defcustom ogent-default-model "gpt-6.1-sol"
   "Default model identifier used when dispatching prompts."
   :type 'string
   :group 'ogent-models)
 
 (defcustom ogent-model-registry
   ;; :context-window values are grounded in provider documentation,
-  ;; retrieved 2026-07-16 (per-entry citation next to each value):
+  ;; retrieved 2026-10-08 for current models (older citations retained):
   ;; - OpenAI: developers.openai.com/api/docs/models/<id>
   ;; - Anthropic: platform.claude.com/docs/en/about-claude/models/overview
   ;;   ("Latest models comparison" and past-models tables; 1M = 1,000,000)
@@ -37,13 +37,35 @@
   ;; not supported for <id> in /v1/chat/completions" unless
   ;; reasoning_effort is "none".  The same probe confirmed gpt-5.5,
   ;; gpt-5.4, gpt-5.4-mini, gpt-5.4-nano, and gpt-4.1 send tools with
-  ;; no override needed, so only the gpt-5.6 entries carry the key.
-  '((:id "gpt-5.6-sol" :backend gptel-openai :stream? t
+  ;; no override needed, so gpt-5.6 entries retain the key.
+  ;; GPT-6 Luna also requires
+  ;; reasoning_effort "none" for Chat Completions function tools
+  ;; (documented on its model page, retrieved 2026-10-08).
+  ;; Do not apply that override to GPT-6.1 Sol: it rejects "none"
+  ;; and requires Responses API for function tools.
+  '((:id "gpt-6-astra" :backend gptel-openai :stream? t
+         :capabilities (media tool-use)
+         ;; https://developers.openai.com/api/docs/models/gpt-6-astra
+         :context-window 1050000
+         :description "OpenAI GPT-6 Astra - strongest reasoning and coding")
+    (:id "gpt-6.1-sol" :backend gptel-openai :stream? t
+         :capabilities (media tool-use)
+         ;; https://developers.openai.com/api/docs/models/gpt-6.1-sol
+         ;; Function tools require a gptel Responses API backend.
+         :context-window 1050000
+         :description "OpenAI GPT-6.1 Sol - near-Astra intelligence at lower cost; Responses API for tools")
+    (:id "gpt-6-luna" :backend gptel-openai :stream? t
+         :capabilities (media tool-use)
+         ;; https://developers.openai.com/api/docs/models/gpt-6-luna
+         :context-window 1050000
+         :tools-request-params (:reasoning_effort "none")
+         :description "OpenAI GPT-6 Luna - efficient high-volume tasks")
+    (:id "gpt-5.6-sol" :backend gptel-openai :stream? t
          :aliases ("gpt-5.6")
          ;; docs/models/gpt-5.6-sol: "1,050,000 context window"
          :context-window 1050000
          :tools-request-params (:reasoning_effort "none")
-         :description "OpenAI GPT-5.6 Sol - flagship reasoning and coding")
+         :description "OpenAI GPT-5.6 Sol - previous-generation reasoning and coding")
     (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
          ;; docs/models/gpt-5.6-terra: "1,050,000 context window"
          :context-window 1050000
@@ -86,16 +108,36 @@
          ;; docs/models/gpt-4o-mini: "128,000 context window"
          :context-window 128000
          :description "OpenAI GPT-4o mini - legacy fallback")
+    (:id "claude-fable-5-1" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
+         :context-window 1000000
+         :description "Anthropic Claude Fable 5.1 - demanding reasoning and long-horizon agents")
+    (:id "claude-opus-5-5" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
+         :context-window 1000000
+         :description "Anthropic Claude Opus 5.5 - agentic coding and knowledge work")
+    (:id "claude-sonnet-5-5" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
+         :context-window 1000000
+         :description "Anthropic Claude Sonnet 5.5 - balanced speed and intelligence")
+    (:id "claude-haiku-5-5" :backend gptel-anthropic :stream? t
+         :capabilities (media tool-use cache)
+         ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
+         :context-window 1000000
+         :description "Anthropic Claude Haiku 5.5 - fastest Claude for classification, extraction, and routing")
     (:id "claude-fable-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
-         :description "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")
+         :description "Anthropic Claude Fable 5 - previous-generation long-running agents")
     (:id "claude-opus-5" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
-         :description "Anthropic Claude Opus 5 - complex agentic coding and enterprise work")
+         :description "Anthropic Claude Opus 5 - previous-generation agentic coding")
     (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
@@ -105,7 +147,7 @@
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
-         :description "Anthropic Claude Sonnet 5 - best combination of speed and intelligence")
+         :description "Anthropic Claude Sonnet 5 - previous-generation balanced model")
     (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview past-models table: "1M tokens"
@@ -116,7 +158,7 @@
          :aliases ("claude-haiku-4-5")
          ;; models/overview latest-models table: "200k tokens"
          :context-window 200000
-         :description "Anthropic Claude Haiku 4.5 - fastest Claude model"))
+         :description "Anthropic Claude Haiku 4.5 - previous-generation fast Claude model"))
   "List of model definitions used by ogent.
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 
@@ -241,9 +283,9 @@ Falls back to the first registry entry if `ogent-default-model' is unset."
 `codemap' - codemap generation tasks")
 
 (defcustom ogent-model-roles
-  '((fast . "gpt-5.6-luna")
-    (deep . "claude-fable-5")
-    (edit . "gpt-5.6-terra")
+  '((fast . "gpt-6-luna")
+    (deep . "claude-fable-5-1")
+    (edit . "gpt-6.1-sol")
     (codemap . fast))
   "Alist mapping task roles to model designators.
 Each value is a model id string from `ogent-model-registry' or

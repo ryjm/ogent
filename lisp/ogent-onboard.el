@@ -28,21 +28,18 @@
   :group 'ogent)
 
 (defconst ogent-onboard--anthropic-model-ids
-  '("claude-fable-5"
-    "claude-opus-5"
-    "claude-opus-4-8"
-    "claude-sonnet-5"
-    "claude-haiku-4-5-20251001")
+  '("claude-fable-5-1"
+    "claude-opus-5-5"
+    "claude-sonnet-5-5"
+    "claude-haiku-5-5")
   "Preferred Anthropic model ids for onboarding, in display order.
 Model metadata is resolved from `ogent-model-registry', the single
 source of truth for ids and descriptions.")
 
 (defconst ogent-onboard--openai-model-ids
-  '("gpt-5.6-sol"
-    "gpt-5.6-terra"
-    "gpt-5.6-luna"
-    "gpt-5.5"
-    "gpt-5.4")
+  '("gpt-6.1-sol"
+    "gpt-6-astra"
+    "gpt-6-luna")
   "Preferred OpenAI model ids for onboarding, in display order.
 Model metadata is resolved from `ogent-model-registry', the single
 source of truth for ids and descriptions.")

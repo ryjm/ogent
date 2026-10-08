@@ -85,7 +85,20 @@ Used to estimate token counts from text length."
   ;; introductory $2/$10 pricing through 2026-08-31; the table pins
   ;; the standard rate that resumes 2026-09-01, so Sonnet 5 costs
   ;; are OVERSTATED until then.
-  '(("gpt-5.6-sol"       . (:input-per-mtok 5.00 :output-per-mtok 30.00))
+  ;; Current catalog verified 2026-10-08:
+  ;; https://developers.openai.com/api/docs/models
+  ;; https://platform.claude.com/docs/en/models/overview
+  ;; Haiku 5.5 uses the base rate up to 100K input tokens; longer
+  ;; prompts cost 5x input and output, which this flat table cannot
+  ;; express.  Those long-context estimates UNDERSTATE actual cost.
+  '(("gpt-6-astra"       . (:input-per-mtok 10.00 :output-per-mtok 50.00))
+    ("gpt-6.1-sol"       . (:input-per-mtok 2.00 :output-per-mtok 10.00))
+    ("gpt-6-luna"        . (:input-per-mtok 0.10 :output-per-mtok 0.50))
+    ("claude-fable-5-1"  . (:input-per-mtok 10.00 :output-per-mtok 50.00))
+    ("claude-opus-5-5"   . (:input-per-mtok 4.00 :output-per-mtok 20.00))
+    ("claude-sonnet-5-5" . (:input-per-mtok 2.00 :output-per-mtok 10.00))
+    ("claude-haiku-5-5"  . (:input-per-mtok 0.10 :output-per-mtok 0.50))
+    ("gpt-5.6-sol"       . (:input-per-mtok 5.00 :output-per-mtok 30.00))
     ("gpt-5.6-terra"     . (:input-per-mtok 2.50 :output-per-mtok 15.00))
     ("gpt-5.6-luna"      . (:input-per-mtok 1.00 :output-per-mtok 6.00))
     ("gpt-5.5-pro"       . (:input-per-mtok 15.00 :output-per-mtok 120.00))

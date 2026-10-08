@@ -64,7 +64,7 @@
     (_ "default")))
 
 (defun ogent-ui-models--format-role (role)
-  "Return a propertized ROLE assignment summary like \"edit gpt-5.6-terra\"."
+  "Return a propertized ROLE assignment summary like \"edit gpt-6.1-sol\"."
   (let* ((designator (ogent-models-role-designator role))
          (resolved (ogent-models-resolve-role role))
          (alias-p (and designator (symbolp designator))))

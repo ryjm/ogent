@@ -42,7 +42,7 @@ registry:
 - **Function**: the function is called and must return a backend object.
 
 Example registry entry. The shipped registry already includes the current
-frontier models (`gpt-5.6-sol`, `claude-fable-5`, `claude-opus-5`, ...), so
+frontier models (`gpt-6-astra`, `gpt-6.1-sol`, `claude-fable-5-1`, ...), so
 add your own entries with `add-to-list` instead of replacing it wholesale:
 
 ```elisp
@@ -59,11 +59,43 @@ Backends are created with gptel (or via `ogent-onboard`):
 ;; Example: OpenAI backend
 (setq gptel-backend
       (gptel-make-openai "OpenAI" :key "sk-..." :stream t))
-(setq gptel-model "gpt-5.6-sol")
+(setq gptel-model "gpt-6.1-sol")
 ```
 
 `M-x ogent-onboard` is the recommended path. It will create backends and
 update the model registry for you.
+
+## Current catalog
+
+Verified against the [OpenAI catalog](https://developers.openai.com/api/docs/models)
+and [Claude catalog](https://platform.claude.com/docs/en/models/overview) on
+2026-10-08. The picker and registry browser work offline; listing models does
+not require provider login or an API key.
+
+| Provider | Model ID | Use | Context tokens |
+| --- | --- | --- | --- |
+| OpenAI | `gpt-6-astra` | Strongest reasoning and coding | 1,050,000 |
+| OpenAI | `gpt-6.1-sol` | Default; intelligence and cost | 1,050,000 |
+| OpenAI | `gpt-6-luna` | Fast, high-volume work | 1,050,000 |
+| Anthropic | `claude-fable-5-1` | Deep reasoning and long-horizon agents | 1,000,000 |
+| Anthropic | `claude-opus-5-5` | Agentic coding and knowledge work | 1,000,000 |
+| Anthropic | `claude-sonnet-5-5` | Speed and intelligence | 1,000,000 |
+| Anthropic | `claude-haiku-5-5` | Classification, extraction, routing | 1,000,000 |
+
+Older registry entries and aliases retain their original meaning for saved
+Org pins, sessions, and project configurations. Onboarding offers the current
+lineup as the preferred choices. Explicit user defaults and role assignments remain in effect.
+
+For actual requests, GPT-6.1 Sol function tools require a gptel **Responses API**
+backend; Chat Completions supports it without tools. GPT-6 Luna supports
+Chat Completions tools with `reasoning_effort: "none"`, which ogent applies only
+when tools are enabled. The registry refresh does not change your configured
+transport or authenticate a provider.
+
+Pricing estimates use standard base rates. Haiku 5.5 prompts over 100K input
+tokens cost five times its base rate; the flat estimate table cannot represent
+that tier. Caching, service tiers, and other long-context premiums also affect
+actual bills.
 
 ## Model selection
 
@@ -97,9 +129,9 @@ Different tasks can run on different models, oh-my-pi style.
 
 ```elisp
 (setq ogent-model-roles
-      '((fast . "gpt-5.6-luna")        ; high-volume background work
-        (deep . "claude-fable-5")      ; hardest reasoning
-        (edit . "gpt-5.6-terra")       ; inline edit requests
+      '((fast . "gpt-6-luna")        ; high-volume background work
+        (deep . "claude-fable-5-1") ; hardest reasoning
+        (edit . "gpt-6.1-sol")       ; inline edit requests
         (codemap . fast)))             ; alias: codemap follows fast
 ```
 
@@ -118,7 +150,7 @@ accept role designators too: `#+begin_src ogent :model @deep`.
 You can also call `ogent-request` with a list of model IDs:
 
 ```elisp
-(ogent-request "Compare answers" '("gpt-5.6-sol" "claude-fable-5"))
+(ogent-request "Compare answers" '("gpt-6.1-sol" "claude-fable-5-1"))
 ```
 
 ## Preset configuration
@@ -204,10 +236,10 @@ consistent across a repo:
 
 ```elisp
 ((org-mode .
-  ((ogent-default-model . "gpt-5.6-sol")
+  ((ogent-default-model . "gpt-6.1-sol")
    (ogent-model-registry .
-    ((:id "gpt-5.6-sol" :backend gptel-openai :stream? t :preset ogent-explain)
-     (:id "claude-fable-5" :backend gptel-anthropic :stream? t)))
+    ((:id "gpt-6.1-sol" :backend gptel-openai :stream? t :preset ogent-explain)
+     (:id "claude-fable-5-1" :backend gptel-anthropic :stream? t)))
    (ogent-preset-registry .
     ((:name my-summary
       :spec (:description "Team summary"

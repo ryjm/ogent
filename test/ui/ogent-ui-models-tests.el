@@ -302,6 +302,31 @@ source, so only it may be removed."
           (should (string-match-p "via default" status))
           (should (string-match-p "deep" status)))))))
 
+(ert-deftest ogent-ui-models-current-catalog-is-available-offline ()
+  "Picker completions and browser expose current models without provider calls."
+  (let ((ids '("gpt-6-astra" "gpt-6.1-sol" "gpt-6-luna"
+               "claude-fable-5-1" "claude-opus-5-5"
+               "claude-sonnet-5-5" "claude-haiku-5-5"))
+        (ogent-analytics-enabled nil)
+        (gptel-model nil))
+    (cl-letf (((symbol-function 'completing-read)
+               (lambda (_prompt table &rest _)
+                 (let ((choices (all-completions "" table)))
+                   (dolist (id ids)
+                     (should (member id choices)))
+                   "gpt-6.1-sol")))
+              ((symbol-function 'gptel-request)
+               (lambda (&rest _) (ert-fail "Catalog must stay offline"))))
+      (should (equal (ogent-ui-models-read "Model: ") "gpt-6.1-sol"))
+      (unwind-protect
+          (save-window-excursion
+            (ogent-models-browse)
+            (with-current-buffer ogent-ui-models--browser-buffer-name
+              (dolist (id ids)
+                (should (string-match-p (regexp-quote id) (buffer-string))))))
+        (when (get-buffer ogent-ui-models--browser-buffer-name)
+          (kill-buffer ogent-ui-models--browser-buffer-name))))))
+
 ;;; Registry browser
 
 (ert-deftest ogent-ui-models-browse-renders-models-and-roles ()

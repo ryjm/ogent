@@ -822,6 +822,19 @@ TABLE seen is the base completions table."
   (should (ogent-analytics--model-pricing "claude-haiku-4-5-20251001"))
   (should (ogent-analytics--model-pricing "gpt-5.6-sol")))
 
+(ert-deftest ogent-analytics-test-current-frontier-pricing ()
+  "Current models use their documented base prices, with specific prefixes."
+  (dolist (expected '(("gpt-6-astra" 10.00 50.00)
+                      ("gpt-6.1-sol" 2.00 10.00)
+                      ("gpt-6-luna" 0.10 0.50)
+                      ("claude-fable-5-1" 10.00 50.00)
+                      ("claude-opus-5-5" 4.00 20.00)
+                      ("claude-sonnet-5-5" 2.00 10.00)
+                      ("claude-haiku-5-5" 0.10 0.50)))
+    (let ((pricing (ogent-analytics--model-pricing (car expected))))
+      (should (= (plist-get pricing :input-per-mtok) (nth 1 expected)))
+      (should (= (plist-get pricing :output-per-mtok) (nth 2 expected))))))
+
 (ert-deftest ogent-analytics-test-gpt56-pricing-matches-official ()
   "Pin the officially verified gpt-5.6 family rates.
 Verified 2026-07-17 against the official model pages at

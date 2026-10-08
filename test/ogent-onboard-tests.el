@@ -102,18 +102,15 @@
                                 (plist-get openai :models)))
          (openai-codex-models (mapcar (lambda (m) (plist-get m :id))
                                       (plist-get openai-codex :models))))
-    (dolist (model-id '("claude-fable-5"
-                        "claude-opus-5"
-                        "claude-opus-4-8"
-                        "claude-sonnet-5"
-                        "claude-haiku-4-5-20251001"))
+    (dolist (model-id '("claude-fable-5-1"
+                        "claude-opus-5-5"
+                        "claude-sonnet-5-5"
+                        "claude-haiku-5-5"))
       (should (member model-id anthropic-models)))
     (should-not (member "claude-sonnet-4-20250514" anthropic-models))
-    (dolist (model-id '("gpt-5.6-sol"
-                        "gpt-5.6-terra"
-                        "gpt-5.6-luna"
-                        "gpt-5.5"
-                        "gpt-5.4"))
+    (dolist (model-id '("gpt-6.1-sol"
+                        "gpt-6-astra"
+                        "gpt-6-luna"))
       (should (member model-id openai-models))
       (should (member model-id openai-codex-models)))))
 
@@ -128,8 +125,8 @@
          (ids (mapcar (lambda (model)
                         (plist-get model :id))
                       models)))
-    (should (equal (car ids) "gpt-5.6-sol"))
-    (should (member "gpt-5.6-luna" ids))
+    (should (equal (car ids) "gpt-6.1-sol"))
+    (should (member "gpt-6-luna" ids))
     (should-not (member "gpt-3.5-turbo" ids))))
 
 (ert-deftest ogent-onboard-select-model-shows-current-openai-models ()
@@ -145,9 +142,9 @@
                  (setq captured-choices choices)
                  (car choices))))
       (let ((model (ogent-onboard--select-model provider)))
-        (should (equal (plist-get model :id) "gpt-5.6-sol"))
+        (should (equal (plist-get model :id) "gpt-6.1-sol"))
         (should (seq-some (lambda (choice)
-                            (string-match-p "gpt-5.6-terra" choice))
+                            (string-match-p "gpt-6-astra" choice))
                           captured-choices))
         (should-not (seq-some (lambda (choice)
                                 (string-match-p "gpt-3.5-turbo" choice))
@@ -164,11 +161,10 @@
          (ids (mapcar (lambda (model)
                         (plist-get model :id))
                       models)))
-    (should (equal (car ids) "claude-fable-5"))
-    (should (member "claude-opus-4-8" ids))
-    (should (member "claude-opus-5" ids))
-    (should (member "claude-sonnet-5" ids))
-    (should (member "claude-haiku-4-5-20251001" ids))
+    (should (equal (car ids) "claude-fable-5-1"))
+    (should (member "claude-opus-5-5" ids))
+    (should (member "claude-sonnet-5-5" ids))
+    (should (member "claude-haiku-5-5" ids))
     (should-not (member "claude-3-5-sonnet-20241022" ids))
     (should-not (member "claude-sonnet-4-20250514" ids))))
 
@@ -278,11 +274,9 @@
       (should (equal (car captured) "OpenAI"))
       (should (equal (plist-get (cadr captured) :key) "secret"))
       (should (equal (plist-get (cadr captured) :models)
-                     '("gpt-5.6-sol"
-                       "gpt-5.6-terra"
-                       "gpt-5.6-luna"
-                       "gpt-5.5"
-                       "gpt-5.4"))))))
+                     '("gpt-6.1-sol"
+                       "gpt-6-astra"
+                       "gpt-6-luna"))))))
 
 (ert-deftest ogent-onboard-verify-connection-success ()
   "Verify connection sets backend variable on success."

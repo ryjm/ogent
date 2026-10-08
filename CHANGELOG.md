@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Refresh the offline model picker and onboarding catalog to GPT-6 Astra,
+  GPT-6.1 Sol, GPT-6 Luna, and Claude Fable 5.1, Opus 5.5, Sonnet 5.5,
+  and Haiku 5.5 (provider documentation checked 2026-10-08). Update the
+  shipped default to GPT-6.1 Sol, task roles, context windows, base pricing,
+  and configuration examples. Preserve older IDs and aliases for saved pins.
+  Document Sol's Responses API requirement for function tools and Haiku's
+  long-context pricing tier. No provider login is needed to browse models.
 - One-key response rating (`C-c . *`, `ogent-analytics-rate-response`):
   rate the response at point 1-5 via `read-char-choice` (two keystrokes
   total).  The engine stamps each completion's analytics row id into the

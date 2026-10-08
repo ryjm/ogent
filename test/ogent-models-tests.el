@@ -24,13 +24,20 @@
     (should-error (ogent-models-ensure "missing") :type 'error)))
 
 (ert-deftest ogent-models-default-is-current-frontier-openai-model ()
-  "The shipped default should use the current flagship OpenAI model."
-  (should (equal ogent-default-model "gpt-5.6-sol"))
+  "The shipped default should use the current OpenAI workhorse model."
+  (should (equal ogent-default-model "gpt-6.1-sol"))
   (should (ogent-models-get ogent-default-model)))
 
 (ert-deftest ogent-models-registry-includes-current-frontier-models ()
   "The default registry includes current OpenAI and Anthropic text models."
-  (dolist (model-id '("gpt-5.6-sol"
+  (dolist (model-id '("gpt-6-astra"
+                      "gpt-6.1-sol"
+                      "gpt-6-luna"
+                      "claude-fable-5-1"
+                      "claude-opus-5-5"
+                      "claude-sonnet-5-5"
+                      "claude-haiku-5-5"
+                      "gpt-5.6-sol"
                       "gpt-5.6-terra"
                       "gpt-5.6-luna"
                       "gpt-5.5"
@@ -46,6 +53,33 @@
                       "claude-sonnet-4-6"
                       "claude-haiku-4-5-20251001"))
     (should (ogent-models-get model-id))))
+
+(ert-deftest ogent-models-current-roles-resolve-to-frontier-models ()
+  "Shipped roles resolve to current models without losing old identifiers."
+  (should (equal (ogent-models-resolve-role 'fast) "gpt-6-luna"))
+  (should (equal (ogent-models-resolve-role 'deep) "claude-fable-5-1"))
+  (should (equal (ogent-models-resolve-role 'edit) "gpt-6.1-sol"))
+  (should (equal (ogent-models-resolve-role 'codemap) "gpt-6-luna"))
+  ;; Saved pins and provider aliases still name the same model.
+  (should (equal (ogent-models-canonical-id "gpt-5.6") "gpt-5.6-sol"))
+  (should (equal (ogent-models-canonical-id "claude-fable-5")
+                 "claude-fable-5")))
+
+(ert-deftest ogent-models-luna-tools-use-documented-chat-override ()
+  "Only Luna receives the GPT-6 Chat Completions tool override."
+  (let ((gptel-tools '(fixture-tool))
+        (gptel-use-tools t))
+    (should (equal (ogent-gptel-tool-request-params
+                    (ogent-models-get "gpt-6-luna"))
+                   '(:reasoning_effort "none")))
+    (should-not (ogent-gptel-tool-request-params
+                 (ogent-models-get "gpt-6.1-sol")))
+    (should-not (ogent-gptel-tool-request-params
+                 (ogent-models-get "gpt-6-astra"))))
+  (let ((gptel-tools nil)
+        (gptel-use-tools nil))
+    (should-not (ogent-gptel-tool-request-params
+                 (ogent-models-get "gpt-6-luna")))))
 
 (ert-deftest ogent-models-official-aliases-resolve-to-canonical ()
   "Documented provider aliases resolve to their canonical entries."
@@ -244,11 +278,11 @@ the backend and carry tool-use, media, and cache capabilities."
           (dolist (cap '(tool-use media cache))
             (should (memq cap (get symbol :capabilities))))
           (should (equal (get symbol :description)
-                         "Anthropic Claude Fable 5 - next-generation intelligence for long-running agents")))
+                         (plist-get model :description))))
       (setplist symbol old-symbol-plist))))
 
 (ert-deftest ogent-models-gpt56-declares-tool-request-params ()
-  "Only the gpt-5.6 entries override reasoning effort for tool requests.
+  "The gpt-5.6 entries retain their verified tool compatibility overrides.
 Verified 2026-07-24 against api.openai.com: a gpt-5.6 request
 carrying function tools is rejected with HTTP 400 unless
 reasoning_effort is \"none\", while gpt-5.5, gpt-5.4, gpt-5.4-mini,
