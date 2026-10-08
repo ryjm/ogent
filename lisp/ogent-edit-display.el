@@ -77,12 +77,14 @@ Return EDIT."
   (let ((start (ogent-edit-start-pos edit))
         (end (ogent-edit-end-pos edit))
         (old-text (ogent-edit-old-text edit)))
-    (unless (and (integerp start) (integerp end)
+    (unless (and (integerp start) (integerp end) (<= start end)
                  (>= start (point-min))
                  (<= end (point-max))
                  (string= (buffer-substring-no-properties start end)
                           old-text))
       ;; Cached positions are stale; rescan for the original text.
+      (when (string-empty-p old-text)
+        (user-error "Cannot re-anchor a stale insertion without original text"))
       (let ((matches nil))
         (save-excursion
           (goto-char (point-min))

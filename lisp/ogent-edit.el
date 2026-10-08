@@ -24,7 +24,7 @@
   (require 'flymake))
 
 ;; gptel integration
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (declare-function gptel-backend-name "ext:gptel-request" t t)
 (declare-function gptel--model-name "ext:gptel-request")
 (declare-function gptel--parse-schema "ext:gptel-request")
@@ -409,8 +409,9 @@ Quick edit target: %s. Keep the patch focused on this target and preserve unrela
          (column (and start (ogent-edit--column-number-at start))))
     (when start
       (list :source 'flymake
-            :message (or (ignore-errors (flymake-diagnostic-text diagnostic))
-                         "Flymake diagnostic")
+            :message (string-trim
+                      (or (ignore-errors (flymake-diagnostic-text diagnostic))
+                          "Flymake diagnostic"))
             :severity (ignore-errors (flymake-diagnostic-type diagnostic))
             :start start
             :end (or end start)
@@ -723,8 +724,8 @@ when response arrives."
               ;; gpt-5.6 rejects function tools unless
               ;; reasoning_effort is "none".
               (gptel--request-params
-               (ogent-gptel-tool-request-params model)))
-          (apply #'gptel-request full-prompt
+               (and (boundp 'gptel--request-params) gptel--request-params)))
+          (apply #'ogent-gptel-request full-prompt
                  :system (if structured
                              ogent-edit-structured-system-prompt
                            ogent-edit-system-prompt)

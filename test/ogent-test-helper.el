@@ -442,9 +442,16 @@ registered `ogent-test-tripwire-allowed-roots' entry."
                       (expand-file-name temporary-file-directory))
                      ogent-test-tripwire-allowed-roots))
         (hit nil))
-    (dolist (root roots hit)
+    (dolist (root roots)
       (when (string-prefix-p root expanded)
-        (setq hit t)))))
+        (setq hit t)))
+    ;; A sandbox may put the config directory under /tmp.  Being inside
+    ;; /tmp must never authorize writes into an explicitly protected store.
+    (and hit
+         (or (seq-some (lambda (root) (string-prefix-p root expanded))
+                       ogent-test-tripwire-allowed-roots)
+             (not (seq-some (lambda (root) (string-prefix-p root expanded))
+                            ogent-test--tripwire-real-store-prefixes))))))
 
 (defun ogent-test--tripwire-violation (fn path)
   "Signal a tripwire failure: FN attempted real-store access to PATH."
@@ -528,7 +535,8 @@ narrow -- real-store prefixes and guarded store basenames only -- so
 ordinary subprocess fixtures under temp roots stay unaffected."
   (dolist (prefix ogent-test--tripwire-real-store-prefixes)
     (when (and default-directory
-               (string-prefix-p prefix (expand-file-name default-directory)))
+               (string-prefix-p prefix (file-name-as-directory
+                                        (expand-file-name default-directory))))
       (ogent-test--tripwire-violation fn default-directory)))
   (dolist (arg command)
     (ogent-test--tripwire-check-process-arg fn arg)))

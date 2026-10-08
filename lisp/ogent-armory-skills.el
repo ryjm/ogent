@@ -66,7 +66,8 @@
           (legacy-home . ,(expand-file-name "~/.agents/skills"))))))))
 
 (defun ogent-armory-skill--org-files (directory)
-  "Return readable Org skill files below DIRECTORY."
+  "Return readable Org and SKILL.md files below DIRECTORY.
+Skip symlinks; list Org records first so they win collisions within a root."
   (let (files)
     (cl-labels
         ((walk
@@ -79,11 +80,44 @@
                 ((and (file-directory-p entry)
                       (not (file-symlink-p entry)))
                  (walk entry))
-                ((and (file-regular-p entry)
-                      (string-match-p "\\.org\\'" entry))
+		((and (file-regular-p entry) (not (file-symlink-p entry))
+                      (or (string-match-p "\\.org\\'" entry)
+			  (equal (file-name-nondirectory entry) "SKILL.md")))
                  (push entry files)))))))
       (walk directory))
-    (nreverse files)))
+    (let ((ordered (nreverse files)))
+      (append (seq-filter (lambda (file) (string-suffix-p ".org" file)) ordered)
+              (seq-filter (lambda (file) (string-suffix-p "/SKILL.md" file)) ordered)))))
+
+(defun ogent-armory-skill--markdown-header ()
+  "Return safe scalar frontmatter fields and body position in this buffer.
+Read name and description as text only; never evaluate YAML tags or values."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((body (point-min)) fields)
+      (when (looking-at "---[ \t]*$")
+        (forward-line 1)
+        (let ((end (save-excursion
+                     (when (re-search-forward "^---[ \t]*$" nil t)
+                       (prog1 (line-beginning-position)
+                         (setq body (min (point-max) (1+ (line-end-position)))))))))
+          (when end
+            (while (re-search-forward "^\\(name\\|description\\):[ \t]*\\(.*\\)$" end t)
+              (let ((key (intern (match-string 1)))
+                    (value (string-trim (match-string 2))))
+                (when (member value '("|" ">" "|-" ">-"))
+                  (let (lines)
+                    (forward-line 1)
+                    (while (and (< (point) end) (looking-at "[ \t]+\\(.*\\)$"))
+                      (push (match-string 1) lines)
+                      (forward-line 1))
+                    (setq value (string-join (nreverse lines) " "))))
+                (when (and (> (length value) 1)
+                           (memq (aref value 0) '(?\" ?'))
+                           (= (aref value 0) (aref value (1- (length value)))))
+                  (setq value (substring value 1 -1)))
+                (push (cons key value) fields))))))
+      (list :fields fields :body-position body))))
 
 (defun ogent-armory-skill--buffer-title ()
   "Return the first heading title in the current buffer."
@@ -124,15 +158,24 @@
   "Read skill FILE metadata for ORIGIN without loading the full body."
   (with-temp-buffer
     (insert-file-contents file nil 0 4096)
-    (let ((title (or (ogent-armory-skill--buffer-title)
-                     (file-name-base file)))
-          (key (ogent-armory-skill--buffer-property "OGENT_SKILL_KEY")))
-      (list :key (ogent-armory-skill--slug
-                  (or (ogent-armory--blank-to-nil key)
-                      (file-name-base file)))
-            :title title
-            :origin origin
-            :path file))))
+    (if (equal (file-name-nondirectory file) "SKILL.md")
+        (let* ((fields (plist-get (ogent-armory-skill--markdown-header) :fields))
+               (name (or (ogent-armory--blank-to-nil (alist-get 'name fields))
+                         (file-name-nondirectory (directory-file-name
+                                                  (file-name-directory file))))))
+          (list :key (ogent-armory-skill--slug name) :title name
+                :description (alist-get 'description fields)
+                :format 'markdown :origin origin :path file
+                :reference-root (file-name-directory file)))
+      (let ((title (or (ogent-armory-skill--buffer-title)
+                       (file-name-base file)))
+            (key (ogent-armory-skill--buffer-property "OGENT_SKILL_KEY")))
+	(list :key (ogent-armory-skill--slug
+                    (or (ogent-armory--blank-to-nil key)
+			(file-name-base file)))
+              :title title
+              :origin origin
+              :path file)))))
 
 (defun ogent-armory-skill--direct-file (directory key)
   "Return the direct Org skill file for KEY below DIRECTORY."
@@ -150,13 +193,15 @@
 
 (defun ogent-armory-skill-list (directory)
   "Return skill metadata records for DIRECTORY."
-  (let (skills)
+  (let (skills seen)
     (dolist (root (ogent-armory-skill--roots directory))
       (let ((origin (car root))
             (dir (cdr root)))
         (dolist (file (ogent-armory-skill--org-files dir))
-          (push (ogent-armory-skill--read-metadata file origin)
-                skills))))
+          (let ((skill (ogent-armory-skill--read-metadata file origin)))
+            (unless (member (plist-get skill :key) seen)
+              (push (plist-get skill :key) seen)
+              (push skill skills))))))
     (seq-sort-by (lambda (skill)
                    (plist-get skill :key))
                  #'string<
@@ -185,7 +230,12 @@
     (with-temp-buffer
       (insert-file-contents (plist-get skill :path))
       (append skill
-              (list :body (ogent-armory-skill--buffer-body))))))
+              (list :body
+                    (if (eq (plist-get skill :format) 'markdown)
+                        (buffer-substring-no-properties
+                         (plist-get (ogent-armory-skill--markdown-header) :body-position)
+                         (point-max))
+                      (ogent-armory-skill--buffer-body)))))))
 
 (defun ogent-armory-skill-import (directory file &optional key origin)
   "Import skill FILE into DIRECTORY and return the new skill path.
@@ -196,7 +246,8 @@ KEY overrides the derived skill key.  ORIGIN records provenance."
          (read-file-name "Skill file: ")))
   (let* ((root (ogent-armory--directory directory))
          (skill-key (ogent-armory-skill--slug
-                     (or key (file-name-base file))))
+                     (or key (plist-get (ogent-armory-skill--read-metadata file 'import)
+                                        :key))))
          (target (expand-file-name
                   (concat skill-key ".org")
                   (expand-file-name ".agents/skills" root)))
@@ -211,7 +262,8 @@ KEY overrides the derived skill key.  ORIGIN records provenance."
              (ogent-armory--format-properties
               `(("OGENT_SKILL" . t)
                 ("OGENT_SKILL_KEY" . ,skill-key)
-                ("OGENT_SKILL_ORIGIN" . ,(or origin "import"))))
+                ("OGENT_SKILL_ORIGIN" . ,(or origin "import"))
+                ("OGENT_SKILL_SOURCE" . ,(expand-file-name file))))
              "\n"
              (string-trim body)
              "\n"))

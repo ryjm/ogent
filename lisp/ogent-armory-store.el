@@ -172,13 +172,17 @@ When SUNDAY is non-nil, day of week value 7 is accepted as Sunday."
         (ogent-armory--cron-expression-p trimmed))))
 
 (defun ogent-armory--property-value (value)
-  "Return VALUE formatted for an Org property drawer."
-  (cond
-   ((eq value t) "t")
-   ((null value) "")
-   ((listp value)
-    (string-join (mapcar (lambda (item) (format "%s" item)) value) ", "))
-   (t (format "%s" value))))
+  "Return VALUE as one line suitable for an Org property drawer.
+Keep multiline content in record bodies; drawer values normalize newlines
+to spaces so generated summaries cannot invalidate the whole drawer."
+  (replace-regexp-in-string
+   "[\r\n]+" " "
+   (cond
+    ((eq value t) "t")
+    ((null value) "")
+    ((listp value)
+     (string-join (mapcar (lambda (item) (format "%s" item)) value) ", "))
+    (t (format "%s" value)))))
 
 (defun ogent-armory--format-properties (properties)
   "Return PROPERTIES as an Org property drawer.

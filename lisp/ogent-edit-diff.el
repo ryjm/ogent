@@ -14,6 +14,7 @@
 
 (require 'cl-lib)
 (require 'ogent-edit-parse)
+(require 'ogent-edit-display)
 
 ;; Soft dependency on magit-section
 (eval-and-compile
@@ -189,6 +190,11 @@
 (defun ogent-edit-diff-show (edits)
   "Display EDITS in a magit-style diff buffer.
 EDITS is a list of `ogent-edit' structs."
+  (dolist (edit edits)
+    (when (buffer-live-p (ogent-edit-source-buffer edit))
+      (with-current-buffer (ogent-edit-source-buffer edit)
+        (unless (memq edit ogent-edit--pending-edits)
+          (ogent-edit--track-edits (list edit))))))
   (let ((buf (get-buffer-create ogent-edit-diff-buffer-name)))
     (with-current-buffer buf
       (let ((inhibit-read-only t))
@@ -435,7 +441,8 @@ _FILE is unused but kept for future per-file staging state."
   (interactive)
   (if-let ((edit (ogent-edit-diff--current-edit)))
       (progn
-        (setf (ogent-edit-status edit) 'rejected)
+        (ogent-edit-diff--resolve edit 'rejected)
+        (remhash (ogent-edit-id edit) ogent-edit-diff--staged)
         (setq ogent-edit-diff--edits
               (delq edit ogent-edit-diff--edits))
         (ogent-edit-diff-refresh)
@@ -453,15 +460,18 @@ _FILE is unused but kept for future per-file staging state."
         (count 0))
     (unless staged-edits
       (user-error "No staged edits"))
-    ;; Apply in reverse position order
-    (dolist (edit (sort (copy-sequence staged-edits)
-                        (lambda (a b)
-                          (> (or (ogent-edit-start-pos a) 0)
-                             (or (ogent-edit-start-pos b) 0)))))
-      (ogent-edit-diff--apply-edit edit)
-      (setq ogent-edit-diff--edits
-            (delq edit ogent-edit-diff--edits))
-      (cl-incf count))
+    ;; Validate all proposals first, then apply each buffer atomically.
+    (dolist (group (ogent-edit-diff--preflight staged-edits))
+      (with-current-buffer (car group)
+        (save-restriction
+          (widen)
+          (atomic-change-group
+            (dolist (edit (cdr group)) (ogent-edit-diff--replace edit)))))
+      (dolist (edit (cdr group))
+        (ogent-edit-diff--resolve edit 'accepted)
+        (setq ogent-edit-diff--edits (delq edit ogent-edit-diff--edits))
+        (remhash (ogent-edit-id edit) ogent-edit-diff--staged)
+        (cl-incf count)))
     (clrhash ogent-edit-diff--staged)
     (ogent-edit-diff-refresh)
     (message "Accepted %d staged edits" count)))
@@ -472,25 +482,76 @@ _FILE is unused but kept for future per-file staging state."
   (when (yes-or-no-p (format "Reject all %d edits? "
                              (length ogent-edit-diff--edits)))
     (dolist (edit ogent-edit-diff--edits)
-      (setf (ogent-edit-status edit) 'rejected))
+      (ogent-edit-diff--resolve edit 'rejected))
     (setq ogent-edit-diff--edits nil)
+    (clrhash ogent-edit-diff--staged)
     (ogent-edit-diff-refresh)
     (message "Rejected all edits")))
 
 (defun ogent-edit-diff--apply-edit (edit)
   "Apply EDIT to its source buffer."
-  (let ((buf (ogent-edit-source-buffer edit))
-        (start (ogent-edit-start-pos edit))
-        (end (ogent-edit-end-pos edit))
-        (new-text (ogent-edit-new-text edit)))
-    (unless (buffer-live-p buf)
-      (user-error "Source buffer no longer exists"))
-    (with-current-buffer buf
-      (save-excursion
-        (goto-char start)
-        (delete-region start end)
-        (insert new-text)))
-    (setf (ogent-edit-status edit) 'accepted)))
+  (ogent-edit-diff--preflight (list edit))
+  (with-current-buffer (ogent-edit-source-buffer edit)
+    (save-restriction
+      (widen)
+      (atomic-change-group (ogent-edit-diff--replace edit))))
+  (ogent-edit-diff--resolve edit 'accepted)
+  (when (hash-table-p ogent-edit-diff--staged)
+    (remhash (ogent-edit-id edit) ogent-edit-diff--staged)))
+
+(defun ogent-edit-diff--replace (edit)
+  "Replace the preflighted source region for EDIT in the current buffer."
+  (save-excursion
+    (goto-char (ogent-edit-start-pos edit))
+    (delete-region (point) (ogent-edit-end-pos edit))
+    (insert (ogent-edit-new-text edit))))
+
+(defun ogent-edit-diff--resolve (edit status)
+  "Resolve EDIT with STATUS, untrack it and notify listeners once."
+  (unless (memq (ogent-edit-status edit) '(accepted rejected resolved))
+    (setf (ogent-edit-status edit) status)
+    (when (buffer-live-p (ogent-edit-source-buffer edit))
+      (with-current-buffer (ogent-edit-source-buffer edit)
+        (setq ogent-edit--pending-edits (delq edit ogent-edit--pending-edits))))
+    (run-hook-with-args 'ogent-edit-resolved-hook edit)))
+
+(defun ogent-edit-diff--preflight (edits)
+  "Validate EDITS without changing proposals or source on failure.
+Return edits grouped by live buffer, sorted in descending source order.
+Reject overlapping ranges before committing newly anchored positions."
+  (let (groups anchors)
+    (dolist (edit edits)
+      (when (memq (ogent-edit-status edit) '(accepted rejected resolved))
+        (user-error "Edit %s is already resolved" (ogent-edit-id edit)))
+      (let ((buffer (ogent-edit-source-buffer edit))
+            (copy (copy-ogent-edit edit)))
+        (unless (buffer-live-p buffer) (user-error "Source buffer no longer exists"))
+        (with-current-buffer buffer
+          (save-restriction
+            (widen)
+            (barf-if-buffer-read-only)
+            (ogent-edit--re-anchor copy)))
+        (push (cons edit copy) anchors)
+        (push edit (alist-get buffer groups))))
+    (dolist (group groups)
+      (setcdr group (sort (cdr group)
+                          (lambda (a b)
+                            (> (ogent-edit-start-pos (cdr (assq a anchors)))
+                               (ogent-edit-start-pos (cdr (assq b anchors)))))))
+      (let (previous)
+        (dolist (edit (cdr group))
+          (let ((copy (cdr (assq edit anchors))))
+            (when (and previous
+                       (or (> (ogent-edit-end-pos copy)
+                              (ogent-edit-start-pos previous))
+                           (= (ogent-edit-start-pos copy)
+                              (ogent-edit-start-pos previous))))
+              (user-error "Staged edits overlap in %s" (buffer-name (car group))))
+            (setq previous copy)))))
+    (dolist (anchor anchors)
+      (setf (ogent-edit-start-pos (car anchor)) (ogent-edit-start-pos (cdr anchor))
+            (ogent-edit-end-pos (car anchor)) (ogent-edit-end-pos (cdr anchor))))
+    groups))
 
 ;;; Other Commands
 
