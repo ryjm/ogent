@@ -24,6 +24,7 @@
 (declare-function make-term "term"
                   (name program &optional startfile &rest switches))
 (declare-function ogent-armory-native-start "ogent-armory-native" (plan))
+(declare-function ogent-armory-native-stop "ogent-armory-native")
 
 (defgroup ogent-armory-runner nil
   "Run Org Armory agents through subscription-authenticated CLIs."
@@ -1054,7 +1055,9 @@ Return non-nil when a process was found."
                     (equal (plist-get plan :conversation-id)
                            conversation-id))))
            ogent-armory-runner--processes)))
-    (when process
+    (if (not process)
+        (when (fboundp 'ogent-armory-native-stop)
+          (ogent-armory-native-stop directory conversation-id))
       (let ((plan (process-get process 'ogent-armory-plan)))
         (plist-put plan :cancelled t)
         (process-put process 'ogent-armory-plan plan))

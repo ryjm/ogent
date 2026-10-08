@@ -12,6 +12,7 @@
 (require 'cl-lib)
 (require 'seq)
 (require 'ogent-tool-effects)
+(require 'ogent-tool-execution)
 
 (defgroup ogent-models nil
   "Configuration for ogent model registry."
@@ -43,117 +44,117 @@
   ;; (documented on its model page, retrieved 2026-10-08).
   ;; Do not apply that override to GPT-6.1 Sol: it rejects "none"
   ;; and requires Responses API for function tools.
-  '((:id "gpt-6-astra" :backend gptel-openai :stream? t
+  '((:id "gpt-6-astra" :backend gptel-openai :endpoints (chat responses) :stream? t
          :capabilities (media tool-use)
          ;; https://developers.openai.com/api/docs/models/gpt-6-astra
          :context-window 1050000
          :description "OpenAI GPT-6 Astra - strongest reasoning and coding")
-    (:id "gpt-6.1-sol" :backend gptel-openai :stream? t
+    (:id "gpt-6.1-sol" :backend gptel-openai :endpoints (chat responses) :tools-endpoints (responses) :stream? t
          :capabilities (media tool-use)
          ;; https://developers.openai.com/api/docs/models/gpt-6.1-sol
          ;; Function tools require a gptel Responses API backend.
          :context-window 1050000
          :description "OpenAI GPT-6.1 Sol - near-Astra intelligence at lower cost; Responses API for tools")
-    (:id "gpt-6-luna" :backend gptel-openai :stream? t
+    (:id "gpt-6-luna" :backend gptel-openai :endpoints (chat responses) :stream? t
          :capabilities (media tool-use)
          ;; https://developers.openai.com/api/docs/models/gpt-6-luna
          :context-window 1050000
          :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-6 Luna - efficient high-volume tasks")
-    (:id "gpt-5.6-sol" :backend gptel-openai :stream? t
+    (:id "gpt-5.6-sol" :backend gptel-openai :endpoints (chat responses) :stream? t
          :aliases ("gpt-5.6")
          ;; docs/models/gpt-5.6-sol: "1,050,000 context window"
          :context-window 1050000
          :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Sol - previous-generation reasoning and coding")
-    (:id "gpt-5.6-terra" :backend gptel-openai :stream? t
+    (:id "gpt-5.6-terra" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.6-terra: "1,050,000 context window"
          :context-window 1050000
          :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Terra - balanced intelligence and cost")
-    (:id "gpt-5.6-luna" :backend gptel-openai :stream? t
+    (:id "gpt-5.6-luna" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.6-luna: "1,050,000 context window"
          :context-window 1050000
          :tools-request-params (:reasoning_effort "none")
          :description "OpenAI GPT-5.6 Luna - cost-efficient high-volume tasks")
-    (:id "gpt-5.5" :backend gptel-openai :stream? t
+    (:id "gpt-5.5" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.5: "1,050,000 context window"
          :context-window 1050000
          :description "OpenAI GPT-5.5 - previous flagship reasoning and coding")
-    (:id "gpt-5.5-pro" :backend gptel-openai :stream? nil
+    (:id "gpt-5.5-pro" :backend gptel-openai :endpoints (responses) :stream? nil
          ;; docs/models/gpt-5.5-pro: "1,050,000 context window"
          :context-window 1050000
          :description "OpenAI GPT-5.5 pro - hardest reasoning tasks")
-    (:id "gpt-5.4" :backend gptel-openai :stream? t
+    (:id "gpt-5.4" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.4: "1,050,000 context window"
          :context-window 1050000
          :description "OpenAI GPT-5.4 - professional coding and agentic work")
-    (:id "gpt-5.4-mini" :backend gptel-openai :stream? t
+    (:id "gpt-5.4-mini" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.4-mini: "400,000 context window"
          :context-window 400000
          :description "OpenAI GPT-5.4 mini - fast, cost-aware coding")
-    (:id "gpt-5.4-nano" :backend gptel-openai :stream? t
+    (:id "gpt-5.4-nano" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-5.4-nano: "400,000 context window"
          :context-window 400000
          :description "OpenAI GPT-5.4 nano - low-cost high-volume tasks")
-    (:id "gpt-5.3-codex" :backend gptel-openai :stream? t
+    (:id "gpt-5.3-codex" :backend gptel-openai :endpoints (responses) :stream? t
          ;; docs/models/gpt-5.3-codex: "400,000 context window"
          :context-window 400000
          :description "OpenAI GPT-5.3-Codex - agentic coding")
-    (:id "gpt-4.1" :backend gptel-openai :stream? t
+    (:id "gpt-4.1" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-4.1: "1,047,576 context window"
          :context-window 1047576
          :description "OpenAI GPT-4.1 - non-reasoning long-context model")
-    (:id "gpt-4o-mini" :backend gptel-openai :stream? t
+    (:id "gpt-4o-mini" :backend gptel-openai :endpoints (chat responses) :stream? t
          ;; docs/models/gpt-4o-mini: "128,000 context window"
          :context-window 128000
          :description "OpenAI GPT-4o mini - legacy fallback")
-    (:id "claude-fable-5-1" :backend gptel-anthropic :stream? t
+    (:id "claude-fable-5-1" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
          :context-window 1000000
          :description "Anthropic Claude Fable 5.1 - demanding reasoning and long-horizon agents")
-    (:id "claude-opus-5-5" :backend gptel-anthropic :stream? t
+    (:id "claude-opus-5-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
          :context-window 1000000
          :description "Anthropic Claude Opus 5.5 - agentic coding and knowledge work")
-    (:id "claude-sonnet-5-5" :backend gptel-anthropic :stream? t
+    (:id "claude-sonnet-5-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
          :context-window 1000000
          :description "Anthropic Claude Sonnet 5.5 - balanced speed and intelligence")
-    (:id "claude-haiku-5-5" :backend gptel-anthropic :stream? t
+    (:id "claude-haiku-5-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; https://platform.claude.com/docs/en/models/overview: 1M tokens
          :context-window 1000000
          :description "Anthropic Claude Haiku 5.5 - fastest Claude for classification, extraction, and routing")
-    (:id "claude-fable-5" :backend gptel-anthropic :stream? t
+    (:id "claude-fable-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Fable 5 - previous-generation long-running agents")
-    (:id "claude-opus-5" :backend gptel-anthropic :stream? t
+    (:id "claude-opus-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Opus 5 - previous-generation agentic coding")
-    (:id "claude-opus-4-8" :backend gptel-anthropic :stream? t
+    (:id "claude-opus-4-8" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Opus 4.8 - previous Opus generation")
-    (:id "claude-sonnet-5" :backend gptel-anthropic :stream? t
+    (:id "claude-sonnet-5" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview latest-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Sonnet 5 - previous-generation balanced model")
-    (:id "claude-sonnet-4-6" :backend gptel-anthropic :stream? t
+    (:id "claude-sonnet-4-6" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          ;; models/overview past-models table: "1M tokens"
          :context-window 1000000
          :description "Anthropic Claude Sonnet 4.6 - previous balanced Claude model")
-    (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :stream? t
+    (:id "claude-haiku-4-5-20251001" :backend gptel-anthropic :endpoints (messages) :stream? t
          :capabilities (media tool-use cache)
          :aliases ("claude-haiku-4-5")
          ;; models/overview latest-models table: "200k tokens"
@@ -163,6 +164,8 @@
 Each entry is a plist supporting at least :id, :backend, and :stream? keys.
 
 Optional keys:
+  :endpoints      - supported endpoint families: chat, responses, messages
+  :tools-endpoints - endpoint families required when tools are enabled
   :preset         - gptel preset name to apply
   :description    - human-readable description
   :request-params - plist of extra request parameters merged into the
@@ -624,19 +627,35 @@ approval path."
 (defvar ogent--tools-registered nil
   "Alist mapping tool names (symbols) to gptel tool objects.")
 
+(defvar ogent--tool-specs-registered nil
+  "Snapshots of specs used to build registered gptel tools.")
+(defvar gptel--known-tools)
+
+(defun ogent-unregister-tool (name)
+  "Remove NAME from ogent and gptel caches."
+  (setq ogent--tools-registered (assq-delete-all name ogent--tools-registered)
+        ogent--tool-specs-registered (assq-delete-all name ogent--tool-specs-registered))
+  (when (boundp 'gptel--known-tools)
+    (dolist (category gptel--known-tools)
+      (setcdr category (assoc-delete-all (symbol-name name) (cdr category))))))
+
 (defun ogent-register-tools ()
   "Register all tools in `ogent-tool-registry' with gptel.
 Returns the list of registered tool objects."
   (when (and (fboundp 'gptel-make-tool) ogent-tool-registry)
+    (dolist (entry (copy-sequence ogent--tools-registered))
+      (unless (ogent-tool-spec-get (car entry)) (ogent-unregister-tool (car entry))))
     (dolist (spec ogent-tool-registry)
       (let* ((name (plist-get spec :name))
              (existing (assq name ogent--tools-registered)))
-        (unless existing
+        (unless (and existing
+                     (equal spec (cdr (assq name ogent--tool-specs-registered))))
+          (ogent-unregister-tool name)
           (let ((tool (apply #'gptel-make-tool
                              :name (symbol-name name)
-                             :function (plist-get spec :function)
+                             :function (ogent-tool-execution-wrapper spec)
                              :description (plist-get spec :description)
-                             :args (plist-get spec :args)
+                             :args (copy-tree (plist-get spec :args))
                              ;; Always pass :confirm so gptel-native
                              ;; execution prompts for risky tools; a
                              ;; missing flag would let gptel auto-run
@@ -649,7 +668,11 @@ Returns the list of registered tool objects."
                                 (list :async (plist-get spec :async)))
                               (when (plist-member spec :include)
                                 (list :include (plist-get spec :include)))))))
+            (push (cons name (copy-tree spec)) ogent--tool-specs-registered)
             (push (cons name tool) ogent--tools-registered))))))
+  (unless ogent-tool-registry
+    (dolist (entry (copy-sequence ogent--tools-registered))
+      (ogent-unregister-tool (car entry))))
   ogent--tools-registered)
 
 (defun ogent-tool-get (name)

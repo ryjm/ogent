@@ -17,6 +17,39 @@
 (defvar gptel-backend)
 (defvar gptel-tools)
 (defvar gptel-use-tools)
+(defvar gptel-model)
+(defvar gptel--request-params)
+(defvar gptel-org-convert-response)
+(defvar ogent-tools-project-root)
+(declare-function gptel-tool-function "ext:gptel-request" t t)
+(declare-function gptel--fsm-transition "ext:gptel-request")
+(declare-function gptel-abort "ext:gptel-request")
+(defvar gptel--request-alist)
+
+(defun ogent-gptel-cancel (handle buffer)
+  "Cancel HANDLE and verify its transport is gone, using BUFFER as fallback.
+Target the request's own FSM so cancellation cannot abort a fan-out sibling."
+  (if (and handle (boundp 'gptel--request-alist))
+      (let ((entries (seq-filter (lambda (entry) (eq (cadr entry) handle))
+                                 gptel--request-alist)))
+        (dolist (entry entries)
+          (funcall (cddr entry))
+          (setq gptel--request-alist (assq-delete-all (car entry) gptel--request-alist))
+          (when (and (processp (car entry)) (process-live-p (car entry)))
+            (error "Transport cleanup did not stop the previous attempt")))
+        (when (fboundp 'gptel--fsm-transition) (gptel--fsm-transition handle 'ABRT)))
+    (when (fboundp 'gptel-abort) (gptel-abort buffer))))
+(declare-function gptel-request "ext:gptel-request")
+(declare-function gptel-backend-header "ext:gptel-request" t t)
+(declare-function gptel-backend-p "ext:gptel-request" t t)
+(declare-function ogent-models-get "ogent-models")
+
+(defcustom ogent-gptel-header-timeout 25
+  "Maximum seconds allowed for preparing authentication headers.
+Prepare headers before starting transport, including on older gptel versions
+that start curl before evaluating the header callback."
+  :type 'number
+  :group 'ogent)
 
 (defcustom ogent-gptel-cache t
   "Value bound to `gptel-cache' for ogent requests.
@@ -106,7 +139,9 @@ whose live values this reads.  The override is deliberately never
 written onto the shared gptel model symbol: it is a per-request
 compatibility patch, not user configuration, so a plain `gptel-send'
 outside ogent never inherits a silently downgraded reasoning effort."
-  (when (and (bound-and-true-p gptel-use-tools)
+  (when (and (not (eq (ogent-gptel-endpoint
+                       (and (boundp 'gptel-backend) gptel-backend)) 'responses))
+             (bound-and-true-p gptel-use-tools)
              (bound-and-true-p gptel-tools))
     (plist-get model :tools-request-params)))
 
@@ -114,8 +149,116 @@ outside ogent never inherits a silently downgraded reasoning effort."
   "Return non-nil when BACKEND-OBJECT has PROVIDER type."
   (and backend-object
        (symbolp provider)
-       (or (eq (type-of backend-object) provider)
+       (or (and (eq provider 'gptel-openai)
+                (eq (type-of backend-object) 'gptel-openai-responses))
+           (eq (type-of backend-object) provider)
            (ignore-errors (cl-typep backend-object provider)))))
+
+(defun ogent-gptel-endpoint (backend)
+  "Return the API endpoint family of BACKEND."
+  (cond
+   ((eq (type-of backend) 'gptel-openai-responses) 'responses)
+   ((ogent-gptel-backend-matches-provider-p backend 'gptel-openai) 'chat)
+   ((ogent-gptel-backend-matches-provider-p backend 'gptel-anthropic)
+    'messages)))
+
+(defun ogent-gptel-validate-endpoint (model backend)
+  "Validate MODEL against BACKEND and the pending tool configuration."
+  (let ((endpoint (ogent-gptel-endpoint backend))
+        (tools (and gptel-use-tools gptel-tools)))
+    (when (and endpoint (plist-member model :endpoints)
+               (or (not (memq endpoint (plist-get model :endpoints)))
+                   (and tools (plist-get model :tools-endpoints)
+                        (not (memq endpoint
+                                   (plist-get model :tools-endpoints))))))
+      (user-error
+       "Model %s%s requires %s; configure a matching gptel backend (update gptel for Responses API)"
+       (plist-get model :id) (if tools " with tools" "")
+       (or (and tools (plist-get model :tools-endpoints))
+           (plist-get model :endpoints))))))
+
+(defun ogent-gptel--prepared-backend (backend)
+  "Copy BACKEND with bounded, already evaluated authentication headers."
+  (if (not (and (fboundp 'gptel-backend-p) (gptel-backend-p backend)
+                (fboundp 'gptel-backend-header)))
+      backend
+    (let ((copy (copy-sequence backend))
+          (header (gptel-backend-header backend)))
+      (when (functionp header)
+        (setq header
+              (with-timeout (ogent-gptel-header-timeout
+                             (error "Authentication header preparation timed out"))
+                (if (eq (cdr (func-arity header)) 0)
+                    (funcall header)
+                  (funcall header
+                           (list :backend backend :model gptel-model
+                                 :buffer (current-buffer)))))))
+      (aset copy (cl-struct-slot-offset 'gptel-backend 'header) header)
+      copy)))
+
+(defun ogent-gptel-request (prompt &rest args)
+  "Send PROMPT with ARGS after validating the effective gptel configuration.
+Validate after presets have bound their backend, model and tools.  Evaluate
+headers before gptel can spawn a transport child."
+  (let ((model (and (fboundp 'ogent-models-get)
+                    (ogent-models-get
+                     (ogent-gptel-model-display-name
+                      (and (boundp 'gptel-model) gptel-model))))))
+    (when model
+      (ogent-gptel-validate-endpoint model (and (boundp 'gptel-backend) gptel-backend))
+      (when (and (fboundp 'gptel-backend-p) (gptel-backend-p gptel-backend))
+        (ogent-gptel-ensure-model-on-backend model gptel-backend)))
+    (let* ((overrides (and model (ogent-gptel-tool-request-params model)))
+           (gptel-org-convert-response nil)
+           (gptel-backend (ogent-gptel--prepared-backend
+                           (and (boundp 'gptel-backend) gptel-backend)))
+           (gptel-tools (ogent-gptel--workspace-tools
+                         (and (boundp 'gptel-tools) gptel-tools)))
+           (gptel--request-params
+            (ogent-gptel--merge-params
+             (and (boundp 'gptel--request-params) gptel--request-params) overrides))
+           ;; Model parameters take precedence in gptel.  Use a private symbol
+           ;; with the same wire name so compatibility never alters user props.
+           (gptel-model
+            (if (and overrides (fboundp 'gptel-backend-p)
+                     (gptel-backend-p gptel-backend))
+		(let* ((symbol (intern (plist-get model :id)))
+                       (copy (make-symbol (symbol-name symbol))))
+                  (setplist copy (copy-tree (symbol-plist symbol)))
+                  (put copy :request-params
+                       (ogent-gptel--merge-params (get copy :request-params) overrides))
+                  (ogent-gptel--set-backend-models
+                   gptel-backend (cons copy (gptel-backend-models gptel-backend)))
+                  copy)
+              (and (boundp 'gptel-model) gptel-model))))
+      (apply #'gptel-request prompt args))))
+
+(defun ogent-gptel--merge-params (params overrides)
+  "Copy PARAMS and merge OVERRIDES with compatibility values taking precedence."
+  (let ((result (copy-tree params)))
+    (while overrides
+      (let ((key (pop overrides)))
+        (setq result (plist-put result key (pop overrides)))))
+    result))
+
+(defun ogent-gptel--workspace-tools (tools)
+  "Copy TOOLS with their execution bound to the request's workspace."
+  (let ((root (or (and (boundp 'ogent-tools-project-root) ogent-tools-project-root)
+                  default-directory)))
+    (mapcar
+     (lambda (tool)
+       (if (not (and (fboundp 'gptel-tool-function)
+                     (ignore-errors (gptel-tool-function tool))))
+           tool
+         (let ((copy (copy-sequence tool))
+               (function (gptel-tool-function tool)))
+           (aset copy (cl-struct-slot-offset 'gptel-tool 'function)
+                 (lambda (&rest values)
+                   (let ((ogent-tools-project-root root)
+                         (default-directory root))
+                     (apply function values))))
+           copy)))
+     tools)))
 
 (defun ogent-gptel-resolve-backend (model)
   "Return the backend object for MODEL plist."

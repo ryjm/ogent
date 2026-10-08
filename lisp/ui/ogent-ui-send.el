@@ -25,9 +25,10 @@
 (defvar gptel-tools)
 (defvar gptel-use-tools)
 (defvar gptel--request-params)
+(defvar ogent-tools-project-root)
 
 ;; gptel integration (soft dependency).
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (declare-function gptel-backend-p "ext:gptel-request" t t)
 (declare-function gptel--model-name "ext:gptel-request")
 (declare-function gptel-with-preset "ext:gptel" t t)
@@ -234,6 +235,16 @@ turns, compacted to `ogent-multi-turn-token-budget'."
           (setq prompt-text (concat ogent-org-format-directive "\n\n" prompt-text))
         ;; Normal mode: use system message
         (setq args (plist-put args :system ogent-org-format-directive))))
+    (unless (ogent-ui-request-wire-prompt request)
+      (setf (ogent-ui-request-wire-prompt request)
+            (copy-tree (if history (append history (list prompt-text))
+                         prompt-text))
+            (ogent-ui-request-send-args request)
+            (copy-tree (cl-loop for (key value) on args by #'cddr
+                                unless (eq key :callback)
+                                append (list key value)))))
+    (setq args (append (ogent-ui-request-send-args request)
+                       (list :callback callback)))
     (condition-case err
         (progn
           (when (and (fboundp 'gptel-backend-p)
@@ -246,14 +257,17 @@ turns, compacted to `ogent-multi-turn-token-budget'."
           (ogent-gptel-ensure-model-on-backend model backend)
           (ogent-models-apply-gptel-props model)
           (let* ((sender (lambda ()
-                           (apply #'gptel-request
-                                  (if history
-                                      (append history (list prompt-text))
-                                    prompt-text)
+                           (unless (equal (ogent-gptel-model-display-name gptel-model) model-id)
+                             (user-error "Preset changes model %s to %s; choose that model explicitly in the picker"
+                                         model-id (ogent-gptel-model-display-name gptel-model)))
+                           (apply #'ogent-gptel-request
+                                  (ogent-ui-request-wire-prompt request)
                                   args)))
                  (gptel-backend backend)
                  (gptel-model model-id)
                  (gptel-cache ogent-gptel-cache)
+                 (ogent-tools-project-root
+                  (plist-get (ogent-ui-request-context request) :workspace-root))
                  ;; Bind all registered tools
                  (gptel-tools (or tools gptel-tools))
                  (gptel-use-tools (when tools t))
@@ -262,7 +276,7 @@ turns, compacted to `ogent-multi-turn-token-budget'."
                  ;; (gpt-5.6 rejects function tools unless
                  ;; reasoning_effort is "none").
                  (gptel--request-params
-                  (ogent-gptel-tool-request-params model))
+                  (and (boundp 'gptel--request-params) gptel--request-params))
                  (handle (if preset
                              (if (fboundp 'gptel-with-preset)
                                  (gptel-with-preset

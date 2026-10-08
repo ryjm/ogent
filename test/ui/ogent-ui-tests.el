@@ -2427,27 +2427,33 @@ payload, so the anchored match also proves no spurious warning."
         (should (eq (ogent-ui-request-status request) 'aborted))))))
 
 (ert-deftest ogent-ui-fallback-dispatch-reissues-with-substitute-model ()
-  "The fallback dispatch re-issues the original request on the new model."
+  "Retry a saved payload without rebuilding context at the moved point."
   (with-temp-buffer
     (org-mode)
+    (insert "* Original\nOriginal context\n* Unrelated\n")
     (let* ((sent nil)
-           (state nil)
            (request (make-ogent-ui-request
                      :id "req-fb-dispatch" :buffer (current-buffer)
                      :source-buffer (current-buffer)
                      :model '(:id "gpt-4o-mini" :backend gptel-openai)
+                     :context '(:snapshot "Original context")
+                     :wire-prompt "Original immutable payload"
+                     :send-args '(:stream t)
                      :prompt "Test prompt" :preset 'coding)))
-      (cl-letf (((symbol-function 'ogent-request)
-                 (lambda (prompt models preset)
-                   (setq sent (list prompt models preset)
-                         state ogent-ui--fallback-state))))
+      (goto-char (point-max))
+      (cl-letf (((symbol-function 'ogent-ui--send-request)
+                 (lambda (next) (setq sent next)))
+                ((symbol-function 'ogent-context-build-with-source)
+                 (lambda (&rest _) (error "Retry must not rebuild context"))))
         (funcall (ogent-ui--fallback-dispatch request)
-                 "claude-fable-5"
-                 '(:attempt 0 :tried ("gpt-4o-mini"))))
-      (should (equal sent '("Test prompt" ("claude-fable-5") coding)))
-      ;; The dispatch binds accumulated retry state for the fresh request.
-      (should (equal (plist-get state :attempt) 0))
-      (should (equal (plist-get state :tried) '("gpt-4o-mini"))))))
+		 "claude-fable-5" '(:attempt 1 :tried ("gpt-4o-mini"))))
+      (should (equal (ogent-ui-request-wire-prompt sent) "Original immutable payload"))
+      (should (equal (ogent-ui-request-prompt sent) "Test prompt"))
+      (should (equal (plist-get (ogent-ui-request-model sent) :id) "claude-fable-5"))
+      (should (equal (plist-get (ogent-ui-request-context sent) :snapshot) "Original context"))
+      (should (equal (plist-get (plist-get (ogent-ui-request-context sent)
+                                           :provider-fallback) :attempt) 1))
+      (ogent-ui--cancel-watchdog sent))))
 
 (ert-deftest ogent-ui-register-request-records-fallback-state ()
   "Registration stashes bound fallback state into the request context."
@@ -3495,6 +3501,26 @@ property report the global default."
         (ogent-ui--watchdog-timeout "wd-msg-global")
         (should (equal close-msg
                        "Request timed out after 180s of inactivity"))))))
+
+(ert-deftest ogent-ui-watchdog-cleanup-failure-blocks-recovery ()
+  "Close a failed cleanup visibly and prevent overlapping recovery attempts."
+  (with-temp-buffer
+    (org-mode)
+    (let* ((ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui-request-timeout nil)
+           (request (ogent-ui-prepare-response-block "Original" nil
+                                                     (ogent-models-ensure "gpt-4o-mini")))
+           (recoveries 0))
+      (cl-letf (((symbol-function 'ogent-gptel-cancel)
+                 (lambda (&rest _) (error "fixture cleanup failure")))
+                ((symbol-function 'ogent-ui--handle-provider-error)
+                 (lambda (&rest _) (cl-incf recoveries))))
+        (ogent-ui--watchdog-timeout (ogent-ui-request-id request))
+        (should (ogent-ui-request-closed request))
+        (should (= recoveries 0))
+        (should (string-match-p "Recovery is blocked" (buffer-string)))
+        (should-error (funcall (ogent-ui--fallback-dispatch request) "gpt-4o-mini" nil))
+        (should (= 0 (hash-table-count ogent-ui--request-table)))))))
 
 (provide 'ogent-ui-tests)
 ;;; ogent-ui-tests.el ends here

@@ -14,7 +14,7 @@
 (require 'ogent-models)
 (require 'ogent-gptel)
 
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (defvar gptel-model)
 (defvar gptel-backend)
 (defvar gptel--request-params)
@@ -200,30 +200,30 @@ CALLBACK receives (content error) where error is nil on success."
                  ;; gpt-5.6 rejects function tools unless
                  ;; reasoning_effort is "none".
                  (gptel--request-params
-                  (ogent-gptel-tool-request-params model)))
+                  (and (boundp 'gptel--request-params) gptel--request-params)))
             (when backend
               (ogent-gptel-ensure-model-on-backend model backend)
               (ogent-models-apply-gptel-props model))
-            (gptel-request prompt
-                           :system ogent-codemap--system-prompt
-                           :stream t
-                           :callback
-                           (lambda (text info)
-                             (cond
-                              ((and (listp info) (plist-get info :error))
-                               (remhash cache-key ogent-codemap--pending-requests)
-                               (funcall callback nil (plist-get info :error)))
-                              ((stringp text)
-                               (setq accumulated (concat accumulated text)))
-                              ((or (and (listp info)
-                                        (or (plist-get info :done)
-                                            (plist-get info :final)
-                                            (equal (plist-get info :status) "success")))
-                                   (and (not (stringp text)) (listp info) info))
-                               (remhash cache-key ogent-codemap--pending-requests)
-                               (when (> (length accumulated) 0)
-                                 (ogent-codemap--cache-put cache-key accumulated))
-                               (funcall callback accumulated nil)))))))))))
+            (ogent-gptel-request prompt
+				 :system ogent-codemap--system-prompt
+				 :stream t
+				 :callback
+				 (lambda (text info)
+				   (cond
+				    ((and (listp info) (plist-get info :error))
+				     (remhash cache-key ogent-codemap--pending-requests)
+				     (funcall callback nil (plist-get info :error)))
+				    ((stringp text)
+				     (setq accumulated (concat accumulated text)))
+				    ((or (and (listp info)
+                                              (or (plist-get info :done)
+						  (plist-get info :final)
+						  (equal (plist-get info :status) "success")))
+					 (and (not (stringp text)) (listp info) info))
+				     (remhash cache-key ogent-codemap--pending-requests)
+				     (when (> (length accumulated) 0)
+                                       (ogent-codemap--cache-put cache-key accumulated))
+				     (funcall callback accumulated nil)))))))))))
 
 ;;; Interactive Commands
 

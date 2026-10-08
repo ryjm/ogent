@@ -107,6 +107,8 @@ When non-nil, requests are dispatched to all listed models concurrently.")
   response-heading-level  ; Org level of the response headline
   paused-response  ; Stores partial response when paused for resume
   handled-tool-use  ; Identity of the :tool-use payload already dispatched
+  wire-prompt  ; Immutable prompt and completed history captured at dispatch
+  send-args  ; Immutable system and transport options captured at dispatch
   watchdog)  ; Inactivity timer that force-closes a hung request
 
 (defun ogent-ui--set-response-function (symbol value)

@@ -39,6 +39,33 @@
 (declare-function ogent-tool--bash-async "ogent-tools")
 (declare-function ogent-tools--resolve-path "ogent-tools")
 (declare-function ogent-tools--project-root "ogent-tools")
+(declare-function gptel-tool-function "ext:gptel-request" t t)
+(declare-function gptel-tool-async "ext:gptel-request" t t)
+(declare-function gptel-tool-args "ext:gptel-request" t t)
+
+(defun ogent-ui--complete-pending-tools (pending)
+  "Execute PENDING tools through their registered gptel wrappers.
+Invoke each result callback once, including denied and failed calls.
+Return nil; gptel owns protocol injection and subsequent model rounds."
+  (dolist (call pending)
+    (let* ((tool (car call))
+           (args (cadr call))
+           (callback (nth 2 call))
+           (finished nil)
+           (complete (lambda (result)
+                       (unless finished
+                         (setq finished t)
+                         (funcall callback result)))))
+      (unless (functionp callback) (error "Missing gptel tool result callback"))
+      (condition-case err
+          (let ((values (mapcar
+                         (lambda (arg)
+                           (plist-get args (intern (concat ":" (plist-get arg :name)))))
+                         (gptel-tool-args tool))))
+            (if (gptel-tool-async tool)
+                (apply (gptel-tool-function tool) complete values)
+              (funcall complete (apply (gptel-tool-function tool) values))))
+        (error (funcall complete (concat "Tool error: " (error-message-string err))))))))
 
 (defun ogent-ui--async-tool-p (tool-name)
   "Return non-nil if TOOL-NAME supports async streaming execution.

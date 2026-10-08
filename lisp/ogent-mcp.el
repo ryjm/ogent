@@ -667,6 +667,7 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
 (defun ogent-mcp--register-tools (conn tools)
   "Register TOOLS from CONN with ogent's tool registry."
   (let ((server-name (ogent-mcp-connection-name conn)))
+    (ogent-mcp--unregister-tools server-name)
     (dolist (tool tools)
       (let* ((name (alist-get 'name tool))
              (description (or (alist-get 'description tool) ""))
@@ -676,7 +677,13 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
         ;; Create a wrapper function that calls the MCP server
         (fset tool-sym
               (lambda (&rest call-args)
-                (ogent-mcp--call-tool conn name call-args)))
+                (ogent-mcp--call-tool
+                 conn name
+                 (cl-loop for arg in args
+                          for value in call-args
+                          unless (and (plist-get arg :optional) (null value))
+                          append (list (intern (concat ":" (plist-get arg :name)))
+                                       value)))))
         ;; Add to ogent-tool-registry
         (let ((spec `(:name ,tool-sym
                             :function ,tool-sym
@@ -696,7 +703,8 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
 (defun ogent-mcp--call-tool (conn tool-name args)
   "Call TOOL-NAME on CONN with ARGS and return result."
   (let* ((params `((name . ,tool-name)
-                   (arguments . ,(ogent-mcp--args-to-alist args))))
+                   (arguments . ,(or (ogent-mcp--args-to-alist args)
+                                     (make-hash-table :test #'equal)))))
          (response (ogent-mcp--request-sync conn "tools/call" params)))
     (if (cdr response)
         ;; Error
@@ -717,9 +725,38 @@ Return (RESULT . ERROR) cons cell.  Block for up to TIMEOUT seconds."
       (let ((key (car args))
             (val (cadr args)))
         (when (keywordp key)
-          (push (cons (intern (substring (symbol-name key) 1)) val) result)))
+          (push (cons (intern (substring (symbol-name key) 1))
+                      (ogent-mcp--json-value val)) result)))
       (setq args (cddr args)))
     (nreverse result)))
+
+(defun ogent-mcp--json-value (value)
+  "Convert gptel JSON sentinels in VALUE to json.el representations."
+  (cond
+   ((eq value :null) nil)
+   ((eq value :false) :json-false)
+   ((vectorp value) (vconcat (mapcar #'ogent-mcp--json-value value)))
+   ((and (consp value) (keywordp (car value)))
+    (cl-loop for (key item) on value by #'cddr
+             append (list key (ogent-mcp--json-value item))))
+   ((consp value)
+    (mapcar (lambda (item)
+              (if (consp item) (cons (car item) (ogent-mcp--json-value (cdr item)))
+                (ogent-mcp--json-value item))) value))
+   (t value)))
+
+(defun ogent-mcp--unregister-tools (server-name)
+  "Remove SERVER-NAME's tools and invalidate registered gptel objects."
+  (let ((prefix (format "mcp-%s-" server-name)))
+    (dolist (spec ogent-tool-registry)
+      (let ((name (plist-get spec :name)))
+        (when (string-prefix-p prefix (symbol-name name))
+          (when (fboundp name) (fmakunbound name)))))
+    (setq ogent-tool-registry
+          (cl-remove-if (lambda (spec)
+                          (string-prefix-p prefix (symbol-name (plist-get spec :name))))
+                        ogent-tool-registry))
+    (when (fboundp 'ogent-register-tools) (ogent-register-tools))))
 
 (defun ogent-mcp--extract-text-content (content)
   "Extract text from MCP CONTENT array."
@@ -888,12 +925,7 @@ connection object; no request is sent until initialization."
     (setf (ogent-mcp-connection-streams conn) nil)
     (remhash server-name ogent-mcp--connections)
     ;; Remove registered tools
-    (let ((prefix (format "mcp-%s-" server-name)))
-      (setq ogent-tool-registry
-            (cl-remove-if (lambda (spec)
-                            (string-prefix-p prefix
-                                             (symbol-name (plist-get spec :name))))
-                          ogent-tool-registry)))
+    (ogent-mcp--unregister-tools server-name)
     (message "ogent-mcp: Disconnected from '%s'" server-name)))
 
 ;;;###autoload

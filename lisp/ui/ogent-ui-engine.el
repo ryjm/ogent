@@ -25,6 +25,7 @@
 ;; Request build & send lives downstream; resume/retry dispatch back into it.
 (declare-function ogent-request "ogent-ui-send"
                   (&optional prompt models preset templates))
+(declare-function ogent-ui--send-request "ogent-ui-send")
 
 ;; Zen presentation hooks (decoupled: declare + fboundp, never required).
 (declare-function ogent-zen-refresh "ogent-zen" (&optional begin end))
@@ -459,6 +460,19 @@ global default."
     (cancel-timer timer)
     (setf (ogent-ui-request-watchdog request) nil)))
 
+(defun ogent-ui--cancel-transport (request)
+  "Stop REQUEST's transport before permitting any recovery dispatch.
+Remove the request from callback lookup during abort to prevent reentrant
+terminal callbacks.  An abort failure propagates instead of scheduling a
+retry while a previous transport may still be alive."
+  (let* ((id (ogent-ui-request-id request))
+         (registered (eq request (gethash id ogent-ui--request-table))))
+    (remhash id ogent-ui--request-table)
+    (unwind-protect
+        (ogent-gptel-cancel (ogent-ui-request-gptel-handle request)
+                            (ogent-ui-request-buffer request))
+      (when registered (puthash id request ogent-ui--request-table)))))
+
 (defun ogent-ui--watchdog-timeout (request-id)
   "Force-close the request identified by REQUEST-ID after a stall.
 REQUEST-ID is looked up fresh in `ogent-ui--request-table' so a request
@@ -471,14 +485,23 @@ its transcript leaves the running state."
                 (memq (ogent-ui-request-status request)
                       '(done error aborted paused)))
       (let ((buffer (ogent-ui-request-buffer request)))
-        ;; Best-effort abort of the underlying gptel request.
-        (when (and (buffer-live-p buffer) (fboundp 'gptel-abort))
-          (ignore-errors (gptel-abort buffer)))
+        ;; Suppress abort callbacks until cleanup has completed.  Only the
+        ;; timeout outcome may schedule recovery.
+        (condition-case err
+            (ogent-ui--cancel-transport request)
+          (error
+           (setf (ogent-ui-request-context request)
+                 (plist-put (copy-sequence (ogent-ui-request-context request))
+                            :transport-cleanup-error (error-message-string err)))))
         (if (buffer-live-p buffer)
             (ogent-ui--close-response
              request
-             (format "Request timed out after %ss of inactivity"
-                     (ogent-ui--request-timeout request))
+             (if-let ((failure (plist-get (ogent-ui-request-context request)
+                                          :transport-cleanup-error)))
+                 (format "Transport cleanup failed: %s. Recovery is blocked until cleanup succeeds"
+                         failure)
+               (format "Request timed out after %ss of inactivity"
+                       (ogent-ui--request-timeout request)))
              'error)
           ;; The buffer is gone; just drop the orphaned request.
           (remhash request-id ogent-ui--request-table))))))
@@ -872,10 +895,12 @@ prompt and preset as a fresh request against MODEL-ID, threading
 CONTEXT's :attempt and :tried counters into the new request via
 `ogent-ui--fallback-state'."
   (lambda (model-id context)
-    (let* ((source (ogent-ui-request-source-buffer request))
-           (buffer (if (buffer-live-p source)
-                       source
-                     (ogent-ui-request-buffer request)))
+    (when (plist-get (ogent-ui-request-context request) :transport-cleanup-error)
+      (ogent-ui--cancel-transport request)
+      (setf (ogent-ui-request-context request)
+            (plist-put (copy-sequence (ogent-ui-request-context request))
+                       :transport-cleanup-error nil)))
+    (let* ((buffer (ogent-ui-request-buffer request))
            (prompt (ogent-ui-request-prompt request)))
       (if (not (and prompt (buffer-live-p buffer)))
           (message
@@ -885,8 +910,20 @@ CONTEXT's :attempt and :tried counters into the new request via
           (let ((ogent-ui--fallback-state
                  (list :attempt (or (plist-get context :attempt) 0)
                        :tried (plist-get context :tried))))
-            (ogent-request prompt (list model-id)
-                           (ogent-ui-request-preset request))))))))
+            (save-excursion
+              (when-let ((marker (ogent-ui-request-request-heading-pos request)))
+                (when (marker-position marker) (goto-char marker)))
+              (let ((next (funcall ogent-response-function prompt
+                                   (copy-tree (ogent-ui-request-context request))
+                                   (ogent-models-ensure model-id))))
+                (setf (ogent-ui-request-source-buffer next)
+                      (ogent-ui-request-source-buffer request)
+                      (ogent-ui-request-preset next) (ogent-ui-request-preset request)
+                      (ogent-ui-request-wire-prompt next)
+                      (copy-tree (ogent-ui-request-wire-prompt request))
+                      (ogent-ui-request-send-args next)
+                      (copy-tree (ogent-ui-request-send-args request)))
+                (ogent-ui--send-request next)))))))))
 
 (defun ogent-ui--set-fallback-status (request status-text)
   "Show STATUS-TEXT as the header status of REQUEST's block.
@@ -1049,7 +1086,8 @@ Provides visual feedback via mode-line flash."
                                   message 50 nil nil "...")))
       ;; Aborts are deliberate; only genuine failures enter the
       ;; headless retry/failover pipeline.
-      (unless (eq (or final-status 'error) 'aborted)
+      (unless (or (eq (or final-status 'error) 'aborted)
+                  (plist-get (ogent-ui-request-context request) :transport-cleanup-error))
         (ogent-ui--handle-provider-error request message)))
     (unless error-message
       (ogent-ui--update-status request (or final-status 'done))
@@ -1171,10 +1209,6 @@ Handles both regular text responses and tool call responses."
                       (tool-name (plist-get normalized :name))
                       (tool-args (plist-get normalized :args))
                       (tool-result (plist-get normalized :result)))
-                 (ogent-ledger-record-tool-finish
-                  (ogent-ui--tool-ledger-call tool-name tool-args)
-                  tool-result nil nil
-                  (ogent-ui--tool-ledger-effects tool-name))
                  (when-let ((marker (ogent-ui-request-marker request)))
                    (with-current-buffer (ogent-ui-request-buffer request)
                      (save-excursion
@@ -1185,7 +1219,8 @@ Handles both regular text responses and tool call responses."
             ('tool-call
              ;; Tools pending confirmation - gptel owns resuming the request
              ;; through the callback it supplies in the pending call entry.
-             (ogent-ui--update-status request 'tool))))
+             (ogent-ui--update-status request 'tool)
+             (ogent-ui--complete-pending-tools (cdr text)))))
         ;; Native gptel reports :tool-use on the first response before it
         ;; enters the TOOL state.  Do not execute these ourselves: doing so
         ;; closes ogent before gptel can inject the tool results and ask the
@@ -1356,11 +1391,7 @@ Records the error and displays it in the *ogent-errors* buffer."
 (defun ogent-ui--abort-request (request)
   "Abort REQUEST if it's still active."
   (unless (ogent-ui-request-closed request)
-    (let ((handle (ogent-ui-request-gptel-handle request)))
-      ;; gptel uses buffer-based abort; try if available
-      (when (and handle (fboundp 'gptel-abort))
-        (ignore-errors
-          (gptel-abort (ogent-ui-request-buffer request)))))
+    (ogent-ui--cancel-transport request)
     (ogent-ui--close-response request "Request aborted by user" 'aborted)))
 
 (defun ogent-ui--get-partial-response (request)
@@ -1383,10 +1414,7 @@ Stops the HTTP stream but keeps the request in a resumable state."
     (let ((partial (ogent-ui--get-partial-response request)))
       (setf (ogent-ui-request-paused-response request) partial))
     ;; Abort the gptel connection
-    (let ((handle (ogent-ui-request-gptel-handle request)))
-      (when (and handle (fboundp 'gptel-abort))
-        (ignore-errors
-          (gptel-abort (ogent-ui-request-buffer request)))))
+    (ogent-ui--cancel-transport request)
     ;; Mark as paused (not closed - can be resumed)
     (ogent-ui--update-status request 'paused)
     ;; Insert pause indicator in buffer
@@ -1518,10 +1546,8 @@ Re-sends the original prompt with the same model and context."
              (request (seq-find (lambda (r) (string= (ogent-ui-request-id r) id))
                                 ogent-ui--request-history)))
         (when request
-          ;; Create a fresh request with the same params
-          (ogent-request (ogent-ui-request-prompt request)
-                         (list (plist-get (ogent-ui-request-model request) :id))
-                         (ogent-ui-request-preset request))
+          (funcall (ogent-ui--fallback-dispatch request)
+                   (plist-get (ogent-ui-request-model request) :id) nil)
           (message "Retrying request %s" id)))
     (message "No requests in history to retry")))
 

@@ -33,7 +33,7 @@
 (require 'ogent-models)
 (require 'ogent-gptel)
 
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (declare-function gptel-backend-p "ext:gptel-request" t t)
 (declare-function ogent-context--dependency "ogent-context" (handle))
 ;; cl-defstruct accessor (fileonly: generated, not a top-level defun)
@@ -107,7 +107,7 @@ timeout or an error response."
   (require 'gptel)
   (let* ((model (ogent-models-ensure model-id))
          (backend (ogent-gptel-resolve-backend model))
-         (done nil) (result nil) (failure nil)
+         (done nil) (result nil) (failure nil) (handle nil)
          (gptel-backend backend)
          (gptel-model model-id)
          (gptel-stream nil)
@@ -122,23 +122,24 @@ timeout or an error response."
     (when (and (fboundp 'gptel-backend-p) (gptel-backend-p backend))
       (ogent-gptel-ensure-model-on-backend model backend))
     (ogent-models-apply-gptel-props model)
-    (gptel-request prompt
-                   :system (or system gptel--system-message)
-                   :stream nil
-                   :callback
-                   (lambda (response info)
-                     (setq done t)
-                     (if (stringp response)
-                         (setq result response)
-                       (setq failure
-                             (or (plist-get info :error)
-                                 (plist-get info :status)
-                                 "no response")))))
+    (setq handle (ogent-gptel-request prompt
+				      :system (or system gptel--system-message)
+				      :stream nil
+				      :callback
+				      (lambda (response info)
+					(setq done t)
+					(if (stringp response)
+					    (setq result response)
+					  (setq failure
+						(or (plist-get info :error)
+						    (plist-get info :status)
+						    "no response"))))))
     (let ((deadline (+ (float-time) ob-ogent-timeout)))
       (while (and (not done) (< (float-time) deadline))
         (accept-process-output nil 0.1)))
     (cond
      ((not done)
+      (ogent-gptel-cancel handle (current-buffer))
       (user-error "Ob-ogent: request timed out after %ds" ob-ogent-timeout))
      (failure (user-error "Ob-ogent: %s" failure))
      (t (string-trim (or result ""))))))

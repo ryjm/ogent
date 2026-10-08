@@ -5,8 +5,8 @@
 ;; instead of spawning an external coding CLI.  The loop sends the
 ;; composed plan prompt through `gptel-request' with ogent's enabled
 ;; tools, executes model tool calls through the ogent tool registry
-;; while honoring `ogent-tool-approval-check', feeds results back as
-;; fabricated conversation turns, and iterates until the model stops
+;; through shared approval and ledger wrappers, returns results to the
+;; original gptel FSM, and iterates until the model stops
 ;; calling tools or `ogent-armory-native-max-iterations' is reached.
 ;; Completion funnels through the same conversation lifecycle the
 ;; process sentinel uses, so turns, status, session recording, and the
@@ -23,9 +23,10 @@
 (require 'ogent-armory-conversations)
 (require 'ogent-ui-toolcalls)
 
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (declare-function gptel-backend-p "ext:gptel-request" t t)
 (declare-function gptel-tool-name "ext:gptel-request" t t)
+(declare-function gptel--fsm-transition "ext:gptel-request")
 
 ;; Analytics (optional; loaded lazily), mirroring the ogent-ui engine.
 (declare-function ogent-analytics-record-completion "ogent-analytics")
@@ -36,6 +37,20 @@
 (defvar gptel-tools)
 (defvar gptel-use-tools)
 (defvar gptel--request-params)
+
+(defvar ogent-armory-native--runs (make-hash-table :test #'equal)
+  "Live native run states keyed by canonical conversation file.")
+
+(defun ogent-armory-native-stop (directory conversation-id)
+  "Stop the native CONVERSATION-ID under DIRECTORY and finalize it once."
+  (let* ((file (ogent-armory-conversation-file directory conversation-id))
+         (state (gethash file ogent-armory-native--runs)))
+    (when state
+      (plist-put (plist-get state :plan) :cancelled t)
+      (ogent-gptel-cancel (plist-get state :handle)
+                          (plist-get state :buffer))
+      (ogent-armory-native--fail state "Request aborted by user")
+      t)))
 (defvar ogent-tools-project-root)
 
 (defgroup ogent-armory-native nil
@@ -205,30 +220,6 @@ finalized file clean."
       (set-marker marker nil))
     (plist-put state :stream-marker nil)))
 
-;;; Fabricated conversation turns
-
-(defun ogent-armory-native--assistant-turn (text results)
-  "Return the fabricated assistant turn for round TEXT and tool RESULTS.
-RESULTS is a list of (NAME . RESULT) conses."
-  (string-join
-   (delq nil
-         (cons (when (and text (not (string-blank-p text))) text)
-               (mapcar (lambda (result)
-                         (format "[tool-call] %s" (car result)))
-                       results)))
-   "\n"))
-
-(defun ogent-armory-native--results-turn (results)
-  "Return the user turn feeding tool RESULTS back to the model."
-  (concat
-   "Tool results:\n\n"
-   (mapconcat (lambda (result)
-                (format "[%s]\n%s" (car result) (cdr result)))
-              results
-              "\n\n")
-   "\n\nContinue the task with these results.  When no more tools are"
-   " needed, reply with your final answer."))
-
 ;;; Native session resume
 
 (defun ogent-armory-native--resume-messages (plan)
@@ -295,6 +286,8 @@ conversation index behave exactly like a CLI-backed run.  Return the
 conversation file, or nil when STATE already finished."
   (unless (plist-get state :finished)
     (plist-put state :finished t)
+    (remhash (plist-get (plist-get state :plan) :conversation-file)
+             ogent-armory-native--runs)
     (ogent-armory-native--stream-release state)
     (let* ((plan (plist-get state :plan))
            (output (ogent-armory-native--output state)))
@@ -367,14 +360,15 @@ Bind the resolved backend, model, and ogent's enabled tools around
            (gptel-backend backend)
            (gptel-model model-id)
            (gptel-cache ogent-gptel-cache)
+           (ogent-tools-project-root (plist-get (plist-get state :plan) :workspace))
            (gptel-tools (or tools (and (boundp 'gptel-tools) gptel-tools)))
            (gptel-use-tools (and tools t))
            ;; Bound after the tool variables: gpt-5.6 rejects function
            ;; tools unless reasoning_effort is "none".
            (gptel--request-params
-            (ogent-gptel-tool-request-params model)))
+            (and (boundp 'gptel--request-params) gptel--request-params)))
       (plist-put state :handle
-                 (gptel-request
+                 (ogent-gptel-request
                   (if (cdr messages) messages (car messages))
                   :stream nil
                   :callback (ogent-armory-native--callback state))))))
@@ -386,45 +380,10 @@ Bind the resolved backend, model, and ogent's enabled tools around
     (error
      (ogent-armory-native--fail state (error-message-string err)))))
 
-(defun ogent-armory-native--continue (state results)
-  "Feed tool RESULTS back to the model for STATE and iterate.
-Finalize as failed instead when the next round would exceed
-`ogent-armory-native-max-iterations'."
-  (let ((iteration (1+ (plist-get state :iteration)))
-        (text (plist-get state :round-text)))
-    (plist-put state :round-text nil)
-    (if (> iteration ogent-armory-native-max-iterations)
-        (ogent-armory-native--fail
-         state (ogent-armory-native--iteration-cap-text))
-      (plist-put state :iteration iteration)
-      (plist-put state :messages
-                 (append (plist-get state :messages)
-                         (list (ogent-armory-native--assistant-turn
-                                text results)
-                               (ogent-armory-native--results-turn results))))
-      (ogent-armory-native--send-guarded state))))
-
 (defun ogent-armory-native--handle-tool-calls (state tool-calls)
-  "Run each of TOOL-CALLS for STATE through ogent's tool machinery, then iterate."
-  (let ((plan (plist-get state :plan))
-        (iteration (plist-get state :iteration))
-        (results nil))
-    (plist-put state :round-text (plist-get state :pending-text))
-    (ogent-armory-native--record-pending-text state)
-    (dolist (call tool-calls)
-      (let* ((name (ogent-armory-native--tool-name call))
-             (args (ogent-armory-native--tool-args call))
-             (result (if name
-                         (ogent-armory-native--execute-tool plan name args)
-                       "Malformed tool call: missing name")))
-        (ogent-armory-native--record
-         state (list :type 'tool-call
-                     :iteration iteration
-                     :name (or name "unknown")
-                     :args args
-                     :result result))
-        (push (cons (or name "unknown") result) results)))
-    (ogent-armory-native--continue state (nreverse results))))
+  "Complete pending TOOL-CALLS for STATE within the original gptel FSM."
+  (ogent-armory-native--record-pending-text state)
+  (ogent-ui--complete-pending-tools tool-calls))
 
 (defun ogent-armory-native--handle-tool-results (state results)
   "Record RESULTS that gptel executed itself for STATE.
@@ -434,6 +393,7 @@ auto-approves).  gptel continues the request on its own, so only
 count the round; past the cap, mark the run failed so any late
 callbacks are ignored."
   (let ((iteration (plist-get state :iteration)))
+    (ogent-armory-native--record-pending-text state)
     (dolist (entry results)
       (let ((result (if (keywordp (car-safe entry))
                         (plist-get entry :result)
@@ -448,8 +408,10 @@ callbacks are ignored."
                                  result
                                (format "%S" result))))))
     (if (>= iteration ogent-armory-native-max-iterations)
-        (ogent-armory-native--fail
-         state (ogent-armory-native--iteration-cap-text))
+        (progn
+          (ogent-armory-native--fail state (ogent-armory-native--iteration-cap-text))
+          (when (fboundp 'gptel--fsm-transition)
+            (gptel--fsm-transition (plist-get state :handle) 'ABRT)))
       (plist-put state :iteration (1+ iteration)))))
 
 (defun ogent-armory-native--callback (state)
@@ -474,6 +436,8 @@ callbacks are ignored."
        ((eq (car-safe response) 'tool-result)
         (ogent-armory-native--handle-tool-results state (cdr response)))
        ;; Abort or request error.
+       ((eq response 'abort)
+        (ogent-armory-native--fail state "Request aborted by user"))
        ((null response)
         (ogent-armory-native--fail
          state
@@ -490,6 +454,7 @@ asynchronously, and return the run state plist.  The gptel callback
 finalizes the conversation through the runner's sentinel path, so
 callers never block on the model."
   (let ((state (list :plan plan
+                     :buffer (current-buffer)
                      :model (ogent-armory-native--model plan)
                      :messages (append
                                 (ogent-armory-native--resume-messages plan)
@@ -508,6 +473,7 @@ callers never block on the model."
     (plist-put plan :conversation-file
                (ogent-armory-runner--create-conversation
                 plan (ogent-armory-runner--iso-now)))
+    (puthash (plist-get plan :conversation-file) state ogent-armory-native--runs)
     (ogent-armory-native--send-guarded state)
     state))
 

@@ -17,6 +17,10 @@
 ;; Load analytics up front: the runner soft-requires it at record
 ;; time, and a require AFTER cl-letf installs a stub would clobber it.
 (require 'ogent-analytics)
+(defvar gptel-model)
+
+(defvar ogent-armory-native-test--results nil
+  "Tool results delivered to the simulated gptel FSM.")
 
 (defvar ogent-armory-native-test--requests nil
   "Captured gptel request plists, oldest first.")
@@ -71,24 +75,54 @@ returning such a list.  Captures land in
          (ogent-armory-native-test--tool-log nil)
          (ogent-armory-runner-ensure-beads-redirect nil)
          (rounds ,rounds)
-         (index -1))
-     (cl-letf (((symbol-function 'gptel-request)
+         (index -1)
+         (stopped nil)
+         (ogent-armory-native-test--results nil))
+     (cl-letf (((symbol-function 'gptel-tool-name)
+                (lambda (tool) (symbol-name (plist-get tool :name))))
+               ((symbol-function 'gptel-tool-args)
+                (lambda (tool) (plist-get tool :args)))
+               ((symbol-function 'gptel-tool-function)
+                (lambda (tool) (plist-get tool :function)))
+               ((symbol-function 'gptel-tool-async)
+                (lambda (tool) (plist-get tool :async)))
+               ((symbol-function 'gptel--fsm-transition)
+                (lambda (&rest _) (setq stopped t)))
+               ((symbol-function 'gptel-request)
                 (lambda (prompt &rest args)
-                  (setq index (1+ index))
-                  (setq ogent-armory-native-test--requests
-                        (append ogent-armory-native-test--requests
-                                (list (list :prompt prompt
-                                            :model (and (boundp 'gptel-model)
-                                                        gptel-model)
-                                            :args args))))
-                  (let ((invocations (if (functionp rounds)
-                                         (funcall rounds index)
-                                       (nth index rounds)))
-                        (callback (plist-get args :callback)))
-                    (when callback
-                      (dolist (invocation invocations)
-                        (funcall callback (car invocation)
-                                 (cdr invocation)))))
+                  (push (list :prompt prompt :model gptel-model :args args)
+                        ogent-armory-native-test--requests)
+                  (let ((callback (plist-get args :callback)))
+                    (cl-labels
+			((round ()
+			   (setq index (1+ index))
+                           (dolist (invocation (if (functionp rounds)
+						   (funcall rounds index)
+						 (nth index rounds)))
+                             (let ((response (car invocation)))
+                               (if (eq (car-safe response) 'tool-call)
+                                   (dolist (call (cdr response))
+                                     (let* ((name (plist-get call :name))
+                                            (spec (ogent-tool-spec-get (intern name)))
+                                            (tool (append
+                                                   (list :function
+							 (if spec
+                                                             (ogent-tool-execution-wrapper spec)
+                                                           (lambda (&rest _)
+                                                             (concat "Unknown tool: " name))))
+                                                   spec)))
+                                       (funcall callback
+						(list 'tool-call
+                                                      (list tool (plist-get call :args)
+                                                            (lambda (result)
+                                                              (push result ogent-armory-native-test--results)
+                                                              (funcall callback
+                                                                       (list 'tool-result (list tool (plist-get call :args) result))
+                                                                       nil)
+                                                              (unless stopped (round)))))
+						nil)))
+				 (funcall callback response (cdr invocation)))))))
+                      (round)))
                   'stub-handle))
                ((symbol-function 'ogent-armory-runner--create-conversation)
                 (lambda (_plan _started)
@@ -189,16 +223,9 @@ returning such a list.  Captures land in
         (should (plist-get state :finished))
         ;; The stub tool really ran, through the registry :function.
         (should (equal ogent-armory-native-test--tool-log '("hi")))
-        (should (= 2 (length ogent-armory-native-test--requests)))
-        ;; Round two replays the conversation with the tool results.
-        (let ((prompt (plist-get (nth 1 ogent-armory-native-test--requests)
-                                 :prompt)))
-          (should (listp prompt))
-          (should (= 3 (length prompt)))
-          (should (equal (nth 0 prompt) "Do the task."))
-          (should (string-match-p "\\[tool-call\\] echo" (nth 1 prompt)))
-          (should (string-match-p "echo: hi" (nth 2 prompt))))
-        ;; Fabricated output carries the tool transcript then final text.
+	(should (= 1 (length ogent-armory-native-test--requests)))
+	(should (equal ogent-armory-native-test--results '("echo: hi")))
+	;; Stored output carries the tool transcript then final text.
         (let ((output (plist-get ogent-armory-native-test--finalized
                                  :output)))
           (should (equal (plist-get ogent-armory-native-test--finalized
@@ -209,7 +236,7 @@ returning such a list.  Captures land in
           (should (string-suffix-p "All done." output)))))))
 
 (ert-deftest ogent-armory-native-round-text-precedes-tool-calls ()
-  "Model text accompanying a tool round lands in the fabricated turns."
+  "Preserve model text accompanying a tool round in the transcript."
   (ogent-armory-native-test--with-echo-registry
     (ogent-armory-native-test--with-stubs
         (list (list (cons "Let me check." '(:tool-use t))
@@ -218,11 +245,7 @@ returning such a list.  Captures land in
                           nil))
               '(("Done." . nil)))
       (ogent-armory-native-start (ogent-armory-native-test--plan))
-      (should (= 2 (length ogent-armory-native-test--requests)))
-      (let ((assistant (nth 1 (plist-get
-                               (nth 1 ogent-armory-native-test--requests)
-                               :prompt))))
-        (should (equal assistant "Let me check.\n[tool-call] echo")))
+      (should (= 1 (length ogent-armory-native-test--requests)))
       (let ((output (plist-get ogent-armory-native-test--finalized :output)))
         (should (string-match-p "Let me check\\." output))
         (should (string-suffix-p "Done." output))))))
@@ -239,7 +262,7 @@ returning such a list.  Captures land in
         (let ((state (ogent-armory-native-start
                       (ogent-armory-native-test--plan))))
           (should (plist-get state :finished))
-          (should (= 3 (length ogent-armory-native-test--requests)))
+          (should (= 1 (length ogent-armory-native-test--requests)))
           (should (= 3 (length ogent-armory-native-test--tool-log)))
           (should (equal (plist-get ogent-armory-native-test--finalized
                                     :exit)
@@ -270,12 +293,10 @@ returning such a list.  Captures land in
                  (lambda (&rest _) 'deny)))
         (ogent-armory-native-start (ogent-armory-native-test--plan))
         (should-not ogent-armory-native-test--tool-log)
-        (should (= 2 (length ogent-armory-native-test--requests)))
+        (should (= 1 (length ogent-armory-native-test--requests)))
         (should (string-match-p
-                 "denied by approval policy"
-                 (nth 2 (plist-get
-                         (nth 1 ogent-armory-native-test--requests)
-                         :prompt))))))))
+                 "denied by user"
+                 (car ogent-armory-native-test--results)))))))
 
 (ert-deftest ogent-armory-native-unknown-tool-reports-back ()
   "An unregistered tool feeds an error string back instead of crashing."
@@ -286,11 +307,10 @@ returning such a list.  Captures land in
             '(("OK." . nil)))
     (let ((ogent-tool-registry nil))
       (ogent-armory-native-start (ogent-armory-native-test--plan))
-      (should (= 2 (length ogent-armory-native-test--requests)))
+      (should (= 1 (length ogent-armory-native-test--requests)))
       (should (string-match-p
                "Unknown tool: no-such-tool"
-               (nth 2 (plist-get (nth 1 ogent-armory-native-test--requests)
-                                 :prompt)))))))
+               (car ogent-armory-native-test--results))))))
 
 (ert-deftest ogent-armory-native-nil-response-finalizes-failed ()
   "A nil gptel response finalizes the run as failed with the status."
@@ -406,9 +426,7 @@ returning such a list.  Captures land in
           (should (numberp (plist-get (cdr finish) :duration))))
         (should (string-match-p
                  "Tool error: tool blew up"
-                 (nth 2 (plist-get
-                         (nth 1 ogent-armory-native-test--requests)
-                         :prompt))))))))
+                 (car ogent-armory-native-test--results)))))))
 
 (ert-deftest ogent-armory-native-analytics-records-final-completion ()
   "A successful run records the final round in the analytics eval loop."

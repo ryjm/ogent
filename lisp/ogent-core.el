@@ -12,6 +12,8 @@
 
 ;;; Code:
 
+(require 'ogent-gptel)
+
 (require 'org)
 (require 'subr-x)
 (require 'ogent-context)
@@ -52,7 +54,7 @@
 (declare-function ogent-list-pinned "ogent-context")
 
 ;; gptel integration
-(declare-function gptel-request "ext:gptel-request")
+(declare-function ogent-gptel-request "ogent-gptel")
 (defvar gptel-model)
 (defvar gptel-stream)
 
@@ -561,9 +563,9 @@ Response is displayed according to `ogent-ask-display-function'."
                    (gptel--model-name gptel-model)
                  gptel-model)
              "LLM"))
-  (gptel-request (ogent-ask--prompt question)
-                 :stream t
-                 :callback (ogent-ask--make-callback)))
+  (ogent-gptel-request (ogent-ask--prompt question)
+                       :stream t
+                       :callback (ogent-ask--make-callback)))
 
 ;;; Open Block Command
 
@@ -731,11 +733,11 @@ in or under a Question headline."
                  "LLM"))
       
       ;; Use gptel-request with streaming to the Response headline
-      (gptel-request question-content
-                     :stream (if (boundp 'gptel-stream) gptel-stream t)
-                     :callback (lambda (text info)
-                                 (ogent-session--stream-callback
-                                  text info response-marker))))))
+      (ogent-gptel-request question-content
+			   :stream (if (boundp 'gptel-stream) gptel-stream t)
+			   :callback (lambda (text info)
+                                       (ogent-session--stream-callback
+					text info response-marker))))))
 
 (defun ogent-session--stream-callback (text info marker)
   "Callback for streaming responses to MARKER.
