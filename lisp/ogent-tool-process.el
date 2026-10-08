@@ -276,10 +276,23 @@ Retain partial output on a nonzero exit, timeout or cancellation."
         (list target)))
      #'string<)))
 
+(defun ogent-tool-process--literal-glob (name)
+  "Return an anchored ripgrep glob matching literal filename NAME."
+  (concat
+   "/"
+   (mapconcat
+    (lambda (character)
+      (let ((text (char-to-string character)))
+        (if (memq character '(?\\ ?* ?? ?\[ ?\] ?{ ?} ?!))
+            (concat "\\" text)
+          text)))
+    (string-to-list name) "")))
+
 (defun ogent-tool-process-grep-async (pattern &optional path glob-filter context-lines
                                               offset limit callback)
   "Search PATTERN and return its asynchronous local process.
 Search PATH with optional GLOB-FILTER and CONTEXT-LINES (0 through 20).
+Apply GLOB-FILTER to explicit files as well as directories; skip binary files.
 OFFSET is zero-based; LIMIT defaults to 200 and must be 1 through 200.
 Call CALLBACK once with (DATA ERROR), where ERROR is a condition or nil.
 DATA contains match objects, pagination, a snapshot hash and truncation flags.
@@ -292,6 +305,10 @@ Count all matching lines, retaining only the requested page and bounded text."
                            pattern path glob-filter context start page-size))
              (directory (plist-get target-info :directory))
              (target (plist-get target-info :target))
+             (explicit-file (file-regular-p target))
+             (explicit-candidate (and explicit-file
+                                      (car (ogent-tool-process--grep-files
+                                            target glob-filter))))
              (rg (executable-find "rg"))
              (grep (and (not rg) (executable-find "grep")))
              (xargs (and grep (executable-find "xargs")))
@@ -456,11 +473,26 @@ Count all matching lines, retaining only the requested page and bounded text."
                   nil)))))
           (if rg
               (setq command
-                    (append (list rg "--json" "--sort" "path" "--color=never"
+                    (append (list rg "--json" "--no-config"
+                                  "--sort" "path" "--color=never"
                                   "--hidden" "--no-ignore" "-g" "!**/.git/**"
                                   "-C" (number-to-string context))
-                            (when glob-filter (list "-g" glob-filter))
-                            (list "--" pattern target)))
+                            (cond
+                             ((and explicit-file explicit-candidate)
+                              ;; Explicit rg argv paths override its glob and
+                              ;; binary rules.  Search through the parent with
+                              ;; an exact filename glob to retain those rules.
+                              (list "--max-depth" "1" "--follow" "-g"
+                                    (ogent-tool-process--literal-glob
+                                     (file-name-nondirectory target))
+                                    "--" pattern directory))
+                             (explicit-file
+                              ;; Compile the regex even when the file filter
+                              ;; excludes the sole candidate.
+                              (list "--" pattern null-device))
+                             (t
+                              (append (when glob-filter (list "-g" glob-filter))
+                                      (list "--" pattern target))))))
             ;; xargs preserves ordered filename input and invokes grep in
             ;; argument-size-safe batches.  Normalize grep's no-match exit 1.
             (setq input (mapconcat #'identity

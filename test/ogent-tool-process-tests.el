@@ -33,6 +33,45 @@
       (accept-process-output nil 0.02))
     (funcall predicate)))
 
+(defmacro ogent-tool-process-tests--with-engine (engine &rest body)
+  "Run BODY using the real search executable selected by ENGINE."
+  (declare (indent 1) (debug t))
+  `(let* ((engine ,engine)
+          (find-executable (symbol-function 'executable-find))
+          (rg (or (getenv "OGENT_PROCESS_TEST_RG") (executable-find "rg"))))
+     (when (eq engine 'ripgrep)
+       (skip-unless (and rg (file-executable-p rg))))
+     (cl-letf (((symbol-function 'executable-find)
+                (lambda (name &optional remote)
+                  (if (equal name "rg")
+                      (when (eq engine 'ripgrep) rg)
+                    (funcall find-executable name remote)))))
+       ,@body)))
+
+(defun ogent-tool-process-tests--check-explicit-filter ()
+  "Verify explicit-file filtering and regex validation against a real engine."
+  (ogent-tool-process-tests--with-directory
+    (let ((file (ogent-tool-process-tests--write
+                 directory "data [1]!*.txt" "needle\nneedle\nneedle\n")))
+      (should (= (plist-get (ogent-tool-process-grep "needle" file "*.txt")
+                            :total_matches) 3))
+      (should (= (plist-get (ogent-tool-process-grep "needle" file "*.el")
+                            :total_matches) 0))
+      (should-error (ogent-tool-process-grep "[" file "*.el")
+                    :type 'ogent-tool-process-search-failed))))
+
+(defun ogent-tool-process-tests--check-binary-scope ()
+  "Verify binary exclusion for explicit files and directories."
+  (ogent-tool-process-tests--with-directory
+    (let ((binary (ogent-tool-process-tests--write
+                   directory "binary.txt" "needle\n\0needle\nneedle\n"))
+          (text (ogent-tool-process-tests--write directory "source.txt" "needle\n")))
+      (should (= (plist-get (ogent-tool-process-grep "needle" binary) :total_matches) 0))
+      (let* ((result (ogent-tool-process-grep "needle" directory))
+             (matches (plist-get result :matches)))
+	(should (= (plist-get result :total_matches) 1))
+	(should (equal (plist-get (aref matches 0) :path) text))))))
+
 (ert-deftest ogent-tool-process-bash-separates-channels-and-exit ()
   "Preserve stdout and stderr separately on a real nonzero command exit."
   (ogent-tool-process-tests--with-directory
@@ -363,6 +402,26 @@
       (should (= (plist-get result :total_matches) 1))
       (should (string-suffix-p ".el"
                                (plist-get (aref (plist-get result :matches) 0) :path))))))
+
+(ert-deftest ogent-tool-process-grep-gnu-explicit-file-filter ()
+  "Apply filename globs to explicit GNU grep files, retaining regex validation."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-explicit-filter)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-explicit-file-filter ()
+  "Apply filename globs and literal filename escaping to explicit ripgrep files."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-explicit-filter)))
+
+(ert-deftest ogent-tool-process-grep-gnu-binary-scope ()
+  "Skip NUL-containing binary files through the real GNU grep engine."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-binary-scope)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-binary-scope ()
+  "Skip NUL-containing binary files through the real ripgrep engine."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-binary-scope)))
 
 (ert-deftest ogent-tool-process-grep-finds-hidden-and-ignored-files ()
   "Search hidden and ignored source files consistently while excluding Git storage."
