@@ -36,461 +36,461 @@
 (ert-deftest ogent-tool-process-bash-separates-channels-and-exit ()
   "Preserve stdout and stderr separately on a real nonzero command exit."
   (ogent-tool-process-tests--with-directory
-   (let ((result (ogent-tool-process-bash
-                  "printf 'out'; printf 'err' >&2; exit 42")))
-     (should (equal (plist-get result :stdout) "out"))
-     (should (equal (plist-get result :stderr) "err"))
-     (should (= (plist-get result :exit_code) 42))
-     (should (eq (plist-get result :timed_out) :json-false))
-     (should (eq (plist-get result :cancelled) :json-false))
-     (should (eq (plist-get result :truncated) :json-false)))))
+    (let ((result (ogent-tool-process-bash
+                   "printf 'out'; printf 'err' >&2; exit 42")))
+      (should (equal (plist-get result :stdout) "out"))
+      (should (equal (plist-get result :stderr) "err"))
+      (should (= (plist-get result :exit_code) 42))
+      (should (eq (plist-get result :timed_out) :json-false))
+      (should (eq (plist-get result :cancelled) :json-false))
+      (should (eq (plist-get result :truncated) :json-false)))))
 
 (ert-deftest ogent-tool-process-bash-bounds-combined-channels ()
   "Bound combined retained output without adding text footers."
   (ogent-tool-process-tests--with-directory
-   (let* ((ogent-tools-max-output-chars 7)
-          (result (ogent-tool-process-bash
-                   "printf 'abcdefghij'; printf 'klmnopqrst' >&2")))
-     (should (= (+ (length (plist-get result :stdout))
-                   (length (plist-get result :stderr))) 7))
-     (should (eq (plist-get result :truncated) t))
-     (should (= (plist-get result :exit_code) 0)))))
+    (let* ((ogent-tools-max-output-chars 7)
+           (result (ogent-tool-process-bash
+                    "printf 'abcdefghij'; printf 'klmnopqrst' >&2")))
+      (should (= (+ (length (plist-get result :stdout))
+                    (length (plist-get result :stderr))) 7))
+      (should (eq (plist-get result :truncated) t))
+      (should (= (plist-get result :exit_code) 0)))))
 
 (ert-deftest ogent-tool-process-bash-zero-output-budget ()
   "Return a truncation flag and no text when the configured budget is zero."
   (ogent-tool-process-tests--with-directory
-   (let* ((ogent-tools-max-output-chars 0)
-          (result (ogent-tool-process-bash "printf x; printf y >&2")))
-     (should (equal (plist-get result :stdout) ""))
-     (should (equal (plist-get result :stderr) ""))
-     (should (eq (plist-get result :truncated) t)))))
+    (let* ((ogent-tools-max-output-chars 0)
+           (result (ogent-tool-process-bash "printf x; printf y >&2")))
+      (should (equal (plist-get result :stdout) ""))
+      (should (equal (plist-get result :stderr) ""))
+      (should (eq (plist-get result :truncated) t)))))
 
 (ert-deftest ogent-tool-process-bash-invalid-utf8-remains-json-safe ()
   "Replace undecodable process bytes explicitly and retain a serializable result."
   (ogent-tool-process-tests--with-directory
-   (let ((result (ogent-tool-process-bash "printf '\\377'")))
-     (should (equal (plist-get result :stdout) "\uFFFD"))
-     (should (eq (plist-get result :encoding_loss) t))
-     (should (stringp (json-serialize result :false-object :json-false
-                                      :null-object :json-null))))))
+    (let ((result (ogent-tool-process-bash "printf '\\377'")))
+      (should (equal (plist-get result :stdout) "\uFFFD"))
+      (should (eq (plist-get result :encoding_loss) t))
+      (should (stringp (json-serialize result :false-object :json-false
+                                       :null-object :json-null))))))
 
 (ert-deftest ogent-tool-process-bash-timeout-keeps-partial-output ()
   "Preserve output already received when the command times out."
   (ogent-tool-process-tests--with-directory
-   (let ((result (ogent-tool-process-bash "printf ready; sleep 4" nil 0.1)))
-     (should (equal (plist-get result :stdout) "ready"))
-     (should (eq (plist-get result :timed_out) t))
-     (should (eq (plist-get result :cancelled) :json-false)))))
+    (let ((result (ogent-tool-process-bash "printf ready; sleep 4" nil 0.1)))
+      (should (equal (plist-get result :stdout) "ready"))
+      (should (eq (plist-get result :timed_out) t))
+      (should (eq (plist-get result :cancelled) :json-false)))))
 
 (ert-deftest ogent-tool-process-bash-signal-is-distinct-from-cancel ()
   "Preserve partial output and signal metadata without inventing user cancellation."
   (ogent-tool-process-tests--with-directory
-   (let ((result (ogent-tool-process-bash "printf ready; kill -TERM $$")))
-     (should (equal (plist-get result :stdout) "ready"))
-     (should (= (plist-get result :signal) 15))
-     (should (= (plist-get result :exit_code) 15))
-     (should (eq (plist-get result :timed_out) :json-false))
-     (should (eq (plist-get result :cancelled) :json-false)))))
+    (let ((result (ogent-tool-process-bash "printf ready; kill -TERM $$")))
+      (should (equal (plist-get result :stdout) "ready"))
+      (should (= (plist-get result :signal) 15))
+      (should (= (plist-get result :exit_code) 15))
+      (should (eq (plist-get result :timed_out) :json-false))
+      (should (eq (plist-get result :cancelled) :json-false)))))
 
 (ert-deftest ogent-tool-process-bash-async-is-asynchronous ()
   "Return a live process before delivering exactly one terminal callback."
   (ogent-tool-process-tests--with-directory
-   (let ((calls 0) result failure process)
-     (unwind-protect
-         (progn
-           (setq process
-                 (ogent-tool-process-bash-async
-                  "sleep 0.1; printf async" nil 2
-                  (lambda (data error-data)
-                    (cl-incf calls) (setq result data failure error-data))))
-           (should (processp process))
-           (should (process-live-p process))
-           (should (= calls 0))
-           (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
-           (should-not failure)
-           (should (equal (plist-get result :stdout) "async"))
-           (should-not (assq process ogent-tools--active-processes))
-           (should-not (process-buffer process))
-           (accept-process-output nil 0.05)
-           (should (= calls 1)))
-       (ogent-tool-process-cancel process)))))
+    (let ((calls 0) result failure process)
+      (unwind-protect
+          (progn
+            (setq process
+                  (ogent-tool-process-bash-async
+                   "sleep 0.1; printf async" nil 2
+                   (lambda (data error-data)
+                     (cl-incf calls) (setq result data failure error-data))))
+            (should (processp process))
+            (should (process-live-p process))
+            (should (= calls 0))
+            (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
+            (should-not failure)
+            (should (equal (plist-get result :stdout) "async"))
+            (should-not (assq process ogent-tools--active-processes))
+            (should-not (process-buffer process))
+            (accept-process-output nil 0.05)
+            (should (= calls 1)))
+	(ogent-tool-process-cancel process)))))
 
 (ert-deftest ogent-tool-process-bash-cancel-keeps-partial-output ()
   "Cancel the running command and return one partial result without leaks."
   (ogent-tool-process-tests--with-directory
-   (let ((calls 0) result process)
-     (unwind-protect
-         (progn
-           (setq process
-                 (ogent-tool-process-bash-async
-                  "printf ready; sleep 4" nil 5
-                  (lambda (data _error-data)
-                    (cl-incf calls) (setq result data))))
-           (accept-process-output nil 0.05)
-           (should (ogent-tool-process-cancel process))
-           (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
-           (should (equal (plist-get result :stdout) "ready"))
-           (should (eq (plist-get result :cancelled) t))
-           (should-not (assq process ogent-tools--active-processes))
-           (should-not (ogent-tool-process-cancel process)))
-       (ogent-tool-process-cancel process)))))
+    (let ((calls 0) result process)
+      (unwind-protect
+          (progn
+            (setq process
+                  (ogent-tool-process-bash-async
+                   "printf ready; sleep 4" nil 5
+                   (lambda (data _error-data)
+                     (cl-incf calls) (setq result data))))
+            (accept-process-output nil 0.05)
+            (should (ogent-tool-process-cancel process))
+            (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
+            (should (equal (plist-get result :stdout) "ready"))
+            (should (eq (plist-get result :cancelled) t))
+            (should-not (assq process ogent-tools--active-processes))
+            (should-not (ogent-tool-process-cancel process)))
+	(ogent-tool-process-cancel process)))))
 
 (ert-deftest ogent-tool-process-bash-cancel-kills-grandchild ()
   "Terminate shell grandchildren rather than leaving an orphan after cancel."
   (skip-unless (eq system-type 'gnu/linux))
   (ogent-tool-process-tests--with-directory
-   (let ((pid-file (expand-file-name "child.pid" directory)) process result)
-     (unwind-protect
-         (progn
-           (setq process
-                 (ogent-tool-process-bash-async
-                  "sleep 20 & child=$!; printf '%s' \"$child\" > child.pid; wait"
-                  nil 5 (lambda (data _error-data) (setq result data))))
-           (should (ogent-tool-process-tests--wait
-                    (lambda () (file-exists-p pid-file))))
-           (let ((child (string-to-number
-                         (with-temp-buffer (insert-file-contents pid-file)
-                                           (buffer-string)))))
-             (ogent-tool-process-cancel process)
-             (should (ogent-tool-process-tests--wait (lambda () result)))
-             (should (ogent-tool-process-tests--wait
-                      (lambda ()
-                        (or (null (process-attributes child))
-                            (equal (cdr (assq 'state (process-attributes child)))
-                                   "Z")))))))
-       (ogent-tool-process-cancel process)))))
+    (let ((pid-file (expand-file-name "child.pid" directory)) process result)
+      (unwind-protect
+          (progn
+            (setq process
+                  (ogent-tool-process-bash-async
+                   "sleep 20 & child=$!; printf '%s' \"$child\" > child.pid; wait"
+                   nil 5 (lambda (data _error-data) (setq result data))))
+            (should (ogent-tool-process-tests--wait
+                     (lambda () (file-exists-p pid-file))))
+            (let ((child (string-to-number
+                          (with-temp-buffer (insert-file-contents pid-file)
+                                            (buffer-string)))))
+              (ogent-tool-process-cancel process)
+              (should (ogent-tool-process-tests--wait (lambda () result)))
+              (should (ogent-tool-process-tests--wait
+                       (lambda ()
+                         (or (null (process-attributes child))
+                             (equal (cdr (assq 'state (process-attributes child)))
+                                    "Z")))))))
+	(ogent-tool-process-cancel process)))))
 
 (ert-deftest ogent-tool-process-bash-terminal-exit-bounds-descendant-drain ()
   "Finish promptly when an exited shell leaves a descendant flooding stderr."
   (skip-unless (eq system-type 'gnu/linux))
   (ogent-tool-process-tests--with-directory
-   (let* ((start (float-time))
-          (ogent-tools-max-output-chars 1000)
-          ;; The independent two-second guard keeps this regression bounded
-          ;; even when evaluated against the original broken implementation.
-          (result (ogent-tool-process-bash
-                   (concat
+    (let* ((start (float-time))
+           (ogent-tools-max-output-chars 1000)
+           ;; The independent two-second guard keeps this regression bounded
+           ;; even when evaluated against the original broken implementation.
+           (result (ogent-tool-process-bash
+                    (concat
                      ;; Deliver stdout before the deliberately tiny shared
                      ;; budget can be consumed by the flooding stderr stream.
                      "printf parent; sleep 0.02; "
-                    "(while :; do printf x >&2; done) & child=$!; "
-                    "printf '%s' \"$child\" > child.pid; "
-                    "(sleep 2; kill -KILL \"$child\" 2>/dev/null) & "
+                     "(while :; do printf x >&2; done) & child=$!; "
+                     "printf '%s' \"$child\" > child.pid; "
+                     "(sleep 2; kill -KILL \"$child\" 2>/dev/null) & "
                      "exit 0")
-                   nil 0.2))
-          (child (string-to-number
-                  (with-temp-buffer
-                    (insert-file-contents (expand-file-name "child.pid" directory))
-                    (buffer-string)))))
-     (should (< (- (float-time) start) 0.75))
-     (should (= (plist-get result :exit_code) 0))
-     (should (equal (plist-get result :stdout) "parent"))
-     (should (<= (+ (length (plist-get result :stdout))
-                    (length (plist-get result :stderr))) 1000))
-     (should (ogent-tool-process-tests--wait
-              (lambda ()
-                (or (null (process-attributes child))
-                    (equal (cdr (assq 'state (process-attributes child))) "Z")))
-              0.25)))))
+                    nil 0.2))
+           (child (string-to-number
+                   (with-temp-buffer
+                     (insert-file-contents (expand-file-name "child.pid" directory))
+                     (buffer-string)))))
+      (should (< (- (float-time) start) 0.75))
+      (should (= (plist-get result :exit_code) 0))
+      (should (equal (plist-get result :stdout) "parent"))
+      (should (<= (+ (length (plist-get result :stdout))
+                     (length (plist-get result :stderr))) 1000))
+      (should (ogent-tool-process-tests--wait
+               (lambda ()
+                 (or (null (process-attributes child))
+                     (equal (cdr (assq 'state (process-attributes child))) "Z")))
+               0.25)))))
 
 (ert-deftest ogent-tool-process-bash-callback-error-cleans-up ()
   "Clean up timers and registration even when a terminal callback signals."
   (ogent-tool-process-tests--with-directory
-   (let ((calls 0) process)
-     (setq process (ogent-tool-process-bash-async
-                    "printf x" nil 1
-                    (lambda (_data _error-data)
-                      (cl-incf calls) (error "Callback failure"))))
-     (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
-     (should (process-get process 'ogent-callback-error))
-     (should-not (assq process ogent-tools--active-processes))
-     (should-not (process-get process 'ogent-cancel)))))
+    (let ((calls 0) process)
+      (setq process (ogent-tool-process-bash-async
+                     "printf x" nil 1
+                     (lambda (_data _error-data)
+                       (cl-incf calls) (error "Callback failure"))))
+      (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
+      (should (process-get process 'ogent-callback-error))
+      (should-not (assq process ogent-tools--active-processes))
+      (should-not (process-get process 'ogent-cancel)))))
 
 (ert-deftest ogent-tool-process-bash-validation-does-not-spawn ()
   "Deliver one actionable validation error before creating any process."
   (ogent-tool-process-tests--with-directory
-   (let ((calls 0) failure)
-     (cl-letf (((symbol-function 'make-process)
-                (lambda (&rest _args) (ert-fail "Unexpected process"))))
-       (should-not (ogent-tool-process-bash-async
-                    "" nil 1
-                    (lambda (data error-data)
-                      (cl-incf calls) (should-not data) (setq failure error-data)))))
-     (should (= calls 1))
-     (should (eq (car failure) 'user-error)))))
+    (let ((calls 0) failure)
+      (cl-letf (((symbol-function 'make-process)
+                 (lambda (&rest _args) (ert-fail "Unexpected process"))))
+	(should-not (ogent-tool-process-bash-async
+                     "" nil 1
+                     (lambda (data error-data)
+                       (cl-incf calls) (should-not data) (setq failure error-data)))))
+      (should (= calls 1))
+      (should (eq (car failure) 'user-error)))))
 
 (ert-deftest ogent-tool-process-bash-startup-error-is-terminal ()
   "Report a failed process launch once and leave no pipe process behind."
   (ogent-tool-process-tests--with-directory
-   (let ((pipes-before (cl-remove-if-not
-                        (lambda (proc)
-                          (string-prefix-p "ogent-structured-stderr"
-                                           (process-name proc)))
-                        (process-list)))
-         (calls 0) failure)
-     (cl-letf (((symbol-function 'make-process)
-                (lambda (&rest _args) (error "Launch failed"))))
-       (should-not
-        (ogent-tool-process-bash-async
-         "printf x" nil 1
-         (lambda (_data error-data)
-           (cl-incf calls) (setq failure error-data)))))
-     (should (= calls 1))
-     (should (eq (car failure) 'ogent-tool-process-start-failed))
-     (should (string-match-p "Launch failed" (error-message-string failure)))
-     (should (equal pipes-before
-                    (cl-remove-if-not
-                     (lambda (proc)
-                       (and (process-live-p proc)
-                            (string-prefix-p "ogent-structured-stderr"
-                                             (process-name proc))))
-                     (process-list)))))))
+    (let ((pipes-before (cl-remove-if-not
+                         (lambda (proc)
+                           (string-prefix-p "ogent-structured-stderr"
+                                            (process-name proc)))
+                         (process-list)))
+          (calls 0) failure)
+      (cl-letf (((symbol-function 'make-process)
+                 (lambda (&rest _args) (error "Launch failed"))))
+	(should-not
+         (ogent-tool-process-bash-async
+          "printf x" nil 1
+          (lambda (_data error-data)
+            (cl-incf calls) (setq failure error-data)))))
+      (should (= calls 1))
+      (should (eq (car failure) 'ogent-tool-process-start-failed))
+      (should (string-match-p "Launch failed" (error-message-string failure)))
+      (should (equal pipes-before
+                     (cl-remove-if-not
+                      (lambda (proc)
+			(and (process-live-p proc)
+                             (string-prefix-p "ogent-structured-stderr"
+                                              (process-name proc))))
+                      (process-list)))))))
 
 (ert-deftest ogent-tool-process-grep-pages-all-matches ()
   "Count matches beyond the legacy per-file cap and expose stable next offsets."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt"
-                                    (mapconcat (lambda (_n) "needle")
-                                               (number-sequence 1 250) "\n"))
-   (let ((first (ogent-tool-process-grep "needle" nil nil 0 0 200))
-         (last (ogent-tool-process-grep "needle" nil nil 0 200 200)))
-     (should (= (plist-get first :total_matches) 250))
-     (should (= (length (plist-get first :matches)) 200))
-     (should (= (plist-get first :next_offset) 200))
-     (should (eq (plist-get first :has_more) t))
-     (should (= (length (plist-get last :matches)) 50))
-     (should (eq (plist-get last :has_more) :json-false))
-     (should (eq (plist-get last :next_offset) :json-null))
-     (should (equal (plist-get first :snapshot) (plist-get last :snapshot))))))
+    (ogent-tool-process-tests--write directory "a.txt"
+                                     (mapconcat (lambda (_n) "needle")
+						(number-sequence 1 250) "\n"))
+    (let ((first (ogent-tool-process-grep "needle" nil nil 0 0 200))
+          (last (ogent-tool-process-grep "needle" nil nil 0 200 200)))
+      (should (= (plist-get first :total_matches) 250))
+      (should (= (length (plist-get first :matches)) 200))
+      (should (= (plist-get first :next_offset) 200))
+      (should (eq (plist-get first :has_more) t))
+      (should (= (length (plist-get last :matches)) 50))
+      (should (eq (plist-get last :has_more) :json-false))
+      (should (eq (plist-get last :next_offset) :json-null))
+      (should (equal (plist-get first :snapshot) (plist-get last :snapshot))))))
 
 (ert-deftest ogent-tool-process-grep-preserves-unusual-filenames ()
   "Keep colon, dash, spaces and newline filenames unambiguous in match objects."
   (ogent-tool-process-tests--with-directory
-   (let* ((file (ogent-tool-process-tests--write
-                 directory "a: b\n-c.txt" "before\nneedle:colon\nafter\n"))
-          (result (ogent-tool-process-grep "needle" nil nil 1))
-          (match (aref (plist-get result :matches) 0)))
-     (should (equal (plist-get match :path) file))
-     (should (= (plist-get match :line) 2))
-     (should (equal (plist-get match :text) "needle:colon"))
-     (should (equal (plist-get match :context_before)
-                    [(:line 1 :text "before")]))
-     (should (equal (plist-get match :context_after)
-                    [(:line 3 :text "after")])))))
+    (let* ((file (ogent-tool-process-tests--write
+                  directory "a: b\n-c.txt" "before\nneedle:colon\nafter\n"))
+           (result (ogent-tool-process-grep "needle" nil nil 1))
+           (match (aref (plist-get result :matches) 0)))
+      (should (equal (plist-get match :path) file))
+      (should (= (plist-get match :line) 2))
+      (should (equal (plist-get match :text) "needle:colon"))
+      (should (equal (plist-get match :context_before)
+                     [(:line 1 :text "before")]))
+      (should (equal (plist-get match :context_after)
+                     [(:line 3 :text "after")])))))
 
 (ert-deftest ogent-tool-process-grep-deterministic-order ()
   "Sort pages by absolute path and then increasing source line."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "z.txt" "needle\n")
-   (ogent-tool-process-tests--write directory "a.txt" "x\nneedle\nneedle\n")
-   (let ((matches (plist-get (ogent-tool-process-grep "needle") :matches)))
-     (should (= (length matches) 3))
-     (should (string-suffix-p "/a.txt" (plist-get (aref matches 0) :path)))
-     (should (= (plist-get (aref matches 0) :line) 2))
-     (should (= (plist-get (aref matches 1) :line) 3))
-     (should (string-suffix-p "/z.txt" (plist-get (aref matches 2) :path))))))
+    (ogent-tool-process-tests--write directory "z.txt" "needle\n")
+    (ogent-tool-process-tests--write directory "a.txt" "x\nneedle\nneedle\n")
+    (let ((matches (plist-get (ogent-tool-process-grep "needle") :matches)))
+      (should (= (length matches) 3))
+      (should (string-suffix-p "/a.txt" (plist-get (aref matches 0) :path)))
+      (should (= (plist-get (aref matches 0) :line) 2))
+      (should (= (plist-get (aref matches 1) :line) 3))
+      (should (string-suffix-p "/z.txt" (plist-get (aref matches 2) :path))))))
 
 (ert-deftest ogent-tool-process-grep-directory-spans-argument-batches ()
   "Preserve the count and order when a directory needs multiple grep processes."
   (ogent-tool-process-tests--with-directory
-   (dotimes (index 180)
-     (ogent-tool-process-tests--write directory (format "%03d.txt" index) "needle\n"))
-   (let* ((result (ogent-tool-process-grep "needle" nil nil 0 120 40))
-          (matches (plist-get result :matches)))
-     (should (= (plist-get result :total_matches) 180))
-     (should (= (length matches) 40))
-     (should (= (plist-get result :next_offset) 160))
-     (should (string-suffix-p "/120.txt" (plist-get (aref matches 0) :path)))
-     (should (string-suffix-p "/159.txt" (plist-get (aref matches 39) :path))))))
+    (dotimes (index 180)
+      (ogent-tool-process-tests--write directory (format "%03d.txt" index) "needle\n"))
+    (let* ((result (ogent-tool-process-grep "needle" nil nil 0 120 40))
+           (matches (plist-get result :matches)))
+      (should (= (plist-get result :total_matches) 180))
+      (should (= (length matches) 40))
+      (should (= (plist-get result :next_offset) 160))
+      (should (string-suffix-p "/120.txt" (plist-get (aref matches 0) :path)))
+      (should (string-suffix-p "/159.txt" (plist-get (aref matches 39) :path))))))
 
 (ert-deftest ogent-tool-process-grep-context-includes-nearby-matches ()
   "Include neighboring matched lines once in each applicable context vector."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "one\nneedle1\nneedle2\nfour\n")
-   (let* ((result (ogent-tool-process-grep "needle" nil nil 1))
-          (matches (plist-get result :matches)))
-     (should (= (plist-get result :total_matches) 2))
-     (should (equal (plist-get (aref matches 0) :context_after)
-                    [(:line 3 :text "needle2")]))
-     (should (equal (plist-get (aref matches 1) :context_before)
-                    [(:line 2 :text "needle1")])))))
+    (ogent-tool-process-tests--write directory "a.txt" "one\nneedle1\nneedle2\nfour\n")
+    (let* ((result (ogent-tool-process-grep "needle" nil nil 1))
+           (matches (plist-get result :matches)))
+      (should (= (plist-get result :total_matches) 2))
+      (should (equal (plist-get (aref matches 0) :context_after)
+                     [(:line 3 :text "needle2")]))
+      (should (equal (plist-get (aref matches 1) :context_before)
+                     [(:line 2 :text "needle1")])))))
 
 (ert-deftest ogent-tool-process-grep-empty-is-success ()
   "Return an empty vector and zero count for a successful no-match search."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "unrelated\n")
-   (let ((result (ogent-tool-process-grep "needle")))
-     (should (equal (plist-get result :matches) []))
-     (should (= (plist-get result :total_matches) 0))
-     (should (eq (plist-get result :has_more) :json-false)))))
+    (ogent-tool-process-tests--write directory "a.txt" "unrelated\n")
+    (let ((result (ogent-tool-process-grep "needle")))
+      (should (equal (plist-get result :matches) []))
+      (should (= (plist-get result :total_matches) 0))
+      (should (eq (plist-get result :has_more) :json-false)))))
 
 (ert-deftest ogent-tool-process-grep-invalid-regex-error ()
   "Signal a corrective search error instead of presenting invalid regex as empty."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (let ((failure (should-error (ogent-tool-process-grep "[") :type 'user-error)))
-     (should (string-match-p "pattern syntax" (error-message-string failure))))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (let ((failure (should-error (ogent-tool-process-grep "[") :type 'user-error)))
+      (should (string-match-p "pattern syntax" (error-message-string failure))))))
 
 (ert-deftest ogent-tool-process-grep-empty-gnu-candidates-validate-regex ()
   "Validate GNU grep regex syntax even when a directory or filter yields no files."
   (let ((find-executable (symbol-function 'executable-find)))
     (ogent-tool-process-tests--with-directory
-     (cl-letf (((symbol-function 'executable-find)
-                (lambda (name &optional remote)
-                  (unless (equal name "rg")
-                    (funcall find-executable name remote)))))
-       (should-error (ogent-tool-process-grep "[")
-                     :type 'ogent-tool-process-search-failed)
-       (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-       (should-error (ogent-tool-process-grep "[" nil "*.el")
-                     :type 'ogent-tool-process-search-failed)
-       (should (= (plist-get (ogent-tool-process-grep "needle" nil "*.el")
-                             :total_matches) 0))))))
+      (cl-letf (((symbol-function 'executable-find)
+                 (lambda (name &optional remote)
+                   (unless (equal name "rg")
+                     (funcall find-executable name remote)))))
+	(should-error (ogent-tool-process-grep "[")
+                      :type 'ogent-tool-process-search-failed)
+	(ogent-tool-process-tests--write directory "a.txt" "needle\n")
+	(should-error (ogent-tool-process-grep "[" nil "*.el")
+                      :type 'ogent-tool-process-search-failed)
+	(should (= (plist-get (ogent-tool-process-grep "needle" nil "*.el")
+                              :total_matches) 0))))))
 
 (ert-deftest ogent-tool-process-grep-pattern-is-literal-process-argument ()
   "Keep shell metacharacters in a search pattern from executing commands."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (ogent-tool-process-grep "needle; touch injected")
-   (should-not (file-exists-p (expand-file-name "injected" directory)))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (ogent-tool-process-grep "needle; touch injected")
+    (should-not (file-exists-p (expand-file-name "injected" directory)))))
 
 (ert-deftest ogent-tool-process-grep-glob-filter ()
   "Apply the requested file glob without leaking unrelated matches."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.el" "needle\n")
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (let ((result (ogent-tool-process-grep "needle" nil "*.el")))
-     (should (= (plist-get result :total_matches) 1))
-     (should (string-suffix-p ".el"
-                              (plist-get (aref (plist-get result :matches) 0) :path))))))
+    (ogent-tool-process-tests--write directory "a.el" "needle\n")
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (let ((result (ogent-tool-process-grep "needle" nil "*.el")))
+      (should (= (plist-get result :total_matches) 1))
+      (should (string-suffix-p ".el"
+                               (plist-get (aref (plist-get result :matches) 0) :path))))))
 
 (ert-deftest ogent-tool-process-grep-finds-hidden-and-ignored-files ()
   "Search hidden and ignored source files consistently while excluding Git storage."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory ".hidden" "needle\n")
-   (ogent-tool-process-tests--write directory ".gitignore" "ignored.txt\n")
-   (ogent-tool-process-tests--write directory "ignored.txt" "needle\n")
-   (ogent-tool-process-tests--write directory ".git/objects/blob" "needle\n")
-   (should (= (plist-get (ogent-tool-process-grep "needle") :total_matches) 2))))
+    (ogent-tool-process-tests--write directory ".hidden" "needle\n")
+    (ogent-tool-process-tests--write directory ".gitignore" "ignored.txt\n")
+    (ogent-tool-process-tests--write directory "ignored.txt" "needle\n")
+    (ogent-tool-process-tests--write directory ".git/objects/blob" "needle\n")
+    (should (= (plist-get (ogent-tool-process-grep "needle") :total_matches) 2))))
 
 (ert-deftest ogent-tool-process-grep-truncation-keeps-count-and-page ()
   "Bound match and context text while retaining accurate pagination and counts."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "before\nneedle\nafter\nneedle\n")
-   (let* ((ogent-tools-max-output-chars 5)
-          (result (ogent-tool-process-grep "needle" nil nil 1 0 1))
-          (match (aref (plist-get result :matches) 0)))
-     (should (eq (plist-get result :truncated) t))
-     (should (= (plist-get result :total_matches) 2))
-     (should (= (plist-get result :next_offset) 1))
-     (should (eq (plist-get match :truncated) t))
-     (should (<= (+ (length (plist-get match :text))
-                    (cl-loop for entry across (plist-get match :context_before)
-                             sum (length (plist-get entry :text)))
-                    (cl-loop for entry across (plist-get match :context_after)
-                             sum (length (plist-get entry :text)))) 5)))))
+    (ogent-tool-process-tests--write directory "a.txt" "before\nneedle\nafter\nneedle\n")
+    (let* ((ogent-tools-max-output-chars 5)
+           (result (ogent-tool-process-grep "needle" nil nil 1 0 1))
+           (match (aref (plist-get result :matches) 0)))
+      (should (eq (plist-get result :truncated) t))
+      (should (= (plist-get result :total_matches) 2))
+      (should (= (plist-get result :next_offset) 1))
+      (should (eq (plist-get match :truncated) t))
+      (should (<= (+ (length (plist-get match :text))
+                     (cl-loop for entry across (plist-get match :context_before)
+                              sum (length (plist-get entry :text)))
+                     (cl-loop for entry across (plist-get match :context_after)
+                              sum (length (plist-get entry :text)))) 5)))))
 
 (ert-deftest ogent-tool-process-grep-zero-budget-does-not-skip-matches ()
   "Return every requested match identity with explicit truncation at zero budget."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle1\nneedle2\nneedle3\n")
-   (let* ((ogent-tools-max-output-chars 0)
-          (result (ogent-tool-process-grep "needle" nil nil 0 0 2))
-          (matches (plist-get result :matches)))
-     (should (equal (plist-get result :path)
-                    (file-name-as-directory directory)))
-     (should (= (length matches) 2))
-     (should (= (plist-get result :next_offset) 2))
-     (should (= (plist-get (aref matches 0) :line) 1))
-     (should (= (plist-get (aref matches 1) :line) 2))
-     (dotimes (index 2)
-       (should (equal (plist-get (aref matches index) :text) ""))
-       (should (eq (plist-get (aref matches index) :truncated) t))))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle1\nneedle2\nneedle3\n")
+    (let* ((ogent-tools-max-output-chars 0)
+           (result (ogent-tool-process-grep "needle" nil nil 0 0 2))
+           (matches (plist-get result :matches)))
+      (should (equal (plist-get result :path)
+                     (file-name-as-directory directory)))
+      (should (= (length matches) 2))
+      (should (= (plist-get result :next_offset) 2))
+      (should (= (plist-get (aref matches 0) :line) 1))
+      (should (= (plist-get (aref matches 1) :line) 2))
+      (dotimes (index 2)
+	(should (equal (plist-get (aref matches index) :text) ""))
+	(should (eq (plist-get (aref matches index) :truncated) t))))))
 
 (ert-deftest ogent-tool-process-grep-snapshot-changes-with-source ()
   "Change the snapshot when searched match text changes."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle1\n")
-   (let ((before (plist-get (ogent-tool-process-grep "needle") :snapshot)))
-     (ogent-tool-process-tests--write directory "a.txt" "needle2\n")
-     (should-not (equal before
-                        (plist-get (ogent-tool-process-grep "needle") :snapshot))))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle1\n")
+    (let ((before (plist-get (ogent-tool-process-grep "needle") :snapshot)))
+      (ogent-tool-process-tests--write directory "a.txt" "needle2\n")
+      (should-not (equal before
+                         (plist-get (ogent-tool-process-grep "needle") :snapshot))))))
 
 (ert-deftest ogent-tool-process-grep-validates-page-and-context ()
   "Reject ambiguous page values and unbounded context before launching."
   (ogent-tool-process-tests--with-directory
-   (dolist (args '((0 -1 10) (0 0 0) (0 0 201) (21 0 10) (-1 0 10)))
-     (should-error (apply #'ogent-tool-process-grep "needle" nil nil args)
-                   :type 'user-error))))
+    (dolist (args '((0 -1 10) (0 0 0) (0 0 201) (21 0 10) (-1 0 10)))
+      (should-error (apply #'ogent-tool-process-grep "needle" nil nil args)
+                    :type 'user-error))))
 
 (ert-deftest ogent-tool-process-grep-oversized-wire-line-is-explicit ()
   "Fail explicitly on a huge source line instead of silently losing match counts."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt"
-                                    (concat "needle" (make-string 1100000 ?x) "\n"))
-   (let ((failure (should-error (ogent-tool-process-grep "needle")
-                                :type 'ogent-tool-process-output-error)))
-     (should (string-match-p "read the file directly" (error-message-string failure))))))
+    (ogent-tool-process-tests--write directory "a.txt"
+                                     (concat "needle" (make-string 1100000 ?x) "\n"))
+    (let ((failure (should-error (ogent-tool-process-grep "needle")
+                                 :type 'ogent-tool-process-output-error)))
+      (should (string-match-p "read the file directly" (error-message-string failure))))))
 
 (ert-deftest ogent-tool-process-grep-async-once ()
   "Deliver one asynchronous match page and remove the active process entry."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (let ((calls 0) result failure process)
-     (unwind-protect
-         (progn
-           (setq process
-                 (ogent-tool-process-grep-async
-                  "needle" nil nil 0 0 200
-                  (lambda (data error-data)
-                    (cl-incf calls) (setq result data failure error-data))))
-           (should (processp process))
-           (should (= calls 0))
-           (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
-           (should-not failure)
-           (should (= (plist-get result :total_matches) 1))
-           (should-not (assq process ogent-tools--active-processes))
-           (accept-process-output nil 0.05)
-           (should (= calls 1)))
-       (ogent-tool-process-cancel process)))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (let ((calls 0) result failure process)
+      (unwind-protect
+          (progn
+            (setq process
+                  (ogent-tool-process-grep-async
+                   "needle" nil nil 0 0 200
+                   (lambda (data error-data)
+                     (cl-incf calls) (setq result data failure error-data))))
+            (should (processp process))
+            (should (= calls 0))
+            (should (ogent-tool-process-tests--wait (lambda () (= calls 1))))
+            (should-not failure)
+            (should (= (plist-get result :total_matches) 1))
+            (should-not (assq process ogent-tools--active-processes))
+            (accept-process-output nil 0.05)
+            (should (= calls 1)))
+	(ogent-tool-process-cancel process)))))
 
 (ert-deftest ogent-tool-process-grep-timeout-has-typed-error ()
   "Reject an incomplete timed-out search with a stable condition and recovery hint."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt"
-                                    (apply #'concat (make-list 20000 "needle\n")))
-   (let ((ogent-tools-grep-timeout 0.001))
-     (let ((failure (should-error (ogent-tool-process-grep "needle")
-                                  :type 'ogent-tool-process-search-timeout)))
-       (should (string-match-p "narrow path" (error-message-string failure)))))))
+    (ogent-tool-process-tests--write directory "a.txt"
+                                     (apply #'concat (make-list 20000 "needle\n")))
+    (let ((ogent-tools-grep-timeout 0.001))
+      (let ((failure (should-error (ogent-tool-process-grep "needle")
+                                   :type 'ogent-tool-process-search-timeout)))
+	(should (string-match-p "narrow path" (error-message-string failure)))))))
 
 (ert-deftest ogent-tool-process-grep-cancel-has-typed-error ()
   "Deliver a typed cancellation once and immediately clean the search registration."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (let ((calls 0) failure process)
-     (setq process
-           (ogent-tool-process-grep-async
-            "needle" nil nil 0 0 10
-            (lambda (data error-data)
-              (cl-incf calls) (should-not data) (setq failure error-data))))
-     (should (ogent-tool-process-cancel process))
-     (should (= calls 1))
-     (should (eq (car failure) 'ogent-tool-process-search-cancelled))
-     (should-not (assq process ogent-tools--active-processes))
-     (accept-process-output nil 0.05)
-     (should (= calls 1)))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (let ((calls 0) failure process)
+      (setq process
+            (ogent-tool-process-grep-async
+             "needle" nil nil 0 0 10
+             (lambda (data error-data)
+               (cl-incf calls) (should-not data) (setq failure error-data))))
+      (should (ogent-tool-process-cancel process))
+      (should (= calls 1))
+      (should (eq (car failure) 'ogent-tool-process-search-cancelled))
+      (should-not (assq process ogent-tools--active-processes))
+      (accept-process-output nil 0.05)
+      (should (= calls 1)))))
 
 (ert-deftest ogent-tool-process-results-serialize-as-json ()
   "Serialize shell and search collections with explicit booleans and nulls."
   (ogent-tool-process-tests--with-directory
-   (ogent-tool-process-tests--write directory "a.txt" "needle\n")
-   (dolist (result (list (ogent-tool-process-bash "printf x")
-                         (ogent-tool-process-grep "needle")))
-     (let ((json (json-serialize result :null-object :json-null
-                                 :false-object :json-false)))
-       (should (stringp json))
-       (should-not (string-match-p ":json-" json))))))
+    (ogent-tool-process-tests--write directory "a.txt" "needle\n")
+    (dolist (result (list (ogent-tool-process-bash "printf x")
+                          (ogent-tool-process-grep "needle")))
+      (let ((json (json-serialize result :null-object :json-null
+                                  :false-object :json-false)))
+	(should (stringp json))
+	(should-not (string-match-p ":json-" json))))))
 
 (ert-deftest ogent-tool-process-ripgrep-base64-text ()
   "Decode ripgrep base64 fields including filename punctuation without guessing."
@@ -504,22 +504,22 @@
         (find-executable (symbol-function 'executable-find)))
     (skip-unless (and rg (file-executable-p rg)))
     (ogent-tool-process-tests--with-directory
-     (let ((file (ogent-tool-process-tests--write
-                  directory "a:\nb.txt" "before\nneedle1\nneedle2\nafter\n")))
-       (cl-letf (((symbol-function 'executable-find)
-                  (lambda (name &optional remote)
-                    (if (equal name "rg") rg
-                      (funcall find-executable name remote)))))
-         (let* ((result (ogent-tool-process-grep "needle" nil nil 1 0 1))
-                (match (aref (plist-get result :matches) 0))
-                (last (ogent-tool-process-grep "needle" nil nil 1 1 1)))
-           (should (equal (plist-get result :engine) "ripgrep-json"))
-           (should (= (plist-get result :total_matches) 2))
-           (should (equal (plist-get match :path) file))
-           (should (equal (plist-get match :context_after)
-                          [(:line 3 :text "needle2")]))
-           (should (equal (plist-get result :snapshot)
-                          (plist-get last :snapshot)))))))))
+      (let ((file (ogent-tool-process-tests--write
+                   directory "a:\nb.txt" "before\nneedle1\nneedle2\nafter\n")))
+	(cl-letf (((symbol-function 'executable-find)
+                   (lambda (name &optional remote)
+                     (if (equal name "rg") rg
+                       (funcall find-executable name remote)))))
+          (let* ((result (ogent-tool-process-grep "needle" nil nil 1 0 1))
+                 (match (aref (plist-get result :matches) 0))
+                 (last (ogent-tool-process-grep "needle" nil nil 1 1 1)))
+            (should (equal (plist-get result :engine) "ripgrep-json"))
+            (should (= (plist-get result :total_matches) 2))
+            (should (equal (plist-get match :path) file))
+            (should (equal (plist-get match :context_after)
+                           [(:line 3 :text "needle2")]))
+            (should (equal (plist-get result :snapshot)
+                           (plist-get last :snapshot)))))))))
 
 (ert-deftest ogent-tool-process-ripgrep-searches-hidden-files ()
   "Keep hidden and ignored file behavior identical in the real ripgrep engine."
@@ -527,15 +527,15 @@
         (find-executable (symbol-function 'executable-find)))
     (skip-unless (and rg (file-executable-p rg)))
     (ogent-tool-process-tests--with-directory
-     (ogent-tool-process-tests--write directory ".hidden" "needle\n")
-     (ogent-tool-process-tests--write directory ".gitignore" "ignored.txt\n")
-     (ogent-tool-process-tests--write directory "ignored.txt" "needle\n")
-     (ogent-tool-process-tests--write directory ".git/objects/blob" "needle\n")
-     (cl-letf (((symbol-function 'executable-find)
-                (lambda (name &optional remote)
-                  (if (equal name "rg") rg
-                    (funcall find-executable name remote)))))
-       (should (= (plist-get (ogent-tool-process-grep "needle") :total_matches) 2))))))
+      (ogent-tool-process-tests--write directory ".hidden" "needle\n")
+      (ogent-tool-process-tests--write directory ".gitignore" "ignored.txt\n")
+      (ogent-tool-process-tests--write directory "ignored.txt" "needle\n")
+      (ogent-tool-process-tests--write directory ".git/objects/blob" "needle\n")
+      (cl-letf (((symbol-function 'executable-find)
+                 (lambda (name &optional remote)
+                   (if (equal name "rg") rg
+                     (funcall find-executable name remote)))))
+	(should (= (plist-get (ogent-tool-process-grep "needle") :total_matches) 2))))))
 
 (provide 'ogent-tool-process-tests)
 ;;; ogent-tool-process-tests.el ends here

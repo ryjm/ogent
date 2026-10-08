@@ -581,7 +581,7 @@ Optional keys:
   :async       - if non-nil, function takes a callback as last arg
   :aliases     - vector/list of explicit alternative tool names
   :result-function - structured data function with native args and result args
-  :result-async-function - callback-last structured function receiving data/error
+  :result-async-function - callback-last function receiving data/error
   :result-args  - optional named pagination arguments for structured calls
   :confirm     - if non-nil, require user approval before execution
   :effects     - list of effect plists for policy and audit trails

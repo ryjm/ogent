@@ -16,6 +16,7 @@
 (declare-function ogent-ui--show-diff-for-tool "ogent-ui-toolcalls")
 (declare-function ogent-tools--resolve-path "ogent-tools")
 (defvar ogent-tools-result-format 'text)
+(defvar ogent-tool-registry)
 
 (defun ogent-tool-execution-result (name status &optional data code message)
   "Return a versioned result for NAME with STATUS and DATA.

@@ -10,6 +10,7 @@
 (require 'ogent-tools)
 (require 'ogent-ui-toolcalls)
 (require 'ogent-tool-results nil t)
+(defvar gptel--known-tools)
 
 (defun ogent-agent-execution-tests--file (root name text)
   "Create fixture NAME containing TEXT under ROOT."

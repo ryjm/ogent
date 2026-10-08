@@ -23,8 +23,8 @@
 (defun ogent-agent-call (name args &optional format)
   "Execute tool NAME with named ARGS and return its structured result.
 Return a plist by default or JSON when FORMAT is `json'.  Validate FORMAT
-before execution.  Calls respect approval policy and never grant themselves
-permission.  For example:
+before execution.  Respect approval policy without granting permission.
+For example:
   (ogent-agent-call \"read_file\" \='(:file_path \"README.org\" :limit 20))"
   (ogent-agent--output nil format)
   (ogent-agent--output (ogent-tool-execution-call name args) format))
@@ -76,8 +76,8 @@ Cancel a returned process with `ogent-tool-process-cancel'."
 
 (defun ogent-agent-batch (calls &optional format fail-fast)
   "Execute up to 20 explicitly read-only CALLS and return results in FORMAT.
-CALLS is a list or vector of plists containing :tool and :args.  Preflight the
-entire batch before running any call.  Reject writes, shell commands and tools
+Accept a list or vector of call plists containing :tool and :args.  Preflight
+the entire batch before running any call.  Reject writes, shell commands and tools
 without declared read effects.  Continue after errors unless FAIL-FAST is t.
 For example, batch a glob, search and file read in one local SDK round trip."
   (ogent-agent--output nil format)
