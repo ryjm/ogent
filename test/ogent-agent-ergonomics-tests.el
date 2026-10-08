@@ -327,5 +327,40 @@
                                             (reverse events)) ""))))
         (when (and proc (process-live-p proc)) (delete-process proc))))))
 
+(defun ogent-agent-ergonomics-tests--make-fixture ()
+  "Return an isolated directory with the audited Makefile and a failing compiler."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (source (or (getenv "OGENT_AUDIT_SOURCE") ogent-project-root)))
+    (make-directory (expand-file-name "lisp" root) t)
+    (make-directory (expand-file-name "test" root) t)
+    (copy-file (expand-file-name "Makefile" source) (expand-file-name "Makefile" root))
+    (let ((script (ogent-agent-ergonomics-tests--file
+                   root "makem.sh" "#!/bin/sh\nprintf '%s\\n' 'fixture compile failure' >&2\nexit 23\n")))
+      (set-file-modes script #o700))
+    root))
+
+(ert-deftest ogent-agent-ergonomics-make-contract-recompile-failure ()
+  "Recompile preserves a failed compilation rather than announcing success."
+  (let* ((default-directory (ogent-agent-ergonomics-tests--make-fixture))
+         (fake (ogent-agent-ergonomics-tests--file
+                default-directory "emacs-fixture" "#!/bin/sh\nprintf '%s\\n' 'fixture compile failure' >&2\nexit 23\n")))
+    (set-file-modes fake #o700)
+    (with-temp-buffer
+      (should-not (zerop (call-process "make" nil t nil "recompile" (concat "EMACS=" fake))))
+      (should (string-match-p "fixture compile failure" (buffer-string)))
+      (should-not (string-match-p "Recompiled all" (buffer-string))))))
+
+(ert-deftest ogent-agent-ergonomics-make-contract-clean-and-help ()
+  "Clean covers test bytecode and help exposes provider-free discovery."
+  (let ((default-directory (ogent-agent-ergonomics-tests--make-fixture)))
+    (ogent-agent-ergonomics-tests--file default-directory "lisp/source.elc" "fixture")
+    (ogent-agent-ergonomics-tests--file default-directory "test/test.elc" "fixture")
+    (should (zerop (call-process "make" nil nil nil "clean")))
+    (should-not (file-exists-p (expand-file-name "test/test.elc")))
+    (with-temp-buffer
+      (should (zerop (call-process "make" nil t nil "help")))
+      (should (string-match-p "ogent-agent-triage" (buffer-string)))
+      (should (string-match-p "1 warning, 2 error" (buffer-string))))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here

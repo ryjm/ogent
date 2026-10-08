@@ -2,6 +2,7 @@
 # See: https://github.com/alphapapa/makem.sh
 
 EMACS ?= emacs
+MAKEM = ./makem.sh --emacs="$(EMACS)"
 
 # macOS compatibility: makem.sh requires GNU coreutils and getopt.
 # If on macOS with Homebrew, prepend GNU tools to PATH.
@@ -59,15 +60,15 @@ endif
 
 # Default: run all lints and tests
 all:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) all
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) all
 
 # Lint all source files
 lint:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) lint
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) lint
 
 # Run all tests
 test:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) test
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) test
 
 # Store-integrity hash audit (ogent-aq8.4): hash every real-store path,
 # run the full ert suite, re-hash, and fail on any drift.  Belt to the
@@ -82,31 +83,28 @@ offline-test:
 
 # Byte-compile source files (via makem.sh)
 compile:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) compile
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) compile
 
 # Remove all byte-compiled files
 clean:
-	@find lisp/ -name "*.elc" -delete
+	@find lisp/ test/ -name "*.elc" -delete
 	@echo "Removed all .elc files"
 
 # Clean and recompile all elisp files (use after code changes)
 recompile: clean
-	@$(EMACS) --batch -L lisp -L lisp/ui \
-		--eval "(setq byte-compile-error-on-warn nil)" \
-		-f batch-byte-compile lisp/*.el lisp/ui/*.el 2>/dev/null || true
-	@echo "Recompiled all .el files"
+	@$(MAKE) compile
 
 # Run Emacs in batch mode with project loaded
 batch:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) batch
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) batch
 
 # Run Emacs interactively with project loaded
 interactive:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) interactive
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) interactive
 
 # Run tests in a clean sandbox
 sandbox-test:
-	@./makem.sh -v --sandbox --install-deps test
+	@$(MAKEM) -v --sandbox --install-deps test
 
 # Run benchmarks
 bench:
@@ -117,11 +115,11 @@ bench:
 
 # Run interactive Emacs in a clean sandbox (for development/testing)
 sandbox:
-	@./makem.sh -v --sandbox --install-deps interactive
+	@$(MAKEM) -v --sandbox --install-deps interactive
 
 # Run lint in a clean sandbox with all linters
 sandbox-lint:
-	@./makem.sh -v --sandbox --install-deps --install-linters lint
+	@$(MAKEM) -v --sandbox --install-deps --install-linters lint
 
 # Launch demo sandbox for manual validation (legacy target)
 demo:
@@ -129,7 +127,7 @@ demo:
 
 # Catch-all rule for other makem.sh targets
 %:
-	@./makem.sh $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) $(@)
+	@$(MAKEM) $(DEBUG) $(VERBOSE) $(SANDBOX) $(INSTALL_DEPS) $(INSTALL_LINTERS) $(@)
 
 help:
 	@echo "ogent Makefile targets:"
@@ -140,6 +138,8 @@ help:
 	@echo "  make test-isolation - Verify the suite never writes real user stores"
 	@echo "  make offline-test - Replay workflows with real dependencies (OGENT_ELPA_DIR required)"
 	@echo "  make compile      - Byte-compile source files"
+	@echo "  make recompile    - Clean and compile; failures remain nonzero"
+	@echo "  make clean        - Remove generated lisp/ and test/ bytecode"
 	@echo "  make bench        - Run performance benchmarks"
 	@echo "  make batch        - Run Emacs in batch mode with project loaded"
 	@echo "  make interactive  - Run Emacs interactively with project loaded"
@@ -154,6 +154,7 @@ help:
 	@echo "  install-deps=1    - Auto-install package dependencies"
 	@echo "  install-linters=1 - Auto-install linting tools"
 	@echo "  debug=1           - Enable debug mode"
+	@echo "  EMACS=PATH        - Select the Emacs executable for every target"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make test v=2                    - Run tests with verbose output"
@@ -163,3 +164,9 @@ help:
 	@echo "Additional makem.sh rules (use make <rule>):"
 	@echo "  lint-checkdoc, lint-compile, lint-declare, lint-indent,"
 	@echo "  lint-package, lint-regexps, test-ert, test-buttercup"
+	@echo ""
+	@echo "Agent discovery (after loading ogent; no provider requests):"
+	@echo "  (ogent-agent-capabilities 'json) - Live tool contracts and approval policy"
+	@echo "  (ogent-agent-guide)             - Paste-ready SDK handbook"
+	@echo "  (ogent-agent-triage 'json)       - Discovery plus local health and next actions"
+	@echo "  (ogent-doctor-batch nil 'json)   - JSON health; exit 0 ok/info, 1 warning, 2 error"

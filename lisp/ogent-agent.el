@@ -16,7 +16,7 @@
   (pcase format
     ((or 'nil 'plist) data)
     ('json (concat (json-serialize data :null-object :json-null
-                                  :false-object :json-false) "\n"))
+                                   :false-object :json-false) "\n"))
     (_ (user-error "Use nil, 'plist, or 'json for the agent report format"))))
 
 (defun ogent-agent--boolean (value)
@@ -48,9 +48,9 @@
           (vconcat
            (mapcar (lambda (arg)
                      (append (list :name (plist-get arg :name)
-                           :type (plist-get arg :type)
-                           :optional (ogent-agent--boolean (plist-get arg :optional))
-                           :description (or (plist-get arg :description) ""))
+				   :type (plist-get arg :type)
+				   :optional (ogent-agent--boolean (plist-get arg :optional))
+				   :description (or (plist-get arg :description) ""))
                              (when (plist-member arg :enum)
                                (list :enum (vconcat (plist-get arg :enum))))))
                    (plist-get spec :args)))
@@ -74,10 +74,10 @@ per-call allow/deny rules still apply at execution time."
          :interface "Emacs Lisp SDK"
          :tools
          (vconcat (mapcar #'ogent-agent--tool
-                         (sort (copy-sequence ogent-tool-registry)
-                               (lambda (a b)
-                                 (string< (symbol-name (plist-get a :name))
-                                          (symbol-name (plist-get b :name)))))))
+                          (sort (copy-sequence ogent-tool-registry)
+				(lambda (a b)
+                                  (string< (symbol-name (plist-get a :name))
+                                           (symbol-name (plist-get b :name)))))))
          :result_contract
          (list :tool_results "text; errors are signaled or returned as Tool error: text by the execution wrapper"
                :async_events ["stdout" "stderr" "done" "error"]
