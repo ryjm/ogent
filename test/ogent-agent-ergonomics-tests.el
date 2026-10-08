@@ -450,5 +450,28 @@
 		   (should (equal (json-encode (ogent-mcp--args-to-alist captured)) "{\"flag\":false}"))))
       (ogent-mcp--unregister-tools "ergo"))))
 
+(ert-deftest ogent-agent-ergonomics-offline-contract-missing-dependencies ()
+  "Missing offline prerequisites fail before fixtures, with data-free stdout."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (source (or (getenv "OGENT_AUDIT_SOURCE") ogent-project-root))
+         (dest (expand-file-name "test/offline" root))
+         (process-environment (seq-remove (lambda (entry)
+                                            (string-match-p "\\`OGENT_\\(?:ELPA\\|GPTEL\\)_DIR=" entry))
+                                          process-environment))
+         (stderr (expand-file-name "stderr" root)))
+    (make-directory dest t)
+    (dolist (name '("run.sh" "boot.el.in" "workflows.el.in" "http-fixture.py"))
+      (copy-file (expand-file-name (concat "test/offline/" name) source)
+                 (expand-file-name name dest)))
+    (with-temp-buffer
+      (should-not (zerop (call-process "bash" nil (list t stderr) nil
+                                       (expand-file-name "run.sh" dest))))
+      (should (equal (buffer-string) "")))
+    (with-temp-buffer
+      (insert-file-contents stderr)
+      (should (string-match-p "OGENT_ELPA_DIR" (buffer-string)))
+      (should (string-match-p "make offline-test" (buffer-string)))
+      (should-not (string-match-p "Backtrace\\|Error:" (buffer-string))))))
+
 (provide 'ogent-agent-ergonomics-tests)
 ;;; ogent-agent-ergonomics-tests.el ends here
