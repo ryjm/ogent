@@ -65,8 +65,17 @@
   (ogent-tool-process-tests--with-directory
     (let ((binary (ogent-tool-process-tests--write
                    directory "binary.txt" "needle\n\0needle\nneedle\n"))
+          (late-binary (ogent-tool-process-tests--write
+                        directory "late.txt"
+                        (concat "needle\n" (make-string 100000 ?x) "\0\n")))
+          (bom-binary (let ((coding-system-for-write 'utf-16le-with-signature))
+                        (ogent-tool-process-tests--write directory "bom.txt" "needle\n")))
           (text (ogent-tool-process-tests--write directory "source.txt" "needle\n")))
       (should (= (plist-get (ogent-tool-process-grep "needle" binary) :total_matches) 0))
+      (should (= (plist-get (ogent-tool-process-grep "needle" late-binary) :total_matches) 0))
+      (should (= (plist-get (ogent-tool-process-grep "needle" bom-binary) :total_matches) 0))
+      (should-error (ogent-tool-process-grep "[" late-binary)
+                    :type 'ogent-tool-process-search-failed)
       (let* ((result (ogent-tool-process-grep "needle" directory))
              (matches (plist-get result :matches)))
 	(should (= (plist-get result :total_matches) 1))
@@ -123,6 +132,95 @@
     (should (= (plist-get
                 (ogent-tool-process-grep "needle" (expand-file-name "目录/é.txt" directory))
                 :total_matches) 1))))
+
+(defun ogent-tool-process-tests--check-symlink-scope ()
+  "Verify file link inclusion without directory link traversal or binary text."
+  (ogent-tool-process-tests--with-directory
+    (let ((outside (make-temp-file "ogent-process-outside-" t))
+          (link (expand-file-name "link.txt" directory)))
+      (unwind-protect
+          (progn
+            (ogent-tool-process-tests--write
+             directory "source.txt" "before\nneedle one\nbetween\nneedle two\nafter\n")
+            (ogent-tool-process-tests--write directory "nested/inside.txt" "needle inside\n")
+            (ogent-tool-process-tests--write directory "binary.txt" "needle\n\0needle\n")
+            (ogent-tool-process-tests--write outside "outside.txt" "needle outside\n")
+            (make-symbolic-link "source.txt" link)
+            (make-symbolic-link "binary.txt" (expand-file-name "binary-link.txt" directory))
+            (make-symbolic-link outside (expand-file-name "outside-directory.txt" directory))
+            (make-symbolic-link directory (expand-file-name "loop-directory.txt" directory))
+            (make-symbolic-link "cycle-two.txt" (expand-file-name "cycle-one.txt" directory))
+            (make-symbolic-link "cycle-one.txt" (expand-file-name "cycle-two.txt" directory))
+            (dolist (filter '(nil "*.txt" "link.txt" "l?nk.txt" "[ls]ink.txt"))
+              (let* ((all (ogent-tool-process-grep "needle" directory filter 1))
+                     (expected (if (member filter '(nil "*.txt"))
+                                   '("link.txt" "link.txt" "nested/inside.txt"
+                                     "source.txt" "source.txt")
+                                 '("link.txt" "link.txt")))
+                     (first (ogent-tool-process-grep "needle" directory filter 1 0 1))
+                     (second (ogent-tool-process-grep "needle" directory filter 1 1 1)))
+                (should (equal
+                         (mapcar (lambda (match)
+                                   (file-relative-name (plist-get match :path) directory))
+                                 (append (plist-get all :matches) nil))
+                         expected))
+                (should (= (plist-get all :total_matches) (length expected)))
+                (should (equal (plist-get first :snapshot) (plist-get all :snapshot)))
+                (should (equal (plist-get second :snapshot) (plist-get all :snapshot)))
+                (should (= (plist-get first :next_offset) 1))
+                (should (= (plist-get (aref (plist-get first :matches) 0) :line) 2))
+                (should (= (plist-get (aref (plist-get second :matches) 0) :line) 4))
+                (should (equal (plist-get (aref (plist-get first :matches) 0) :context_before)
+                               [(:line 1 :text "before")]))
+                (should (equal (plist-get (aref (plist-get second :matches) 0) :context_after)
+                               [(:line 5 :text "after")]))
+                (should (equal (aref (plist-get first :matches) 0)
+                               (aref (plist-get all :matches) 0)))
+                (should (equal (aref (plist-get second :matches) 0)
+                               (aref (plist-get all :matches) 1)))))
+            (should (= (plist-get (ogent-tool-process-grep "needle" link "*.txt")
+                                  :total_matches) 2))
+            (should (= (plist-get (ogent-tool-process-grep "needle" link "*.el")
+                                  :total_matches) 0))
+            (should (= (plist-get (ogent-tool-process-grep
+                                   "needle" (expand-file-name "binary-link.txt" directory))
+                                  :total_matches) 0))
+            (let ((target (ogent-tool-process-tests--write
+                           outside "odd:\né[1]?*.txt" "needle mapped\n"))
+                  (empty (ogent-tool-process-tests--write outside "empty.log" "unrelated\n")))
+              (make-symbolic-link target (expand-file-name "a-outside.txt" directory))
+              (make-symbolic-link empty (expand-file-name "b-empty.txt" directory))
+              (make-symbolic-link target (expand-file-name "z-link.txt" directory))
+              (ogent-tool-process-tests--write
+               outside "excluded.txt" (concat "needle" (make-string 1100000 ?x) "\n"))
+              (let* ((first (ogent-tool-process-grep "needle" directory "*.txt" 0 0 3))
+                     (last (ogent-tool-process-grep "needle" directory "*.txt" 0 3 4))
+                     (names (mapcar
+                             (lambda (match)
+                               (file-relative-name (plist-get match :path) directory))
+                             (append (plist-get first :matches) (plist-get last :matches) nil))))
+                (should (equal names '("a-outside.txt" "link.txt" "link.txt"
+                                       "nested/inside.txt" "source.txt" "source.txt" "z-link.txt")))
+                (should (= (plist-get first :total_matches) 7))
+                (should (= (plist-get first :next_offset) 3))
+                (should (eq (plist-get last :has_more) :json-false))
+                (should (equal (plist-get first :snapshot) (plist-get last :snapshot))))))
+        (delete-directory outside t)))))
+
+(defun ogent-tool-process-tests--check-unsupported-filenames ()
+  "Reject selected non-UTF-8 filenames and ignore excluded oversized files."
+  (ogent-tool-process-tests--with-directory
+    (let ((raw-name (concat (decode-coding-string (unibyte-string 255) 'utf-8-unix)
+                            ".txt")))
+      (ogent-tool-process-tests--write directory raw-name "needle\n")
+      (ogent-tool-process-tests--write directory "valid.el" "needle\n")
+      (dolist (filter '(nil "*.txt" "?.txt"))
+        (should-error (ogent-tool-process-grep "needle" directory filter)
+                      :type 'ogent-tool-process-output-error))
+      (ogent-tool-process-tests--write
+       directory raw-name (concat "needle" (make-string 1100000 ?x) "\n"))
+      (should (= (plist-get (ogent-tool-process-grep "needle" directory "*.el")
+                            :total_matches) 1)))))
 
 (ert-deftest ogent-tool-process-bash-separates-channels-and-exit ()
   "Preserve stdout and stderr separately on a real nonzero command exit."
@@ -499,6 +597,53 @@
       (let ((result (ogent-tool-process-grep "\\p{L}+" directory "?.txt")))
         (should (equal (plist-get result :engine) "ripgrep-json"))
         (should (= (plist-get result :total_matches) 1))))))
+
+(ert-deftest ogent-tool-process-grep-gnu-symlink-scope ()
+  "Include file links consistently while ignoring directory and cyclic links."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-symlink-scope)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-symlink-scope ()
+  "Include file links consistently while ignoring directory and cyclic links."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-symlink-scope)))
+
+(ert-deftest ogent-tool-process-grep-gnu-unsupported-filenames ()
+  "Reject selected raw-byte filenames through real GNU grep candidate selection."
+  (ogent-tool-process-tests--with-engine 'gnu
+    (ogent-tool-process-tests--check-unsupported-filenames)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-unsupported-filenames ()
+  "Reject selected raw-byte filenames without silently dropping real rg candidates."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--check-unsupported-filenames)))
+
+(ert-deftest ogent-tool-process-grep-ripgrep-cancel-cleans-selected-script ()
+  "Cancel a real selected-file search once and remove its private script."
+  (ogent-tool-process-tests--with-engine 'ripgrep
+    (ogent-tool-process-tests--with-directory
+      (ogent-tool-process-tests--write directory "source.txt" "needle\n")
+      (make-symbolic-link "source.txt" (expand-file-name "link.txt" directory))
+      (let ((calls 0) failure process script)
+        (unwind-protect
+            (progn
+              (setq process
+                    (ogent-tool-process-grep-async
+                     "needle" directory nil 0 0 10
+                     (lambda (_data error-data)
+                       (cl-incf calls) (setq failure error-data))))
+              (should (processp process))
+              (setq script (cadr (process-command process)))
+              (should (file-exists-p script))
+              (should (ogent-tool-process-cancel process))
+              (should (= calls 1))
+              (should (eq (car failure) 'ogent-tool-process-search-cancelled))
+              (should-not (file-exists-p script))
+              (should-not (process-buffer process))
+              (should-not (assq process ogent-tools--active-processes))
+              (accept-process-output nil 0.05)
+              (should (= calls 1)))
+          (ogent-tool-process-cancel process))))))
 
 (ert-deftest ogent-tool-process-grep-ripgrep-selected-groups-preserve-pages ()
   "Retain ordered pagination across multiple real ripgrep filename groups."

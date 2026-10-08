@@ -275,43 +275,17 @@ Retain partial output on a nonzero exit, timeout or cancellation."
     (sort
      (cl-remove-if-not
       (lambda (file)
-        (and (file-regular-p file)
-             (not (string-match-p "/\\.git/" file))
-             (ogent-tool-process--grep-file-matches-p file target glob-filter)))
+        (and (not (string-match-p "/\\.git/" file))
+             (ogent-tool-process--grep-file-matches-p file target glob-filter)
+             (progn
+               (unless (equal file (ogent-tool-process--safe-text file))
+                 (signal 'ogent-tool-process-output-error
+                         '("Search filename contains non-UTF-8 bytes; search a directory with UTF-8 filenames or rename the file before retrying")))
+               (file-regular-p file))))
       (if (file-directory-p target)
           (directory-files-recursively target "." nil nil)
         (list target)))
      #'string<)))
-
-(defun ogent-tool-process--search-glob (pattern)
-  "Return a positive ripgrep wildcard equivalent to component PATTERN."
-  (let ((index -1))
-    (concat
-     (when (and (string-match-p "/" pattern)
-                (not (string-prefix-p "/" pattern))) "/")
-     (mapconcat
-      (lambda (character)
-        (cl-incf index)
-        (let ((text (char-to-string character)))
-          (if (or (memq character '(?\\ ?{ ?}))
-                  (and (= index 0) (= character ?!))
-                  (and (> index 0) (= character ?^)
-                       (= (aref pattern (1- index)) ?\[)))
-              (concat "\\" text)
-            text)))
-      (string-to-list pattern) ""))))
-
-(defun ogent-tool-process--literal-glob (name)
-  "Return an anchored ripgrep glob matching literal filename NAME."
-  (concat
-   "/"
-   (mapconcat
-    (lambda (character)
-      (let ((text (char-to-string character)))
-        (if (memq character '(?\\ ?* ?? ?\[ ?\] ?{ ?} ?!))
-            (concat "\\" text)
-          text)))
-    (string-to-list name) "")))
 
 (defun ogent-tool-process--search-temp-file (contents)
   "Write CONTENTS into a private UTF-8 search temporary file and return its path."
@@ -326,45 +300,69 @@ Retain partial output on a nonzero exit, timeout or cancellation."
 
 (defun ogent-tool-process--rg-selected-script (rg pattern context files)
   "Return a script using RG to search PATTERN with CONTEXT in ordered FILES.
-Group consecutive files by their parent and bound each group to 128 names.
-Use escaped exact filename globs to retain directory binary detection."
-  (let (directory group commands)
+Bound each consecutive group to 128 filenames and check each for NUL bytes
+before matching; a late NUL must not leave earlier lines counted as text.
+Use explicit file argv after classification, preserving file symlink paths
+without traversing any directory symlinks."
+  (let (group commands)
     (cl-labels
         ((flush ()
            (when group
              (push
               (concat
+               "set --\n"
+               (mapconcat
+                (lambda (file)
+                  (concat
+                   (mapconcat #'shell-quote-argument
+                              (list rg "--no-config" "--encoding" "none"
+                                    "-aq" "--" "\\x00" file) " ")
+                   "\nogent_binary_status=$?\ncase \"$ogent_binary_status\" in\n"
+                   "0) ;;\n1) set -- \"$@\" " (shell-quote-argument file)
+                   ";;\n*) exit \"$ogent_binary_status\" ;;\nesac\n"))
+                (nreverse group) "")
+               "if test \"$#\" -eq 0; then set -- "
+               (shell-quote-argument null-device) "; fi\n"
                (mapconcat
                 #'shell-quote-argument
-                (append
-                 (list rg "--json" "--no-config" "--sort" "path" "--color=never"
-                       "--hidden" "--no-ignore" "--max-depth" "1" "--follow"
-                       "-C" (number-to-string context))
-                 (cl-mapcan (lambda (file)
-                              (list "-g" (substring
-                                          (ogent-tool-process--literal-glob
-                                           (file-name-nondirectory file)) 1)))
-                            (nreverse group))
-                 (list "--" pattern directory))
-                " ")
-               "\nogent_rg_status=$?\n"
+                (list rg "--json" "--no-config" "--sort" "path" "--color=never"
+                      "--no-follow" "-C" (number-to-string context) "--" pattern) " ")
+               " \"$@\"\n"
+               "ogent_rg_status=$?\n"
                "case \"$ogent_rg_status\" in 0|1) ;; *) exit \"$ogent_rg_status\" ;; esac\n")
               commands)
              (setq group nil))))
       (dolist (file files)
-        (let ((parent (file-name-directory file)))
-          (when (or (not (equal parent directory)) (= (length group) 128))
-            (flush)
-            (setq directory parent))
-          (push file group)))
+        (when (= (length group) 128) (flush))
+        (push file group))
       (flush))
     (concat (apply #'concat (nreverse commands)) "exit 0\n")))
+
+(defun ogent-tool-process--gnu-text-search-command (grep pattern context)
+  "Return a GREP script to match PATTERN with CONTEXT in text-only argv files.
+Check each selected file for NUL bytes before counting any matching lines."
+  (concat
+   "ogent_first=1\nfor ogent_file do\n"
+   "if test \"$ogent_first\" -eq 1; then set --; ogent_first=0; fi\n"
+   "printf '\\000\\n' | "
+   (mapconcat #'shell-quote-argument (list grep "-aFq" "-f" "-" "--") " ")
+   " \"$ogent_file\"\nogent_binary_status=$?\n"
+   "case \"$ogent_binary_status\" in\n"
+   "0) ;;\n1) set -- \"$@\" \"$ogent_file\" ;;\n"
+   "*) exit \"$ogent_binary_status\" ;;\nesac\ndone\n"
+   "if test \"$#\" -eq 0; then set -- " (shell-quote-argument null-device) "; fi\n"
+   (mapconcat #'shell-quote-argument
+              (list grep "-HnZE" "--color=never" "--binary-files=without-match"
+                    "--no-group-separator" "-C" (number-to-string context)
+                    "--" pattern) " ")
+   " \"$@\"; code=$?; test \"$code\" -le 1"))
 
 (defun ogent-tool-process-grep-async (pattern &optional path glob-filter context-lines
                                               offset limit callback)
   "Search PATTERN and return its asynchronous local process.
 Search PATH with optional GLOB-FILTER and CONTEXT-LINES (0 through 20).
 Apply GLOB-FILTER to explicit files as well as directories; skip binary files.
+Include file symlinks; do not traverse directory symlinks beneath PATH.
 Match basename or relative path with positive component wildcards; ** matches
 zero or more components.  Treat a leading ! and brace expressions literally.
 OFFSET is zero-based; LIMIT defaults to 200 and must be 1 through 200.
@@ -379,10 +377,6 @@ Count all matching lines, retaining only the requested page and bounded text."
                            pattern path glob-filter context start page-size))
              (directory (plist-get target-info :directory))
              (target (plist-get target-info :target))
-             (explicit-file (file-regular-p target))
-             (explicit-candidate (and explicit-file
-                                      (car (ogent-tool-process--grep-files
-                                            target glob-filter))))
              (rg (executable-find "rg"))
              (grep (and (not rg) (executable-find "grep")))
              (xargs (and grep (executable-find "xargs")))
@@ -547,46 +541,21 @@ Count all matching lines, retaining only the requested page and bounded text."
                         :snapshot hash :engine engine)
                   nil)))))
           (if rg
-              (if (and (not explicit-file) glob-filter
-                       (or (string-match-p "\\?" glob-filter)
-                           (string-match-p "\\[" glob-filter)))
-                  ;; rg's globset matches ? and classes by bytes.  Select names
-                  ;; with the shared Unicode predicate before searching, so
-                  ;; excluded file contents and permissions cannot interfere.
-                  (let ((files (ogent-tool-process--grep-files target glob-filter)))
-                    (if files
-                        (progn
-                          (setq temporary-file
-                                (ogent-tool-process--search-temp-file
-                                 (ogent-tool-process--rg-selected-script
-                                  rg pattern context files)))
-                          (setq command (list shell-file-name temporary-file)))
-                      (setq command (list rg "--json" "--no-config"
-                                          "--" pattern null-device))))
-                (setq command
-                      (append (list rg "--json" "--no-config"
-                                    "--sort" "path" "--color=never"
-                                    "--hidden" "--no-ignore" "-g" "!**/.git/**"
-                                    "-C" (number-to-string context))
-                              (cond
-                               ((and glob-filter (string-empty-p glob-filter))
-				(list "--" pattern null-device))
-                               ((and explicit-file explicit-candidate)
-				;; Explicit rg argv paths override its glob and
-				;; binary rules.  Search through the parent with
-				;; an exact filename glob to retain those rules.
-				(list "--max-depth" "1" "--follow" "-g"
-                                      (ogent-tool-process--literal-glob
-                                       (file-name-nondirectory target))
-                                      "--" pattern directory))
-                               (explicit-file
-				;; Compile the regex even when the file filter
-				;; excludes the sole candidate.
-				(list "--" pattern null-device))
-                               (t
-				(append (when glob-filter
-                                          (list "-g" (ogent-tool-process--search-glob glob-filter)))
-					(list "--" pattern target)))))))
+              ;; Use the shared candidate scope for explicit files and every
+              ;; directory query.  Check selected files for binary bytes before
+              ;; matching explicit argv files, retaining file link identities.
+              (let ((files (ogent-tool-process--grep-files target glob-filter)))
+                (if files
+                    (progn
+                      (setq temporary-file
+                            (ogent-tool-process--search-temp-file
+                             (ogent-tool-process--rg-selected-script
+                              rg pattern context files)))
+                      (setq command (list shell-file-name temporary-file)))
+                  ;; Compile the regex even when the file filter excludes all
+                  ;; candidates, retaining invalid-pattern errors.
+                  (setq command (list rg "--json" "--no-config"
+                                      "--" pattern null-device))))
             ;; xargs preserves ordered filename input and invokes grep in
             ;; argument-size-safe batches.  Normalize grep's no-match exit 1.
             (setq input (mapconcat #'identity
@@ -606,15 +575,8 @@ Count all matching lines, retaining only the requested page and bounded text."
                             #'shell-quote-argument
                             (list xargs "-0" "-r" "-n" "128"
                                   shell-file-name shell-command-switch
-                                  (concat
-                                   (mapconcat
-                                    #'shell-quote-argument
-                                    (list grep "-HnZE" "--color=never"
-                                          "--binary-files=without-match"
-                                          "--no-group-separator" "-C"
-                                          (number-to-string context) "--" pattern)
-                                    " ")
-                                   " \"$@\"; code=$?; test \"$code\" -le 1")
+                                  (ogent-tool-process--gnu-text-search-command
+                                   grep pattern context)
                                   "ogent-grep")
                             " ")
                            " < " (shell-quote-argument temporary-file))))))
