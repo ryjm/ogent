@@ -21,7 +21,14 @@ Include a typed error with CODE and MESSAGE when supplied."
   (list :contract_version "1" :tool (format "%s" name) :status status
         :data (or data :json-null)
         :error (if code (list :code code :message message
-                             :recovery "Inspect ogent-agent-describe for arguments and policy; correct the call before retrying")
+                             :recovery
+                             (pcase code
+                               ("unknown_tool" "Call ogent-agent-capabilities to inspect available names and aliases")
+                               ("invalid_arguments" (format "Call (ogent-agent-describe %S) for the declared arguments" (format "%s" name)))
+                               ((or "denied" "approval_required") "Use the normal user approval/review flow; do not retry with relaxed policy")
+                               ("snapshot_changed" "Restart the original read/search call from its first page")
+                               ((or "command_failed" "timeout" "cancelled") "Inspect retained stdout/stderr and exit_code before deciding whether to retry")
+                               (_ "Inspect the error message and tool contract before retrying")))
                  :json-null)
         :next []))
 
@@ -102,7 +109,15 @@ owners.  Prefer registered structured result functions when available."
                    (ogent-tool-execution-result name "proposed" (list :review_required t)))
                (let ((data (ogent-ui--execute-tool name canonical t)))
                  (ogent-tool-execution--success spec canonical data))))))
-      (error (ogent-tool-execution-result name "error" nil phase
+      (error (ogent-tool-execution-result name "error" nil
+                                          (pcase (car err)
+                                            ('ogent-tool-process-search-timeout "timeout")
+                                            ('ogent-tool-process-search-cancelled "cancelled")
+                                            ('ogent-tool-process-start-failed "process_start_failed")
+                                            ('ogent-tool-process-unavailable "dependency_missing")
+                                            ('ogent-tool-process-output-error "unsupported_output")
+                                            ('ogent-tool-process-search-failed "search_failed")
+                                            (_ phase))
                                           (error-message-string err))))))
 
 (defun ogent-tool-execution-wrapper (spec)

@@ -15,6 +15,11 @@
 (autoload 'ogent-tool-results-read "ogent-tool-results")
 (autoload 'ogent-tool-results-format "ogent-tool-results")
 (autoload 'ogent-tool-results-glob "ogent-tool-results")
+(autoload 'ogent-tool-process-grep "ogent-tool-process")
+(autoload 'ogent-tool-process-grep-async "ogent-tool-process")
+(autoload 'ogent-tool-process-bash "ogent-tool-process")
+(autoload 'ogent-tool-process-bash-async "ogent-tool-process")
+(declare-function ogent-tool-process-cancel "ogent-tool-process")
 
 ;; Forward declaration for variable defined in ogent-models.el
 (defvar ogent-tool-registry)
@@ -434,12 +439,19 @@ Use GLOB-FILTER and CONTEXT to shape the command."
   (format "grep failed (exit %s): %s. Check pattern syntax and path; retry grep with a valid pattern, such as needle"
           status (string-trim diagnostic)))
 
-(defun ogent-tool--grep (pattern &optional path glob-filter context-lines)
+(defun ogent-tool--grep (pattern &optional path glob-filter context-lines format offset limit)
   "Search for PATTERN in files with streaming progress.
 PATH is file or directory to search (default project root).
 GLOB-FILTER limits to matching files (e.g., \"*.el\").
 CONTEXT-LINES shows N lines before/after matches.
-Output is streamed incrementally via `ogent-tools-stream-callback'."
+Output is streamed incrementally via `ogent-tools-stream-callback'.
+When FORMAT is `plist' or `json', return match objects with zero-based OFFSET
+and page LIMIT, including exact paths, positions, context and counts."
+  (if format
+      (progn
+        (ogent-tool-results-format nil format)
+        (ogent-tool-results-format
+         (ogent-tool-process-grep pattern path glob-filter context-lines offset limit) format))
   (let* ((pattern (ogent-tools--grep-pattern pattern))
          (target-info (ogent-tools--grep-target path))
          (dir (plist-get target-info :directory))
@@ -520,7 +532,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
        (ogent-tools--kill-buffer-if-live stderr-buffer)
        (unless reported-error
          (ogent-tools--stream-error 'grep (error-message-string err)))
-       (signal (car err) (cdr err))))))
+       (signal (car err) (cdr err)))))))
 
 (defun ogent-tool--grep-async (pattern &optional path glob-filter context-lines callback)
   "Search for PATTERN asynchronously with streaming.
@@ -667,11 +679,18 @@ for commands that produce significant output."
   (unless (and (numberp timeout) (> timeout 0))
     (user-error "Invalid bash timeout; use positive seconds, such as timeout=120")))
 
-(defun ogent-tool--bash (command &optional working-directory timeout)
+(defun ogent-tool--bash (command &optional working-directory timeout format)
   "Execute shell COMMAND with streaming progress.
 WORKING-DIRECTORY defaults to project root.
 TIMEOUT in seconds (default `ogent-tools-shell-timeout').
-Output is streamed incrementally via `ogent-tools-stream-callback'."
+Output is streamed incrementally via `ogent-tools-stream-callback'.
+When FORMAT is `plist' or `json', return separate stdout/stderr, exit_code,
+timeout, cancellation and truncation fields, retaining partial output."
+  (if format
+      (progn
+        (ogent-tool-results-format nil format)
+        (ogent-tool-results-format
+         (ogent-tool-process-bash command working-directory timeout) format))
   (ogent-tools--bash-validate command working-directory
                               (or timeout ogent-tools-shell-timeout))
   (let* ((default-directory (if working-directory
@@ -757,7 +776,7 @@ Output is streamed incrementally via `ogent-tools-stream-callback'."
        (unless (string-empty-p stderr-text)
          (concat "\n\n--- stderr ---\n" stderr-text)))
       ogent-tools-max-output-chars)
-     (format "\n\nExit code: %s" exit-code))))
+     (format "\n\nExit code: %s" exit-code)))))
 
 (defun ogent-tool--bash-async (command &optional working-directory timeout callback)
   "Execute shell COMMAND asynchronously with streaming output.
@@ -889,7 +908,9 @@ If CALLBACK is nil, results are only reported via `ogent-tools-stream-callback'.
       (let ((proc (car entry))
             (info (cdr entry)))
         (when (process-live-p proc)
-          (kill-process proc)
+          (unless (and (fboundp 'ogent-tool-process-cancel)
+                       (ogent-tool-process-cancel proc))
+            (kill-process proc))
           (cl-incf count))
         ;; Cancel associated timer if any
         (when-let ((timer (plist-get info :timer)))
@@ -1016,6 +1037,12 @@ If REPLACE-ALL is non-nil, replace all occurrences."
     (:name grep
            :aliases ["search"]
            :function ogent-tool--grep
+           :result-function ogent-tool-process-grep
+           :result-async-function ogent-tool-process-grep-async
+           :result-args ((:name "offset" :type "integer" :optional t
+                                :description "Zero-based first match index")
+                         (:name "limit" :type "integer" :optional t
+                                :description "Maximum match objects per page (1-200)"))
            :async-function ogent-tool--grep-async
            :async-callback-style :match  ; callback receives (match line), (done count), (error msg)
            :description "Search file contents using regex pattern. Uses ripgrep if available."
@@ -1033,6 +1060,8 @@ If REPLACE-ALL is non-nil, replace all occurrences."
     (:name bash
            :aliases ["shell" "run"]
            :function ogent-tool--bash
+           :result-function ogent-tool-process-bash
+           :result-async-function ogent-tool-process-bash-async
            :async-function ogent-tool--bash-async
            :async-callback-style :stream  ; callback receives (stdout chunk), (stderr chunk), (done code), (error msg)
            :description "Execute a shell command and return output."
@@ -1040,7 +1069,7 @@ If REPLACE-ALL is non-nil, replace all occurrences."
                          :description "Shell command to execute")
                   (:name "working_directory" :type "string" :optional t
                          :description "Directory to run command in")
-                  (:name "timeout" :type "integer" :optional t
+                  (:name "timeout" :type "number" :optional t
                          :description "Timeout in seconds"))
            :category "shell"
            :effects ((:kind execute :target shell :scope unrestricted :risk critical)

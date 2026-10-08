@@ -145,6 +145,31 @@
     (should (eq (ogent-tool--name-symbol "exact") 'exact))
     (should-not (ogent-tool-spec-get "shared"))))
 
+(ert-deftest ogent-agent-execution-process-grep-integration ()
+  "Structured search participates in the same one-call pagination contract."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "colon:new\nline.txt" "needle\nneedle\nneedle\n"))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry))
+         (first (ogent-agent-call "search" (list :pattern "needle" :path root :limit 2)))
+         (last (ogent-agent-next first)))
+    (should (equal (plist-get first :status) "ok"))
+    (should (= (plist-get (plist-get first :data) :total_matches) 3))
+    (should (equal (plist-get (aref (plist-get (plist-get last :data) :matches) 0) :path) file))
+    (should (= (plist-get (aref (plist-get (plist-get last :data) :matches) 0) :line) 3))
+    (should (vectorp (plist-get (ogent-tool--grep "needle" file nil 0 'plist) :matches)))))
+
+(ert-deftest ogent-agent-execution-process-shell-failures-retain-data ()
+  "Nonzero exits and timeouts are typed failures with retained diagnostics."
+  (let ((ogent-tool-registry (copy-tree ogent-tools-default-registry))
+        (ogent-tool-require-approval nil))
+    (let ((failed (ogent-agent-call "shell" '(:command "printf out; printf err >&2; exit 7")))
+          (timed (ogent-agent-call "shell" '(:command "printf partial; sleep 2" :timeout 0.1))))
+      (should (equal (plist-get (plist-get failed :error) :code) "command_failed"))
+      (should (= (plist-get (plist-get failed :data) :exit_code) 7))
+      (should (equal (plist-get (plist-get failed :data) :stderr) "err"))
+      (should (equal (plist-get (plist-get timed :error) :code) "timeout"))
+      (should (equal (plist-get (plist-get timed :data) :stdout) "partial")))))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry
