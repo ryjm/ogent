@@ -450,7 +450,7 @@
 (ert-deftest ogent-agent-execution-batch-freezes-canonical-alias-target ()
   "Keep the resolved tool when an earlier call registers a colliding alias name."
   (let* ((executed nil)
-         (later (list :name 'later :aliases '[alias] :args nil
+         (later (list :name 'later :aliases '["alias"] :args nil
                       :effects '((:kind read :target file :risk low)) :function (lambda () "read")))
          (first (list :name 'first :args nil :effects '((:kind read :target file :risk low))
                       :function (lambda ()
@@ -471,7 +471,7 @@
   (dolist (format '(text json))
     (let* ((executed nil) (target (copy-sequence "safe"))
            (spec (list :name 'changing :confirm t :args nil
-                       :effects (list (list :kind read :target target :risk low))
+                       :effects (list (list :kind 'read :target target :risk 'low))
                        :function (lambda () (setq executed t))))
            (ogent-tool-registry (list spec))
            (ogent-tool-require-approval t)
