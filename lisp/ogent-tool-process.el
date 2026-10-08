@@ -12,6 +12,7 @@
 (require 'seq)
 (require 'subr-x)
 (require 'ogent-tools)
+(require 'ogent-tool-results)
 
 (define-error 'ogent-tool-process-start-failed "Local process could not start" 'user-error)
 (define-error 'ogent-tool-process-search-failed "Local search failed" 'user-error)
@@ -247,6 +248,8 @@ Retain partial output on a nonzero exit, timeout or cancellation."
                 ogent-tool-process--max-limit))
   (unless (and (numberp ogent-tools-grep-timeout) (> ogent-tools-grep-timeout 0))
     (user-error "Invalid grep timeout; set ogent-tools-grep-timeout to positive seconds"))
+  (setq path (ogent-tool-results--unicode
+              (ogent-tools--resolve-path (or path (ogent-tools--project-root)))))
   (condition-case err
       (ogent-tools--grep-target path)
     (error (user-error "%s; use glob to find an existing search path"

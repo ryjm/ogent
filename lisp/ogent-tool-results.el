@@ -98,7 +98,8 @@ must not exceed 200.  Report the total count and a snapshot of file metadata."
       (user-error "Use a non-negative integer offset, starting at 0"))
     (unless (and (integerp limit) (> limit 0) (<= limit 200))
       (user-error "Use an integer limit between 1 and 200"))
-    (let* ((root (ogent-tools--resolve-path (or path ".")))
+    (let* ((root (ogent-tool-results--unicode (ogent-tools--resolve-path (or path "."))))
+           (pattern (ogent-tool-results--unicode pattern))
            (files (sort (ogent-tools--glob-files pattern root #'ogent-tool-results--unicode) #'string<))
            (metadata (mapcar
                       (lambda (file)
