@@ -13,7 +13,7 @@
 
 (defun ogent-tool-results--unicode (text)
   "Return TEXT when JSON can represent it as Unicode, otherwise signal."
-  (condition-case nil (progn (json-serialize text) text)
+  (condition-case nil (when (json-serialize text) text)
     (error (signal 'ogent-tool-results-output-error
                    '("Use a Unicode filename and a supported text encoding; raw bytes cannot be represented in structured results")))))
 

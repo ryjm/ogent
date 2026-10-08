@@ -74,10 +74,11 @@ Cancel a returned process with `ogent-tool-process-cancel'."
    name args (lambda (result) (funcall callback (ogent-agent--output result format)))))
 
 (defun ogent-agent-batch (calls &optional format fail-fast)
-  "Execute up to 20 explicitly read-only CALLS and return results in FORMAT.
-Accept a list or vector of call plists containing :tool and :args.  Preflight
-the entire batch before running any call.  Reject writes, shell commands and tools
-without declared read effects.  Continue after errors unless FAIL-FAST is t.
+  "Execute a bounded, read-only batch and return its output in FORMAT.
+Accept up to 20 tool call plists in CALLS as a list or vector.
+Require :tool and :args in each plist.  Preflight the entire batch.
+Reject writes, shell commands and tools without declared read effects.
+Continue after errors unless FAIL-FAST is t.
 For example, batch a glob, search and file read in one local SDK round trip."
   (ogent-agent--output nil format)
   (let ((phase "invalid_arguments") prepared results stopped)
