@@ -75,5 +75,32 @@ budget.  Snapshot the decoded content so callers can detect changed pages."
                 :next_offset (if more line-number :json-null)
                 :next_column (if more next-column :json-null)))))))
 
+(defun ogent-tool-results-glob (pattern &optional path offset limit)
+  "Return a structured page of files matching PATTERN under PATH.
+Sort by absolute path.  OFFSET starts at zero; LIMIT defaults to 100 and
+must not exceed 200.  Report the total count and a snapshot of file metadata."
+  (let ((offset (or offset 0)) (limit (or limit 100)))
+    (unless (and (integerp offset) (>= offset 0))
+      (user-error "Use a non-negative integer offset, starting at 0"))
+    (unless (and (integerp limit) (> limit 0) (<= limit 200))
+      (user-error "Use an integer limit between 1 and 200"))
+    (let* ((root (ogent-tools--resolve-path (or path ".")))
+           (files (sort (ogent-tools--glob-files pattern root) #'string<))
+           (metadata (mapcar
+                      (lambda (file)
+                        (let ((attributes (file-attributes file)))
+                          (list :path file :size (file-attribute-size attributes)
+                                :modified (format "%S" (file-attribute-modification-time attributes)))))
+                      files))
+           (total (length files))
+           (end (min total (+ offset limit))))
+      (when (> offset total)
+        (user-error "Offset %d exceeds %d files; restart with offset=0" offset total))
+      (list :path root :pattern pattern :offset offset :limit limit
+            :files (vconcat (seq-subseq metadata offset end))
+            :total_files total :snapshot (secure-hash 'sha256 (prin1-to-string metadata))
+            :has_more (if (< end total) t :json-false)
+            :next_offset (if (< end total) end :json-null)))))
+
 (provide 'ogent-tool-results)
 ;;; ogent-tool-results.el ends here

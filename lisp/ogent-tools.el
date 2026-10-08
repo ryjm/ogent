@@ -14,6 +14,7 @@
 (require 'subr-x)
 (autoload 'ogent-tool-results-read "ogent-tool-results")
 (autoload 'ogent-tool-results-format "ogent-tool-results")
+(autoload 'ogent-tool-results-glob "ogent-tool-results")
 
 ;; Forward declaration for variable defined in ogent-models.el
 (defvar ogent-tool-registry)
@@ -322,10 +323,8 @@ When FORMAT is `plist' or `json', return structured lines and continuations."
       (number-sequence 0 last) "")
      "\\'")))
 
-(defun ogent-tool--glob (pattern &optional path)
-  "Find files matching glob PATTERN.
-PATH is the directory to search (default project root).
-Returns files sorted by modification time (newest first)."
+(defun ogent-tools--glob-files (pattern path)
+  "Return all regular files matching PATTERN under PATH, newest first."
   (let* ((case-fold-search nil)
          (dir (if path
                   (ogent-tools--resolve-path path)
@@ -359,12 +358,24 @@ Returns files sorted by modification time (newest first)."
                     (if (time-equal-p a-time b-time)
                         (string< a b)
                       (time-less-p b-time a-time))))))
-    ;; Limit results
-    (when (> (length files) 100)
-      (setq files (seq-take files 100)))
-    (if files
-        (string-join files "\n")
-      "No files found matching pattern")))
+    files))
+
+(defun ogent-tool--glob (pattern &optional path format offset limit)
+  "Find files matching glob PATTERN under PATH, defaulting to project root.
+Return up to 100 paths, newest first, with an explicit truncation notice.
+When FORMAT is `plist' or `json', return a page sorted by path, starting at
+zero-based OFFSET and containing at most LIMIT files (default 100)."
+  (if format
+      (progn
+        (ogent-tool-results-format nil format)
+        (ogent-tool-results-format (ogent-tool-results-glob pattern path offset limit) format))
+    (let ((files (ogent-tools--glob-files pattern path)))
+      (if files
+          (concat (string-join (seq-take files 100) "\n")
+                  (when (> (length files) 100)
+                    (format "\n\n[Showing 100 of %d files. Use ogent-agent-call with offset=100 for more.]"
+                            (length files))))
+        "No files found matching pattern"))))
 
 ;;; Tool: Grep (Content Search)
 
@@ -987,6 +998,11 @@ If REPLACE-ALL is non-nil, replace all occurrences."
 
     (:name glob
            :function ogent-tool--glob
+           :result-function ogent-tool-results-glob
+           :result-args ((:name "offset" :type "integer" :optional t
+                                :description "Zero-based first result index")
+                         (:name "limit" :type "integer" :optional t
+                                :description "Maximum files per page (1-200)"))
            :description "Find files matching a glob pattern. Returns paths sorted by modification time."
            :args ((:name "pattern" :type "string"
                          :description "Glob pattern like **/*.el or src/**/*.py")

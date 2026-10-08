@@ -59,6 +59,30 @@
     (should (equal (plist-get (ogent-agent-call "read-file" (list :file_path file :offset 2)) :status)
                    "error"))))
 
+(ert-deftest ogent-agent-execution-glob-complete-pagination ()
+  "File discovery exposes every result beyond the previous 100-file cap."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (ogent-tool-registry (copy-tree ogent-tools-default-registry)))
+    (dotimes (index 105)
+      (ogent-agent-execution-tests--file root (format "%03d.el" index) ""))
+    (let* ((first (plist-get (ogent-agent-call "glob" (list :pattern "*.el" :path root)) :data))
+           (last (plist-get (ogent-agent-call "glob" (list :pattern "*.el" :path root :offset 100)) :data)))
+      (should (= (plist-get first :total_files) 105))
+      (should (= (length (plist-get first :files)) 100))
+      (should (= (length (plist-get last :files)) 5))
+      (should (eq (plist-get last :has_more) :json-false))
+      (should (equal (plist-get first :snapshot) (plist-get last :snapshot))))
+    (should (string-match-p "Showing 100 of 105" (ogent-tool--glob "*.el" root)))))
+
+(ert-deftest ogent-agent-execution-glob-json-empty-and-weird-paths ()
+  "Empty arrays and paths containing newlines survive the JSON interface."
+  (let* ((root (ogent-test--provision-store-directory 'tools))
+         (file (ogent-agent-execution-tests--file root "colon:new\nline.el" ""))
+         (data (json-parse-string (ogent-tool--glob "*.el" root 'json) :object-type 'plist)))
+    (should (equal (plist-get (aref (plist-get data :files) 0) :path) file))
+    (should (equal (plist-get (ogent-tool-results-glob "*.txt" root) :files) []))
+    (should-error (ogent-tool-results-glob "*.el" root 2) :type 'user-error)))
+
 (ert-deftest ogent-agent-execution-named-call-and-json ()
   "Named calls preserve values and return independently parseable JSON."
   (let ((ogent-tool-registry
