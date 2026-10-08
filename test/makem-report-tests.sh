@@ -188,6 +188,24 @@ r = json.load(open("output.json"))
 assert any(d["file"] == "lisp/report-fixture.el" and d["line"] == 4 and d["column"] == 1
            for d in r["diagnostics"]), r
 PY
+
+# A parser error can name the source without publishing line/column positions.
+cp lisp/report-fixture.el syntax-fixture.saved
+cat > lisp/report-fixture.el <<'ELISP'
+;;; EOF parser fixture -*- lexical-binding: t; -*-
+(defun report-fixture-add (value)
+  (1+ value)
+(provide 'report-fixture)
+ELISP
+run-report 1 ./makem.sh --json --emacs="$report_test_emacs" compile
+python3 - <<'PY'
+import json
+r = json.load(open("output.json"))
+assert any(d["file"] == "lisp/report-fixture.el" and d["severity"] == "error" and
+           d["line"] is None and d["column"] is None and
+           "End of file during parsing" in d["message"] for d in r["diagnostics"]), r
+PY
+cp syntax-fixture.saved lisp/report-fixture.el
 run-report 1 ./makem.sh --json --emacs="$report_test_emacs" --no-compile batch
 python3 - <<'PY'
 import json

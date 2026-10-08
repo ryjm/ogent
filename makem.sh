@@ -227,6 +227,7 @@ for event in events:
             ert_location = re.search(r"\bFAILED\b.*\bat (.+\.el):(\d+)(?::(\d+))?\s*$", line)
             syntax = re.search(r"Invalid read syntax:.*?,\s*(\d+),\s*(\d+)\s*$", line)
             syntax_owner = re.match(r"^(.+\.el):\s*(?:Error:\s*)?Invalid read syntax:", line)
+            file_only = re.match(r"^(.+\.el):\s*(Error|Warning):\s*(.*)$", line)
             if location:
                 path, number, column, message = location.groups()
                 report["diagnostics"].append({"source": "emacs", "command_index": index,
@@ -245,6 +246,11 @@ for event in events:
                     "task": task, "severity": "error", "file": path,
                     "line": int(number) if path else None,
                     "column": int(column) if path else None, "message": line})
+            elif file_only:
+                path, severity, message = file_only.groups()
+                report["diagnostics"].append({"source": "emacs", "command_index": index,
+                    "task": task, "severity": severity.lower(), "file": path,
+                    "line": None, "column": None, "message": severity + ": " + message})
             elif re.search(r"\bFAILED\b|\b[1-9]\d* unexpected\b|^Error:|^error:", line):
                 report["diagnostics"].append({"source": "emacs", "command_index": index,
                     "task": task, "severity": "error", "file": None, "line": None,
