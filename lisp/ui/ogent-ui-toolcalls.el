@@ -256,7 +256,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
       (let* ((tool-call (ogent-ui--tool-ledger-call name args))
              ;; History entries key on a symbol name and carry an id.
              (history-call (list :id (format "tool-%d" (abs (random)))
-                                 :name tool-symbol :args args))
+                                 :name tool-symbol :args args
+                                 :structured (and structured t)))
              (effects (plist-get spec :effects))
              (start (current-time)))
         (ogent-ledger-record-tool-start tool-call effects)
@@ -273,7 +274,8 @@ the inspectable tool-call history that powers `ogent-debug-replay-tool'."
                                  (ogent-tool-execution-process-error result))))
               (ogent-ledger-record-tool-finish tool-call result failure duration effects)
               (when (fboundp 'ogent-debug-log-tool-call)
-                (ogent-debug-log-tool-call history-call result duration))
+                (ogent-debug-log-tool-call
+                 (plist-put history-call :error failure) result duration))
               result)
           (error
            (let ((msg (error-message-string err))

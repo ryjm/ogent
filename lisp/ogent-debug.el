@@ -23,6 +23,8 @@
 (require 'cl-lib)
 
 (declare-function ogent-ui--execute-tool "ogent-ui-toolcalls")
+(declare-function ogent-tool-execution-call "ogent-tool-execution")
+(declare-function ogent-tool-approval-check "ogent-tool-approval")
 (declare-function gptel-backend-name "ext:gptel" t t)
 (defvar ogent-tool-allow-list)
 (defvar ogent-tool--denied-tools)
@@ -326,7 +328,8 @@ Each entry is a plist with:
   :id       - unique call ID
   :name     - tool name symbol
   :args     - argument plist
-  :result   - execution result (or nil if failed)
+  :structured - non-nil for structured SDK execution, nil for legacy text
+  :result   - execution result (including retained process failure data)
   :error    - error message (or nil if succeeded)
   :duration - execution time in seconds
   :timestamp - time of invocation")
@@ -337,8 +340,9 @@ Older entries are discarded when this limit is exceeded.")
 
 (defun ogent-debug-log-tool-call (tool-call result duration)
   "Log TOOL-CALL with RESULT and DURATION to history.
-TOOL-CALL should be a plist with :id, :name, :args.
-RESULT is either the success value or nil if error occurred.
+TOOL-CALL should be a plist with :id, :name, :args, and optional
+:structured and :error properties.
+RESULT is the returned value or nil if execution signaled an error.
 DURATION is execution time in seconds."
   (let* ((id (plist-get tool-call :id))
          (name (plist-get tool-call :name))
@@ -347,6 +351,7 @@ DURATION is execution time in seconds."
          (entry (list :id id
                       :name name
                       :args args
+                      :structured (plist-get tool-call :structured)
                       :result result
                       :error error-val
                       :duration duration
@@ -508,11 +513,15 @@ ENTRY should be a plist from `ogent-debug-tool-history'."
   (let ((name (plist-get entry :name))
         (args (plist-get entry :args)))
     (message "Replaying %s..." name)
-    ;; Replay through the live executor so it shares the same approval
-    ;; policy and proof-ledger recording as a normal tool run.  Lazy
-    ;; require avoids pulling the UI layer into ogent-debug at load time.
     (require 'ogent-ui)
-    (let ((result (ogent-ui--execute-tool name args)))
+    (let ((result
+           (if (plist-get entry :structured)
+               (progn
+                 (require 'ogent-tool-execution)
+                 (ogent-tool-execution-call name args nil t))
+             (if (eq (ogent-tool-approval-check name args) 'approved)
+                 (ogent-ui--execute-tool name args)
+               "Tool execution denied by user"))))
       (message "Replay result: %s" result))))
 
 (defun ogent-debug-last-tool ()
@@ -586,6 +595,7 @@ Creates a shareable record of tool calls for debugging."
               (list :id (plist-get entry :id)
                     :name (symbol-name (plist-get entry :name))
                     :args (plist-get entry :args)
+                    :structured (plist-get entry :structured)
                     :result (let ((r (plist-get entry :result)))
                               (if (stringp r)
                                   (substring r 0 (min 1000 (length r)))
@@ -600,7 +610,7 @@ Creates a shareable record of tool calls for debugging."
         (insert (json-encode (list :version 1
                                    :exported (format-time-string "%Y-%m-%dT%H:%M:%S%z")
                                    :count (length entries)
-                                   :calls entries))))
+                                   :calls (vconcat entries)))))
       (message "Exported %d tool calls to %s" (length entries) file))))
 
 (defun ogent-debug-export-tool-history-text (file)
@@ -660,6 +670,7 @@ Merges with existing history."
       (let ((entry (list :id (plist-get call :id)
                          :name (intern (plist-get call :name))
                          :args (plist-get call :args)
+                         :structured (eq (plist-get call :structured) t)
                          :result (plist-get call :result)
                          :error (plist-get call :error)
                          :duration (plist-get call :duration)
