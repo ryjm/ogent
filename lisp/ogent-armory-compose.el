@@ -16,6 +16,7 @@
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-skills)
+(require 'ogent-ui-layout)
 
 (defgroup ogent-armory-compose nil
   "Shared composer for Org Armory runs."
@@ -44,8 +45,12 @@
   (add-hook 'completion-at-point-functions
             #'ogent-armory-compose-completion-at-point
             nil t)
+  (ogent-ui-layout-configure)
   (setq-local header-line-format
-              "C-c C-c submit  C-c C-a attach  C-c C-k cancel"))
+              '(:eval (ogent-ui-layout-header
+                       "Compose" ogent-armory-compose--agent
+                       '(("C-c C-c" . "submit") ("C-c C-a" . "attach")
+                         ("C-c C-k" . "cancel"))))))
 
 (defun ogent-armory-compose--mention-regexp ()
   "Return mention regexp."

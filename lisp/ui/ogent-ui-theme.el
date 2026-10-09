@@ -2,8 +2,8 @@
 
 ;;; Commentary:
 ;;
-;; A cohesive design system for ogent, inspired by modern UI frameworks
-;; like Stripe's design system.  Provides:
+;; A native design system for ogent that inherits the user's theme.
+;; Provides:
 ;;
 ;; - Semantic color palette with light/dark theme support
 ;; - Icon system with nerd-icons fallback to Unicode/ASCII
@@ -71,146 +71,88 @@ Options: `fast', `normal', `slow', or `none'."
                  (const :tag "Disabled" none))
   :group 'ogent-theme)
 
-;;; Color Palette
-;;
-;; Semantic colors that adapt to light/dark backgrounds.
-;; Inspired by Nord, Dracula, and Stripe's palette.
+;;; Semantic faces
+;; Inherit the user's palette so Modus, Doom and terminal themes retain
+;; their own contrast and color-deficiency choices.
 
 (defface ogent-theme-primary
-  '((((class color) (background light))
-     :foreground "#5e81ac" :weight bold)
-    (((class color) (background dark))
-     :foreground "#88c0d0" :weight bold)
-    (t :inherit font-lock-keyword-face))
-  "Primary accent color - for main actions and focus."
+  '((t :inherit link :weight bold))
+  "Primary actions and focus."
   :group 'ogent-theme)
 
 (defface ogent-theme-secondary
-  '((((class color) (background light))
-     :foreground "#81a1c1")
-    (((class color) (background dark))
-     :foreground "#81a1c1")
-    (t :inherit font-lock-type-face))
-  "Secondary accent - for supporting elements."
+  '((t :inherit font-lock-type-face))
+  "Supporting semantic information."
   :group 'ogent-theme)
 
 (defface ogent-theme-success
-  '((((class color) (background light))
-     :foreground "#2e7d32" :weight bold)
-    (((class color) (background dark))
-     :foreground "#a3be8c" :weight bold)
-    (t :inherit success))
-  "Success state - completions, confirmations."
+  '((t :inherit success :weight bold))
+  "Completed and confirmed states."
   :group 'ogent-theme)
 
 (defface ogent-theme-success-bg
-  '((((class color) (background light))
-     :background "#e8f5e9" :foreground "#1b5e20")
-    (((class color) (background dark))
-     :background "#1e3a1e" :foreground "#a3be8c")
-    (t :inherit success))
-  "Success with background - for flash effects."
+  '((t :inherit success :inverse-video t))
+  "Completion feedback."
   :group 'ogent-theme)
 
 (defface ogent-theme-warning
-  '((((class color) (background light))
-     :foreground "#f57c00" :weight bold)
-    (((class color) (background dark))
-     :foreground "#ebcb8b" :weight bold)
-    (t :inherit warning))
-  "Warning state - caution, in-progress."
+  '((t :inherit warning :weight bold))
+  "States requiring attention."
   :group 'ogent-theme)
 
 (defface ogent-theme-warning-bg
-  '((((class color) (background light))
-     :background "#fff3e0" :foreground "#e65100")
-    (((class color) (background dark))
-     :background "#3d3426" :foreground "#ebcb8b")
-    (t :inherit warning))
-  "Warning with background - for flash effects."
+  '((t :inherit warning :inverse-video t))
+  "Attention feedback."
   :group 'ogent-theme)
 
 (defface ogent-theme-error
-  '((((class color) (background light))
-     :foreground "#c62828" :weight bold)
-    (((class color) (background dark))
-     :foreground "#bf616a" :weight bold)
-    (t :inherit error))
-  "Error state - failures, destructive actions."
+  '((t :inherit error :weight bold))
+  "Failed and destructive states."
   :group 'ogent-theme)
 
 (defface ogent-theme-error-bg
-  '((((class color) (background light))
-     :background "#ffebee" :foreground "#b71c1c")
-    (((class color) (background dark))
-     :background "#3d2626" :foreground "#bf616a")
-    (t :inherit error))
-  "Error with background - for flash effects."
+  '((t :inherit error :inverse-video t))
+  "Failure feedback."
   :group 'ogent-theme)
 
 (defface ogent-theme-info
-  '((((class color) (background light))
-     :foreground "#1565c0")
-    (((class color) (background dark))
-     :foreground "#5e81ac")
-    (t :inherit font-lock-doc-face))
-  "Info state - neutral information."
+  '((t :inherit font-lock-doc-face))
+  "Neutral supporting information."
   :group 'ogent-theme)
 
 (defface ogent-theme-muted
-  '((((class color) (background light))
-     :foreground "#78909c")
-    (((class color) (background dark))
-     :foreground "#6b7386")
-    (t :inherit shadow))
-  "Muted text - secondary, less important."
+  '((t :inherit shadow))
+  "Secondary context."
   :group 'ogent-theme)
 
 (defface ogent-theme-highlight
-  '((((class color) (background light))
-     :foreground "#6a1b9a" :weight bold)
-    (((class color) (background dark))
-     :foreground "#b48ead" :weight bold)
-    (t :inherit highlight))
-  "Highlight - special emphasis, active items."
+  '((t :inherit font-lock-constant-face :weight bold))
+  "Selected and special values."
   :group 'ogent-theme)
 
 (defface ogent-theme-key
-  '((((class color) (background light))
-     :foreground "#5e35b1" :weight bold)
-    (((class color) (background dark))
-     :foreground "#b48ead" :weight bold)
-    (t :inherit help-key-binding))
-  "Keybinding display face."
+  '((t :inherit help-key-binding :weight bold))
+  "Discoverable keyboard actions."
   :group 'ogent-theme)
 
 (defface ogent-theme-badge
-  '((((class color) (background light))
-     :foreground "#455a64" :box (:line-width -1 :color "#90a4ae"))
-    (((class color) (background dark))
-     :foreground "#d8dee9" :box (:line-width -1 :color "#4c566a"))
-    (t :inherit font-lock-constant-face))
-  "Badge/tag face - for type indicators, counts."
+  '((t :inherit font-lock-constant-face))
+  "Small labels and counts."
   :group 'ogent-theme)
 
 (defface ogent-theme-section-heading
-  '((((class color) (background light))
-     :foreground "#37474f" :weight bold :height 1.1)
-    (((class color) (background dark))
-     :foreground "#eceff4" :weight bold :height 1.1)
-    (t :inherit outline-1 :height 1.1))
-  "Section heading face."
+  '((t :inherit bold))
+  "Section structure."
   :group 'ogent-theme)
 
 (defface ogent-theme-header-line
-  '((((class color) (background light))
-     :background "#eceff1" :foreground "#37474f"
-     :weight bold :box (:line-width 2 :color "#eceff1"))
-    (((class color) (background dark))
-     :background "#2e3440" :foreground "#eceff4"
-     :weight bold :box (:line-width 2 :color "#2e3440"))
-    (t :inherit header-line))
-  "Header line background face."
+  '((t :inherit header-line :weight bold))
+  "Current surface identity."
+  :group 'ogent-theme)
+
+(defface ogent-theme-title
+  '((t :inherit bold :height 1.25))
+  "Primary surface title."
   :group 'ogent-theme)
 
 ;;; Icon System
@@ -431,7 +373,7 @@ Green for <70%, yellow for 70-90%, red for >90%."
 
 (defun ogent-theme-badge (text &optional face)
   "Return TEXT formatted as a badge with optional FACE.
-Uses box styling for visual distinction."
+Use the active theme's semantic label styling."
   (propertize (format " %s " text)
               'face (or face 'ogent-theme-badge)))
 
@@ -469,10 +411,12 @@ Defaults to thin horizontal line."
   "Format KEY with optional DESCRIPTION for display.
 KEY is highlighted, description is muted."
   (concat
-   (propertize key 'face 'ogent-theme-key)
+   (propertize key 'face 'ogent-theme-key 'font-lock-face 'ogent-theme-key)
    (when description
-     (concat (propertize ":" 'face 'ogent-theme-muted)
-             (propertize description 'face 'ogent-theme-muted)))))
+     (concat (propertize ":" 'face 'ogent-theme-muted
+                         'font-lock-face 'ogent-theme-muted)
+             (propertize description 'face 'ogent-theme-muted
+                         'font-lock-face 'ogent-theme-muted)))))
 
 (defun ogent-theme-keys (&rest key-desc-pairs)
   "Format multiple KEY-DESC-PAIRS for display.

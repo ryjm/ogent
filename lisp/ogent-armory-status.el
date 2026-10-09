@@ -209,12 +209,13 @@ graph even when the cached copy is still fresh."
   "Return header line text for the current Armory status buffer."
   (let* ((node (ignore-errors (ogent-armory-status--node-at-point)))
          (context (concat
-                   (when ogent-armory-status--root
-                     (abbreviate-file-name ogent-armory-status--root))
                    (when node
-                     (format "  %s %s"
+                     (format "%s %s  "
                              (symbol-name (plist-get node :kind))
-                             (or (plist-get node :label) ""))))))
+                             (or (plist-get node :label) "")))
+                   (when ogent-armory-status--root
+                     (file-name-nondirectory
+                      (directory-file-name ogent-armory-status--root))))))
     (ogent-section-header-line "Armory Graph" context
                                '("?" . "menu") '("j" . "jump")
                                '("g" . "refresh"))))

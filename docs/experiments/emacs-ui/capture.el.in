@@ -1,0 +1,56 @@
+;;; capture.el.in --- Reproduce offline UI captures -*- lexical-binding: t; -*-
+;; Run with a GUI Emacs and OGENT_ELPA_DIR pointing to installed dependencies.
+(require 'cl-lib)
+(setq load-prefer-newer t)
+(dolist (dir (directory-files (getenv "OGENT_ELPA_DIR") t "^[^.].*"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(let ((project (expand-file-name "../../.." (file-name-directory load-file-name))))
+  (dolist (dir '("lisp" "lisp/ui" "test" "test/ui"))
+    (add-to-list 'load-path (expand-file-name dir project))))
+(when (getenv "OGENT_UI_OPTIONAL")
+  (add-to-list 'load-path "/tmp")
+  (add-to-list 'load-path "/tmp/ogent-ui-evil")
+  (require 'magit-section)
+  (require 'evil)
+  (evil-mode 1)
+  (require 'vertico)
+  (vertico-mode 1))
+(require 'org)
+(require 'gptel)
+(require 'transient)
+(require 'ogent-test-helper)
+(require 'ogent)
+(require 'ogent-ui-armory-tests)
+(advice-add 'gptel-request :before
+            (lambda (&rest _) (error "Provider requests are disabled in the UI fixture")))
+(advice-add 'ogent-armory-runner-start :before
+            (lambda (&rest _) (error "Provider runs are disabled in the UI fixture")))
+(setq ogent-ui-capture-root
+      (ogent-test--provision-store-directory 'ui-capture))
+(ogent-ui-armory-test--seed ogent-ui-capture-root)
+(ogent-armory-write-agent
+ ogent-ui-capture-root
+ '(:slug "designer" :name "Product designer" :role "Product design"
+   :provider "claude" :model "claude-opus-4-6" :active t
+   :workspace "design" :tags ("ui" "accessibility"))
+ "Make native Emacs experiences clear and delightful.")
+(ogent-ui-armory-test--write-session
+ ogent-ui-capture-root "designer" "Interface review" "DONE" 0 nil
+ "2026-10-09T03:00:00+0000")
+(setq inhibit-startup-screen t initial-scratch-message nil)
+(when (display-graphic-p)
+  (menu-bar-mode -1)
+  (tool-bar-mode -1)
+  (scroll-bar-mode -1)
+  (set-frame-font "DejaVu Sans Mono-13" nil t)
+  (set-frame-size (selected-frame) 112 42))
+(load-theme 'modus-operandi t)
+(when (getenv "OGENT_UI_ASCII")
+  (setq ogent-theme-use-icons nil ogent-theme-use-unicode nil
+        ogent-ops-use-unicode nil))
+(setq server-name (or (getenv "OGENT_UI_SERVER") "ogent-ui"))
+(require 'server)
+(server-start)
+(ogent-armory-home ogent-ui-capture-root)
+(delete-other-windows)
+(message "Offline UI fixture; no provider request made")

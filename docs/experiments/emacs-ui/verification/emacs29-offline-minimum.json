@@ -1,0 +1,37 @@
+{
+  "check": "emacs29-offline-minimum",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "-e",
+    "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+    "ogent-fixes-29",
+    "make",
+    "offline-test"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-09T04:20:59.587559+00:00",
+  "completed_at": "2026-10-09T04:21:08.692092+00:00",
+  "summary": [
+    "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+    "Ran 206 tests, 203 results as expected, 0 unexpected, 3 skipped (2026-10-09 04:21:08+0000, 5.175895 sec)"
+  ],
+  "logs": {
+    "stdout": {
+      "file": "docs/experiments/emacs-ui/verification/emacs29-offline-minimum.stdout.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stderr": {
+      "file": "docs/experiments/emacs-ui/verification/emacs29-offline-minimum.stderr.log.gz",
+      "bytes": 49622,
+      "sha256": "6a3bddd7dba3b14ae6ae26e1ed867dd3ac27b75835470316d9b4357cef2d5d12"
+    }
+  }
+}

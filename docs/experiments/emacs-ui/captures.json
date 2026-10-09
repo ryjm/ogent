@@ -1,0 +1,119 @@
+{
+  "source_head": "9ad66f95d6f805c12941db9d519b0847817ad918",
+  "source_state": "working tree; fingerprint identifies implemented Lisp exactly",
+  "lisp_fingerprint": "330a11fd01bb5a4209de136f6ec830e9f84204b458547f93b2c89cc79d0b7927",
+  "provider_requests": false,
+  "keyboard_journey": "passed with real Evil/Vertico/Magit and active provider guards",
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-ui/after-home-light.png",
+      "width": 112,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 112 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:12.655351+00:00",
+      "sha256": "24d0b38a89d77ff5c9b7115358876b74e88b14c9e035afe9e4a3a92cc5ddbd2f"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-home-light-narrow.png",
+      "width": 60,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 60 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:14.803150+00:00",
+      "sha256": "9712bd1acd83616e68b7d978f22ab3878af833249cbced2e57c9595fae2a4545"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-models-light.png",
+      "width": 80,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-models-browser-mode | *ogent models* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 80 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:16.843745+00:00",
+      "sha256": "bd9c2a3d1813a242d1784e41fb1034c11b3db971e7eab7144828ad42375747f7"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-home-dark.png",
+      "width": 112,
+      "theme": "modus-vivendi",
+      "terminal": false,
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 112 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:19.025926+00:00",
+      "sha256": "401d07f63583c456003f156975965a6448330c80bd9ff581aa8945c517ca2c07"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-home-dark-narrow.png",
+      "width": 60,
+      "theme": "modus-vivendi",
+      "terminal": false,
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 60 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:21.201467+00:00",
+      "sha256": "e09b8afdf7b1a5a0c3d642cf11685eddd9e1d00d44754ebc51156b495c827760"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-models-dark.png",
+      "width": 80,
+      "theme": "modus-vivendi",
+      "terminal": false,
+      "state": "\"ogent-models-browser-mode | *ogent models* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 80 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:23.384271+00:00",
+      "sha256": "138cdfa473b5f7d67d3e83750f785ac27d7d60e12f3957f3b1b2795534875d0c"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-models-narrow.png",
+      "width": 60,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-models-browser-mode | *ogent models* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 60 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:25.633638+00:00",
+      "sha256": "582dc604e483095a6589b229c77014a890d16472a9cec3d246a27b31ec4bdfc4"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-agents-light.png",
+      "width": 112,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-armory-agents-mode | *ogent-armory-agents: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 112 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:27.807422+00:00",
+      "sha256": "03b0f2e6c42f91e43b1a377a9d9689f82bf6fab394c443a19925b1d2eb23fd73"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-tasks-narrow.png",
+      "width": 60,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-armory-tasks-mode | *ogent-armory-tasks: ui-capture-a8tBbv* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 60 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:29.874199+00:00",
+      "sha256": "ccb1c5c4e770642118e62ab854c8982daf86867a985270c5f6fed75eced8244f"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-models-split.png",
+      "width": 112,
+      "theme": "modus-operandi",
+      "terminal": false,
+      "state": "\"ogent-models-browser-mode | *ogent models* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 112 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:32.174572+00:00",
+      "sha256": "81f9bcd19abebf665df4d040877bba637d023e7fddee1d1185331572ba73df4e"
+    },
+    {
+      "file": "docs/assets/emacs-ui/after-terminal-ascii.png",
+      "width": 80,
+      "theme": "modus-operandi",
+      "terminal": true,
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: ui-capture-SwbGZe* | Emacs 30.1 | Org 9.8.10 | transient 0.13.8 | 80 columns\"",
+      "optional": "Magit, Evil, Vertico",
+      "captured_at": "2026-10-09T04:18:33.826855+00:00",
+      "sha256": "139ba1eced36c6619462546aada84dcb28b689f44057de015b9cdb777841af36"
+    }
+  ]
+}

@@ -23,6 +23,8 @@
 (require 'ogent-gptel)
 (require 'ogent-analytics)
 (require 'ogent-ui-theme)
+(require 'ogent-ui-section)
+(require 'ogent-keys)
 
 ;; gptel session state manipulated by the switch commands.
 (defvar gptel-backend)
@@ -147,11 +149,12 @@ Segments cover completion count, median latency, mean star rating,
 and mean cost; components missing from the recorded rows produce no
 segment (never a zero)."
   (delq nil
-        (list (format "%d×" (plist-get stats :count))
+        (list (format (if ogent-theme-use-unicode "%d×" "%dx")
+                      (plist-get stats :count))
               (when-let* ((ms (plist-get stats :median-latency-ms)))
                 (concat "~" (ogent-ui-models--evidence-latency ms)))
               (when-let* ((rating (plist-get stats :mean-rating)))
-                (format "★%.1f" rating))
+                (format (if ogent-theme-use-unicode "★%.1f" "*%.1f") rating))
               (when-let* ((cost (plist-get stats :mean-cost-usd)))
                 (format "$%.4f" cost)))))
 
@@ -184,7 +187,7 @@ completions gets its evidence appended after the description."
   (let ((padding (make-string (max 1 (- pad (length candidate))) ?\s)))
     (if (string-prefix-p "@" candidate)
         (concat padding
-                (propertize (format "role → %s"
+                (propertize (format (if ogent-theme-use-unicode "role → %s" "role -> %s")
                                     (ogent-models-resolve-role
                                      (intern (substring candidate 1))))
                             'face 'ogent-theme-muted))
@@ -199,7 +202,8 @@ completions gets its evidence appended after the description."
              (markers
               (concat
                (when (equal candidate ogent-default-model)
-                 (propertize "  ←default" 'face 'ogent-theme-success))
+                 (propertize (if ogent-theme-use-unicode "  ←default" "  <-default")
+                             'face 'ogent-theme-success))
                (when roles
                  (propertize (format "  [%s]"
                                      (mapconcat #'symbol-name roles ","))
@@ -631,8 +635,18 @@ including its `OGENT_MODEL' pins - rather than itself.")
   :doc "Keymap for `ogent-models-browser-mode'."
   "RET" #'ogent-models-browser-select
   "d" #'ogent-models-browser-set-default
+  "D" #'ogent-models-browser-toggle-layout
+  "/" #'ogent-models-browser-find
+  "n" #'ogent-models-browser-next
+  "p" #'ogent-models-browser-previous
   "g" #'ogent-models-browse
   "q" #'quit-window)
+
+(defvar-local ogent-ui-models--browser-layout 'catalog
+  "Current model browser layout: `catalog' or `table'.")
+
+(defvar-local ogent-ui-models--browser-width nil
+  "Window width used to render the model catalog.")
 
 (define-derived-mode ogent-models-browser-mode org-mode "ogent-models"
   "Major mode for browsing the ogent model registry as Org tables.
@@ -642,18 +656,64 @@ session model, \\[ogent-models-browser-set-default] to make it the
 default, \\[ogent-models-browse] to refresh, and \\[quit-window] to
 quit."
   (setq-local buffer-read-only t)
+  (ogent-ui-layout-configure)
+  (setq-local org-hide-emphasis-markers t)
+  (add-hook 'window-size-change-functions #'ogent-ui-models--browser-resize nil t)
   (setq header-line-format
-        (concat " "
-                (propertize "RET" 'face 'ogent-theme-key) " switch  "
-                (propertize "d" 'face 'ogent-theme-key) " default  "
-                (propertize "g" 'face 'ogent-theme-key) " refresh  "
-                (propertize "q" 'face 'ogent-theme-key) " quit")))
+        '(:eval (ogent-section-header-line
+                 "Models" (format "%s" ogent-ui-models--browser-layout)
+                 '("RET" . "switch") '("/" . "find") '("D" . "layout")
+                 '("g" . "refresh") '("q" . "quit")))))
 
 (defun ogent-ui-models--browser-model-at-point ()
   "Return the model id named on the browser table row at point."
-  (when (org-at-table-p)
-    (let ((field (string-trim (org-table-get-field 2))))
-      (and (ogent-models-get field) field))))
+  (or (get-text-property (point) 'ogent-model-id)
+      (when (org-at-table-p)
+        (let ((field (string-trim (org-table-get-field 2))))
+          (and (ogent-models-get field) field)))))
+
+(defun ogent-ui-models--browser-goto (id)
+  "Move to model ID in the current browser when it is present."
+  (goto-char (point-min))
+  (when id
+    (while (and (not (equal id (ogent-ui-models--browser-model-at-point)))
+                (not (eobp)))
+      (forward-line 1))))
+
+(defun ogent-models-browser-find ()
+  "Find a model using annotated, provider-grouped completion."
+  (interactive)
+  (ogent-ui-models--browser-goto (ogent-ui-models--read-id "Find model: "))
+  (recenter))
+
+(defun ogent-ui-models--browser-step (direction)
+  "Move to the next distinct model in DIRECTION."
+  (let ((id (ogent-ui-models--browser-model-at-point))
+        (origin (point))
+        (step (if (eq direction 'next) 1 -1)))
+    (while (and (zerop (forward-line step))
+                (let ((next (ogent-ui-models--browser-model-at-point)))
+                  (or (null next) (equal next id)))))
+    (if-let ((target (ogent-ui-models--browser-model-at-point)))
+        (ogent-ui-models--browser-goto target)
+      (goto-char origin))))
+
+(defun ogent-models-browser-next ()
+  "Move to the next model in the browser."
+  (interactive)
+  (ogent-ui-models--browser-step 'next))
+
+(defun ogent-models-browser-previous ()
+  "Move to the previous model in the browser."
+  (interactive)
+  (ogent-ui-models--browser-step 'previous))
+
+(defun ogent-models-browser-toggle-layout ()
+  "Toggle between readable catalog and full Org comparison table."
+  (interactive)
+  (setq ogent-ui-models--browser-layout
+        (if (eq ogent-ui-models--browser-layout 'catalog) 'table 'catalog))
+  (ogent-models-browse))
 
 (defun ogent-models-browser-select ()
   "Switch the session model to the one on the current row."
@@ -673,7 +733,7 @@ quit."
     (ogent-model-set-default model-id)
     (ogent-models-browse)))
 
-(defun ogent-ui-models--browser-insert (effective)
+(defun ogent-ui-models--browser-insert-table (effective)
   "Insert the registry browser contents into the current buffer.
 EFFECTIVE is the (MODEL-ID . SOURCE) cons resolved in the buffer
 the browser was opened from.  When the project analytics DB has
@@ -736,6 +796,85 @@ such rows the columns are absent entirely."
     (insert "- Babel :: =#+begin_src ogent :model @deep= runs a block on"
             " a role.\n")))
 
+(defun ogent-ui-models--browser-insert (effective)
+  "Insert the selected browser layout for EFFECTIVE model and source."
+  (if (eq ogent-ui-models--browser-layout 'table)
+      (ogent-ui-models--browser-insert-table effective)
+    (insert "#+title: ogent models\n\n")
+    (insert (format "Effective model: =%s= (via %s)\n"
+                    (car effective)
+                    (ogent-ui-models--source-label (cdr effective))))
+    (insert "\n")
+    (ogent-ui-layout-insert-text
+     (ogent-theme-keys '("RET" . "switch session")
+                       '("d" . "set default")
+                       '("/" . "find model")
+                       '("D" . "full table")))
+    (insert "\n")
+    (insert "* Models\n")
+    (let ((stats (ogent-ui-models--evidence-stats))
+          provider)
+      (dolist (model (ogent-models-all))
+        (let* ((id (plist-get model :id))
+               (name (ogent-ui-models--provider-name model))
+               (roles (ogent-ui-models--roles-resolving-to id))
+               (start (point)))
+          (unless (equal provider name)
+            (setq provider name)
+            (insert "\n** " name "\n\n")
+            (setq start (point)))
+          (insert "  " (propertize id 'font-lock-face 'ogent-theme-primary)
+                  (if (equal id (car effective))
+                      (propertize "  [effective]" 'font-lock-face 'ogent-theme-success)
+                    "")
+                  "\n")
+          (ogent-ui-layout-insert-text
+           (or (plist-get model :description) "No description") "    ")
+          (ogent-ui-layout-insert-text
+           (propertize
+            (concat (if (plist-get model :stream?) "Streaming" "Non-streaming")
+                    (when roles
+                      (concat " " (ogent-theme-bullet) " roles: "
+                              (mapconcat #'symbol-name roles ", ")))
+                    (when-let ((entry (cdr (assoc id stats))))
+                      (concat " " (ogent-theme-bullet) " recorded: "
+                              (ogent-ui-models--evidence-string entry))))
+            'font-lock-face 'ogent-theme-muted)
+           "    ")
+          (add-text-properties start (point)
+                               (list 'ogent-model-id id
+                                     'mouse-face 'highlight
+                                     'help-echo "RET switches session model; d sets default"))
+          (insert "\n"))))
+    (insert "* Roles\n\n")
+    (dolist (role (ogent-models-known-roles))
+      (ogent-ui-layout-insert-text (ogent-ui-models--format-role role)))
+    (insert "\n* Pinning\n\n")
+    (ogent-ui-layout-insert-text
+     "Use OGENT_MODEL on an Org heading or a file-wide #+PROPERTY keyword. Inherited pins and project overrides take precedence over the session model. Use the picker to assign roles or save defaults.")))
+
+(defun ogent-ui-models--browser-render (effective)
+  "Render EFFECTIVE in the browser without changing window focus."
+  (let ((inhibit-read-only t))
+    (setq ogent-ui-models--browser-width (ogent-ui-layout-width))
+    (ogent-section-preserve-point
+        (#'ogent-ui-models--browser-model-at-point)
+      (erase-buffer)
+      (ogent-ui-models--browser-insert effective))))
+
+(defun ogent-ui-models--browser-resize (window)
+  "Reflow the catalog when its displaying WINDOW resizes."
+  (when (window-live-p window)
+    (with-current-buffer (window-buffer window)
+      (when (and (eq ogent-ui-models--browser-layout 'catalog)
+                 ogent-ui-models--browser-width
+                 (not (= ogent-ui-models--browser-width (ogent-ui-layout-width))))
+        (let ((origin ogent-ui-models--browser-origin))
+          (ogent-ui-models--browser-render
+           (if (and (markerp origin) (buffer-live-p (marker-buffer origin)))
+               (org-with-point-at origin (ogent-models-effective))
+             (ogent-models-effective))))))))
+
 ;;;###autoload
 (defun ogent-models-browse ()
   "Browse the model registry and role assignments as Org tables.
@@ -758,13 +897,16 @@ origin."
          (buffer (get-buffer-create ogent-ui-models--browser-buffer-name)))
     (with-current-buffer buffer
       (let ((inhibit-read-only t))
-        (erase-buffer)
         (unless (derived-mode-p 'ogent-models-browser-mode)
           (ogent-models-browser-mode))
         (setq ogent-ui-models--browser-origin origin)
-        (ogent-ui-models--browser-insert effective)
-        (goto-char (point-min))))
+        (ogent-ui-models--browser-render effective)))
     (pop-to-buffer buffer)))
+
+(with-eval-after-load 'evil
+  (ogent-evil-display-mode-setup
+   'ogent-models-browser-mode ogent-models-browser-mode-map
+   'ogent-models-browser-mode-hook #'ogent-models-browse))
 
 (provide 'ogent-ui-models)
 ;;; ogent-ui-models.el ends here

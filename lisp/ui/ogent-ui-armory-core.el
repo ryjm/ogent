@@ -171,7 +171,7 @@ releases never have to resolve a named group reference."
   :group 'ogent-ui-armory)
 
 (defface ogent-armory-ui-heading
-  '((t :weight bold))
+  '((t :inherit ogent-theme-section-heading))
   "Face for Armory UI section headings."
   :group 'ogent-ui-armory)
 
@@ -191,9 +191,7 @@ releases never have to resolve a named group reference."
   :group 'ogent-ui-armory)
 
 (defface ogent-armory-ui-logo
-  '((((class color) (background dark)) :foreground "#b98aff" :weight bold)
-    (((class color) (background light)) :foreground "#7a3fb0" :weight bold)
-    (t :inherit font-lock-keyword-face :weight bold))
+  '((t :inherit ogent-theme-primary))
   "Face for the Armory Home crest banner."
   :group 'ogent-ui-armory)
 

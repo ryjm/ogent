@@ -34,6 +34,7 @@
 (declare-function ogent-armory-org-chart "ogent-ui-armory-org-chart")
 (declare-function ogent-armory-search "ogent-ui-armory-search")
 (declare-function ogent-armory-tasks "ogent-ui-armory-tasks")
+(declare-function ogent-armory-compose-buffer "ogent-armory-compose")
 (declare-function ogent-armory-ql-available-p "ogent-armory-ql")
 
 (defvar ogent-armory-home-mode-map
@@ -47,6 +48,7 @@
     (define-key map "R" #'ogent-armory-home-run)
     (define-key map "E" #'ogent-armory-home-edit-item)
     (define-key map "e" #'ogent-armory-home-edit-metadata)
+    (define-key map "c" #'ogent-armory-home-compose)
     (define-key map (kbd "TAB") #'ogent-section-toggle)
     (define-key map (kbd "<tab>") #'ogent-section-toggle)
     (define-key map (kbd "<backtab>") #'ogent-section-cycle)
@@ -61,7 +63,7 @@
     map)
   "Keymap for `ogent-armory-home-mode'.")
 
-(defcustom ogent-armory-home-show-logo t
+(defcustom ogent-armory-home-show-logo nil
   "Non-nil means render the ASCII crest banner atop Armory Home."
   :type 'boolean
   :group 'ogent-ui-armory)
@@ -81,6 +83,11 @@
    (and ogent-armory-home--root
         (ogent-armory-ui--root-label ogent-armory-home--root))
    '("?" . "menu") '("j" . "jump") '("g" . "refresh")))
+
+(defun ogent-armory-home-compose ()
+  "Open an instruction draft from the current Armory Home."
+  (interactive)
+  (ogent-armory-compose-buffer ogent-armory-home--root))
 
 (defun ogent-armory-home (&optional directory)
   "Open Armory Home for DIRECTORY."
@@ -109,7 +116,8 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
     (ogent-section-preserve-point
         ((lambda ()
            (when-let ((item (ogent-section-item-at-point 'ogent-armory-item)))
-             (cons (plist-get item :type) (plist-get item :path)))))
+             (cons (plist-get item :type)
+                   (or (plist-get item :path) (plist-get item :command))))))
       (erase-buffer)
       (ogent-armory-home--insert-buffer))))
 
@@ -117,7 +125,7 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
   "Insert navigation LABEL for KEY dispatching to COMMAND."
   (ogent-armory-ui--insert-item-line
    (list :type 'command :command command)
-   (format "  [%s] %s" key label)))
+   (concat "  [" (propertize key 'face 'ogent-theme-key) "] " label)))
 
 (defconst ogent-armory-home--logo
   "╭──────────────────────────────────────╮
@@ -191,26 +199,72 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
                    (string-blank-p (or (plist-get agent :body) "")))))
            agents)))
     (ogent-armory-home--insert-logo)
-    (insert (propertize "Armory Home" 'face 'ogent-armory-ui-heading) "\n")
-    (ogent-armory-ui--insert-kv "Title" (plist-get index :name))
-    (ogent-armory-ui--insert-kv "Path" root)
-    (ogent-armory-ui--insert-kv "Kind" (plist-get index :kind))
-    (ogent-armory-ui--insert-kv "Tags" (ogent-armory-ui--format-tags
-                                        (plist-get index :tags)))
-    (ogent-armory-ui--insert-kv "Description" (plist-get index :description))
+    (insert "\n" (propertize "Armory Home" 'face 'ogent-theme-title)
+            "  /  " (propertize (or (plist-get index :name) "Armory")
+                                'face 'ogent-theme-primary) "\n")
+    (ogent-ui-layout-insert-text
+     (or (ogent-armory--blank-to-nil (plist-get index :description))
+         "Your agents, current work, and everything that needs a decision."))
+    (insert "\n")
+    (ogent-armory-home--insert-nav "Compose an instruction" "c"
+                                   #'ogent-armory-compose-buffer)
+    (insert "\n")
+    (ogent-armory-ui--with-section (ogent-armory-home-attention)
+        (ogent-armory-ui--heading-text "Needs Attention")
+      (if (or failed stale missing-persona)
+          (progn
+            (dolist (session failed)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'session :path (plist-get session :path)
+                     :agent (plist-get session :agent)
+                     :job-id (plist-get session :job-id))
+               (concat (propertize "  FAILED  " 'face 'ogent-theme-error)
+                       (plist-get session :name)
+                       (propertize "  [RET review] [R retry]" 'face 'ogent-theme-muted))))
+            (dolist (job stale)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'job :agent (plist-get job :agent)
+                     :job-id (plist-get job :id)
+                     :path (ogent-armory-job-file root
+                                                  (plist-get job :agent)
+                                                  (plist-get job :id)))
+               (concat (propertize "  STALE   " 'face 'ogent-theme-warning)
+                       (plist-get job :name) "  [RET inspect]")))
+            (dolist (slug missing-persona)
+              (ogent-armory-ui--insert-item-line
+               (list :type 'agent :agent slug
+                     :path (ogent-armory-agent-file root slug))
+               (format "  missing persona %s" slug))))
+        (insert (propertize "  Nothing needs attention. Ready for your next task.\n" 'face 'ogent-armory-ui-good))))
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-home-health)
         (ogent-armory-ui--heading-text "Health")
-      (insert (format "  agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n"
-                      (length agents)
-                      (length (seq-filter (lambda (job)
-                                            (and (plist-get job :enabled)
-                                                 (not (plist-get job :archived))))
-                                          jobs))
-                      (length failed)
-                      (length running)
-                      (length archived)
-                      (length apps))))
+      (ogent-ui-layout-insert-text (format "agents: %d  enabled jobs: %d  failed conversations: %d  running sessions: %d  archived items: %d  app artifacts: %d\n"
+                                           (length agents)
+                                           (length (seq-filter (lambda (job)
+                                                                 (and (plist-get job :enabled)
+                                                                      (not (plist-get job :archived))))
+                                                               jobs))
+                                           (length failed)
+                                           (length running)
+                                           (length archived)
+                                           (length apps))))
+    (insert "\n")
+    (ogent-armory-home--insert-active-jobs jobs root)
+    (insert "\n")
+    (ogent-armory-ui--with-section (ogent-armory-home-recent)
+        (ogent-armory-ui--heading-text "Recent Activity")
+      (if sessions
+          (dolist (session (seq-take sessions 5))
+            (ogent-armory-ui--insert-item-line
+             (list :type 'session :path (plist-get session :path)
+                   :agent (plist-get session :agent)
+                   :job-id (plist-get session :job-id))
+             (format "  %s  %s  %s"
+                     (or (plist-get session :status) "")
+                     (or (plist-get session :name) "")
+                     (or (plist-get session :finished) ""))))
+        (insert (propertize "  No conversations yet. Use j a to choose an agent.\n" 'face 'ogent-armory-ui-dim))))
     (insert "\n")
     (ogent-armory-ui--with-section (ogent-armory-home-navigate)
         (ogent-armory-ui--heading-text "Navigate")
@@ -234,46 +288,12 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
        (list :type 'file :path (ogent-armory-index-file root))
        "  Source Org"))
     (insert "\n")
-    (ogent-armory-home--insert-active-jobs jobs root)
-    (insert "\n")
-    (ogent-armory-ui--with-section (ogent-armory-home-recent)
-        (ogent-armory-ui--heading-text "Recent Activity")
-      (if sessions
-          (dolist (session (seq-take sessions 5))
-            (ogent-armory-ui--insert-item-line
-             (list :type 'session :path (plist-get session :path)
-                   :agent (plist-get session :agent)
-                   :job-id (plist-get session :job-id))
-             (format "  %s  %s  %s"
-                     (or (plist-get session :status) "")
-                     (or (plist-get session :name) "")
-                     (or (plist-get session :finished) ""))))
-        (insert (propertize "  No conversations yet\n" 'face 'ogent-armory-ui-dim))))
-    (insert "\n")
-    (ogent-armory-ui--with-section (ogent-armory-home-attention)
-        (ogent-armory-ui--heading-text "Needs Attention")
-      (if (or failed stale missing-persona)
-          (progn
-            (dolist (session failed)
-              (ogent-armory-ui--insert-item-line
-               (list :type 'session :path (plist-get session :path)
-                     :agent (plist-get session :agent)
-                     :job-id (plist-get session :job-id))
-               (format "  failed session  %s" (plist-get session :name))))
-            (dolist (job stale)
-              (ogent-armory-ui--insert-item-line
-               (list :type 'job :agent (plist-get job :agent)
-                     :job-id (plist-get job :id)
-                     :path (ogent-armory-job-file root
-                                                  (plist-get job :agent)
-                                                  (plist-get job :id)))
-               (format "  stale job       %s" (plist-get job :name))))
-            (dolist (slug missing-persona)
-              (ogent-armory-ui--insert-item-line
-               (list :type 'agent :agent slug
-                     :path (ogent-armory-agent-file root slug))
-               (format "  missing persona %s" slug))))
-        (insert (propertize "  Nothing needs attention\n" 'face 'ogent-armory-ui-good))))))
+    (ogent-armory-ui--with-section (ogent-armory-home-about)
+        (ogent-armory-ui--heading-text "About this Armory")
+      (ogent-armory-ui--insert-kv "Path" root)
+      (ogent-armory-ui--insert-kv "Kind" (plist-get index :kind))
+      (ogent-armory-ui--insert-kv "Tags" (ogent-armory-ui--format-tags
+                                          (plist-get index :tags))))))
 
 (defun ogent-armory-home--insert-active-jobs (jobs root)
   "Insert active development JOBS for ROOT."
@@ -292,13 +312,13 @@ With FORCE non-nil, invalidate cached Armory data before fetching."
                      :agent agent
                      :job-id job-id
                      :path (ogent-armory-job-file root agent job-id))
-               (format "  %s  %s  %s  [R run] [E prompt] [J jobs]"
+               (format "  %s  %s  %s\n    [R run] [E prompt] [J jobs]"
                        agent
                        (or (plist-get job :name) job-id)
                        (or (plist-get job :cron)
                            (plist-get job :heartbeat)
                            "manual")))))
-        (insert (propertize "  No active jobs\n" 'face 'ogent-armory-ui-dim))))))
+        (insert (propertize "  No active jobs. Use j j to create or enable a job.\n" 'face 'ogent-armory-ui-dim))))))
 
 (defun ogent-armory-home-visit ()
   "Visit or dispatch the item at point in Armory Home."
@@ -430,6 +450,7 @@ users still discover the feature."
   "Dispatch menu for Armory Home."
   [:description ogent-armory-home--transient-header
                 ["Daily Work"
+                 ("c" "Compose instruction" ogent-armory-home-compose)
                  ("J" "Related jobs" ogent-armory-home-open-jobs)
                  ("R" "Run/retry selected" ogent-armory-home-run)
                  ("E" "Edit selected" ogent-armory-home-edit-item)

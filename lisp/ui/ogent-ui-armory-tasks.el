@@ -19,6 +19,7 @@
     (define-key map "A" #'ogent-armory-tasks-archive)
     (define-key map "U" #'ogent-armory-tasks-unarchive)
     (define-key map "v" #'ogent-armory-tasks-cycle-view)
+    (define-key map "D" #'ogent-armory-tasks-toggle-details)
     (define-key map "e" #'ogent-armory-tasks-edit)
     (define-key map "f" #'ogent-armory-tasks-filter)
     (define-key map "g" #'ogent-armory-tasks-refresh)
@@ -45,6 +46,9 @@
   (setq-local tabulated-list-padding 2)
   (setq-local revert-buffer-function #'ogent-armory-tasks-refresh)
   (setq-local tabulated-list-use-header-line nil)
+  (ogent-ui-layout-configure)
+  (setq-local truncate-lines t)
+  (add-hook 'window-size-change-functions #'ogent-armory-tasks--resize nil t)
   (setq header-line-format
         '(:eval (ogent-armory-tasks--header-line)))
   (tabulated-list-init-header))
@@ -59,8 +63,63 @@
            (when ogent-armory-tasks--filters " · filtered"))
    '("?" . "menu") '("j" . "jump") '("g" . "refresh")))
 
+(defvar-local ogent-armory-tasks--details nil
+  "Non-nil means show all task comparison columns.")
+
+(defvar-local ogent-armory-tasks--columns '(0 1 2 3 4 5)
+  "Indices of task fields displayed in the current table.")
+
+(defvar-local ogent-armory-tasks--width nil
+  "Window width used for the last task rendering.")
+
+(defun ogent-armory-tasks--layout ()
+  "Fit task attention, item and state columns to the current window."
+  (let ((width (ogent-ui-layout-width)))
+    (setq ogent-armory-tasks--width width
+          ogent-armory-tasks--columns
+          (if ogent-armory-tasks--details '(0 1 2 3 4 5)
+            (if (>= width 100) '(0 3 2 4 5) '(0 3 4))))
+    (setq-local tabulated-list-format
+                (cond
+                 (ogent-armory-tasks--details
+                  [("Lane" 16 t) ("Type" 10 t) ("Agent" 14 t)
+                   ("Item" 32 t) ("State" 18 t) ("When" 24 t)])
+                 ((>= width 100)
+                  [("Lane" 15 t) ("Item" 30 t) ("Agent" 14 t)
+                   ("State" 14 t) ("When" 0 t)])
+                 (t
+                  `[("Lane" 14 t) ("Item" ,(max 12 (- width 34)) t)
+                    ("State" 0 t)])))
+    (unless (assoc (car tabulated-list-sort-key)
+                   (append tabulated-list-format nil))
+      (setq tabulated-list-sort-key nil))
+    (tabulated-list-init-header)))
+
+(defun ogent-armory-tasks--display-entries ()
+  "Project task records onto the visible columns without changing IDs."
+  (mapcar (lambda (entry)
+            (list (car entry)
+                  (vconcat (mapcar (lambda (index) (aref (cadr entry) index))
+                                   ogent-armory-tasks--columns))))
+          (ogent-armory-tasks--entries)))
+
+(defun ogent-armory-tasks--resize (window)
+  "Reflow tasks when the displaying WINDOW resizes."
+  (when (window-live-p window)
+    (with-current-buffer (window-buffer window)
+      (when (and ogent-armory-tasks--root
+                 (not (equal ogent-armory-tasks--width (ogent-ui-layout-width))))
+        (ogent-armory-tasks--print)))))
+
+(defun ogent-armory-tasks-toggle-details ()
+  "Toggle compact task columns and full comparison details."
+  (interactive)
+  (setq ogent-armory-tasks--details (not ogent-armory-tasks--details))
+  (ogent-armory-tasks--print))
+
 (defun ogent-armory-tasks--print ()
   "Print the current task board."
+  (ogent-armory-tasks--layout)
   (tabulated-list-print t))
 
 (defun ogent-armory-tasks--job-item (root job)
@@ -298,7 +357,12 @@ TITLE names the task and DETAILS provides its body; both are prompted when nil."
     (symbol-name (plist-get item :type))
     (or (plist-get item :agent) "")
     (or (plist-get item :name) "")
-    (or (plist-get item :state) "")
+    (propertize (or (plist-get item :state) "")
+                'face (pcase (upcase (or (plist-get item :state) ""))
+                        ((or "FAILED" "ERROR") 'ogent-theme-error)
+                        ((or "STALE" "AWAITING-INPUT") 'ogent-theme-warning)
+                        ("DONE" 'ogent-theme-success)
+                        (_ 'default)))
     (or (plist-get item :when) ""))))
 
 (defun ogent-armory-tasks--entries ()
@@ -346,7 +410,7 @@ TITLE names the task and DETAILS provides its body; both are prompted when nil."
       (setq ogent-armory-tasks--filters nil)
       (setq ogent-armory-tasks--view 'board)
       (setq default-directory (file-name-as-directory root))
-      (setq tabulated-list-entries #'ogent-armory-tasks--entries)
+      (setq tabulated-list-entries #'ogent-armory-tasks--display-entries)
       (ogent-armory-tasks--print))
     (pop-to-buffer buffer)
     buffer))
@@ -397,6 +461,7 @@ With FORCE non-nil, invalidate cached Armory data first."
     ("A" "Archive" ogent-armory-tasks-archive)
     ("U" "Unarchive" ogent-armory-tasks-unarchive)]
    ["View"
+    ("D" "Full / compact columns" ogent-armory-tasks-toggle-details :transient t)
     ("v" "Cycle view" ogent-armory-tasks-cycle-view :transient t)
     ("f" "Filter" ogent-armory-tasks-filter :transient t)
     ("g" "Refresh" ogent-armory-tasks-refresh :transient t)]]

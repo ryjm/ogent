@@ -308,6 +308,26 @@ palette search, git state, settings, backup, registry import, help, app
 artifacts, and a schedule calendar. In =M-x ogent-armory-tasks=, press =c= or
 =C-c c= to capture a manual Inbox task with a short TODO-style prompt path.
 
+Home puts attention and current work first. Press =c= to open an instruction
+draft, =RET= to inspect an item, =R= to retry it, and =?= for contextual actions.
+The crest is optional through =ogent-armory-home-show-logo=. Agents and tasks
+fit their primary columns to the window; =D= opens their full comparison
+view. In Agents, =f= filters all record fields, including fields hidden by the
+compact layout; an empty filter restores the list.
+
+=M-x ogent-models-browse= opens a provider-grouped catalog with descriptions,
+streaming support, role assignments, and recorded completion evidence when
+available. Use =n/p= to move, =/= to find a model, =RET= to switch the session,
+=d= to set the default, and =D= for the full Org table. Refresh and resizing
+retain the selected model and the originating Org pin. Browsing and opening
+a draft do not send provider requests. Under Evil, headers show =gr= for
+refresh while preserving =gg= and ordinary motion keys.
+
+The UI inherits your theme and font. Set =ogent-ui-layout-line-spacing= to
+=nil= to inherit your spacing too. See the [[file:docs/experiments/emacs-ui/report.org][native UI design report]] for actual
+captures, research, and verification; the reusable Emacs design skills live
+in [[file:.codex/skills/emacs-ui-design/SKILL.md][.codex/skills]].
+
 | Key       | Command                         | Description                 |
 |-----------+---------------------------------+-----------------------------|
 | =C-c . j= | =ogent-armory-home=            | Armory Home                |

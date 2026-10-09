@@ -1,0 +1,33 @@
+{
+  "check": "emacs29-store-isolation",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes-29",
+    "make",
+    "test-isolation"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-09T04:20:19.531417+00:00",
+  "completed_at": "2026-10-09T04:20:50.124878+00:00",
+  "summary": [
+    "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+    "Ran 3247 tests, 3228 results as expected, 0 unexpected, 19 skipped (2026-10-09 04:20:50+0000, 26.949667 sec)"
+  ],
+  "logs": {
+    "stdout": {
+      "file": "docs/experiments/emacs-ui/verification/emacs29-store-isolation.stdout.log.gz",
+      "bytes": 1349,
+      "sha256": "caaa32101800d3d1bf53159194e090c6188358decdbcaa1abc46d57f06fe4c00"
+    },
+    "stderr": {
+      "file": "docs/experiments/emacs-ui/verification/emacs29-store-isolation.stderr.log.gz",
+      "bytes": 358334,
+      "sha256": "c28bf1f7bdaeb8c35318859854b6319ee7fb9585418d7bacfe6359c95bbb1140"
+    }
+  }
+}

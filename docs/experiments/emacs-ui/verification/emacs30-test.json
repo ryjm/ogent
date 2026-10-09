@@ -1,0 +1,36 @@
+{
+  "check": "emacs30-test",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "-e",
+    "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+    "ogent-fixes",
+    "make",
+    "test",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json",
+    "MAKEM=./makem.sh --emacs=emacs --json --no-compile"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-09T04:20:19.531163+00:00",
+  "completed_at": "2026-10-09T04:20:47.733611+00:00",
+  "summary": [
+    "Actual makem JSON: success; exit=0",
+    "Actual ERT totals: {\"expected\": 3229, \"skipped\": 18, \"total\": 3247, \"unexpected\": 0}"
+  ],
+  "logs": {
+    "stdout": {
+      "file": "docs/experiments/emacs-ui/verification/emacs30-test.stdout.log.gz",
+      "bytes": 425333,
+      "sha256": "cd874bd37c1a51974becfeab032dbdcd5a8c6524d8434e2dafb38b123cada535"
+    },
+    "stderr": {
+      "file": "docs/experiments/emacs-ui/verification/emacs30-test.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

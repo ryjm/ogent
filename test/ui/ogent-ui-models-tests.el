@@ -340,7 +340,7 @@ source, so only it may be removed."
             (should (derived-mode-p 'ogent-models-browser-mode))
             (should buffer-read-only)
             (let ((text (buffer-string)))
-              (should (string-match-p "| alpha" text))
+              (should (string-match-p "alpha" text))
               (should (string-match-p "beta" text))
               (should (string-match-p "Alpha flagship" text))
               (should (string-match-p "@deep" text))
@@ -349,7 +349,7 @@ source, so only it may be removed."
       (kill-buffer ogent-ui-models--browser-buffer-name))))
 
 (ert-deftest ogent-ui-models-browser-finds-model-on-row ()
-  "RET-style selection reads the model id from the table row."
+  "RET-style selection reads the model id from the catalog row."
   (ogent-ui-models-tests--with-registry
     (with-temp-buffer
       (let ((gptel-model nil))
@@ -357,7 +357,7 @@ source, so only it may be removed."
           (ogent-models-browse)
           (with-current-buffer ogent-ui-models--browser-buffer-name
             (goto-char (point-min))
-            (search-forward "| alpha")
+            (ogent-ui-models--browser-goto "alpha")
             (should (equal (ogent-ui-models--browser-model-at-point)
                            "alpha"))
             (goto-char (point-min))
@@ -588,6 +588,7 @@ outcome \"pending\", latency and cost NULL)."
           (save-window-excursion
             (ogent-models-browse)
             (with-current-buffer ogent-ui-models--browser-buffer-name
+              (ogent-models-browser-toggle-layout)
               (let ((text (buffer-string)))
                 (should (string-match-p
                          "| *N *| *Median *| *Rating *| *Cost *|" text))
@@ -613,6 +614,7 @@ outcome \"pending\", latency and cost NULL)."
         (save-window-excursion
           (ogent-models-browse)
           (with-current-buffer ogent-ui-models--browser-buffer-name
+            (ogent-models-browser-toggle-layout)
             (let ((text (buffer-string)))
               (should (string-match-p "Description" text))
               (should-not (string-match-p "Median" text))

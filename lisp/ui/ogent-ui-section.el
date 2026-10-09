@@ -28,6 +28,7 @@
 (require 'cl-lib)
 (require 'ogent-ops-style)
 (require 'ogent-ui-theme)
+(require 'ogent-ui-layout)
 
 (eval-and-compile
   (defvar ogent-section--magit-available
@@ -200,6 +201,9 @@ availability."
 
 (defun ogent-section-configure-buffer ()
   "Configure local Magit section affordances for the current buffer."
+  (ogent-ui-layout-configure)
+  (font-lock-mode -1)
+  (ogent-ops-protect-face-properties)
   (when (ogent-section-usable-p)
     (let ((indicator (if ogent-ops-use-unicode
                          (cons "…" t)
@@ -267,11 +271,25 @@ to the captured line number clamped to the end of the buffer."
   (declare (indent 1) (debug ((form) body)))
   (let ((id-fn (car spec))
         (key (make-symbol "key"))
-        (line (make-symbol "line")))
+        (line (make-symbol "line"))
+        (column (make-symbol "column"))
+        (window (make-symbol "window"))
+        (offset (make-symbol "offset")))
     `(let ((,key (funcall ,id-fn))
-           (,line (line-number-at-pos)))
-       ,@body
-       (ogent-section--restore-point ,id-fn ,key ,line))))
+           (,line (line-number-at-pos))
+           (,column (current-column))
+           (,window (get-buffer-window (current-buffer) t)))
+       (let ((,offset (when ,window
+                        (count-lines (window-start ,window)
+                                     (line-beginning-position)))))
+         ,@body
+         (ogent-section--restore-point ,id-fn ,key ,line)
+         (move-to-column ,column)
+         (when (window-live-p ,window)
+           (set-window-start ,window
+                             (save-excursion
+                               (forward-line (- ,offset))
+                               (line-beginning-position)) t))))))
 
 (defun ogent-section--restore-point (id-fn key line)
   "Move point to the line whose ID-FN value equals KEY.
@@ -300,21 +318,18 @@ matches."
 VIEW-LABEL names the surface, CONTEXT is a short summary string (may
 be nil), KEY-HINTS are (KEY . DESCRIPTION) pairs rendered with
 `ogent-theme-keys'."
-  (concat
-   (propertize (concat " " (ogent-theme-icon 'folder) " " view-label)
-               'face 'ogent-theme-header-line)
-   (when (and context (not (string-empty-p context)))
-     (concat (propertize " · " 'face 'ogent-theme-muted)
-             (propertize context 'face 'ogent-theme-muted)))
-   (when key-hints
-     (concat "   "
-             (apply #'ogent-theme-keys
-                    (mapcar (lambda (hint)
-                              ;; Accept both ("k" . "desc") and ("k" "desc").
-                              (if (and (consp (cdr hint)) (stringp (cadr hint)))
-                                  (cons (car hint) (cadr hint))
-                                hint))
-                            key-hints))))))
+  (ogent-ui-layout-header
+   view-label context
+   (mapcar (lambda (hint)
+             (let* ((pair (if (and (consp (cdr hint)) (stringp (cadr hint)))
+                              (cons (car hint) (cadr hint))
+                            hint))
+                    (binding (key-binding (kbd (car pair)))))
+               (if (and (equal (car pair) "g") (keymapp binding)
+                        (commandp (lookup-key binding "r")))
+                   (cons "gr" (cdr pair))
+                 pair)))
+           key-hints)))
 
 (provide 'ogent-ui-section)
 ;;; ogent-ui-section.el ends here

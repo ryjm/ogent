@@ -1,0 +1,162 @@
+#+title: ogent native Emacs UI design and verification
+#+date: 2026-10-09
+
+* Result
+
+Armory Home now brings attention and the next action into the first viewport.
+The model browser presents complete, provider-grouped choices with readable
+descriptions and roles. Agents and Tasks use useful compact columns, with full
+comparison tables available explicitly. Presentation inherits the user's theme
+and stays local to ogent buffers.
+
+This work adapted all five available Product Design skills into six original,
+reusable native Emacs skills: design, research, audit, ideate, build, and QA.
+The [[file:../../../.codex/skills/emacs-ui-design/SKILL.md][design router]] maps each source workflow to its Emacs equivalent;
+the [[file:../../../.codex/skills/emacs-ui-design/references/emacs-patterns.md][pattern reference]] contains attributed package research and lessons from
+implementing the design. Existing cloud skills were read, not overwritten.
+
+* Evidence and design decisions
+
+The baseline was captured in real Emacs before changing the implementation.
+Each finding below is observable in its linked screenshot.
+
+| Priority | Observed baseline | Consequence | Implemented repair |
+|----------+-------------------+-------------+--------------------|
+| High | Home's 26-line crest precedes useful work | Attention falls outside the first 42-line viewport | Compact identity, compose action, attention, health and current work first; crest remains opt-in |
+| High | Model table clips descriptions at 72 columns | Choosing requires horizontal scrolling | Wrapped provider-grouped catalog with complete IDs, capabilities and roles; D retains comparison table |
+| High | Agents default to 14 columns even at 112 columns | State and activity disappear offscreen | Adaptive 3/5-column working view, literal filter across complete records, D for all 14 fields |
+
+Baseline screenshots: [[file:../../assets/emacs-ui/before-home-light.png][Home]],
+[[file:../../assets/emacs-ui/before-models-narrow.png][models]],
+[[file:../../assets/emacs-ui/before-agents-light.png][agents]].
+
+The design comparison favored compact native sections and a wrapped catalog
+over a large decorative entry banner and a permanently wide comparison table.
+The latter remain available as explicit preferences rather than prerequisites
+for the primary workflow.
+
+Research used public adoption metadata and pinned upstream sources. Magit,
+Nano, Modus, Consult/Vertico, Org Modern, Elpaca, Dashboard, gptel and agent-shell
+provided relevant interaction or presentation patterns. Stars indicate public
+attention; this research does not claim a universal beauty ranking. Sources,
+revisions, category distinctions, reference images actually inspected, and
+bounded ogent adaptations are recorded in the pattern reference and its JSON.
+
+* Implemented interactions
+
+- Home: c opens an agent instruction draft. Failed and stale work carry explicit
+  words and contextual review/retry actions. Navigation and metadata follow
+  current work. Existing transient, folding and navigation commands remain.
+- Models: n/p navigate distinct models; / finds through native annotated and
+  grouped completion; RET switches the session selection; d sets its default;
+  D switches catalog/table. Refresh and layout changes retain the selected model
+  and originating Org context. Recorded evidence remains actual recorded
+  evidence; absent measurements are not presented as measured zeroes.
+- Agents: f searches all record fields, including those outside the compact
+  view. The header exposes the active query; an empty query clears it. D shows
+  complete comparison fields, and RET opens the full agent profile.
+- Tasks: compact columns prioritize lane, item and state; D reveals complete
+  comparison fields. Status has semantic color and readable words.
+- Composer: contextual agent and command hints live in the header, outside
+  editable prompt text. UI guidance never becomes submitted draft content.
+- Shared presentation: inherited semantic faces, local spacing and wrapping,
+  contextual headers, ASCII fallback, stable point/viewport on refresh and
+  local window resize handling. Optional Evil headers show gr when that is
+  the actual active refresh binding.
+
+* Actual native screenshots
+
+The final saved images were visually inspected. They are direct ImageMagick
+captures of actual X windows, including a real terminal Emacs inside xterm.
+No screenshot was painted, mocked, composited or edited.
+
+| Surface | Theme / geometry | Screenshot |
+|---------+------------------+------------|
+| Home | Modus Operandi, 112 columns | [[file:../../assets/emacs-ui/after-home-light.png][light Home]] |
+| Home | Modus Operandi, 60 columns | [[file:../../assets/emacs-ui/after-home-light-narrow.png][narrow light Home]] |
+| Home | Modus Vivendi, 112 columns | [[file:../../assets/emacs-ui/after-home-dark.png][dark Home]] |
+| Home | Modus Vivendi, 60 columns | [[file:../../assets/emacs-ui/after-home-dark-narrow.png][narrow dark Home]] |
+| Models | Modus Operandi, 80 columns | [[file:../../assets/emacs-ui/after-models-light.png][light models]] |
+| Models | Modus Vivendi, 80 columns | [[file:../../assets/emacs-ui/after-models-dark.png][dark models]] |
+| Models | Modus Operandi, 60 columns | [[file:../../assets/emacs-ui/after-models-narrow.png][narrow models]] |
+| Agents | Modus Operandi, 112 columns | [[file:../../assets/emacs-ui/after-agents-light.png][agents]] |
+| Tasks | Modus Operandi, 60 columns | [[file:../../assets/emacs-ui/after-tasks-narrow.png][tasks]] |
+| Models + Home | Modus Operandi, 112-column frame, 55-column panes | [[file:../../assets/emacs-ui/after-models-split.png][split windows]] |
+| Home | Actual terminal, 80 columns, ASCII | [[file:../../assets/emacs-ui/after-terminal-ascii.png][terminal]] |
+
+GUI/terminal capture runtime: Debian 13 Emacs GTK 30.1, Org 9.8.10, transient
+0.13.8, gptel 0.9.9.6; DejaVu Sans Mono 13 in the GUI; actual Evil, Vertico and
+Magit section source loaded. The fixture sets its own font/theme only inside
+the isolated capture instance. Production imposes neither.
+
+[[file:captures.json][Capture provenance]] records the implemented Lisp fingerprint,
+baseline source HEAD plus working-tree status, each runtime state, image hash,
+capture timestamp, and keyboard result. The fingerprint identifies the code
+actually displayed; it does not mislabel a dirty tree as its baseline commit.
+
+* Interaction and compatibility verification
+
+[[file:keyboard.el.in][The native keyboard journey]] executes the real keymaps under
+Evil/Vertico/Magit: Home to agent profile and back, refresh, hidden-field filter,
+full details, clear filter, open and type a draft, preserve it through Home
+refresh, navigate models, change layout and refresh without losing selection,
+find a model, and fold/refresh/unfold a Magit section.
+
+The capture fixture rejects gptel requests and Armory provider runs. Browsing,
+completion, local metadata and composition were verified without authenticating
+or making provider inference requests.
+
+Eleven new behavior tests cover width-aware headers, wrapping with properties,
+selection/viewport, model origin and focus, hidden-field filtering, complete
+task record IDs, Home attention and composition, live Evil key hints, draft
+integrity, and semantic-face preservation under fontification. Existing tests
+continue to cover the retained comparison-table evidence behavior.
+
+[[file:verification/summary.json][The verification matrix]] records exact commands, exit codes,
+runtime versions, unchanged source fingerprints and original tool output.
+Original nonempty logs are gzip-compressed without changing their contents; hashes
+refer to the uncompressed output. The matrix covers strict lint, the complete
+ERT suite, store-isolation checks on Emacs 29.1/30.2, and actual current/minimum
+gptel offline workflows on both versions. Expected failures and optional skips
+remain visible in the original reports rather than being counted as new passes.
+
+Final local results: all eight checks exited zero. The full suite ran 3,247
+tests with zero unexpected failures; Emacs 30.2 skipped 18 optional cases and
+29.1 skipped 19. Each actual-dependency offline replay ran 206 tests with zero
+unexpected failures (two optional skips on 30.2, three on 29.1). Both store
+audits reported no real-store drift. The source fingerprint was unchanged
+through verification and matches the source captured in the final UI images.
+
+The full Doom distribution was not booted. Actual Evil and the repository's
+Doom/leader compatibility tests were exercised. The capture matrix samples
+two themes; inherited faces use the active theme, so this is not a claim of
+verified contrast for every third-party theme or terminal palette.
+
+* Reproduction
+
+Run standard repository checks with installed dependencies:
+
+#+begin_src sh
+make lint sandbox=/path/to/dependency-sandbox format=json
+make test sandbox=/path/to/dependency-sandbox format=json
+make test-isolation
+OGENT_ELPA_DIR=/path/to/elpa make offline-test
+OGENT_ELPA_DIR=/path/to/elpa OGENT_GPTEL_DIR=/path/to/minimum-gptel make offline-test
+#+end_src
+
+[[file:verify.py][verify.py]] records the session's Emacs 29/30 container matrix and
+reuses the just-completed strict lint JSON. Container names and dependency paths
+are explicit session inputs in that script, not assumed system defaults.
+
+For visual reproduction, use a disposable Emacs process with installed actual
+dependencies and [[file:capture.el.in][capture.el.in]]. Set OGENT_ELPA_DIR. Optional source files
+are /tmp/magit-section.el, /tmp/vertico.el, and /tmp/ogent-ui-evil; set
+OGENT_UI_OPTIONAL=1 to load them. Magit/Vertico revisions are in the research
+reference; Evil was 6a3e1ddd04ac504a016590940d0af2a3361b9efd. Use
+OGENT_UI_SERVER=ogent-ui-tty and OGENT_UI_ASCII=1 for the terminal instance.
+
+[[file:capture.py][capture.py]] drives the two isolated servers in the ogent-ui container,
+captures their actual visible windows on DISPLAY=:99, checks catalog reflow,
+and writes source/image provenance. It requires Xvfb, xterm, xdotool and
+ImageMagick. Keep the fixture isolated: it intentionally loads the test store
+guard and owned temporary data rather than the user's working Armory.

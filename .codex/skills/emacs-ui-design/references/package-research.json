@@ -1,0 +1,339 @@
+{
+  "adoption": {
+    "observed_at": "2026-10-09T03:20:34.329939+00:00",
+    "method": "GitHub public repository metadata; stars indicate attention, not proof of usability or a universal ranking",
+    "repositories": [
+      {
+        "full_name": "magit/magit",
+        "html_url": "https://github.com/magit/magit",
+        "description": "It's Magit! A Git Porcelain inside Emacs.",
+        "stargazers_count": 7241,
+        "forks_count": 882,
+        "updated_at": "2026-10-08T07:23:57Z",
+        "pushed_at": "2026-10-07T18:13:35Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "doomemacs/core",
+        "html_url": "https://github.com/doomemacs/core",
+        "description": "An Emacs framework for the stubborn martian hacker",
+        "stargazers_count": 22737,
+        "forks_count": 3148,
+        "updated_at": "2026-10-08T23:16:43Z",
+        "pushed_at": "2026-10-02T05:14:02Z",
+        "default_branch": "master",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        }
+      },
+      {
+        "full_name": "doomemacs/themes",
+        "html_url": "https://github.com/doomemacs/themes",
+        "description": "A megapack of themes for GNU Emacs.",
+        "stargazers_count": 2424,
+        "forks_count": 428,
+        "updated_at": "2026-10-07T17:47:41Z",
+        "pushed_at": "2026-08-26T14:13:23Z",
+        "default_branch": "master",
+        "license": {
+          "key": "mit",
+          "name": "MIT License",
+          "spdx_id": "MIT",
+          "url": "https://api.github.com/licenses/mit",
+          "node_id": "MDc6TGljZW5zZTEz"
+        }
+      },
+      {
+        "full_name": "minad/consult",
+        "html_url": "https://github.com/minad/consult",
+        "description": ":mag: consult.el - Search and navigate via completing-read",
+        "stargazers_count": 1665,
+        "forks_count": 130,
+        "updated_at": "2026-10-07T17:48:30Z",
+        "pushed_at": "2026-10-04T09:57:42Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "minad/vertico",
+        "html_url": "https://github.com/minad/vertico",
+        "description": ":dizzy: vertico.el - VERTical Interactive COmpletion",
+        "stargazers_count": 1892,
+        "forks_count": 76,
+        "updated_at": "2026-10-01T15:37:19Z",
+        "pushed_at": "2026-09-13T15:25:47Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "minad/marginalia",
+        "html_url": "https://github.com/minad/marginalia",
+        "description": ":scroll: marginalia.el - Marginalia in the minibuffer",
+        "stargazers_count": 989,
+        "forks_count": 31,
+        "updated_at": "2026-10-07T00:41:13Z",
+        "pushed_at": "2026-09-26T12:28:22Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "minad/corfu",
+        "html_url": "https://github.com/minad/corfu",
+        "description": ":desert_island: corfu.el - COmpletion in Region FUnction",
+        "stargazers_count": 1544,
+        "forks_count": 60,
+        "updated_at": "2026-10-01T15:36:30Z",
+        "pushed_at": "2026-09-13T15:27:32Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "minad/org-modern",
+        "html_url": "https://github.com/minad/org-modern",
+        "description": ":unicorn: Modern Org Style",
+        "stargazers_count": 1955,
+        "forks_count": 51,
+        "updated_at": "2026-10-07T19:45:08Z",
+        "pushed_at": "2026-08-18T07:11:15Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "protesilaos/modus-themes",
+        "html_url": "https://github.com/protesilaos/modus-themes",
+        "description": "Highly accessible themes for GNU Emacs, conforming with the highest standard for colour contrast between background and foreground values (WCAG AAA).",
+        "stargazers_count": 912,
+        "forks_count": 76,
+        "updated_at": "2026-10-07T00:41:17Z",
+        "pushed_at": "2026-10-05T10:01:06Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "rougier/nano-emacs",
+        "html_url": "https://github.com/rougier/nano-emacs",
+        "description": "GNU Emacs / N \u039b N O - Emacs made simple",
+        "stargazers_count": 2946,
+        "forks_count": 199,
+        "updated_at": "2026-10-09T02:50:25Z",
+        "pushed_at": "2026-06-12T04:29:54Z",
+        "default_branch": "master",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "progfolio/elpaca",
+        "html_url": "https://github.com/progfolio/elpaca",
+        "description": "An elisp package manager",
+        "stargazers_count": 954,
+        "forks_count": 60,
+        "updated_at": "2026-10-07T09:49:33Z",
+        "pushed_at": "2026-10-03T23:39:49Z",
+        "default_branch": "master",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "emacs-dashboard/dashboard",
+        "html_url": "https://github.com/emacs-dashboard/dashboard",
+        "description": "An extensible emacs dashboard",
+        "stargazers_count": 1532,
+        "forks_count": 141,
+        "updated_at": "2026-10-07T19:27:42Z",
+        "pushed_at": "2026-08-09T04:47:36Z",
+        "default_branch": "master",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "requested_repo": "emacsorphanage/treemacs",
+        "error": "gh: Not Found (HTTP 404)\n"
+      },
+      {
+        "full_name": "justbur/emacs-which-key",
+        "html_url": "https://github.com/justbur/emacs-which-key",
+        "description": "Emacs package that displays available keybindings in popup",
+        "stargazers_count": 1796,
+        "forks_count": 86,
+        "updated_at": "2026-10-07T00:34:25Z",
+        "pushed_at": "2024-06-25T15:22:26Z",
+        "default_branch": "master",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "karthink/gptel",
+        "html_url": "https://github.com/karthink/gptel",
+        "description": "A simple, extensible LLM client for Emacs",
+        "stargazers_count": 3547,
+        "forks_count": 442,
+        "updated_at": "2026-10-08T13:06:43Z",
+        "pushed_at": "2026-10-07T04:33:13Z",
+        "default_branch": "master",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "full_name": "xenodium/agent-shell",
+        "html_url": "https://github.com/xenodium/agent-shell",
+        "description": "A native Emacs buffer to interact with LLM agents powered by ACP",
+        "stargazers_count": 1934,
+        "forks_count": 244,
+        "updated_at": "2026-10-09T01:41:26Z",
+        "pushed_at": "2026-10-09T01:41:21Z",
+        "default_branch": "main",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0",
+          "node_id": "MDc6TGljZW5zZTk="
+        }
+      },
+      {
+        "default_branch": "master",
+        "description": null,
+        "forks_count": 169,
+        "full_name": "Alexander-Miller/treemacs",
+        "html_url": "https://github.com/Alexander-Miller/treemacs",
+        "license": {
+          "key": "gpl-3.0",
+          "name": "GNU General Public License v3.0",
+          "node_id": "MDc6TGljZW5zZTk=",
+          "spdx_id": "GPL-3.0",
+          "url": "https://api.github.com/licenses/gpl-3.0"
+        },
+        "pushed_at": "2025-12-26T13:07:40Z",
+        "stargazers_count": 2367,
+        "updated_at": "2026-10-07T17:47:15Z"
+      }
+    ],
+    "correction": "Initial emacsorphanage/treemacs request returned HTTP 404; canonical Alexander-Miller/treemacs added from actual public metadata. Both observations retained."
+  },
+  "pinned_sources": {
+    "observed_at": "2026-10-09T03:21:41.652187+00:00",
+    "sources": [
+      {
+        "repo": "magit/magit",
+        "sha": "49504a982b7d8948da297e1ab515bece4008273d"
+      },
+      {
+        "repo": "minad/consult",
+        "sha": "a64569f377b8bc0f62e1d2ae0f3ee48ba4a7cc1c"
+      },
+      {
+        "repo": "minad/vertico",
+        "sha": "a9998a777f1d92348f84d091bb15b87df933a7a2"
+      },
+      {
+        "repo": "protesilaos/modus-themes",
+        "sha": "aedb41742ff326fa4884136300155ca21a0bd628"
+      },
+      {
+        "repo": "rougier/nano-emacs",
+        "sha": "12fbfebec39f72a133c8751cadf3d311b93f5e7f"
+      },
+      {
+        "repo": "minad/org-modern",
+        "sha": "d106d02cf045cc968c09989e9c48e0f2b44c574c"
+      },
+      {
+        "repo": "progfolio/elpaca",
+        "sha": "dd3b3fd1547382a52ed5ace4a4b090e60502cf60"
+      },
+      {
+        "repo": "xenodium/agent-shell",
+        "sha": "d9493d8921a6ade0c3a4c561db092803f0595e83"
+      },
+      {
+        "repo": "karthink/gptel",
+        "sha": "406432d83f8a76e7af54d88c97df1863bd9a9119"
+      },
+      {
+        "repo": "doomemacs/themes",
+        "sha": "a59202912ad55014e53a685eee6cd94130bdd4fd"
+      },
+      {
+        "repo": "emacs-dashboard/dashboard",
+        "sha": "a2c49ba27f3a906fd8b059da55104c1ec562b8b6"
+      }
+    ]
+  },
+  "integration_source": {
+    "repository": "emacs-evil/evil",
+    "commit": "6a3e1ddd04ac504a016590940d0af2a3361b9efd",
+    "purpose": "Actual optional Evil integration in native capture fixture; not a visual adoption ranking."
+  }
+}

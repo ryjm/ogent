@@ -184,6 +184,7 @@
   (ogent-ui-armory-test--assert-bindings
    ogent-armory-home-mode-map
    `(("?" . ,#'ogent-armory-home-dispatch)
+     ("c" . ,#'ogent-armory-home-compose)
      ("j" . ,ogent-armory-jump-map)
      ("/" . ,#'ogent-armory-command-palette)
      ("," . ,#'ogent-armory-settings)
@@ -198,7 +199,7 @@
   (ogent-ui-armory-test--assert-unbound
    ogent-armory-home-mode-map
    '("C-c m" "C-c ?" "C-c j" "C-c D" "C-c h" "C-c /" "C-c ,"
-     "C-c ." "C-c r" "C-c E" "C-c J" "a" "t" "c" "s" "A" "D" "u" "h" "G")))
+     "C-c ." "C-c r" "C-c E" "C-c J" "a" "t" "s" "A" "D" "u" "h" "G")))
 
 (ert-deftest ogent-ui-armory-section-keybindings-are-consistent ()
   "Armory section buffers expose shared section and jump/navigation keys."
@@ -565,6 +566,7 @@
       (unwind-protect
           (with-current-buffer buffer
             (should (eq major-mode 'ogent-armory-agents-mode))
+            (ogent-armory-agents-toggle-details)
             (let ((text (buffer-substring-no-properties (point-min) (point-max))))
               (should (string-match-p "CTO" text))
               (should (string-match-p "Architecture" text))
