@@ -1,0 +1,121 @@
+;;; fixture.el.in --- Isolated native workflow audit -*- lexical-binding: t; -*-
+(require 'cl-lib)
+(setq load-prefer-newer t)
+(dolist (dir (directory-files (getenv "OGENT_ELPA_DIR") t "^[^.].*"))
+  (when (file-directory-p dir) (add-to-list 'load-path dir)))
+(let ((root (expand-file-name "../../.." (file-name-directory load-file-name))))
+  (dolist (dir '("lisp" "lisp/ui" "test"))
+    (add-to-list 'load-path (expand-file-name dir root))))
+(when (getenv "OGENT_UI_OPTIONAL")
+  (add-to-list 'load-path "/tmp")
+  (add-to-list 'load-path "/tmp/ogent-ui-evil")
+  (require 'magit-section)
+  (require 'evil)
+  (evil-mode 1)
+  (require 'vertico)
+  (vertico-mode 1))
+(require 'org)
+(require 'gptel)
+(require 'gptel-openai)
+(require 'transient)
+(require 'ogent-test-helper)
+(require 'ogent)
+(require 'benchmark)
+(setq ogent-workflow-root (ogent-test--provision-store-directory 'workflow-ui)
+      ogent-workflow-request-count 0
+      ogent-workflow-tool-count 0
+      ogent-workflow-draft nil
+      ogent-prompt-provider-login-on-access-error nil
+      ogent-provider-max-retries 0
+      ogent-analytics-enabled nil
+      ogent-ledger-enabled nil
+      gptel-use-curl t
+      gptel-proxy ""
+      ogent-tools-enabled nil
+      ogent-armory-skill-include-user-roots nil
+      ogent-armory-runner-ensure-beads-redirect nil)
+(defun ogent-workflow-write (text)
+  (cl-incf ogent-workflow-tool-count)
+  (ogent-armory--write-file (expand-file-name "notes/tool-result.org" ogent-workflow-root) text)
+  "Wrote the owned fixture note.")
+(setq ogent-tool-registry
+      '((:name fixture-write :function ogent-workflow-write
+         :description "Write a note in the owned workflow fixture."
+         :args ((:name "text" :type "string" :description "Full note text"))
+         :effects ((:kind write :target file :scope workspace :risk medium))
+         :confirm t)))
+(ogent-register-tools)
+(ogent-armory-scaffold ogent-workflow-root "Interface lab" :kind "root" :create-editor nil)
+(dolist (agent '((:slug "lead" :name "Review lead" :provider "codex" :type "lead" :can-dispatch t :active t)
+                 (:slug "builder" :name "Builder" :provider "codex" :active t)))
+  (ogent-armory-write-agent ogent-workflow-root agent "Review local fixtures only."))
+(ogent-armory--write-file (expand-file-name "notes/review.org" ogent-workflow-root)
+                          "#+title: Review notes\n\n* Review\nInspect local evidence before making changes.\n")
+(ogent-armory-conversation-create ogent-workflow-root
+                                 '(:id "review" :agent "lead" :title "Review proposed changes" :status "done"))
+(ogent-armory-actions-store
+ ogent-workflow-root "review"
+ (ogent-armory-actions-validate
+  ogent-workflow-root
+  (ogent-armory-actions-parse
+   "SCHEDULE_JOB: builder | Weekly review of the native interface and its accessibility | 0 9 * * 1 | Inspect the complete local workflow before changing anything.\nLAUNCH_TASK: missing | Invalid target proposal | This must not execute.")
+  :triggering-agent "lead"))
+(setq ogent-workflow-executable (expand-file-name "fixture-runner" ogent-workflow-root))
+(ogent-armory--write-file
+ ogent-workflow-executable
+ (concat "#!/bin/sh\ncat > '" (expand-file-name "runner-prompt.txt" ogent-workflow-root)
+         "'\nprintf 'Reviewing local artifacts...\\n'\nsleep 2\nprintf 'The native workflow review is complete.\\n'\n"))
+(set-file-modes ogent-workflow-executable #o700)
+(setq ogent-armory-codex-executable ogent-workflow-executable)
+(defun ogent-workflow-guard-runner (plan)
+  (unless (equal (plist-get plan :program) ogent-workflow-executable)
+    (error "Only the local fixture executable may run")))
+(advice-add 'ogent-armory-runner-start :before #'ogent-workflow-guard-runner)
+(defun ogent-workflow-guard-http (fsm)
+  (let ((backend (plist-get (gptel-fsm-info fsm) :backend)))
+    (unless (and (equal (gptel-backend-host backend) "127.0.0.1")
+                 (string-prefix-p "http://127.0.0.1:" (gptel-backend-url backend)))
+      (error "Only loopback fixture HTTP may run"))
+    (cl-incf ogent-workflow-request-count)))
+(advice-add 'gptel-curl-get-response :before #'ogent-workflow-guard-http)
+(advice-add 'gptel--url-get-response :before #'ogent-workflow-guard-http)
+(setq gptel-backend (gptel-make-openai "Workflow fixture" :key "fixture-only" :stream t
+                                       :host "api.openai.com" :models '(gpt-6.1-sol)))
+(aset gptel-backend (cl-struct-slot-offset 'gptel-backend 'host) "127.0.0.1")
+(aset gptel-backend (cl-struct-slot-offset 'gptel-backend 'url)
+      (concat "http://127.0.0.1:"
+              (with-temp-buffer (insert-file-contents "/tmp/ogent-workflow-http/port") (string-trim (buffer-string)))
+              "/v1/responses"))
+(defun ogent-workflow-request (prompt &optional tool)
+  (let ((buffer (get-buffer-create "*ogent workflow request*")))
+    (pop-to-buffer buffer)
+    ;; This fixture replaces its transcript between states.  Remove indicators
+    ;; belonging to the discarded records before their markers collapse.
+    (dolist (request ogent-ui--request-history)
+      (when (eq (ogent-ui-request-buffer request) buffer)
+        (ogent-status-clear-request request)))
+    (let ((inhibit-read-only t)) (erase-buffer))
+    (org-mode)
+    (ogent-mode 1)
+    (setq-local default-directory (file-name-as-directory ogent-workflow-root))
+    (insert "#+title: Local workflow review\n\n* Review\nInspect the native interface using local evidence.\n")
+    (goto-char (point-max))
+    (let ((ogent-tools-enabled tool))
+      (if tool
+          (let ((ogent-model-registry (copy-tree ogent-model-registry)))
+            (plist-put (ogent-models-ensure "gpt-6.1-sol") :stream? nil)
+            (ogent-request prompt '("gpt-6.1-sol")))
+        (ogent-request prompt '("gpt-6.1-sol"))))
+    buffer))
+(setq inhibit-startup-screen t initial-scratch-message nil)
+(when (display-graphic-p)
+  (menu-bar-mode -1) (tool-bar-mode -1) (scroll-bar-mode -1)
+  (set-frame-font "DejaVu Sans Mono-13" nil t)
+  (set-frame-size (selected-frame) 80 38))
+(load-theme 'modus-operandi t)
+(setq server-name (or (getenv "OGENT_UI_SERVER") "ogent-workflows"))
+(require 'server)
+(server-start)
+(ogent-armory-home ogent-workflow-root)
+(delete-other-windows)
+(message "Native workflow fixture ready; provider traffic blocked")

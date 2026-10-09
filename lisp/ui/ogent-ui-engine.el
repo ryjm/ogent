@@ -19,6 +19,7 @@
 (require 'ogent-ledger)
 (require 'ogent-provider-fallback)
 (require 'ogent-ui-status)
+(require 'ogent-ui-errors)
 
 (defvar ogent-zen-mode)
 
@@ -773,17 +774,19 @@ heading (see `ogent-shift-response-headings')."
                    (get-buffer-window-list (current-buffer) nil t))
               (setq ogent--auto-scroll-enabled nil)))))))))
 
-(defun ogent-ui--insert-error-block (request message)
-  "Insert an error block for REQUEST containing MESSAGE."
+(defun ogent-ui--insert-error-block (request message &optional cancelled)
+  "Insert an error block for REQUEST containing MESSAGE.
+When CANCELLED is non-nil, record a deliberate stop without surfacing a failure."
   (let ((marker (ogent-ui-request-marker request)))
     (when (and marker (marker-buffer marker))
       (with-current-buffer (ogent-ui-request-buffer request)
         (save-excursion
           (goto-char marker)
-          (insert (format "\n#+begin_quote ogent-error\n%s\n#+end_quote\n" message))
+          (insert (format "\n#+begin_quote %s\n%s\n#+end_quote\n"
+                          (if cancelled "ogent-cancelled" "ogent-error") message))
           (set-marker marker (point))))))
   ;; Surface error prominently
-  (ogent-ui--surface-error request message))
+  (unless cancelled (ogent-ui--surface-error request message)))
 
 (defun ogent-ui--update-status (request new-status)
   "Update REQUEST status to NEW-STATUS and refresh block metadata."
@@ -1077,13 +1080,17 @@ Provides visual feedback via mode-line flash."
       (remhash (ogent-ui-request-id request) ogent-ui--request-table)
     (when-let ((message (and error-message
                              (ogent-ui--error-message-string error-message))))
-      (ogent-ui--insert-error-block request message)
+      (if (eq final-status 'aborted)
+          (ogent-ui--insert-error-block request message t)
+        (ogent-ui--insert-error-block request message))
       (ogent-ui--update-status request (or final-status 'error))
       ;; Flash error
-      (ogent-theme-flash 'error
-                         (format "Request failed: %s"
-                                 (truncate-string-to-width
-                                  message 50 nil nil "...")))
+      (if (eq final-status 'aborted)
+          (ogent-theme-flash 'info "Request cancelled; partial response preserved")
+        (ogent-theme-flash 'error
+                           (format "Request failed: %s"
+                                   (truncate-string-to-width
+                                    message 50 nil nil "..."))))
       ;; Aborts are deliberate; only genuine failures enter the
       ;; headless retry/failover pipeline.
       (unless (or (eq (or final-status 'error) 'aborted)
@@ -1242,6 +1249,12 @@ Handles both regular text responses and tool call responses."
           (when (bound-and-true-p ogent-ui-debug-stream-completion)
             (message "[ogent-debug] closing due to error: %s" (plist-get info :error)))
           (ogent-ui--close-response request (plist-get info :error)))
+         ;; Non-streaming gptel calls back once with the complete string.
+         ;; There is no subsequent t sentinel with a custom callback.
+         ((and (stringp text) (plist-get info :http-status)
+               (not (plist-get info :stream))
+               (not (ogent-ui--tool-round-active-p info)))
+          (ogent-ui--close-response request))
          ;; Done when text is not a string (gptel sends t or nil to signal
          ;; completion).  But a (tool-call ...) / (tool-result ...) cons is
          ;; an intermediate payload, not a completion signal; closing on it
@@ -1249,14 +1262,22 @@ Handles both regular text responses and tool call responses."
          ((and (not (stringp text))
                (not (and (consp text)
                          (memq (car text) '(tool-call tool-result)))))
-          (let ((tool-active (and (listp info)
-                                  (or (plist-get info :tool-pending)
-                                      (plist-get info :tool-use)))))
+          (let ((tool-active (ogent-ui--tool-round-active-p info)))
             (when (bound-and-true-p ogent-ui-debug-stream-completion)
               (message "[ogent-debug] stream complete (text=%s), tool-active=%s, closing=%s"
                        text tool-active (not tool-active)))
             (unless tool-active
               (ogent-ui--close-response request)))))))))
+
+(defun ogent-ui--tool-round-active-p (info)
+  "Return non-nil when INFO describes an unfinished tool round.
+gptel clears :tool-use for the next model response but can retain the
+previous round's :tool-pending flag.  An explicit nil :tool-use therefore
+takes precedence; a standalone pending flag still means wait."
+  (and (listp info)
+       (or (plist-get info :tool-use)
+           (and (plist-get info :tool-pending)
+                (not (plist-member info :tool-use))))))
 
 (defvar ogent-ui-debug-stream-completion nil
   "When non-nil, log debug info about stream completion detection.")
@@ -1315,7 +1336,7 @@ completes, in case the callback-based detection doesn't trigger."
     record))
 
 (defun ogent-ui--format-error-for-display (error-record)
-  "Format ERROR-RECORD as an Org-mode heading with buttons."
+  "Format ERROR-RECORD as a complete, copyable Org entry."
   (let* ((timestamp (plist-get error-record :timestamp))
          (model (plist-get error-record :model))
          (error-msg (plist-get error-record :error))
@@ -1326,9 +1347,7 @@ completes, in case the callback-based detection doesn't trigger."
             (or model "unknown")
             (or error-msg "unknown error")
             (or request-id "unknown")
-            (if prompt
-                (truncate-string-to-width prompt 100 nil nil "...")
-              "(no prompt)"))))
+            (or prompt "(no prompt)"))))
 
 (defun ogent-ui--surface-error (request error-message)
   "Display error prominently for REQUEST with ERROR-MESSAGE.
@@ -1338,19 +1357,7 @@ Records the error and displays it in the *ogent-errors* buffer."
 
 (defun ogent-ui--update-error-buffer ()
   "Update the *ogent-errors* buffer with current error history."
-  (let ((buffer (get-buffer-create ogent-errors-buffer-name)))
-    (with-current-buffer buffer
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (org-mode)
-        (insert "#+title: ogent Errors\n\n")
-        (insert "* Error History\n\n")
-        (if ogent-ui--error-history
-            (dolist (error-record ogent-ui--error-history)
-              (insert (ogent-ui--format-error-for-display error-record)))
-          (insert "No errors recorded.\n"))
-        (goto-char (point-min))
-        (view-mode 1)))
+  (let ((buffer (ogent-errors-render)))
     ;; Display buffer if not visible
     (unless (and ogent-ui--error-window
                  (window-live-p ogent-ui--error-window)
@@ -1359,7 +1366,7 @@ Records the error and displays it in the *ogent-errors* buffer."
             (display-buffer buffer
                             '((display-buffer-in-side-window)
                               (side . bottom)
-                              (window-height . 8)
+                              (window-height . 12)
                               (preserve-size . (nil . t))))))))
 
 (defun ogent-show-errors ()

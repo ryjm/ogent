@@ -9,6 +9,8 @@ Use these original native adapters for ogent UI work. They adapt the installed P
 
 Read `references/emacs-patterns.md` before proposing a visual change. Route a critique to `emacs-ui-audit`, reference research to `emacs-ui-research`, alternative layouts to `emacs-ui-ideate`, implementation to `emacs-ui-build`, and final verification to `emacs-ui-qa`. Continue from evidence through implementation when the user asks for changes; do not introduce a design-approval pause unless a choice blocks the task.
 
+Use `emacs-performance` for measured latency and lifecycle costs, `emacs-accessibility` for complete keyboard and readable-state checks, and `emacs-packaging` for real dependency floors, autoloads and optional integrations. These are original repository skills, not claims that an external skill was installed.
+
 ## Native contract
 
 - Honor the user’s theme, font, completion stack, window configuration, and keybindings. Scope presentation to owned buffers. Use semantic face inheritance, never impose a global theme or fonts.

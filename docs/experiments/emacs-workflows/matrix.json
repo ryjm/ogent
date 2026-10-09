@@ -1,0 +1,51 @@
+{
+  "source_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "completed_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "keyboard_elapsed_seconds": 0.0812585029998445,
+  "keyboard_measurement": "host emacsclient command roundtrip; no universal latency guarantee",
+  "checks": [
+    "input accepted during real local SSE",
+    "selected window and point retained",
+    "pause retains original request",
+    "cancel paused request releases registry"
+  ],
+  "provider_requests": false,
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-workflows/after-proposal.png",
+      "state": "\"ogent-armory-proposal-mode | *ogent-armory-proposal* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "c3e13d935c05d00e5ef572f5f74a22f4255aa7fd8eccee526773f8f4a4d90ead"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-dark-wide.png",
+      "state": "\"ogent-armory-actions-mode | *ogent-armory-actions:review* | Emacs 30.1 | Org 9.8.10 | 112 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "6b65632246ad5256393e1a8bd6342633df2acc72e30cb49a6d40006cc94125b8"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-invalid-detail.png",
+      "state": "\"ogent-armory-proposal-mode | *ogent-armory-proposal* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-vivendi",
+      "sha256": "8f1577c67874f19d9f76b3e73e698b7ffad833fbc274e0d3e5d706ceea96cebf"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-error-80.png",
+      "state": "\"ogent-errors-mode | *ogent-errors* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "cfa300e199721ca9fae83a8024965887bcae7872b90cd32ff9a381d7c8bb498a"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-large-font-ascii.png",
+      "state": "\"ogent-armory-compose-mode | *ogent-armory-compose:builder*<2> | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "78636f5b8168b8d34b5b600c2c3537bd92f755f0d67f97ff3f9c60119065a8c1"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-streaming-split.png",
+      "state": "\"ogent-armory-compose-mode | *ogent-armory-compose:builder*<2> | Emacs 30.1 | Org 9.8.10 | 55 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "8677865ac26bfd46e431977c47dc3b794c98700e08a3b75a37c5743cca6ca2aa"
+    }
+  ]
+}

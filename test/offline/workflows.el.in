@@ -176,6 +176,42 @@
   (cl-incf ogent-offline--executions)
   (concat "Read " text))
 
+(ert-deftest ogent-offline-ui-tool-cycle-finishes ()
+  "Complete a real confirmed tool round and release the native UI request."
+  (with-temp-buffer
+    (org-mode)
+    (insert "* Review\nLocal context\n")
+    (let* ((gptel-backend (ogent-offline--backend 'responses))
+           (gptel-use-curl t) (gptel-proxy "")
+           (gptel-confirm-tool-calls t)
+           (ogent-offline--executions 0)
+           (ogent--tools-registered nil)
+           (ogent-tool-registry
+            '((:name fixture-read :function ogent-offline--read :description "Fixture"
+                     :args ((:name "text" :type string)) :confirm t
+                     :effects ((:kind read :target file :scope workspace :risk low)))))
+           (ogent-tools-enabled '(fixture-read))
+           (ogent-tool-allow-list nil)
+           (ogent-tool--denied-tools nil)
+           (ogent-ui--request-table (make-hash-table :test #'equal))
+           (ogent-ui--request-history nil)
+           (ogent-model-registry (copy-tree ogent-model-registry))
+           (ogent-provider-max-retries 0)
+           (ogent-prompt-provider-login-on-access-error nil)
+           (finishes 0) (decisions 0)
+           (ogent-after-request-hook (list (lambda (_) (cl-incf finishes)))))
+      (plist-put (ogent-models-ensure "gpt-6.1-sol") :stream? nil)
+      (cl-letf (((symbol-function 'ogent-tool--prompt-approval)
+                 (lambda (_name _args) (cl-incf decisions) 'approve)))
+        (ogent-request "fixture-tool-cycle" '("gpt-6.1-sol"))
+        (ogent-offline--wait (lambda () (= 0 (hash-table-count ogent-ui--request-table)))))
+      (should (= decisions 1))
+      (should (= ogent-offline--executions 1))
+      (should (= finishes 1))
+      (should (string-match-p "Fixture answer\\." (buffer-string)))
+      (should (eq (ogent-ui-request-status (car ogent-ui--request-history)) 'done))
+      (should-not (ogent-ui-request-watchdog (car ogent-ui--request-history))))))
+
 (ert-deftest ogent-offline-tool-cycle-policy-and-ledger ()
   "Run actual gptel automatic and confirmed tool cycles exactly once."
   (dolist (confirm '(nil t))

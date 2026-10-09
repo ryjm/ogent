@@ -1,0 +1,22 @@
+{
+  "source_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "captured_at": "2026-10-09T22:54:50.838494+00:00",
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-workflows/after-tool-answer.png",
+      "state": "\"org-mode | *ogent workflow request* | Emacs 30.1 | Org 9.8.10 | 79 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "9db3ba7e7bd4b7c89daf9dd27a0094663d6760a0f8ac8f9e07e526bf7b0d41ac"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-tool-approval.png",
+      "state": "actual pending HTTP tool review before X keyboard C-g",
+      "sha256": "efea8faa92b90460acb99543a0152a731e061237be40a531b7050c973a201f7f"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/after-terminal.png",
+      "state": "actual terminal; no Evil/Magit; detail/back keys passed",
+      "sha256": "7ef3068c56838f8671a2920644eed186b7cf442ae653366e747ff1782af3d9fb"
+    }
+  ]
+}

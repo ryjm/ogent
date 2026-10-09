@@ -328,6 +328,17 @@ The UI inherits your theme and font. Set =ogent-ui-layout-line-spacing= to
 captures, research, and verification; the reusable Emacs design skills live
 in [[file:.codex/skills/emacs-ui-design/SKILL.md][.codex/skills]].
 
+The composer keeps attachments separate from editable instructions and shows
+the run after submission. Approval lists expose full proposals with =RET=;
+=a/r= records a decision and =d= dispatches approved actions. Invalid proposals
+cannot be approved. Tool reviews show effects and complete arguments, with
+=v/b= to scroll and =C-g= to deny the call. The error reader offers =RET= to
+return to the request and =r= to retry its original context.
+
+The [[file:docs/experiments/emacs-workflows/report.org][workflow audit]] records offline keyboard journeys, native screenshots,
+performance observations and the compatibility matrix. Reusable skills now
+also cover [[file:.codex/skills/emacs-performance/SKILL.md][performance]], [[file:.codex/skills/emacs-accessibility/SKILL.md][accessibility]] and [[file:.codex/skills/emacs-packaging/SKILL.md][packaging]].
+
 | Key       | Command                         | Description                 |
 |-----------+---------------------------------+-----------------------------|
 | =C-c . j= | =ogent-armory-home=            | Armory Home                |

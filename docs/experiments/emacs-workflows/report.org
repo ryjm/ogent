@@ -1,0 +1,103 @@
+#+title: ogent native workflow audit and repairs
+#+date: 2026-10-09
+
+* Result
+
+The complete native journey now handles composition, approvals, cancellation
+and recovery more clearly. Three original repository skills were created and
+applied: [[file:../../../.codex/skills/emacs-performance/SKILL.md][performance]], [[file:../../../.codex/skills/emacs-accessibility/SKILL.md][accessibility]], and [[file:../../../.codex/skills/emacs-packaging/SKILL.md][packaging]]. The design router and shared
+pattern reference carry the lessons forward.
+
+All inference responses came from an owned loopback HTTP fixture; CLI output
+came from an owned local shell executable. Guards reject other HTTP hosts and
+runner programs. No provider login or inference was performed.
+
+* Audit findings
+
+Screenshots were captured in actual Emacs before production edits and inspected.
+The baseline commit is =b2da48fda3895051aa5f43e33fc1600a17c46b73=.
+Baseline captures include the existing window configuration; the manifest's
+selected-window metadata need not identify every visible pane.
+
+| Severity | Evidence | Observed consequence | Repair |
+|----------+----------+----------------------+--------|
+| High | [[file:../../assets/emacs-workflows/before-composer.png][Composer]] | Adding an attachment signals Text is read-only | Nonsticky badges; editable text remains usable |
+| High | [[file:../../assets/emacs-workflows/before-actions.png][Approval list]] | Narrow columns hide validation errors and full titles | Compact rows, invalid status, complete proposal on RET |
+| Medium | [[file:../../assets/emacs-workflows/before-cancelled.png][Cancellation]] | A deliberate stop opens error history | Cancelled transcript note, preserved partial text, no error pane |
+| Medium | [[file:../../assets/emacs-workflows/before-error.png][Error reader]] | Details clip, with no direct return or retry | Wrapping, complete prompt/error, contextual RET/r, stable record and viewport |
+| Medium | [[file:../../assets/emacs-workflows/before-approval.png][Tool prompt]] | Multiline arguments share the echo area with the decision | Full effects/arguments reader with short decision prompt and paging |
+
+Code inspection also found that attachment badges and the draft scaffold entered
+instructions, attachment reversal mutated the saved list, and submission left
+the user in the draft instead of showing the run. Regression tests verify these
+repairs independently of screenshots. Empty drafts now fail before launching.
+
+Actual tool-round testing found a lifecycle defect: the final non-stream answer
+could arrive while ogent stayed active. gptel sends one complete non-stream
+string and can retain the prior round's pending flag. The callback now recognizes
+completion without a second sentinel, prioritizes the current tool-use state,
+and releases the watchdog and request registry. The new offline regression runs
+the original gptel FSM with actual HTTP and confirms one tool execution and one
+request completion.
+
+* Final appearance and interactions
+
+Final captures cover [[file:../../assets/emacs-workflows/after-composer.png][composition]], [[file:../../assets/emacs-workflows/after-actions.png][approvals]], [[file:../../assets/emacs-workflows/after-proposal.png][full proposal]],
+[[file:../../assets/emacs-workflows/after-invalid-detail.png][invalid proposal]], [[file:../../assets/emacs-workflows/after-tool-approval.png][tool review]], [[file:../../assets/emacs-workflows/after-tool-answer.png][completed tool answer]],
+[[file:../../assets/emacs-workflows/after-cancelled.png][cancellation]], [[file:../../assets/emacs-workflows/after-error.png][error recovery]], and [[file:../../assets/emacs-workflows/after-conversation.png][conversation]].
+The variant matrix includes [[file:../../assets/emacs-workflows/after-dark-wide.png][dark/wide]], [[file:../../assets/emacs-workflows/after-error-80.png][80-column recovery]],
+[[file:../../assets/emacs-workflows/after-large-font-ascii.png][larger font with ASCII UI]], [[file:../../assets/emacs-workflows/after-streaming-split.png][streaming beside an editable draft]], and [[file:../../assets/emacs-workflows/after-terminal.png][terminal Emacs]].
+
+Actual GUI keyboard checks exercised detail/back, stable row/refresh, approval
+without dispatch, one explicit dispatch, invalid approval rejection, return to
+the original request, immutable-context retry, typing after attachment,
+submission, local runner output and durable conversation. Tool approval and C-g
+denial were driven through X keyboard events and completed the original HTTP
+request. A split-window check typed into a draft during real SSE, retained its
+point/focus, paused the request and cancelled it without a registry leak.
+
+Fixtures changed state to accept the same immutable request during recovery;
+retry did not rebuild the prompt from the current point. No external provider
+availability or credentials are established by this fixture.
+
+* Performance and compatibility
+
+Twenty synchronous GUI renders rebuilt 50 error records with 8,000 prompt
+characters each. Raw =benchmark-run= samples and GC counts are in
+[[file:performance.json][performance.json]]. Median and p95 are computed from those samples; these
+measure buffer rebuilding, not redisplay or universal end-to-end latency.
+GC settings were inherited. No global GC tuning or unmeasured optimization was
+introduced. The matrix retains a separately measured emacsclient keyboard
+roundtrip during SSE; it is not a cross-machine responsiveness guarantee.
+
+Strict compile/checkdoc/check-declare/indentation passed. The full suite ran
+3,258 tests on Emacs 29.1 and 30.2 with zero unexpected results; 19/18 optional
+tests were skipped respectively and nine existing expected failures remain.
+Store-integrity audits report no real-store drift. Four actual-dependency
+offline combinations each ran 207 tests with zero unexpected results:
+Emacs 29.1/30.2 crossed with gptel 0.9.9.5/0.9.9.6, using Org 9.8.10 and
+Transient 0.13.8. Offline optional skips were 3/2 respectively.
+
+GUI rendering used Emacs GTK 30.1, DejaVu Sans Mono 13 and 18, Modus Operandi
+and Vivendi, at 60/80/112 columns, with actual Evil/Magit/Vertico. Terminal
+Emacs 30.2 exercised detail/back with Evil and Magit absent and zero HTTP
+requests. Full Doom configuration and screen-reader compatibility were not
+tested; this work does not claim either. Optional integrations remained optional.
+
+* Reproduction and provenance
+
+- =fixture-server.py= supplies recorded loopback Responses JSON/SSE.
+- =fixture.el.in= loads real dependencies before the test store guard, creates
+  owned records, and rejects real provider/runner execution.
+- =capture.py after= captures the primary states from an initialized GUI server.
+- =keyboard.el.in= exercises actual Evil keys after the fixture backend recovers.
+- =matrix.py= captures variants and verifies typing, pause and cancellation.
+- =performance.el.in= retains repeated reader rebuilding timings.
+- =verify.py= runs strict Make lint, full suites/store audits and real dependency
+  combinations on a frozen source fingerprint, saving exact compressed logs.
+
+The JSON manifests record actual files, hashes, versions and source fingerprints.
+The pre-commit source-head field names the baseline; the working-tree fingerprint
+identifies the tested implementation. Historical evidence under =emacs-ui/=
+is retained unchanged. This report records local verification; exact-commit CI
+is checked after the authorized push to master.

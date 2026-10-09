@@ -1,0 +1,287 @@
+{
+  "source_head": "b2da48fda3895051aa5f43e33fc1600a17c46b73",
+  "source_state": "working tree verified by source fingerprint",
+  "source_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "completed_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "provider_requests": false,
+  "checks": [
+    {
+      "check": "emacs30-lint",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "ogent-fixes",
+        "make",
+        "lint",
+        "sandbox=/tmp/ogent-fixdeps",
+        "format=json"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:47:09.362442+00:00",
+      "completed_at": "2026-10-09T22:49:41.391338+00:00",
+      "summary": [
+        "Actual makem JSON: success; exit=0"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-lint.stdout.log.gz",
+          "bytes": 9789195,
+          "sha256": "e7b2c472fa4eda7a169dded5164353940fd2229afcdc9a04fb199f117899ffac"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-lint.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "check": "emacs30-test",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes",
+        "make",
+        "test",
+        "sandbox=/tmp/ogent-fixdeps",
+        "format=json",
+        "MAKEM=./makem.sh --emacs=emacs --json --no-compile"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:49:41.395273+00:00",
+      "completed_at": "2026-10-09T22:50:09.553259+00:00",
+      "summary": [
+        "Actual makem JSON: success; exit=0",
+        "Actual ERT totals: {\"expected\": 3240, \"skipped\": 18, \"total\": 3258, \"unexpected\": 0}"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-test.stdout.log.gz",
+          "bytes": 426830,
+          "sha256": "334337d07a17be995da0879a339d56fa2833353fc04726faf13af639c5b7ad7e"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-test.stderr.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    {
+      "check": "emacs30-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:50:09.553484+00:00",
+      "completed_at": "2026-10-09T22:50:37.364967+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3258 tests, 3240 results as expected, 0 unexpected, 18 skipped (2026-10-09 22:50:37+0000, 24.524936 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-store-isolation.stdout.log.gz",
+          "bytes": 1349,
+          "sha256": "4928b4b0bfe07e65d5aba801d6cc5d0d04bd720d12a8591a569b2f18b0175211"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-store-isolation.stderr.log.gz",
+          "bytes": 359983,
+          "sha256": "aba6ebd979d73303de0cae4fef4e9d0ce5d193af636194d29fd002a426eee38f"
+        }
+      }
+    },
+    {
+      "check": "emacs30-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:50:37.365197+00:00",
+      "completed_at": "2026-10-09T22:50:45.801807+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-fixdeps/30.2/elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 207 tests, 205 results as expected, 0 unexpected, 2 skipped (2026-10-09 22:50:45+0000, 4.768346 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-offline-current.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-offline-current.stderr.log.gz",
+          "bytes": 49582,
+          "sha256": "eb8e6021329c73903cbbcd5c5043d7666a99fb9188d609f6b107cd08bea916d6"
+        }
+      }
+    },
+    {
+      "check": "emacs30-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-fixdeps/30.2/elpa",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:50:45.801996+00:00",
+      "completed_at": "2026-10-09T22:50:54.251731+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 30.2, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 207 tests, 205 results as expected, 0 unexpected, 2 skipped (2026-10-09 22:50:54+0000, 4.708711 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-offline-minimum.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs30-offline-minimum.stderr.log.gz",
+          "bytes": 49553,
+          "sha256": "c9135cf6ee84e926c36cbb6aff0dd0a3edb165656c85d9bdac7ee38d2f903e09"
+        }
+      }
+    },
+    {
+      "check": "emacs29-store-isolation",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes-29",
+        "make",
+        "test-isolation"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:49:41.395549+00:00",
+      "completed_at": "2026-10-09T22:50:12.118622+00:00",
+      "summary": [
+        "STORE-INTEGRITY: clean - no real-store drift across the suite run",
+        "Ran 3258 tests, 3239 results as expected, 0 unexpected, 19 skipped (2026-10-09 22:50:12+0000, 27.048336 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-store-isolation.stdout.log.gz",
+          "bytes": 1349,
+          "sha256": "2e9d799a315db667ed2c2e492dd9cff460bf008ee619cdfff6eea9d14da88452"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-store-isolation.stderr.log.gz",
+          "bytes": 359829,
+          "sha256": "9e5dd0feb003b9479828f3b294e31de6c0cbf45519ea6f70915cd02a133ff129"
+        }
+      }
+    },
+    {
+      "check": "emacs29-offline-current",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:50:12.118839+00:00",
+      "completed_at": "2026-10-09T22:50:21.519535+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.6 (/tmp/ogent-ergonomics-elpa/gptel-20261007.432/gptel-request.el)",
+        "Ran 207 tests, 204 results as expected, 0 unexpected, 3 skipped (2026-10-09 22:50:21+0000, 5.352833 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-offline-current.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-offline-current.stderr.log.gz",
+          "bytes": 49708,
+          "sha256": "9d8478a2dfe59437db5c8f7c81bd769ff347e0d28a735ebca88335ad1886858b"
+        }
+      }
+    },
+    {
+      "check": "emacs29-offline-minimum",
+      "argv": [
+        "docker",
+        "exec",
+        "-w",
+        "/work",
+        "-e",
+        "OGENT_ELPA_DIR=/tmp/ogent-ergonomics-elpa",
+        "-e",
+        "OGENT_PROCESS_TEST_RG=/tmp/ogent-test-rg",
+        "-e",
+        "OGENT_GPTEL_DIR=/tmp/gptel-minimum",
+        "ogent-fixes-29",
+        "make",
+        "offline-test"
+      ],
+      "exit_code": 0,
+      "started_at": "2026-10-09T22:50:21.519725+00:00",
+      "completed_at": "2026-10-09T22:50:30.982698+00:00",
+      "summary": [
+        "Offline dependencies: Emacs 29.1, Org 9.8.10, transient 0.13.8, gptel 0.9.9.5 (/tmp/gptel-minimum/gptel-request.el)",
+        "Ran 207 tests, 204 results as expected, 0 unexpected, 3 skipped (2026-10-09 22:50:30+0000, 5.460913 sec)"
+      ],
+      "logs": {
+        "stdout": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-offline-minimum.stdout.log",
+          "bytes": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "stderr": {
+          "file": "docs/experiments/emacs-workflows/verification/emacs29-offline-minimum.stderr.log.gz",
+          "bytes": 49681,
+          "sha256": "86029340f00034d84fa9990d58b956802fb5ba0352bb8c18a2c138e4fb8a3d18"
+        }
+      }
+    }
+  ]
+}

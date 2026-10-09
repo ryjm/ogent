@@ -1,0 +1,20 @@
+{
+  "verified_at": "2026-10-09T22:55:17.444608+00:00",
+  "source_fingerprint": "cb502bd8f0a9758b0f3ff08ed1a895fad07e94f14cd4a12b272d6e21e8568ba3",
+  "verified_screenshots": 22,
+  "provider_requests": false,
+  "facts": {
+    "keyboard-proof.json": {
+      "sha256": "f8ae8b10465dc7d9311923fe11f48df480afcdd00cb39d25f4bdbe78dd3a20cd",
+      "bytes": 501
+    },
+    "tool-proof.json": {
+      "sha256": "fa94dcd30f9ca8f22b54671d4bef4db892f311c0f9d75908809de8f8d854af20",
+      "bytes": 188
+    },
+    "performance.json": {
+      "sha256": "f9d8e785f2e4019f9bca1c6ace08dd3964cc29a59bef50e7463b9c06e769ffe7",
+      "bytes": 731
+    }
+  }
+}

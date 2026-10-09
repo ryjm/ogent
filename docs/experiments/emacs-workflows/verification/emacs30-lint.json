@@ -1,0 +1,32 @@
+{
+  "check": "emacs30-lint",
+  "argv": [
+    "docker",
+    "exec",
+    "-w",
+    "/work",
+    "ogent-fixes",
+    "make",
+    "lint",
+    "sandbox=/tmp/ogent-fixdeps",
+    "format=json"
+  ],
+  "exit_code": 0,
+  "started_at": "2026-10-09T22:47:09.362442+00:00",
+  "completed_at": "2026-10-09T22:49:41.391338+00:00",
+  "summary": [
+    "Actual makem JSON: success; exit=0"
+  ],
+  "logs": {
+    "stdout": {
+      "file": "docs/experiments/emacs-workflows/verification/emacs30-lint.stdout.log.gz",
+      "bytes": 9789195,
+      "sha256": "e7b2c472fa4eda7a169dded5164353940fd2229afcdc9a04fb199f117899ffac"
+    },
+    "stderr": {
+      "file": "docs/experiments/emacs-workflows/verification/emacs30-lint.stderr.log",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  }
+}

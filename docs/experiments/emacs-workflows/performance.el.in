@@ -1,0 +1,25 @@
+;;; performance.el.in --- Repeatable native reader measurements -*- lexical-binding: t; -*-
+(require 'benchmark)
+(let* ((ogent-errors-buffer-name "*ogent-workflow-benchmark-errors*")
+       (ogent-ui--error-history
+        (cl-loop for index below 50 collect
+                 (list :timestamp (current-time) :model "fixture"
+                       :request-id (format "bench-%d" index)
+                       :error "Owned local fixture failure"
+                       :prompt (make-string 8000 ?x))))
+       samples)
+  (unwind-protect
+      (progn
+        (ogent-errors-render)
+        (dotimes (_ 20)
+          (push (benchmark-run 1 (ogent-errors-render)) samples))
+        (with-temp-file "/work/docs/experiments/emacs-workflows/performance.json"
+          (insert (json-serialize
+                   (list :emacs emacs-version :org (org-version)
+                         :kind "GUI synchronous rendering; not end-to-end latency"
+                         :records 50 :prompt_characters 8000
+                         :gc_threshold gc-cons-threshold
+                         :native_comp_available (if (native-comp-available-p) t :false)
+                         :samples (vconcat (mapcar #'vconcat (nreverse samples))))))))
+    (when-let ((buffer (get-buffer ogent-errors-buffer-name))) (kill-buffer buffer))))
+(message "Measured 20 renders of 50 full error records; raw timings retained")

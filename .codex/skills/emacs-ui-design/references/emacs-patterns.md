@@ -43,3 +43,9 @@ Adoption snapshot: Doom 22,737; Magit 7,241; gptel 3,547; Nano 2,946; Doom theme
 
 - Test actual fontification with optional Magit loaded. Manually rendered section faces need protection from font-lock; the fallback special-mode may look correct while the optional mode strips the hierarchy. Set local split-window wrapping explicitly.
 - Buffer-local window resize callbacks must use the supplied window's buffer explicitly. Redisplay may run while another buffer is current, including during theme changes or inactive split-window resizing. Verify cached render width against actual body width and exercise callbacks from an unrelated current buffer.
+
+- Audit the journey beyond the entry screen: attach, keep typing, submit, approve/deny, cancel, and recover. A read-only attachment badge needs nonsticky boundaries and must be excluded from provider instructions. Copy attachment lists before reversing them.
+- Show complete effects and arguments in a reader; keep the minibuffer decision short. Explain the actual saved allow-list pattern. C-g should deny the pending call and return a result to its original transport, preserving its ability to finish.
+- Compact approval columns need an accessible full proposal and explicit invalid status. Approval and dispatch remain separate. Preserve dispatched decisions and reset a sort column when adaptive layout removes it.
+- Distinguish user cancellation from failure. Preserve partial output without opening an error pane. Error readers need full copyable details, stable record/viewport identity and contextual return/retry commands.
+- Exercise actual gptel callbacks. Non-stream replies deliver one complete string without a later sentinel, and old `:tool-pending` metadata can outlive its round. Completion must follow the current tool-use state; release the watchdog and registry after the final answer.

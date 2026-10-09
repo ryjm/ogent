@@ -18,6 +18,8 @@
 (require 'ogent-armory-skills)
 (require 'ogent-ui-layout)
 
+(declare-function ogent-armory-conversation "ogent-ui-armory-conversations")
+
 (defgroup ogent-armory-compose nil
   "Shared composer for Org Armory runs."
   :group 'ogent-armory
@@ -325,7 +327,6 @@
       (ogent-armory-compose-mode)
       (setq ogent-armory-compose--root root)
       (setq ogent-armory-compose--agent agent)
-      (insert "# Prompt\n\n")
       (goto-char (point-max)))
     (pop-to-buffer buffer)
     buffer))
@@ -333,30 +334,53 @@
 (defun ogent-armory-compose-add-attachment (file)
   "Add FILE as an attachment in the current composer buffer."
   (interactive "fAttachment: ")
-  (push file ogent-armory-compose--attachments)
+  (unless (file-readable-p file)
+    (user-error "Attachment is not readable: %s" file))
+  (cl-pushnew (expand-file-name file) ogent-armory-compose--attachments
+              :test #'equal)
   (save-excursion
     (goto-char (point-max))
-    (insert (propertize
-             (format "\n[attachment:%s]" (file-name-nondirectory file))
-             'read-only t
-             'ogent-armory-attachment file
-             'help-echo file)
-            "\n")))
+    (let ((inhibit-read-only t))
+      (insert (propertize
+               (format "\n[attachment:%s]\n" (file-name-nondirectory file))
+               'read-only t
+               'rear-nonsticky t
+               'front-sticky nil
+               'ogent-armory-attachment file
+               'help-echo file)))))
+
+(defun ogent-armory-compose--instruction ()
+  "Return the editable draft without attachment presentation text."
+  (let ((position (point-min)) parts)
+    (while (< position (point-max))
+      (let ((end (next-single-property-change
+                  position 'ogent-armory-attachment nil (point-max))))
+        (push (if (get-text-property position 'ogent-armory-attachment)
+                  "\n"
+                (buffer-substring-no-properties position end)) parts)
+        (setq position end)))
+    (string-trim (apply #'concat (nreverse parts)))))
 
 (defun ogent-armory-compose-submit-buffer ()
   "Submit the current composer buffer."
   (interactive)
   (unless (and ogent-armory-compose--root ogent-armory-compose--agent)
     (user-error "Not in a Armory composer buffer"))
-  (let ((instruction (string-trim
-                      (buffer-substring-no-properties
-                       (point-min)
-                       (point-max)))))
-    (ogent-armory-compose
-     ogent-armory-compose--root
-     ogent-armory-compose--agent
-     instruction
-     :attachments (nreverse ogent-armory-compose--attachments))))
+  (let ((instruction (ogent-armory-compose--instruction))
+        (root ogent-armory-compose--root))
+    (when (string-empty-p instruction)
+      (user-error "Write an instruction before submitting"))
+    (let ((run (ogent-armory-compose
+                root ogent-armory-compose--agent instruction
+                :attachments (reverse ogent-armory-compose--attachments))))
+      (cond
+       ((processp run) (ogent-armory-runner-display-process run))
+       ((and (listp run) (plist-get run :plan))
+        (require 'ogent-ui-armory-conversations)
+        (ogent-armory-conversation
+         root (ogent-armory-conversation-file
+               root (plist-get (plist-get run :plan) :conversation-id)))))
+      run)))
 
 (defun ogent-armory-compose--evil-local-keys ()
   "Install local Evil keys for Armory compose."

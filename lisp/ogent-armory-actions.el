@@ -16,6 +16,8 @@
 (require 'ogent-armory-conversations)
 (require 'ogent-armory-runner)
 (require 'ogent-armory-schedule)
+(require 'ogent-ui-layout)
+(require 'ogent-ui-section)
 
 (defgroup ogent-armory-actions nil
   "Approval gate for Armory agent action proposals."
@@ -37,6 +39,9 @@
     (define-key map "g" #'ogent-armory-actions-refresh)
     (define-key map (kbd "C-c g") #'ogent-armory-actions-refresh)
     (define-key map "q" #'quit-window)
+    (define-key map (kbd "RET") #'ogent-armory-actions-details)
+    (define-key map (kbd "<return>") #'ogent-armory-actions-details)
+    (define-key map "D" #'ogent-armory-actions-toggle-details)
     map)
   "Keymap for `ogent-armory-actions-mode'.")
 
@@ -46,19 +51,71 @@
 (defvar-local ogent-armory-actions--conversation-id nil
   "Conversation id for the current actions buffer.")
 
+(defvar-local ogent-armory-actions--details nil
+  "Non-nil means show all action comparison columns.")
+
+(defvar-local ogent-armory-actions--width nil
+  "Window width used for the last action layout.")
+
+(defvar ogent-armory-proposal-mode-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map "q" #'quit-window)
+    map)
+  "Keymap for `ogent-armory-proposal-mode'.")
+
+(define-derived-mode ogent-armory-proposal-mode org-mode "Armory-Proposal"
+  "Read the full proposal before returning to its approval list."
+  (ogent-ui-layout-configure)
+  (setq-local buffer-read-only t)
+  (setq-local header-line-format
+              '(:eval (ogent-ui-layout-header "Proposal" nil '(("q" . "back"))))))
+
+(defun ogent-armory-actions--layout ()
+  "Choose approval columns for the current window."
+  (setq ogent-armory-actions--width (ogent-ui-layout-width))
+  (setq-local tabulated-list-format
+              (if (or ogent-armory-actions--details
+                      (>= ogent-armory-actions--width 100))
+                  [("Status" 12 t) ("Type" 15 t) ("Agent" 14 t)
+                   ("Title" 28 t) ("Errors" 0 t)]
+                [("Status" 12 t) ("Agent" 14 t) ("Proposal" 0 t)]))
+  (when (and tabulated-list-sort-key
+             (not (assoc (car tabulated-list-sort-key)
+                         (append tabulated-list-format nil))))
+    (setq tabulated-list-sort-key nil))
+  (tabulated-list-init-header))
+
+(defun ogent-armory-actions--resize (window)
+  "Reflow approvals displayed in WINDOW after resizing."
+  (when (window-live-p window)
+    (with-current-buffer (window-buffer window)
+      (when (and ogent-armory-actions--root
+                 (not (equal ogent-armory-actions--width
+                             (ogent-ui-layout-width))))
+        (ogent-armory-actions-refresh)))))
+
+(defun ogent-armory-actions-toggle-details ()
+  "Toggle full and compact approval columns."
+  (interactive)
+  (setq ogent-armory-actions--details (not ogent-armory-actions--details))
+  (ogent-armory-actions-refresh))
+
 (define-derived-mode ogent-armory-actions-mode tabulated-list-mode
   "Armory-Actions"
   "Major mode for Armory action proposal approval."
   :group 'ogent-armory-actions
-  (setq-local tabulated-list-format
-              [("Status" 12 t)
-               ("Type" 15 t)
-               ("Agent" 14 t)
-               ("Title" 28 t)
-               ("Errors" 35 t)])
   (setq-local tabulated-list-padding 2)
   (setq-local revert-buffer-function #'ogent-armory-actions-refresh)
-  (tabulated-list-init-header))
+  (setq-local tabulated-list-use-header-line nil)
+  (ogent-ui-layout-configure)
+  (setq-local truncate-lines t)
+  (setq-local header-line-format
+              '(:eval (ogent-section-header-line
+                       "Approvals" ogent-armory-actions--conversation-id
+                       '("RET" . "details") '("a/r" . "approve/reject")
+                       '("d" . "dispatch") '("g" . "refresh"))))
+  (add-hook 'window-size-change-functions #'ogent-armory-actions--resize nil t)
+  (ogent-armory-actions--layout))
 
 (defun ogent-armory-actions-file (directory conversation-id)
   "Return the actions file for CONVERSATION-ID under DIRECTORY."
@@ -393,12 +450,19 @@ TRIGGERING-AGENT supplies runtime inheritance and self-launch checks."
 (defun ogent-armory-actions--set-status (actions status)
   "Return ACTIONS with STATUS."
   (mapcar (lambda (action)
-            (plist-put (copy-sequence action) :status status))
+            (if (equal (plist-get action :status) "dispatched")
+                action
+              (plist-put (copy-sequence action) :status status)))
           actions))
 
 (defun ogent-armory-actions-approve-all (actions)
-  "Return ACTIONS marked approved."
-  (ogent-armory-actions--set-status actions "approved"))
+  "Return valid ACTIONS marked approved, preserving dispatched actions."
+  (mapcar (lambda (action)
+            (if (and (plist-get action :valid)
+                     (not (equal (plist-get action :status) "dispatched")))
+                (plist-put (copy-sequence action) :status "approved")
+              action))
+          actions))
 
 (defun ogent-armory-actions-reject-all (actions)
   "Return ACTIONS marked rejected."
@@ -520,13 +584,20 @@ TRIGGERING-AGENT is the dispatching agent."
   "Return tabulated action entries for the current buffer."
   (mapcar
    (lambda (action)
-     (list (plist-get action :id)
-           (vector
-            (or (plist-get action :status) "")
-            (symbol-name (plist-get action :type))
-            (or (plist-get action :target-agent) "")
-            (or (plist-get action :title) "")
-            (string-join (or (plist-get action :errors) nil) ", "))))
+     (let* ((valid (plist-get action :valid))
+            (status (if (or valid (equal (plist-get action :status) "rejected"))
+                        (or (plist-get action :status) "pending") "invalid"))
+            (label (propertize status 'face
+                               (cond ((not valid) 'ogent-theme-error)
+                                     ((equal status "approved") 'ogent-theme-success)
+                                     (t 'ogent-theme-muted))))
+            (agent (or (plist-get action :target-agent) ""))
+            (title (or (plist-get action :title) "")))
+       (list (plist-get action :id)
+             (if (= (length tabulated-list-format) 3)
+                 (vector label agent title)
+               (vector label (symbol-name (plist-get action :type)) agent title
+                       (string-join (plist-get action :errors) ", "))))))
    (ogent-armory-actions-read
     ogent-armory-actions--root
     ogent-armory-actions--conversation-id)))
@@ -552,14 +623,46 @@ TRIGGERING-AGENT is the dispatching agent."
       (setq ogent-armory-actions--root root)
       (setq ogent-armory-actions--conversation-id conversation-id)
       (setq tabulated-list-entries #'ogent-armory-actions--entries)
-      (tabulated-list-print t))
+      (ogent-armory-actions-refresh))
     (pop-to-buffer buffer)
     buffer))
 
 (defun ogent-armory-actions-refresh (&rest _)
   "Refresh the current actions buffer."
   (interactive)
-  (tabulated-list-print t))
+  (ogent-armory-actions--layout)
+  (tabulated-list-print t)
+  (when (= (buffer-size) 0)
+    (let ((inhibit-read-only t))
+      (insert "No proposals yet. Return to the conversation with q.\n"))))
+
+(defun ogent-armory-actions-details ()
+  "Display the full proposal at point without approving or dispatching it."
+  (interactive)
+  (let* ((id (or (tabulated-list-get-id)
+                 (user-error "No Armory action at point")))
+         (action (seq-find
+                  (lambda (record) (equal (plist-get record :id) id))
+                  (ogent-armory-actions-read
+                   ogent-armory-actions--root ogent-armory-actions--conversation-id)))
+         (buffer (get-buffer-create "*ogent-armory-proposal*")))
+    (with-current-buffer buffer
+      (let ((inhibit-read-only t))
+        (erase-buffer)
+        (ogent-armory-proposal-mode)
+        (insert "#+title: " (or (plist-get action :title) "Proposal") "\n\n")
+        (dolist (field '(:id :type :status :target-agent :cron :datetime
+                             :provider :model :effort :runtime-mode))
+          (when-let ((value (plist-get action field)))
+            (insert (format "%s: %s\n" (substring (symbol-name field) 1) value))))
+        (insert "\n* Review\n"
+                (if (plist-get action :valid)
+                    "Valid proposal. Approval records your decision; dispatch performs the action.\n"
+                  (concat "Invalid proposal. Fix the errors before approval:\n"
+                          (string-join (plist-get action :errors) "\n") "\n")))
+        (insert "\n* Instruction\n" (or (plist-get action :prompt) "(none)") "\n")
+        (goto-char (point-min))))
+    (pop-to-buffer buffer)))
 
 (defun ogent-armory-actions--update-buffer-status (status)
   "Set the current buffer action at point to STATUS."
@@ -568,6 +671,13 @@ TRIGGERING-AGENT is the dispatching agent."
          (actions (ogent-armory-actions-read
                    ogent-armory-actions--root
                    ogent-armory-actions--conversation-id))
+         (selected (seq-find (lambda (action) (equal (plist-get action :id) id)) actions))
+         (_guard (progn
+                   (when (equal (plist-get selected :status) "dispatched")
+                     (user-error "This proposal has already been dispatched"))
+                   (when (equal status "approved")
+                     (unless (plist-get selected :valid)
+                       (user-error "Invalid proposal; press RET to review its errors")))))
          (updated (mapcar
                    (lambda (action)
                      (if (equal (plist-get action :id) id)
@@ -638,7 +748,10 @@ TRIGGERING-AGENT is the dispatching agent."
    #'ogent-armory-actions--evil-local-keys))
 
 (with-eval-after-load 'evil
-  (ogent-armory-actions--setup-evil))
+  (ogent-armory-actions--setup-evil)
+  (ogent-evil-display-mode-setup 'ogent-armory-proposal-mode
+                                 ogent-armory-proposal-mode-map
+                                 'ogent-armory-proposal-mode-hook))
 
 (provide 'ogent-armory-actions)
 

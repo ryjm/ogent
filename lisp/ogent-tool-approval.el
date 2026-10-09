@@ -9,6 +9,7 @@
 (require 'cl-lib)
 (require 'subr-x)
 (require 'ogent-tool-effects)
+(require 'ogent-ui-approval)
 (defvar ogent-tool-registry)
 
 (declare-function ogent-tool-spec-get "ogent-models" (name))
@@ -137,27 +138,32 @@ ARG-PATTERN format: \"argname:glob\" or \"argname:glob,other:glob\"."
   "Prompt user to approve TOOL-NAME with ARGS.
 Return `approve', `deny', `always', or `never'."
   (let* ((preview (ogent-tool--format-preview tool-name args))
-         (prompt (format "%s\n\nAllow? (y)es, (n)o, (a)lways, n(e)ver: " preview))
-         (response (read-char-choice prompt '(?y ?n ?a ?e))))
+         (response (condition-case nil
+                       (ogent-ui-approval-read
+                        tool-name preview (ogent-tool--allow-pattern tool-name args))
+                     (quit ?n))))
     (pcase response
       (?y 'approve)
       (?n 'deny)
       (?a 'always)
       (?e 'never))))
 
-(defun ogent-tool--add-to-allow-list (tool-name args)
-  "Add TOOL-NAME to `ogent-tool-allow-list'.
-If ARGS is non-nil, create a pattern matching those specific args."
+(defun ogent-tool--allow-pattern (tool-name args)
+  "Return the existing allow-list pattern for TOOL-NAME and ARGS."
   (when-let ((name (ogent-tool--name-string tool-name)))
-    (let ((pattern (if (and args (plist-get args :command))
-                       (let ((cmd (plist-get args :command)))
-                         (if (string-match "^\\([^ ]+\\)" cmd)
-                             (format "%s(command:%s *)" name (match-string 1 cmd))
-                           name))
-                     name)))
-      (unless (member pattern ogent-tool-allow-list)
-        (customize-save-variable 'ogent-tool-allow-list
-                                 (cons pattern ogent-tool-allow-list))))))
+    (if (and args (plist-get args :command))
+        (let ((cmd (plist-get args :command)))
+          (if (string-match "^\\([^ ]+\\)" cmd)
+              (format "%s(command:%s *)" name (match-string 1 cmd))
+            name))
+      name)))
+
+(defun ogent-tool--add-to-allow-list (tool-name args)
+  "Save the allow-list pattern for TOOL-NAME and ARGS."
+  (when-let ((pattern (ogent-tool--allow-pattern tool-name args)))
+    (unless (member pattern ogent-tool-allow-list)
+      (customize-save-variable 'ogent-tool-allow-list
+                               (cons pattern ogent-tool-allow-list)))))
 
 (defvar ogent-tool--denied-tools nil
   "List of tool patterns permanently denied in this session.")

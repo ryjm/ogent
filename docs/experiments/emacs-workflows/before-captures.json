@@ -1,0 +1,51 @@
+{
+  "phase": "before",
+  "source_head": "b2da48fda3895051aa5f43e33fc1600a17c46b73",
+  "captured_at": "2026-10-09T22:20:51.497200+00:00",
+  "provider_requests": false,
+  "http": "actual gptel Responses loopback fixture",
+  "screenshots": [
+    {
+      "file": "docs/assets/emacs-workflows/before-composer.png",
+      "state": "\"ogent-armory-home-mode | *ogent-armory-home: workflow-ui-m3rXQV* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "e7f991ddad6a15dc5103667098c3d35b715310a3f5b2d92a69cb1b5549c3e499"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-actions.png",
+      "state": "\"ogent-armory-actions-mode | *ogent-armory-actions:review* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "31c752c760ef86a748a4c915ff14ed87eeba61555aa1bf52d95a7579e3f8210b"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-conversation.png",
+      "state": "\"ogent-armory-conversation-mode | *ogent-armory-conversation: workflow-ui-m3rXQV/index* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "c290a42b37df157589b5a3f4c2e54bcdcfe0cbdc0f9299f41ab427617ef9314a"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-streaming.png",
+      "state": "\"ogent-armory-conversation-mode | *ogent-armory-conversation: workflow-ui-m3rXQV/index* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "bf82f947117d9a1027c7e98bf69c2be043342d424c714fec26e5becb962e20f3"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-cancelled.png",
+      "state": "\"ogent-armory-conversation-mode | *ogent-armory-conversation: workflow-ui-m3rXQV/index* | Emacs 30.1 | Org 9.8.10 | 80 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "c86cad92dfef5743908485ee427bfd77bf3843c24743cff8e54bc2355c0883ff"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-error.png",
+      "state": "\"ogent-armory-conversation-mode | *ogent-armory-conversation: workflow-ui-m3rXQV/index* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "3802eef46ffa681f0451d9d3f5a8e4c62d6515123462fc4f571e4514e112e2c0"
+    },
+    {
+      "file": "docs/assets/emacs-workflows/before-approval.png",
+      "state": "\"ogent-armory-conversation-mode | *ogent-armory-conversation: workflow-ui-m3rXQV/index* | Emacs 30.1 | Org 9.8.10 | 60 columns\"",
+      "theme": "modus-operandi",
+      "sha256": "b14927d64ef74a8aad71acd7a3ec886a4e93e9acacee7464c790e6208592451c"
+    }
+  ]
+}
